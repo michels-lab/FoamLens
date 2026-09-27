@@ -108,6 +108,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/numerical-performance.test.cjs
 
+      - name: Test general derived physical analysis
+        shell: pwsh
+        run: node desktop/tests/physical-analysis.test.cjs
+
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/checkout@v4
