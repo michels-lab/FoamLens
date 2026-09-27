@@ -58,7 +58,7 @@ function taAlignOne(s,grid,method='linear'){
   for(const t of grid){const q=sample(pairs,t);values.push(q.ok?q.value:NaN);meta.push(q)}
   return{source:s,t:grid.slice(),y:values,meta}
 }
-function taAlignSeries(items,{mode='common',method='linear',referenceIndex=0,maxPoints=2000}={}){
+function taAlignSeries(items,{mode='native',method='linear',referenceIndex=0,maxPoints=2000}={}){
   const m=String(mode||'common').toLowerCase();
   if(m==='native')return{valid:items.every(s=>taFinitePairs(s).length>0),mode:'native',range:taCommonTimeRange(items),series:items.map(s=>({source:s,t:taFinitePairs(s).map(p=>p.t),y:taFinitePairs(s).map(p=>p.y),meta:taFinitePairs(s).map(p=>({ok:true,status:'native',requestedTime:p.t,usedTime:p.t,delta:0}))}))};
   const g=m==='reference'?taReferenceGrid(items,referenceIndex,maxPoints):taCommonGrid(items,maxPoints);
@@ -110,7 +110,7 @@ function taBuildUi(){
     <div class="field" style="margin-top:8px"><label>Source A</label><select id="taSourceA"></select></div>
     <div class="field"><label>Source B</label><select id="taSourceB"></select></div>
     <div class="row2">
-      <div class="field"><label>Alignment</label><select id="taMode"><option value="native">Native</option><option value="common" selected>Common Time Grid</option><option value="reference">Reference Case Grid</option></select></div>
+      <div class="field"><label>Alignment</label><select id="taMode"><option value="native" selected>Native</option><option value="common">Common Time Grid</option><option value="reference">Reference Case Grid</option></select></div>
       <div class="field"><label>Method</label><select id="taMethod"><option value="linear" selected>Linear</option><option value="nearest">Nearest</option></select></div>
     </div>
     <div class="field" id="taReferenceField" style="display:none"><label>Reference source</label><select id="taReference"><option value="0">Source A</option><option value="1">Source B</option></select></div>
