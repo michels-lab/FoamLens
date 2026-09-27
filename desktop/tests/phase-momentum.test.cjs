@@ -53,10 +53,11 @@ test('physical metadata indexing', () => {
 });
 
 test('simple and dimensioned metadata scalars', () => {
-  const rows = api.pmParseFoamDictionaryEntries(
-    'rho rho [1 -3 0 0 0 0 0] 7000;\\n' +
-    'beta [0 0 0 -1 0 0 0] 1.2e-4;\\n' +
-    'nOuterCorrectors 3;\\n',
+  const rows = api.pmParseFoamDictionaryEntries(`
+rho rho [1 -3 0 0 0 0 0] 7000;
+beta [0 0 0 -1 0 0 0] 1.2e-4;
+nOuterCorrectors 3;
+`,
     'constant/physicalProperties'
   );
   const rho = rows.find(x => x.key === 'rho');
