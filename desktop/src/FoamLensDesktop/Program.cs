@@ -116,19 +116,22 @@ internal sealed class FoamLensForm : Form
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
-        var extensionPath = Path.Combine(AppRoot, "v13-temporal-alignment.js");
-        if (!File.Exists(extensionPath)) return;
+        var extensionPaths = Directory.GetFiles(AppRoot, "v13-*.js")
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
-        var extension = File.ReadAllText(extensionPath, Encoding.UTF8);
         const string iifeClose = "})();";
         var insertionPoint = html.LastIndexOf(iifeClose, StringComparison.Ordinal);
         if (insertionPoint < 0)
             throw new InvalidOperationException("FoamLens frontend IIFE closing marker was not found.");
 
-        // The extension is deliberately injected inside the existing frontend IIFE.
-        // This lets it reuse the current series/case model without exposing that model
-        // globally or duplicating scientific state in the native host.
+        // Development modules are injected inside the existing frontend IIFE.
+        // They reuse the current series/case model without exposing scientific
+        // state globally or duplicating it in the native host.
+        var extension = string.Join(Environment.NewLine,
+            extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
         html = html.Insert(insertionPoint, Environment.NewLine + extension + Environment.NewLine);
         File.WriteAllText(indexPath, html, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
