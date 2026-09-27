@@ -71,7 +71,7 @@ jobs:
           New-Item -ItemType Directory -Force artifacts/publish | Out-Null
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
           dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
-          Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Desktop-v$v.exe"
+          Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Portable-v$v.exe"
 
       - name: Optional Authenticode signing for portable EXE
         if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
@@ -84,16 +84,16 @@ jobs:
           [IO.File]::WriteAllBytes('artifacts/signing.pfx',[Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signtool) { throw 'signtool.exe not found' }
-          & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Desktop-v$v.exe"
+          & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Portable-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
 
       - name: Create portable checksum
         shell: pwsh
         run: |
           $v='${{ steps.ver.outputs.version }}'
-          $exe="artifacts/FoamLens-Desktop-v$v.exe"
+          $exe="artifacts/FoamLens-Portable-v$v.exe"
           $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  FoamLens-Desktop-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
+          "$hash  FoamLens-Portable-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
 
       - name: Build FoamLens installer
         shell: pwsh
@@ -122,8 +122,8 @@ jobs:
         with:
           name: FoamLens-Windows-v${{ steps.ver.outputs.version }}
           path: |
-            artifacts/FoamLens-Desktop-v${{ steps.ver.outputs.version }}.exe
-            artifacts/FoamLens-Desktop-v${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
           if-no-files-found: error
 
@@ -135,9 +135,16 @@ jobs:
         run: |
           $v='${{ steps.ver.outputs.version }}'
           if ($env:GITHUB_REF_NAME -like 'v*') { $tag=$env:GITHUB_REF_NAME } else { $tag="v$v" }
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete-asset $tag "FoamLens-Desktop-v$v.exe" --repo $env:GITHUB_REPOSITORY --yes *> $null
+            gh release delete-asset $tag "FoamLens-Desktop-v$v.exe.sha256" --repo $env:GITHUB_REPOSITORY --yes *> $null
+          }
+
           $assets=@(
-            "artifacts/FoamLens-Desktop-v$v.exe",
-            "artifacts/FoamLens-Desktop-v$v.exe.sha256",
+            "artifacts/FoamLens-Portable-v$v.exe",
+            "artifacts/FoamLens-Portable-v$v.exe.sha256",
             "artifacts/FoamLens-Setup-v$v.exe"
           )
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
