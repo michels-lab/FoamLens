@@ -124,6 +124,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/native-performance.test.cjs
 
+      - name: Test capability-driven contextual UI
+        shell: pwsh
+        run: node desktop/tests/capability-ui.test.cjs
+
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/checkout@v4
