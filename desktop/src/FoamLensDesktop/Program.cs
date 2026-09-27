@@ -24,6 +24,7 @@ internal sealed class FoamLensForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
@@ -159,6 +160,9 @@ internal sealed class FoamLensForm : Form
                 case "parseFoamLogBatch":
                     await HandleFoamLogBatchAsync(root, requestId);
                     break;
+                case "cancelOperation":
+                    HandleCancelOperation(root, requestId);
+                    break;
                 default:
                     Reply(requestId, false, null, $"Unknown native request: {type}");
                     break;
@@ -191,18 +195,27 @@ internal sealed class FoamLensForm : Form
         Interlocked.Exchange(ref _tokenSequence, 0);
         Post(new { type = "folderStart", requestId, folderName = rootName });
 
+        var operation = BeginOperation(requestId);
         try
         {
-            await Task.Run(() => EnumerateFolder(rootPath, rootName, requestId));
+            await Task.Run(() => EnumerateFolder(rootPath, rootName, requestId, operation.Token), operation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Post(new { type = "folderCancelled", requestId, folderName = rootName });
         }
         catch (Exception ex)
         {
             Log(ex.ToString());
             Post(new { type = "folderError", requestId, error = ex.Message });
         }
+        finally
+        {
+            EndOperation(requestId, operation);
+        }
     }
 
-    private void EnumerateFolder(string rootPath, string rootName, string requestId)
+    private void EnumerateFolder(string rootPath, string rootName, string requestId, CancellationToken cancellationToken)
     {
         var stack = new Stack<string>();
         stack.Push(rootPath);
@@ -212,13 +225,19 @@ internal sealed class FoamLensForm : Form
 
         while (stack.Count > 0)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var dir = stack.Pop();
             folders++;
             try
             {
-                foreach (var sub in Directory.EnumerateDirectories(dir)) stack.Push(sub);
+                foreach (var sub in Directory.EnumerateDirectories(dir))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    stack.Push(sub);
+                }
                 foreach (var path in Directory.EnumerateFiles(dir))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     files++;
                     var token = $"f{Interlocked.Increment(ref _tokenSequence):x}";
                     _fileTokens[token] = path;
@@ -294,23 +313,96 @@ internal sealed class FoamLensForm : Form
             }
         }
 
+        var operation = BeginOperation(requestId);
         var results = new ConcurrentBag<LogParseResult>();
-        await Parallel.ForEachAsync(items,
-            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount - 1) },
-            async (item, ct) =>
-            {
-                try
+        var completed = 0;
+        Post(new { type = "operationStart", requestId, operation = "foamLogBatch", total = items.Count });
+        try
+        {
+            await Parallel.ForEachAsync(items,
+                new ParallelOptions
                 {
-                    var result = await ParseFoamLogAsync(ResolveToken(item.Token), item.Index, ct);
-                    results.Add(result);
-                }
-                catch (Exception ex)
+                    MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount - 1),
+                    CancellationToken = operation.Token
+                },
+                async (item, ct) =>
                 {
-                    results.Add(new LogParseResult(item.Index, Array.Empty<double>(), Array.Empty<double>(), ex.Message));
-                }
-            });
+                    try
+                    {
+                        var result = await ParseFoamLogAsync(ResolveToken(item.Token), item.Index, ct);
+                        results.Add(result);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add(new LogParseResult(item.Index, Array.Empty<double>(), Array.Empty<double>(), ex.Message));
+                    }
+                    finally
+                    {
+                        if (!operation.IsCancellationRequested)
+                        {
+                            var done = Interlocked.Increment(ref completed);
+                            Post(new { type = "operationProgress", requestId, operation = "foamLogBatch", completed = done, total = items.Count });
+                        }
+                    }
+                });
 
-        Reply(requestId, true, new { results = results.OrderBy(x => x.Index).ToArray() }, null);
+            Reply(requestId, true, new { results = results.OrderBy(x => x.Index).ToArray() }, null);
+            Post(new { type = "operationComplete", requestId, operation = "foamLogBatch", completed, total = items.Count });
+        }
+        catch (OperationCanceledException)
+        {
+            Reply(requestId, false, null, "Operation cancelled.");
+            Post(new { type = "operationCancelled", requestId, operation = "foamLogBatch", completed, total = items.Count });
+        }
+        finally
+        {
+            EndOperation(requestId, operation);
+        }
+    }
+
+    private CancellationTokenSource BeginOperation(string requestId)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+            throw new ArgumentException("A requestId is required for cancellable operations.");
+
+        var source = new CancellationTokenSource();
+        if (_operations.TryGetValue(requestId, out var previous))
+        {
+            previous.Cancel();
+            previous.Dispose();
+            _operations.TryRemove(requestId, out _);
+        }
+        if (!_operations.TryAdd(requestId, source))
+        {
+            source.Dispose();
+            throw new InvalidOperationException($"Could not register native operation {requestId}.");
+        }
+        return source;
+    }
+
+    private void EndOperation(string requestId, CancellationTokenSource source)
+    {
+        if (_operations.TryGetValue(requestId, out var current) && ReferenceEquals(current, source))
+            _operations.TryRemove(requestId, out _);
+        source.Dispose();
+    }
+
+    private void HandleCancelOperation(JsonElement root, string requestId)
+    {
+        var targetRequestId = RequiredString(root, "targetRequestId");
+        if (_operations.TryGetValue(targetRequestId, out var operation))
+        {
+            operation.Cancel();
+            Reply(requestId, true, new { targetRequestId, cancelled = true }, null);
+        }
+        else
+        {
+            Reply(requestId, false, null, $"Operation is no longer active: {targetRequestId}");
+        }
     }
 
     private static async Task<LogParseResult> ParseFoamLogAsync(string path, int index, CancellationToken ct)
