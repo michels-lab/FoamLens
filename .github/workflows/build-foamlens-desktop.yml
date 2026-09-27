@@ -60,8 +60,8 @@ jobs:
       - name: Verify FoamLens frontend
         shell: pwsh
         run: |
-          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v48' -Quiet)) {
-            throw 'Desktop frontend is not FoamLens v48.'
+          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v49' -Quiet)) {
+            throw 'Desktop frontend is not FoamLens v49.'
           }
 
       - name: Validate FoamLens frontend JavaScript
@@ -84,6 +84,10 @@ jobs:
           console.log('Validated '+scripts.length+' inline FoamLens script blocks and launch controls.');
           '@ | Set-Content -Path validate-foamlens-frontend.js -Encoding utf8
           node validate-foamlens-frontend.js
+
+      - name: Test Spatial Profiles physical-time playback
+        shell: pwsh
+        run: node desktop/tests/profile-playback.test.cjs
 
       - name: Publish portable Windows executable
         shell: pwsh

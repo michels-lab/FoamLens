@@ -28,7 +28,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.0.2", "app");
+        "FoamLens", "Desktop", "1.1.0", "app");
 
     public FoamLensForm()
     {

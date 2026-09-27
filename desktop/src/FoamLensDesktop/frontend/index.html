@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FoamLens v48 — by Michel Duarte</title>
+<title>FoamLens v49 — by Michel Duarte</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect x=%226%22 y=%226%22 width=%2250%22 height=%2250%22 rx=%2216%22 fill=%22%230d1f32%22 stroke=%22%2370b8ff%22 stroke-width=%222.2%22/%3E%3Cpath d=%22M-2 25C11 17 19 18 28 24C37 30 44 31 61 20%22 fill=%22none%22 stroke=%22%2388d0ff%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M-1 34C12 27 20 28 29 34C38 40 45 41 62 31%22 fill=%22none%22 stroke=%22%23f1bb49%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M0 43C13 37 21 38 30 43C39 48 46 49 63 41%22 fill=%22none%22 stroke=%22%236fb2ec%22 stroke-width=%223.1%22 stroke-linecap=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2235%22 r=%223.4%22 fill=%22%23f1bb49%22/%3E%3Cpath d=%22M52 52l11 11%22 stroke=%22%23eef7ff%22 stroke-width=%224.6%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 
 <style>
@@ -572,9 +572,14 @@ body.layoutResizing *{cursor:col-resize!important}
 .timelineRow+.timelineRow{margin-top:8px}
 .timelineBtn{min-width:38px;height:36px;padding:0;display:grid;place-items:center}
 #profileTimeSlider{width:100%;accent-color:var(--accent)}
-.profileTimeOptions{display:grid;grid-template-columns:auto minmax(92px,1fr) auto;gap:7px;align-items:end}
+.profilePlaybackActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.profileTimeOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;align-items:end;margin-top:8px}
 .profileTimeOptions .field{margin:0}.profileTimeOptions .field label{white-space:nowrap}
+.profileTimeOptions .inlineCheck{align-self:end}
 .inlineCheck{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);min-height:36px}
+.profilePlaybackCaseStatus{display:block;margin-top:2px}
+.profilePlaybackCaseStatus b{color:var(--text)}
+@media(max-width:420px){.profileTimeOptions{grid-template-columns:1fr}.profilePlaybackActions{grid-template-columns:1fr 1fr}}
 .compareHeightsRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:11px;background:rgba(89,137,196,.05)}
 .compareHeightsRow label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700}
 .analysisTools{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}
@@ -804,7 +809,7 @@ body:not(.dark) .aboutOverlay{background:rgba(20,31,47,.48)}
 @media(max-width:580px){.aboutOverlay{padding:10px}.aboutDeveloperCard{grid-template-columns:1fr;text-align:center}.aboutAvatar{width:min(100%,240px);height:auto;aspect-ratio:1109/1536;margin:auto}.aboutSocials{grid-template-columns:1fr}.aboutHero h2{font-size:28px}}
 
 
-/* FoamLens v48 */
+/* FoamLens v49 */
 .foamLensLogoSvg{width:100%;height:100%;display:block;overflow:visible}
 .logo{background:none!important;box-shadow:none!important;padding:1px}
 .logo:before,.logo:after,.launchMark:before,.launchMark:after,.aboutMarkBox:before,.aboutMarkBox:after{display:none!important}
@@ -931,7 +936,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
       <div class="launchCapability"><b id="launchAnalyzeTitle">Analyze</b><span id="launchAnalyzeText">Profiles, solver behavior, coupling, phase fronts, differences and events.</span></div>
       <div class="launchCapability"><b id="launchReviewTitle">Review</b><span id="launchReviewText">Numerical health, findings, configuration comparison and case audit.</span></div>
     </div>
-    <div class="launchFooter" id="launchFooter">FoamLens v48 · OpenFOAM analysis workspace</div>
+    <div class="launchFooter" id="launchFooter">FoamLens v49 · OpenFOAM analysis workspace</div>
   </div>
 </section>
 <div class="app" id="appShell">
@@ -1014,13 +1019,18 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
         <div class="field"><label id="profileLineLabel">Profile line</label><select id="profileLine"></select></div>
         <div class="profileTimeline" id="profileTimeline">
           <div class="timelineRow">
-            <button class="btn timelineBtn" id="profilePrev" type="button" title="Previous time">‹</button>
-            <input id="profileTimeSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Profile time slider">
-            <button class="btn timelineBtn" id="profileNext" type="button" title="Next time">›</button>
+            <button class="btn timelineBtn" id="profilePrev" type="button" title="Go to start">⏮</button>
+            <input id="profileTimeSlider" type="range" min="0" max="0" value="0" step="any" aria-label="Physical-time profile playback slider">
+            <button class="btn timelineBtn" id="profileNext" type="button" title="Go to end">⏭</button>
+          </div>
+          <div class="profilePlaybackActions">
+            <button class="btn soft" id="profilePlay" type="button">▶ Play</button>
+            <button class="btn soft" id="profilePause" type="button">⏸ Pause</button>
           </div>
           <div class="profileTimeOptions">
-            <button class="btn soft" id="profilePlay" type="button">▶ Play</button>
-            <div class="field"><label id="profileCurrentTimeLabel">Current time [s]</label><input id="profileTimeInput" type="number" step="any"></div>
+            <div class="field"><label id="profileCurrentTimeLabel">Time [s]</label><input id="profileTimeInput" type="number" step="any"></div>
+            <div class="field"><label id="profileAlignmentLabel">Alignment</label><select id="profileAlignment"><option value="nearest">Nearest</option><option value="interpolate">Interpolate</option></select></div>
+            <div class="field"><label id="profileFrameCountLabel">Animation frames</label><input id="profilePlaybackFrameCount" type="number" min="2" max="2000" step="1" value="100"></div>
             <label class="inlineCheck"><input id="profileLockAxes" type="checkbox"> <span id="profileLockAxesLabel">Lock axes</span></label>
           </div>
           <div class="compareHeightsRow">
@@ -1846,7 +1856,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 <div class="legalOverlay" id="legalOverlay" aria-hidden="true"><section class="legalDialog" role="dialog" aria-modal="true" aria-labelledby="legalTitle"><h3 id="legalTitle">FoamLens Legal</h3><div class="legalCopy" id="legalCopy">FoamLens is proprietary software. Copyright © 2026 Michel Armando Duarte Flores / Michel's Lab. All Rights Reserved.
 
 Source availability, distribution of an HTML build, or publication of source code for demonstration, academic portfolio, or source-review purposes does not grant permission to copy, modify, redistribute, rebrand, sell, sublicense, or incorporate FoamLens or substantial portions of it into another product without explicit written authorization from the copyright holder.</div><div class="legalActions"><button class="btn primary" id="legalClose">Close</button></div></section></div>
-<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v48</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v46</b><div>Reliable Profile Playback</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
+<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v49</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v46</b><div>Reliable Profile Playback</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
 
 <script>
 (()=>{
@@ -2101,6 +2111,9 @@ let profileAnimationTimer=null;
 let profileAnimationPlaying=false;
 let profilePlaybackFrames=[];
 let profilePlaybackFrameIndex=0;
+let profilePlaybackClockTime=NaN;
+let profilePlaybackRenderSeries=[];
+let profilePlaybackStatuses=[];
 let logAnimationTimer=null;
 let logAnimationPlaying=false;
 let logAnimationMode=null;
@@ -2238,6 +2251,73 @@ function playbackTimeEqual(a,b){
 }
 function profileTimeEqual(a,b){return playbackTimeEqual(a,b)}
 
+/* FOAMLENS_PROFILE_PLAYBACK_CORE_START */
+function playbackAlmostEqual(a,b){
+  a=Number(a);b=Number(b);if(!Number.isFinite(a)||!Number.isFinite(b))return false;
+  const tol=Math.max(1e-9,Math.max(Math.abs(a),Math.abs(b),1)*1e-9);return Math.abs(a-b)<=tol
+}
+function playbackSortedUniqueTimes(values){
+  const src=(values||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),out=[];
+  for(const v of src)if(!out.length||!playbackAlmostEqual(out[out.length-1],v))out.push(v);return out
+}
+function playbackCommonPhysicalRange(timeGroups){
+  const groups=(timeGroups||[]).map(playbackSortedUniqueTimes).filter(a=>a.length);
+  if(!groups.length)return{valid:false,start:NaN,end:NaN};
+  const start=Math.max(...groups.map(a=>a[0])),end=Math.min(...groups.map(a=>a[a.length-1]));
+  return{valid:Number.isFinite(start)&&Number.isFinite(end)&&end>=start,start,end}
+}
+function playbackUniformTimeline(start,end,frames){
+  start=Number(start);end=Number(end);frames=Math.max(2,Math.min(2000,Math.round(Number(frames)||100)));
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return[];
+  if(playbackAlmostEqual(start,end))return[start];
+  const dt=(end-start)/(frames-1),out=[];for(let i=0;i<frames;i++)out.push(i===frames-1?end:start+i*dt);return out
+}
+function playbackNearestTime(values,target){
+  const a=playbackSortedUniqueTimes(values);target=Number(target);if(!a.length||!Number.isFinite(target))return NaN;
+  let best=a[0],d=Math.abs(best-target);for(let i=1;i<a.length;i++){const nd=Math.abs(a[i]-target);if(nd<d){best=a[i];d=nd}}return best
+}
+function playbackBracketTimes(values,target){
+  const a=playbackSortedUniqueTimes(values);target=Number(target);if(!a.length||!Number.isFinite(target))return null;
+  const exact=a.find(v=>playbackAlmostEqual(v,target));if(exact!=null)return{exact:true,t1:exact,t2:exact};
+  let t1=NaN,t2=NaN;for(const v of a){if(v<target)t1=v;else if(v>target){t2=v;break}}
+  return Number.isFinite(t1)&&Number.isFinite(t2)?{exact:false,t1,t2}:null
+}
+function playbackStepIndex(index,delta,length){
+  length=Math.max(0,Math.floor(Number(length)||0));if(!length)return-1;
+  return Math.max(0,Math.min(length-1,(Math.floor(Number(index)||0))+(Math.sign(Number(delta))||0)))
+}
+function playbackSpatialPairs(profile){
+  const pairs=[];for(let i=0;i<Math.min(profile?.t?.length||0,profile?.y?.length||0);i++){
+    const x=Number(profile.t[i]),y=Number(profile.y[i]);if(Number.isFinite(x)&&Number.isFinite(y))pairs.push([x,y])
+  }
+  pairs.sort((a,b)=>a[0]-b[0]);const out=[];
+  for(const p of pairs){if(out.length&&playbackAlmostEqual(out[out.length-1][0],p[0]))out[out.length-1]=p;else out.push(p)}return out
+}
+function playbackSpatialValueAt(pairs,x){
+  if(!pairs?.length||!Number.isFinite(Number(x)))return NaN;x=Number(x);
+  if(x<pairs[0][0]&&!playbackAlmostEqual(x,pairs[0][0]))return NaN;
+  if(x>pairs[pairs.length-1][0]&&!playbackAlmostEqual(x,pairs[pairs.length-1][0]))return NaN;
+  let lo=0,hi=pairs.length-1;while(lo<hi){const m=(lo+hi)>>1;if(pairs[m][0]<x)lo=m+1;else hi=m}
+  if(playbackAlmostEqual(pairs[lo][0],x))return pairs[lo][1];if(lo===0)return pairs[0][1];
+  const [x0,y0]=pairs[lo-1],[x1,y1]=pairs[lo];if(!(x1>x0))return NaN;return y0+(y1-y0)*(x-x0)/(x1-x0)
+}
+function playbackTemporalInterpolateProfiles(a,b,tPlay){
+  if(!a||!b)return{ok:false,reason:'missing-profile'};
+  if((a.profileAxis||'x')!==(b.profileAxis||'x')||(a.profileCoordUnit||'')!==(b.profileCoordUnit||''))return{ok:false,reason:'axis-or-unit-mismatch'};
+  const t1=Number(a.profileTime),t2=Number(b.profileTime),tp=Number(tPlay);
+  if(!Number.isFinite(t1)||!Number.isFinite(t2)||!Number.isFinite(tp)||!(t2>t1)||tp<t1||tp>t2)return{ok:false,reason:'invalid-time-bracket'};
+  const p1=playbackSpatialPairs(a),p2=playbackSpatialPairs(b);if(p1.length<2||p2.length<2)return{ok:false,reason:'insufficient-spatial-points'};
+  const xmin=Math.max(p1[0][0],p2[0][0]),xmax=Math.min(p1[p1.length-1][0],p2[p2.length-1][0]);
+  if(!(xmax>xmin)||playbackAlmostEqual(xmin,xmax))return{ok:false,reason:'no-spatial-overlap'};
+  const grid=playbackSortedUniqueTimes([...p1.map(p=>p[0]),...p2.map(p=>p[0])].filter(x=>x>=xmin||playbackAlmostEqual(x,xmin)).filter(x=>x<=xmax||playbackAlmostEqual(x,xmax)));
+  const f=(tp-t1)/(t2-t1),x=[],y=[];
+  for(const xi of grid){const y1=playbackSpatialValueAt(p1,xi),y2=playbackSpatialValueAt(p2,xi);if(Number.isFinite(y1)&&Number.isFinite(y2)){x.push(xi);y.push(y1+f*(y2-y1))}}
+  if(x.length<2)return{ok:false,reason:'unsafe-spatial-alignment'};
+  const sameGrid=p1.length===p2.length&&p1.every((p,i)=>playbackAlmostEqual(p[0],p2[i][0]));
+  return{ok:true,x,y,t1,t2,fraction:f,spatialRemap:!sameGrid}
+}
+/* FOAMLENS_PROFILE_PLAYBACK_CORE_END */
+
 function timeSeriesOptionsBase(){return series.filter(s=>datasetTypeOf(s)==='timeseries'&&seriesMatchesGlobalContext(s)&&s.derivedKind!=='difference')}
 function timeSeriesMatchesSelection(s){
   if(datasetTypeOf(s)!=='timeseries')return false;
@@ -2335,6 +2415,7 @@ function seriesIsVisible(s){
 }
 function currentViewSeries(){
   if(currentDataView==='log'&&logEvolutionActive)return logEvolutionSeries.filter(seriesMatchesGlobalContext);
+  if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock()&&profilePlaybackRenderSeries.length)return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
   return series.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s))
 }
 function visibleCurrentSeries(){return currentViewSeries().filter(seriesIsVisible)}
@@ -2942,97 +3023,142 @@ function ensureVelocityDerivedSeries(){
     if(uz&&!g.U_mag)add('velocity_magnitude',inferProfileField('U_mag'),[ux,uy,uz]);
   }
 }
+
 function profilePlaybackSeries(){
   const profiles=profileOptionsBase(),set=$('profileSet')?.value||'',v=$('profileVariable')?.value||'',line=$('profileLine')?.value||'',compare=!!$('compareHeights')?.checked;
-  return profiles.filter(s=>
-    s.derivedKind!=='difference' &&
-    (!set||(s.profileOutputPath||'')===set) &&
-    (!v||s.field.canonical===v) &&
-    (compare||!line||s.profileLineKey===line) &&
-    Number.isFinite(s.profileTime) &&
-    isCaseVisible(s.caseId) &&
-    seriesFamilyVisible(s)
-  )
+  return profiles.filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&Number.isFinite(Number(s.profileTime))&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s))
 }
-function commonTimelineByGroup(items,groupKey,timeValue){
-  const groups=new Map();
-  for(const s of items){const key=groupKey(s);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(Number(timeValue(s)))}
-  const lists=[...groups.values()].map(a=>[...new Set(a.filter(Number.isFinite))].sort((x,y)=>x-y));
-  if(!lists.length)return [];
-  const ref=lists.reduce((best,a)=>a.length<best.length?a:best,lists[0]),out=[];
-  for(const t of ref)if(lists.every(a=>a.some(v=>playbackTimeEqual(v,t)))&&!out.some(v=>playbackTimeEqual(v,t)))out.push(t);
-  return out.sort((a,b)=>a-b)
+function profilePlaybackGroupKey(s){return[(s.caseId??s.caseName??'raw'),seriesRegion(s)||'',s.profileOutputPath||'',s.profileLineKey||'',s.field?.canonical||''].join('|')}
+function profilePlaybackGroups(){
+  const map=new Map();for(const s of profilePlaybackSeries()){const key=profilePlaybackGroupKey(s);if(!map.has(key))map.set(key,[]);map.get(key).push(s)}
+  return[...map.values()].map(a=>a.slice().sort((x,y)=>Number(x.profileTime)-Number(y.profileTime)))
 }
+function profilePlaybackCaseCount(){return new Set(profilePlaybackSeries().map(s=>(s.caseId??s.caseName)).filter(v=>v!=null)).size}
+function profilePlaybackUsesGlobalClock(){return profilePlaybackCaseCount()>1}
+function profilePlaybackCommonRange(){return playbackCommonPhysicalRange(profilePlaybackGroups().map(g=>g.map(s=>Number(s.profileTime))))}
+function profilePlaybackFrameCount(){return Math.max(2,Math.min(2000,Math.round(Number($('profilePlaybackFrameCount')?.value)||100)))}
 function profileAvailableTimes(){
-  // v45: use the union of exact written profile times. Requiring an intersection
-  // across every visible case made Play a silent no-op whenever cases wrote at
-  // different physical times. We never interpolate or invent a missing frame.
-  const vals=profilePlaybackSeries().map(s=>Number(s.profileTime)).filter(Number.isFinite).sort((a,b)=>a-b),out=[];
-  for(const t of vals)if(!out.length||!playbackTimeEqual(out[out.length-1],t))out.push(t);
-  return out
+  const ss=profilePlaybackSeries();if(!ss.length)return[];
+  if(!profilePlaybackUsesGlobalClock())return playbackSortedUniqueTimes(ss.map(s=>Number(s.profileTime)));
+  const range=profilePlaybackCommonRange();return range.valid?playbackUniformTimeline(range.start,range.end,profilePlaybackFrameCount()):[]
+}
+function profileTimeDisplay(v){
+  v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);if(a!==0&&a<1e-4)return v.toExponential(4);
+  return v.toFixed(6).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'.000')
+}
+function profilePlaybackNearestSeries(group,tPlay){
+  if(!group?.length)return null;let best=group[0],d=Math.abs(Number(best.profileTime)-Number(tPlay));
+  for(let i=1;i<group.length;i++){const nd=Math.abs(Number(group[i].profileTime)-Number(tPlay));if(nd<d){best=group[i];d=nd}}return best
+}
+function profilePlaybackExactSeries(group,tPlay){return group.find(s=>playbackAlmostEqual(Number(s.profileTime),Number(tPlay)))||null}
+function profilePlaybackBracketSeries(group,tPlay){
+  let before=null,after=null;for(const s of group){const t=Number(s.profileTime);if(playbackAlmostEqual(t,tPlay))return{exact:s,before:s,after:s};if(t<tPlay)before=s;else if(t>tPlay){after=s;break}}
+  return before&&after?{exact:null,before,after}:null
+}
+function alignedProfileClone(source,tPlay,meta={}){return{...source,profileTime:Number(tPlay),profileTimeLabel:profileTimeDisplay(tPlay),playbackAligned:true,playbackMeta:meta}}
+function buildProfilePlaybackAtTime(tPlay){
+  tPlay=Number(tPlay);profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];if(!profilePlaybackUsesGlobalClock()||!Number.isFinite(tPlay))return;
+  const mode=$('profileAlignment')?.value==='interpolate'?'interpolate':'nearest';
+  for(const group of profilePlaybackGroups()){
+    if(!group.length)continue;const exact=profilePlaybackExactSeries(group,tPlay);
+    if(exact){
+      profilePlaybackRenderSeries.push(alignedProfileClone(exact,tPlay,{mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay}));
+      profilePlaybackStatuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
+    }
+    if(mode==='interpolate'){
+      const bracket=profilePlaybackBracketSeries(group,tPlay);
+      if(bracket?.before&&bracket?.after){
+        const interp=playbackTemporalInterpolateProfiles(bracket.before,bracket.after,tPlay);
+        if(interp.ok){
+          const near=Math.abs(Number(bracket.before.profileTime)-tPlay)<=Math.abs(Number(bracket.after.profileTime)-tPlay)?bracket.before:bracket.after;
+          profilePlaybackRenderSeries.push({...alignedProfileClone(near,tPlay,{mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap}),t:interp.x,y:interp.y,fileName:`interpolated @ ${profileTimeDisplay(tPlay)} s`});
+          profilePlaybackStatuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
+        }
+      }
+    }
+    const near=profilePlaybackNearestSeries(group,tPlay);if(!near)continue;const used=Number(near.profileTime),fallback=mode==='interpolate';
+    profilePlaybackRenderSeries.push(alignedProfileClone(near,tPlay,{mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback}));
+    profilePlaybackStatuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
+  }
+}
+function profilePlaybackStatusText(st){
+  const line=st.line?` · ${st.line}`:'';
+  if(st.mode==='native')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · Native · Δt: 0 s`;
+  if(st.mode==='interpolate')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Interpolado de':'Interpolated from'} ${profileTimeDisplay(st.t1)} / ${profileTimeDisplay(st.t2)} s${st.spatialRemap?` · ${diagEs()?'malla espacial alineada':'spatial grid aligned'}`:''}`;
+  const sign=st.dt>=0?'+':'';
+  return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · ${st.fallback?'Nearest (fallback)':'Nearest'} · Δt: ${sign}${profileTimeDisplay(st.dt)} s`
 }
 function profilePlaybackScopeInfo(vals=null){
-  vals=vals||profileAvailableTimes();const ss=profilePlaybackSeries(),ids=new Set(ss.map(s=>s.caseId).filter(v=>v!=null));
-  if(!$('profilePlaybackNote'))return;
-  if(ids.size>1)$('profilePlaybackNote').textContent=diagEs()?`Playback: ${vals.length} tiempos exactos disponibles entre ${ids.size} casos. Si un caso no escribió un output en el frame actual, no se dibuja; FoamLens no interpola.`:`Playback: ${vals.length} exact written times across ${ids.size} cases. A case is not drawn on a frame it did not write; FoamLens does not interpolate.`;
-  else $('profilePlaybackNote').textContent=diagEs()?`${vals.length} frames disponibles para el contexto actual.`:`${vals.length} frames available for the current context.`
+  if(!$('profilePlaybackNote'))return;vals=vals||profileAvailableTimes();const ncase=profilePlaybackCaseCount();
+  if(ncase<=1){$('profilePlaybackNote').textContent=diagEs()?`${vals.length} tiempos nativos disponibles para el caso actual.`:`${vals.length} native stored times available for the current case.`;return}
+  const range=profilePlaybackCommonRange(),mode=$('profileAlignment')?.value==='interpolate'?'Interpolate':'Nearest';
+  if(!range.valid){$('profilePlaybackNote').textContent=diagEs()?'No existe un intervalo de tiempo físico común entre los perfiles/casos visibles.':'No common physical-time interval exists across the visible profile groups.';return}
+  const head=diagEs()?`Reloj físico común: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`:`Common physical-time clock: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`;
+  const details=profilePlaybackStatuses.slice(0,6).map(st=>`<span class="profilePlaybackCaseStatus">${esc(profilePlaybackStatusText(st))}</span>`).join('');
+  const extra=profilePlaybackStatuses.length>6?`<span class="profilePlaybackCaseStatus">+${profilePlaybackStatuses.length-6} ${diagEs()?'perfiles alineados':'aligned profiles'}</span>`:'';$('profilePlaybackNote').innerHTML=`${esc(head)}${details}${extra}`
+}
+function ensureProfileTimeOption(value){
+  const sel=$('profileTime');if(!sel||!Number.isFinite(Number(value)))return;const hit=[...sel.options].find(o=>playbackAlmostEqual(Number(o.value),Number(value)));
+  if(hit){sel.value=hit.value;return}const opt=document.createElement('option');opt.value=String(value);opt.textContent=`${profileTimeDisplay(value)} s`;opt.dataset.playbackManual='1';sel.appendChild(opt);sel.value=opt.value
 }
 function syncProfileTimeNavigator(valsOverride=null){
-  const vals=valsOverride||profileAvailableTimes(),sel=Number($('profileTime')?.value),found=vals.findIndex(v=>profileTimeEqual(v,sel)),idx=found<0?0:found,slider=$('profileTimeSlider'),input=$('profileTimeInput');
-  if(!slider||!input)return;slider.min='0';slider.max=String(Math.max(0,vals.length-1));slider.value=String(idx);slider.disabled=vals.length<2;
-  input.value=vals.length?String(vals[idx]??vals[0]):'';$('profilePrev').disabled=vals.length<2;$('profileNext').disabled=vals.length<2;$('profilePlay').disabled=vals.length<2;
+  const vals=valsOverride||profileAvailableTimes(),slider=$('profileTimeSlider'),input=$('profileTimeInput');if(!slider||!input)return;
+  const global=profilePlaybackUsesGlobalClock(),range=global?profilePlaybackCommonRange():{valid:!!vals.length,start:vals[0],end:vals.at(-1)};
+  let current=global&&Number.isFinite(profilePlaybackClockTime)?profilePlaybackClockTime:Number($('profileTime')?.value);if(!Number.isFinite(current)&&vals.length)current=vals[0];
+  if(range.valid){current=Math.max(range.start,Math.min(range.end,current));slider.min=String(range.start);slider.max=String(range.end);slider.step=global&&vals.length>1?String((range.end-range.start)/(vals.length-1)):'any';slider.value=String(current)}
+  else{slider.min='0';slider.max='0';slider.value='0';slider.step='any'}
+  slider.disabled=!range.valid||vals.length<2;input.value=Number.isFinite(current)?profileTimeDisplay(current):'';
+  $('profilePrev').disabled=!range.valid;$('profileNext').disabled=!range.valid;$('profilePlay').disabled=!range.valid||vals.length<2;$('profilePause').disabled=!profileAnimationPlaying;
   const lines=[...new Set(profileOptionsBase().filter(s=>(!$('profileSet').value||(s.profileOutputPath||'')===$('profileSet').value)&&(!$('profileVariable').value||s.field.canonical===$('profileVariable').value)).map(s=>s.profileLineKey))];
   $('heightCountBadge').textContent=`${lines.length} ${lines.length===1?'height':'heights'}`;profilePlaybackScopeInfo(vals)
 }
-function nearestProfileFrame(value,vals){
-  if(!vals.length)return null;let best=vals[0],dist=Math.abs(best-Number(value));for(const v of vals){const d=Math.abs(v-Number(value));if(d<dist){best=v;dist=d}}return best
+function applyProfileTimeValue(value,{renderListToo=true}={}){
+  const vals=profileAvailableTimes();if(!vals.length)return;
+  if(profilePlaybackUsesGlobalClock()){
+    const range=profilePlaybackCommonRange();if(!range.valid)return;let t=Number(value);if(!Number.isFinite(t))t=range.start;t=Math.max(range.start,Math.min(range.end,t));
+    profilePlaybackClockTime=t;profilePlaybackFrames=vals.slice();let bestIndex=0,bestDist=Math.abs(vals[0]-t);for(let i=1;i<vals.length;i++){const d=Math.abs(vals[i]-t);if(d<bestDist){bestDist=d;bestIndex=i}}profilePlaybackFrameIndex=bestIndex;
+    ensureProfileTimeOption(t);buildProfilePlaybackAtTime(t);syncProfileTimeNavigator(vals)
+  }else{
+    profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];profilePlaybackClockTime=NaN;const best=playbackNearestTime(vals,value);if(!Number.isFinite(best))return;$('profileTime').value=String(best);syncProfileTimeNavigator(vals)
+  }
+  updateProfileMeta();activeId=null;pinnedPoints=[];if(renderListToo)renderList();updateMeta();renderPhaseFront();draw()
 }
-function applyProfileTimeValue(value){
-  const vals=profileAvailableTimes();if(!vals.length)return;const best=nearestProfileFrame(value,vals);if(best==null)return;
-  $('profileTime').value=String(best);syncProfileTimeNavigator(vals);updateProfileMeta();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()
-}
-function applyProfilePlaybackFrame(value,vals,index){
-  if(value==null||!vals?.length)return;
-  $('profileTime').value=String(value);
-  const slider=$('profileTimeSlider'),input=$('profileTimeInput');if(slider)slider.value=String(index);if(input)input.value=String(value);
-  updateProfileMeta();draw()
-}
+function applyProfilePlaybackFrame(value,vals,index){if(value==null||!vals?.length)return;profilePlaybackFrameIndex=Math.max(0,Math.min(vals.length-1,index));applyProfileTimeValue(value,{renderListToo:false})}
 function stepProfileTime(delta,playback=false){
-  const vals=playback&&profilePlaybackFrames.length?profilePlaybackFrames:profileAvailableTimes();if(!vals.length)return;
-  let i=playback?profilePlaybackFrameIndex:vals.findIndex(v=>profileTimeEqual(v,$('profileTime').value));if(i<0)i=0;i=(i+delta+vals.length)%vals.length;
+  const vals=playback&&profilePlaybackFrames.length?profilePlaybackFrames:profileAvailableTimes();if(!vals.length)return;const target=profilePlaybackUsesGlobalClock()?profilePlaybackClockTime:Number($('profileTime').value);let i=vals.findIndex(v=>playbackAlmostEqual(v,target));
+  if(i<0){i=0;let d=Math.abs(vals[0]-target);for(let j=1;j<vals.length;j++){const nd=Math.abs(vals[j]-target);if(nd<d){d=nd;i=j}}}i=playbackStepIndex(i,delta,vals.length);if(i<0)return;
   if(playback){profilePlaybackFrameIndex=i;applyProfilePlaybackFrame(vals[i],vals,i)}else applyProfileTimeValue(vals[i])
+}
+function jumpProfileBoundary(which){const vals=profileAvailableTimes();if(!vals.length)return;const i=which==='end'?vals.length-1:0;profilePlaybackFrameIndex=i;applyProfileTimeValue(vals[i])}
+function resetProfilePlaybackState(){
+  if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;profilePlaybackFrames=[];profilePlaybackFrameIndex=0;profilePlaybackClockTime=NaN;profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];
+  if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true
 }
 function computeProfileLockedRanges(){
   const set=$('profileSet').value,v=$('profileVariable').value,line=$('profileLine').value,compare=$('compareHeights').checked;
   const ss=profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s));
-  if(!ss.length){animationLockedRanges=null;return}
-  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  if(!ss.length){animationLockedRanges=null;return}let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
   for(const s of ss){for(const x of s.t){if(Number.isFinite(x)){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x)}}for(const yy of s.y){const y=displayValue(yy,s.field);if(Number.isFinite(y)){ymin=Math.min(ymin,y);ymax=Math.max(ymax,y)}}}
-  if(!Number.isFinite(ymin)){animationLockedRanges=null;return}if(ymin===ymax){const d=Math.abs(ymin||1)*.05;ymin-=d;ymax+=d}else{const p=(ymax-ymin)*.06;ymin-=p;ymax+=p}
-  animationLockedRanges={xmin,xmax,ymin,ymax}
+  if(!Number.isFinite(ymin)){animationLockedRanges=null;return}if(ymin===ymax){const d=Math.abs(ymin||1)*.05;ymin-=d;ymax+=d}else{const p=(ymax-ymin)*.06;ymin-=p;ymax+=p}animationLockedRanges={xmin,xmax,ymin,ymax}
 }
-function playbackIntervalMs(){const speed=Math.max(.25,Number($('playbackSpeed')?.value)||1);return Math.max(120,Math.round(650/speed))}
-function stopProfileAnimation(){
-  if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}
-  profileAnimationPlaying=false;profilePlaybackFrames=[];profilePlaybackFrameIndex=0;if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`
-}
+function playbackIntervalMs(){const speed=Math.max(.25,Number($('playbackSpeed')?.value)||1);return Math.max(50,Math.round(650/speed))}
+function stopProfileAnimation(){if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true}
 function profileAnimationLoop(){
-  if(!profileAnimationPlaying)return;const started=performance.now();stepProfileTime(1,true);
-  if(!profileAnimationPlaying)return;const spent=performance.now()-started,delay=Math.max(16,playbackIntervalMs()-spent);profileAnimationTimer=setTimeout(profileAnimationLoop,delay)
+  if(!profileAnimationPlaying)return;if(profilePlaybackFrameIndex>=profilePlaybackFrames.length-1){stopProfileAnimation();return}
+  const started=performance.now(),next=playbackStepIndex(profilePlaybackFrameIndex,1,profilePlaybackFrames.length);profilePlaybackFrameIndex=next;applyProfilePlaybackFrame(profilePlaybackFrames[next],profilePlaybackFrames,next);
+  if(profilePlaybackFrameIndex>=profilePlaybackFrames.length-1){stopProfileAnimation();return}const spent=performance.now()-started,delay=Math.max(16,playbackIntervalMs()-spent);profileAnimationTimer=setTimeout(profileAnimationLoop,delay)
 }
 function startProfileAnimationTimer(){if(profileAnimationTimer)clearTimeout(profileAnimationTimer);profileAnimationTimer=setTimeout(profileAnimationLoop,Math.min(120,playbackIntervalMs()))}
-function toggleProfileAnimation(){
-  if(profileAnimationPlaying){stopProfileAnimation();return}
-  const vals=profileAvailableTimes();if(vals.length<2){$('status').textContent=diagEs()?'No hay al menos dos tiempos de profile disponibles en este contexto.':'Fewer than two profile times are available in this context.';profilePlaybackScopeInfo(vals);return}
-  stopLogAnimation();profilePlaybackFrames=vals.slice();let i=vals.findIndex(v=>profileTimeEqual(v,$('profileTime').value));profilePlaybackFrameIndex=i<0?0:i;
-  activeId=null;pinnedPoints=[];if($('profileLockAxes').checked)computeProfileLockedRanges();profileAnimationPlaying=true;$('profilePlay').textContent=`❚❚ ${tr('pause')}`;
-  $('status').textContent=diagEs()?`Reproduciendo ${vals.length} frames de Spatial Profiles.`:`Playing ${vals.length} Spatial Profile frames.`;startProfileAnimationTimer()
+function startProfileAnimation(){
+  if(profileAnimationPlaying)return;const vals=profileAvailableTimes();if(vals.length<2){$('status').textContent=diagEs()?'No hay un intervalo temporal reproducible para Spatial Profiles.':'No playable physical-time interval is available for Spatial Profiles.';profilePlaybackScopeInfo(vals);return}
+  stopLogAnimation();profilePlaybackFrames=vals.slice();const current=profilePlaybackUsesGlobalClock()&&Number.isFinite(profilePlaybackClockTime)?profilePlaybackClockTime:Number($('profileTime')?.value);
+  let i=vals.findIndex(v=>playbackAlmostEqual(v,current));if(i<0){i=0;let d=Math.abs(vals[0]-current);for(let j=1;j<vals.length;j++){const nd=Math.abs(vals[j]-current);if(nd<d){d=nd;i=j}}}
+  if(i>=vals.length-1)i=0;profilePlaybackFrameIndex=i;applyProfilePlaybackFrame(vals[i],vals,i);activeId=null;pinnedPoints=[];if($('profileLockAxes').checked)computeProfileLockedRanges();
+  profileAnimationPlaying=true;$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=false;
+  $('status').textContent=profilePlaybackUsesGlobalClock()?(diagEs()?`Reproduciendo reloj físico común: ${vals.length} frames.`:`Playing synchronized physical-time clock: ${vals.length} frames.`):(diagEs()?`Reproduciendo ${vals.length} tiempos nativos.`:`Playing ${vals.length} native profile times.`);startProfileAnimationTimer()
 }
 function stopAllPlayback(){stopProfileAnimation();stopLogAnimation()}
-function restartPlaybackForSpeed(){
-  if(profileAnimationPlaying)startProfileAnimationTimer();
-  if(logAnimationPlaying)startLogAnimationTimer()
-}
+function restartPlaybackForSpeed(){if(profileAnimationPlaying)startProfileAnimationTimer();if(logAnimationPlaying)startLogAnimationTimer()}
 function differenceScopeSeries(caseId,canonical){
   let ss=series.filter(s=>s.caseId===caseId&&s.field?.canonical===canonical&&datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference');
   if(currentDataView==='profile'){
@@ -4268,7 +4394,7 @@ function heatColor(z,zmin,zmax){const q=zmax>zmin?Math.max(0,Math.min(1,(z-zmin)
 function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),tmin=Math.min(...ss.map(s=>s.t[0])),tmax=Math.max(...ss.map(s=>s.t.at(-1))),positive=[];for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v))positive.push(Math.log10(v));let zmin=positive.length?Math.max(-14,Math.min(...positive)):-12,zmax=positive.length?Math.max(...positive):0;if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
 function nearestValue(values,target){if(!values.length)return null;let best=values[0];for(const v of values)if(Math.abs(v-target)<Math.abs(best-target))best=v;return best}
 function syncAppToDiagnosticTime(time,{caseId=null,root=null,member=null}={}){time=Number(time);if(!Number.isFinite(time))return;const set=diagSettings();diagnosticFocusTime=time;diagnosticSelectedEvent={time,caseId,root,member};const cid=Number(caseId)||diagCaseId(),rr=root||diagRoot(),initial=caseLogSeries(cid,rr,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),fam=initial[0]?.logFamily;if(fam&&[...$('logFamily').options].some(o=>o.value===fam))$('logFamily').value=fam;refreshLogSelectors();if(Number.isFinite(Number(member))&&[...$('logMember').options].some(o=>Number(o.value)===Number(member)))$('logMember').value=String(Number(member));syncLogNavigator();const logTimes=logAvailableTimes(),lt=nearestValue(logTimes,time);if(lt!=null&&(set.syncMode!=='exact'||Math.abs(lt-time)<=set.syncTolerance))syncLogTimeNavigator(lt);logEvolutionActive=true;logEvolutionMemberLimit=Number.isFinite(Number(member))?Number(member):null;rebuildLogEvolutionSeries();const pTimes=profileAvailableTimes(),pt=nearestValue(pTimes,time);if(pt!=null&&(set.syncMode!=='exact'||Math.abs(pt-time)<=set.syncTolerance)){const op=[...$('profileTime').options].find(o=>profileTimeEqual(o.value,pt));if(op)$('profileTime').value=op.value;syncProfileTimeNavigator();updateProfileMeta()}renderList();renderDiagnosticCurrent();drawCouplingHeatmap();renderPhaseFront();draw();$('status').textContent=`${diagEs()?'Tiempo diagnóstico sincronizado':'Diagnostic time synchronized'}: ${diagFmt(time)} s`}
-function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v48',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
+function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v49',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
 function downloadText(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportDiagnosticJson(){downloadText('FoamLens_coupling_diagnostics_v47.json',JSON.stringify(diagnosticPayload(),null,2),'application/json')}
 function exportDiagnosticCsv(){const p=diagnosticPayload(),rows=[['case','nOuterCorrectors','time_s','r_first','r_last','R_last_first','reduction_first_last','orders_reduced','max_initial','max_initial_subiteration']];for(const c of p.cases)for(const r of c.rows)rows.push([c.case,c.summary.mapping.nOuter??'',r.t,r.rFirst,r.rLast,r.R,r.reduction,r.orders,r.maxInitial,r.maxInitialMember]);downloadText('FoamLens_coupling_diagnostics_v47.csv',rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
@@ -4943,16 +5069,22 @@ function refreshProfileSelectorsFromVariable(){
 }
 function refreshProfileTimes(preferred=''){
   const profiles=profilePlaybackSeries(),times=profileAvailableTimes();
-  const vals=times.map(value=>{const sample=profiles.find(s=>profileTimeEqual(s.profileTime,value));return {value,label:sample?.profileTimeLabel||String(value)}});
+  const vals=times.map(value=>{const sample=profiles.find(s=>profileTimeEqual(s.profileTime,value));return {value,label:profilePlaybackUsesGlobalClock()?profileTimeDisplay(value):(sample?.profileTimeLabel||String(value))}});
   $('profileTime').innerHTML=vals.map(t=>`<option value="${t.value}">${esc(t.label)} s</option>`).join('');
-  if(vals.some(t=>profileTimeEqual(t.value,preferred))){const hit=vals.find(t=>profileTimeEqual(t.value,preferred));$('profileTime').value=String(hit.value)}else if(vals.length)$('profileTime').value=String(vals[0].value);
+  let target=Number(preferred);if(!Number.isFinite(target)&&vals.length)target=vals[0].value;
+  if(profilePlaybackUsesGlobalClock()){
+    const range=profilePlaybackCommonRange();if(range.valid)target=Math.max(range.start,Math.min(range.end,Number.isFinite(target)?target:range.start));
+    if(Number.isFinite(target)){ensureProfileTimeOption(target);profilePlaybackClockTime=target;buildProfilePlaybackAtTime(target)}
+  }else{
+    profilePlaybackClockTime=NaN;profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];const best=playbackNearestTime(times,target);if(Number.isFinite(best))$('profileTime').value=String(best)
+  }
   syncProfileTimeNavigator(times);updateProfileMeta()
 }
 function updateProfileMeta(){
-  const sample=series.find(s=>datasetTypeOf(s)==='profile'&&profileMatchesSelection(s));
+  const sample=currentViewSeries().find(s=>datasetTypeOf(s)==='profile')||series.find(s=>datasetTypeOf(s)==='profile'&&profileMatchesSelection(s));
   if(!sample){$('profileMeta').textContent=tr('profileNone');return}
   const points=sample.t.length,axis=(sample.profileAxis||'x').toUpperCase(),unit=sample.profileCoordUnit||'m';
-  const heightInfo=$('compareHeights')?.checked?` · ${profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&profileMatchesSelection(s)).length} ${$('language').value==='es'?'curvas de altura':'height curves'}`:'';
+  const heightInfo=$('compareHeights')?.checked?` · ${currentViewSeries().filter(s=>datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference').length} ${$('language').value==='es'?'curvas de altura':'height curves'}`:'';
   $('profileMeta').innerHTML=`<span class="profileTypePill">${esc(profileOrientationLabel(sample.profileAxis))}</span>${axis} ${$('language').value==='es'?'varía':'varies'} · ${points} ${$('language').value==='es'?'puntos':'points'} · ${axis} [${esc(unit)}]${heightInfo}`;
 }
 function updateDatasetViewUI(){
@@ -4966,7 +5098,7 @@ function updateDatasetViewUI(){
   $('xRangePresetField').style.display=currentDataView==='profile'?'none':'';
   const xLab=$('xmin').closest('.field')?.querySelector('label'),xMaxLab=$('xmax').closest('.field')?.querySelector('label');
   if(currentDataView==='profile'){
-    const sample=series.find(s=>datasetTypeOf(s)==='profile'&&profileMatchesSelection(s))||series.find(s=>datasetTypeOf(s)==='profile');
+    const sample=currentViewSeries().find(s=>datasetTypeOf(s)==='profile')||series.find(s=>datasetTypeOf(s)==='profile'&&profileMatchesSelection(s))||series.find(s=>datasetTypeOf(s)==='profile');
     const unit=sample?.profileCoordUnit||'mm';
     if(xLab)xLab.textContent=`${tr('xMinProfile')} [${unit}]`;if(xMaxLab)xMaxLab.textContent=`${tr('xMaxProfile')} [${unit}]`;
   }else{
@@ -6070,7 +6202,7 @@ function applyV35Language(){
   set('launchDiscoverTitle','Discover','Descubrir');set('launchDiscoverText','Cases, configuration, regions, logs and post-processing outputs.','Casos, configuración, regiones, logs y resultados de postprocesamiento.');
   set('launchAnalyzeTitle','Analyze','Analizar');set('launchAnalyzeText','Profiles, solver behavior, coupling, phase fronts, differences and events.','Perfiles, comportamiento del solver, coupling, frentes de fase, diferencias y eventos.');
   set('launchReviewTitle','Review','Revisar');set('launchReviewText','Numerical health, findings, configuration comparison and case audit.','Health numérico, findings, comparación de configuración y auditoría de casos.');
-  set('launchFooter','FoamLens v48 · OpenFOAM analysis workspace','FoamLens v48 · Workspace de análisis OpenFOAM');
+  set('launchFooter','FoamLens v49 · OpenFOAM analysis workspace','FoamLens v49 · Workspace de análisis OpenFOAM');
   set('globalProjectLabel','Project','Proyecto');set('globalCaseLabel','Case','Caso');set('globalRegionLabel','Region','Región');set('saveWorkspaceTop','Save Workspace','Guardar Workspace');set('openWorkspaceTop','Open Workspace','Abrir Workspace');set('projectHeroEyebrow','OpenFOAM project','Proyecto OpenFOAM');set('projectCasesStatLabel','Cases','Casos');set('projectRegionsStatLabel','Regions','Regiones');set('projectSeriesStatLabel','Series','Series');set('projectFindingsStatLabel','Findings','Findings');set('projectSaveWorkspace','Save Workspace','Guardar Workspace');set('projectOpenWorkspace','Open Workspace','Abrir Workspace');set('projectCompareCases','Compare Cases','Comparar casos');set('projectOutputAudit','Output completeness','Completitud de outputs');set('reviewTabCompare','Compare Cases','Comparar casos');set('reviewTabOutputs','Output Completeness','Completitud de outputs');set('compareRootLabel','Common solved field','Campo resuelto común');set('outputAuditCaseLabel','Case','Caso');
   set('modeWorkspace','Overview','Resumen');set('modeData','Data','Datos');set('modeAnalysis','Analysis','Análisis');set('modeReview','Review','Revisión');set('modeLive','Live','Live');
   set('workspaceEmptyTitle','Start an OpenFOAM workspace','Inicia un workspace de OpenFOAM');
@@ -6228,7 +6360,12 @@ function applyLanguage(){
   if($('compareHeightsLabel'))$('compareHeightsLabel').textContent=tr('compareHeights');
   if($('profileCurrentTimeLabel'))$('profileCurrentTimeLabel').textContent=`${tr('currentTime')} [s]`;
   if($('profileLockAxesLabel'))$('profileLockAxesLabel').textContent=tr('lockAxes');
-  if($('profilePlay'))$('profilePlay').textContent=profileAnimationPlaying?`❚❚ ${tr('pause')}`:`▶ ${tr('play')}`;
+  if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;
+  if($('profilePause'))$('profilePause').textContent=`⏸ ${tr('pause')}`;
+  if($('profileCurrentTimeLabel'))$('profileCurrentTimeLabel').textContent=$('language').value==='es'?'Tiempo [s]':'Time [s]';
+  if($('profileAlignmentLabel'))$('profileAlignmentLabel').textContent=$('language').value==='es'?'Alineación':'Alignment';
+  if($('profileFrameCountLabel'))$('profileFrameCountLabel').textContent=$('language').value==='es'?'Frames de animación':'Animation frames';
+  if($('profileAlignment')){const opts=$('profileAlignment').options;if(opts[0])opts[0].textContent='Nearest';if(opts[1])opts[1].textContent=$('language').value==='es'?'Interpolar':'Interpolate'}
   if($('logPlayTime'))$('logPlayTime').textContent=logAnimationPlaying&&logAnimationMode==='time'?`❚❚ ${tr('pause')}`:`▶ ${L.playTime}`;
   if($('logPlaySubIter'))$('logPlaySubIter').textContent=logAnimationPlaying&&logAnimationMode==='subiter'?`❚❚ ${tr('pause')}`:`▶ ${L.playSubIterations}`;
   if($('logCurrentTimeLabel'))$('logCurrentTimeLabel').textContent=`${L.logCurrentTime} [s]`;
@@ -6439,7 +6576,7 @@ const CONFIG_IDS=[
   'layout','preset','previewMode','legendPos','exportBg','probeLabelMode','palette',
   'tempUnit','theme','language','typePreset','tickFont','axisFont','legendFont','titleFont',
   'xDecimals','leftDecimals','rightDecimals','xRangePreset','leftYMode','rightYMode','leftYMin','leftYMax','rightYMin','rightYMax','grid','minorGrid','legend','markers','phaseLines',
-  'width','dash','opacity','axis','pinnedFont','pinnedPosition','playbackSpeed',
+  'width','dash','opacity','axis','pinnedFont','pinnedPosition','playbackSpeed','profileAlignment','profilePlaybackFrameCount',
   'diagStartup','diagInitialThreshold','diagRatioThreshold','diagTopN','diagWindow','diagSyncMode','diagSyncTolerance','diagHideZero',
   'phaseFrontHigh','phaseFrontMid','phaseFrontLow','phaseFrontBranch',
   'refAlphaHalf','refUyZero','refCenterX','refCustomX','refCustomXValue','refCustomXName','refCustomY','refCustomYValue','refCustomYAxis','refCustomYName'
@@ -6538,6 +6675,8 @@ function factoryDefaults(){
     pinnedFont:'14',
     pinnedPosition:'auto',
     playbackSpeed:'1',
+    profileAlignment:'nearest',
+    profilePlaybackFrameCount:'100',
     diagStartup:'0.1',
     diagInitialThreshold:'0.01',
     diagRatioThreshold:'0.9',
@@ -6975,7 +7114,7 @@ $('inspectorCase')?.addEventListener('change',()=>{const c=caseById(Number($('in
 for(const id of ['workspaceFindings','allFindings','auditFindings'])$(id)?.addEventListener('click',e=>{const row=e.target.closest('[data-finding-id]');if(row)openFindingDetail(findingById(row.dataset.findingId))});
 $('workspaceHealthCases')?.addEventListener('click',e=>{const row=e.target.closest('[data-case]');if(!row)return;setAppMode('review');setReviewPane('auditor');$('auditCase').value=row.dataset.case;renderAuditCase(caseById(Number(row.dataset.case)))});
 $('liveChooseFolder')?.addEventListener('click',chooseLiveFolder);
-$('profileSet').addEventListener('change',()=>{stopProfileAnimation();animationLockedRanges=null;refreshDatasetControls();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileSet').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshDatasetControls();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 
 $('timeSeriesVariable').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesProbe').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
@@ -6983,18 +7122,21 @@ $('timeSeriesFamily').addEventListener('change',()=>{stopAllPlayback();animation
 $('timeSeriesResetFilters').addEventListener('click',()=>{const v=$('timeSeriesVariable'),p=$('timeSeriesProbe'),f=$('timeSeriesFamily');v.value='';p.value='';f.value='';v.dataset.autoinit='1';p.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesShowAllVars').addEventListener('click',()=>{const v=$('timeSeriesVariable');v.value='';v.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 
-$('profileVariable').addEventListener('change',()=>{stopProfileAnimation();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
-$('profileLine').addEventListener('change',()=>{stopProfileAnimation();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileTimes(old);activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
-$('profileTime').addEventListener('change',()=>{syncProfileTimeNavigator();updateProfileMeta();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileVariable').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileLine').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileTimes(old);activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileTime').addEventListener('change',()=>applyProfileTimeValue($('profileTime').value));
 
 
-$('profilePrev').onclick=()=>stepProfileTime(-1);
-$('profileNext').onclick=()=>stepProfileTime(1);
-$('profilePlay').onclick=toggleProfileAnimation;
-$('profileTimeSlider').addEventListener('input',()=>{const vals=profileAvailableTimes(),i=Number($('profileTimeSlider').value);if(vals[i]!=null)applyProfileTimeValue(vals[i])});
+$('profilePrev').onclick=()=>jumpProfileBoundary('start');
+$('profileNext').onclick=()=>jumpProfileBoundary('end');
+$('profilePlay').onclick=startProfileAnimation;
+$('profilePause').onclick=stopProfileAnimation;
+$('profileTimeSlider').addEventListener('input',()=>applyProfileTimeValue(Number($('profileTimeSlider').value),{renderListToo:false}));
 $('profileTimeInput').addEventListener('change',()=>applyProfileTimeValue($('profileTimeInput').value));
+$('profileAlignment').addEventListener('change',()=>{const t=profilePlaybackUsesGlobalClock()&&Number.isFinite(profilePlaybackClockTime)?profilePlaybackClockTime:Number($('profileTime').value);if(Number.isFinite(t))applyProfileTimeValue(t,{renderListToo:false});saveVisualDefaults(false)});
+$('profilePlaybackFrameCount').addEventListener('change',()=>{const n=Math.max(2,Math.min(2000,Math.round(Number($('profilePlaybackFrameCount').value)||100)));$('profilePlaybackFrameCount').value=String(n);const t=profilePlaybackUsesGlobalClock()&&Number.isFinite(profilePlaybackClockTime)?profilePlaybackClockTime:Number($('profileTime').value);refreshProfileTimes(Number.isFinite(t)?t:'');if(profileAnimationPlaying){profilePlaybackFrames=profileAvailableTimes();let bi=0,bd=Math.abs(profilePlaybackFrames[0]-t);for(let i=1;i<profilePlaybackFrames.length;i++){const d=Math.abs(profilePlaybackFrames[i]-t);if(d<bd){bd=d;bi=i}}profilePlaybackFrameIndex=bi;startProfileAnimationTimer()}saveVisualDefaults(false)});
 $('profileLockAxes').addEventListener('change',()=>{animationLockedRanges=$('profileLockAxes').checked?(computeProfileLockedRanges(),animationLockedRanges):null;draw()});
-$('compareHeights').addEventListener('change',()=>{stopProfileAnimation();animationLockedRanges=$('profileLockAxes').checked?(computeProfileLockedRanges(),animationLockedRanges):null;refreshProfileTimes($('profileTime').value);renderList();updateMeta();draw()});
+$('compareHeights').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=$('profileLockAxes').checked?(computeProfileLockedRanges(),animationLockedRanges):null;refreshProfileTimes($('profileTime').value);renderList();updateMeta();draw()});
 $('createDifference').onclick=createDifferenceCurves;
 $('differenceVariable').addEventListener('change',refreshDifferenceControls);
 $('differenceCaseA').addEventListener('change',refreshDifferenceControls);

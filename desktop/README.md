@@ -1,6 +1,6 @@
-# FoamLens Desktop v1.0.2
+# FoamLens Desktop v1.1.0
 
-Native Windows host for **FoamLens Web v48**.
+Native Windows host embedding the **FoamLens v49 frontend**.
 
 ## Architecture
 
@@ -10,12 +10,13 @@ Native Windows host for **FoamLens Web v48**.
 - **File I/O:** native on-demand reads through a tokenized JS↔C# bridge.
 - **foamLog parsing:** native C# batch parser, parallelized across CPU cores.
 - **Background behavior:** WebView2 launches with Chromium background/occlusion throttling disabled so long FoamLens analyses are not paused merely because the app is minimized or another application has focus.
+- **Spatial Profiles playback:** multiple visible cases use one common physical-time clock; Nearest and safe temporal Interpolate alignment are independent of each case's write times.
 
 The frontend retains its normal web folder flow when opened as HTML. The native bridge is detected automatically only inside FoamLens Desktop.
 
 ## GitHub Windows build
 
-The **Build FoamLens Desktop for Windows** workflow reconstructs the v48 frontend and produces:
+The **Build FoamLens Desktop for Windows** workflow reconstructs the v49 frontend and produces:
 
 - `FoamLens-Portable-vX.Y.Z.exe` — portable self-contained Windows executable.
 - `FoamLens-Setup-vX.Y.Z.exe` — installer generated with Inno Setup.

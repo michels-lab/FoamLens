@@ -7,7 +7,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Current versions
 
 - **FoamLens Web v48**
-- **FoamLens Desktop v1.0.2** for Windows
+- **FoamLens Desktop v1.1.0** for Windows
 
 ## Features
 
@@ -19,7 +19,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - Automatic derived velocity fields such as `Velocity magnitude |U|` and `Velocity XY`.
 - Difference plots between compatible cases with maximum absolute difference and its X position.
 - Compare multiple profile heights at the same variable and time.
-- Time slider, previous/next controls, Play/Pause animation, and optional locked axes for profile evolution.
+- Spatial Profiles playback can synchronize multiple cases on a common physical-time clock with Nearest or temporal Interpolate alignment; single-case playback can still use native stored times.
 - Automatic scientific axis precision.
 - Curve metrics including min/max, X locations, average, velocity RMS, Uy zero crossings, and difference metrics where applicable.
 - Configurable physical reference lines.
