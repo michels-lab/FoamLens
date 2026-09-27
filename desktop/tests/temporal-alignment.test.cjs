@@ -121,6 +121,12 @@ test('UI exposes required temporal alignment modes and derived differences', () 
   assert(js.includes("derivedKind:'temporalAlignmentDifference'"));
 });
 
+test('comparison exports preserve reproducibility metadata', () => {
+  for(const token of ['taExportPayload','noExtrapolation:true','commonRange','provenanceA','provenanceB','FoamLens_temporal_comparison.json','FoamLens_temporal_comparison.csv']) {
+    assert(js.includes(token), 'Missing export metadata token '+token);
+  }
+});
+
 test('core contains no project fixture names', () => {
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt','metal']) {
     assert(!core.includes(banned), 'Fixture-specific token leaked into temporal core: '+banned);
