@@ -1,0 +1,34 @@
+FoamLens — Proprietary Software License
+
+Copyright © 2026 Michel Armando Duarte Flores / Michel's Lab
+All Rights Reserved.
+
+FoamLens, including its source code, user interface, visual identity, documentation,
+and associated materials, is proprietary software owned by Michel Armando Duarte Flores.
+
+PERMITTED USE
+You may run FoamLens for its intended purpose and inspect source code when a source
+build has been made available to you.
+
+NO REUSE LICENSE IS GRANTED
+Unless you have prior explicit written authorization from Michel Armando Duarte Flores,
+you may not copy, modify, redistribute, republish, sublicense, sell, rebrand, create
+derivative works from, or incorporate FoamLens or substantial portions of FoamLens into
+another product, service, project, application, or codebase.
+
+PUBLIC OR SHARED SOURCE DOES NOT MEAN OPEN SOURCE
+The availability of FoamLens source code or HTML builds — including availability for
+demonstration, academic portfolio, educational review, scientific review, or source
+inspection — does not constitute an open-source license and does not grant reuse,
+modification, redistribution, or commercial rights.
+
+OPENFOAM CASE DATA
+FoamLens is designed to inspect OpenFOAM case data in a read-only manner. FoamLens does
+not claim ownership of user simulation data analyzed with the software.
+
+INDEPENDENT SOFTWARE
+FoamLens is an independent analysis tool designed to work with OpenFOAM data. References
+to OpenFOAM describe compatibility and supported workflows and do not imply sponsorship
+or endorsement.
+
+All rights not expressly granted are reserved.

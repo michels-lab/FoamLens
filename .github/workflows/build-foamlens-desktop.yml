@@ -1,0 +1,69 @@
+name: Build FoamLens Desktop for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-foamlens-desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Rebuild embedded frontend bundle
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if (Test-Path $bundle) { Remove-Item $bundle -Force }
+          New-Item -ItemType Directory -Force bundle_tmp | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
+          Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
+          Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
+
+      - name: Verify FoamLens frontend
+        shell: pwsh
+        run: |
+          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v48' -Quiet)) {
+            throw 'Desktop frontend is not FoamLens v48.'
+          }
+
+      - name: Publish single-file Windows executable
+        shell: pwsh
+        run: |
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -o artifacts/publish
+          Copy-Item artifacts/publish/FoamLens.exe artifacts/FoamLens-Desktop-v1.0.0.exe
+          $hash=(Get-FileHash artifacts/FoamLens-Desktop-v1.0.0.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  FoamLens-Desktop-v1.0.0.exe" | Set-Content artifacts/FoamLens-Desktop-v1.0.0.exe.sha256 -Encoding ascii
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=1.0.0" `
+            "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" `
+            desktop/installer/FoamLens.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-Desktop-v1.0.0
+          path: |
+            artifacts/FoamLens-Desktop-v1.0.0.exe
+            artifacts/FoamLens-Desktop-v1.0.0.exe.sha256
+            artifacts/FoamLens-Setup-v1.0.0.exe
