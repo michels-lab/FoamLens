@@ -75,7 +75,7 @@ test('capability-driven mapping suggestions', () => {
   assert(cap.phase && cap.momentum && cap.enabled);
 });
 
-const scalarText = \`FoamFile
+const scalarText = `FoamFile
 {
  format ascii;
  class volScalarField;
@@ -93,9 +93,9 @@ internalField nonuniform List<scalar>
 )
 ;
 boundaryField{}
-\`;
+`;
 
-const vectorText = \`FoamFile
+const vectorText = `FoamFile
 {
  format ascii;
  class volVectorField;
@@ -113,7 +113,7 @@ internalField nonuniform List<vector>
 )
 ;
 boundaryField{}
-\`;
+`;
 
 test('ASCII volScalarField parser', () => {
   const p = api.pmParseOpenFOAMFieldText(scalarText,'5/alphaL');
