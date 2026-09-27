@@ -124,7 +124,7 @@ function npBuildUi(){
   host.appendChild(box);document.getElementById('npCase').addEventListener('change',npRender);document.getElementById('npRefresh').addEventListener('click',npRender);npRefreshCases()
 }
 function npRefreshCases(){
-  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))];
+  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';
   sel.innerHTML=ids.map(id=>`<option value="${String(id).replace(/"/g,'&quot;')}">${String(npCaseLabel(id)).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
   if([...sel.options].some(o=>o.value===old))sel.value=old;npRender()
 }
