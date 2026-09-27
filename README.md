@@ -6,13 +6,15 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 
 ## Current versions
 
-- **FoamLens Web v50**
-- **FoamLens Desktop v1.2.0** for Windows
+- **FoamLens Web v51**
+- **FoamLens Desktop v1.3.0** for Windows
 
 ## Features
 
 - Load OpenFOAM probe files, spatial-profile `.xy` files, processed `foamLog` outputs, raw `log.<solver>` run logs, and `postProcessing` folders.
 - Smart recursive folder import with automatic OpenFOAM case detection.
+- Capability-driven **OpenFOAM discovery model** that inventories regions, physical-time directories, native fields, field classes, dimensions, boundary patches, dictionaries, logs, and recursively discovered `postProcessing` outputs without a project-specific field allowlist.
+- **Data Catalog** view for explicit inspection of what FoamLens detected: case, region, data kind, scalar/vector/tensor class, dimensions, physical-time range, sample count, provenance, and source path. Catalog discovery never auto-plots every variable.
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
 - Detect horizontal/vertical spatial profiles from file structure and contents.
 - Friendly OpenFOAM variable labels while retaining original field names in metadata/tooltips.
@@ -50,6 +52,8 @@ GitHub Actions builds:
 - `FoamLens-Portable-vX.Y.Z.exe.sha256` — SHA-256 checksum.
 
 Tagged or explicitly published builds can also be attached directly to a GitHub Release.
+
+The Windows build is gated by synthetic regression suites for playback, phase/momentum analysis, and general OpenFOAM discovery. A private real-project integration suite can also run against an external OpenFOAM fixture checkout when its read-only repository token is configured; fixture data are not copied into this public repository.
 
 ## Web edition
 

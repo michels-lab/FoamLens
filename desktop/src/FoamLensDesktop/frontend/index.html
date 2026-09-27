@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FoamLens v50 — by Michel Duarte</title>
+<title>FoamLens v51 — by Michel Duarte</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect x=%226%22 y=%226%22 width=%2250%22 height=%2250%22 rx=%2216%22 fill=%22%230d1f32%22 stroke=%22%2370b8ff%22 stroke-width=%222.2%22/%3E%3Cpath d=%22M-2 25C11 17 19 18 28 24C37 30 44 31 61 20%22 fill=%22none%22 stroke=%22%2388d0ff%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M-1 34C12 27 20 28 29 34C38 40 45 41 62 31%22 fill=%22none%22 stroke=%22%23f1bb49%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M0 43C13 37 21 38 30 43C39 48 46 49 63 41%22 fill=%22none%22 stroke=%22%236fb2ec%22 stroke-width=%223.1%22 stroke-linecap=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2235%22 r=%223.4%22 fill=%22%23f1bb49%22/%3E%3Cpath d=%22M52 52l11 11%22 stroke=%22%23eef7ff%22 stroke-width=%224.6%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 
 <style>
@@ -809,7 +809,7 @@ body:not(.dark) .aboutOverlay{background:rgba(20,31,47,.48)}
 @media(max-width:580px){.aboutOverlay{padding:10px}.aboutDeveloperCard{grid-template-columns:1fr;text-align:center}.aboutAvatar{width:min(100%,240px);height:auto;aspect-ratio:1109/1536;margin:auto}.aboutSocials{grid-template-columns:1fr}.aboutHero h2{font-size:28px}}
 
 
-/* FoamLens v50 */
+/* FoamLens v51 */
 .foamLensLogoSvg{width:100%;height:100%;display:block;overflow:visible}
 .logo{background:none!important;box-shadow:none!important;padding:1px}
 .logo:before,.logo:after,.launchMark:before,.launchMark:after,.aboutMarkBox:before,.aboutMarkBox:after{display:none!important}
@@ -883,7 +883,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 
 
 
-/* FoamLens v50 — capability-driven field analysis */
+/* FoamLens v51 — capability-driven field analysis */
 .pmHidden{display:none!important}
 .pmMappingGrid{display:grid;gap:7px}
 .pmMappingRow{display:grid;grid-template-columns:minmax(110px,.9fr) minmax(0,1.4fr);gap:7px;align-items:center}
@@ -909,6 +909,27 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 .pmResultStatus{font-size:9px;color:var(--muted);line-height:1.5;margin-top:7px}
 .pmResultStatus.good{color:#45b983}.pmResultStatus.warn{color:#d99a38}
 .pmFormulaBindings{font-size:9px;color:var(--muted);line-height:1.5;margin-top:7px}
+
+/* FoamLens v51 — general Data Catalog */
+.dataCatalogControls{display:grid;gap:7px;margin-top:9px}
+.dataCatalogGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.dataCatalogPanel{display:none;padding:14px;min-height:100%;overflow:auto;background:var(--panel2)}
+#chartViewport.catalogActive .chartwrap{display:none}
+#chartViewport.catalogActive .dataCatalogPanel{display:block}
+.dataCatalogHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.dataCatalogHead h3{margin:0;font-size:15px}.dataCatalogHead p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.5}
+.dataCatalogSummary{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.dataCatalogPill{border:1px solid var(--line);border-radius:999px;padding:4px 7px;font-size:8px;color:var(--muted);background:var(--panel)}
+.dataCatalogTableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.dataCatalogTable{width:100%;border-collapse:collapse;font-size:9px;min-width:980px}
+.dataCatalogTable th,.dataCatalogTable td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.dataCatalogTable th{position:sticky;top:0;background:var(--panel2);z-index:2;color:var(--muted);font-weight:800}
+.dataCatalogTable td small{display:block;color:var(--muted);margin-top:2px;line-height:1.35}
+.dataCatalogType{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px 5px;font-size:8px;font-weight:800}
+.dataCatalogNative{color:#49aa7d}.dataCatalogDerived{color:#b28b42}
+body.catalogView #seriesPanel{display:none}
+body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
+@media(max-width:700px){.dataCatalogGrid{grid-template-columns:1fr}.dataCatalogHead{display:block}.dataCatalogSummary{justify-content:flex-start;margin-top:8px}}
 </style>
 </head>
 <body class="dark appMode-workspace">
@@ -963,7 +984,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
       <div class="launchCapability"><b id="launchAnalyzeTitle">Analyze</b><span id="launchAnalyzeText">Profiles, solver behavior, coupling, phase fronts, differences and events.</span></div>
       <div class="launchCapability"><b id="launchReviewTitle">Review</b><span id="launchReviewText">Numerical health, findings, configuration comparison and case audit.</span></div>
     </div>
-    <div class="launchFooter" id="launchFooter">FoamLens v50 · OpenFOAM analysis workspace</div>
+    <div class="launchFooter" id="launchFooter">FoamLens v51 · OpenFOAM analysis workspace</div>
   </div>
 </section>
 <div class="app" id="appShell">
@@ -1014,6 +1035,16 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
         <button class="datasetTab active" id="timeSeriesTab" type="button"><span id="timeSeriesTabLabel">Time series</span><span class="datasetTabCount" id="timeSeriesCount">0</span></button>
         <button class="datasetTab" id="profileTab" type="button" disabled><span id="profileTabLabel">Spatial profiles</span><span class="datasetTabCount" id="profileCount">0</span></button>
         <button class="datasetTab" id="logTab" type="button" disabled><span id="logTabLabel">Solver logs</span><span class="datasetTabCount" id="logCount">0</span></button>
+        <button class="datasetTab" id="catalogTab" type="button" disabled><span id="catalogTabLabel">Catalog</span><span class="datasetTabCount" id="catalogCount">0</span></button>
+      </div>
+      <div class="dataCatalogControls hidden" id="catalogControls">
+        <div class="dataCatalogGrid">
+          <div class="field"><label id="catalogCaseLabel">Case</label><select id="catalogCase"></select></div>
+          <div class="field"><label id="catalogRegionLabel">Region</label><select id="catalogRegion"><option value="">All regions</option></select></div>
+          <div class="field"><label id="catalogKindLabel">Data kind</label><select id="catalogKind"><option value="">All data</option><option value="field">Volume / surface fields</option><option value="postProcessing">postProcessing</option><option value="log">Logs</option><option value="dictionary">Dictionaries</option></select></div>
+          <div class="field"><label id="catalogSearchLabel">Search</label><input id="catalogSearch" type="text" placeholder="Field, source, class, dimension…"></div>
+        </div>
+        <div class="smallnote" id="catalogControlNote">Catalog inspection never plots every detected variable automatically.</div>
       </div>
       <div class="playbackGlobal hidden" id="playbackGlobal">
         <label id="playbackSpeedLabel" for="playbackSpeed">Playback speed</label>
@@ -1232,7 +1263,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
           </div>
         </div>
       </div>
-      <div class="smallnote" id="dataViewNote">Time-series probes, spatial profiles and solver logs are kept in separate views so they are never mixed in the same figure.</div>
+      <div class="smallnote" id="dataViewNote">Time-series probes, spatial profiles and solver logs stay in separate plotting views; the Catalog inventories discovered data without plotting it automatically.</div>
     </div>
 
     <div class="analysisTools" id="differenceTools">
@@ -1694,6 +1725,15 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
         <div class="workspaceHint" id="workspaceHint">Scroll this plot area when the figure is larger than the available workspace.</div>
         <div class="empty" id="empty"><div><b>No curves yet</b>Load files or a postProcessing folder.</div></div>
       </div>
+      <div class="dataCatalogPanel" id="dataCatalogPanel">
+        <div class="dataCatalogHead">
+          <div><h3 id="catalogTitle">OpenFOAM Data Catalog</h3><p id="catalogIntro">Discovered data model: fields, physical times, regions, post-processing outputs, logs and dictionaries. Nothing is plotted until you explicitly choose it.</p></div>
+          <div class="dataCatalogSummary" id="catalogSummary"></div>
+        </div>
+        <div class="dataCatalogTableWrap"><table class="dataCatalogTable"><thead><tr>
+          <th id="catalogColName">Name</th><th id="catalogColKind">Kind</th><th id="catalogColRegion">Region</th><th id="catalogColType">Type / class</th><th id="catalogColDimensions">Dimensions</th><th id="catalogColTime">Physical time</th><th id="catalogColSamples">Samples</th><th id="catalogColOrigin">Origin</th><th id="catalogColSource">Source</th>
+        </tr></thead><tbody id="catalogTableBody"></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -1995,7 +2035,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 <div class="legalOverlay" id="legalOverlay" aria-hidden="true"><section class="legalDialog" role="dialog" aria-modal="true" aria-labelledby="legalTitle"><h3 id="legalTitle">FoamLens Legal</h3><div class="legalCopy" id="legalCopy">FoamLens is proprietary software. Copyright © 2026 Michel Armando Duarte Flores / Michel's Lab. All Rights Reserved.
 
 Source availability, distribution of an HTML build, or publication of source code for demonstration, academic portfolio, or source-review purposes does not grant permission to copy, modify, redistribute, rebrand, sell, sublicense, or incorporate FoamLens or substantial portions of it into another product without explicit written authorization from the copyright holder.</div><div class="legalActions"><button class="btn primary" id="legalClose">Close</button></div></section></div>
-<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v50</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v50</b><div>Capability-driven Field Analysis</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
+<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v51</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v50</b><div>Capability-driven Field Analysis</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
 
 <script>
 (()=>{
@@ -2362,8 +2402,8 @@ function refreshGlobalContext(){
 }
 function applyGlobalContext(){
   activeContextCaseId=$('globalCaseSelect')?.value?Number($('globalCaseSelect').value):null;activeContextRegion=$('globalRegionSelect')?.value||'';
-  refreshDatasetControls();if(currentDataView==='profile')refreshProfileTimes($('profileTime')?.value||'');if(currentDataView==='log'){refreshLogSelectors();syncLogTimeNavigator()}
-  renderList();updateMeta();draw();refreshWorkspaceReview()
+  refreshDatasetControls();if(currentDataView==='profile')refreshProfileTimes($('profileTime')?.value||'');if(currentDataView==='log'){refreshLogSelectors();syncLogTimeNavigator()}if(currentDataView==='catalog')renderDataCatalog();
+  renderList();updateMeta();if(currentDataView!=='catalog')draw();refreshWorkspaceReview()
 }
 function isCaseVisible(caseId){
   if(caseId==null)return true;
@@ -3473,6 +3513,177 @@ function configWord(text,key){
   return m?m[1]:null
 }
 
+
+/* FOAMLENS_DISCOVERY_MODEL_CORE_START */
+function flNormPath(v){return String(v||'').replace(/\\/g,'/').replace(/\/+/g,'/').replace(/^\/|\/$/g,'')}
+function flTimeSegment(v){return /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(String(v||''))}
+function flFieldKindFromClass(cls){
+  const s=String(cls||'');
+  if(/sphericalTensorField/i.test(s))return'sphericalTensor';
+  if(/symmTensorField/i.test(s))return'symmTensor';
+  if(/tensorField/i.test(s))return'tensor';
+  if(/vectorField/i.test(s))return'vector';
+  if(/scalarField/i.test(s))return'scalar';
+  return'unknown'
+}
+function flFieldStorageFromClass(cls){
+  const s=String(cls||'').toLowerCase();
+  if(s.startsWith('vol'))return'volume';
+  if(s.startsWith('surface'))return'surface';
+  if(s.startsWith('point'))return'point';
+  if(s.startsWith('uniform'))return'uniform';
+  return'unknown'
+}
+function flExtractBlock(text,name){
+  const s=String(text||''),re=new RegExp('(?:^|\\n)\\s*'+String(name||'')+'\\s*\\{','m'),m=re.exec(s);if(!m)return'';
+  let i=s.indexOf('{',m.index),depth=0,start=i+1,quote='';
+  for(;i<s.length;i++){
+    const ch=s[i];
+    if(quote){if(ch===quote&&s[i-1]!=='\\')quote='';continue}
+    if(ch==='"'||ch==="'"){quote=ch;continue}
+    if(ch==='{')depth++;
+    else if(ch==='}'){depth--;if(depth===0)return s.slice(start,i)}
+  }
+  return''
+}
+function flTopLevelBlocks(text){
+  const s=String(text||''),out=[];let i=0;
+  while(i<s.length){
+    while(i<s.length&&/[\s;]/.test(s[i]))i++;
+    if(i>=s.length)break;
+    if(s.startsWith('//',i)){while(i<s.length&&s[i]!=='\n')i++;continue}
+    if(s.startsWith('/*',i)){const e=s.indexOf('*/',i+2);i=e>=0?e+2:s.length;continue}
+    const m=/^[A-Za-z_][A-Za-z0-9_.:+-]*/.exec(s.slice(i));if(!m){i++;continue}
+    const name=m[0];i+=name.length;while(i<s.length&&/\s/.test(s[i]))i++;
+    if(s[i]!=='{'){while(i<s.length&&s[i]!==';'&&s[i]!=='\n')i++;continue}
+    const open=i;let depth=0,j=i,quote='';
+    for(;j<s.length;j++){
+      const ch=s[j];
+      if(quote){if(ch===quote&&s[j-1]!=='\\')quote='';continue}
+      if(ch==='"'||ch==="'"){quote=ch;continue}
+      if(ch==='{')depth++;
+      else if(ch==='}'){depth--;if(depth===0)break}
+    }
+    if(j>=s.length)break;
+    out.push({name,body:s.slice(open+1,j)});i=j+1
+  }
+  return out
+}
+function flBoundarySummary(text){
+  const block=flExtractBlock(text,'boundaryField');if(!block)return[];
+  return flTopLevelBlocks(block).map(x=>({name:x.name,type:(x.body.match(/\btype\s+([^;\s]+)\s*;/i)||[])[1]||''}))
+}
+function flParseFoamFieldHeader(text,sourcePath=''){
+  const s=String(text||''),foam=flExtractBlock(s,'FoamFile');
+  const cls=(foam.match(/\bclass\s+([^;\s]+)\s*;/i)||s.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
+  const format=(foam.match(/\bformat\s+([^;\s]+)\s*;/i)||s.match(/\bformat\s+([^;\s]+)\s*;/i)||[])[1]||'';
+  const object=(foam.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||flNormPath(sourcePath).split('/').at(-1)||'';
+  const location=(foam.match(/\blocation\s+"?([^;"\n]+)"?\s*;/i)||[])[1]?.trim()||'';
+  const dimensions=(s.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
+  return{format,fieldClass:cls,object,location,dimensions,kind:flFieldKindFromClass(cls),storage:flFieldStorageFromClass(cls),boundaries:flBoundarySummary(s),sourcePath}
+}
+function flVolumeFieldDescriptorFromPath(path,rootPath,size=0){
+  path=flNormPath(path);rootPath=flNormPath(rootPath);
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  let p=path.slice(rootPath.length+1).split('/').filter(Boolean),partition='';
+  if(/^processor\d+$/i.test(p[0]||''))partition=p.shift();
+  if(p.length<2||!flTimeSegment(p[0]))return null;
+  const timeLabel=p.shift(),time=Number(timeLabel);if(!Number.isFinite(time)||!p.length)return null;
+  if(p.some(x=>/^(?:uniform|polyMesh)$/i.test(x)))return null;
+  const name=p.at(-1),region=p.slice(0,-1).join('/');
+  if(!name||/^(?:cellToRegion|faceToCell|pointLevel|cellLevel)$/i.test(name))return null;
+  return{time,timeLabel,region,partition,name,sourcePath:path,size:Number(size)||0}
+}
+function flDictionaryDescriptorFromPath(path,rootPath,size=0){
+  path=flNormPath(path);rootPath=flNormPath(rootPath);
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  const p=path.slice(rootPath.length+1).split('/').filter(Boolean);
+  if(p.length<2||!['system','constant'].includes(String(p[0]).toLowerCase()))return null;
+  if(p.some(x=>/^(?:polyMesh|triSurface|extendedFeatureEdgeMesh)$/i.test(x)))return null;
+  const section=p[0],name=p.at(-1),scope=p.length>2?p.slice(1,-1).join('/'):'';
+  return{section,name,scope,region:'',sourcePath:path,size:Number(size)||0}
+}
+function flLogDescriptorFromPath(path,rootPath,size=0){
+  path=flNormPath(path);rootPath=flNormPath(rootPath);
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  const rel=path.slice(rootPath.length+1),p=rel.split('/').filter(Boolean),name=p.at(-1)||'';
+  if(/^log(?:\.|$)/i.test(name))return{kind:'runLog',name,sourcePath:path,size:Number(size)||0};
+  const li=p.findIndex(x=>String(x).toLowerCase()==='logs');
+  if(li>=0&&li<p.length-1)return{kind:'foamLog',name,sourcePath:path,size:Number(size)||0};
+  return null
+}
+function flPostProcessingDescriptorFromPath(path,rootPath,size=0){
+  path=flNormPath(path);rootPath=flNormPath(rootPath);
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  const rel=path.slice(rootPath.length+1),p=rel.split('/').filter(Boolean),pp=p.findIndex(x=>String(x).toLowerCase()==='postprocessing');
+  if(pp<0||pp>=p.length-2)return null;
+  let ti=-1;for(let i=p.length-2;i>pp;i--)if(flTimeSegment(p[i])){ti=i;break}
+  if(ti<0)return null;
+  const prefix=p.slice(pp+1,ti),timeLabel=p[ti],time=Number(timeLabel),tail=p.slice(ti+1),fileName=tail.at(-1)||'';
+  if(!prefix.length||!fileName||!Number.isFinite(time))return null;
+  return{prefixSegments:prefix,outputPath:prefix.join('/'),time,timeLabel,fileName,relativeFile:tail.join('/'),sourcePath:path,size:Number(size)||0}
+}
+function flHeaderColumns(line){
+  const s=String(line||'').replace(/^\s*#+\s*/,'').trim();if(!s)return[];
+  const out=[];let i=0;
+  while(i<s.length){
+    while(i<s.length&&/\s/.test(s[i]))i++;if(i>=s.length)break;
+    if(s[i]==='('){let j=i+1,d=1;while(j<s.length&&d){if(s[j]==='(')d++;else if(s[j]===')')d--;j++}out.push(s.slice(i,j));i=j}
+    else{let j=i;while(j<s.length&&!/\s/.test(s[j]))j++;out.push(s.slice(i,j));i=j}
+  }
+  return out
+}
+function flClassifyPostProcessingSample(text,fileName=''){
+  const s=String(text||''),lines=s.split(/\r?\n/),comments=lines.filter(x=>/^\s*#/.test(x)),data=lines.filter(x=>x.trim()&&!/^\s*#/.test(x));
+  const probe=comments.some(x=>/^\s*#\s*Probe\s+\d+/i.test(x));
+  const selection=comments.some(x=>/^\s*#\s*Selection\s*:/i.test(x));
+  const cells=comments.some(x=>/^\s*#\s*Cells\s*:/i.test(x)),faces=comments.some(x=>/^\s*#\s*Faces\s*:/i.test(x)),volume=comments.some(x=>/^\s*#\s*Volume\s*:/i.test(x)),area=comments.some(x=>/^\s*#\s*Area\s*:/i.test(x));
+  const header=[...comments].reverse().find(x=>/^\s*#\s*(?:Time|x|y|z)\b/i.test(x))||'',columns=flHeaderColumns(header);
+  let numericWidth=0;
+  for(const row of data.slice(0,6)){const toks=flHeaderColumns(row),nums=toks.filter(x=>Number.isFinite(Number(String(x).replace(/[(),]/g,''))));numericWidth=Math.max(numericWidth,nums.length)}
+  if(probe)return{kind:'probe',columns:columns.length?columns:['Time','value'],spatial:false,temporal:true,reduction:'',selection:{cells,faces,volume,area}};
+  if(/\.xy$/i.test(fileName))return{kind:'sampledSet',columns,spatial:true,temporal:false,reduction:'',selection:{cells,faces,volume,area}};
+  if(selection&&(cells||faces||volume||area)&&comments.some(x=>/^\s*#\s*Time\b/i.test(x))){
+    const op=columns.slice(1).find(x=>/\w+\(/.test(x))||columns[1]||'',geometry=(faces||area||/area|surface/i.test(op))?'surface':(cells||volume||/vol/i.test(op))?'volume':'selection';
+    return{kind:geometry==='surface'?'surfaceReduction':'volumeReduction',columns,spatial:false,temporal:true,reduction:op,selection:{cells,faces,volume,area}}
+  }
+  if(columns.length&&numericWidth>=2)return{kind:'tabular',columns,spatial:/^[xyz]$/i.test(columns[0]||''),temporal:/^time$/i.test(columns[0]||''),reduction:'',selection:{cells,faces,volume,area}};
+  if(numericWidth>=2)return{kind:'tabular',columns:[],spatial:false,temporal:false,reduction:'',selection:{cells,faces,volume,area}};
+  return{kind:'unknown',columns,spatial:false,temporal:false,reduction:'',selection:{cells,faces,volume,area}}
+}
+function flBuildCaseDiscoveryModel(files,rootPath,regionHints=[]){
+  rootPath=flNormPath(rootPath);const fields=[],dicts=[],logs=[],post=[],regions=new Set((regionHints||[]).filter(Boolean).map(String)),timeDirs=new Set();
+  for(const f of files||[]){
+    const path=flNormPath(f.webkitRelativePath||f.path||f.name||''),size=Number(f.size)||0;
+    const fd=flVolumeFieldDescriptorFromPath(path,rootPath,size);if(fd){fields.push({...fd,file:f});if(fd.region)regions.add(fd.region);timeDirs.add(fd.time);continue}
+    const dd=flDictionaryDescriptorFromPath(path,rootPath,size);if(dd)dicts.push({...dd,file:f});
+    const ld=flLogDescriptorFromPath(path,rootPath,size);if(ld)logs.push({...ld,file:f});
+    const pd=flPostProcessingDescriptorFromPath(path,rootPath,size);if(pd)post.push({...pd,file:f})
+  }
+  const knownRegions=[...regions].sort();
+  for(const d of dicts){
+    const matches=knownRegions.filter(r=>d.scope===r||String(d.scope||'').startsWith(r+'/')).sort((a,b)=>b.length-a.length);
+    d.region=matches[0]||''
+  }
+  const fieldGroups=new Map();
+  for(const r of fields){
+    const key=(r.region||'')+'|'+r.name;
+    if(!fieldGroups.has(key))fieldGroups.set(key,{key,name:r.name,region:r.region||'',records:[],times:new Set(),partitions:new Set(),fieldClass:'',kind:'unknown',storage:'unknown',dimensions:'',boundaries:[],format:'',source:'timeDirectories'});
+    const g=fieldGroups.get(key);g.records.push(r);g.times.add(r.time);g.partitions.add(r.partition||'')
+  }
+  const postGroups=new Map();
+  for(const r of post){
+    let region='';if(r.prefixSegments.length&&knownRegions.includes(r.prefixSegments[0]))region=r.prefixSegments[0];
+    const functionPath=region?r.prefixSegments.slice(1).join('/'):r.prefixSegments.join('/'),key=(region||'')+'|'+functionPath+'|'+r.fileName;
+    if(!postGroups.has(key))postGroups.set(key,{key,region,functionPath,fileName:r.fileName,outputPath:r.outputPath,records:[],times:new Set(),kind:'unknown',columns:[],spatial:false,temporal:false,reduction:'',source:'postProcessing'});
+    const g=postGroups.get(key);g.records.push(r);g.times.add(r.time)
+  }
+  const fg=[...fieldGroups.values()].map(g=>({...g,times:[...g.times].sort((a,b)=>a-b),partitions:[...g.partitions].sort()}));
+  const pg=[...postGroups.values()].map(g=>({...g,times:[...g.times].sort((a,b)=>a-b)}));
+  return{rootPath,regions:knownRegions,timeDirectories:[...timeDirs].sort((a,b)=>a-b),fields:fg,dictionaries:dicts,logs,postProcessing:pg,capabilities:{hasFields:fg.length>0,hasPostProcessing:pg.length>0,hasLogs:logs.length>0,hasDictionaries:dicts.length>0,multiRegion:knownRegions.length>1}}
+}
+/* FOAMLENS_DISCOVERY_MODEL_CORE_END */
+
 /* FOAMLENS_PHASE_MOMENTUM_CORE_START */
 const PM_ROLE_DEFS=[
   {key:'temperature',en:'Temperature',es:'Temperatura',patterns:[/^t$/,/^temp(?:erature)?$/,/temperature/]},
@@ -3864,6 +4075,95 @@ function pmMetadataNumber(c,name){
   const entries=(c?.physicalMetadataEntries||[]).filter(e=>String(e.key).toLowerCase()===String(name).toLowerCase()&&Number.isFinite(Number(e.value)));
   return entries.length===1?{ok:true,value:Number(entries[0].value),entry:entries[0]}:{ok:false,reason:entries.length?'ambiguous metadata parameter':'metadata parameter not found',matches:entries}
 }
+
+const flDiscoveryInspectCache=new Map();
+async function flReadInspectionText(file){
+  if(!file)return'';const size=Math.max(0,Number(file.size)||0),chunk=96*1024;
+  try{
+    if(size>chunk*2){const head=await file.slice(0,chunk).text(),tail=await file.slice(Math.max(0,size-chunk),size).text();return head+'\n/* FoamLens inspection tail */\n'+tail}
+    return await file.text()
+  }catch(err){return''}
+}
+async function flInspectFieldGroup(group){
+  if(!group?.records?.length)return group;
+  const r=group.records.slice().sort((a,b)=>(a.size||0)-(b.size||0)||a.time-b.time)[0],key='field|'+r.sourcePath+'|'+(r.size||0);
+  let x=flDiscoveryInspectCache.get(key);
+  if(!x){x=flParseFoamFieldHeader(await flReadInspectionText(r.file),r.sourcePath);flDiscoveryInspectCache.set(key,x)}
+  Object.assign(group,{fieldClass:x.fieldClass||'',kind:x.kind||'unknown',storage:x.storage||'unknown',dimensions:x.dimensions||'',boundaries:x.boundaries||[],format:x.format||'',object:x.object||group.name});
+  return group
+}
+async function flInspectPostGroup(group){
+  if(!group?.records?.length)return group;
+  const r=group.records.slice().sort((a,b)=>a.time-b.time)[0],key='post|'+r.sourcePath+'|'+(r.size||0);let x=flDiscoveryInspectCache.get(key);
+  if(!x){let text='';try{text=await r.file.slice(0,128*1024).text()}catch(err){try{text=await r.file.text()}catch(_){}}x=flClassifyPostProcessingSample(text,r.fileName);flDiscoveryInspectCache.set(key,x)}
+  Object.assign(group,x);return group
+}
+async function flEnrichCaseDiscoveryModel(c,files){
+  const model=flBuildCaseDiscoveryModel(files||[],c?.rootPath||'',c?.discovery?.regions||[]);if(!c)return model;
+  const work=[...model.fields.map(g=>()=>flInspectFieldGroup(g)),...model.postProcessing.map(g=>()=>flInspectPostGroup(g))];
+  for(let i=0;i<work.length;i+=8){await Promise.all(work.slice(i,i+8).map(fn=>fn()));if(i+8<work.length)await scannerYield()}
+  model.capabilities={
+    hasVolumeFields:model.fields.some(x=>x.storage==='volume'),
+    hasSurfaceFields:model.fields.some(x=>x.storage==='surface'),
+    hasPointFields:model.fields.some(x=>x.storage==='point'),
+    hasScalar:model.fields.some(x=>x.kind==='scalar'),
+    hasVector:model.fields.some(x=>x.kind==='vector'),
+    hasTensor:model.fields.some(x=>['tensor','symmTensor','sphericalTensor'].includes(x.kind)),
+    hasProbes:model.postProcessing.some(x=>x.kind==='probe'),
+    hasSampledSets:model.postProcessing.some(x=>x.kind==='sampledSet'),
+    hasVolumeReductions:model.postProcessing.some(x=>x.kind==='volumeReduction'),
+    hasSurfaceReductions:model.postProcessing.some(x=>x.kind==='surfaceReduction'),
+    hasTabular:model.postProcessing.some(x=>x.kind==='tabular'),
+    hasLogs:model.logs.length>0,
+    hasDictionaries:model.dictionaries.length>0,
+    multiRegion:model.regions.length>1
+  };
+  c.discoveryModel=model;
+  c.discovery={...(c.discovery||{}),regions:[...new Set([...(c.discovery?.regions||[]),...model.regions])].sort(),fieldCount:model.fields.length,timeDirectoryCount:model.timeDirectories.length,postProcessingGroupCount:model.postProcessing.length,dictionaryCount:model.dictionaries.length,logFileCount:model.logs.length,capabilities:model.capabilities};
+  return model
+}
+
+function flCatalogRowsForCase(c){
+  const m=c?.discoveryModel;if(!m)return[];const rows=[];
+  for(const f of m.fields){
+    rows.push({caseId:c.id,caseName:c.name,category:'field',name:f.name,region:f.region||'',type:[f.storage,f.kind,f.fieldClass].filter(Boolean).join(' · '),dimensions:f.dimensions||'',timeMin:f.times?.[0],timeMax:f.times?.at(-1),samples:f.times?.length||0,origin:'OpenFOAM native field',source:f.records?.[0]?.sourcePath||'',spatial:true,temporal:(f.times?.length||0)>1,details:f.boundaries?.length?(String(f.boundaries.length)+' boundary patches'):''})
+  }
+  for(const p of m.postProcessing){
+    rows.push({caseId:c.id,caseName:c.name,category:'postProcessing',name:p.functionPath||p.fileName,region:p.region||'',type:[p.kind,p.reduction].filter(Boolean).join(' · '),dimensions:'',timeMin:p.times?.[0],timeMax:p.times?.at(-1),samples:p.times?.length||p.records?.length||0,origin:'OpenFOAM postProcessing',source:'postProcessing/'+p.outputPath,spatial:!!p.spatial,temporal:!!p.temporal,details:p.columns?.length?('Columns: '+p.columns.join(', ')):''})
+  }
+  for(const l of m.logs)rows.push({caseId:c.id,caseName:c.name,category:'log',name:l.name,region:'',type:l.kind,dimensions:'',timeMin:NaN,timeMax:NaN,samples:1,origin:'OpenFOAM log',source:l.sourcePath,spatial:false,temporal:true,details:''});
+  for(const d of m.dictionaries)rows.push({caseId:c.id,caseName:c.name,category:'dictionary',name:d.name,region:d.region||'',type:d.section+' dictionary',dimensions:'',timeMin:NaN,timeMax:NaN,samples:1,origin:'OpenFOAM configuration',source:d.sourcePath,spatial:false,temporal:false,details:''});
+  return rows
+}
+function flAllCatalogRows(){return cases.flatMap(flCatalogRowsForCase)}
+function flCatalogFmtRange(r){
+  if(Number.isFinite(r.timeMin)&&Number.isFinite(r.timeMax))return r.timeMin===r.timeMax?pmFmt(r.timeMin)+' s':pmFmt(r.timeMin)+' → '+pmFmt(r.timeMax)+' s';
+  return'—'
+}
+function flRefreshCatalogFilters(){
+  if(!$('catalogCase'))return;
+  const old=$('catalogCase').value,available=cases.filter(c=>c.discoveryModel);
+  $('catalogCase').innerHTML='<option value="">'+(diagEs()?'Todos los casos':'All cases')+'</option>'+available.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
+  if([...$('catalogCase').options].some(o=>o.value===old))$('catalogCase').value=old;
+  else if(activeContextCaseId!=null&&[...$('catalogCase').options].some(o=>Number(o.value)===Number(activeContextCaseId)))$('catalogCase').value=String(activeContextCaseId);
+  const selected=$('catalogCase').value?caseById(Number($('catalogCase').value)):null;
+  const regions=selected?.discoveryModel?.regions||[...new Set(available.flatMap(c=>c.discoveryModel?.regions||[]))].sort();
+  const oldR=$('catalogRegion').value;
+  $('catalogRegion').innerHTML='<option value="">'+(diagEs()?'Todas las regiones':'All regions')+'</option>'+regions.map(r=>'<option value="'+esc(r)+'">'+esc(r)+'</option>').join('');
+  if(regions.includes(oldR))$('catalogRegion').value=oldR;
+  else if(activeContextRegion&&regions.includes(activeContextRegion))$('catalogRegion').value=activeContextRegion
+}
+function renderDataCatalog(){
+  if(!$('catalogTableBody'))return;flRefreshCatalogFilters();
+  const caseId=$('catalogCase').value?Number($('catalogCase').value):null,region=$('catalogRegion').value||'',kind=$('catalogKind').value||'',q=String($('catalogSearch').value||'').toLowerCase();
+  let rows=flAllCatalogRows().filter(r=>(caseId==null||r.caseId===caseId)&&(!region||r.region===region)&&(!kind||r.category===kind));
+  if(q)rows=rows.filter(r=>[r.caseName,r.name,r.region,r.type,r.dimensions,r.origin,r.source,r.details].some(v=>String(v||'').toLowerCase().includes(q)));
+  rows.sort((a,b)=>a.caseName.localeCompare(b.caseName,undefined,{numeric:true})||a.category.localeCompare(b.category)||a.region.localeCompare(b.region)||a.name.localeCompare(b.name,undefined,{numeric:true}));
+  $('catalogTableBody').innerHTML=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><small>'+esc(r.caseName)+'</small></td><td><span class="dataCatalogType">'+esc(r.category)+'</span><small>'+esc([r.spatial?'spatial':'',r.temporal?'temporal':''].filter(Boolean).join(' · ')||'metadata')+'</small></td><td>'+esc(r.region||'—')+'</td><td>'+esc(r.type||'unknown')+(r.details?'<small>'+esc(r.details)+'</small>':'')+'</td><td>'+esc(r.dimensions||'—')+'</td><td>'+esc(flCatalogFmtRange(r))+'</td><td>'+esc(String(r.samples??'—'))+'</td><td><span class="dataCatalogNative">'+esc(r.origin)+'</span></td><td>'+esc(r.source||'—')+'</td></tr>').join(''):'<tr><td colspan="9">'+esc(diagEs()?'No hay datos que coincidan con estos filtros.':'No discovered data match these filters.')+'</td></tr>';
+  const all=flAllCatalogRows(),fieldN=all.filter(x=>x.category==='field').length,postN=all.filter(x=>x.category==='postProcessing').length,regions=new Set(cases.flatMap(c=>c.discoveryModel?.regions||[])).size;
+  $('catalogSummary').innerHTML=[(diagEs()?'Campos':'Fields')+': '+fieldN,'postProcessing: '+postN,(diagEs()?'Regiones':'Regions')+': '+regions,(diagEs()?'Mostrados':'Shown')+': '+rows.length].map(x=>'<span class="dataCatalogPill">'+esc(x)+'</span>').join('');
+  $('catalogCount').textContent=String(all.length)
+}
 function configDescriptorFromFile(file){
   const p=fileParts(file),n=p.length;
   if(n<3||String(p[n-2]).toLowerCase()!=='system')return null;
@@ -3963,6 +4263,7 @@ async function applyCandidateMetadata(c,candidate){
   c.discovery={...(c.discovery||{}),...(candidate.discovery||{}),outputs:candidate.outputs||[],dataIndex:(candidate.outputs||[]).map(o=>({path:o.path,kind:o.kind,count:o.count,lazy:o.kind==='profile'})),datasetCounts:candidate.datasetCounts||{},fileCount:candidate.allFiles?.length||candidate.files?.length||0,allPaths:(candidate.allFiles||[]).map(f=>(f.webkitRelativePath||f.name||'').replace(/\\/g,'/'))};
   c.metadataFilesMeta=Object.keys(candidate.metadataFiles||{});
   if(candidate.metadataFiles&&Object.keys(candidate.metadataFiles).length)c.config=await parseCaseConfigFiles(candidate.metadataFiles);
+  await flEnrichCaseDiscoveryModel(c,candidate.allFiles||[]);
   c.volumeFieldInventory=pmBuildVolumeInventory(candidate.allFiles||[],c.rootPath);
   c.physicalMetadataFiles=pmBuildPhysicalMetadataFiles(candidate.allFiles||[],c.rootPath);
   const pmMeta=await pmParseMetadataFiles(c.physicalMetadataFiles);
@@ -4844,7 +5145,12 @@ function setDataView(mode){
   if(mode==='profile'&&!profileOptionsBase().length&&lazyProfileCountForContext()>0){hydrateLazyProfilesForContext().then(ok=>{if(ok)setDataView('profile')});return}
   if(mode==='profile'&&!series.some(s=>datasetTypeOf(s)==='profile'))return;
   if(mode==='log'&&!series.some(s=>datasetTypeOf(s)==='log'))return;
-  stopAllPlayback();saveCurrentXRange();currentDataView=mode==='profile'?'profile':mode==='log'?'log':'timeseries';restoreXRange();pinnedPoints=[];hoverPoint=null;activeId=null;updateDatasetViewUI();renderList();updateMeta();loadStyle();draw()
+  if(mode==='catalog'&&!cases.some(c=>c.discoveryModel))return;
+  stopAllPlayback();if(currentDataView!=='catalog')saveCurrentXRange();
+  currentDataView=mode==='profile'?'profile':mode==='log'?'log':mode==='catalog'?'catalog':'timeseries';
+  if(currentDataView!=='catalog')restoreXRange();
+  pinnedPoints=[];hoverPoint=null;activeId=null;updateDatasetViewUI();renderList();updateMeta();loadStyle();
+  if(currentDataView==='catalog')renderDataCatalog();else draw()
 }
 function profileOptionsBase(){return series.filter(s=>datasetTypeOf(s)==='profile'&&seriesMatchesGlobalContext(s))}
 function logOptionsBase(){return series.filter(s=>datasetTypeOf(s)==='log')}
@@ -4940,7 +5246,7 @@ function heatColor(z,zmin,zmax){const q=zmax>zmin?Math.max(0,Math.min(1,(z-zmin)
 function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),tmin=Math.min(...ss.map(s=>s.t[0])),tmax=Math.max(...ss.map(s=>s.t.at(-1))),positive=[];for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v))positive.push(Math.log10(v));let zmin=positive.length?Math.max(-14,Math.min(...positive)):-12,zmax=positive.length?Math.max(...positive):0;if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
 function nearestValue(values,target){if(!values.length)return null;let best=values[0];for(const v of values)if(Math.abs(v-target)<Math.abs(best-target))best=v;return best}
 function syncAppToDiagnosticTime(time,{caseId=null,root=null,member=null}={}){time=Number(time);if(!Number.isFinite(time))return;const set=diagSettings();diagnosticFocusTime=time;diagnosticSelectedEvent={time,caseId,root,member};const cid=Number(caseId)||diagCaseId(),rr=root||diagRoot(),initial=caseLogSeries(cid,rr,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),fam=initial[0]?.logFamily;if(fam&&[...$('logFamily').options].some(o=>o.value===fam))$('logFamily').value=fam;refreshLogSelectors();if(Number.isFinite(Number(member))&&[...$('logMember').options].some(o=>Number(o.value)===Number(member)))$('logMember').value=String(Number(member));syncLogNavigator();const logTimes=logAvailableTimes(),lt=nearestValue(logTimes,time);if(lt!=null&&(set.syncMode!=='exact'||Math.abs(lt-time)<=set.syncTolerance))syncLogTimeNavigator(lt);logEvolutionActive=true;logEvolutionMemberLimit=Number.isFinite(Number(member))?Number(member):null;rebuildLogEvolutionSeries();const pTimes=profileAvailableTimes(),pt=nearestValue(pTimes,time);if(pt!=null&&(set.syncMode!=='exact'||Math.abs(pt-time)<=set.syncTolerance)){const op=[...$('profileTime').options].find(o=>profileTimeEqual(o.value,pt));if(op)$('profileTime').value=op.value;syncProfileTimeNavigator();updateProfileMeta()}renderList();renderDiagnosticCurrent();drawCouplingHeatmap();renderPhaseFront();draw();$('status').textContent=`${diagEs()?'Tiempo diagnóstico sincronizado':'Diagnostic time synchronized'}: ${diagFmt(time)} s`}
-function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v50',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
+function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v51',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
 function downloadText(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportDiagnosticJson(){downloadText('FoamLens_coupling_diagnostics_v47.json',JSON.stringify(diagnosticPayload(),null,2),'application/json')}
 function exportDiagnosticCsv(){const p=diagnosticPayload(),rows=[['case','nOuterCorrectors','time_s','r_first','r_last','R_last_first','reduction_first_last','orders_reduced','max_initial','max_initial_subiteration']];for(const c of p.cases)for(const r of c.rows)rows.push([c.case,c.summary.mapping.nOuter??'',r.t,r.rFirst,r.rLast,r.R,r.reduction,r.orders,r.maxInitial,r.maxInitialMember]);downloadText('FoamLens_coupling_diagnostics_v47.csv',rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
@@ -5155,6 +5461,11 @@ function inspectorText(c){
     `Evidence: ${(d.evidence||[]).join(', ')||'—'}`,
     `Metadata files: ${(c.metadataFilesMeta||[]).join(', ')||'—'}`,
     `Run logs: ${(c.runAudit?.logFiles||[]).join(', ')||'—'}`,
+    `Volume/surface fields: ${c.discoveryModel?.fields?.length||0}`,
+    `Field time directories: ${c.discoveryModel?.timeDirectories?.length||0}`,
+    `postProcessing groups: ${c.discoveryModel?.postProcessing?.length||0}`,
+    `Dictionaries: ${c.discoveryModel?.dictionaries?.length||0}`,
+    `Boundary patches (representative fields): ${new Set((c.discoveryModel?.fields||[]).flatMap(f=>(f.boundaries||[]).map(b=>b.name))).size}`,
     `Import issues: ${(d.importIssues||[]).length}`
   ];
   return lines.join('\n')
@@ -5879,8 +6190,9 @@ function refreshDatasetControls(options={}){
   const lazyProfiles=lazyProfileCountForContext(),knownProfiles=uniqueProfileFiles().size+lazyProfiles;
   $('profileCount').textContent=String(knownProfiles);
   $('logCount').textContent=String(uniqueLogFiles().size);
-  $('profileTab').disabled=!(profiles.length||lazyProfiles);$('logTab').disabled=!logs.length;
-  $('datasetSummary').textContent=`${times.length} + ${knownProfiles} + ${uniqueLogFiles().size}`;
+  const catalogN=flAllCatalogRows().length;$('catalogCount').textContent=String(catalogN);
+  $('profileTab').disabled=!(profiles.length||lazyProfiles);$('logTab').disabled=!logs.length;$('catalogTab').disabled=!catalogN;
+  $('datasetSummary').textContent=`${times.length} + ${knownProfiles} + ${uniqueLogFiles().size} + ${catalogN}`;
   refreshTimeSeriesControls();
 
   const sSel=$('profileSet'),vSel=$('profileVariable'),lSel=$('profileLine'),tSel=$('profileTime');
@@ -5903,11 +6215,12 @@ function refreshDatasetControls(options={}){
   tSel.innerHTML=timesVals.map(t=>`<option value="${t.value}">${esc(t.label)} s</option>`).join('');
   if(timesVals.some(t=>profileTimeEqual(t.value,pt)))tSel.value=String(Number(pt));
 
-  if(currentDataView==='timeseries'&&!times.length){currentDataView=profiles.length?'profile':logs.length?'log':'timeseries'}
+  if(currentDataView==='timeseries'&&!times.length){currentDataView=profiles.length?'profile':logs.length?'log':catalogN?'catalog':'timeseries'}
   if(currentDataView==='profile'&&!profiles.length&&!lazyProfiles)currentDataView=times.length?'timeseries':logs.length?'log':'profile';
   if(currentDataView==='log'&&!logs.length)currentDataView=times.length?'timeseries':profiles.length?'profile':'log';
+  if(currentDataView==='catalog'&&!catalogN)currentDataView=times.length?'timeseries':profiles.length?'profile':logs.length?'log':'timeseries';
   if(options?.deferHeavy){updateDatasetViewUI();return}
-  refreshLogSelectors();updateDatasetViewUI();refreshProfileTimes(tSel.value);refreshDifferenceControls();refreshCouplingDiagnostics();renderPhaseFront();refreshWorkspaceReview()
+  refreshLogSelectors();updateDatasetViewUI();refreshProfileTimes(tSel.value);refreshDifferenceControls();refreshCouplingDiagnostics();renderPhaseFront();renderDataCatalog();refreshWorkspaceReview()
 }
 function refreshProfileSelectorsFromVariable(){
   const profiles=profileOptionsBase(),set=$('profileSet').value,v=$('profileVariable').value,oldLine=$('profileLine').value,oldTime=$('profileTime').value;
@@ -5941,11 +6254,15 @@ function updateDatasetViewUI(){
   $('timeSeriesTab').classList.toggle('active',currentDataView==='timeseries');
   $('profileTab').classList.toggle('active',currentDataView==='profile');
   $('logTab').classList.toggle('active',currentDataView==='log');
+  $('catalogTab').classList.toggle('active',currentDataView==='catalog');
+  document.body.classList.toggle('catalogView',currentDataView==='catalog');
+  $('chartViewport')?.classList.toggle('catalogActive',currentDataView==='catalog');
   $('timeSeriesControls')?.classList.toggle('hidden',currentDataView!=='timeseries');
   $('profileControls').classList.toggle('hidden',currentDataView!=='profile');
   $('logControls').classList.toggle('hidden',currentDataView!=='log');
-  $('playbackGlobal')?.classList.toggle('hidden',currentDataView==='timeseries');
-  $('xRangePresetField').style.display=currentDataView==='profile'?'none':'';
+  $('catalogControls').classList.toggle('hidden',currentDataView!=='catalog');
+  $('playbackGlobal')?.classList.toggle('hidden',currentDataView==='timeseries'||currentDataView==='catalog');
+  $('xRangePresetField').style.display=(currentDataView==='profile'||currentDataView==='catalog')?'none':'';
   const xLab=$('xmin').closest('.field')?.querySelector('label'),xMaxLab=$('xmax').closest('.field')?.querySelector('label');
   if(currentDataView==='profile'){
     const sample=currentViewSeries().find(s=>datasetTypeOf(s)==='profile')||series.find(s=>datasetTypeOf(s)==='profile'&&profileMatchesSelection(s))||series.find(s=>datasetTypeOf(s)==='profile');
@@ -7052,7 +7369,7 @@ function applyV35Language(){
   set('launchDiscoverTitle','Discover','Descubrir');set('launchDiscoverText','Cases, configuration, regions, logs and post-processing outputs.','Casos, configuración, regiones, logs y resultados de postprocesamiento.');
   set('launchAnalyzeTitle','Analyze','Analizar');set('launchAnalyzeText','Profiles, solver behavior, coupling, phase fronts, differences and events.','Perfiles, comportamiento del solver, coupling, frentes de fase, diferencias y eventos.');
   set('launchReviewTitle','Review','Revisar');set('launchReviewText','Numerical health, findings, configuration comparison and case audit.','Health numérico, findings, comparación de configuración y auditoría de casos.');
-  set('launchFooter','FoamLens v50 · OpenFOAM analysis workspace','FoamLens v50 · Workspace de análisis OpenFOAM');
+  set('launchFooter','FoamLens v51 · OpenFOAM analysis workspace','FoamLens v51 · Workspace de análisis OpenFOAM');
   set('globalProjectLabel','Project','Proyecto');set('globalCaseLabel','Case','Caso');set('globalRegionLabel','Region','Región');set('saveWorkspaceTop','Save Workspace','Guardar Workspace');set('openWorkspaceTop','Open Workspace','Abrir Workspace');set('projectHeroEyebrow','OpenFOAM project','Proyecto OpenFOAM');set('projectCasesStatLabel','Cases','Casos');set('projectRegionsStatLabel','Regions','Regiones');set('projectSeriesStatLabel','Series','Series');set('projectFindingsStatLabel','Findings','Findings');set('projectSaveWorkspace','Save Workspace','Guardar Workspace');set('projectOpenWorkspace','Open Workspace','Abrir Workspace');set('projectCompareCases','Compare Cases','Comparar casos');set('projectOutputAudit','Output completeness','Completitud de outputs');set('reviewTabCompare','Compare Cases','Comparar casos');set('reviewTabOutputs','Output Completeness','Completitud de outputs');set('compareRootLabel','Common solved field','Campo resuelto común');set('outputAuditCaseLabel','Case','Caso');
   set('modeWorkspace','Overview','Resumen');set('modeData','Data','Datos');set('modeAnalysis','Analysis','Análisis');set('modeReview','Review','Revisión');set('modeLive','Live','Live');
   set('workspaceEmptyTitle','Start an OpenFOAM workspace','Inicia un workspace de OpenFOAM');
@@ -7090,12 +7407,33 @@ function applyLanguage(){
   $('timeSeriesTabLabel').textContent=L.timeSeriesView;
   $('profileTabLabel').textContent=L.spatialProfilesView;
   $('logTabLabel').textContent=L.solverLogsView;
+    $('catalogTabLabel').textContent=$('language').value==='es'?'Catálogo':'Catalog';
+    if($('catalogTitle'))$('catalogTitle').textContent=$('language').value==='es'?'Catálogo de datos OpenFOAM':'OpenFOAM Data Catalog';
+    if($('catalogIntro'))$('catalogIntro').textContent=$('language').value==='es'?'Modelo descubierto: campos, tiempos físicos, regiones, outputs de postProcessing, logs y diccionarios. Nada se grafica hasta que lo selecciones explícitamente.':'Discovered data model: fields, physical times, regions, post-processing outputs, logs and dictionaries. Nothing is plotted until you explicitly choose it.';
+    if($('catalogCaseLabel'))$('catalogCaseLabel').textContent=$('language').value==='es'?'Caso':'Case';
+    if($('catalogRegionLabel'))$('catalogRegionLabel').textContent=$('language').value==='es'?'Región':'Region';
+    if($('catalogKindLabel'))$('catalogKindLabel').textContent=$('language').value==='es'?'Tipo de dato':'Data kind';
+    if($('catalogSearchLabel'))$('catalogSearchLabel').textContent=$('language').value==='es'?'Buscar':'Search';
+    if($('catalogControlNote'))$('catalogControlNote').textContent=$('language').value==='es'?'Inspeccionar el catálogo nunca grafica automáticamente todas las variables detectadas.':'Catalog inspection never plots every detected variable automatically.';
+  if($('catalogColName'))$('catalogColName').textContent=$('language').value==='es'?'Nombre':'Name';
+  if($('catalogColKind'))$('catalogColKind').textContent=$('language').value==='es'?'Clase':'Kind';
+  if($('catalogColRegion'))$('catalogColRegion').textContent=$('language').value==='es'?'Región':'Region';
+  if($('catalogColType'))$('catalogColType').textContent=$('language').value==='es'?'Tipo / class':'Type / class';
+  if($('catalogColDimensions'))$('catalogColDimensions').textContent='Dimensions';
+  if($('catalogColTime'))$('catalogColTime').textContent=$('language').value==='es'?'Tiempo físico':'Physical time';
+  if($('catalogColSamples'))$('catalogColSamples').textContent=$('language').value==='es'?'Muestras':'Samples';
+  if($('catalogColOrigin'))$('catalogColOrigin').textContent=$('language').value==='es'?'Origen':'Origin';
+  if($('catalogColSource'))$('catalogColSource').textContent=$('language').value==='es'?'Fuente':'Source';
+  if($('catalogKind')){
+    const labels=$('language').value==='es'?['Todos los datos','Campos volumétricos / superficiales','postProcessing','Logs','Diccionarios']:['All data','Volume / surface fields','postProcessing','Logs','Dictionaries'];
+    [...$('catalogKind').options].forEach((o,i)=>{if(labels[i])o.textContent=labels[i]})
+  }
   $('logFamilyLabel').textContent=L.logFamily;$('logMemberLabel').textContent=L.logMember;$('logCurrentFileLabel').textContent=L.logCurrentFile;
   $('profileSetLabel').textContent=L.profileSet;
   $('profileVariableLabel').textContent=L.profileVariable;
   $('profileTimeLabel').textContent=L.profileTime;
   $('profileLineLabel').textContent=L.profileLine;
-  $('dataViewNote').textContent=$('language').value==='es'?'Las series temporales, los perfiles espaciales y los logs del solver se mantienen en vistas separadas para que nunca se mezclen en una misma gráfica.':'Time-series probes, spatial profiles and solver logs are kept in separate views so they are never mixed in the same figure.';
+  $('dataViewNote').textContent=$('language').value==='es'?'Las series temporales, perfiles espaciales y logs del solver permanecen en vistas de gráfica separadas; el Catálogo inventaría los datos detectados sin graficarlos automáticamente.':'Time-series probes, spatial profiles and solver logs are kept in separate views so they are never mixed in the same figure.';
 
   const labels=[...document.querySelectorAll('.field > label')];
   const mapLabel=(id,txt)=>{const el=$(id);if(el){const lab=el.closest('.field')?.querySelector('label');if(lab)lab.textContent=txt}};
@@ -7903,6 +8241,9 @@ document.addEventListener('click',()=>{$('caseQuickPanel')?.classList.add('hidde
 $('timeSeriesTab').onclick=()=>setDataView('timeseries');
 $('profileTab').onclick=async()=>{if(lazyProfileCountForContext()>0)await hydrateLazyProfilesForContext();setDataView('profile')};
 $('logTab').onclick=()=>setDataView('log');
+$('catalogTab').onclick=()=>setDataView('catalog');
+for(const id of ['catalogCase','catalogRegion','catalogKind'])$(id)?.addEventListener('change',renderDataCatalog);
+$('catalogSearch')?.addEventListener('input',renderDataCatalog);
 $('logFamily').addEventListener('change',()=>{stopLogAnimation();logEvolutionActive=false;logEvolutionMemberLimit=null;refreshLogSelectors();syncLogTimeNavigator();activeId=null;pinnedPoints=[];renderList();updateMeta();refreshCouplingDiagnostics();draw()});
 $('logMember').addEventListener('change',()=>{if(logEvolutionActive)logEvolutionMemberLimit=Number($('logMember').value);syncLogNavigator();if(logEvolutionActive)rebuildLogEvolutionSeries();activeId=null;pinnedPoints=[];renderList();updateMeta();renderDiagnosticCurrent();draw()});
 $('logPrev').onclick=()=>stepLogMember(-1);$('logNext').onclick=()=>stepLogMember(1);
