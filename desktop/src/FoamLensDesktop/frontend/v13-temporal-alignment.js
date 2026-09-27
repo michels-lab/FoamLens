@@ -119,6 +119,8 @@ function taBuildUi(){
       <button class="btn primary" id="taRun" type="button">Align + compare</button>
       <button class="btn" id="taAddSigned" type="button" disabled>Add A − B curve</button>
       <button class="btn" id="taAddPercent" type="button" disabled>Add % difference</button>
+      <button class="btn" id="taExportJson" type="button" disabled>Export JSON</button>
+      <button class="btn" id="taExportCsv" type="button" disabled>Export CSV</button>
     </div>
     <div class="smallnote" id="taStatus" style="margin-top:8px">Choose two temporal series.</div>
     <div id="taResult" style="margin-top:8px"></div>`;
@@ -128,9 +130,11 @@ function taBuildUi(){
   document.getElementById('taRun').addEventListener('click',taRunComparison);
   document.getElementById('taAddSigned').addEventListener('click',()=>taAddDerived('signed'));
   document.getElementById('taAddPercent').addEventListener('click',()=>taAddDerived('percent'));
+  document.getElementById('taExportJson').addEventListener('click',()=>taExportComparison('json'));
+  document.getElementById('taExportCsv').addEventListener('click',()=>taExportComparison('csv'));
   taRefreshSources()
 }
-function taClearResult(){taLastResult=null;const a=document.getElementById('taAddSigned'),b=document.getElementById('taAddPercent');if(a)a.disabled=true;if(b)b.disabled=true}
+function taClearResult(){taLastResult=null;for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv']){const el=document.getElementById(id);if(el)el.disabled=true}}
 function taRefreshSources(){
   const src=taSources(),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(!a||!b)return;
   const oldA=a.value,oldB=b.value,opts=src.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${taSeriesLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
@@ -157,7 +161,23 @@ function taRunComparison(){
     <tr><th>A provenance</th><td colspan="3">native ${metaCount(ma,'native')} · interpolated ${metaCount(ma,'interpolated')} · nearest ${metaCount(ma,'nearest')}</td></tr>
     <tr><th>B provenance</th><td colspan="3">native ${metaCount(mb,'native')} · interpolated ${metaCount(mb,'interpolated')} · nearest ${metaCount(mb,'nearest')}</td></tr>
   </tbody></table></div>`;
-  document.getElementById('taAddSigned').disabled=false;document.getElementById('taAddPercent').disabled=false
+  for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv'])document.getElementById(id).disabled=false
+}
+function taDownload(name,text,type){
+  if(typeof downloadText==='function'){downloadText(name,text,type);return}
+  const blob=new Blob([text],{type:type||'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+}
+function taExportPayload(){
+  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return null;
+  return{generatedBy:'FoamLens Desktop v1.3.0 development',analysis:'temporal-alignment-difference',sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
+}
+function taExportComparison(format){
+  const p=taExportPayload();if(!p)return;
+  if(format==='json'){taDownload('FoamLens_temporal_comparison.json',JSON.stringify(p,null,2),'application/json');return}
+  const escCsv=v=>'"'+String(v??'').replaceAll('"','""')+'"',rows=[['time_s','A','B','A_minus_B','absolute_difference','relative_difference','percent_difference','A_status','B_status']];
+  for(const q of p.points)rows.push([q.time,q.A,q.B,q.difference,q.absoluteDifference,q.relativeDifference,q.percentDifference,q.provenanceA?.status||'',q.provenanceB?.status||'']);
+  const meta=['# FoamLens temporal comparison','# sourceA='+p.sourceA,'# sourceB='+p.sourceB,'# mode='+p.alignment.mode,'# method='+p.alignment.method,'# commonStart='+p.alignment.commonRange.start,'# commonEnd='+p.alignment.commonRange.end,'# epsilon='+p.alignment.epsilon,'# noExtrapolation=true'];
+  taDownload('FoamLens_temporal_comparison.csv',meta.join('\n')+'\n'+rows.map(r=>r.map(escCsv).join(',')).join('\n'),'text/csv')
 }
 function taAddDerived(kind){
   const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return;
