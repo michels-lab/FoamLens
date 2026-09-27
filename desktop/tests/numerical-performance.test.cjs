@@ -109,7 +109,7 @@ test('raw solver-log import is extended without replacing legacy metrics',()=>{
     'npInstallRawRunLogExtension',
     "const original=await base(file)",
     "'deltaT','deltaT','deltaT','Physical timestep Δt'",
-    "metric:'outerIterations'",
+    "'outerIterations',algorithm+' outer iterations'",
     'return original.concat(extra)'
   ]) assert(js.includes(token),'Missing raw-log extension token '+token);
 });
