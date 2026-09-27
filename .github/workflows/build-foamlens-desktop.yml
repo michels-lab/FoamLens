@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - development/v1.3.0-general-discovery
     tags:
       - 'v*'
     paths:
@@ -55,6 +56,7 @@ jobs:
           if (Test-Path $bundle) { Remove-Item $bundle -Force }
           New-Item -ItemType Directory -Force bundle_tmp | Out-Null
           Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js bundle_tmp/v13-temporal-alignment.js
           Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
           Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
 
@@ -97,6 +99,10 @@ jobs:
       - name: Test general OpenFOAM discovery model
         shell: pwsh
         run: node desktop/tests/discovery-model.test.cjs
+
+      - name: Test temporal alignment and quantitative differences
+        shell: pwsh
+        run: node desktop/tests/temporal-alignment.test.cjs
 
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
