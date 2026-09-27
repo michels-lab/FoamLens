@@ -49,7 +49,7 @@ function npParseRunLog(text){
     const line=lines[li];
     const app=line.match(/^\s*(?:Application|Exec)\s*[:=]\s*([^\s]+)/i);if(app&&!application)application=app[1];
     const tm=line.match(/^\s*Time\s*=\s*([-+\deE.]+)/);if(tm){const t=npMatchNumber(tm[1]);current={index:steps.length,time:t,deltaT:Number.isFinite(pendingDeltaT)?pendingDeltaT:NaN,courantMean:NaN,courantMax:NaN,executionTime:NaN,clockTime:NaN};pendingDeltaT=NaN;steps.push(current);outerIteration=null;couplingAlgorithm='';continue}
-    const dt=npParseDeltaTLine(line);if(Number.isFinite(dt)){if(current)current.deltaT=dt;else pendingDeltaT=dt;continue}
+    const dt=npParseDeltaTLine(line);if(Number.isFinite(dt)){pendingDeltaT=dt;continue}
     const co=npParseCourantLine(line);if(co){const st=ensureStep();st.courantMean=co.mean;st.courantMax=co.max;continue}
     const ci=npParseCouplingIteration(line);if(ci){const st=ensureStep();couplingAlgorithm=ci.algorithm;outerIteration=ci.iteration;coupling.push({time:st.time,timestepIndex:st.index,algorithm:ci.algorithm,outerIteration:ci.iteration,converged:ci.converged,line:li+1});continue}
     const eq=npParseResidualLine(line);if(eq){const st=ensureStep();equations.push({...eq,time:st.time,timestepIndex:st.index,couplingAlgorithm,outerIteration,line:li+1});continue}
