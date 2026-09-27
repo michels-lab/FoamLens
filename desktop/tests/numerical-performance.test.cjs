@@ -104,6 +104,16 @@ test('UI explicitly separates physical results and numerical cost',()=>{
   assert(js.includes('Missing metrics remain unavailable; FoamLens does not invent values.'));
 });
 
+test('raw solver-log import is extended without replacing legacy metrics',()=>{
+  for(const token of [
+    'npInstallRawRunLogExtension',
+    "const original=await base(file)",
+    "'deltaT','deltaT','deltaT','Physical timestep Δt'",
+    "metric:'outerIterations'",
+    'return original.concat(extra)'
+  ]) assert(js.includes(token),'Missing raw-log extension token '+token);
+});
+
 test('parser remains project agnostic',()=>{
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt','metal'])assert(!core.includes(banned),'Fixture leaked into numerical core: '+banned);
 });
