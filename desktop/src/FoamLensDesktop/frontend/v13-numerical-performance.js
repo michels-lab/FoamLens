@@ -67,6 +67,33 @@ function npSummarizeRunLog(parsed){
 }
 /* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_END */
 
+function npExtraRunLogSeries(parsed,file){
+  const sourcePath=(file?.webkitRelativePath||file?.name||''),logsPath=sourcePath.replace(/\/[^/]*$/,''),caseName=typeof inferCase==='function'?inferCase(file):'';
+  const out=[],add=(family,root,metric,display,unit,points)=>{
+    const p=points.filter(q=>Number.isFinite(q.t)&&Number.isFinite(q.y));if(!p.length)return;
+    out.push({id:nextId++,datasetType:'log',caseName,fileName:file?.name||'',sourcePath,field:{canonical:'log:'+family,display,unit,quantity:metric,original:family},probe:null,location:'',logFamily:family,logRoot:root,logMetric:metric,logSubIter:0,logPath:logsPath,t:p.map(q=>q.t),y:p.map(q=>q.y),visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:'',rawRunLog:true,numericalPerformance:true})
+  };
+  add('deltaT','deltaT','deltaT','Physical timestep Δt','s',(parsed.steps||[]).map(s=>({t:s.time,y:s.deltaT})));
+  const byStep=new Map();
+  for(const q of parsed.coupling||[]){
+    if(!Number.isFinite(q.time)||!Number.isFinite(q.outerIteration))continue;
+    const key=String(q.timestepIndex)+'|'+String(q.algorithm||'coupling'),old=byStep.get(key);
+    if(!old||q.outerIteration>old.y)byStep.set(key,{t:q.time,y:q.outerIteration,algorithm:q.algorithm||'coupling'})
+  }
+  const algorithms=[...new Set([...byStep.values()].map(q=>q.algorithm))];
+  for(const algorithm of algorithms)add(algorithm+'OuterIterations',algorithm,'outerIterations',algorithm+' outer iterations','iterations',[...byStep.values()].filter(q=>q.algorithm===algorithm));
+  return out
+}
+function npInstallRawRunLogExtension(){
+  if(typeof parseOpenFOAMRunLogFile!=='function'||parseOpenFOAMRunLogFile.__foamLensNumericalExtended)return;
+  const base=parseOpenFOAMRunLogFile;
+  const extended=async function(file){
+    const original=await base(file),text=await file.text(),parsed=npParseRunLog(text),extra=npExtraRunLogSeries(parsed,file);
+    for(const s of original)s.numericalRunSummary=npSummarizeRunLog(parsed);
+    return original.concat(extra)
+  };
+  extended.__foamLensNumericalExtended=true;parseOpenFOAMRunLogFile=extended
+}
 function npSeriesText(s){return [s?.name,s?.label,s?.logRoot,s?.logMetric,s?.field?.canonical,s?.field?.raw,s?.sourcePath].filter(Boolean).join(' ').toLowerCase()}
 function npLogSeries(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='log'}catch{return !!s?.logFamily}})}
 function npCaseLabel(id){const c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(id)):null;return c?.name||('Case '+id)}
@@ -115,6 +142,7 @@ function npRender(){
   <div class="smallnote" style="margin-top:6px">Residual statistics above describe linear equation solves only. PIMPLE/SIMPLE coupling must be interpreted from its own outer-iteration records.</div>`
 }
 function npInit(){
+  npInstallRawRunLogExtension();
   npBuildUi();
   try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(npRefreshCases,0);return x}}catch{}
   window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseRunLog,npSummarizeRunLog};
