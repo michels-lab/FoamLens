@@ -14,10 +14,11 @@ const b = html.indexOf(end, a);
 assert(a >= 0 && b > a, 'Phase Change / Momentum core markers are missing.');
 
 const core = html.slice(a, b + end.length);
+const nl = String.fromCharCode(10);
 const api = new Function(
-  "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}\\n" +
-  core +
-  '\nreturn {' +
+  "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}" +
+  nl + core + nl +
+  'return {' +
   'pmVolumeFieldDescriptorFromPath,pmPhysicalMetadataDescriptorFromPath,pmParseFoamDictionaryEntries,' +
   'pmSuggestMappings,pmCapabilitiesFromMapping,pmParseOpenFOAMFieldText,pmComponentValues,' +
   'pmClassifyPhase,pmStats,pmLocalRatio,pmPearson,pmSpearman,pmParseFormula,pmFormulaIdentifiers,pmEvalFormula};'
