@@ -43,7 +43,7 @@ function vdAddMagnitude(){
   series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();draw()}catch(e){console.warn('Vector magnitude refresh failed',e)}st.textContent=`Added ${name} from X/Y/Z components aligned by physical coordinate/time.`
 }
 function vdBuildUi(){
-  if(document.getElementById('vdTools'))return;const host=document.getElementById('paTools')||document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='vdTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('vdTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='vdTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Generic Vector Fields</b><span class="badge">X · Y · Z · magnitude</span></div><div class="smallnote" style="margin-top:5px">Any compatible X/Y/Z field can be combined. FoamLens aligns components by their physical coordinate/time; it never assumes array indices represent the same location.</div><div class="field" style="margin-top:8px"><label>Vector group</label><select id="vdGroup"></select></div><button class="btn primary" id="vdAdd" type="button">Add magnitude</button><div class="smallnote" id="vdStatus"></div>`;
   host.appendChild(box);document.getElementById('vdAdd').onclick=vdAddMagnitude;vdRefreshUi()
 }
