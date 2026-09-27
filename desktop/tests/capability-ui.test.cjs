@@ -14,4 +14,5 @@ const checks=[
   ['vector', "box.style.display=groups.length?'':'none'"]
 ];
 for(const [name,token] of checks)assert(files[name].includes(token),name+' module is not capability-gated.');
-console.log('Capability-driven UI regression suite passed: '+checks.length+' modules hide irrelevant controls.');
+assert(!files.vector.includes("document.getElementById('paTools')||document.getElementById('differenceTools')"),'Vector tools must not be nested inside Physical Analysis.');
+console.log('Capability-driven UI regression suite passed: '+checks.length+' modules hide irrelevant controls and remain independently visible.');
