@@ -120,6 +120,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/vector-fields.test.cjs
 
+      - name: Test native background progress and cancellation
+        shell: pwsh
+        run: node desktop/tests/native-performance.test.cjs
+
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/checkout@v4
