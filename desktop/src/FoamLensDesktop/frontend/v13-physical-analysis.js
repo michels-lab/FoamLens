@@ -104,7 +104,7 @@ function paBuildUi(){
   host.appendChild(box);document.getElementById('paCreateRate').onclick=paCreateRate;document.getElementById('paRunEnergy').onclick=paRunEnergy;document.getElementById('paRunCorrelation').onclick=paRunCorrelation;paRefreshSources()
 }
 function paRefreshSources(){
-  const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
+  const sources=paSources(),box=document.getElementById('paTools');if(box)box.style.display=sources.length?'':'none';const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
   const c=document.getElementById('paEnergyC');if(c){const old=c.value;c.innerHTML='<option value="">None</option>'+opts;if([...c.options].some(o=>o.value===old))c.value=old}
   const b=document.getElementById('paEnergyB'),cy=document.getElementById('paCorrB');if(b&&b.options.length>1&&!b.value)b.selectedIndex=1;if(cy&&cy.options.length>1&&!cy.value)cy.selectedIndex=1
 }
