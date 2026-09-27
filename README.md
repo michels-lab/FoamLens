@@ -4,10 +4,14 @@ Scientific analysis and post-processing workspace for OpenFOAM simulation data, 
 
 FoamLens is designed for thesis and research workflows where simulation data need to be discovered, compared, inspected, styled, animated, and exported without building a separate plotting script for every case.
 
-## Current versions
+## Published version
 
-- **FoamLens Web v51**
-- **FoamLens Desktop v1.3.0** for Windows
+- **FoamLens Web v50**
+- **FoamLens Desktop v1.2.0** for Windows
+
+## Development branch
+
+This branch contains **FoamLens Desktop v1.3.0 / frontend v51 development work**. It is not the currently published release.
 
 ## Features
 
