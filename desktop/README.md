@@ -1,4 +1,4 @@
-# FoamLens Desktop v1.0.0
+# FoamLens Desktop v1.0.1
 
 Native Windows host for **FoamLens Web v48**.
 
