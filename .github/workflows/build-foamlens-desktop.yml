@@ -77,6 +77,9 @@ jobs:
           const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
           if(!scripts.length)throw new Error('No inline scripts found in FoamLens frontend.');
           scripts.forEach((m,i)=>{try{new Function(m[1])}catch(e){throw new Error('Inline script '+i+' failed syntax validation: '+e.message)}});
+          const extDir='desktop/src/FoamLensDesktop/frontend';
+          const extensions=fs.readdirSync(extDir).filter(name=>/^v13-.*\.js$/i.test(name));
+          extensions.forEach(name=>{const src=fs.readFileSync(extDir+'/'+name,'utf8');try{new Function(src)}catch(e){throw new Error(name+' failed syntax validation: '+e.message)}});
           if(!html.includes("window.chrome.webview.addEventListener('message'"))throw new Error('FoamLens native WebView2 bridge is missing.');
           for(const fragment of ['parseOpenFOAMRunLogRecords','parseOpenFOAMRunLogFile',"return'runlog'","path:'solver run log'"]){
             if(!html.includes(fragment))throw new Error('Raw OpenFOAM solver-log support missing: '+fragment);
@@ -84,7 +87,7 @@ jobs:
           for(const id of ['launchFolder','launchFiles','launchWorkspace']){
             if(!html.includes("$('"+id+"')"))throw new Error('Launch control wiring missing: '+id);
           }
-          console.log('Validated '+scripts.length+' inline FoamLens script blocks and launch controls.');
+          console.log('Validated '+scripts.length+' inline FoamLens script blocks, '+extensions.length+' v1.3 modules, and launch controls.');
           '@ | Set-Content -Path validate-foamlens-frontend.js -Encoding utf8
           node validate-foamlens-frontend.js
 
