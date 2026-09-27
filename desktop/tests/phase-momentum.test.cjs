@@ -14,10 +14,11 @@ const b = html.indexOf(end, a);
 assert(a >= 0 && b > a, 'Phase Change / Momentum core markers are missing.');
 
 const core = html.slice(a, b + end.length);
+const nl = String.fromCharCode(10);
 const api = new Function(
-  "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}\\n" +
-  core +
-  '\nreturn {' +
+  "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}" +
+  nl + core + nl +
+  'return {' +
   'pmVolumeFieldDescriptorFromPath,pmPhysicalMetadataDescriptorFromPath,pmParseFoamDictionaryEntries,' +
   'pmSuggestMappings,pmCapabilitiesFromMapping,pmParseOpenFOAMFieldText,pmComponentValues,' +
   'pmClassifyPhase,pmStats,pmLocalRatio,pmPearson,pmSpearman,pmParseFormula,pmFormulaIdentifiers,pmEvalFormula};'
@@ -52,10 +53,11 @@ test('physical metadata indexing', () => {
 });
 
 test('simple and dimensioned metadata scalars', () => {
-  const rows = api.pmParseFoamDictionaryEntries(
-    'rho rho [1 -3 0 0 0 0 0] 7000;\\n' +
-    'beta [0 0 0 -1 0 0 0] 1.2e-4;\\n' +
-    'nOuterCorrectors 3;\\n',
+  const rows = api.pmParseFoamDictionaryEntries(`
+rho rho [1 -3 0 0 0 0 0] 7000;
+beta [0 0 0 -1 0 0 0] 1.2e-4;
+nOuterCorrectors 3;
+`,
     'constant/physicalProperties'
   );
   const rho = rows.find(x => x.key === 'rho');
@@ -75,7 +77,7 @@ test('capability-driven mapping suggestions', () => {
   assert(cap.phase && cap.momentum && cap.enabled);
 });
 
-const scalarText = \`FoamFile
+const scalarText = `FoamFile
 {
  format ascii;
  class volScalarField;
@@ -93,9 +95,9 @@ internalField nonuniform List<scalar>
 )
 ;
 boundaryField{}
-\`;
+`;
 
-const vectorText = \`FoamFile
+const vectorText = `FoamFile
 {
  format ascii;
  class volVectorField;
@@ -113,7 +115,7 @@ internalField nonuniform List<vector>
 )
 ;
 boundaryField{}
-\`;
+`;
 
 test('ASCII volScalarField parser', () => {
   const p = api.pmParseOpenFOAMFieldText(scalarText,'5/alphaL');

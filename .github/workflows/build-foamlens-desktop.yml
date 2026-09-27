@@ -22,6 +22,7 @@ permissions:
 
 env:
   HAS_WINDOWS_CERT: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+  HAS_QUICKCUP_FIXTURE: ${{ secrets.QUICKCUP_FIXTURE_TOKEN != '' }}
 
 jobs:
   build:
@@ -60,8 +61,8 @@ jobs:
       - name: Verify FoamLens frontend
         shell: pwsh
         run: |
-          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v50' -Quiet)) {
-            throw 'Desktop frontend is not FoamLens v50.'
+          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v51' -Quiet)) {
+            throw 'Desktop frontend is not FoamLens v51.'
           }
 
       - name: Validate FoamLens frontend JavaScript
@@ -92,6 +93,25 @@ jobs:
       - name: Test Phase Change / Momentum analysis
         shell: pwsh
         run: node desktop/tests/phase-momentum.test.cjs
+
+      - name: Test general OpenFOAM discovery model
+        shell: pwsh
+        run: node desktop/tests/discovery-model.test.cjs
+
+      - name: Checkout private OpenFOAM regression fixture
+        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: main
+          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-fixture
+          sparse-checkout: cases_controlled_buoyancy
+
+      - name: Test real OpenFOAM fixture integration
+        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
+        shell: pwsh
+        run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
       - name: Publish portable Windows executable
         shell: pwsh
