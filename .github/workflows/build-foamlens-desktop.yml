@@ -59,6 +59,7 @@ jobs:
             "/DMyAppVersion=1.0.0" `
             "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" `
             desktop/installer/FoamLens.iss
+          Copy-Item desktop/artifacts/FoamLens-Setup-v1.0.0.exe artifacts/FoamLens-Setup-v1.0.0.exe -Force
 
       - uses: actions/upload-artifact@v4
         with:
