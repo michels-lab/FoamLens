@@ -2,24 +2,50 @@ name: Build FoamLens Desktop for Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the generated installer and portable EXE as a GitHub Release.
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
+    tags:
+      - 'v*'
     paths:
       - 'desktop/**'
       - '.github/workflows/build-foamlens-desktop.yml'
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  HAS_WINDOWS_CERT: \${{ secrets.WINDOWS_CERT_BASE64 != '' }}
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Resolve FoamLens version
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -like 'v*') {
+            $v = $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            [xml]$proj = Get-Content 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+            $v = [string]$proj.Project.PropertyGroup.Version
+          }
+          if ([string]::IsNullOrWhiteSpace($v)) { throw 'FoamLens version could not be resolved.' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Building FoamLens v$v"
 
       - name: Rebuild embedded frontend bundle
         shell: pwsh
@@ -38,33 +64,85 @@ jobs:
             throw 'Desktop frontend is not FoamLens v48.'
           }
 
-      - name: Publish single-file Windows executable
+      - name: Publish portable Windows executable
         shell: pwsh
         run: |
+          $v='\${{ steps.ver.outputs.version }}'
+          New-Item -ItemType Directory -Force artifacts/publish | Out-Null
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
-          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj `
-            -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -o artifacts/publish
-          Copy-Item artifacts/publish/FoamLens.exe artifacts/FoamLens-Desktop-v1.0.0.exe
-          $hash=(Get-FileHash artifacts/FoamLens-Desktop-v1.0.0.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  FoamLens-Desktop-v1.0.0.exe" | Set-Content artifacts/FoamLens-Desktop-v1.0.0.exe.sha256 -Encoding ascii
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
+          Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Desktop-v$v.exe"
 
-      - name: Build installer
+      - name: Optional Authenticode signing for portable EXE
+        if: \${{ env.HAS_WINDOWS_CERT == 'true' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: \${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: \${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $v='\${{ steps.ver.outputs.version }}'
+          [IO.File]::WriteAllBytes('artifacts/signing.pfx',[Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+          $signtool = Get-ChildItem "\${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'signtool.exe not found' }
+          & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Desktop-v$v.exe"
+          Remove-Item artifacts/signing.pfx -Force
+
+      - name: Create portable checksum
+        shell: pwsh
+        run: |
+          $v='\${{ steps.ver.outputs.version }}'
+          $exe="artifacts/FoamLens-Desktop-v$v.exe"
+          $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  FoamLens-Desktop-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
+
+      - name: Build FoamLens installer
         shell: pwsh
         run: |
           choco install innosetup --yes --no-progress
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
-            "/DMyAppVersion=1.0.0" `
-            "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" `
-            desktop/installer/FoamLens.iss
-          Copy-Item desktop/artifacts/FoamLens-Setup-v1.0.0.exe artifacts/FoamLens-Setup-v1.0.0.exe -Force
+          $v='\${{ steps.ver.outputs.version }}'
+          & "\${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$v" "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" desktop/installer/FoamLens.iss
+          Copy-Item "desktop/artifacts/FoamLens-Setup-v$v.exe" "artifacts/FoamLens-Setup-v$v.exe" -Force
 
-      - uses: actions/upload-artifact@v4
+      - name: Optional Authenticode signing for installer
+        if: \${{ env.HAS_WINDOWS_CERT == 'true' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: \${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: \${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $v='\${{ steps.ver.outputs.version }}'
+          [IO.File]::WriteAllBytes('artifacts/signing.pfx',[Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+          $signtool = Get-ChildItem "\${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'signtool.exe not found' }
+          & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Setup-v$v.exe"
+          Remove-Item artifacts/signing.pfx -Force
+
+      - name: Upload FoamLens Windows build
+        uses: actions/upload-artifact@v4
         with:
-          name: FoamLens-Desktop-v1.0.0
+          name: FoamLens-Windows-v\${{ steps.ver.outputs.version }}
           path: |
-            artifacts/FoamLens-Desktop-v1.0.0.exe
-            artifacts/FoamLens-Desktop-v1.0.0.exe.sha256
-            artifacts/FoamLens-Setup-v1.0.0.exe
+            artifacts/FoamLens-Desktop-v\${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Desktop-v\${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/FoamLens-Setup-v\${{ steps.ver.outputs.version }}.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: \${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
+        shell: pwsh
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          $v='\${{ steps.ver.outputs.version }}'
+          if ($env:GITHUB_REF_NAME -like 'v*') { $tag=$env:GITHUB_REF_NAME } else { $tag="v$v" }
+          $assets=@(
+            "artifacts/FoamLens-Desktop-v$v.exe",
+            "artifacts/FoamLens-Desktop-v$v.exe.sha256",
+            "artifacts/FoamLens-Setup-v$v.exe"
+          )
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes "FoamLens Windows release $tag."
+          }
