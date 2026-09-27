@@ -1,6 +1,8 @@
-# FoamLens Desktop v1.3.0
+# FoamLens Desktop v1.3.0 — Development
 
-Native Windows host embedding the **FoamLens v51 frontend**.
+Development host embedding the **FoamLens v51 development frontend**.
+
+The currently published stable release remains **FoamLens Desktop v1.2.0 with frontend v50**. This v1.3.0 branch is not a published release.
 
 ## Architecture
 
