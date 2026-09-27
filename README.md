@@ -39,9 +39,9 @@ This avoids depending on a browser tab for long analyses and provides native Win
 
 GitHub Actions builds:
 
-- `FoamLens-Desktop-vX.Y.Z.exe` — portable self-contained Windows executable.
+- `FoamLens-Portable-vX.Y.Z.exe` — portable self-contained Windows executable.
 - `FoamLens-Setup-vX.Y.Z.exe` — Windows installer generated with Inno Setup.
-- `FoamLens-Desktop-vX.Y.Z.exe.sha256` — SHA-256 checksum.
+- `FoamLens-Portable-vX.Y.Z.exe.sha256` — SHA-256 checksum.
 
 Tagged or explicitly published builds can also be attached directly to a GitHub Release.
 
