@@ -17,9 +17,9 @@ The frontend retains its normal web folder flow when opened as HTML. The native 
 
 The **Build FoamLens Desktop for Windows** workflow reconstructs the v48 frontend and produces:
 
-- `FoamLens-Desktop-vX.Y.Z.exe` — portable self-contained Windows executable.
+- `FoamLens-Portable-vX.Y.Z.exe` — portable self-contained Windows executable.
 - `FoamLens-Setup-vX.Y.Z.exe` — installer generated with Inno Setup.
-- `FoamLens-Desktop-vX.Y.Z.exe.sha256` — SHA-256 checksum.
+- `FoamLens-Portable-vX.Y.Z.exe.sha256` — SHA-256 checksum.
 
 The version is read from `FoamLensDesktop.csproj`. Tagged or explicitly published builds can be attached directly to a GitHub Release. Optional Authenticode signing is supported when Windows signing secrets are configured.
 
