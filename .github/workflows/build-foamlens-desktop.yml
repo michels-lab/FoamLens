@@ -21,7 +21,7 @@ permissions:
   contents: write
 
 env:
-  HAS_WINDOWS_CERT: \${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+  HAS_WINDOWS_CERT: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
 
 jobs:
   build:
@@ -67,22 +67,22 @@ jobs:
       - name: Publish portable Windows executable
         shell: pwsh
         run: |
-          $v='\${{ steps.ver.outputs.version }}'
+          $v='${{ steps.ver.outputs.version }}'
           New-Item -ItemType Directory -Force artifacts/publish | Out-Null
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
           dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
           Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Desktop-v$v.exe"
 
       - name: Optional Authenticode signing for portable EXE
-        if: \${{ env.HAS_WINDOWS_CERT == 'true' }}
+        if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: pwsh
         env:
-          WINDOWS_CERT_BASE64: \${{ secrets.WINDOWS_CERT_BASE64 }}
-          WINDOWS_CERT_PASSWORD: \${{ secrets.WINDOWS_CERT_PASSWORD }}
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
-          $v='\${{ steps.ver.outputs.version }}'
+          $v='${{ steps.ver.outputs.version }}'
           [IO.File]::WriteAllBytes('artifacts/signing.pfx',[Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
-          $signtool = Get-ChildItem "\${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signtool) { throw 'signtool.exe not found' }
           & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Desktop-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
@@ -90,7 +90,7 @@ jobs:
       - name: Create portable checksum
         shell: pwsh
         run: |
-          $v='\${{ steps.ver.outputs.version }}'
+          $v='${{ steps.ver.outputs.version }}'
           $exe="artifacts/FoamLens-Desktop-v$v.exe"
           $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  FoamLens-Desktop-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
@@ -99,20 +99,20 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup --yes --no-progress
-          $v='\${{ steps.ver.outputs.version }}'
-          & "\${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$v" "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" desktop/installer/FoamLens.iss
+          $v='${{ steps.ver.outputs.version }}'
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$v" "/DPublishDir=$((Resolve-Path 'artifacts/publish').Path)" desktop/installer/FoamLens.iss
           Copy-Item "desktop/artifacts/FoamLens-Setup-v$v.exe" "artifacts/FoamLens-Setup-v$v.exe" -Force
 
       - name: Optional Authenticode signing for installer
-        if: \${{ env.HAS_WINDOWS_CERT == 'true' }}
+        if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: pwsh
         env:
-          WINDOWS_CERT_BASE64: \${{ secrets.WINDOWS_CERT_BASE64 }}
-          WINDOWS_CERT_PASSWORD: \${{ secrets.WINDOWS_CERT_PASSWORD }}
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
-          $v='\${{ steps.ver.outputs.version }}'
+          $v='${{ steps.ver.outputs.version }}'
           [IO.File]::WriteAllBytes('artifacts/signing.pfx',[Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
-          $signtool = Get-ChildItem "\${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object {$_.FullName -match '\\x64\\'} | Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signtool) { throw 'signtool.exe not found' }
           & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Setup-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
@@ -120,20 +120,20 @@ jobs:
       - name: Upload FoamLens Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: FoamLens-Windows-v\${{ steps.ver.outputs.version }}
+          name: FoamLens-Windows-v${{ steps.ver.outputs.version }}
           path: |
-            artifacts/FoamLens-Desktop-v\${{ steps.ver.outputs.version }}.exe
-            artifacts/FoamLens-Desktop-v\${{ steps.ver.outputs.version }}.exe.sha256
-            artifacts/FoamLens-Setup-v\${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Desktop-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Desktop-v${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: \${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
         shell: pwsh
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $v='\${{ steps.ver.outputs.version }}'
+          $v='${{ steps.ver.outputs.version }}'
           if ($env:GITHUB_REF_NAME -like 'v*') { $tag=$env:GITHUB_REF_NAME } else { $tag="v$v" }
           $assets=@(
             "artifacts/FoamLens-Desktop-v$v.exe",
