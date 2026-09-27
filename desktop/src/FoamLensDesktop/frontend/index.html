@@ -1852,6 +1852,103 @@ Source availability, distribution of an HTML build, or publication of source cod
 (()=>{
 const $=id=>document.getElementById(id);
 
+const FOAMLENS_NATIVE=!!(window.chrome&&window.chrome.webview&&typeof window.chrome.webview.postMessage==='function');
+let foamLensNativeSeq=0;
+const foamLensNativePending=new Map();
+const foamLensNativeFolderPending=new Map();
+
+function foamLensNativeRequest(type,payload={}){
+  if(!FOAMLENS_NATIVE)return Promise.reject(new Error('FoamLens native bridge is unavailable'));
+  const requestId='js_'+Date.now().toString(36)+'_'+(++foamLensNativeSeq).toString(36);
+  return new Promise((resolve,reject)=>{
+    foamLensNativePending.set(requestId,{resolve,reject});
+    window.chrome.webview.postMessage({type,requestId,...payload})
+  })
+}
+
+class FoamLensNativeFile{
+  constructor(ref){
+    this._nativeToken=ref.token;
+    this.name=ref.name||'file';
+    this.webkitRelativePath=ref.relativePath||this.name;
+    this.size=Number(ref.size)||0;
+    this.lastModified=Number(ref.lastModified)||0;
+    this.type=''
+  }
+  async text(){return await foamLensNativeRequest('readText',{token:this._nativeToken})}
+  slice(start=0,end=this.size,type=''){
+    const from=Math.max(0,Number(start)||0);
+    const to=end==null?this.size:Math.max(from,Number(end)||from);
+    const length=Math.max(0,to-from),token=this._nativeToken;
+    return{
+      type,size:length,
+      text:async()=>await foamLensNativeRequest('readSlice',{token,start:from,length}),
+      arrayBuffer:async()=>new TextEncoder().encode(await foamLensNativeRequest('readSlice',{token,start:from,length})).buffer
+    }
+  }
+  async arrayBuffer(){return new TextEncoder().encode(await this.text()).buffer}
+}
+
+function foamLensNativeFolderProgress(m){
+  const files=Number(m.files)||0,folders=Number(m.folders)||0;
+  const fileText=files.toLocaleString()+' '+(diagEs()?'archivos encontrados':'files discovered');
+  const folderText=folders.toLocaleString()+' '+(diagEs()?'carpetas recorridas':'folders visited');
+  if($('scanCurrentTask'))$('scanCurrentTask').textContent=diagEs()?'Recorriendo carpeta':'Walking directory';
+  if($('scanCurrentDetail'))$('scanCurrentDetail').textContent=(m.folderName||'')+' · '+folderText;
+  if($('scanProcessed'))$('scanProcessed').textContent=fileText;
+  scanStepState('structure','active',fileText+' · '+folderText);
+  updateAppActivity(diagEs()?'Leyendo carpeta seleccionada':'Reading selected folder',fileText+' · '+folderText)
+}
+
+function pickNativeOpenFOAMFolder(){
+  if(!FOAMLENS_NATIVE)return Promise.reject(new Error('FoamLens native bridge is unavailable'));
+  const requestId='folder_'+Date.now().toString(36)+'_'+(++foamLensNativeSeq).toString(36);
+  return new Promise((resolve,reject)=>{
+    foamLensNativeFolderPending.set(requestId,{resolve,reject,files:[],started:false});
+    window.chrome.webview.postMessage({type:'pickFolder',requestId})
+  })
+}
+
+if(FOAMLENS_NATIVE){
+  window.chrome.webview.addEventListener('message',event=>{
+    const m=event.data||{},requestId=m.requestId||'';
+    if(m.type==='nativeReply'){
+      const p=foamLensNativePending.get(requestId);if(!p)return;
+      foamLensNativePending.delete(requestId);
+      if(m.ok)p.resolve(m.data);else p.reject(new Error(m.error||'Native FoamLens request failed'));
+      return
+    }
+    const p=foamLensNativeFolderPending.get(requestId);if(!p)return;
+    if(m.type==='folderStart'){
+      p.started=true;p.files=[];
+      beginFolderEnumerationUi(m.folderName||'OpenFOAM_folder');
+      return
+    }
+    if(m.type==='folderChunk'){
+      for(const ref of (m.files||[]))p.files.push(new FoamLensNativeFile(ref));
+      return
+    }
+    if(m.type==='folderProgress'){foamLensNativeFolderProgress(m);return}
+    if(m.type==='folderComplete'){
+      foamLensNativeFolderPending.delete(requestId);
+      if(p.started)finishFolderEnumerationUi();
+      p.resolve(p.files);
+      return
+    }
+    if(m.type==='folderCancelled'){
+      foamLensNativeFolderPending.delete(requestId);
+      if(p.started)finishFolderEnumerationUi();
+      p.resolve(null);
+      return
+    }
+    if(m.type==='folderError'){
+      foamLensNativeFolderPending.delete(requestId);
+      if(p.started)finishFolderEnumerationUi();
+      p.reject(new Error(m.error||'Could not enumerate the selected folder'))
+    }
+  })
+}
+
 const I18N={
   en:{
     appSubtitle:'OpenFOAM analysis workspace',
@@ -2638,6 +2735,12 @@ function ensureFoamLensLogWorker(){
 }
 async function parseSolverLogBatchFast(files){
   if(!files.length)return[];
+  if(FOAMLENS_NATIVE&&files.every(file=>file&&file._nativeToken)){
+    try{
+      const data=await foamLensNativeRequest('parseFoamLogBatch',{items:files.map((file,index)=>({token:file._nativeToken,index}))});
+      return (data&&data.results?data.results:[]).map(r=>({file:files[r.index],error:r.error,t:r.t||[],y:r.y||[]}))
+    }catch(err){console.warn('Native foamLog parser failed; falling back to JavaScript.',err)}
+  }
   const worker=ensureFoamLensLogWorker();
   if(worker){
     try{
@@ -3644,6 +3747,18 @@ async function enumerateDirectoryHandle(rootHandle){
   return out
 }
 async function chooseOpenFOAMFolder(){
+  if(FOAMLENS_NATIVE){
+    try{
+      const files=await pickNativeOpenFOAMFolder();
+      if(!files)return;
+      if(!files.length){setOverlayOpen('scanOverlay',false);$('status').textContent=diagEs()?'La carpeta seleccionada está vacía.':'The selected folder is empty.';return}
+      await handleSmartFolderImport(files)
+    }catch(err){
+      setOverlayOpen('scanOverlay',false);
+      console.error(err);alert((diagEs()?'No se pudo leer la carpeta':'Could not read the folder')+': '+(err&&err.message?err.message:err))
+    }
+    return
+  }
   if(!supportsDirectDirectoryAccess()){$('folderInput').click();return}
   let handle;
   try{handle=await window.showDirectoryPicker({mode:'read'})}
@@ -3661,7 +3776,7 @@ async function chooseOpenFOAMFolder(){
     await handleSmartFolderImport(files)
   }catch(err){
     finishFolderEnumerationUi();setOverlayOpen('scanOverlay',false);
-    console.error(err);alert(`${diagEs()?'No se pudo leer la carpeta':'Could not read the folder'}: ${err?.message||err}`)
+    console.error(err);alert((diagEs()?'No se pudo leer la carpeta':'Could not read the folder')+': '+(err&&err.message?err.message:err))
   }
 }
 async function handleSmartFolderImport(files){if(!files?.length)return;await runProjectScan(files)}
@@ -4847,7 +4962,7 @@ function renderList(){
   items.forEach(appendSeries);
 }
 
-function active()function active(){return currentViewSeries().find(s=>s.id===activeId)||series.find(s=>s.id===activeId)}
+function active(){return currentViewSeries().find(s=>s.id===activeId)||series.find(s=>s.id===activeId)}
 
 function zeroCrossings(values){
   let n=0,prev=null;for(const v of values){if(!Number.isFinite(v)||v===0)continue;if(prev!=null&&Math.sign(v)!==Math.sign(prev))n++;prev=v}return n
