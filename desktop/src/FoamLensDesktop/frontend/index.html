@@ -1953,7 +1953,7 @@ const I18N={
   en:{
     appSubtitle:'OpenFOAM analysis workspace',
     loadData:'Load data', addFiles:'Add files', addFolder:'Add folder', caseComparison:'Case comparison', addCase:'+ Add case', caseManagerNote:'Time series use consistent colors by variable. Spatial profiles use case-family colors when a family pattern is detected.', caseFiles:'Add files', caseFolder:'Add folder', caseName:'Case name', caseLineStyle:'Case line style', removeCase:'Delete case', noCaseFiles:'No series loaded', caseSingular:'case', casePlural:'cases', filesInCase:'Files in this case', removeFile:'Remove', fileSingular:'file', filePlural:'files', confirmDeleteCase:'Delete this case and all its loaded files?', hideCase:'Hide case from plots', showCase:'Show case in plots', caseHidden:'Hidden from plots',
-    drop:'Drop OpenFOAM files, a postProcessing folder or a logs folder here', dataView:'Data view', timeSeriesView:'Time series', spatialProfilesView:'Spatial profiles', solverLogsView:'Solver logs', logFamily:'Log family', logMember:'Sub-iteration', logCurrentFile:'Current foamLog file', logNone:'No solver logs detected', playbackSpeed:'Playback speed', logCurrentTime:'Current simulation time', playTime:'Play time', playSubIterations:'Play sub-iterations', subIterationA:'Sub-iteration A', subIterationB:'Sub-iteration B', profileSet:'Profile set', profileVariable:'Variable', profileTime:'Profile time', profileLine:'Profile line', profileNone:'No spatial profiles detected', profileMeta:'Spatial profile', profileHorizontal:'Horizontal profile', profileVertical:'Vertical profile', profileDepth:'Z-axis profile', profileGeneric:'Spatial profile', profileFiles:'profile files', timeSeriesCurves:'time-series curves', datasets:'datasets', xMinProfile:'X min', xMaxProfile:'X max',
+    drop:'Drop OpenFOAM files, a postProcessing folder or a logs folder here', dataView:'Data view', timeSeriesView:'Time series', spatialProfilesView:'Spatial profiles', solverLogsView:'Solver logs', logFamily:'Log family', logMember:'Sub-iteration', logCurrentFile:'Current solver log source', logNone:'No solver logs detected', playbackSpeed:'Playback speed', logCurrentTime:'Current simulation time', playTime:'Play time', playSubIterations:'Play sub-iterations', subIterationA:'Sub-iteration A', subIterationB:'Sub-iteration B', profileSet:'Profile set', profileVariable:'Variable', profileTime:'Profile time', profileLine:'Profile line', profileNone:'No spatial profiles detected', profileMeta:'Spatial profile', profileHorizontal:'Horizontal profile', profileVertical:'Vertical profile', profileDepth:'Z-axis profile', profileGeneric:'Spatial profile', profileFiles:'profile files', timeSeriesCurves:'time-series curves', datasets:'datasets', xMinProfile:'X min', xMaxProfile:'X max',
     figure:'Figure', thesisMode:'Thesis mode', title:'Title', automaticTitle:'Automatic title',
     plotLayout:'Plot layout', combined:'Combined / dual axis', panels:'Separate panels',
     exportPreset:'Export preset', thesisPreset:'Thesis 1600×1000', paperPreset:'Paper 1800×1200', widePreset:'Wide 1920×1080',
@@ -1982,7 +1982,7 @@ const I18N={
   es:{
     appSubtitle:'Workspace de análisis OpenFOAM',
     loadData:'Cargar datos', addFiles:'Agregar archivos', addFolder:'Agregar carpeta', caseComparison:'Comparación de casos', addCase:'+ Agregar caso', caseManagerNote:'Las series temporales usan colores consistentes por variable. Los perfiles espaciales usan colores por familia de casos cuando se detecta el patrón.', caseFiles:'Agregar archivos', caseFolder:'Agregar carpeta', caseName:'Nombre del caso', caseLineStyle:'Tipo de línea del caso', removeCase:'Eliminar caso', noCaseFiles:'Sin series cargadas', caseSingular:'caso', casePlural:'casos', filesInCase:'Archivos de este caso', removeFile:'Quitar', fileSingular:'archivo', filePlural:'archivos', confirmDeleteCase:'¿Eliminar este caso y todos sus archivos cargados?', hideCase:'Ocultar caso de las gráficas', showCase:'Mostrar caso en las gráficas', caseHidden:'Oculto de las gráficas',
-    drop:'Arrastra aquí archivos de OpenFOAM, una carpeta postProcessing o una carpeta logs', dataView:'Vista de datos', timeSeriesView:'Series temporales', spatialProfilesView:'Perfiles espaciales', solverLogsView:'Logs del solver', logFamily:'Familia de log', logMember:'Subiteración', logCurrentFile:'Archivo foamLog actual', logNone:'No se detectaron logs del solver', playbackSpeed:'Velocidad de reproducción', logCurrentTime:'Tiempo actual de simulación', playTime:'Reproducir tiempo', playSubIterations:'Reproducir subiteraciones', subIterationA:'Subiteración A', subIterationB:'Subiteración B', profileSet:'Conjunto de perfiles', profileVariable:'Variable', profileTime:'Tiempo del perfil', profileLine:'Línea del perfil', profileNone:'No se detectaron perfiles espaciales', profileMeta:'Perfil espacial', profileHorizontal:'Perfil horizontal', profileVertical:'Perfil vertical', profileDepth:'Perfil en eje Z', profileGeneric:'Perfil espacial', profileFiles:'archivos de perfil', timeSeriesCurves:'curvas temporales', datasets:'datasets', xMinProfile:'X mín', xMaxProfile:'X máx',
+    drop:'Arrastra aquí archivos de OpenFOAM, una carpeta postProcessing o una carpeta logs', dataView:'Vista de datos', timeSeriesView:'Series temporales', spatialProfilesView:'Perfiles espaciales', solverLogsView:'Logs del solver', logFamily:'Familia de log', logMember:'Subiteración', logCurrentFile:'Fuente actual del log del solver', logNone:'No se detectaron logs del solver', playbackSpeed:'Velocidad de reproducción', logCurrentTime:'Tiempo actual de simulación', playTime:'Reproducir tiempo', playSubIterations:'Reproducir subiteraciones', subIterationA:'Subiteración A', subIterationB:'Subiteración B', profileSet:'Conjunto de perfiles', profileVariable:'Variable', profileTime:'Tiempo del perfil', profileLine:'Línea del perfil', profileNone:'No se detectaron perfiles espaciales', profileMeta:'Perfil espacial', profileHorizontal:'Perfil horizontal', profileVertical:'Perfil vertical', profileDepth:'Perfil en eje Z', profileGeneric:'Perfil espacial', profileFiles:'archivos de perfil', timeSeriesCurves:'curvas temporales', datasets:'datasets', xMinProfile:'X mín', xMaxProfile:'X máx',
     figure:'Figura', thesisMode:'Modo tesis', title:'Título', automaticTitle:'Título automático',
     plotLayout:'Diseño de gráfica', combined:'Combinada / doble eje', panels:'Paneles separados',
     exportPreset:'Preajuste de exportación', thesisPreset:'Tesis 1600×1000', paperPreset:'Paper 1800×1200', widePreset:'Panorámica 1920×1080',
@@ -2569,6 +2569,73 @@ function inferLogField(desc){
   else if(/^continuity/i.test(desc.metric))quantity='continuity';
   return {canonical:`log:${desc.family}`,display:desc.display,unit:desc.unit,quantity,original:desc.family}
 }
+
+function rawRunLogDescriptor(root,metric){
+  if(metric==='initialResidual')return{family:root,root,metric,display:root+' · Initial residual',unit:'-'};
+  if(metric==='finalResidual')return{family:root+'FinalRes',root,metric,display:root+' · Final residual',unit:'-'};
+  if(metric==='iterations')return{family:root+'Iters',root,metric,display:root+' · Solver iterations',unit:'iterations'};
+  if(metric==='courantMean')return{family:'CourantMean',root:'Courant',metric,display:'Courant number · Mean',unit:'-'};
+  if(metric==='courantMax')return{family:'CourantMax',root:'Courant',metric,display:'Courant number · Maximum',unit:'-'};
+  if(metric==='continuityLocal')return{family:'contLocal',root:'continuity',metric,display:'Continuity error · Local',unit:'-'};
+  if(metric==='continuityGlobal')return{family:'contGlobal',root:'continuity',metric,display:'Continuity error · Global',unit:'-'};
+  if(metric==='continuityCumulative')return{family:'contCumulative',root:'continuity',metric,display:'Continuity error · Cumulative',unit:'-'};
+  if(metric==='executionTime')return{family:'executionTime',root:'executionTime',metric,display:'Execution time',unit:'s'};
+  if(metric==='clockTime')return{family:'clockTime',root:'clockTime',metric,display:'Clock time',unit:'s'};
+  return{family:root,root,metric,display:root,unit:'-'}
+}
+
+function parseOpenFOAMRunLogRecords(text){
+  const buckets=new Map(),solveCounts=new Map(),specialCounts=new Map();let time=NaN;
+  const add=(desc,subIter,value)=>{
+    value=foamLogNumber(value);if(!Number.isFinite(time)||!Number.isFinite(value))return;
+    const key=[desc.family,subIter].join('|');
+    if(!buckets.has(key))buckets.set(key,{...desc,subIter,points:new Map()});
+    buckets.get(key).points.set(Number(time),value)
+  };
+  for(const raw of String(text||'').split(/\r?\n/)){
+    const line=raw.trim();if(!line)continue;
+    let m=line.match(/^Time\s*=\s*([^\s]+)/i);
+    if(m){const t=foamLogNumber(m[1]);if(Number.isFinite(t)){time=t;solveCounts.clear();specialCounts.clear()}continue}
+    if(!Number.isFinite(time))continue;
+
+    m=line.match(/Solving for\s+([^,\s]+)\s*,\s*Initial residual\s*=\s*([^,\s]+)\s*,\s*Final residual\s*=\s*([^,\s]+)\s*,\s*No Iterations\s+([^,\s]+)/i);
+    if(m){
+      const root=m[1],sub=solveCounts.get(root)||0;solveCounts.set(root,sub+1);
+      add(rawRunLogDescriptor(root,'initialResidual'),sub,m[2]);
+      add(rawRunLogDescriptor(root,'finalResidual'),sub,m[3]);
+      add(rawRunLogDescriptor(root,'iterations'),sub,m[4]);
+      continue
+    }
+
+    m=line.match(/Courant Number\s+mean:\s*([^\s]+)\s+max:\s*([^\s]+)/i);
+    if(m){add(rawRunLogDescriptor('Courant','courantMean'),0,m[1]);add(rawRunLogDescriptor('Courant','courantMax'),0,m[2]);continue}
+
+    m=line.match(/time step continuity errors\s*:\s*sum local\s*=\s*([^,\s]+)\s*,\s*global\s*=\s*([^,\s]+)\s*,\s*cumulative\s*=\s*([^\s]+)/i);
+    if(m){
+      const sub=specialCounts.get('continuity')||0;specialCounts.set('continuity',sub+1);
+      add(rawRunLogDescriptor('continuity','continuityLocal'),sub,m[1]);
+      add(rawRunLogDescriptor('continuity','continuityGlobal'),sub,m[2]);
+      add(rawRunLogDescriptor('continuity','continuityCumulative'),sub,m[3]);
+      continue
+    }
+
+    m=line.match(/ExecutionTime\s*=\s*([^\s]+)\s*s\s+ClockTime\s*=\s*([^\s]+)\s*s/i);
+    if(m){add(rawRunLogDescriptor('executionTime','executionTime'),0,m[1]);add(rawRunLogDescriptor('clockTime','clockTime'),0,m[2])}
+  }
+  return [...buckets.values()].map(b=>{
+    const points=[...b.points.entries()].sort((a,b)=>a[0]-b[0]);
+    return{...b,t:points.map(p=>p[0]),y:points.map(p=>p[1])}
+  }).filter(b=>b.t.length)
+}
+
+async function parseOpenFOAMRunLogFile(file){
+  const text=await file.text(),records=parseOpenFOAMRunLogRecords(text);
+  const sourcePath=(file.webkitRelativePath||file.name),logsPath=sourcePath.replace(/\/[^/]*$/,'');
+  return records.map(r=>{
+    const desc={family:r.family,subIter:r.subIter,root:r.root,metric:r.metric,display:r.display,unit:r.unit,logsPath,skip:false};
+    return{id:nextId++,datasetType:'log',caseName:inferCase(file),fileName:file.name,sourcePath,field:inferLogField(desc),probe:null,location:'',logFamily:r.family,logRoot:r.root,logMetric:r.metric,logSubIter:r.subIter,logPath:logsPath,t:r.t,y:r.y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:'',rawRunLog:true}
+  })
+}
 async function parseSolverLogFile(file){
   const desc=foamLogDescriptor(file);if(!desc)throw Error('Not a foamLog file');
   if(desc.skip)return [];
@@ -2588,6 +2655,7 @@ async function parseSolverLogFile(file){
 async function inspectOpenFOAMFileKind(file){
   try{
     const head=await file.slice(0,65536).text();
+    if(runLogDescriptorFromFile(file)&&/(?:^|\n)\s*Time\s*=|Solving for\s+[^,]+,\s*Initial residual/i.test(head))return 'runlog';
     const logDesc=foamLogDescriptor(file);
     if(logDesc){
       if(logDesc.skip)return 'ignore';
@@ -2689,6 +2757,7 @@ async function parseSpatialProfileFile(file){
 
 
 function fastOpenFOAMKind(file){
+  if(runLogDescriptorFromFile(file))return'runlog';
   const d=foamLogDescriptor(file);if(d)return d.skip?'ignore':'log';
   const path=(file.webkitRelativePath||file.name||'').replace(/\\/g,'/').toLowerCase();
   if(path.includes('/postprocessing/')){
@@ -2699,6 +2768,7 @@ function fastOpenFOAMKind(file){
 }
 async function parseAnyOpenFOAMFileFast(file,kindHint=''){
   const kind=kindHint||fastOpenFOAMKind(file);
+  if(kind==='runlog')return parseOpenFOAMRunLogFile(file);
   if(kind==='log')return parseSolverLogFile(file);
   if(kind==='profile')return parseSpatialProfileFile(file);
   if(kind==='timeseries')return parseFile(file);
@@ -2812,6 +2882,7 @@ async function hydrateLazyProfilesForContext(){
 async function parseAnyOpenFOAMFile(file){
   const kind=await inspectOpenFOAMFileKind(file);
   if(kind==='profile')return parseSpatialProfileFile(file);
+  if(kind==='runlog')return parseOpenFOAMRunLogFile(file);
   if(kind==='log')return parseSolverLogFile(file);
   if(kind==='ignore')return [];
   return parseFile(file)
@@ -3384,7 +3455,7 @@ async function detectOpenFOAMCases(files,onProgress=()=>{}){
   const byCase=new Map();
   for(const root of roots){
     const evidence=[...root.evidence];
-    const hasControl=evidence.includes('system/controlDict'),hasResults=evidence.some(x=>x==='logs/'||x==='postProcessing/');
+    const hasControl=evidence.includes('system/controlDict'),hasResults=evidence.some(x=>x==='logs/'||x==='postProcessing/'||x==='solver log');
     const classification=hasControl?(evidence.length>=3?'OpenFOAM case':'probable OpenFOAM case'):(hasResults?'results-only directory':'supporting directory');
     byCase.set(root.key,{key:root.key,name:root.name,rootPath:root.rootPath,files:[],allFiles:[],outputs:[],datasetCounts:{timeseries:0,profile:0,log:0},metadataFiles:metadataByCase.get(root.key)||{},runLogFiles:runLogsByCase.get(root.key)||[],discovery:{classification,evidence,regions:[],functionObjects:[],importIssues:[]}})
   }
@@ -3392,6 +3463,15 @@ async function detectOpenFOAMCases(files,onProgress=()=>{}){
   for(const g of accepted){
     if(!byCase.has(g.caseKey))byCase.set(g.caseKey,{key:g.caseKey,name:g.caseName,rootPath:g.caseRootPath,files:[],allFiles:[],outputs:[],datasetCounts:{timeseries:0,profile:0,log:0},metadataFiles:metadataByCase.get(g.caseKey)||{},runLogFiles:runLogsByCase.get(g.caseKey)||[],discovery:{classification:'results-only directory',evidence:['postProcessing/logs'],regions:[],functionObjects:[],importIssues:[]}});
     const c=byCase.get(g.caseKey);c.outputs.push({path:g.outputPath,kind:g.kind,count:g.files.length});c.datasetCounts[g.kind]=(c.datasetCounts[g.kind]||0)+g.files.length;c.files.push(...g.files)
+  }
+
+  // Raw log.<solver> files are real Solver Logs too. They were previously used only
+  // for run-completion auditing, which made the Solver Logs tab incorrectly show 0.
+  for(const c of byCase.values()){
+    const rawLogs=c.runLogFiles||[];if(!rawLogs.length)continue;
+    c.outputs.push({path:'solver run log',kind:'log',count:rawLogs.length});
+    c.datasetCounts.log=(c.datasetCounts.log||0)+rawLogs.length;
+    c.files.push(...rawLogs)
   }
 
   // Build a path cache once, then assign files to cases cooperatively.

@@ -7,11 +7,11 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Current versions
 
 - **FoamLens Web v48**
-- **FoamLens Desktop v1.0.1** for Windows
+- **FoamLens Desktop v1.0.2** for Windows
 
 ## Features
 
-- Load OpenFOAM probe files, spatial-profile `.xy` files, solver logs, and `postProcessing` folders.
+- Load OpenFOAM probe files, spatial-profile `.xy` files, processed `foamLog` outputs, raw `log.<solver>` run logs, and `postProcessing` folders.
 - Smart recursive folder import with automatic OpenFOAM case detection.
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
 - Detect horizontal/vertical spatial profiles from file structure and contents.
