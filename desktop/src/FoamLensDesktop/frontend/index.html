@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FoamLens v49 — by Michel Duarte</title>
+<title>FoamLens v50 — by Michel Duarte</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect x=%226%22 y=%226%22 width=%2250%22 height=%2250%22 rx=%2216%22 fill=%22%230d1f32%22 stroke=%22%2370b8ff%22 stroke-width=%222.2%22/%3E%3Cpath d=%22M-2 25C11 17 19 18 28 24C37 30 44 31 61 20%22 fill=%22none%22 stroke=%22%2388d0ff%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M-1 34C12 27 20 28 29 34C38 40 45 41 62 31%22 fill=%22none%22 stroke=%22%23f1bb49%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M0 43C13 37 21 38 30 43C39 48 46 49 63 41%22 fill=%22none%22 stroke=%22%236fb2ec%22 stroke-width=%223.1%22 stroke-linecap=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2235%22 r=%223.4%22 fill=%22%23f1bb49%22/%3E%3Cpath d=%22M52 52l11 11%22 stroke=%22%23eef7ff%22 stroke-width=%224.6%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 
 <style>
@@ -809,7 +809,7 @@ body:not(.dark) .aboutOverlay{background:rgba(20,31,47,.48)}
 @media(max-width:580px){.aboutOverlay{padding:10px}.aboutDeveloperCard{grid-template-columns:1fr;text-align:center}.aboutAvatar{width:min(100%,240px);height:auto;aspect-ratio:1109/1536;margin:auto}.aboutSocials{grid-template-columns:1fr}.aboutHero h2{font-size:28px}}
 
 
-/* FoamLens v49 */
+/* FoamLens v50 */
 .foamLensLogoSvg{width:100%;height:100%;display:block;overflow:visible}
 .logo{background:none!important;box-shadow:none!important;padding:1px}
 .logo:before,.logo:after,.launchMark:before,.launchMark:after,.aboutMarkBox:before,.aboutMarkBox:after{display:none!important}
@@ -882,6 +882,33 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 @keyframes folderReadSweep{0%{transform:translateX(-110%);opacity:.65}50%{opacity:1}100%{transform:translateX(300%);opacity:.65}}
 
 
+
+/* FoamLens v50 — capability-driven field analysis */
+.pmHidden{display:none!important}
+.pmMappingGrid{display:grid;gap:7px}
+.pmMappingRow{display:grid;grid-template-columns:minmax(110px,.9fr) minmax(0,1.4fr);gap:7px;align-items:center}
+.pmMappingRole{font-size:9px;font-weight:800;color:var(--muted)}
+.pmCapabilityBar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pmCap{border:1px solid var(--line);border-radius:999px;padding:4px 7px;font-size:8px;color:var(--muted)}
+.pmCap.on{color:var(--accent);border-color:rgba(27,111,216,.4);background:var(--accentSoft)}
+.pmAnalysisTabs{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}
+.pmAnalysisTab{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:5px 8px;font-size:9px;font-weight:750}
+.pmAnalysisTab.active{color:var(--accent);border-color:rgba(27,111,216,.4);background:var(--accentSoft)}
+.pmPane{display:none}.pmPane.active{display:block}
+.pmCanvasWrap{height:190px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);overflow:hidden;margin-top:8px}
+.pmCanvasWrap canvas{position:relative;width:100%;height:100%}
+.pmTable{width:100%;border-collapse:collapse;font-size:9px}
+.pmTable th,.pmTable td{padding:6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.pmTable th{color:var(--muted);font-weight:750}
+.pmObservation{border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:6px;font-size:9px;line-height:1.45}
+.pmObservation .pmType{font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.pmMetadataFilter{margin-bottom:7px}
+.pmMetadataTable{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.pmCaseChecks{display:grid;gap:4px;max-height:130px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:7px}
+.pmCaseChecks label{font-size:9px;display:flex;gap:6px;align-items:center}
+.pmResultStatus{font-size:9px;color:var(--muted);line-height:1.5;margin-top:7px}
+.pmResultStatus.good{color:#45b983}.pmResultStatus.warn{color:#d99a38}
+.pmFormulaBindings{font-size:9px;color:var(--muted);line-height:1.5;margin-top:7px}
 </style>
 </head>
 <body class="dark appMode-workspace">
@@ -936,7 +963,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
       <div class="launchCapability"><b id="launchAnalyzeTitle">Analyze</b><span id="launchAnalyzeText">Profiles, solver behavior, coupling, phase fronts, differences and events.</span></div>
       <div class="launchCapability"><b id="launchReviewTitle">Review</b><span id="launchReviewText">Numerical health, findings, configuration comparison and case audit.</span></div>
     </div>
-    <div class="launchFooter" id="launchFooter">FoamLens v49 · OpenFOAM analysis workspace</div>
+    <div class="launchFooter" id="launchFooter">FoamLens v50 · OpenFOAM analysis workspace</div>
   </div>
 </section>
 <div class="app" id="appShell">
@@ -1220,6 +1247,116 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
       </div>
       <button class="btn soft" id="createDifference" type="button" style="width:100%">Create Δ curve</button>
       <div class="analysisMetric" id="differenceMetric">Select two compatible cases.</div>
+    </div>
+
+    <div class="analysisTools pmHidden" id="fieldMappingTools">
+      <div class="analysisTitle"><strong id="pmMappingTitle">Field Mapping</strong><span class="badge" id="pmMappingBadge">capabilities</span></div>
+      <div class="field"><label id="pmMappingCaseLabel">Case</label><select id="pmMappingCase"></select></div>
+      <div class="pmCapabilityBar" id="pmCapabilityBar"></div>
+      <div class="pmMappingGrid" id="pmMappingRows"></div>
+      <div class="field" style="margin-top:8px"><label id="pmUserRoleLabel">User-defined role label</label><input id="pmUserRoleName" type="text" placeholder="Optional custom semantic role"></div>
+      <div class="pmResultStatus" id="pmMappingStatus">Mappings are stored in FoamLens workspace configuration only. OpenFOAM files are never modified.</div>
+    </div>
+
+    <div class="analysisTools pmHidden" id="phaseMomentumTools">
+      <div class="analysisTitle"><strong id="pmTitle">Phase Change / Momentum</strong><span class="badge" id="pmStatusBadge">detected</span></div>
+
+      <div class="extGrid3">
+        <div class="field"><label id="pmCaseLabel">Case</label><select id="pmCase"></select></div>
+        <div class="field"><label id="pmRegionLabel">Region</label><select id="pmRegion"></select></div>
+        <div class="field"><label id="pmTimeLabel">Time [s]</label><select id="pmTime"></select></div>
+      </div>
+
+      <div class="extGrid2">
+        <div class="field"><label id="pmSolidThresholdLabel">Solid / mushy threshold</label><input id="pmAlphaLow" type="number" min="0" max="1" step="0.01" value="0.05"></div>
+        <div class="field"><label id="pmLiquidThresholdLabel">Mushy / liquid threshold</label><input id="pmAlphaHigh" type="number" min="0" max="1" step="0.01" value="0.95"></div>
+      </div>
+
+      <div class="pmAnalysisTabs">
+        <button class="pmAnalysisTab active" type="button" data-pm-pane="stats" id="pmTabStats">Statistics</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="ratio" id="pmTabRatio">Mechanisms</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="scatter" id="pmTabScatter">Scatter</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="evolution" id="pmTabEvolution">Evolution</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="metadata" id="pmTabMetadata">Metadata</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="verify" id="pmTabVerify">Verify field</button>
+        <button class="pmAnalysisTab" type="button" data-pm-pane="summary" id="pmTabSummary">Physics Summary</button>
+      </div>
+
+      <div class="pmPane active" data-pm-pane-panel="stats">
+        <div class="extGrid3">
+          <div class="field"><label id="pmStatsFieldLabel">Field</label><select id="pmStatsField"></select></div>
+          <div class="field"><label id="pmStatsComponentLabel">Component</label><select id="pmStatsComponent"></select></div>
+          <div class="field"><label id="pmStatsSubsetLabel">Spatial subset</label><select id="pmStatsSubset"><option value="whole">Whole domain</option><option value="liquid">Liquid</option><option value="mushy">Mushy</option><option value="solid">Solid</option></select></div>
+        </div>
+        <button class="btn soft" id="pmRunStats" type="button" style="width:100%">Calculate statistics</button>
+        <div class="pmResultStatus" id="pmStatsStatus"></div>
+        <div class="extTableWrap" id="pmStatsResult"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="ratio">
+        <div class="extGrid2">
+          <div class="field"><label id="pmRatioALabel">Mechanism A</label><select id="pmRatioA"></select></div>
+          <div class="field"><label id="pmRatioAComponentLabel">A component</label><select id="pmRatioAComponent"></select></div>
+          <div class="field"><label id="pmRatioBLabel">Mechanism B</label><select id="pmRatioB"></select></div>
+          <div class="field"><label id="pmRatioBComponentLabel">B component</label><select id="pmRatioBComponent"></select></div>
+        </div>
+        <div class="extGrid2">
+          <div class="field"><label id="pmRatioSubsetLabel">Spatial subset</label><select id="pmRatioSubset"><option value="whole">Whole domain</option><option value="liquid">Liquid</option><option value="mushy">Mushy</option><option value="solid">Solid</option></select></div>
+          <div class="field"><label id="pmRatioEpsilonLabel">Near-zero epsilon</label><input id="pmRatioEpsilon" type="number" min="0" step="any" value="1e-12"></div>
+        </div>
+        <button class="btn soft" id="pmRunRatio" type="button" style="width:100%">Calculate local |A| / |B|</button>
+        <div class="pmResultStatus" id="pmRatioStatus"></div>
+        <div class="extTableWrap" id="pmRatioResult"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="scatter">
+        <div class="extGrid2">
+          <div class="field"><label id="pmScatterXLabel">X field</label><select id="pmScatterX"></select></div>
+          <div class="field"><label id="pmScatterXComponentLabel">X component</label><select id="pmScatterXComponent"></select></div>
+          <div class="field"><label id="pmScatterYLabel">Y field</label><select id="pmScatterY"></select></div>
+          <div class="field"><label id="pmScatterYComponentLabel">Y component</label><select id="pmScatterYComponent"></select></div>
+        </div>
+        <div class="field"><label id="pmScatterSubsetLabel">Spatial subset</label><select id="pmScatterSubset"><option value="whole">Whole domain</option><option value="liquid">Liquid</option><option value="mushy">Mushy</option><option value="solid">Solid</option></select></div>
+        <button class="btn soft" id="pmRunScatter" type="button" style="width:100%">Create scatter / correlation</button>
+        <div class="pmCanvasWrap"><canvas id="pmScatterCanvas"></canvas></div>
+        <div class="pmResultStatus" id="pmScatterStatus"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="evolution">
+        <div class="field"><label id="pmEvolutionCasesLabel">Cases</label><div class="pmCaseChecks" id="pmEvolutionCases"></div></div>
+        <div class="extGrid2">
+          <div class="field"><label id="pmEvolutionFieldLabel">Field</label><select id="pmEvolutionField"></select></div>
+          <div class="field"><label id="pmEvolutionComponentLabel">Component</label><select id="pmEvolutionComponent"></select></div>
+          <div class="field"><label id="pmEvolutionSubsetLabel">Spatial subset</label><select id="pmEvolutionSubset"><option value="whole">Whole domain</option><option value="liquid">Liquid</option><option value="mushy">Mushy</option><option value="solid">Solid</option></select></div>
+          <div class="field"><label id="pmEvolutionStatisticLabel">Statistic</label><select id="pmEvolutionStatistic"><option value="min">Minimum</option><option value="max">Maximum</option><option value="mean" selected>Mean</option><option value="median">Median</option><option value="p95">P95</option></select></div>
+        </div>
+        <button class="btn soft" id="pmRunEvolution" type="button" style="width:100%">Plot temporal evolution</button>
+        <div class="pmCanvasWrap"><canvas id="pmEvolutionCanvas"></canvas></div>
+        <div class="pmResultStatus" id="pmEvolutionStatus"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="metadata">
+        <input class="pmMetadataFilter" id="pmMetadataFilter" type="text" placeholder="Filter parameter, dictionary path or source file">
+        <div class="pmMetadataTable" id="pmMetadataResult"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="verify">
+        <div class="field"><label id="pmVerifyActualLabel">Actual derived field</label><select id="pmVerifyActual"></select></div>
+        <div class="field"><label id="pmVerifyFormulaLabel">Expected expression</label><input id="pmVerifyFormula" type="text" placeholder="Example: C*(1-alpha)^2/(alpha^3+q)"></div>
+        <div class="extGrid2">
+          <div class="field"><label id="pmVerifyToleranceLabel">Absolute tolerance</label><input id="pmVerifyTolerance" type="number" min="0" step="any" value="1e-8"></div>
+          <div class="field"><label id="pmVerifyEpsilonLabel">Relative-difference epsilon</label><input id="pmVerifyEpsilon" type="number" min="0" step="any" value="1e-12"></div>
+        </div>
+        <button class="btn soft" id="pmRunVerify" type="button" style="width:100%">Verify derived field</button>
+        <div class="pmFormulaBindings" id="pmVerifyBindings"></div>
+        <div class="pmResultStatus" id="pmVerifyStatus"></div>
+        <div class="extTableWrap" id="pmVerifyResult"></div>
+      </div>
+
+      <div class="pmPane" data-pm-pane-panel="summary">
+        <div class="extNote" id="pmSummaryNote">Evidence-only summary. FoamLens separates observations and derived metrics from interpretation.</div>
+        <div id="pmSummaryResult"></div>
+      </div>
     </div>
   </div>
 
@@ -1531,6 +1668,8 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
     <button class="analysisSubBtn" data-analysis="coupling">Coupling</button>
     <button class="analysisSubBtn" data-analysis="front">Front tracking</button>
     <button class="analysisSubBtn" data-analysis="difference">Difference</button>
+    <button class="analysisSubBtn pmHidden" data-analysis="mapping" id="pmMappingNav">Field Mapping</button>
+    <button class="analysisSubBtn pmHidden" data-analysis="phaseMomentum" id="pmPhaseNav">Phase Change / Momentum</button>
   </div>
   <div class="contextTrail" id="contextTrail">Overview</div>
   <div class="globalContextBar" id="globalContextBar">
@@ -1856,7 +1995,7 @@ body:not(.dark) .activitySpinner{border-color:rgba(14,32,58,.14);border-top-colo
 <div class="legalOverlay" id="legalOverlay" aria-hidden="true"><section class="legalDialog" role="dialog" aria-modal="true" aria-labelledby="legalTitle"><h3 id="legalTitle">FoamLens Legal</h3><div class="legalCopy" id="legalCopy">FoamLens is proprietary software. Copyright © 2026 Michel Armando Duarte Flores / Michel's Lab. All Rights Reserved.
 
 Source availability, distribution of an HTML build, or publication of source code for demonstration, academic portfolio, or source-review purposes does not grant permission to copy, modify, redistribute, rebrand, sell, sublicense, or incorporate FoamLens or substantial portions of it into another product without explicit written authorization from the copyright holder.</div><div class="legalActions"><button class="btn primary" id="legalClose">Close</button></div></section></div>
-<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v49</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v46</b><div>Reliable Profile Playback</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
+<div class="versionOverlay" id="versionOverlay" aria-hidden="true"><section class="versionDialog" role="dialog" aria-modal="true" aria-labelledby="versionTitle"><h3 id="versionTitle">FoamLens v50</h3><div class="versionGrid"><div class="detailBlock"><span>Product</span><b>FoamLens</b><div>OpenFOAM analysis workspace</div></div><div class="detailBlock"><span>Version</span><b>v50</b><div>Capability-driven Field Analysis</div></div><div class="detailBlock"><span>Runtime</span><b>Web / local HTML</b><div>Browser-based; OpenFOAM cases remain read-only.</div></div><div class="detailBlock"><span>Author</span><b>Michel Armando Duarte Flores</b><div>Michel's Lab</div></div></div><div class="legalActions"><button class="btn primary" id="versionClose">Close</button></div></section></div>
 
 <script>
 (()=>{
@@ -2124,6 +2263,13 @@ let diagnosticFocusTime=null;
 let diagnosticSelectedEvent=null;
 let diagHeatmapHit=null;
 let phaseFrontPrevious={};
+const pmFieldCache=new Map();
+const pmFieldMappings=new Map();
+let pmObservations=[];
+let pmLastScatter=null;
+let pmLastEvolution=null;
+let pmUiInitialized=false;
+
 let animationLockedRanges=null;
 const familyVisibility=new Map();
 let currentDataView='timeseries';
@@ -3326,6 +3472,398 @@ function configWord(text,key){
   const clean=stripFoamComments(text),m=clean.match(new RegExp(`\\b${key}\\s+([^;\\s]+)\\s*;`,'i'));
   return m?m[1]:null
 }
+
+/* FOAMLENS_PHASE_MOMENTUM_CORE_START */
+const PM_ROLE_DEFS=[
+  {key:'temperature',en:'Temperature',es:'Temperatura',patterns:[/^t$/,/^temp(?:erature)?$/,/temperature/]},
+  {key:'velocity',en:'Velocity',es:'Velocidad',patterns:[/^u$/,/^velocity$/,/velocity/]},
+  {key:'pressure',en:'Pressure',es:'Presión',patterns:[/^p$/,/^prgh$/,/pressure/]},
+  {key:'density',en:'Density',es:'Densidad',patterns:[/^rho$/,/density/]},
+  {key:'liquidFraction',en:'Liquid Fraction',es:'Fracción líquida',patterns:[/^alphal$/,/liquidfraction/,/liquid.*alpha/,/^alpha1$/]},
+  {key:'solidFraction',en:'Solid Fraction',es:'Fracción sólida',patterns:[/^alphas$/,/solidfraction/,/solid.*alpha/]},
+  {key:'darcyCoefficient',en:'Darcy Coefficient',es:'Coeficiente Darcy',patterns:[/darcy.*(?:coeff|coef|resist)/,/(?:coeff|coef|resist).*darcy/,/mushy.*(?:coeff|coef)/]},
+  {key:'darcyAcceleration',en:'Darcy Acceleration',es:'Aceleración Darcy',patterns:[/darcy.*(?:accel|source|force)/,/(?:accel|source|force).*darcy/]},
+  {key:'buoyancyAcceleration',en:'Buoyancy Acceleration',es:'Aceleración de flotación',patterns:[/buoyan.*(?:accel|source|force)/,/(?:accel|source|force).*buoyan/]},
+  {key:'pressureGradientAcceleration',en:'Pressure Gradient Acceleration',es:'Aceleración por gradiente de presión',patterns:[/(?:pressure|p).*grad.*(?:accel|source|force)?/,/gradp.*(?:accel|source|force)?/]},
+  {key:'coolingRate',en:'Cooling Rate',es:'Tasa de enfriamiento',patterns:[/coolingrate/,/cool.*rate/]},
+  {key:'solidificationRate',en:'Solidification Rate',es:'Tasa de solidificación',patterns:[/solidificationrate/,/solidif.*rate/]},
+  {key:'userDefined',en:'User Defined',es:'Definido por usuario',patterns:[]}
+];
+function pmNormalizeName(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'')}
+function pmTimeEqual(a,b){
+  a=Number(a);b=Number(b);if(!Number.isFinite(a)||!Number.isFinite(b))return false;
+  return Math.abs(a-b)<=Math.max(1e-10,Math.max(Math.abs(a),Math.abs(b),1)*1e-10)
+}
+function pmVolumeFieldDescriptorFromPath(path,rootPath,size=0){
+  path=String(path||'').replace(/\\/g,'/').replace(/\/+/g,'/');
+  rootPath=String(rootPath||'').replace(/\\/g,'/').replace(/\/+$/,'');
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  let p=path.slice(rootPath.length+1).split('/').filter(Boolean),partition='';
+  if(/^processor\d+$/i.test(p[0]||'')){partition=p.shift()}
+  if(p.length<2||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(p[0]))return null;
+  const timeLabel=p.shift(),time=Number(timeLabel);if(!Number.isFinite(time))return null;
+  if(p.some(x=>/^(?:uniform|polyMesh)$/i.test(x)))return null;
+  let region='',name='';
+  if(p.length===1)name=p[0];
+  else if(p.length===2){region=p[0];name=p[1]}
+  else return null;
+  if(!name||/^(?:cellToRegion|faceToCell|pointLevel|cellLevel)$/i.test(name))return null;
+  return{time,timeLabel,region,partition,name,sourcePath:path,size:Number(size)||0}
+}
+function pmBuildVolumeInventory(files,rootPath){
+  const out=[];
+  for(const f of files||[]){
+    const path=(f.webkitRelativePath||f.name||'').replace(/\\/g,'/');
+    const d=pmVolumeFieldDescriptorFromPath(path,rootPath,f.size);
+    if(d)out.push({...d,file:f})
+  }
+  return out.sort((a,b)=>a.time-b.time||a.region.localeCompare(b.region)||a.name.localeCompare(b.name)||a.partition.localeCompare(b.partition))
+}
+function pmPhysicalMetadataDescriptorFromPath(path,rootPath,size=0){
+  path=String(path||'').replace(/\\/g,'/').replace(/\/+/g,'/');
+  rootPath=String(rootPath||'').replace(/\\/g,'/').replace(/\/+$/,'');
+  if(!rootPath||!path.startsWith(rootPath+'/'))return null;
+  const rel=path.slice(rootPath.length+1),p=rel.split('/').filter(Boolean);
+  if(p.length<2||!['system','constant'].includes(String(p[0]).toLowerCase()))return null;
+  if(p.some(x=>/^(?:polyMesh|triSurface|extendedFeatureEdgeMesh)$/i.test(x)))return null;
+  if(Number(size)>8*1024*1024)return null;
+  const section=p[0],fileName=p.at(-1),region=p.length>2?p.slice(1,-1).join('/'):'';
+  return{section,region,fileName,sourcePath:path,size:Number(size)||0}
+}
+function pmBuildPhysicalMetadataFiles(files,rootPath){
+  const out=[];
+  for(const f of files||[]){
+    const path=(f.webkitRelativePath||f.name||'').replace(/\\/g,'/');
+    const d=pmPhysicalMetadataDescriptorFromPath(path,rootPath,f.size);
+    if(d)out.push({...d,file:f})
+  }
+  return out
+}
+function pmParseFoamDictionaryEntries(text,sourcePath=''){
+  const clean=stripFoamComments(String(text||'')),out=[],stack=[];let i=0;
+  const ws=()=>{while(i<clean.length&&/\s|;/.test(clean[i]))i++};
+  const token=()=>{
+    ws();if(i>=clean.length)return'';
+    if(clean[i]==='"'||clean[i]==="'"){const q=clean[i++];let s='';while(i<clean.length&&clean[i]!==q)s+=clean[i++];if(clean[i]===q)i++;return s}
+    const a=i;while(i<clean.length&&!/[\s{};]/.test(clean[i]))i++;return clean.slice(a,i)
+  };
+  while(i<clean.length){
+    ws();if(i>=clean.length)break;
+    if(clean[i]==='#'){while(i<clean.length&&clean[i]!=='\n')i++;continue}
+    if(clean[i]==='}'){if(stack.length)stack.pop();i++;continue}
+    const key=token();if(!key){i++;continue}
+    ws();
+    if(clean[i]==='{'){stack.push(key);i++;continue}
+    let start=i,paren=0,bracket=0,quote='',done=false;
+    for(;i<clean.length;i++){
+      const ch=clean[i];
+      if(quote){if(ch===quote&&clean[i-1]!=='\\')quote='';continue}
+      if(ch==='"'||ch==="'"){quote=ch;continue}
+      if(ch==='(')paren++;else if(ch===')')paren=Math.max(0,paren-1);
+      else if(ch==='[')bracket++;else if(ch===']')bracket=Math.max(0,bracket-1);
+      else if(ch===';'&&paren===0&&bracket===0){done=true;break}
+      else if(ch==='}'&&paren===0&&bracket===0)break
+    }
+    const raw=clean.slice(start,i).trim();if(done)i++;
+    if(!raw||stack[0]==='FoamFile')continue;
+    // OpenFOAM dimensioned entries occur both as:
+    //   rho [1 -3 0 0 0 0 0] 7000;
+    // and:
+    //   rho rho [1 -3 0 0 0 0 0] 7000;
+    let dimensions='',valueRaw=raw.trim(),dimensionedName='';
+    let dm=valueRaw.match(/^(?:([A-Za-z_][A-Za-z0-9_.:-]*)\s+)?\[([^\]]+)\]\s*([\s\S]*)$/);
+    if(dm){dimensionedName=dm[1]||'';dimensions='['+dm[2].trim()+']';valueRaw=dm[3].trim()}
+    const num=/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(valueRaw)?Number(valueRaw):null;
+    out.push({key,path:[...stack,key].join('.'),rawValue:valueRaw,value:Number.isFinite(num)?num:valueRaw,dimensions,dimensionedName,sourcePath})
+  }
+  return out
+}
+function pmRoleSuggestion(fieldName,roleKey){
+  const role=PM_ROLE_DEFS.find(r=>r.key===roleKey);if(!role)return 0;
+  const n=pmNormalizeName(fieldName);let best=0;
+  for(const re of role.patterns){
+    if(re.test(n))best=Math.max(best,re.source.startsWith('^')?100:70)
+  }
+  if(roleKey==='liquidFraction'&&n==='alpha1')best=Math.max(best,35);
+  return best
+}
+function pmSuggestMappings(fieldNames){
+  const names=[...new Set((fieldNames||[]).map(String))],used=new Set(),roles={};
+  for(const role of PM_ROLE_DEFS.filter(r=>r.key!=='userDefined')){
+    let choice='',score=0;
+    for(const name of names){if(used.has(name))continue;const s=pmRoleSuggestion(name,role.key);if(s>score){score=s;choice=name}}
+    if(choice&&score>0){roles[role.key]=choice;used.add(choice)}
+    else roles[role.key]=''
+  }
+  roles.userDefined='';return roles
+}
+function pmCapabilitiesFromMapping(mapping,fieldNames=[]){
+  const present=new Set((fieldNames||[]).map(String)),mapped=key=>!!mapping?.[key]&&present.has(mapping[key]);
+  const phase=mapped('liquidFraction')||mapped('solidFraction');
+  const mechanisms=['darcyCoefficient','darcyAcceleration','buoyancyAcceleration','pressureGradientAcceleration'].filter(mapped);
+  const momentum=mechanisms.length>0||mapped('velocity');
+  return{fields:present.size,phase,momentum,mechanisms:mechanisms.length,enabled:phase||mechanisms.length>0,scatter:present.size>=2,evolution:present.size>=1}
+}
+function pmParseOpenFOAMFieldText(text,sourcePath=''){
+  text=String(text||'');
+  const format=(text.match(/\bformat\s+([^;\s]+)\s*;/i)||[])[1]||'ascii';
+  const cls=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
+  const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
+  const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
+  const kind=/vectorfield/i.test(cls)?'vector':/scalarfield/i.test(cls)?'scalar':'unknown';
+  if(String(format).toLowerCase()==='binary')return{supported:false,reason:'binary-format',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  if(!['scalar','vector'].includes(kind))return{supported:false,reason:'unsupported-field-class',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  const u=text.match(/\binternalField\s+uniform\s+([^;]+)\s*;/i);
+  if(u){
+    const raw=u[1].trim();
+    if(kind==='scalar'){
+      const v=Number(raw);return Number.isFinite(v)?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:true,uniformValue:v,count:null,sourcePath}:{supported:false,reason:'invalid-uniform-value',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+    }
+    const m=raw.match(/\(\s*([-+\deE.]+)\s+([-+\deE.]+)\s+([-+\deE.]+)\s*\)/);
+    if(m){const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))return{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:true,uniformValue:v,count:null,sourcePath}}
+    return{supported:false,reason:'invalid-uniform-vector',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+  }
+  const head=/\binternalField\s+nonuniform\s+(?:List<\s*(scalar|vector)\s*>|[^\s]+)\s+(\d+)\s*\(/ig,hm=head.exec(text);
+  if(!hm)return{supported:false,reason:'internalField-not-readable',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  const declared=Number(hm[2]),start=head.lastIndex,tail=text.slice(start),close=/^\s*\)\s*;/m.exec(tail);
+  if(!close)return{supported:false,reason:'internalField-list-not-closed',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  const block=tail.slice(0,close.index);
+  if(kind==='vector'){
+    const values=[];for(const m of block.matchAll(/\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s*\)/ig)){const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))values.push(v)}
+    return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-vector-values',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+  }
+  const values=(block.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[]).map(Number).filter(Number.isFinite);
+  return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-scalar-values',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+}
+function pmComponentValues(parsed,component='value',countHint=null){
+  if(!parsed?.supported)return{ok:false,reason:parsed?.reason||'unsupported'};
+  const nHint=Number.isFinite(Number(countHint))?Math.max(0,Math.floor(Number(countHint))):null;
+  const transform=v=>{
+    if(parsed.kind==='scalar')return component==='value'||component==='magnitude'?Number(v):NaN;
+    if(!Array.isArray(v)||v.length<3)return NaN;
+    if(component==='x')return Number(v[0]);if(component==='y')return Number(v[1]);if(component==='z')return Number(v[2]);
+    return Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))
+  };
+  if(parsed.uniform){
+    const value=transform(parsed.uniformValue);if(!Number.isFinite(value))return{ok:false,reason:'component-incompatible'};
+    if(nHint!=null)return{ok:true,values:Array(nHint).fill(value),uniform:true,countKnown:true};
+    return{ok:true,values:[value],uniform:true,countKnown:false}
+  }
+  const values=(parsed.values||[]).map(transform).filter(Number.isFinite);
+  return{ok:values.length>0,values,uniform:false,countKnown:true,reason:values.length?'':'component-incompatible'}
+}
+function pmClassifyPhase(alpha,low=.05,high=.95){
+  alpha=Number(alpha);low=Number(low);high=Number(high);if(!Number.isFinite(alpha)||!Number.isFinite(low)||!Number.isFinite(high)||low>high)return'unknown';
+  if(alpha>high)return'liquid';if(alpha>low)return'mushy';return'solid'
+}
+function pmQuantile(sorted,q){
+  if(!sorted.length)return NaN;if(sorted.length===1)return sorted[0];
+  const p=(sorted.length-1)*Math.max(0,Math.min(1,Number(q))),lo=Math.floor(p),hi=Math.ceil(p),f=p-lo;
+  return sorted[lo]+(sorted[hi]-sorted[lo])*f
+}
+function pmStats(values,totalCount=null){
+  const a=(values||[]).map(Number).filter(Number.isFinite),n=a.length;if(!n)return{count:0,min:NaN,max:NaN,mean:NaN,median:NaN,std:NaN,p5:NaN,p25:NaN,p75:NaN,p95:NaN,fraction:Number.isFinite(totalCount)&&totalCount>0?0:NaN};
+  let sum=0,min=Infinity,max=-Infinity;for(const v of a){sum+=v;if(v<min)min=v;if(v>max)max=v}
+  const mean=sum/n;let ss=0;for(const v of a)ss+=(v-mean)*(v-mean);
+  const s=a.slice().sort((x,y)=>x-y);
+  return{count:n,min,max,mean,median:pmQuantile(s,.5),std:Math.sqrt(ss/n),p5:pmQuantile(s,.05),p25:pmQuantile(s,.25),p75:pmQuantile(s,.75),p95:pmQuantile(s,.95),fraction:Number.isFinite(totalCount)&&totalCount>0?n/totalCount:NaN}
+}
+function pmLocalRatio(a,b,epsilon=1e-12){
+  const n=Math.min(a?.length||0,b?.length||0),values=[];let invalid=0;epsilon=Math.max(0,Number(epsilon)||0);
+  for(let i=0;i<n;i++){const av=Number(a[i]),bv=Number(b[i]);if(!Number.isFinite(av)||!Number.isFinite(bv)||Math.abs(bv)<=epsilon){invalid++;continue}values.push(Math.abs(av)/Math.abs(bv))}
+  return{values,valid:values.length,invalid,total:n,invalidFraction:n?invalid/n:NaN}
+}
+function pmPearson(x,y){
+  const n=Math.min(x?.length||0,y?.length||0);if(n<2)return NaN;let sx=0,sy=0;for(let i=0;i<n;i++){sx+=x[i];sy+=y[i]}const mx=sx/n,my=sy/n;let a=0,b=0,c=0;
+  for(let i=0;i<n;i++){const dx=x[i]-mx,dy=y[i]-my;a+=dx*dy;b+=dx*dx;c+=dy*dy}return b>0&&c>0?a/Math.sqrt(b*c):NaN
+}
+function pmRanks(values){
+  const pairs=values.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]),r=Array(values.length);let i=0;
+  while(i<pairs.length){let j=i+1;while(j<pairs.length&&pairs[j][0]===pairs[i][0])j++;const rank=(i+j-1)/2+1;for(let k=i;k<j;k++)r[pairs[k][1]]=rank;i=j}
+  return r
+}
+function pmSpearman(x,y){return x?.length===y?.length&&x.length>=2?pmPearson(pmRanks(x),pmRanks(y)):NaN}
+function pmFormulaTokens(expr){
+  const out=[],re=/\s*(?:(\d+(?:\.\d*)?|\.\d+)([eE][-+]?\d+)?|([A-Za-z_][A-Za-z0-9_.]*)|([()+\-*/^,]))/gy;let i=0;
+  while(i<String(expr||'').length){re.lastIndex=i;const m=re.exec(expr);if(!m)throw new Error('Unsupported formula token near: '+String(expr).slice(i,i+18));i=re.lastIndex;if(m[1])out.push({t:'num',v:Number(m[1]+(m[2]||''))});else if(m[3])out.push({t:'id',v:m[3]});else out.push({t:m[4],v:m[4]})}
+  return out
+}
+function pmParseFormula(expr){
+  const t=pmFormulaTokens(expr);let i=0,peek=()=>t[i],take=()=>t[i++];
+  const primary=()=>{
+    const x=take();if(!x)throw new Error('Unexpected end of formula');
+    if(x.t==='num')return{t:'num',v:x.v};
+    if(x.t==='id'){
+      if(peek()?.t==='('){take();const args=[];if(peek()?.t!==')'){for(;;){args.push(add());if(peek()?.t===','){take();continue}break}}if(take()?.t!==')')throw new Error('Missing )');return{t:'call',name:x.v,args}}
+      return{t:'id',name:x.v}
+    }
+    if(x.t==='('){const a=add();if(take()?.t!==')')throw new Error('Missing )');return a}
+    throw new Error('Unexpected token '+x.v)
+  };
+  const unary=()=>peek()?.t==='-'?(take(),{t:'neg',a:unary()}):peek()?.t==='+'?(take(),unary()):primary();
+  const power=()=>{let a=unary();if(peek()?.t==='^'){take();a={t:'op',op:'^',a,b:power()}}return a};
+  const mul=()=>{let a=power();while(peek()&&['*','/'].includes(peek().t)){const op=take().t;a={t:'op',op,a,b:power()}}return a};
+  const add=()=>{let a=mul();while(peek()&&['+','-'].includes(peek().t)){const op=take().t;a={t:'op',op,a,b:mul()}}return a};
+  const ast=add();if(i<t.length)throw new Error('Unexpected token '+t[i].v);return ast
+}
+function pmFormulaIdentifiers(ast,out=new Set()){
+  if(!ast)return out;if(ast.t==='id')out.add(ast.name);if(ast.a)pmFormulaIdentifiers(ast.a,out);if(ast.b)pmFormulaIdentifiers(ast.b,out);for(const a of ast.args||[])pmFormulaIdentifiers(a,out);return out
+}
+function pmEvalFormula(ast,resolve){
+  if(ast.t==='num')return ast.v;if(ast.t==='id')return Number(resolve(ast.name));
+  if(ast.t==='neg')return-pmEvalFormula(ast.a,resolve);
+  if(ast.t==='op'){const a=pmEvalFormula(ast.a,resolve),b=pmEvalFormula(ast.b,resolve);if(ast.op==='+')return a+b;if(ast.op==='-')return a-b;if(ast.op==='*')return a*b;if(ast.op==='/')return a/b;if(ast.op==='^')return Math.pow(a,b)}
+  if(ast.t==='call'){const a=ast.args.map(x=>pmEvalFormula(x,resolve)),n=ast.name.toLowerCase();if(n==='abs')return Math.abs(a[0]);if(n==='sqrt')return Math.sqrt(a[0]);if(n==='pow')return Math.pow(a[0],a[1]);if(n==='min')return Math.min(...a);if(n==='max')return Math.max(...a);if(n==='log')return Math.log(a[0]);if(n==='exp')return Math.exp(a[0]);throw new Error('Unsupported function: '+ast.name)}
+  return NaN
+}
+/* FOAMLENS_PHASE_MOMENTUM_CORE_END */
+
+function pmMappingKey(c){return c?.rootPath||c?.name||String(c?.id||'')}
+function pmUniqueFieldNames(c,region=null){
+  const inv=c?.volumeFieldInventory||[],r=region==null?null:String(region);return [...new Set(inv.filter(x=>r==null||x.region===r).map(x=>x.name))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}))
+}
+function pmMappingForCase(c){
+  if(!c)return{};
+  const k=pmMappingKey(c),names=pmUniqueFieldNames(c);
+  if(!pmFieldMappings.has(k))pmFieldMappings.set(k,pmSuggestMappings(names));
+  const m=pmFieldMappings.get(k);for(const role of PM_ROLE_DEFS)if(m[role.key]==null)m[role.key]='';return m
+}
+function pmCaseCapabilities(c){return pmCapabilitiesFromMapping(pmMappingForCase(c),pmUniqueFieldNames(c))}
+async function pmParseMetadataFiles(list){
+  const entries=[],errors=[];
+  for(const d of list||[]){
+    try{const text=await d.file.text();entries.push(...pmParseFoamDictionaryEntries(text,d.sourcePath).map(e=>({...e,section:d.section,region:d.region,fileName:d.fileName})))}
+    catch(err){errors.push({sourcePath:d.sourcePath,error:String(err)})}
+  }
+  return{entries,errors}
+}
+
+function pmParseDimensions(dim){
+  const m=String(dim||'').match(/\[\s*([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s*\]/);
+  return m?m.slice(1).map(Number):null
+}
+function pmDimensionsString(a){return Array.isArray(a)&&a.length===7?'['+a.map(x=>pmFmt(x,4)).join(' ')+']':''}
+function pmDerivativeDimensions(dim){const a=pmParseDimensions(dim);if(!a)return dim||'';a[2]-=1;return pmDimensionsString(a)}
+function pmUnitFromDimensions(dim){
+  const a=pmParseDimensions(dim);if(!a)return'';
+  const key=a.join(',');
+  const map={
+    '0,0,0,1,0,0,0':'K',
+    '0,1,-1,0,0,0,0':'m/s',
+    '0,1,-2,0,0,0,0':'m/s²',
+    '1,-1,-2,0,0,0,0':'Pa',
+    '1,-3,0,0,0,0,0':'kg/m³',
+    '0,0,-1,1,0,0,0':'K/s',
+    '0,0,-1,0,0,0,0':'1/s',
+    '0,0,0,0,0,0,0':'dimensionless'
+  };
+  return map[key]||''
+}
+function pmFieldDimensionInfo(set){
+  const dims=[...new Set((set||[]).map(x=>x?.dimensions||'').filter(Boolean))];
+  const dim=dims.length===1?dims[0]:(dims.length?'mixed':'');
+  return{dimensions:dim,unit:dim&&dim!=='mixed'?pmUnitFromDimensions(dim):''}
+}
+function pmVirtualFieldRole(name){return String(name||'').startsWith('__derived:')?String(name).slice('__derived:'.length):''}
+function pmDisplayFieldName(name){
+  if(name==='__derived:coolingRate')return diagEs()?'Cooling Rate (derivado −dT/dt)':'Cooling Rate (derived −dT/dt)';
+  if(name==='__derived:solidificationRate')return diagEs()?'Solidification Rate (derivado)':'Solidification Rate (derived)';
+  return name
+}
+function pmDerivedRateAvailability(c,region,role){
+  const m=pmMappingForCase(c);
+  const source=role==='coolingRate'?m.temperature:(m.liquidFraction||m.solidFraction);
+  if(!source)return false;
+  const times=[...new Set((c.volumeFieldInventory||[]).filter(x=>x.region===String(region||'')&&x.name===source).map(x=>Number(x.time)).filter(Number.isFinite))];
+  return times.length>=2
+}
+function pmFieldChoicesForRegion(c,region=''){
+  const names=pmUniqueFieldNames(c,String(region||''));
+  if(pmDerivedRateAvailability(c,region,'coolingRate')&&!names.includes(pmMappingForCase(c).coolingRate))names.push('__derived:coolingRate');
+  if(pmDerivedRateAvailability(c,region,'solidificationRate')&&!names.includes(pmMappingForCase(c).solidificationRate))names.push('__derived:solidificationRate');
+  return names
+}
+function pmBracketForDerivative(times,t){
+  const a=[...new Set((times||[]).map(Number).filter(Number.isFinite))].sort((x,y)=>x-y);if(a.length<2)return null;
+  let idx=a.findIndex(x=>pmTimeEqual(x,t));
+  if(idx>=0){if(idx>0&&idx<a.length-1)return[a[idx-1],a[idx+1]];if(idx===0)return[a[0],a[1]];return[a[a.length-2],a[a.length-1]]}
+  let hi=a.findIndex(x=>x>t);if(hi<=0)return[a[0],a[1]];if(hi<0)return[a[a.length-2],a[a.length-1]];return[a[hi-1],a[hi]]
+}
+async function pmLoadStoredFieldSet(caseId,fieldName,time,region=''){
+  const c=caseById(Number(caseId));if(!c)return[];
+  const rows=(c.volumeFieldInventory||[]).filter(r=>r.name===fieldName&&r.region===String(region||'')&&pmTimeEqual(r.time,time));
+  const out=[];for(const r of rows)out.push(await pmLoadRecord(r));return out
+}
+async function pmLoadDerivedRateSet(caseId,role,time,region=''){
+  const c=caseById(Number(caseId));if(!c)return[];
+  const m=pmMappingForCase(c);
+  let source='',sign=1,formula='';
+  if(role==='coolingRate'){source=m.temperature;sign=-1;formula='−dT/dt'}
+  else if(role==='solidificationRate'){
+    if(m.liquidFraction){source=m.liquidFraction;sign=-1;formula='−dαL/dt'}
+    else if(m.solidFraction){source=m.solidFraction;sign=1;formula='dαS/dt'}
+  }
+  if(!source)return[];
+  const times=[...new Set((c.volumeFieldInventory||[]).filter(x=>x.name===source&&x.region===String(region||'')).map(x=>Number(x.time)).filter(Number.isFinite))].sort((a,b)=>a-b);
+  const bracket=pmBracketForDerivative(times,time);if(!bracket)return[];
+  const [t1,t2]=bracket,dt=t2-t1;if(!(dt>0))return[];
+  const A=await pmLoadStoredFieldSet(caseId,source,t1,region),B=await pmLoadStoredFieldSet(caseId,source,t2,region),ma=pmSetByPartition(A),mb=pmSetByPartition(B),out=[];
+  for(const [part,a] of ma){
+    const b=mb.get(part);if(!b||a.kind!=='scalar'||b.kind!=='scalar')continue;
+    let n=!a.uniform?a.count:(!b.uniform?b.count:null);
+    if(n==null){
+      const va=Number(a.uniformValue),vb=Number(b.uniformValue);if(!Number.isFinite(va)||!Number.isFinite(vb))continue;
+      out.push({supported:true,format:'derived',fieldClass:'volScalarField',object:role,dimensions:pmDerivativeDimensions(a.dimensions||b.dimensions),kind:'scalar',uniform:true,uniformValue:sign*(vb-va)/dt,count:null,partition:part,region,time,sourcePath:'derived:'+role+':'+caseId+':'+region+':'+time,derived:{role,source,formula,t1,t2,dt}});continue
+    }
+    const av=pmComponentValues(a,'value',n).values,bv=pmComponentValues(b,'value',n).values;if(av.length!==n||bv.length!==n)continue;
+    const values=Array.from({length:n},(_,i)=>sign*(bv[i]-av[i])/dt);
+    out.push({supported:true,format:'derived',fieldClass:'volScalarField',object:role,dimensions:pmDerivativeDimensions(a.dimensions||b.dimensions),kind:'scalar',uniform:false,values,count:n,declaredCount:n,partition:part,region,time,sourcePath:'derived:'+role+':'+caseId+':'+region+':'+time,derived:{role,source,formula,t1,t2,dt}})
+  }
+  return out
+}
+async function pmLoadRecord(record){
+  if(!record?.file)return{supported:false,reason:'missing-file'};
+  const key=[record.sourcePath,record.file.size||record.size||0,record.file.lastModified||0].join('|');
+  if(pmFieldCache.has(key))return pmFieldCache.get(key);
+  let parsed;
+  try{
+    // FoamLensNativeFile.text() already delegates to the Desktop readText bridge.
+    // Keeping one JavaScript parser prevents Web and Desktop from diverging.
+    parsed=pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
+  }catch(err){parsed={supported:false,reason:String(err),sourcePath:record.sourcePath}}
+  parsed={...parsed,record,partition:record.partition||'',region:record.region||'',time:record.time,sourcePath:record.sourcePath};
+  pmFieldCache.set(key,parsed);return parsed
+}
+async function pmLoadFieldSet(caseId,fieldName,time,region=''){
+  const role=pmVirtualFieldRole(fieldName);
+  return role?await pmLoadDerivedRateSet(caseId,role,time,region):await pmLoadStoredFieldSet(caseId,fieldName,time,region)
+}
+function pmSetByPartition(set){const m=new Map();for(const x of set||[])m.set(x.partition||'',x);return m}
+function pmAlignedComponents(setA,componentA,setB=null,componentB='value'){
+  const ma=pmSetByPartition(setA),mb=setB?pmSetByPartition(setB):null,out=[],issues=[];
+  for(const [part,a] of ma){
+    const b=mb?.get(part);if(mb&&!b){issues.push('Missing matching partition '+(part||'(reconstructed)'));continue}
+    const av0=pmComponentValues(a,componentA,b&&!b.uniform?b.count:null);if(!av0.ok){issues.push(a.sourcePath+': '+av0.reason);continue}
+    if(!b){out.push({partition:part,a:av0.values,countKnown:av0.countKnown});continue}
+    const bv0=pmComponentValues(b,componentB,!a.uniform?a.count:null);if(!bv0.ok){issues.push(b.sourcePath+': '+bv0.reason);continue}
+    let av=av0.values,bv=bv0.values;
+    if(a.uniform&&!b.uniform)av=pmComponentValues(a,componentA,bv.length).values;
+    if(b.uniform&&!a.uniform)bv=pmComponentValues(b,componentB,av.length).values;
+    if(av.length!==bv.length){issues.push('Cell-count mismatch in '+(part||'reconstructed field')+': '+av.length+' vs '+bv.length);continue}
+    out.push({partition:part,a:av,b:bv,countKnown:av0.countKnown&&bv0.countKnown})
+  }
+  return{chunks:out,issues}
+}
+function pmFilterByPhase(values,alphaValues,subset,low,high){
+  if(subset==='whole')return{values:values.slice(),total:values.length,selected:values.length};
+  const n=Math.min(values.length,alphaValues?.length||0),out=[];
+  for(let i=0;i<n;i++)if(pmClassifyPhase(alphaValues[i],low,high)===subset&&Number.isFinite(values[i]))out.push(values[i]);
+  return{values:out,total:n,selected:out.length}
+}
+function pmMetadataNumber(c,name){
+  const entries=(c?.physicalMetadataEntries||[]).filter(e=>String(e.key).toLowerCase()===String(name).toLowerCase()&&Number.isFinite(Number(e.value)));
+  return entries.length===1?{ok:true,value:Number(entries[0].value),entry:entries[0]}:{ok:false,reason:entries.length?'ambiguous metadata parameter':'metadata parameter not found',matches:entries}
+}
 function configDescriptorFromFile(file){
   const p=fileParts(file),n=p.length;
   if(n<3||String(p[n-2]).toLowerCase()!=='system')return null;
@@ -3425,6 +3963,13 @@ async function applyCandidateMetadata(c,candidate){
   c.discovery={...(c.discovery||{}),...(candidate.discovery||{}),outputs:candidate.outputs||[],dataIndex:(candidate.outputs||[]).map(o=>({path:o.path,kind:o.kind,count:o.count,lazy:o.kind==='profile'})),datasetCounts:candidate.datasetCounts||{},fileCount:candidate.allFiles?.length||candidate.files?.length||0,allPaths:(candidate.allFiles||[]).map(f=>(f.webkitRelativePath||f.name||'').replace(/\\/g,'/'))};
   c.metadataFilesMeta=Object.keys(candidate.metadataFiles||{});
   if(candidate.metadataFiles&&Object.keys(candidate.metadataFiles).length)c.config=await parseCaseConfigFiles(candidate.metadataFiles);
+  c.volumeFieldInventory=pmBuildVolumeInventory(candidate.allFiles||[],c.rootPath);
+  c.physicalMetadataFiles=pmBuildPhysicalMetadataFiles(candidate.allFiles||[],c.rootPath);
+  const pmMeta=await pmParseMetadataFiles(c.physicalMetadataFiles);
+  c.physicalMetadataEntries=pmMeta.entries;c.physicalMetadataErrors=pmMeta.errors;
+  c.discovery.volumeFieldCount=c.volumeFieldInventory.length;
+  c.discovery.volumeFieldNames=pmUniqueFieldNames(c);
+  c.discovery.physicalMetadataCount=c.physicalMetadataEntries.length;
   c.discovery.functionObjects=c.config?.functionObjects||[];c.discovery.functionIncludes=c.config?.functionIncludes||[];
   c.runAudit={status:'UNKNOWN',hasEnd:false,fatal:false,nan:false,inf:false,segfault:false,logFiles:[]};
   for(const f of candidate.runLogFiles||[]){
@@ -4010,7 +4555,8 @@ function addCase(name=null,quiet=false){
     rootPath:'',
     config:{source:{fvSolution:false,controlDict:false}},
     discovery:{classification:'manual case',evidence:[],regions:[],outputs:[],datasetCounts:{},functionObjects:[],functionIncludes:[],allPaths:[],importIssues:[]},
-    runAudit:{status:'UNKNOWN',hasEnd:false,fatal:false,nan:false,inf:false,segfault:false,logFiles:[]}
+    runAudit:{status:'UNKNOWN',hasEnd:false,fatal:false,nan:false,inf:false,segfault:false,logFiles:[]},
+    volumeFieldInventory:[],physicalMetadataFiles:[],physicalMetadataEntries:[],physicalMetadataErrors:[]
   };
   cases.push(c);
   if(!quiet){renderCaseManager();updateMeta()}
@@ -4394,7 +4940,7 @@ function heatColor(z,zmin,zmax){const q=zmax>zmin?Math.max(0,Math.min(1,(z-zmin)
 function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),tmin=Math.min(...ss.map(s=>s.t[0])),tmax=Math.max(...ss.map(s=>s.t.at(-1))),positive=[];for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v))positive.push(Math.log10(v));let zmin=positive.length?Math.max(-14,Math.min(...positive)):-12,zmax=positive.length?Math.max(...positive):0;if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
 function nearestValue(values,target){if(!values.length)return null;let best=values[0];for(const v of values)if(Math.abs(v-target)<Math.abs(best-target))best=v;return best}
 function syncAppToDiagnosticTime(time,{caseId=null,root=null,member=null}={}){time=Number(time);if(!Number.isFinite(time))return;const set=diagSettings();diagnosticFocusTime=time;diagnosticSelectedEvent={time,caseId,root,member};const cid=Number(caseId)||diagCaseId(),rr=root||diagRoot(),initial=caseLogSeries(cid,rr,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),fam=initial[0]?.logFamily;if(fam&&[...$('logFamily').options].some(o=>o.value===fam))$('logFamily').value=fam;refreshLogSelectors();if(Number.isFinite(Number(member))&&[...$('logMember').options].some(o=>Number(o.value)===Number(member)))$('logMember').value=String(Number(member));syncLogNavigator();const logTimes=logAvailableTimes(),lt=nearestValue(logTimes,time);if(lt!=null&&(set.syncMode!=='exact'||Math.abs(lt-time)<=set.syncTolerance))syncLogTimeNavigator(lt);logEvolutionActive=true;logEvolutionMemberLimit=Number.isFinite(Number(member))?Number(member):null;rebuildLogEvolutionSeries();const pTimes=profileAvailableTimes(),pt=nearestValue(pTimes,time);if(pt!=null&&(set.syncMode!=='exact'||Math.abs(pt-time)<=set.syncTolerance)){const op=[...$('profileTime').options].find(o=>profileTimeEqual(o.value,pt));if(op)$('profileTime').value=op.value;syncProfileTimeNavigator();updateProfileMeta()}renderList();renderDiagnosticCurrent();drawCouplingHeatmap();renderPhaseFront();draw();$('status').textContent=`${diagEs()?'Tiempo diagnóstico sincronizado':'Diagnostic time synchronized'}: ${diagFmt(time)} s`}
-function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v49',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
+function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v50',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
 function downloadText(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportDiagnosticJson(){downloadText('FoamLens_coupling_diagnostics_v47.json',JSON.stringify(diagnosticPayload(),null,2),'application/json')}
 function exportDiagnosticCsv(){const p=diagnosticPayload(),rows=[['case','nOuterCorrectors','time_s','r_first','r_last','R_last_first','reduction_first_last','orders_reduced','max_initial','max_initial_subiteration']];for(const c of p.cases)for(const r of c.rows)rows.push([c.case,c.summary.mapping.nOuter??'',r.t,r.rFirst,r.rLast,r.R,r.reduction,r.orders,r.maxInitial,r.maxInitialMember]);downloadText('FoamLens_coupling_diagnostics_v47.csv',rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
@@ -4661,9 +5207,311 @@ function renderAuditCase(c){
 
 
 function seriesWorkspaceKey(s){return[caseById(s.caseId)?.rootPath||s.caseName||'',s.sourcePath||s.fileName||'',datasetTypeOf(s),s.field?.canonical||'',s.logFamily||'',s.logSubIter??'',s.profileLineKey||'',s.profileTime??''].join('|')}
-function workspacePayload(){return{format:'FoamLens Workspace',schemaVersion:1,productVersion:'v47',savedAt:new Date().toISOString(),projectName:projectDisplayName(),ui:{language:$('language').value,theme:$('theme').value,activeAppMode,currentDataView,activeContextCaseRoot:caseById(activeContextCaseId)?.rootPath||'',activeContextRegion,visual:currentVisualConfig()},cases:cases.map(c=>({name:c.name,rootPath:c.rootPath,visible:c.visible!==false,dash:c.dash})),seriesState:series.map(s=>({key:seriesWorkspaceKey(s),visible:s.visible!==false,color:s.color,width:s.width,dash:s.dash,opacity:s.opacity,axis:s.axis,customLabel:s.customLabel||''})),findings:{pinned:[...pinnedFindingKeys],dismissed:[...dismissedFindingKeys]}}}
+
+function pmFmt(v,d=6){
+  v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);
+  if((a!==0&&a<1e-4)||a>=1e6)return v.toExponential(4);
+  return v.toFixed(d).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'')
+}
+function pmRoleLabel(role){return diagEs()?role.es:role.en}
+function pmFieldRoleForName(c,name){
+  const m=pmMappingForCase(c);for(const r of PM_ROLE_DEFS)if(m[r.key]===name)return r.key;return''
+}
+function pmResolveCrossCaseField(sourceCase,otherCase,sourceField){
+  const virtual=pmVirtualFieldRole(sourceField);
+  if(virtual)return pmDerivedRateAvailability(otherCase,$('pmRegion')?.value||'',virtual)?sourceField:'';
+  const role=pmFieldRoleForName(sourceCase,sourceField),names=pmUniqueFieldNames(otherCase);
+  if(role){const mapped=pmMappingForCase(otherCase)[role];if(mapped&&names.includes(mapped))return mapped}
+  return names.includes(sourceField)?sourceField:''
+}
+function pmCaseWithFields(){return cases.filter(c=>(c.volumeFieldInventory||[]).length>0)}
+function pmCurrentCase(){
+  return caseById(Number($('pmCase')?.value))||caseById(Number($('pmMappingCase')?.value))||pmCaseWithFields()[0]||null
+}
+function pmRegionNames(c){return [...new Set((c?.volumeFieldInventory||[]).map(x=>x.region||''))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}))}
+function pmTimes(c,region=''){return [...new Set((c?.volumeFieldInventory||[]).filter(x=>x.region===String(region||'')).map(x=>Number(x.time)).filter(Number.isFinite))].sort((a,b)=>a-b)}
+function pmFieldNamesForRegion(c,region=''){return pmUniqueFieldNames(c,String(region||''))}
+function pmSetOptions(id,items,current='',label=x=>x){
+  const el=$(id);if(!el)return;const old=current||el.value;el.innerHTML=items.map(x=>'<option value="'+esc(String(x))+'">'+esc(String(label(x)))+'</option>').join('');
+  if(items.some(x=>String(x)===String(old)))el.value=String(old);else if(items.length)el.value=String(items[0])
+}
+function pmSetComponentOptions(id,current=''){
+  const items=[['value',diagEs()?'Valor escalar':'Scalar value'],['magnitude',diagEs()?'Magnitud':'Magnitude'],['x','X'],['y','Y'],['z','Z']];
+  const el=$(id);if(!el)return;const old=current||el.value;el.innerHTML=items.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('');if(items.some(x=>x[0]===old))el.value=old
+}
+function pmSubsetLabels(){
+  return{whole:diagEs()?'Dominio completo':'Whole domain',liquid:'Liquid',mushy:'Mushy',solid:'Solid'}
+}
+function pmRefreshSubsetSelect(id){
+  const el=$(id);if(!el)return;const old=el.value,l=pmSubsetLabels();for(const o of el.options)if(l[o.value])o.textContent=l[o.value];if([...el.options].some(o=>o.value===old))el.value=old
+}
+function pmCapabilityText(c){
+  const cap=pmCaseCapabilities(c);return[
+    ['fields',cap.fields>0,String(cap.fields)+' '+(diagEs()?'campos':'fields')],
+    ['phase',cap.phase,diagEs()?'fase':'phase'],
+    ['momentum',cap.momentum,'momentum'],
+    ['metadata',(c?.physicalMetadataEntries||[]).length>0,String((c?.physicalMetadataEntries||[]).length)+' metadata']
+  ]
+}
+function pmRenderMapping(){
+  const c=caseById(Number($('pmMappingCase')?.value))||pmCaseWithFields()[0],wrap=$('pmMappingRows');if(!c||!wrap)return;
+  const names=pmUniqueFieldNames(c),m=pmMappingForCase(c);
+  $('pmCapabilityBar').innerHTML=pmCapabilityText(c).map(([k,on,label])=>'<span class="pmCap '+(on?'on':'')+'">'+esc(label)+'</span>').join('');
+  wrap.innerHTML=PM_ROLE_DEFS.map(role=>{
+    const opts=[''].concat(names).map(n=>'<option value="'+esc(n)+'" '+(m[role.key]===n?'selected':'')+'>'+(n?esc(n):(diagEs()?'— No mapeado —':'— Not mapped —'))+'</option>').join('');
+    return'<div class="pmMappingRow"><div class="pmMappingRole">'+esc(pmRoleLabel(role))+'</div><select data-pm-role="'+esc(role.key)+'">'+opts+'</select></div>'
+  }).join('');
+  $('pmUserRoleName').value=m.userDefinedLabel||'';
+  const cap=pmCaseCapabilities(c);$('pmMappingStatus').textContent=(diagEs()?'Mapping de FoamLens para ':'FoamLens mapping for ')+c.name+' · '+(cap.enabled?(diagEs()?'Phase/Momentum disponible.':'Phase/Momentum available.'):(diagEs()?'Aún no hay campos suficientes mapeados para activar Phase Change / Momentum.':'Not enough compatible roles are mapped to enable Phase Change / Momentum yet.'));
+  pmRefreshCapabilityVisibility()
+}
+function pmRefreshCapabilityVisibility(){
+  const fieldCases=pmCaseWithFields(),hasFields=fieldCases.length>0,capCases=fieldCases.filter(c=>pmCaseCapabilities(c).enabled),hasCap=capCases.length>0;
+  $('fieldMappingTools')?.classList.toggle('pmHidden',!hasFields);$('pmMappingNav')?.classList.toggle('pmHidden',!hasFields);
+  $('phaseMomentumTools')?.classList.toggle('pmHidden',!hasCap);$('pmPhaseNav')?.classList.toggle('pmHidden',!hasCap);
+  if($('pmStatusBadge'))$('pmStatusBadge').textContent=hasCap?(diagEs()?'detectado':'detected'):(diagEs()?'no disponible':'unavailable')
+}
+function pmRefreshContext(preserve=true){
+  const fieldCases=pmCaseWithFields();if(!fieldCases.length)return;
+  const cOld=$('pmCase')?.value||'',mOld=$('pmMappingCase')?.value||'';
+  pmSetOptions('pmMappingCase',fieldCases.map(c=>c.id),preserve?mOld:'',id=>caseById(Number(id))?.name||id);
+  pmSetOptions('pmCase',fieldCases.map(c=>c.id),preserve?cOld:'',id=>caseById(Number(id))?.name||id);
+  const c=caseById(Number($('pmCase')?.value))||fieldCases[0];if(!c)return;
+  const regions=pmRegionNames(c),oldRegion=preserve?$('pmRegion')?.value:'';pmSetOptions('pmRegion',regions,oldRegion,r=>r||(diagEs()?'Región por defecto':'Default region'));
+  const region=$('pmRegion')?.value||'',times=pmTimes(c,region),oldTime=preserve?$('pmTime')?.value:'';
+  pmSetOptions('pmTime',times,oldTime,t=>pmFmt(t)+' s');
+  const fields=pmFieldChoicesForRegion(c,region),storedFields=pmFieldNamesForRegion(c,region);
+  for(const id of ['pmStatsField','pmRatioA','pmRatioB','pmScatterX','pmScatterY','pmEvolutionField'])pmSetOptions(id,fields,preserve?$(id)?.value:'',pmDisplayFieldName);
+  pmSetOptions('pmVerifyActual',storedFields,preserve?$('pmVerifyActual')?.value:'');
+  for(const id of ['pmStatsComponent','pmRatioAComponent','pmRatioBComponent','pmScatterXComponent','pmScatterYComponent','pmEvolutionComponent'])pmSetComponentOptions(id,preserve?$(id)?.value:'');
+  const selectedEvolution=new Set([...document.querySelectorAll('#pmEvolutionCases input:checked')].map(x=>Number(x.value)));
+  $('pmEvolutionCases').innerHTML=fieldCases.map(x=>'<label><input type="checkbox" value="'+x.id+'" '+((selectedEvolution.size?selectedEvolution.has(x.id):x.id===c.id)?'checked':'')+'> '+esc(x.name)+'</label>').join('');
+  pmRenderMetadata();
+  pmRenderMapping()
+}
+function refreshPhaseMomentumUi(){
+  pmRefreshCapabilityVisibility();if(!pmCaseWithFields().length)return;
+  pmApplyLanguage();pmRefreshContext(true);pmRenderSummary()
+}
+function pmSetPane(pane){
+  document.querySelectorAll('.pmAnalysisTab').forEach(b=>b.classList.toggle('active',b.dataset.pmPane===pane));
+  document.querySelectorAll('.pmPane').forEach(x=>x.classList.toggle('active',x.dataset.pmPanePanel===pane));
+  if(pane==='metadata')pmRenderMetadata();if(pane==='summary')pmRenderSummary()
+}
+function pmContext(){
+  const c=caseById(Number($('pmCase')?.value));return{c,caseId:c?.id,region:$('pmRegion')?.value||'',time:Number($('pmTime')?.value),low:Number($('pmAlphaLow')?.value),high:Number($('pmAlphaHigh')?.value)}
+}
+async function pmCollectSubsetValues(caseId,fieldName,time,region,component,subset,low,high){
+  const target=await pmLoadFieldSet(caseId,fieldName,time,region);if(!target.length)return{ok:false,reason:'Field is not available at the selected physical time / region.'};
+  if(subset==='whole'){
+    const aligned=pmAlignedComponents(target,component),values=aligned.chunks.flatMap(x=>x.a);
+    if(!values.length)return{ok:false,reason:aligned.issues.join(' · ')||'No compatible values.'};
+    return{ok:true,values,total:values.length,selected:values.length,issues:aligned.issues}
+  }
+  const c=caseById(Number(caseId)),alphaName=pmMappingForCase(c).liquidFraction;
+  if(!alphaName)return{ok:false,reason:'Liquid Fraction is not mapped for this case.'};
+  const alpha=await pmLoadFieldSet(caseId,alphaName,time,region);if(!alpha.length)return{ok:false,reason:'Mapped liquid-fraction field is not available at the exact selected time / region.'};
+  const aligned=pmAlignedComponents(target,component,alpha,'value'),values=[];let total=0;
+  for(const ch of aligned.chunks){const f=pmFilterByPhase(ch.a,ch.b,subset,low,high);values.push(...f.values);total+=f.total}
+  if(!total)return{ok:false,reason:aligned.issues.join(' · ')||'No cell-aligned data are available for phase classification.'};
+  return{ok:true,values,total,selected:values.length,issues:aligned.issues,alphaName}
+}
+function pmStatsHtml(st){
+  const rows=[['Minimum',st.min],['Maximum',st.max],['Mean',st.mean],['Median',st.median],['Std. dev.',st.std],['P5',st.p5],['P25',st.p25],['P75',st.p75],['P95',st.p95],['Cell count',st.count],['Selected fraction',Number.isFinite(st.fraction)?100*st.fraction:NaN]];
+  return'<table class="pmTable"><tbody>'+rows.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(k==='Selected fraction'?(Number.isFinite(v)?pmFmt(v,3)+' %':'—'):pmFmt(v))+'</td></tr>').join('')+'</tbody></table>'
+}
+function pmAddObservation(type,text,key=''){
+  const k=key||type+'|'+text,idx=pmObservations.findIndex(x=>x.key===k),x={key:k,type,text,at:new Date().toISOString()};if(idx>=0)pmObservations[idx]=x;else pmObservations.unshift(x);pmObservations=pmObservations.slice(0,40);pmRenderSummary()
+}
+async function pmRunStatsAnalysis(){
+  const x=pmContext(),field=$('pmStatsField').value,component=$('pmStatsComponent').value,subset=$('pmStatsSubset').value;
+  if(!x.c||!field||!Number.isFinite(x.time))return;
+  $('pmStatsStatus').textContent=diagEs()?'Calculando datos por celda…':'Calculating cell-wise data…';
+  const r=await pmCollectSubsetValues(x.caseId,field,x.time,x.region,component,subset,x.low,x.high);
+  if(!r.ok){$('pmStatsStatus').textContent=r.reason;$('pmStatsResult').innerHTML='';return}
+  const st=pmStats(r.values,r.total),set=await pmLoadFieldSet(x.caseId,field,x.time,x.region),di=pmFieldDimensionInfo(set),derived=set.find(z=>z.derived)?.derived;
+  $('pmStatsResult').innerHTML=pmStatsHtml(st)+'<table class="pmTable"><tbody><tr><th>Dimensions</th><td>'+esc(di.dimensions||'—')+'</td></tr><tr><th>Recognized unit</th><td>'+esc(di.unit||'—')+'</td></tr>'+(derived?'<tr><th>Derived as</th><td>'+esc(derived.formula)+' · '+pmFmt(derived.t1)+' → '+pmFmt(derived.t2)+' s</td></tr>':'')+'</tbody></table>';
+  $('pmStatsStatus').textContent=(diagEs()?'Caso: ':'Case: ')+x.c.name+' · '+pmDisplayFieldName(field)+' · '+component+' · '+pmSubsetLabels()[subset]+' · t='+pmFmt(x.time)+' s'+(r.issues?.length?' · '+r.issues.join(' · '):'');
+  if(st.count&&st.min===0&&st.max===0)pmAddObservation('observation',(diagEs()?'El campo seleccionado es cero en todo el subconjunto muestreado. ':'The selected field is zero throughout the sampled subset. ')+field+' · '+pmSubsetLabels()[subset]+' · t='+pmFmt(x.time)+' s','zero|'+x.c.id+'|'+field+'|'+subset);
+  if(subset!=='whole')pmAddObservation('derived metric',pmSubsetLabels()[subset]+' '+(diagEs()?'representa ':'represents ')+pmFmt(100*st.fraction,3)+'% '+(diagEs()?'de las celdas alineadas en el análisis seleccionado.':'of aligned cells in the selected analysis.'),'phasefraction|'+x.c.id+'|'+subset+'|'+x.time)
+}
+async function pmRatioPairs(caseId,aName,aComp,bName,bComp,time,region,subset,low,high,epsilon){
+  const A=await pmLoadFieldSet(caseId,aName,time,region),B=await pmLoadFieldSet(caseId,bName,time,region);
+  if(!A.length||!B.length)return{ok:false,reason:'Both mechanism fields must exist at the exact selected time / region.'};
+  const ab=pmAlignedComponents(A,aComp,B,bComp),alphaName=pmMappingForCase(caseById(caseId)).liquidFraction;
+  let alphaMap=null;if(subset!=='whole'){
+    if(!alphaName)return{ok:false,reason:'Liquid Fraction is not mapped for phase-conditioned ratio statistics.'};
+    const alpha=await pmLoadFieldSet(caseId,alphaName,time,region);if(!alpha.length)return{ok:false,reason:'Liquid Fraction is missing at the exact selected time.'};alphaMap=pmSetByPartition(alpha)
+  }
+  const ratios=[];let invalid=0,total=0,phaseSelected=0;const issues=[...ab.issues];
+  for(const ch of ab.chunks){
+    let aa=ch.a,bb=ch.b;
+    if(subset!=='whole'){
+      const ap=alphaMap.get(ch.partition);if(!ap){issues.push('Missing phase field for partition '+(ch.partition||'(reconstructed)'));continue}
+      const av=pmComponentValues(ap,'value',aa.length);if(!av.ok||av.values.length!==aa.length){issues.push('Phase-field cell count mismatch in '+(ch.partition||'reconstructed field'));continue}
+      const fa=[],fb=[];for(let i=0;i<aa.length;i++)if(pmClassifyPhase(av.values[i],low,high)===subset){fa.push(aa[i]);fb.push(bb[i])}
+      aa=fa;bb=fb
+    }
+    phaseSelected+=aa.length;const rr=pmLocalRatio(aa,bb,epsilon);ratios.push(...rr.values);invalid+=rr.invalid;total+=rr.total
+  }
+  return total?{ok:true,ratios,invalid,total,phaseSelected,issues}:{ok:false,reason:issues.join(' · ')||'No cell-aligned values are available.'}
+}
+async function pmRunRatioAnalysis(){
+  const x=pmContext(),a=$('pmRatioA').value,b=$('pmRatioB').value,ac=$('pmRatioAComponent').value,bc=$('pmRatioBComponent').value,subset=$('pmRatioSubset').value,eps=Number($('pmRatioEpsilon').value);
+  if(!x.c||!a||!b||!Number.isFinite(x.time))return;$('pmRatioStatus').textContent=diagEs()?'Calculando ratio local por celda…':'Calculating local cell-wise ratio…';
+  const r=await pmRatioPairs(x.caseId,a,ac,b,bc,x.time,x.region,subset,x.low,x.high,eps);
+  if(!r.ok){$('pmRatioStatus').textContent=r.reason;$('pmRatioResult').innerHTML='';return}
+  const st=pmStats(r.ratios,r.total),invalidPct=r.total?100*r.invalid/r.total:NaN;
+  $('pmRatioResult').innerHTML=pmStatsHtml(st)+'<table class="pmTable"><tbody><tr><th>Near-zero / undefined</th><td>'+r.invalid+' / '+r.total+' ('+pmFmt(invalidPct,3)+'%)</td></tr><tr><th>epsilon</th><td>'+pmFmt(eps)+'</td></tr></tbody></table>';
+  const da=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,a,x.time,x.region)),db=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,b,x.time,x.region));
+  $('pmRatioStatus').textContent=(diagEs()?'Ratio local, no máximos globales. ':'Local ratio, not global maxima. ')+pmDisplayFieldName(a)+' / '+pmDisplayFieldName(b)+' · '+pmSubsetLabels()[subset]+' · ['+(da.unit||da.dimensions||'?')+'] / ['+(db.unit||db.dimensions||'?')+']'+(r.issues.length?' · '+r.issues.join(' · '):'');
+  pmAddObservation('derived metric',(diagEs()?'Mediana local de ':'Local median of ')+'|'+a+'| / |'+b+'| = '+pmFmt(st.median)+' '+(diagEs()?'en ':'in ')+pmSubsetLabels()[subset]+'. '+r.invalid+' '+(diagEs()?'celdas fueron excluidas por denominador ≤ epsilon.':'cells were excluded because the denominator was ≤ epsilon.'),'ratio|'+x.c.id+'|'+a+'|'+b+'|'+subset)
+}
+async function pmPairedValues(caseId,xName,xComp,yName,yComp,time,region,subset,low,high){
+  const X=await pmLoadFieldSet(caseId,xName,time,region),Y=await pmLoadFieldSet(caseId,yName,time,region);if(!X.length||!Y.length)return{ok:false,reason:'Both fields must exist at the exact selected time / region.'};
+  const xy=pmAlignedComponents(X,xComp,Y,yComp),alphaName=pmMappingForCase(caseById(caseId)).liquidFraction;let alphaMap=null;
+  if(subset!=='whole'){if(!alphaName)return{ok:false,reason:'Liquid Fraction is not mapped.'};const a=await pmLoadFieldSet(caseId,alphaName,time,region);if(!a.length)return{ok:false,reason:'Liquid Fraction is missing at the exact selected time.'};alphaMap=pmSetByPartition(a)}
+  const xv=[],yv=[],issues=[...xy.issues];
+  for(const ch of xy.chunks){
+    let alphaVals=null;if(alphaMap){const p=alphaMap.get(ch.partition);if(!p){issues.push('Missing phase field for partition '+(ch.partition||'(reconstructed)'));continue}const z=pmComponentValues(p,'value',ch.a.length);if(!z.ok||z.values.length!==ch.a.length){issues.push('Phase-field cell count mismatch');continue}alphaVals=z.values}
+    for(let i=0;i<ch.a.length;i++){if(alphaVals&&pmClassifyPhase(alphaVals[i],low,high)!==subset)continue;const a=ch.a[i],b=ch.b[i];if(Number.isFinite(a)&&Number.isFinite(b)){xv.push(a);yv.push(b)}}
+  }
+  return xv.length?{ok:true,x:xv,y:yv,issues}:{ok:false,reason:issues.join(' · ')||'No compatible paired cells.'}
+}
+function pmDrawScatter(canvas,x,y){
+  if(!canvas)return;const dpr=window.devicePixelRatio||1,w=Math.max(260,canvas.clientWidth||320),hh=Math.max(170,canvas.clientHeight||190);canvas.width=Math.round(w*dpr);canvas.height=Math.round(hh*dpr);const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hh);
+  const xmin=Math.min(...x),xmax=Math.max(...x),ymin=Math.min(...y),ymax=Math.max(...y),px=(v)=>28+(w-42)*(v-xmin)/(xmax-xmin||1),py=(v)=>hh-22-(hh-36)*(v-ymin)/(ymax-ymin||1);
+  c.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line')||'#566';c.strokeRect(28,8,w-42,hh-30);c.fillStyle=getComputedStyle(document.body).getPropertyValue('--accent')||'#5af';c.globalAlpha=.45;
+  const step=Math.max(1,Math.ceil(x.length/5000));for(let i=0;i<x.length;i+=step){c.beginPath();c.arc(px(x[i]),py(y[i]),1.6,0,Math.PI*2);c.fill()}c.globalAlpha=1
+}
+async function pmRunScatterAnalysis(){
+  const x=pmContext(),xn=$('pmScatterX').value,yn=$('pmScatterY').value,xc=$('pmScatterXComponent').value,yc=$('pmScatterYComponent').value,subset=$('pmScatterSubset').value;
+  if(!x.c||!xn||!yn||!Number.isFinite(x.time))return;$('pmScatterStatus').textContent=diagEs()?'Emparejando celdas…':'Pairing cells…';
+  const r=await pmPairedValues(x.caseId,xn,xc,yn,yc,x.time,x.region,subset,x.low,x.high);if(!r.ok){$('pmScatterStatus').textContent=r.reason;return}
+  const pearson=pmPearson(r.x,r.y),spearman=pmSpearman(r.x,r.y);pmLastScatter={...r,pearson,spearman,xn,yn,subset};pmDrawScatter($('pmScatterCanvas'),r.x,r.y);
+  const dx=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,xn,x.time,x.region)),dy=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,yn,x.time,x.region));
+  $('pmScatterStatus').textContent='N = '+r.x.length+' · Pearson r = '+pmFmt(pearson,4)+' · Spearman ρ = '+pmFmt(spearman,4)+' · X ['+(dx.unit||dx.dimensions||'?')+'] · Y ['+(dy.unit||dy.dimensions||'?')+'] · '+(diagEs()?'La correlación no implica causalidad.':'Correlation does not imply causation.')+(r.issues.length?' · '+r.issues.join(' · '):'');
+  pmAddObservation('derived metric',xn+' vs '+yn+' · N='+r.x.length+' · Pearson r='+pmFmt(pearson,4)+' · Spearman ρ='+pmFmt(spearman,4)+'. '+(diagEs()?'Correlación no implica causalidad.':'Correlation does not imply causation.'),'corr|'+x.c.id+'|'+xn+'|'+yn+'|'+subset)
+}
+function pmDrawLines(canvas,lines){
+  if(!canvas||!lines.length)return;const all=lines.flatMap(l=>l.points),xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);if(!all.length)return;
+  const dpr=window.devicePixelRatio||1,w=Math.max(260,canvas.clientWidth||320),hh=Math.max(170,canvas.clientHeight||190);canvas.width=Math.round(w*dpr);canvas.height=Math.round(hh*dpr);const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hh);
+  const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys),px=v=>32+(w-46)*(v-xmin)/(xmax-xmin||1),py=v=>hh-24-(hh-38)*(v-ymin)/(ymax-ymin||1);
+  c.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line')||'#566';c.strokeRect(32,8,w-46,hh-32);
+  const palette=['#4d9cff','#ff9e4d','#4dcf91','#c27aff','#e15f73','#77b6b2'];lines.forEach((l,j)=>{c.beginPath();c.strokeStyle=palette[j%palette.length];c.lineWidth=1.8;l.points.forEach((p,i)=>{const x=px(p[0]),y=py(p[1]);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()})
+}
+function pmEvolutionCaseIds(){return[...document.querySelectorAll('#pmEvolutionCases input:checked')].map(x=>Number(x.value)).filter(Number.isFinite)}
+async function pmRunEvolutionAnalysis(){
+  const src=pmContext(),sourceField=$('pmEvolutionField').value,component=$('pmEvolutionComponent').value,subset=$('pmEvolutionSubset').value,stat=$('pmEvolutionStatistic').value,ids=pmEvolutionCaseIds();
+  if(!src.c||!sourceField||!ids.length)return;$('pmEvolutionStatus').textContent=diagEs()?'Calculando evolución por tiempo físico…':'Calculating physical-time evolution…';
+  const lines=[],skipped=[];
+  for(const id of ids){
+    const c=caseById(id);if(!c)continue;const field=pmResolveCrossCaseField(src.c,c,sourceField);if(!field){skipped.push(c.name+': field unavailable');continue}
+    const records=(c.volumeFieldInventory||[]).filter(r=>r.name===field&&r.region===src.region),times=[...new Set(records.map(r=>Number(r.time)).filter(Number.isFinite))].sort((a,b)=>a-b),points=[];
+    for(let ti=0;ti<times.length;ti++){
+      const t=times[ti],r=await pmCollectSubsetValues(c.id,field,t,src.region,component,subset,src.low,src.high);if(!r.ok)continue;const st=pmStats(r.values,r.total),v=st[stat];if(Number.isFinite(v))points.push([t,v]);if(ti%8===0)await scannerYield()
+    }
+    if(points.length){
+      lines.push({caseId:c.id,caseName:c.name,field,points});const first=points[0],last=points.at(-1),verb=last[1]<first[1]?(diagEs()?'disminuyó':'decreased'):last[1]>first[1]?(diagEs()?'aumentó':'increased'):(diagEs()?'se mantuvo igual':'was unchanged');
+      const text=diagEs()
+        ?('El estadístico '+stat+' de '+pmDisplayFieldName(field)+' '+verb+' de '+pmFmt(first[1])+' a '+pmFmt(last[1])+' entre '+pmFmt(first[0])+'–'+pmFmt(last[0])+' s · '+c.name)
+        :('The '+stat+' statistic of '+pmDisplayFieldName(field)+' '+verb+' from '+pmFmt(first[1])+' to '+pmFmt(last[1])+' between '+pmFmt(first[0])+'–'+pmFmt(last[0])+' s · '+c.name);
+      pmAddObservation('observation',text,'evo|'+c.id+'|'+field+'|'+subset+'|'+stat)
+    }
+    else skipped.push(c.name+': no compatible times')
+  }
+  pmLastEvolution={lines,sourceField,component,subset,stat};if(lines.length)pmDrawLines($('pmEvolutionCanvas'),lines);
+  $('pmEvolutionStatus').textContent=lines.length?(lines.length+' '+(diagEs()?'caso(s) graficados':'case(s) plotted')+(skipped.length?' · '+skipped.join(' · '):'')):(skipped.join(' · ')||'No compatible data.')
+}
+function pmRenderMetadata(){
+  const c=caseById(Number($('pmCase')?.value));if(!c||!$('pmMetadataResult'))return;const q=String($('pmMetadataFilter')?.value||'').toLowerCase();
+  const rows=(c.physicalMetadataEntries||[]).filter(e=>!q||[e.key,e.path,e.sourcePath,e.rawValue,e.dimensions].some(v=>String(v||'').toLowerCase().includes(q)));
+  $('pmMetadataResult').innerHTML=rows.length?'<table class="pmTable"><thead><tr><th>Parameter</th><th>Dictionary path</th><th>Value</th><th>Dimensions</th><th>Source</th></tr></thead><tbody>'+rows.slice(0,1000).map(e=>'<tr><td>'+esc(e.key)+'</td><td>'+esc(e.path)+'</td><td>'+esc(String(e.rawValue))+'</td><td>'+esc(e.dimensions||'—')+'</td><td>'+esc(e.sourcePath)+'</td></tr>').join('')+'</tbody></table>':'<div class="extNote">'+(diagEs()?'No hay metadata compatible con el filtro.':'No metadata matches this filter.')+'</div>'
+}
+function pmFindMetadataBinding(c,name){
+  const m=(c?.physicalMetadataEntries||[]).filter(e=>String(e.key).toLowerCase()===String(name).toLowerCase()&&Number.isFinite(Number(e.value)));
+  return m.length===1?{type:'metadata',value:Number(m[0].value),entry:m[0]}:{type:'error',reason:m.length?'ambiguous metadata parameter':'not found'}
+}
+async function pmRunVerification(){
+  const x=pmContext(),actualName=$('pmVerifyActual').value,expr=$('pmVerifyFormula').value.trim(),tol=Math.max(0,Number($('pmVerifyTolerance').value)||0),eps=Math.max(0,Number($('pmVerifyEpsilon').value)||0);
+  if(!x.c||!actualName||!expr||!Number.isFinite(x.time))return;
+  let ast;try{ast=pmParseFormula(expr)}catch(err){$('pmVerifyStatus').textContent=String(err);return}
+  const ids=[...pmFormulaIdentifiers(ast)],fieldNames=pmFieldNamesForRegion(x.c,x.region),bindings=new Map(),bindingText=[];
+  for(const id of ids){
+    const field=fieldNames.find(n=>n.toLowerCase()===id.toLowerCase());
+    if(field){bindings.set(id,{type:'field',name:field,set:await pmLoadFieldSet(x.caseId,field,x.time,x.region)});bindingText.push(id+' → field '+field);continue}
+    const md=pmFindMetadataBinding(x.c,id);bindings.set(id,md);bindingText.push(id+' → '+(md.type==='metadata'?(md.entry.path+' = '+pmFmt(md.value)):md.reason))
+  }
+  $('pmVerifyBindings').textContent=bindingText.join(' · ');
+  if([...bindings.values()].some(b=>b.type==='error'||(b.type==='field'&&!b.set.length))){$('pmVerifyStatus').textContent=diagEs()?'No se pudieron resolver todas las variables de la expresión sin ambigüedad.':'Not all expression variables could be resolved unambiguously.';return}
+  const actual=await pmLoadFieldSet(x.caseId,actualName,x.time,x.region);if(!actual.length){$('pmVerifyStatus').textContent='Actual field unavailable.';return}
+  const actualMap=pmSetByPartition(actual),absDiff=[],relDiff=[];let compared=0,within=0,relUndefined=0,issues=[];
+  for(const [part,a] of actualMap){
+    const av=pmComponentValues(a,'value');if(!av.ok){issues.push(actualName+' must be scalar for verification.');continue}
+    let n=a.uniform?null:av.values.length;const fieldArrays=new Map(),scalars=new Map();let bad=false;
+    for(const [id,b] of bindings){
+      if(b.type==='metadata'){scalars.set(id,b.value);continue}
+      const p=pmSetByPartition(b.set).get(part);if(!p){issues.push(id+': missing matching partition');bad=true;break}
+      if(p.kind!=='scalar'){issues.push(id+': formula field must be scalar');bad=true;break}
+      if(n==null&&!p.uniform)n=p.count;const pv=pmComponentValues(p,'value',n);if(!pv.ok){issues.push(id+': '+pv.reason);bad=true;break}fieldArrays.set(id,pv.values)
+    }
+    if(bad)continue;if(n==null)n=1;const actualVals=pmComponentValues(a,'value',n).values;
+    for(const [id,arr] of fieldArrays)if(arr.length!==n){issues.push(id+': cell-count mismatch');bad=true}if(bad)continue;
+    for(let i=0;i<n;i++){
+      let expected;try{expected=pmEvalFormula(ast,name=>scalars.has(name)?scalars.get(name):fieldArrays.get(name)?.[i])}catch(err){issues.push(String(err));bad=true;break}
+      const actualV=actualVals[i];if(!Number.isFinite(expected)||!Number.isFinite(actualV))continue;const ad=Math.abs(actualV-expected);absDiff.push(ad);compared++;if(ad<=tol)within++;if(Math.abs(expected)>eps)relDiff.push(ad/Math.abs(expected));else relUndefined++
+    }
+  }
+  if(!compared){$('pmVerifyStatus').textContent=issues.join(' · ')||'No comparable cells.';$('pmVerifyResult').innerHTML='';return}
+  const abs=pmStats(absDiff,compared),rel=pmStats(relDiff,compared);
+  $('pmVerifyResult').innerHTML='<table class="pmTable"><tbody><tr><th>Compared cells</th><td>'+compared+'</td></tr><tr><th>Within tolerance</th><td>'+pmFmt(100*within/compared,3)+'%</td></tr><tr><th>Mean absolute difference</th><td>'+pmFmt(abs.mean)+'</td></tr><tr><th>P95 absolute difference</th><td>'+pmFmt(abs.p95)+'</td></tr><tr><th>Mean relative difference</th><td>'+pmFmt(rel.mean)+'</td></tr><tr><th>Relative undefined near zero</th><td>'+relUndefined+'</td></tr><tr><th>Tolerance</th><td>'+pmFmt(tol)+'</td></tr></tbody></table>';
+  $('pmVerifyStatus').textContent=(diagEs()?'Verificación descriptiva: expected vs actual. ':'Descriptive verification: expected vs actual. ')+(issues.length?issues.join(' · '):'');
+  pmAddObservation('derived metric',actualName+': '+pmFmt(100*within/compared,3)+'% '+(diagEs()?'de las celdas comparadas cumplen la tolerancia absoluta ':'of compared cells satisfy absolute tolerance ')+pmFmt(tol)+'.','verify|'+x.c.id+'|'+actualName+'|'+expr)
+}
+function pmRenderSummary(){
+  if(!$('pmSummaryResult'))return;const typeLabel=x=>x==='observation'?(diagEs()?'Observación':'Observation'):x==='derived metric'?(diagEs()?'Métrica derivada':'Derived metric'):(diagEs()?'Interpretación':'Interpretation');
+  const rows=pmObservations.length?pmObservations.map(x=>'<div class="pmObservation"><div class="pmType">'+esc(typeLabel(x.type))+'</div>'+esc(x.text)+'</div>').join(''):'<div class="extNote">'+(diagEs()?'Ejecuta un análisis para generar observaciones basadas en datos.':'Run an analysis to generate evidence-based observations.')+'</div>';
+  $('pmSummaryResult').innerHTML=rows+'<div class="pmObservation"><div class="pmType">'+esc(typeLabel('interpretation'))+'</div>'+(diagEs()?'FoamLens no genera automáticamente una interpretación causal ni declara que una simulación sea físicamente correcta.':'FoamLens does not automatically generate causal interpretation or declare a simulation physically correct.')+'</div>'
+}
+function pmWorkspaceState(){
+  return{mappings:[...pmFieldMappings.entries()],alphaLow:Number($('pmAlphaLow')?.value)||.05,alphaHigh:Number($('pmAlphaHigh')?.value)||.95,ratioEpsilon:Number($('pmRatioEpsilon')?.value)||1e-12,verifyTolerance:Number($('pmVerifyTolerance')?.value)||1e-8,verifyEpsilon:Number($('pmVerifyEpsilon')?.value)||1e-12,userObservations:pmObservations}
+}
+function pmRestoreWorkspaceState(x){
+  if(!x)return;pmFieldMappings.clear();for(const [k,v] of x.mappings||[])pmFieldMappings.set(k,v||{});
+  if(Number.isFinite(Number(x.alphaLow))&&$('pmAlphaLow'))$('pmAlphaLow').value=String(x.alphaLow);if(Number.isFinite(Number(x.alphaHigh))&&$('pmAlphaHigh'))$('pmAlphaHigh').value=String(x.alphaHigh);
+  if(Number.isFinite(Number(x.ratioEpsilon))&&$('pmRatioEpsilon'))$('pmRatioEpsilon').value=String(x.ratioEpsilon);if(Number.isFinite(Number(x.verifyTolerance))&&$('pmVerifyTolerance'))$('pmVerifyTolerance').value=String(x.verifyTolerance);if(Number.isFinite(Number(x.verifyEpsilon))&&$('pmVerifyEpsilon'))$('pmVerifyEpsilon').value=String(x.verifyEpsilon);
+  pmObservations=Array.isArray(x.userObservations)?x.userObservations:[];refreshPhaseMomentumUi()
+}
+function pmApplyLanguage(){
+  if(!$('pmTitle'))return;const es=diagEs(),set=(id,en,sp)=>{if($(id))$(id).textContent=es?sp:en};
+  set('pmMappingTitle','Field Mapping','Mapeo de campos');set('pmMappingCaseLabel','Case','Caso');set('pmUserRoleLabel','User-defined role label','Etiqueta de rol definido por usuario');
+  set('pmTitle','Phase Change / Momentum','Cambio de fase / Momentum');set('pmCaseLabel','Case','Caso');set('pmRegionLabel','Region','Región');set('pmTimeLabel','Time [s]','Tiempo [s]');
+  set('pmSolidThresholdLabel','Solid / mushy threshold','Umbral sólido / mushy');set('pmLiquidThresholdLabel','Mushy / liquid threshold','Umbral mushy / líquido');
+  set('pmTabStats','Statistics','Estadística');set('pmTabRatio','Mechanisms','Mecanismos');set('pmTabScatter','Scatter','Scatter');set('pmTabEvolution','Evolution','Evolución');set('pmTabMetadata','Metadata','Metadata');set('pmTabVerify','Verify field','Verificar campo');set('pmTabSummary','Physics Summary','Resumen físico');
+  set('pmStatsFieldLabel','Field','Campo');set('pmStatsComponentLabel','Component','Componente');set('pmStatsSubsetLabel','Spatial subset','Subconjunto espacial');set('pmRunStats','Calculate statistics','Calcular estadísticas');
+  set('pmRatioALabel','Mechanism A','Mecanismo A');set('pmRatioAComponentLabel','A component','Componente A');set('pmRatioBLabel','Mechanism B','Mecanismo B');set('pmRatioBComponentLabel','B component','Componente B');set('pmRatioSubsetLabel','Spatial subset','Subconjunto espacial');set('pmRatioEpsilonLabel','Near-zero epsilon','Epsilon para casi cero');set('pmRunRatio','Calculate local |A| / |B|','Calcular |A| / |B| local');
+  set('pmScatterXLabel','X field','Campo X');set('pmScatterXComponentLabel','X component','Componente X');set('pmScatterYLabel','Y field','Campo Y');set('pmScatterYComponentLabel','Y component','Componente Y');set('pmScatterSubsetLabel','Spatial subset','Subconjunto espacial');set('pmRunScatter','Create scatter / correlation','Crear scatter / correlación');
+  set('pmEvolutionCasesLabel','Cases','Casos');set('pmEvolutionFieldLabel','Field','Campo');set('pmEvolutionComponentLabel','Component','Componente');set('pmEvolutionSubsetLabel','Spatial subset','Subconjunto espacial');set('pmEvolutionStatisticLabel','Statistic','Estadístico');set('pmRunEvolution','Plot temporal evolution','Graficar evolución temporal');
+  set('pmVerifyActualLabel','Actual derived field','Campo derivado real');set('pmVerifyFormulaLabel','Expected expression','Expresión esperada');set('pmVerifyToleranceLabel','Absolute tolerance','Tolerancia absoluta');set('pmVerifyEpsilonLabel','Relative-difference epsilon','Epsilon de diferencia relativa');set('pmRunVerify','Verify derived field','Verificar campo derivado');
+  for(const id of ['pmStatsSubset','pmRatioSubset','pmScatterSubset','pmEvolutionSubset'])pmRefreshSubsetSelect(id);
+  if($('pmSummaryNote'))$('pmSummaryNote').textContent=es?'Resumen basado solo en evidencia. FoamLens separa observaciones y métricas derivadas de la interpretación.':'Evidence-only summary. FoamLens separates observations and derived metrics from interpretation.';
+  if($('pmMetadataFilter'))$('pmMetadataFilter').placeholder=es?'Filtrar parámetro, ruta o archivo fuente':'Filter parameter, dictionary path or source file'
+}
+function initPhaseMomentumUi(){
+  if(pmUiInitialized)return;pmUiInitialized=true;
+  $('pmMappingCase')?.addEventListener('change',()=>{pmRenderMapping()});
+  $('pmMappingRows')?.addEventListener('change',e=>{const sel=e.target.closest('select[data-pm-role]');if(!sel)return;const c=caseById(Number($('pmMappingCase').value));if(!c)return;const m=pmMappingForCase(c);m[sel.dataset.pmRole]=sel.value;pmFieldMappings.set(pmMappingKey(c),m);pmRefreshCapabilityVisibility();pmRefreshContext(true)});
+  $('pmUserRoleName')?.addEventListener('input',()=>{const c=caseById(Number($('pmMappingCase').value));if(!c)return;const m=pmMappingForCase(c);m.userDefinedLabel=$('pmUserRoleName').value;pmFieldMappings.set(pmMappingKey(c),m)});
+  $('pmCase')?.addEventListener('change',()=>pmRefreshContext(false));$('pmRegion')?.addEventListener('change',()=>pmRefreshContext(true));$('pmTime')?.addEventListener('change',()=>{});
+  $('pmAlphaLow')?.addEventListener('change',()=>{const lo=Number($('pmAlphaLow').value),hi=Number($('pmAlphaHigh').value);if(lo>hi)$('pmAlphaLow').value=String(hi)});
+  $('pmAlphaHigh')?.addEventListener('change',()=>{const lo=Number($('pmAlphaLow').value),hi=Number($('pmAlphaHigh').value);if(hi<lo)$('pmAlphaHigh').value=String(lo)});
+  document.querySelectorAll('.pmAnalysisTab').forEach(b=>b.addEventListener('click',()=>pmSetPane(b.dataset.pmPane)));
+  $('pmRunStats')?.addEventListener('click',pmRunStatsAnalysis);$('pmRunRatio')?.addEventListener('click',pmRunRatioAnalysis);$('pmRunScatter')?.addEventListener('click',pmRunScatterAnalysis);$('pmRunEvolution')?.addEventListener('click',pmRunEvolutionAnalysis);$('pmRunVerify')?.addEventListener('click',pmRunVerification);$('pmMetadataFilter')?.addEventListener('input',pmRenderMetadata);
+  refreshPhaseMomentumUi()
+}
+function workspacePayload(){return{format:'FoamLens Workspace',schemaVersion:2,productVersion:'v50',savedAt:new Date().toISOString(),projectName:projectDisplayName(),ui:{language:$('language').value,theme:$('theme').value,activeAppMode,currentDataView,activeContextCaseRoot:caseById(activeContextCaseId)?.rootPath||'',activeContextRegion,visual:currentVisualConfig()},cases:cases.map(c=>({name:c.name,rootPath:c.rootPath,visible:c.visible!==false,dash:c.dash})),seriesState:series.map(s=>({key:seriesWorkspaceKey(s),visible:s.visible!==false,color:s.color,width:s.width,dash:s.dash,opacity:s.opacity,axis:s.axis,customLabel:s.customLabel||''})),findings:{pinned:[...pinnedFindingKeys],dismissed:[...dismissedFindingKeys]},phaseMomentum:pmWorkspaceState()}}
 function saveFoamLensWorkspace(){downloadText(`${projectDisplayName().replace(/[^A-Za-z0-9_-]+/g,'_')||'FoamLens'}.foamlens.json`,JSON.stringify(workspacePayload(),null,2),'application/json')}
-function applyWorkspacePayload(payload){if(!payload||payload.format!=='FoamLens Workspace')throw new Error('Not a FoamLens workspace file.');pendingWorkspaceRestore=payload;if(payload.findings){pinnedFindingKeys=new Set(payload.findings.pinned||[]);dismissedFindingKeys=new Set(payload.findings.dismissed||[])}if(payload.ui?.language)$('language').value=payload.ui.language;if(payload.ui?.theme)$('theme').value=payload.ui.theme;if(payload.ui?.visual)for(const[id,v]of Object.entries(payload.ui.visual))if($(id)&&!['elementOffsets','seriesPanelHidden','sidebarWidth','sidebarCollapsed','sideLegendWidth','workspaceZoom'].includes(id))writeControlValue(id,v);applyPendingWorkspaceRestore();applyLanguage();refreshWorkspaceReview();draw()}
+function applyWorkspacePayload(payload){if(!payload||payload.format!=='FoamLens Workspace')throw new Error('Not a FoamLens workspace file.');pendingWorkspaceRestore=payload;if(payload.findings){pinnedFindingKeys=new Set(payload.findings.pinned||[]);dismissedFindingKeys=new Set(payload.findings.dismissed||[])}if(payload.ui?.language)$('language').value=payload.ui.language;if(payload.ui?.theme)$('theme').value=payload.ui.theme;if(payload.ui?.visual)for(const[id,v]of Object.entries(payload.ui.visual))if($(id)&&!['elementOffsets','seriesPanelHidden','sidebarWidth','sidebarCollapsed','sideLegendWidth','workspaceZoom'].includes(id))writeControlValue(id,v);if(payload.phaseMomentum)pmRestoreWorkspaceState(payload.phaseMomentum);applyPendingWorkspaceRestore();applyLanguage();refreshWorkspaceReview();draw()}
 function applyPendingWorkspaceRestore(){
   const p=pendingWorkspaceRestore;
   if(!p||!hasRealWorkspaceEvidence())return false;
@@ -4754,13 +5602,13 @@ function refreshWorkspaceReview(precomputedHealth=null){
   $('allFindings').innerHTML=shown.length?shown.map(findingHtml).join(''):`<div class="extNote">${diagEs()?'Sin findings visibles.':'No visible findings.'}</div>`;
   const regionCount=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size,logFamilies=new Set(logOptionsBase().map(s=>s.logFamily)).size,profileSets=new Set(cases.flatMap(c=>caseProfileSets(c.id))).size;
   $('workspaceDiscoverySummary').innerHTML=[
-    ['Cases',cases.length],['Regions',regionCount],['Loaded series',series.length],['Indexed profiles',pendingLazyProfileCount()],['Log families',logFamilies],['Profile sets',profileSets],['Findings',currentFindings.length]
+    ['Cases',cases.length],['Regions',regionCount],['Loaded series',series.length],['Volume field files',cases.reduce((n,c)=>n+(c.volumeFieldInventory?.length||0),0)],['Physical metadata',cases.reduce((n,c)=>n+(c.physicalMetadataEntries?.length||0),0)],['Indexed profiles',pendingLazyProfileCount()],['Log families',logFamilies],['Profile sets',profileSets],['Findings',currentFindings.length]
   ].map(([k,v])=>`<div class="auditBlock"><span>${esc(k)}</span><b>${v}</b></div>`).join('');
   const selectors=[$('auditCase'),$('inspectorCase')].filter(Boolean);
   for(const sel of selectors){const old=sel.value;sel.innerHTML=cases.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');if(cases.some(c=>String(c.id)===old))sel.value=old}
   const audit=caseById(Number($('auditCase')?.value))||cases[0];if(audit){$('auditCase').value=String(audit.id);renderAuditCase(audit)}
   const insp=caseById(Number($('inspectorCase')?.value))||cases[0];if(insp){$('inspectorCase').value=String(insp.id);$('inspectorTree').textContent=inspectorText(insp)}else $('inspectorTree').textContent=diagEs()?'No hay caso seleccionado.':'No case selected.';
-  renderConfigComparison();renderCompareCases();renderOutputCompleteness();renderRelationships();updateContextTrail()
+  renderConfigComparison();renderCompareCases();renderOutputCompleteness();renderRelationships();refreshPhaseMomentumUi();updateContextTrail()
 }
 function setReviewPane(pane){
   activeReviewPane=pane||'auditor';
@@ -4792,6 +5640,8 @@ function openAnalysisModule(kind){
   if(kind==='coupling'){setDataView('log');if($('couplingDiagnostics'))$('couplingDiagnostics').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='front'){setDataView('profile');if($('phaseFrontPanel')){$('phaseFrontPanel').open=true;$('phaseFrontPanel').scrollIntoView({block:'start',behavior:'smooth'})}}
   else if(kind==='difference'){if($('differenceTools'))$('differenceTools').scrollIntoView({block:'center',behavior:'smooth'})}
+  else if(kind==='mapping'){if($('fieldMappingTools'))$('fieldMappingTools').scrollIntoView({block:'start',behavior:'smooth'})}
+  else if(kind==='phaseMomentum'){refreshPhaseMomentumUi();if($('phaseMomentumTools'))$('phaseMomentumTools').scrollIntoView({block:'start',behavior:'smooth'})}
 }
 function navigateFinding(f){
   if(!f)return;const t=f.target||{},c=caseById(f.caseId);
@@ -6202,7 +7052,7 @@ function applyV35Language(){
   set('launchDiscoverTitle','Discover','Descubrir');set('launchDiscoverText','Cases, configuration, regions, logs and post-processing outputs.','Casos, configuración, regiones, logs y resultados de postprocesamiento.');
   set('launchAnalyzeTitle','Analyze','Analizar');set('launchAnalyzeText','Profiles, solver behavior, coupling, phase fronts, differences and events.','Perfiles, comportamiento del solver, coupling, frentes de fase, diferencias y eventos.');
   set('launchReviewTitle','Review','Revisar');set('launchReviewText','Numerical health, findings, configuration comparison and case audit.','Health numérico, findings, comparación de configuración y auditoría de casos.');
-  set('launchFooter','FoamLens v49 · OpenFOAM analysis workspace','FoamLens v49 · Workspace de análisis OpenFOAM');
+  set('launchFooter','FoamLens v50 · OpenFOAM analysis workspace','FoamLens v50 · Workspace de análisis OpenFOAM');
   set('globalProjectLabel','Project','Proyecto');set('globalCaseLabel','Case','Caso');set('globalRegionLabel','Region','Región');set('saveWorkspaceTop','Save Workspace','Guardar Workspace');set('openWorkspaceTop','Open Workspace','Abrir Workspace');set('projectHeroEyebrow','OpenFOAM project','Proyecto OpenFOAM');set('projectCasesStatLabel','Cases','Casos');set('projectRegionsStatLabel','Regions','Regiones');set('projectSeriesStatLabel','Series','Series');set('projectFindingsStatLabel','Findings','Findings');set('projectSaveWorkspace','Save Workspace','Guardar Workspace');set('projectOpenWorkspace','Open Workspace','Abrir Workspace');set('projectCompareCases','Compare Cases','Comparar casos');set('projectOutputAudit','Output completeness','Completitud de outputs');set('reviewTabCompare','Compare Cases','Comparar casos');set('reviewTabOutputs','Output Completeness','Completitud de outputs');set('compareRootLabel','Common solved field','Campo resuelto común');set('outputAuditCaseLabel','Case','Caso');
   set('modeWorkspace','Overview','Resumen');set('modeData','Data','Datos');set('modeAnalysis','Analysis','Análisis');set('modeReview','Review','Revisión');set('modeLive','Live','Live');
   set('workspaceEmptyTitle','Start an OpenFOAM workspace','Inicia un workspace de OpenFOAM');
@@ -6422,6 +7272,7 @@ function applyLanguage(){
   if(emptyB)emptyB.textContent=L.noCurves;
   if($('status').textContent==='Ready.'||$('status').textContent==='Listo.')$('status').textContent=L.ready;
 
+  pmApplyLanguage();
   renderCaseManager();
   renderList();
   updateMeta();
@@ -7245,6 +8096,7 @@ else{
 }
 refreshDatasetControls();updateChartSurfaceBounds();syncProfileTimeNavigator();refreshDifferenceControls();refreshCouplingDiagnostics();renderPhaseFront();refreshWorkspaceReview();setReviewPane('auditor');setAppMode('workspace');
 refreshWorkspaceReview();
+initPhaseMomentumUi();
 renderCaseManager();
 draw();
 updateMeta();

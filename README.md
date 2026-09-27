@@ -6,8 +6,8 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 
 ## Current versions
 
-- **FoamLens Web v48**
-- **FoamLens Desktop v1.1.0** for Windows
+- **FoamLens Web v50**
+- **FoamLens Desktop v1.2.0** for Windows
 
 ## Features
 
@@ -20,6 +20,12 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - Difference plots between compatible cases with maximum absolute difference and its X position.
 - Compare multiple profile heights at the same variable and time.
 - Spatial Profiles playback can synchronize multiple cases on a common physical-time clock with Nearest or temporal Interpolate alignment; single-case playback can still use native stored times.
+- Capability-driven **Field Mapping** for stored OpenFOAM volume fields, with editable conceptual roles instead of project-specific field assumptions.
+- **Phase Change / Momentum** analysis with configurable liquid/mushy/solid classification, per-cell statistics and percentiles, local mechanism ratios, scatter/correlation analysis, temporal evolution, and multi-case comparison.
+- On-demand derived **Cooling Rate = −dT/dt** and **Solidification Rate = −dαL/dt** (or **dαS/dt**) when compatible physical-time fields are available.
+- Generic OpenFOAM dictionary metadata inspection from `system/` and `constant/`, including region dictionaries, with source path and dimensions retained.
+- **Derived Field Verification** against user-entered formulas with absolute/relative difference metrics and explicit near-zero handling.
+- Evidence-only **Physics Summary** that separates observations and derived metrics from interpretation.
 - Automatic scientific axis precision.
 - Curve metrics including min/max, X locations, average, velocity RMS, Uy zero crossings, and difference metrics where applicable.
 - Configurable physical reference lines.

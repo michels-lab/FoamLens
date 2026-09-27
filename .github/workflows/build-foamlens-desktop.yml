@@ -60,8 +60,8 @@ jobs:
       - name: Verify FoamLens frontend
         shell: pwsh
         run: |
-          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v49' -Quiet)) {
-            throw 'Desktop frontend is not FoamLens v49.'
+          if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v50' -Quiet)) {
+            throw 'Desktop frontend is not FoamLens v50.'
           }
 
       - name: Validate FoamLens frontend JavaScript
@@ -88,6 +88,10 @@ jobs:
       - name: Test Spatial Profiles physical-time playback
         shell: pwsh
         run: node desktop/tests/profile-playback.test.cjs
+
+      - name: Test Phase Change / Momentum analysis
+        shell: pwsh
+        run: node desktop/tests/phase-momentum.test.cjs
 
       - name: Publish portable Windows executable
         shell: pwsh
