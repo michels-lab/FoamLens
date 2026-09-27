@@ -113,6 +113,13 @@ test('large common grids are bounded without changing endpoints', () => {
   assert(near(g.grid[0],g.range.start) && near(g.grid.at(-1),g.range.end));
 });
 
+test('Native is the default visualization alignment', () => {
+  const A={t:[0,1],y:[1,2]},B={t:[0,.5,1],y:[1,1.5,2]};
+  const r=api.taAlignSeries([A,B]);
+  assert(r.valid && r.mode==='native');
+  assert(js.includes('<option value="native" selected>Native</option>'));
+});
+
 test('UI exposes required temporal alignment modes and derived differences', () => {
   for(const token of ['Common Time Grid','Reference Case Grid','Nearest','Linear','Add A − B curve','Add % difference']) {
     assert(js.includes(token), 'Missing UI token '+token);
