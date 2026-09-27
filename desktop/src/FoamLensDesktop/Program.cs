@@ -46,6 +46,7 @@ internal sealed class FoamLensForm : Form
         try
         {
             MaterializeBundle();
+            ApplyFrontendExtensions();
             Directory.CreateDirectory(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FoamLens", "Desktop", "WebView2"));
@@ -110,6 +111,26 @@ internal sealed class FoamLensForm : Form
             .GetManifestResourceStream("FoamLensDesktop.AppBundle.zip")
             ?? throw new InvalidOperationException("Embedded FoamLens AppBundle.zip was not found.");
         ZipFile.ExtractToDirectory(stream, AppRoot, overwriteFiles: true);
+    }
+
+    private void ApplyFrontendExtensions()
+    {
+        var indexPath = Path.Combine(AppRoot, "index.html");
+        var extensionPath = Path.Combine(AppRoot, "v13-temporal-alignment.js");
+        if (!File.Exists(extensionPath)) return;
+
+        var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        var extension = File.ReadAllText(extensionPath, Encoding.UTF8);
+        const string iifeClose = "})();";
+        var insertionPoint = html.LastIndexOf(iifeClose, StringComparison.Ordinal);
+        if (insertionPoint < 0)
+            throw new InvalidOperationException("FoamLens frontend IIFE closing marker was not found.");
+
+        // The extension is deliberately injected inside the existing frontend IIFE.
+        // This lets it reuse the current series/case model without exposing that model
+        // globally or duplicating scientific state in the native host.
+        html = html.Insert(insertionPoint, Environment.NewLine + extension + Environment.NewLine);
+        File.WriteAllText(indexPath, html, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
