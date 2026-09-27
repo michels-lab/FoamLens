@@ -116,6 +116,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-mapping.test.cjs
 
+      - name: Test generic vector field derivation
+        shell: pwsh
+        run: node desktop/tests/vector-fields.test.cjs
+
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/checkout@v4
