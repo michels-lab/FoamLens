@@ -13,9 +13,15 @@ Native Windows host for **FoamLens Web v48**.
 
 The frontend retains its normal web folder flow when opened as HTML. The native bridge is detected automatically only inside FoamLens Desktop.
 
-## GitHub build
+## GitHub Windows build
 
-The repository workflow **Build FoamLens Desktop for Windows** reconstructs the v48 frontend, builds a self-contained win-x64 EXE, creates an installer with Inno Setup, and uploads all outputs as a GitHub Actions artifact.
+The **Build FoamLens Desktop for Windows** workflow reconstructs the v48 frontend and produces:
+
+- `FoamLens-Desktop-vX.Y.Z.exe` — portable self-contained Windows executable.
+- `FoamLens-Setup-vX.Y.Z.exe` — installer generated with Inno Setup.
+- `FoamLens-Desktop-vX.Y.Z.exe.sha256` — SHA-256 checksum.
+
+The version is read from `FoamLensDesktop.csproj`. Tagged or explicitly published builds can be attached directly to a GitHub Release. Optional Authenticode signing is supported when Windows signing secrets are configured.
 
 ## Native operations in Desktop v1
 
