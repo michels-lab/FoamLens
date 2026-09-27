@@ -110,6 +110,26 @@ test('arbitrary numeric tables remain discoverable', () => {
   assert.strictEqual(p.kind,'tabular');assert(p.temporal);
 });
 
+test('malformed or incomplete postProcessing degrades to unknown', () => {
+  const p=api.flClassifyPostProcessingSample('# Time maybeField\nthis row is incomplete\n','broken.dat');
+  assert.strictEqual(p.kind,'unknown');
+  assert.strictEqual(p.temporal,false);
+  assert.strictEqual(p.spatial,false);
+});
+
+test('missing optional outputs do not create synthetic data', () => {
+  const root='Project/Case';
+  const m=api.flBuildCaseDiscoveryModel([
+    fake(root+'/0/regionOne/T'),
+    fake(root+'/system/controlDict')
+  ],root);
+  assert.strictEqual(m.postProcessing.length,0);
+  assert.strictEqual(m.logs.length,0);
+  assert(m.fields.some(x=>x.name==='T'));
+  assert(!m.fields.some(x=>x.name==='missingField'));
+});
+
+
 test('general project model aggregates real concepts without field allowlist', () => {
   const root='Project/Case';
   const m=api.flBuildCaseDiscoveryModel([
