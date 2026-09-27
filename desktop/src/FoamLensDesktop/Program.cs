@@ -199,7 +199,7 @@ internal sealed class FoamLensForm : Form
                     var token = $"f{Interlocked.Increment(ref _tokenSequence):x}";
                     _fileTokens[token] = path;
                     var info = new FileInfo(path);
-                    var relative = Path.GetRelativePath(rootPath, path).Replace('\', '/');
+                    var relative = Path.GetRelativePath(rootPath, path).Replace('\\', '/');
                     chunk.Add(new NativeFileRef(
                         token,
                         info.Name,
