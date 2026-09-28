@@ -3888,24 +3888,6 @@ function pmCapabilitiesFromMapping(mapping,fieldNames=[]){
   const momentum=mechanisms.length>0||mapped('velocity');
   return{fields:present.size,phase,momentum,mechanisms:mechanisms.length,enabled:phase||mechanisms.length>0,scatter:present.size>=2,evolution:present.size>=1}
 }
-function pmFieldKindFromClass(cls){
-  const s=String(cls||'');
-  if(/sphericalTensorField/i.test(s))return'sphericalTensor';
-  if(/symmTensorField/i.test(s))return'symmTensor';
-  if(/tensorField/i.test(s))return'tensor';
-  if(/vectorField/i.test(s))return'vector';
-  if(/scalarField/i.test(s))return'scalar';
-  return'unknown'
-}
-function pmFieldComponentCount(kind){
-  if(kind==='scalar'||kind==='sphericalTensor')return 1;
-  if(kind==='vector')return 3;if(kind==='symmTensor')return 6;if(kind==='tensor')return 9;return 0
-}
-function pmParseComponentTuple(raw,expected){
-  let s=String(raw||'').trim();if(s.startsWith('(')&&s.endsWith(')'))s=s.slice(1,-1).trim();
-  const parts=s?s.split(/\s+/):[];if(parts.length!==expected)return null;
-  const out=parts.map(Number);return out.every(Number.isFinite)?out:null
-}
 function pmParseOpenFOAMFieldText(text,sourcePath=''){
   text=String(text||'');
   const format=(text.match(/\bformat\s+([^;\s]+)\s*;/i)||[])[1]||'ascii';
@@ -3939,6 +3921,25 @@ function pmParseOpenFOAMFieldText(text,sourcePath=''){
   return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,componentCount,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:kind==='vector'?'no-vector-values':'no-component-values',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath}
 }
 /* FOAMLENS_INCREMENTAL_FIELD_CORE_START */
+function pmFieldKindFromClass(cls){
+  const s=String(cls||'');
+  if(/sphericalTensorField/i.test(s))return'sphericalTensor';
+  if(/symmTensorField/i.test(s))return'symmTensor';
+  if(/tensorField/i.test(s))return'tensor';
+  if(/vectorField/i.test(s))return'vector';
+  if(/scalarField/i.test(s))return'scalar';
+  return'unknown'
+}
+function pmFieldComponentCount(kind){
+  if(kind==='scalar'||kind==='sphericalTensor')return 1;
+  if(kind==='vector')return 3;if(kind==='symmTensor')return 6;if(kind==='tensor')return 9;return 0
+}
+function pmParseComponentTuple(raw,expected){
+  let s=String(raw||'').trim();if(s.startsWith('(')&&s.endsWith(')'))s=s.slice(1,-1).trim();
+  const parts=s?s.split(/\s+/):[];if(parts.length!==expected)return null;
+  const out=parts.map(Number);return out.every(Number.isFinite)?out:null
+}
+
 const PM_FIELD_NATIVE_THRESHOLD=4*1024*1024;
 const PM_FIELD_HEAD_BYTES=512*1024;
 const PM_FIELD_CHUNK_BYTES=1024*1024;

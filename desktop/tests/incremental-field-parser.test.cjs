@@ -9,7 +9,7 @@ const begin='/* FOAMLENS_INCREMENTAL_FIELD_CORE_START */',end='/* FOAMLENS_INCRE
 const a=index.indexOf(begin),b=index.indexOf(end,a);
 assert(a>=0&&b>a,'Incremental field parser core markers missing.');
 const core=index.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {PM_FIELD_NATIVE_THRESHOLD,PM_FIELD_HEAD_BYTES,PM_FIELD_CHUNK_BYTES,pmLargeFieldState,pmParseLargeFieldValueLine,pmConsumeLargeFieldChunk,pmLargeFieldHeader};')();
+const api=new Function(core+'\nreturn {PM_FIELD_NATIVE_THRESHOLD,PM_FIELD_HEAD_BYTES,PM_FIELD_CHUNK_BYTES,pmFieldKindFromClass,pmFieldComponentCount,pmLargeFieldState,pmParseLargeFieldValueLine,pmConsumeLargeFieldChunk,pmLargeFieldHeader};')();
 
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
@@ -28,6 +28,23 @@ test('vector nonuniform values survive chunk boundaries',()=>{
   api.pmConsumeLargeFieldChunk(st,' 6)\n(7 8 9)\n',false);
   if(st.carry&&!st.done)api.pmParseLargeFieldValueLine(st.carry,st);
   assert.deepStrictEqual(st.values,[[1,2,3],[4,5,6],[7,8,9]]);
+  assert.strictEqual(st.done,true);
+});
+
+test('tensor values survive chunk boundaries',()=>{
+  const st=api.pmLargeFieldState('tensor',2);
+  api.pmConsumeLargeFieldChunk(st,'(1 2 3 4 5 6 7 8',false);
+  api.pmConsumeLargeFieldChunk(st,' 9)\n(9 8 7 6 5 4 3 2 1)\n',false);
+  if(st.carry&&!st.done)api.pmParseLargeFieldValueLine(st.carry,st);
+  assert.deepStrictEqual(st.values,[[1,2,3,4,5,6,7,8,9],[9,8,7,6,5,4,3,2,1]]);
+  assert.strictEqual(st.done,true);
+});
+
+test('sphericalTensor values stream as one-component tuples',()=>{
+  const st=api.pmLargeFieldState('sphericalTensor',3);
+  api.pmConsumeLargeFieldChunk(st,'(1)\n(2)\n',false);
+  api.pmConsumeLargeFieldChunk(st,'(3)\n',false);
+  assert.deepStrictEqual(st.values,[[1],[2],[3]]);
   assert.strictEqual(st.done,true);
 });
 
@@ -59,6 +76,15 @@ test('header parser recognizes OpenFOAM vector nonuniform metadata',()=>{
   const h=api.pmLargeFieldHeader('FoamFile{ format ascii; class volVectorField; object U; }\ndimensions [0 1 -1 0 0 0 0];\ninternalField nonuniform List<vector> 9 (\n','case/0/U');
   assert.strictEqual(h.kind,'vector');
   assert.strictEqual(h.declaredCount,9);
+});
+
+test('header parser recognizes tensor family metadata',()=>{
+  const tensor=api.pmLargeFieldHeader('FoamFile{ format ascii; class volTensorField; object gradU; }\ninternalField nonuniform List<tensor> 4 (\n','case/0/gradU');
+  const symm=api.pmLargeFieldHeader('FoamFile{ format ascii; class volSymmTensorField; object R; }\ninternalField nonuniform List<symmTensor> 4 (\n','case/0/R');
+  const spherical=api.pmLargeFieldHeader('FoamFile{ format ascii; class volSphericalTensorField; object K; }\ninternalField nonuniform List<sphericalTensor> 4 (\n','case/0/K');
+  assert.strictEqual(tensor.kind,'tensor');assert.strictEqual(tensor.componentCount,9);
+  assert.strictEqual(symm.kind,'symmTensor');assert.strictEqual(symm.componentCount,6);
+  assert.strictEqual(spherical.kind,'sphericalTensor');assert.strictEqual(spherical.componentCount,1);
 });
 
 test('Desktop field chunks stay below native readSlice limit',()=>{
