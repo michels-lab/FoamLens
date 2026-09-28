@@ -65,6 +65,11 @@ function npSummarizeRunLog(parsed){
   const p=parsed||{},steps=p.steps||[],eq=p.equations||[],events=p.events||[],times=npFinite(steps.map(s=>s.time)),dt=npBasicStats(steps.map(s=>s.deltaT)),coMean=npBasicStats(steps.map(s=>s.courantMean)),coMax=npBasicStats(steps.map(s=>s.courantMax)),iters=npBasicStats(eq.map(e=>e.iterations)),ri=npBasicStats(eq.map(e=>e.initialResidual)),rf=npBasicStats(eq.map(e=>e.finalResidual));
   return{application:p.application||'',timesteps:steps.length,timeStart:times.length?Math.min(...times):NaN,timeEnd:times.length?Math.max(...times):NaN,deltaT:dt,courantMean:coMean,courantMax:coMax,linearSolves:eq.length,linearIterations:iters,initialResidual:ri,finalResidual:rf,couplingRecords:(p.coupling||[]).length,continuityRecords:(p.continuity||[]).length,warnings:events.filter(e=>e.severity==='warning').length,errors:events.filter(e=>e.severity==='error').length}
 }
+function npAxisData(series,mode='physicalTime'){
+  const y=Array.isArray(series?.y)?series.y:[],t=Array.isArray(series?.t)?series.t:[],x=[],out=[];
+  for(let i=0;i<y.length;i++){const vy=Number(y[i]);if(!Number.isFinite(vy))continue;const xv=mode==='timestepIndex'?i:Number(t[i]);if(Number.isFinite(xv)){x.push(xv);out.push(vy)}}
+  return{x,y:out,mode:mode==='timestepIndex'?'timestepIndex':'physicalTime'}
+}
 /* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_END */
 
 function npExtraRunLogSeries(parsed,file){
@@ -120,13 +125,32 @@ function npBuildUi(){
   <div class="smallnote" style="margin-top:5px">Physical results and numerical cost are reported separately. Linear-solver residuals are not treated as nonlinear/PIMPLE convergence.</div>
   <div class="field" style="margin-top:8px"><label>Case</label><select id="npCase"></select></div>
   <button class="btn primary" id="npRefresh" type="button">Analyze available log metrics</button>
-  <div class="smallnote" id="npStatus" style="margin-top:7px"></div><div id="npResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);document.getElementById('npCase').addEventListener('change',npRender);document.getElementById('npRefresh').addEventListener('click',npRender);npRefreshCases()
+  <div class="smallnote" id="npStatus" style="margin-top:7px"></div><div id="npResult" style="margin-top:8px"></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Numerical metric plot</b>
+  <div class="field"><label>Equation / metric</label><select id="npMetric"></select></div>
+  <div class="field"><label>X axis</label><select id="npXAxis"><option value="physicalTime" selected>Physical time [s]</option><option value="timestepIndex">Timestep index</option></select></div>
+  <canvas id="npChart" style="width:100%;height:210px;margin-top:6px"></canvas>
+  <div class="smallnote" id="npChartStatus"></div>`;
+  host.appendChild(box);document.getElementById('npCase').addEventListener('change',()=>{npRefreshMetricOptions();npRender()});document.getElementById('npRefresh').addEventListener('click',()=>{npRender();npDrawMetric()});document.getElementById('npMetric').addEventListener('change',npDrawMetric);document.getElementById('npXAxis').addEventListener('change',npDrawMetric);npRefreshCases()
 }
 function npRefreshCases(){
   const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';
   sel.innerHTML=ids.map(id=>`<option value="${String(id).replace(/"/g,'&quot;')}">${String(npCaseLabel(id)).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
-  if([...sel.options].some(o=>o.value===old))sel.value=old;npRender()
+  if([...sel.options].some(o=>o.value===old))sel.value=old;npRefreshMetricOptions();npRender()
+}
+function npMetricLabel(s){return String(s?.field?.display||s?.field?.canonical||s?.name||s?.logFamily||'Metric')+(Number.isFinite(Number(s?.logSubIter))?' · #'+s.logSubIter:'')}
+function npRefreshMetricOptions(){
+  const caseId=document.getElementById('npCase')?.value,sel=document.getElementById('npMetric');if(!sel)return;const old=sel.value,ss=npSeriesForCase(caseId);sel.innerHTML=ss.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${npMetricLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old;npDrawMetric()
+}
+function npSelectedMetric(){const id=document.getElementById('npMetric')?.value,ss=npSeriesForCase(document.getElementById('npCase')?.value);return ss.find((s,i)=>String(s.id??i)===String(id))}
+function npDrawMetric(){
+  const s=npSelectedMetric(),cv=document.getElementById('npChart'),st=document.getElementById('npChartStatus');if(!cv||!st)return;if(!s){st.textContent='No numerical metric selected.';return}
+  const mode=document.getElementById('npXAxis')?.value||'physicalTime',d=npAxisData(s,mode);if(d.x.length<2){st.textContent='Not enough finite samples for this metric.';return}
+  const rect=cv.getBoundingClientRect(),W=Math.max(260,Math.round(rect.width||360)),H=210,dpr=Math.max(1,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  let xmin=Math.min(...d.x),xmax=Math.max(...d.x),ymin=Math.min(...d.y),ymax=Math.max(...d.y);if(xmax===xmin){xmin-=.5;xmax+=.5}if(ymax===ymin){ymin-=.5;ymax+=.5}
+  const L=45,R=10,T=12,B=30,pw=W-L-R,ph=H-T-B,dark=document.body.classList.contains('dark'),fg=dark?'#b9c7d4':'#46586a',grid=dark?'#263442':'#dce4eb';ctx.strokeStyle=grid;ctx.strokeRect(L,T,pw,ph);ctx.strokeStyle=fg;ctx.beginPath();
+  d.x.forEach((x,i)=>{const px=L+(x-xmin)/(xmax-xmin)*pw,py=T+ph-(d.y[i]-ymin)/(ymax-ymin)*ph;i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.fillText(mode==='timestepIndex'?'Timestep index':'Physical time [s]',L,T+ph+18);
+  st.textContent=`${npMetricLabel(s)} · ${d.x.length} samples · X = ${mode==='timestepIndex'?'timestep index':'physical time'}.`
 }
 function npRender(){
   const id=document.getElementById('npCase')?.value,status=document.getElementById('npStatus'),out=document.getElementById('npResult');if(!out)return;
@@ -145,6 +169,6 @@ function npInit(){
   npInstallRawRunLogExtension();
   npBuildUi();
   try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(npRefreshCases,0);return x}}catch{}
-  window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseRunLog,npSummarizeRunLog};
+  window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseRunLog,npSummarizeRunLog,npAxisData};
 }
 npInit();
