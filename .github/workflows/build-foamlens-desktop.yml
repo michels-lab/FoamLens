@@ -266,6 +266,26 @@ jobs:
           dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
           Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Portable-v$v.exe"
 
+      - name: Smoke-test packaged FoamLens executable
+        shell: pwsh
+        run: |
+          $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
+          $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $process.WaitForExit(45000)) {
+            try { $process.Kill($true) } catch {}
+            throw 'FoamLens executable smoke test timed out after 45 seconds.'
+          }
+          if ($process.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+            if (Test-Path $log) {
+              Write-Host '---- FoamLens desktop log ----'
+              Get-Content $log
+              Write-Host '------------------------------'
+            }
+            throw "FoamLens executable smoke test failed with exit code $($process.ExitCode)."
+          }
+          Write-Host 'FoamLens executable started, loaded its embedded frontend, verified the native WebView2 bridge, and exited successfully.'
+
       - name: Optional Authenticode signing for portable EXE
         if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: pwsh
