@@ -80,11 +80,11 @@ function thExport(){
   const p=window.FoamLensLastThermalAnalysis;if(!p)return;downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'thermal-signal-analysis',...p},null,2),'application/json')
 }
 function thRefresh(){
-  const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display=src.length?'':'none';if(!sel)return;const old=sel.value;
+  const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;const old=sel.value;
   sel.innerHTML=src.map((s,i)=>`<option value="${thId(s,i).replace(/"/g,'&quot;')}">${thLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
 }
 function thBuildUi(){
-  if(document.getElementById('thTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('thTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Thermal Analysis</b><span class="badge">explicit role</span></div>
   <div class="smallnote" style="margin-top:5px">Select the thermal quantity and its role explicitly. FoamLens keeps temperature, gradients, fluxes, sensible enthalpy, latent heat, and boundary/interface power conceptually separate.</div>
   <div class="field" style="margin-top:8px"><label>Thermal signal</label><select id="thSource"></select></div>
