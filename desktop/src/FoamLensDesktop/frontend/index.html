@@ -1041,7 +1041,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
         <div class="dataCatalogGrid">
           <div class="field"><label id="catalogCaseLabel">Case</label><select id="catalogCase"></select></div>
           <div class="field"><label id="catalogRegionLabel">Region</label><select id="catalogRegion"><option value="">All regions</option></select></div>
-          <div class="field"><label id="catalogKindLabel">Data kind</label><select id="catalogKind"><option value="">All data</option><option value="field">Volume / surface fields</option><option value="postProcessing">postProcessing</option><option value="log">Logs</option><option value="dictionary">Dictionaries</option></select></div>
+          <div class="field"><label id="catalogKindLabel">Data kind</label><select id="catalogKind"><option value="">All data</option><option value="field">Volume / surface fields</option><option value="postProcessing">postProcessing</option><option value="log">Logs</option><option value="dictionary">Dictionaries</option><option value="derived">Derived / FoamLens</option></select></div>
           <div class="field"><label id="catalogSearchLabel">Search</label><input id="catalogSearch" type="text" placeholder="Field, source, class, dimension…"></div>
         </div>
         <div class="smallnote" id="catalogControlNote">Catalog inspection never plots every detected variable automatically.</div>
@@ -4127,7 +4127,53 @@ function flCatalogRowsForCase(c){
   for(const d of m.dictionaries)rows.push({caseId:c.id,caseName:c.name,category:'dictionary',name:d.name,region:d.region||'',type:d.section+' dictionary',dimensions:'',timeMin:NaN,timeMax:NaN,samples:1,origin:'OpenFOAM configuration',source:d.sourcePath,spatial:false,temporal:false,details:''});
   return rows
 }
-function flAllCatalogRows(){return cases.flatMap(flCatalogRowsForCase)}
+function flDerivedProvenance(s){
+  if(s?.temporalAlignment){
+    const a=s.temporalAlignment;
+    return['Temporal alignment',a.mode,a.method,a.sourceA&&('A: '+a.sourceA),a.sourceB&&('B: '+a.sourceB),a.range&&Number.isFinite(Number(a.range.start))?('range '+pmFmt(a.range.start)+'–'+pmFmt(a.range.end)+' s'):''].filter(Boolean).join(' · ')
+  }
+  if(s?.physicalAnalysis){
+    const a=s.physicalAnalysis;
+    return['Physical analysis',a.operation,a.formula,a.source&&('source: '+a.source)].filter(Boolean).join(' · ')
+  }
+  if(s?.vectorDerivation){
+    const a=s.vectorDerivation;
+    return['Vector derivation',a.base,a.components?.length?('components '+a.components.join('/')):'',a.alignment].filter(Boolean).join(' · ')
+  }
+  if(s?.differenceKey)return'Difference analysis · '+String(s.differenceKey);
+  if(s?.derivedKind)return'FoamLens derived · '+String(s.derivedKind);
+  return'FoamLens derived'
+}
+function flDerivedCatalogRows(){
+  const out=[];
+  for(const s of series||[]){
+    const derived=!!s?.derived||!!s?.derivedKind||s?.sourceKind==='derived'||String(s?.sourcePath||'').startsWith('derived:')||String(s?.sourcePath||'').startsWith('FoamLens ');
+    if(!derived)continue;
+    const dtype=datasetTypeOf(s),x=(s.t||[]).map(Number).filter(Number.isFinite),physicalProfileTime=Number(s.profileTime);
+    const timeMin=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:(x.length?Math.min(...x):NaN);
+    const timeMax=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:(x.length?Math.max(...x):NaN);
+    const dimensions=String(s?.field?.dimensions||s?.dimensions||''),unit=String(s?.field?.unit||s?.unit||'');
+    out.push({
+      caseId:s.caseId??null,
+      caseName:s.caseName||caseById(s.caseId)?.name||'Derived',
+      category:'derived',
+      name:s.name||s.label||s.field?.displayName||s.field?.display||s.field?.canonical||s.derivedKind||'Derived series',
+      region:seriesRegion(s)||'',
+      type:[dtype,s.derivedKind||'derived'].filter(Boolean).join(' · '),
+      dimensions,unit,
+      timeMin,timeMax,
+      samples:Math.min(s.t?.length||0,s.y?.length||0),
+      origin:'FoamLens derived',
+      source:s.sourcePath||'FoamLens derived',
+      spatial:dtype==='profile',
+      temporal:dtype!=='profile',
+      details:flDerivedProvenance(s),
+      derived:true
+    })
+  }
+  return out
+}
+function flAllCatalogRows(){return cases.flatMap(flCatalogRowsForCase).concat(flDerivedCatalogRows())}
 function flCatalogFmtRange(r){
   if(Number.isFinite(r.timeMin)&&Number.isFinite(r.timeMax))return r.timeMin===r.timeMax?pmFmt(r.timeMin)+' s':pmFmt(r.timeMin)+' → '+pmFmt(r.timeMax)+' s';
   return'—'
@@ -4149,11 +4195,11 @@ function renderDataCatalog(){
   if(!$('catalogTableBody'))return;flRefreshCatalogFilters();
   const caseId=$('catalogCase').value?Number($('catalogCase').value):null,region=$('catalogRegion').value||'',kind=$('catalogKind').value||'',q=String($('catalogSearch').value||'').toLowerCase();
   let rows=flAllCatalogRows().filter(r=>(caseId==null||r.caseId===caseId)&&(!region||r.region===region)&&(!kind||r.category===kind));
-  if(q)rows=rows.filter(r=>[r.caseName,r.name,r.region,r.type,r.dimensions,r.origin,r.source,r.details].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(q)rows=rows.filter(r=>[r.caseName,r.name,r.region,r.type,r.dimensions,r.unit,r.origin,r.source,r.details].some(v=>String(v||'').toLowerCase().includes(q)));
   rows.sort((a,b)=>a.caseName.localeCompare(b.caseName,undefined,{numeric:true})||a.category.localeCompare(b.category)||a.region.localeCompare(b.region)||a.name.localeCompare(b.name,undefined,{numeric:true}));
-  $('catalogTableBody').innerHTML=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><small>'+esc(r.caseName)+'</small></td><td><span class="dataCatalogType">'+esc(r.category)+'</span><small>'+esc([r.spatial?'spatial':'',r.temporal?'temporal':''].filter(Boolean).join(' · ')||'metadata')+'</small></td><td>'+esc(r.region||'—')+'</td><td>'+esc(r.type||'unknown')+(r.details?'<small>'+esc(r.details)+'</small>':'')+'</td><td>'+esc(r.dimensions||'—')+(r.dimensions&&pmUnitFromDimensions(r.dimensions)?'<small>'+esc(pmUnitFromDimensions(r.dimensions))+'</small>':'')+'</td><td>'+esc(flCatalogFmtRange(r))+'</td><td>'+esc(String(r.samples??'—'))+'</td><td><span class="dataCatalogNative">'+esc(r.origin)+'</span></td><td>'+esc(r.source||'—')+'</td></tr>').join(''):'<tr><td colspan="9">'+esc(diagEs()?'No hay datos que coincidan con estos filtros.':'No discovered data match these filters.')+'</td></tr>';
-  const all=flAllCatalogRows(),fieldN=all.filter(x=>x.category==='field').length,postN=all.filter(x=>x.category==='postProcessing').length,regions=new Set(cases.flatMap(c=>c.discoveryModel?.regions||[])).size;
-  $('catalogSummary').innerHTML=[(diagEs()?'Campos':'Fields')+': '+fieldN,'postProcessing: '+postN,(diagEs()?'Regiones':'Regions')+': '+regions,(diagEs()?'Mostrados':'Shown')+': '+rows.length].map(x=>'<span class="dataCatalogPill">'+esc(x)+'</span>').join('');
+  $('catalogTableBody').innerHTML=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><small>'+esc(r.caseName)+'</small></td><td><span class="dataCatalogType">'+esc(r.category)+'</span><small>'+esc([r.spatial?'spatial':'',r.temporal?'temporal':''].filter(Boolean).join(' · ')||'metadata')+'</small></td><td>'+esc(r.region||'—')+'</td><td>'+esc(r.type||'unknown')+(r.details?'<small>'+esc(r.details)+'</small>':'')+'</td><td>'+esc(r.dimensions||'—')+((r.unit||pmUnitFromDimensions(r.dimensions))?'<small>'+esc(r.unit||pmUnitFromDimensions(r.dimensions))+'</small>':'')+'</td><td>'+esc(flCatalogFmtRange(r))+'</td><td>'+esc(String(r.samples??'—'))+'</td><td><span class="'+(r.derived?'dataCatalogDerived':'dataCatalogNative')+'">'+esc(r.origin)+'</span></td><td>'+esc(r.source||'—')+'</td></tr>').join(''):'<tr><td colspan="9">'+esc(diagEs()?'No hay datos que coincidan con estos filtros.':'No discovered data match these filters.')+'</td></tr>';
+  const all=flAllCatalogRows(),fieldN=all.filter(x=>x.category==='field').length,postN=all.filter(x=>x.category==='postProcessing').length,derivedN=all.filter(x=>x.category==='derived').length,regions=new Set(cases.flatMap(c=>c.discoveryModel?.regions||[])).size;
+  $('catalogSummary').innerHTML=[(diagEs()?'Campos':'Fields')+': '+fieldN,'postProcessing: '+postN,(diagEs()?'Derivados':'Derived')+': '+derivedN,(diagEs()?'Regiones':'Regions')+': '+regions,(diagEs()?'Mostrados':'Shown')+': '+rows.length].map(x=>'<span class="dataCatalogPill">'+esc(x)+'</span>').join('');
   $('catalogCount').textContent=String(all.length)
 }
 function configDescriptorFromFile(file){
@@ -7382,7 +7428,7 @@ function applyLanguage(){
   if($('catalogColOrigin'))$('catalogColOrigin').textContent=$('language').value==='es'?'Origen':'Origin';
   if($('catalogColSource'))$('catalogColSource').textContent=$('language').value==='es'?'Fuente':'Source';
   if($('catalogKind')){
-    const labels=$('language').value==='es'?['Todos los datos','Campos volumétricos / superficiales','postProcessing','Logs','Diccionarios']:['All data','Volume / surface fields','postProcessing','Logs','Dictionaries'];
+    const labels=$('language').value==='es'?['Todos los datos','Campos volumétricos / superficiales','postProcessing','Logs','Diccionarios','Derivados / FoamLens']:['All data','Volume / surface fields','postProcessing','Logs','Dictionaries','Derived / FoamLens'];
     [...$('catalogKind').options].forEach((o,i)=>{if(labels[i])o.textContent=labels[i]})
   }
   $('logFamilyLabel').textContent=L.logFamily;$('logMemberLabel').textContent=L.logMember;$('logCurrentFileLabel').textContent=L.logCurrentFile;
