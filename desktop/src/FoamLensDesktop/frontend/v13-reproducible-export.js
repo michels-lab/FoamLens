@@ -125,11 +125,11 @@ function rxRefresh(){
   wrap.style.display=s&&rxFinitePoints(s).length?'':'none';
   const note=document.getElementById('rxExportNote');
   if(note&&s)note.textContent=(typeof diagEs==='function'&&diagEs())
-    ?'Incluye datos, unidades, estadísticas, caso/región y provenance de la transformación.'
+    ?'Incluye datos, unidades, estadísticas, caso/región y procedencia de la transformación.'
     :'Includes data, units, statistics, case/region, and transformation provenance.';
   const j=document.getElementById('rxExportJson'),c=document.getElementById('rxExportCsv');
-  if(j)j.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadata (JSON)':'Export series + metadata (JSON)';
-  if(c)c.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadata (CSV)':'Export series + metadata (CSV)'
+  if(j)j.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadatos (JSON)':'Export series + metadata (JSON)';
+  if(c)c.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadatos (CSV)':'Export series + metadata (CSV)'
 }
 function rxBuildUi(){
   if(document.getElementById('rxExportWrap'))return;

@@ -249,6 +249,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/analysis-ui-organization.test.cjs
 
+      - name: Audit bilingual UI and overflow safeguards
+        shell: pwsh
+        run: node desktop/tests/bilingual-ui-audit.test.cjs
+
       - name: Test bilingual UI and overflow hardening
         shell: pwsh
         run: node desktop/tests/bilingual-ui.test.cjs
