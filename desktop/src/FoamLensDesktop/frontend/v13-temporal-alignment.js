@@ -183,8 +183,10 @@ function taAddDerived(kind){
   const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return;
   const y=taDifferenceValues(r.aligned.series[0].y,r.aligned.series[1].y,kind,r.epsilon),A=r.A,B=r.B;
   const base=String(kind)==='percent'?'% difference':'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
+  const diffField={...(A.field||{}),canonical:(kind==='percent'?'percentDifference:':'difference:')+taSeriesVariable(A),raw:name,name,displayName:name};
+  if(kind==='percent'){diffField.unit='%';diffField.dimensions='[0 0 0 0 0 0 0]'}else{diffField.unit=A.field?.unit||A.unit||'';diffField.dimensions=A.field?.dimensions||A.dimensions||''}
   const d={...A,id:'ta_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:r.aligned.grid.slice(),y,caseName:taCaseName(A)+' vs '+taCaseName(B),derived:true,derivedKind:'temporalAlignmentDifference',sourceKind:'derived',sourcePath:'FoamLens temporal alignment',visible:true,hidden:false,checked:true,enabled:true,
-    field:{...(A.field||{}),canonical:(kind==='percent'?'percentDifference:':'difference:')+taSeriesVariable(A),raw:name,name,displayName:name},
+    field:diffField,unit:diffField.unit,dimensions:diffField.dimensions,
     temporalAlignment:{mode:r.aligned.mode,method:r.aligned.method,range:r.aligned.range,sourceA:taSeriesLabel(A),sourceB:taSeriesLabel(B),epsilon:r.epsilon}};
   series.push(d);activeId=d.id;
   try{refreshDatasetControls();renderList();updateMeta();if(typeof setDataView==='function')setDataView('timeseries');else draw()}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
