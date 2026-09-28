@@ -131,6 +131,24 @@ jobs:
         shell: pwsh
         run: node desktop/tests/generic-case-identity.test.cjs
 
+      - name: Guard product code from regression-fixture names
+        shell: pwsh
+        run: |
+          @'
+          const fs=require('fs'),path=require('path');
+          const dir='desktop/src/FoamLensDesktop/frontend';
+          const files=fs.readdirSync(dir).filter(name=>name==='index.html'||/^v13-.*\.js$/i.test(name));
+          const banned=['QuickCup','B3_reference','B4_energy2','B5_outer3','B6_adaptiveDt','B7_outer4','C3_reference','C4_energy2','C5_outer3','C6_adaptiveDt','C7_outer4'];
+          const hits=[];
+          for(const file of files){
+            const s=fs.readFileSync(path.join(dir,file),'utf8');
+            for(const token of banned)if(s.includes(token))hits.push(file+': '+token);
+          }
+          if(hits.length)throw new Error('Regression-fixture names leaked into product code:\n'+hits.join('\n'));
+          console.log('Product code is fixture-name neutral across '+files.length+' frontend files.');
+          '@ | Set-Content -Path guard-fixture-neutrality.js -Encoding utf8
+          node guard-fixture-neutrality.js
+
       - name: Test generic vector field derivation
         shell: pwsh
         run: node desktop/tests/vector-fields.test.cjs
