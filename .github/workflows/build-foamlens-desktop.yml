@@ -270,6 +270,7 @@ jobs:
         shell: pwsh
         run: |
           $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
           if (-not $process.WaitForExit(45000)) {
             try { $process.Kill($true) } catch {}
@@ -360,6 +361,7 @@ jobs:
             throw "FoamLens.exe was not installed to $installDir."
           }
 
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
           if (-not $app.WaitForExit(45000)) {
             try { $app.Kill($true) } catch {}
@@ -396,6 +398,8 @@ jobs:
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Portable-smoke.png
+            artifacts/FoamLens-Installed-smoke.png
           if-no-files-found: error
 
       - name: Publish GitHub Release
