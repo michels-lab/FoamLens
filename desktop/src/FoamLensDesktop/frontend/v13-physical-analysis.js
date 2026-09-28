@@ -36,6 +36,17 @@ function paSpearman(a,b){
   if(pairs.length<2)return NaN;return paPearson(paRanks(pairs.map(p=>p[0])),paRanks(pairs.map(p=>p[1])))
 }
 function paCorrelation(a,b){const p=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=Number(a[i]),y=Number(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))p.push([x,y])}return{count:p.length,pearson:paPearson(p.map(q=>q[0]),p.map(q=>q[1])),spearman:paSpearman(p.map(q=>q[0]),p.map(q=>q[1])),points:p}}
+function paDimensionsShiftTime(dim,delta){
+  const m=String(dim||'').trim().match(/^\[\s*([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s*\]$/);if(!m)return String(dim||'');
+  const a=m.slice(1).map(Number);a[2]+=Number(delta)||0;return'['+a.map(v=>Number.isInteger(v)?String(v):String(v)).join(' ')+']'
+}
+function paUnitOf(s){return String(s?.field?.unit||s?.unit||'').trim()}
+function paKnownUnit(u){u=String(u||'').trim();return u&&u!=='-'&&u.toLowerCase()!=='unknown'?u:''}
+function paDerivativeUnit(u){const k=paKnownUnit(u);return k?(k==='1'?'1/s':k+'/s'):'1/s'}
+function paIntegralUnit(u){const k=paKnownUnit(u);return k?(k==='1'?'s':k+'·s'):'s'}
+function paCompatibleKnownUnits(seriesList){
+  const known=[...new Set((seriesList||[]).map(paUnitOf).map(paKnownUnit).filter(Boolean))];return{compatible:known.length<=1,unit:known[0]||'',known}
+}
 /* FOAMLENS_PHYSICAL_ANALYSIS_CORE_END */
 
 function paSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2}catch{return Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
@@ -44,7 +55,8 @@ function paFind(id){const src=paSources();return src.find((s,i)=>String(s.id??i)
 function paOpts(){return paSources().map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${paLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')}
 function paFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 function paAddSeries(base,name,t,y,metadata={}){
-  const d={...base,id:'pa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:t.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens physical analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name},physicalAnalysis:metadata};
+  const unit=metadata.outputUnit??paUnitOf(base),dimensions=metadata.outputDimensions??base?.field?.dimensions??base?.dimensions??'';
+  const d={...base,id:'pa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:t.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens physical analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name,unit,dimensions},unit,dimensions,physicalAnalysis:{...metadata,outputUnit:unit,outputDimensions:dimensions}};
   series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch(e){console.warn('Physical derived series refresh failed',e)}return d
 }
 function paRateConfig(){
@@ -57,18 +69,20 @@ function paRateConfig(){
 }
 function paCreateRate(){
   const s=paFind(document.getElementById('paRateSource')?.value);if(!s)return;const cfg=paRateConfig(),d=paDerivative(s.t,s.y,cfg.sign),name=`${cfg.label}: ${paLabel(s)}`;
-  paAddSeries(s,name,d.t,d.y,{operation:'physical-time-derivative',formula:cfg.formula,source:paLabel(s),explicitUserRole:true,noMechanismInference:true});
+  paAddSeries(s,name,d.t,d.y,{operation:'physical-time-derivative',formula:cfg.formula,source:paLabel(s),explicitUserRole:true,noMechanismInference:true,outputUnit:paDerivativeUnit(paUnitOf(s)),outputDimensions:paDimensionsShiftTime(s?.field?.dimensions||s?.dimensions||'',-1)});
   document.getElementById('paRateStatus').textContent=`Added ${name}. Derivative uses physical time, including nonuniform timesteps.`
 }
 function paEnergySources(){return ['paEnergyA','paEnergyB','paEnergyC'].map(id=>paFind(document.getElementById(id)?.value)).filter(Boolean)}
 function paRunEnergy(){
   const all=['paEnergyA','paEnergyB','paEnergyC'].map((id,i)=>({s:paFind(document.getElementById(id)?.value),c:Number(document.getElementById(['paCoeffA','paCoeffB','paCoeffC'][i])?.value)})).filter(x=>x.s&&Number.isFinite(x.c));
   const out=document.getElementById('paEnergyStatus');if(all.length<2){out.textContent='Choose at least two temporal terms.';return}
+  const units=paCompatibleKnownUnits(all.map(x=>x.s));if(!units.compatible){out.textContent='Cannot build a physical balance from incompatible known units: '+units.known.join(' vs ')+'.';return}
+  const knownDims=[...new Set(all.map(x=>String(x.s?.field?.dimensions||x.s?.dimensions||'').trim()).filter(Boolean))];if(knownDims.length>1){out.textContent='Cannot build a physical balance from incompatible OpenFOAM dimensions.';return}
   const aligned=taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear',maxPoints:2500});if(!aligned.valid){out.textContent='The selected terms have no shared physical-time interval; no extrapolation was performed.';return}
-  const net=paWeightedSum(aligned.series.map(x=>x.y),all.map(x=>x.c)),integ=paTrapezoidIntegral(aligned.grid,net,0),terms=all.map(x=>({source:paLabel(x.s),coefficient:x.c}));
-  const base=all[0].s,n1='Net balance: '+terms.map(x=>`${x.coefficient>=0?'+':''}${x.coefficient}×${x.source}`).join(' ');
-  paAddSeries(base,n1,aligned.grid,net,{operation:'weighted-energy-power-balance',terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true}});
-  paAddSeries(base,'Cumulative integral of '+n1,integ.t,integ.y,{operation:'trapezoidal-time-integral',source:n1,terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true}});
+  const net=paWeightedSum(aligned.series.map(x=>x.y),all.map(x=>x.c)),integ=paTrapezoidIntegral(aligned.grid,net,0),terms=all.map(x=>({source:paLabel(x.s),coefficient:x.c,unit:paUnitOf(x.s),dimensions:String(x.s?.field?.dimensions||x.s?.dimensions||'')}));
+  const base=all[0].s,n1='Net balance: '+terms.map(x=>`${x.coefficient>=0?'+':''}${x.coefficient}×${x.source}`).join(' '),baseDim=String(base?.field?.dimensions||base?.dimensions||''),baseUnit=units.unit||paUnitOf(base);
+  paAddSeries(base,n1,aligned.grid,net,{operation:'weighted-energy-power-balance',terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true},outputUnit:baseUnit,outputDimensions:baseDim});
+  paAddSeries(base,'Cumulative integral of '+n1,integ.t,integ.y,{operation:'trapezoidal-time-integral',source:n1,terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true},outputUnit:paIntegralUnit(baseUnit),outputDimensions:paDimensionsShiftTime(baseDim,1)});
   out.textContent=`Added net balance and cumulative time integral over ${paFmt(aligned.range.start)}–${paFmt(aligned.range.end)} s. FoamLens did not assume which sign is physically positive; coefficients came from you.`
 }
 function paRunCorrelation(){
