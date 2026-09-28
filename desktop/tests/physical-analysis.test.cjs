@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_PHYSICAL_ANALYSIS_CORE_START */',end='/* FOAMLENS_PHYSI
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Physical analysis core markers are missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation,paDimensionsShiftTime,paDerivativeUnit,paIntegralUnit,paCompatibleKnownUnits};')();
+const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation,paDimensionsShiftTime,paDimensionsShiftLength,paDerivativeUnit,paSpatialDerivativeUnit,paIntegralUnit,paCompatibleKnownUnits};')();
 
 const near=(x,y,t=1e-10)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
@@ -53,6 +53,33 @@ test('rank ties receive average rank',()=>{
 test('correlation reports finite sample count only',()=>{
   const c=api.paCorrelation([1,2,NaN,4],[2,4,6,8]);
   assert.strictEqual(c.count,3);assert(near(c.pearson,1));
+});
+
+test('spatial derivative handles nonuniform coordinates and SI conversion',()=>{
+  const xMm=[0,1,3,7],y=xMm.map(x=>100+2*x);
+  const d=api.paSpatialDerivative(xMm,y,api.paCoordinateScaleToMetres('mm'));
+  assert(d.y.every(v=>near(v,2000,1e-9)));
+});
+
+test('recognized spatial coordinate units convert to metres',()=>{
+  assert(near(api.paCoordinateScaleToMetres('m'),1));
+  assert(near(api.paCoordinateScaleToMetres('cm'),1e-2));
+  assert(near(api.paCoordinateScaleToMetres('mm'),1e-3));
+  assert(near(api.paCoordinateScaleToMetres('µm'),1e-6));
+  assert(Number.isNaN(api.paCoordinateScaleToMetres('pixels')));
+});
+
+test('spatial derivative shifts length dimension',()=>{
+  assert.strictEqual(api.paDimensionsShiftLength('[0 0 0 1 0 0 0]',-1),'[0 -1 0 1 0 0 0]');
+  assert.strictEqual(api.paSpatialDerivativeUnit('K','mm',true),'K/m');
+  assert.strictEqual(api.paSpatialDerivativeUnit('K','customUnit',false),'K/customUnit');
+});
+
+test('Gradient Analysis is explicit and never uses array index as distance',()=>{
+  assert(js.includes('Spatial Gradient Analysis'));
+  assert(js.includes('Nonuniform spatial spacing is supported; array index is never used as distance.'));
+  assert(js.includes("operation:'spatial-gradient'"));
+  assert(js.includes('coordinateScaleToMetres'));
 });
 
 test('derived dimensions shift physical time exponent',()=>{
