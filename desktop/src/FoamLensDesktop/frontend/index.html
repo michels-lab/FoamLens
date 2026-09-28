@@ -4594,6 +4594,7 @@ async function applyConfigFileToCase(c,file){
 }
 async function applyCandidateMetadata(c,candidate){
   if(!c||!candidate)return;
+  c.sourceKey=candidateSourceKey(candidate)||c.sourceKey||'';
   c.rootPath=candidate.rootPath||c.rootPath||'';
   c.discovery={...(c.discovery||{}),...(candidate.discovery||{}),outputs:candidate.outputs||[],dataIndex:(candidate.outputs||[]).map(o=>({path:o.path,kind:o.kind,count:o.count,lazy:o.kind==='profile'})),datasetCounts:candidate.datasetCounts||{},fileCount:candidate.allFiles?.length||candidate.files?.length||0,allPaths:(candidate.allFiles||[]).map(f=>(f.webkitRelativePath||f.name||'').replace(/\\/g,'/'))};
   c.metadataFilesMeta=Object.keys(candidate.metadataFiles||{});
@@ -4813,6 +4814,18 @@ function existingCaseByName(name){
   const key=(name||'').trim().toLowerCase();
   return cases.find(c=>(c.name||'').trim().toLowerCase()===key)||null
 }
+function candidateSourceKey(candidate){
+  return String(candidate?.key||candidate?.rootPath||'').replace(/\\/g,'/').replace(/\/+$/,'')
+}
+function caseSourceKey(c){
+  return String(c?.sourceKey||c?.rootPath||'').replace(/\\/g,'/').replace(/\/+$/,'')
+}
+function existingCaseForCandidate(candidate,name=''){
+  const source=candidateSourceKey(candidate);
+  if(source){const exact=cases.find(c=>caseSourceKey(c)===source);if(exact)return exact}
+  const byName=existingCaseByName(name||candidate?.name||'');
+  return byName&&!caseSourceKey(byName)?byName:null
+}
 function removeInitialEmptyCaseIfNeeded(){
   if(series.length===0&&cases.length===1&&/^(case|caso)\s*1$/i.test(cases[0].name||''))cases=[]
 }
@@ -4843,7 +4856,7 @@ function openSmartImport(candidates){
 
   candidates.forEach((c,i)=>{
     const remaining=c.files.filter(f=>!loaded.has(f.webkitRelativePath||f.name));
-    const existing=existingCaseByName(c.name);
+    const existing=existingCaseForCandidate(c,c.name);
     const allLoaded=remaining.length===0&&!!existing;
     const row=document.createElement('div');row.className='smartCaseRow'+(allLoaded?' already':'');row.dataset.index=i;
     const outputText=c.outputs.map(o=>`${o.path} · ${o.kind==='profile'?(t.profileLabel||'Spatial profiles'):o.kind==='log'?($('language').value==='es'?'Logs del solver':'Solver logs'):(t.timeLabel||'Time series')}`).join(' · ');
@@ -4884,7 +4897,7 @@ async function importSelectedAsCases(){
   const plan=selected.map(({candidate,name})=>{
     const all=candidate.files.filter(f=>!loadedPaths.has(f.webkitRelativePath||f.name)),files=[],lazyProfiles=[];
     for(const f of all){if(candidateFileKind(candidate,f)==='profile')lazyProfiles.push(f);else files.push(f)}
-    return{candidate,name,files,lazyProfiles,total:all.length}
+    return{candidate,name,files,lazyProfiles,total:all.length,caseId:null}
   });
   const totalFiles=plan.reduce((n,x)=>n+x.total,0);let processedFiles=0,totalLoaded=0,totalFailed=0,indexedProfiles=0;
   const identitySet=new Set(series.map(seriesIdentityKey));
@@ -4896,7 +4909,8 @@ async function importSelectedAsCases(){
 
   scanStepState('cases','active',diagEs()?'Leyendo metadatos de los casos…':'Reading case metadata…');
   for(let ci=0;ci<plan.length;ci++){
-    const {candidate,name,lazyProfiles}=plan[ci];let c=existingCaseByName(name);if(!c)c=addCase(name,true);
+    const {candidate,name,lazyProfiles}=plan[ci];let c=existingCaseForCandidate(candidate,name);if(!c)c=addCase(name,true);
+    plan[ci].caseId=c.id;
     scanSetLive(scanWeighted(4,10,ci+1,plan.length||1),diagEs()?'Leyendo metadatos':'Reading metadata',`${name} · ${ci+1}/${plan.length}`,processedFiles,totalFiles);
     await applyCandidateMetadata(c,candidate);
     if(lazyProfiles.length){indexLazyProfileFiles(c.id,lazyProfiles);indexedProfiles+=lazyProfiles.length;processedFiles+=lazyProfiles.length;for(const f of lazyProfiles)loadedPaths.add(f.webkitRelativePath||f.name)}
@@ -4906,7 +4920,8 @@ async function importSelectedAsCases(){
 
   scanStepState('config','active',diagEs()?'Procesando datos necesarios para Overview…':'Processing data needed for Overview…');
   for(let ci=0;ci<plan.length;ci++){
-    const {name,files}=plan[ci],c=existingCaseByName(name);
+    const {name,files,caseId}=plan[ci],c=caseById(Number(caseId));
+    if(!c)throw new Error('FoamLens case binding lost during import: '+name);
     scanSetLive(scanWeighted(10,84,processedFiles,totalFiles||1),diagEs()?'Parseando logs y probes':'Parsing logs and probes',`${name} · ${files.length.toLocaleString()} ${diagEs()?'archivos eager':'eager files'}`,processedFiles,totalFiles);
     if(files.length){
       const result=await loadFiles(files,c.id,info=>{if(info.stage==='file'){const absolute=processedFiles+info.index,pct=scanWeighted(10,84,absolute,totalFiles||1);scanSetLive(pct,diagEs()?'Parseando logs y probes':'Parsing logs and probes',`${name} · ${info.index.toLocaleString()}/${info.total.toLocaleString()} · ${scanPathLabel(info.file)}`,absolute,totalFiles)}},{deferUi:true,deferDerived:true,identitySet});
@@ -5195,6 +5210,7 @@ function addCase(name=null,quiet=false){
     dash:familyInfo?variantDash(familyInfo.variant):nextCaseDash(),
     visible:true,
     tags:[],
+    sourceKey:'',
     rootPath:'',
     config:{source:{fvSolution:false,controlDict:false}},
     discovery:{classification:'manual case',evidence:[],regions:[],outputs:[],datasetCounts:{},functionObjects:[],functionIncludes:[],allPaths:[],importIssues:[]},
@@ -5979,10 +5995,22 @@ function navigateHealthCategory(key,c){
   else if(key==='linear'){setAppMode('data');setDataView('log')}
   else if(key==='post'){setAppMode('data')}
   else if(key==='config'){setAppMode('review');setReviewPane('inspector');$('inspectorCase').value=String(c.id);$('inspectorTree').textContent=inspectorText(c)}
-  else {setAppMode('review');setReviewPane('auditor');$('auditCase').value=String(c.id);renderAuditCase(c)}
+  else {setAppMode('review');setReviewPane('auditor');setReviewCaseContext(c.id);renderAuditCase(c)}
+}
+function setReviewCaseContext(caseId,{syncGlobal=true}={}){
+  const c=caseById(Number(caseId));if(!c)return null;
+  if($('auditCase')&&[...$('auditCase').options].some(o=>Number(o.value)===Number(c.id)))$('auditCase').value=String(c.id);
+  if(syncGlobal){
+    activeContextCaseId=c.id;
+    const regions=c.discovery?.regions||[];if(activeContextRegion&&!regions.includes(activeContextRegion))activeContextRegion='';
+    refreshGlobalContext()
+  }
+  return c
 }
 function renderAuditCase(c){
-  if(!c)return;
+  c=caseById(Number(c?.id));if(!c)return;
+  if($('auditCase')&&[...$('auditCase').options].some(o=>Number(o.value)===Number(c.id)))$('auditCase').value=String(c.id);
+  for(const id of ['auditHealthState','auditHealthReason','auditHealthCounts','auditSummary','auditCategoryHealth','auditFindings'])if($(id))$(id).dataset.caseId=String(c.id);
   const evidence=caseHealthEvidence(c),fs=evidence.findings,h=evidence.health,cfg=c.config||{},d=c.discovery||{},r=observedCaseTimeRange(c.id);
   $('auditHealthState').textContent=reviewStateLabel(h.state);applyHealthStateVisual($('auditHealthState'),h.state);$('auditHealthReason').textContent=reviewText(h.reason);$('auditHealthCounts').innerHTML=healthCountsHtml(h.counts);
   const items=[
@@ -6397,7 +6425,8 @@ function refreshWorkspaceReview(precomputedHealth=null){
   ].map(([k,v])=>`<div class="auditBlock"><span>${esc(k)}</span><b>${v}</b></div>`).join('');
   const selectors=[$('auditCase'),$('inspectorCase')].filter(Boolean);
   for(const sel of selectors){const old=sel.value;sel.innerHTML=cases.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');if(cases.some(c=>String(c.id)===old))sel.value=old}
-  const audit=caseById(Number($('auditCase')?.value))||cases[0];if(audit){$('auditCase').value=String(audit.id);renderAuditCase(audit)}
+  const preferredAudit=activeContextCaseId!=null?caseById(Number(activeContextCaseId)):null;
+  const audit=preferredAudit||caseById(Number($('auditCase')?.value))||cases[0];if(audit){$('auditCase').value=String(audit.id);renderAuditCase(audit)}
   const insp=caseById(Number($('inspectorCase')?.value))||cases[0];if(insp){$('inspectorCase').value=String(insp.id);$('inspectorTree').textContent=inspectorText(insp)}else $('inspectorTree').textContent=diagEs()?'No hay caso seleccionado.':'No case selected.';
   renderConfigComparison();renderCompareCases();renderOutputCompleteness();renderRelationships();refreshPhaseMomentumUi();updateContextTrail()
 }
@@ -6455,7 +6484,7 @@ function navigateFinding(f){
     if(Number.isFinite(f.time))syncAppToDiagnosticTime(f.time,{caseId:c?.id||null})
   }else{
     setAppMode('review');setReviewPane(t.pane||'auditor');
-    if(c&&$('auditCase')){$('auditCase').value=String(c.id);renderAuditCase(c)}
+    if(c&&$('auditCase')){setReviewCaseContext(c.id);renderAuditCase(c)}
     if(c&&t.pane==='inspector'&&$('inspectorCase')){$('inspectorCase').value=String(c.id);$('inspectorTree').textContent=inspectorText(c)}
   }
 }
@@ -8869,12 +8898,12 @@ $('workspaceGoCoupling')?.addEventListener('click',()=>openAnalysisModule('coupl
 $('workspaceGoAuditor')?.addEventListener('click',()=>{setAppMode('review');setReviewPane('auditor')});
 $('workspaceGoInspector')?.addEventListener('click',()=>{setAppMode('review');setReviewPane('inspector')});
 $('workspaceOpenAllFindings')?.addEventListener('click',()=>{setAppMode('review');setReviewPane('findings')});
-$('auditCase')?.addEventListener('change',()=>{const c=caseById(Number($('auditCase').value));if(c)renderAuditCase(c);updateContextTrail()});
+$('auditCase')?.addEventListener('change',()=>{const c=setReviewCaseContext(Number($('auditCase').value));if(c)renderAuditCase(c);updateContextTrail()});
 $('auditRefresh')?.addEventListener('click',refreshWorkspaceReview);
 $('auditCategoryHealth')?.addEventListener('click',e=>{const row=e.target.closest('[data-health-category]');if(row)navigateHealthCategory(row.dataset.healthCategory,caseById(Number(row.dataset.case))) });
 $('inspectorCase')?.addEventListener('change',()=>{const c=caseById(Number($('inspectorCase').value));$('inspectorTree').textContent=inspectorText(c)});
 for(const id of ['workspaceFindings','allFindings','auditFindings'])$(id)?.addEventListener('click',e=>{const row=e.target.closest('[data-finding-id]');if(row)openFindingDetail(findingById(row.dataset.findingId))});
-$('workspaceHealthCases')?.addEventListener('click',e=>{const row=e.target.closest('[data-case]');if(!row)return;setAppMode('review');setReviewPane('auditor');$('auditCase').value=row.dataset.case;renderAuditCase(caseById(Number(row.dataset.case)))});
+$('workspaceHealthCases')?.addEventListener('click',e=>{const row=e.target.closest('[data-case]');if(!row)return;setAppMode('review');setReviewPane('auditor');const c=setReviewCaseContext(Number(row.dataset.case));if(c)renderAuditCase(c)});
 $('liveChooseFolder')?.addEventListener('click',chooseLiveFolder);
 $('liveRefreshNow')?.addEventListener('click',inspectLiveDirectory);
 $('liveStop')?.addEventListener('click',stopLiveWatch);
