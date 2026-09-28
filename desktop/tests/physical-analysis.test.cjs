@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_PHYSICAL_ANALYSIS_CORE_START */',end='/* FOAMLENS_PHYSI
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Physical analysis core markers are missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation};')();
+const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation,paDimensionsShiftTime,paDerivativeUnit,paIntegralUnit,paCompatibleKnownUnits};')();
 
 const near=(x,y,t=1e-10)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
@@ -55,6 +55,23 @@ test('correlation reports finite sample count only',()=>{
   assert.strictEqual(c.count,3);assert(near(c.pearson,1));
 });
 
+test('derived dimensions shift physical time exponent',()=>{
+  assert.strictEqual(api.paDimensionsShiftTime('[0 0 0 1 0 0 0]',-1),'[0 0 -1 1 0 0 0]');
+  assert.strictEqual(api.paDimensionsShiftTime('[1 2 -3 0 0 0 0]',1),'[1 2 -2 0 0 0 0]');
+});
+
+test('derived units are explicit',()=>{
+  assert.strictEqual(api.paDerivativeUnit('K'),'K/s');
+  assert.strictEqual(api.paDerivativeUnit('1'),'1/s');
+  assert.strictEqual(api.paIntegralUnit('W'),'W·s');
+});
+
+test('energy balance rejects incompatible known units',()=>{
+  const q=api.paCompatibleKnownUnits([{field:{unit:'W'}},{field:{unit:'W'}},{field:{unit:'J'}}]);
+  assert.strictEqual(q.compatible,false);
+  assert.deepStrictEqual(q.known.sort(),['J','W']);
+});
+
 test('UI exposes explicit thermal and solidification transforms',()=>{
   for(const token of ['Cooling Rate (−dT/dt)','Solidification Rate (−dαL/dt)','Solidification Rate (dαS/dt)','Energy / power balance','Scatter / correlation','Pearson','Spearman'])assert(js.includes(token),'Missing '+token);
 });
@@ -66,6 +83,8 @@ test('UI warns against unsupported physical inference',()=>{
 test('energy balance uses common physical-time alignment and no extrapolation metadata',()=>{
   assert(js.includes("taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear'"));
   assert(js.includes('noExtrapolation:true'));
+  assert(js.includes('Cannot build a physical balance from incompatible known units'));
+  assert(js.includes('outputDimensions:paDimensionsShiftTime'));
 });
 
 test('physical core is fixture agnostic',()=>{
