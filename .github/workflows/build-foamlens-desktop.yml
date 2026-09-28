@@ -205,6 +205,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/incremental-field-parser.test.cjs
 
+      - name: Stress-test large incremental datasets
+        shell: pwsh
+        run: node desktop/tests/large-project-stress.test.cjs
+
       - name: Test native OpenFOAM field streaming
         shell: pwsh
         run: node desktop/tests/native-field-streaming.test.cjs
