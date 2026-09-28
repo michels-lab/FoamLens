@@ -80,13 +80,13 @@ function faExport(){
   downloadText('FoamLens_flow_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'flow-signal-statistics',...p},null,2),'application/json')
 }
 function faRefresh(){
-  const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display=src.length?'':'none';if(!sel)return;
+  const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
   window.FoamLensLastFlowAnalysis=null;const ex=document.getElementById('faExport');if(ex)ex.disabled=true;
   const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${faId(s,i).replace(/"/g,'&quot;')}">${faLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
 }
 function faBuildUi(){
   if(document.getElementById('faTools'))return;
-  const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='faTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='faTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Flow Analysis</b><span class="badge">general signal</span></div>
   <div class="smallnote" style="margin-top:5px">Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret. FoamLens does not infer the role from a case name. Means and RMS values are weighted by physical time or spatial coordinate, so adaptive/nonuniform sampling does not bias them by sample count.</div>
   <div class="field" style="margin-top:8px"><label>Flow signal</label><select id="faSource"></select></div>
