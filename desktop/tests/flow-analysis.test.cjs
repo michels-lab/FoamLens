@@ -64,6 +64,17 @@ test('flow analysis obeys active case and region context',()=>{
   assert(js.includes('seriesMatchesGlobalContext'));
 });
 
+test('duplicate coordinates are collapsed before statistics',()=>{
+  const p=api.faPairs([0,1,1,2],[0,1,3,4]);
+  assert.deepStrictEqual(p,[[0,0],[1,3],[2,4]]);
+});
+
+test('flow analysis distinguishes temporal and spatial axes',()=>{
+  assert(js.includes("semantic:'physical time'"));
+  assert(js.includes("semantic:'spatial coordinate'"));
+  assert(js.includes("datasetTypeOf(s)==='profile'?'coordinate-weighted':'time-weighted'"));
+});
+
 test('flow analysis exports descriptive provenance without fixture coupling',()=>{
   assert(js.includes("analysis:'flow-signal-statistics'"));
   assert(js.includes('interpretation:interp'));
