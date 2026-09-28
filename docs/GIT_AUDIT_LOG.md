@@ -501,3 +501,25 @@ When a new change is made, record the actual commit SHA and CI result after the 
 - Desktop semantic version bumped from `1.3.0` to `1.3.1` before merging PR #1.
 - Reason: the `main` workflow publishes the GitHub Release from the desktop project version; keeping `1.3.0` would overwrite/reuse the existing `v1.3.0` release instead of creating a new patch release.
 - Target release after CI + merge: `v1.3.1`.
+
+
+## 2026-09-28 — FoamLens Desktop v1.3.1 released
+
+- PR #1 (`Release FoamLens Desktop v1.3.1`) was marked ready and merged into `main`.
+- Merge commit: `97060108c7cbed8d06310644195a7c2ee0989562`.
+- Development head merged: `d5a94b527ae6eec76a8ce1cef9ca5b61dd0a2d57`.
+- Final development validation: GitHub Actions run #195 — success.
+- Main/release validation: GitHub Actions run #196 — success.
+- Real QuickCup regression: success.
+- Portable EXE smoke: success.
+- Installed-app smoke: success.
+- Native Windows icon packaging: success.
+- Watch Run desktop monitoring test: success.
+- Review case identity binding test: success.
+- Tag `v1.3.1` points to the merge commit above.
+- Published GitHub Release: `FoamLens v1.3.1`.
+- Release assets:
+  - `FoamLens-Portable-v1.3.1.exe`
+  - `FoamLens-Portable-v1.3.1.exe.sha256`
+  - `FoamLens-Setup-v1.3.1.exe`
+- Release published at 2026-09-28 20:04:27 UTC.
