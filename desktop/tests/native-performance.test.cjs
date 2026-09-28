@@ -69,7 +69,7 @@ test('native temporal parser preserves vector magnitudes and probe metadata',()=
   assert(program.includes('TryParseTemporalValue(tokens[j], out var value)'));
   assert(program.includes('Math.Sqrt(sum)'));
   assert(program.includes('ParseProbeHeader(line)'));
-  assert(program.includes('Dictionary<int, string> probes'));
+  assert(program.includes('new Dictionary<int, string>()'));
 });
 
 test('UI displays progress and sends cancel request',()=>{
