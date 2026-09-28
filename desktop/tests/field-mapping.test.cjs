@@ -97,7 +97,7 @@ test('region-aware mapping UI is explicit',()=>{
 
 test('extension mutates the existing generic mapping UI rather than creating project-specific mapping',()=>{
   assert(js.includes('PM_ROLE_DEFS.splice'));
-  assert(js.includes('pmMappingForCase=function(c)'));
+  assert(js.includes('pmMappingForCase=function(c,regionOverride)'));
   assert(js.includes('pmRenderMapping'));
 });
 
