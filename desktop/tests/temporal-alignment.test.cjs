@@ -128,6 +128,11 @@ test('UI exposes required temporal alignment modes and derived differences', () 
   assert(js.includes("derivedKind:'temporalAlignmentDifference'"));
 });
 
+test('derived percent curves are dimensionless', () => {
+  assert(js.includes("diffField.unit='%'"));
+  assert(js.includes("diffField.dimensions='[0 0 0 0 0 0 0]'"));
+});
+
 test('comparison exports preserve reproducibility metadata', () => {
   for(const token of ['taExportPayload','noExtrapolation:true','commonRange','provenanceA','provenanceB','FoamLens_temporal_comparison.json','FoamLens_temporal_comparison.csv']) {
     assert(js.includes(token), 'Missing export metadata token '+token);
