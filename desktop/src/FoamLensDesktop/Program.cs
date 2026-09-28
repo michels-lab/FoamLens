@@ -164,6 +164,51 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
+            var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
+            using (var duplicateIds = JsonDocument.Parse(duplicateIdsJson))
+            {
+                if (duplicateIds.RootElement.ValueKind == JsonValueKind.Array &&
+                    duplicateIds.RootElement.GetArrayLength() > 0)
+                    throw new InvalidOperationException(
+                        $"FoamLens rendered duplicate DOM ids: {duplicateIdsJson}");
+            }
+
+            var visualSanityJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const ids=['launchTitle','launchFolder','launchFiles','launchWorkspace'];const bad=[];for(const id of ids){const e=document.getElementById(id);if(!e){bad.push(id+':missing');continue;}const r=e.getBoundingClientRect();const cs=getComputedStyle(e);if(r.width<20||r.height<12||cs.display==='none'||cs.visibility==='hidden')bad.push(id+':not-visible');}return {bad,width:innerWidth,height:innerHeight,bodyText:(document.body?.innerText||'').length}})()");
+            using (var visualSanity = JsonDocument.Parse(visualSanityJson))
+            {
+                var root = visualSanity.RootElement;
+                if (root.TryGetProperty("bad", out var bad) &&
+                    bad.ValueKind == JsonValueKind.Array && bad.GetArrayLength() > 0)
+                    throw new InvalidOperationException(
+                        $"FoamLens launch UI visual sanity failed: {visualSanityJson}");
+                if (!root.TryGetProperty("bodyText", out var bodyText) || bodyText.GetInt32() < 100)
+                    throw new InvalidOperationException("FoamLens launch UI rendered insufficient visible content.");
+            }
+
+            await Task.Delay(250);
+            var screenshotPath = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_SCREENSHOT");
+            if (!string.IsNullOrWhiteSpace(screenshotPath))
+            {
+                var fullScreenshotPath = Path.GetFullPath(screenshotPath);
+                var screenshotDir = Path.GetDirectoryName(fullScreenshotPath);
+                if (!string.IsNullOrWhiteSpace(screenshotDir))
+                    Directory.CreateDirectory(screenshotDir);
+                await using (var screenshot = new FileStream(
+                    fullScreenshotPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await _web.CoreWebView2.CapturePreviewAsync(
+                        CoreWebView2CapturePreviewImageFormat.Png, screenshot);
+                    await screenshot.FlushAsync();
+                }
+                var screenshotBytes = new FileInfo(fullScreenshotPath).Length;
+                if (screenshotBytes < 10_000)
+                    throw new InvalidOperationException(
+                        $"FoamLens visual smoke screenshot is unexpectedly small: {screenshotBytes} bytes.");
+                Log($"FoamLens visual smoke screenshot: {fullScreenshotPath} ({screenshotBytes} bytes)");
+            }
+
             SmokeTestExitCode = 0;
             Log("FoamLens Windows smoke test passed.");
             BeginInvoke(Close);
