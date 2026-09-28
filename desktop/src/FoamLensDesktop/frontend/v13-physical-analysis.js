@@ -75,6 +75,14 @@ function paIntegralUnit(u){const k=paKnownUnit(u);return k?(k==='1'?'s':k+'·s')
 function paCompatibleKnownUnits(seriesList){
   const known=[...new Set((seriesList||[]).map(paUnitOf).map(paKnownUnit).filter(Boolean))];return{compatible:known.length<=1,unit:known[0]||'',known}
 }
+function paSourceProvenance(s){
+  const pp=s?.postProcessing||null;
+  return{
+    sourcePath:String(s?.sourcePath||''),
+    sourceKind:String(s?.sourceKind||'native'),
+    postProcessing:pp?{kind:String(pp.kind||''),reduction:String(pp.reduction||''),selection:{...(pp.selection||{})},columns:[...(pp.columns||[])]}:null
+  }
+}
 /* FOAMLENS_PHYSICAL_ANALYSIS_CORE_END */
 
 function paSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
@@ -125,11 +133,12 @@ function paRunEnergy(){
   const units=paCompatibleKnownUnits(all.map(x=>x.s));if(!units.compatible){out.textContent='Cannot build a physical balance from incompatible known units: '+units.known.join(' vs ')+'.';return}
   const knownDims=[...new Set(all.map(x=>String(x.s?.field?.dimensions||x.s?.dimensions||'').trim()).filter(Boolean))];if(knownDims.length>1){out.textContent='Cannot build a physical balance from incompatible OpenFOAM dimensions.';return}
   const aligned=taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear',maxPoints:2500});if(!aligned.valid){out.textContent='The selected terms have no shared physical-time interval; no extrapolation was performed.';return}
-  const net=paWeightedSum(aligned.series.map(x=>x.y),all.map(x=>x.c)),integ=paTrapezoidIntegral(aligned.grid,net,0),terms=all.map(x=>({source:paLabel(x.s),coefficient:x.c,unit:paUnitOf(x.s),dimensions:String(x.s?.field?.dimensions||x.s?.dimensions||'')}));
+  const net=paWeightedSum(aligned.series.map(x=>x.y),all.map(x=>x.c)),integ=paTrapezoidIntegral(aligned.grid,net,0),terms=all.map(x=>({source:paLabel(x.s),coefficient:x.c,unit:paUnitOf(x.s),dimensions:String(x.s?.field?.dimensions||x.s?.dimensions||''),provenance:paSourceProvenance(x.s)}));
   const base=all[0].s,n1='Net balance: '+terms.map(x=>`${x.coefficient>=0?'+':''}${x.coefficient}×${x.source}`).join(' '),baseDim=String(base?.field?.dimensions||base?.dimensions||''),baseUnit=units.unit||paUnitOf(base);
   paAddSeries(base,n1,aligned.grid,net,{operation:'weighted-energy-power-balance',terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true},outputUnit:baseUnit,outputDimensions:baseDim});
   paAddSeries(base,'Cumulative integral of '+n1,integ.t,integ.y,{operation:'trapezoidal-time-integral',source:n1,terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true},outputUnit:paIntegralUnit(baseUnit),outputDimensions:paDimensionsShiftTime(baseDim,1)});
-  out.textContent=`Added net balance and cumulative time integral over ${paFmt(aligned.range.start)}–${paFmt(aligned.range.end)} s. FoamLens did not assume which sign is physically positive; coefficients came from you.`
+  const sourceKinds=[...new Set(terms.map(x=>x.provenance?.postProcessing?.kind).filter(Boolean))];
+  out.textContent=`Added net balance and cumulative time integral over ${paFmt(aligned.range.start)}–${paFmt(aligned.range.end)} s. FoamLens did not assume which sign is physically positive; coefficients came from you.`+(sourceKinds.length?` Source types: ${sourceKinds.join(', ')}.`:'')
 }
 function paRunCorrelation(){
   const A=paFind(document.getElementById('paCorrA')?.value),B=paFind(document.getElementById('paCorrB')?.value),out=document.getElementById('paCorrStatus');if(!A||!B||A===B){out.textContent='Choose two different temporal series.';return}
@@ -177,6 +186,6 @@ function paRefreshSources(){
 }
 function paInit(){
   paBuildUi();try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(paRefreshSources,0);return x}}catch{}
-  window.FoamLensPhysicalAnalysis={paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paDimensionsShiftLength,paTrapezoidIntegral,paWeightedSum,paPearson,paSpearman,paCorrelation}
+  window.FoamLensPhysicalAnalysis={paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paDimensionsShiftLength,paSourceProvenance,paTrapezoidIntegral,paWeightedSum,paPearson,paSpearman,paCorrelation}
 }
 paInit();
