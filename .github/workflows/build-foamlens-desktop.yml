@@ -107,6 +107,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/temporal-alignment.test.cjs
 
+      - name: Test quantitative spatial profile differences
+        shell: pwsh
+        run: node desktop/tests/spatial-differences.test.cjs
+
       - name: Test numerical performance and solver-log analysis
         shell: pwsh
         run: node desktop/tests/numerical-performance.test.cjs
