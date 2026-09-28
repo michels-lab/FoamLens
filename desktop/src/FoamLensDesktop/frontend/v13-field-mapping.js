@@ -130,16 +130,29 @@ try{
   }
 }catch{}
 try{
+  pmCaseCapabilities=function(c){
+    const region=fmSelectedAnalysisRegion(c),names=pmUniqueFieldNames(c,region),m=fmMappingForRegion(c,region);
+    return pmCapabilitiesFromMapping(m,names)
+  }
+}catch{}
+try{
   pmRenderMapping=function(){
     const c=caseById(Number($('pmMappingCase')?.value))||pmCaseWithFields()[0],wrap=$('pmMappingRows');if(!c||!wrap)return;
     const region=fmRefreshMappingRegion(c),descriptors=fmDescriptorsForCase(c,region),names=[...new Set(descriptors.map(d=>d.name))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})),m=fmMappingForRegion(c,region);
-    $('pmCapabilityBar').innerHTML=pmCapabilityText(c).map(([k,on,label])=>'<span class="pmCap '+(on?'on':'')+'">'+esc(label)+'</span>').join('');
+    const cap=pmCapabilitiesFromMapping(m,names);
+    const capRows=[
+      ['fields',names.length>0,String(names.length)+' '+(diagEs()?'campos':'fields')],
+      ['phase',cap.phase,diagEs()?'fase':'phase'],
+      ['momentum',cap.momentum,'momentum'],
+      ['metadata',(c?.physicalMetadataEntries||[]).some(e=>!region||String(e.region||'')===region),diagEs()?'metadata regional':'regional metadata']
+    ];
+    $('pmCapabilityBar').innerHTML=capRows.map(([k,on,label])=>'<span class="pmCap '+(on?'on':'')+'">'+esc(label)+'</span>').join('');
     wrap.innerHTML=PM_ROLE_DEFS.map(role=>{
       const opts=[''].concat(names).map(n=>'<option value="'+esc(n)+'" '+(m[role.key]===n?'selected':'')+'>'+(n?esc(n):(diagEs()?'— No mapeado —':'— Not mapped —'))+'</option>').join('');
       return'<div class="pmMappingRow"><div class="pmMappingRole">'+esc(pmRoleLabel(role))+'</div><select data-pm-role="'+esc(role.key)+'">'+opts+'</select></div>'
     }).join('');
     $('pmUserRoleName').value=m.userDefinedLabel||'';
-    const cap=pmCapabilitiesFromMapping(m,names),regionText=region|| (diagEs()?'Región por defecto':'Default region');
+    const regionText=region|| (diagEs()?'Región por defecto':'Default region');
     $('pmMappingStatus').textContent=(diagEs()?'Mapping de FoamLens para ':'FoamLens mapping for ')+c.name+' · '+regionText+' · '+(cap.enabled?(diagEs()?'Phase/Momentum disponible.':'Phase/Momentum available.'):(diagEs()?'Aún no hay campos suficientes mapeados para esta región.':'Not enough compatible roles are mapped for this region yet.'));
     pmRefreshCapabilityVisibility()
   }
