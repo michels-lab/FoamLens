@@ -33,7 +33,7 @@ test('case tags are visible and searchable in Data Catalog',()=>{
 
 test('Case Manager explains tags are descriptive only',()=>{
   assert(index.includes('Descriptive metadata only; FoamLens does not infer behavior from these tags.'));
-  assert(index.includes('Metadata descriptiva solamente; FoamLens no infiere significado de estos tags.'));
+  assert(index.includes('Metadatos descriptivos solamente; FoamLens no infiere significado de estas etiquetas.'));
 });
 
 test('case tags do not drive style or scientific identity',()=>{
