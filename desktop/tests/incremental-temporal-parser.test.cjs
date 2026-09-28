@@ -86,7 +86,8 @@ test('native temporal streaming reports byte progress and can be cancelled',()=>
   assert(index.includes('function cancelActiveTemporalReads()'));
   assert(index.includes("foamLensNativeRequest('cancelOperation',{targetRequestId:requestId})"));
   assert(index.includes("updateAppActivity(diagEs()?'Leyendo archivo temporal grande':'Reading large temporal file'"));
-  assert(index.includes("$('scanCancel')?.addEventListener('click',()=>{cancelActiveTemporalReads();"));
+  assert(index.includes('function cancelActiveDataReads(){cancelActiveTemporalReads();cancelActiveFieldReads()}'));
+  assert(index.includes("$('scanCancel')?.addEventListener('click',()=>{cancelActiveDataReads();"));
 });
 
 test('parseFile records whether loading was incremental',()=>{
