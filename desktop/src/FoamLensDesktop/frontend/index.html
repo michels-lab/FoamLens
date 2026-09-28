@@ -1280,6 +1280,11 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
       <div class="analysisMetric" id="differenceMetric">Select two compatible cases.</div>
     </div>
 
+    <div class="analysisTools" id="generalAnalysisTools" style="display:none">
+      <div class="analysisTitle"><strong id="generalAnalysisTitle">General Analysis</strong><span class="badge">capability-driven</span></div>
+      <div id="generalAnalysisModules"></div>
+    </div>
+
     <div class="analysisTools pmHidden" id="fieldMappingTools">
       <div class="analysisTitle"><strong id="pmMappingTitle">Field Mapping</strong><span class="badge" id="pmMappingBadge">capabilities</span></div>
       <div class="field"><label id="pmMappingCaseLabel">Case</label><select id="pmMappingCase"></select></div>
@@ -1699,6 +1704,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
     <button class="analysisSubBtn" data-analysis="coupling">Coupling</button>
     <button class="analysisSubBtn" data-analysis="front">Front tracking</button>
     <button class="analysisSubBtn" data-analysis="difference">Difference</button>
+    <button class="analysisSubBtn pmHidden" data-analysis="general" id="generalAnalysisNav">General</button>
     <button class="analysisSubBtn pmHidden" data-analysis="mapping" id="pmMappingNav">Field Mapping</button>
     <button class="analysisSubBtn pmHidden" data-analysis="phaseMomentum" id="pmPhaseNav">Phase Change / Momentum</button>
   </div>
@@ -5972,11 +5978,17 @@ function setAppMode(mode){
   if(activeAppMode==='live')refreshLiveCapability();
   updateContextTrail()
 }
+function refreshGeneralAnalysisHost(){
+  const host=$('generalAnalysisTools'),mods=$('generalAnalysisModules'),nav=$('generalAnalysisNav');if(!host||!mods)return;
+  const visible=[...mods.children].some(el=>el.style.display!=='none');
+  host.style.display=visible?'':'none';if(nav)nav.classList.toggle('pmHidden',!visible)
+}
 function openAnalysisModule(kind){
   setAppMode('analysis');
   if(kind==='coupling'){setDataView('log');if($('couplingDiagnostics'))$('couplingDiagnostics').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='front'){setDataView('profile');if($('phaseFrontPanel')){$('phaseFrontPanel').open=true;$('phaseFrontPanel').scrollIntoView({block:'start',behavior:'smooth'})}}
   else if(kind==='difference'){if($('differenceTools'))$('differenceTools').scrollIntoView({block:'center',behavior:'smooth'})}
+  else if(kind==='general'){refreshGeneralAnalysisHost();if($('generalAnalysisTools'))$('generalAnalysisTools').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='mapping'){if($('fieldMappingTools'))$('fieldMappingTools').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='phaseMomentum'){refreshPhaseMomentumUi();if($('phaseMomentumTools'))$('phaseMomentumTools').scrollIntoView({block:'start',behavior:'smooth'})}
 }
@@ -7450,6 +7462,7 @@ function applyLanguage(){
   if($('catalogColSamples'))$('catalogColSamples').textContent=$('language').value==='es'?'Muestras':'Samples';
   if($('catalogColOrigin'))$('catalogColOrigin').textContent=$('language').value==='es'?'Origen':'Origin';
   if($('catalogColSource'))$('catalogColSource').textContent=$('language').value==='es'?'Fuente':'Source';
+  if($('generalAnalysisTitle'))$('generalAnalysisTitle').textContent=$('language').value==='es'?'Análisis general':'General Analysis';
   if($('catalogKind')){
     const labels=$('language').value==='es'?['Todos los datos','Campos volumétricos / superficiales','postProcessing','Logs','Diccionarios','Derivados / FoamLens']:['All data','Volume / surface fields','postProcessing','Logs','Dictionaries','Derived / FoamLens'];
     [...$('catalogKind').options].forEach((o,i)=>{if(labels[i])o.textContent=labels[i]})
