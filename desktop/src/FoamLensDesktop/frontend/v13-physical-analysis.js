@@ -49,7 +49,7 @@ function paCompatibleKnownUnits(seriesList){
 }
 /* FOAMLENS_PHYSICAL_ANALYSIS_CORE_END */
 
-function paSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2}catch{return Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
+function paSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
 function paLabel(s){try{return taSeriesLabel(s)}catch{return String(s?.name||s?.label||'Series')}}
 function paFind(id){const src=paSources();return src.find((s,i)=>String(s.id??i)===String(id))}
 function paOpts(){return paSources().map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${paLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')}
