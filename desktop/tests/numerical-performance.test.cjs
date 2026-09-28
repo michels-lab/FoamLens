@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_START */',end='/* FOAMLENS_N
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Numerical performance core markers are missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npClassifyEvent,npParseRunLog,npBasicStats,npSummarizeRunLog};')();
+const api=new Function(core+'\nreturn {npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npClassifyEvent,npParseRunLog,npBasicStats,npSummarizeRunLog,npAxisData};')();
 
 const near=(x,y,t=1e-12)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
@@ -96,6 +96,14 @@ test('fatal and floating-point events are errors, not inferred solver states',()
   assert.strictEqual(api.npClassifyEvent('FOAM FATAL ERROR: bad field').severity,'error');
   assert.strictEqual(api.npClassifyEvent('Floating point exception').severity,'error');
   assert.strictEqual(api.npClassifyEvent('ordinary solver line'),null);
+});
+
+test('numerical metric X axis separates physical time from timestep index',()=>{
+  const s={t:[0.1,0.18,0.31],y:[10,20,30]};
+  assert.deepStrictEqual(api.npAxisData(s,'physicalTime').x,[0.1,0.18,0.31]);
+  assert.deepStrictEqual(api.npAxisData(s,'timestepIndex').x,[0,1,2]);
+  assert(js.includes('<option value="physicalTime" selected>Physical time [s]</option>'));
+  assert(js.includes('<option value="timestepIndex">Timestep index</option>'));
 });
 
 test('UI explicitly separates physical results and numerical cost',()=>{
