@@ -35,6 +35,17 @@ function npParseCouplingIteration(line){
   if(m)return{algorithm:m[1].toUpperCase(),iteration:Number(m[2]),converged:true};
   return null
 }
+function npParseCorrectorLine(line){
+  const s=String(line||'');let m=s.match(/\b(PIMPLE|SIMPLE|PISO)\s*:\s*(?:pressure\s+)?corrector(?:\s+iteration)?\s*[:=]?\s*(\d+)/i);
+  if(m)return{algorithm:m[1].toUpperCase(),corrector:Number(m[2])};
+  m=s.match(/\bpressure\s+corrector(?:\s+iteration)?\s*[:=]?\s*(\d+)/i);
+  return m?{algorithm:'',corrector:Number(m[1])}:null
+}
+function npParseTerminationLine(line){
+  const s=String(line||'').trim();if(/^End\s*$/i.test(s))return{status:'completed',message:s};
+  if(/FOAM FATAL ERROR|FOAM FATAL IO ERROR|Floating point exception|segmentation fault/i.test(s))return{status:'failed',message:s};
+  return null
+}
 function npClassifyEvent(line){
   const s=String(line||'').trim();if(!s)return null;
   if(/FOAM FATAL ERROR|FOAM FATAL IO ERROR|Floating point exception|segmentation fault/i.test(s))return{severity:'error',message:s};
@@ -42,8 +53,8 @@ function npClassifyEvent(line){
   return null
 }
 function npParseRunLog(text){
-  const lines=String(text||'').split(/\r?\n/),steps=[],equations=[],continuity=[],coupling=[],events=[];
-  let current=null,pendingDeltaT=NaN,outerIteration=null,couplingAlgorithm='',application='';
+  const lines=String(text||'').split(/\r?\n/),steps=[],equations=[],continuity=[],coupling=[],correctors=[],events=[];
+  let current=null,pendingDeltaT=NaN,outerIteration=null,couplingAlgorithm='',application='',termination={status:'incomplete',line:null,message:''};
   const ensureStep=(time=NaN)=>{if(current)return current;current={index:steps.length,time,deltaT:Number.isFinite(pendingDeltaT)?pendingDeltaT:NaN,courantMean:NaN,courantMax:NaN,executionTime:NaN,clockTime:NaN};pendingDeltaT=NaN;steps.push(current);return current};
   for(let li=0;li<lines.length;li++){
     const line=lines[li];
@@ -52,18 +63,20 @@ function npParseRunLog(text){
     const dt=npParseDeltaTLine(line);if(Number.isFinite(dt)){pendingDeltaT=dt;continue}
     const co=npParseCourantLine(line);if(co){const st=ensureStep();st.courantMean=co.mean;st.courantMax=co.max;continue}
     const ci=npParseCouplingIteration(line);if(ci){const st=ensureStep();couplingAlgorithm=ci.algorithm;outerIteration=ci.iteration;coupling.push({time:st.time,timestepIndex:st.index,algorithm:ci.algorithm,outerIteration:ci.iteration,converged:ci.converged,line:li+1});continue}
+    const cr=npParseCorrectorLine(line);if(cr){const st=ensureStep();correctors.push({time:st.time,timestepIndex:st.index,algorithm:cr.algorithm||couplingAlgorithm,outerIteration,corrector:cr.corrector,line:li+1});continue}
     const eq=npParseResidualLine(line);if(eq){const st=ensureStep();equations.push({...eq,time:st.time,timestepIndex:st.index,couplingAlgorithm,outerIteration,line:li+1});continue}
     const ce=npParseContinuityLine(line);if(ce){const st=ensureStep();continuity.push({...ce,time:st.time,timestepIndex:st.index,couplingAlgorithm,outerIteration,line:li+1});continue}
     const ti=npParseTimingLine(line);if(ti){const st=ensureStep();st.executionTime=ti.executionTime;st.clockTime=ti.clockTime;continue}
-    const ev=npClassifyEvent(line);if(ev){const st=current;events.push({...ev,time:st?.time??NaN,timestepIndex:st?.index??-1,line:li+1})}
+    const ev=npClassifyEvent(line);if(ev){const st=current;events.push({...ev,time:st?.time??NaN,timestepIndex:st?.index??-1,line:li+1});if(ev.severity==='error')termination={status:'failed',line:li+1,message:ev.message}}
+    const term=npParseTerminationLine(line);if(term&&termination.status!=='failed')termination={...term,line:li+1}
   }
-  return{application,steps,equations,continuity,coupling,events}
+  return{application,steps,equations,continuity,coupling,correctors,events,termination}
 }
 function npFinite(a){return a.map(Number).filter(Number.isFinite)}
 function npBasicStats(a){const v=npFinite(a);if(!v.length)return{count:0,min:NaN,max:NaN,mean:NaN,last:NaN};return{count:v.length,min:Math.min(...v),max:Math.max(...v),mean:v.reduce((s,x)=>s+x,0)/v.length,last:v.at(-1)}}
 function npSummarizeRunLog(parsed){
   const p=parsed||{},steps=p.steps||[],eq=p.equations||[],events=p.events||[],times=npFinite(steps.map(s=>s.time)),dt=npBasicStats(steps.map(s=>s.deltaT)),coMean=npBasicStats(steps.map(s=>s.courantMean)),coMax=npBasicStats(steps.map(s=>s.courantMax)),iters=npBasicStats(eq.map(e=>e.iterations)),ri=npBasicStats(eq.map(e=>e.initialResidual)),rf=npBasicStats(eq.map(e=>e.finalResidual));
-  return{application:p.application||'',timesteps:steps.length,timeStart:times.length?Math.min(...times):NaN,timeEnd:times.length?Math.max(...times):NaN,deltaT:dt,courantMean:coMean,courantMax:coMax,linearSolves:eq.length,linearIterations:iters,initialResidual:ri,finalResidual:rf,couplingRecords:(p.coupling||[]).length,continuityRecords:(p.continuity||[]).length,warnings:events.filter(e=>e.severity==='warning').length,errors:events.filter(e=>e.severity==='error').length}
+  return{application:p.application||'',timesteps:steps.length,timeStart:times.length?Math.min(...times):NaN,timeEnd:times.length?Math.max(...times):NaN,deltaT:dt,courantMean:coMean,courantMax:coMax,linearSolves:eq.length,linearIterations:iters,initialResidual:ri,finalResidual:rf,couplingRecords:(p.coupling||[]).length,correctorRecords:(p.correctors||[]).length,continuityRecords:(p.continuity||[]).length,terminationStatus:p.termination?.status||'incomplete',warnings:events.filter(e=>e.severity==='warning').length,errors:events.filter(e=>e.severity==='error').length}
 }
 function npAxisData(series,mode='physicalTime'){
   const y=Array.isArray(series?.y)?series.y:[],t=Array.isArray(series?.t)?series.t:[],x=[],out=[];
@@ -87,6 +100,9 @@ function npExtraRunLogSeries(parsed,file){
   }
   const algorithms=[...new Set([...byStep.values()].map(q=>q.algorithm))];
   for(const algorithm of algorithms)add(algorithm+'OuterIterations',algorithm,'outerIterations',algorithm+' outer iterations','iterations',[...byStep.values()].filter(q=>q.algorithm===algorithm));
+  const correctorByStep=new Map();
+  for(const q of parsed.correctors||[]){if(!Number.isFinite(q.time)||!Number.isFinite(q.corrector))continue;const algorithm=q.algorithm||'pressure',key=String(q.timestepIndex)+'|'+algorithm,old=correctorByStep.get(key);if(!old||q.corrector>old.y)correctorByStep.set(key,{t:q.time,y:q.corrector,algorithm})}
+  for(const algorithm of [...new Set([...correctorByStep.values()].map(q=>q.algorithm))])add(algorithm+'Correctors',algorithm,'correctors',algorithm+' correctors','iterations',[...correctorByStep.values()].filter(q=>q.algorithm===algorithm));
   return out
 }
 function npInstallRawRunLogExtension(){
@@ -115,8 +131,9 @@ function npSummaryFromImportedSeries(caseId){
   const init=npBasicStats(npSeriesValues(npMetricSeries(ss,/initial.*residual|initialresidual/)));
   const final=npBasicStats(npSeriesValues(npMetricSeries(ss,/final.*residual|finalresidual/)));
   const iter=npBasicStats(npSeriesValues(npMetricSeries(ss,/iteration.*count|niterations|iterations/)));
-  const exec=npLastValue(npMetricSeries(ss,/execution\s*time|executiontime/)),clock=npLastValue(npMetricSeries(ss,/clock\s*time|clocktime/));
-  return{series:ss.length,timesteps:times.length,timeStart:times[0]??NaN,timeEnd:times.at(-1)??NaN,deltaT:dt,courantMax:coMax,courantMean:coMean,initialResidual:init,finalResidual:final,iterations:iter,executionTime:exec,clockTime:clock}
+  const correctors=npBasicStats(npSeriesValues(npMetricSeries(ss,/corrector/))),exec=npLastValue(npMetricSeries(ss,/execution\s*time|executiontime/)),clock=npLastValue(npMetricSeries(ss,/clock\s*time|clocktime/));
+  const runSummary=ss.map(s=>s?.numericalRunSummary).find(Boolean);
+  return{series:ss.length,timesteps:times.length,timeStart:times[0]??NaN,timeEnd:times.at(-1)??NaN,deltaT:dt,courantMax:coMax,courantMean:coMean,initialResidual:init,finalResidual:final,iterations:iter,correctors,terminationStatus:runSummary?.terminationStatus||'unavailable',executionTime:exec,clockTime:clock}
 }
 function npBuildUi(){
   if(document.getElementById('npTools'))return;
@@ -161,6 +178,7 @@ function npRender(){
   <tr><th>${flUi('Δt mean / range','Δt media / rango')}</th><td>${npFmt(s.deltaT.mean)} / ${npFmt(s.deltaT.min)}–${npFmt(s.deltaT.max)}</td><th>${flUi('Max Courant','Courant máximo')}</th><td>${npFmt(s.courantMax.max)}</td></tr>
   <tr><th>${flUi('Mean Courant','Courant medio')}</th><td>${npFmt(s.courantMean.mean)}</td><th>${flUi('Linear iterations mean / max','Iteraciones lineales media / máx.')}</th><td>${npFmt(s.iterations.mean)} / ${npFmt(s.iterations.max)}</td></tr>
   <tr><th>${flUi('Initial residual max','Residual inicial máximo')}</th><td>${npFmt(s.initialResidual.max)}</td><th>${flUi('Final residual max','Residual final máximo')}</th><td>${npFmt(s.finalResidual.max)}</td></tr>
+  <tr><th>${flUi('Correctors mean / max','Correctores media / máx.')}</th><td>${npFmt(s.correctors.mean)} / ${npFmt(s.correctors.max)}</td><th>${flUi('Run termination','Terminación de ejecución')}</th><td>${s.terminationStatus==='completed'?flUi('Completed','Completada'):s.terminationStatus==='failed'?flUi('Failed','Fallida'):s.terminationStatus==='incomplete'?flUi('Incomplete','Incompleta'):flUi('Unavailable','No disponible')}</td></tr>
   <tr><th>${flUi('Execution time','Tiempo de ejecución')}</th><td>${npFmt(s.executionTime)} s</td><th>${flUi('Clock time','Tiempo de reloj')}</th><td>${npFmt(s.clockTime)} s</td></tr>
   </tbody></table></div>
   <div class="smallnote" style="margin-top:6px">${flUi('Residual statistics above describe linear equation solves only. PIMPLE/SIMPLE coupling must be interpreted from its own outer-iteration records.','Las estadísticas de residuales anteriores describen únicamente soluciones de ecuaciones lineales. El acoplamiento PIMPLE/SIMPLE debe interpretarse a partir de sus propios registros de iteración externa.')}</div>`
@@ -170,6 +188,6 @@ function npInit(){
   npBuildUi();
   try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(npRefreshCases,0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('npTools');if(box)flApplyBilingualText(box);npRender();npDrawMetric()});
-  window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseRunLog,npSummarizeRunLog,npAxisData};
+  window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseCorrectorLine,npParseTerminationLine,npParseRunLog,npSummarizeRunLog,npAxisData};
 }
 npInit();
