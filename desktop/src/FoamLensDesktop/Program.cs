@@ -14,16 +14,22 @@ namespace FoamLensDesktop;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new FoamLensForm());
+        var smokeTest = args.Any(arg =>
+            string.Equals(arg, "--smoke-test", StringComparison.OrdinalIgnoreCase));
+        using var form = new FoamLensForm(smokeTest);
+        Application.Run(form);
+        if (smokeTest)
+            Environment.ExitCode = form.SmokeTestExitCode;
     }
 }
 
 internal sealed class FoamLensForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly bool _smokeTest;
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
@@ -32,8 +38,12 @@ internal sealed class FoamLensForm : Form
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FoamLens", "Desktop", "1.3.0", "app");
 
-    public FoamLensForm()
+    public int SmokeTestExitCode { get; private set; }
+
+    public FoamLensForm(bool smokeTest = false)
     {
+        _smokeTest = smokeTest;
+        SmokeTestExitCode = smokeTest ? 1 : 0;
         Text = "FoamLens Desktop";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
@@ -96,13 +106,71 @@ internal sealed class FoamLensForm : Form
             _web.CoreWebView2.ProcessFailed += (_, e) =>
                 Log($"WebView2 process failed: {e.ProcessFailedKind}");
 
-            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
+            if (_smokeTest)
+                await RunSmokeTestAsync();
+            else
+                _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
         }
         catch (Exception ex)
         {
             Log(ex.ToString());
+            if (_smokeTest)
+            {
+                SmokeTestExitCode = 1;
+                BeginInvoke(Close);
+                return;
+            }
             MessageBox.Show(this, ex.ToString(), "FoamLens Desktop failed to start",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task RunSmokeTestAsync()
+    {
+        var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e) =>
+            completion.TrySetResult(e);
+
+        _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+        try
+        {
+            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1&smoke=1");
+
+            var finished = await Task.WhenAny(
+                completion.Task,
+                Task.Delay(TimeSpan.FromSeconds(30)));
+            if (finished != completion.Task)
+                throw new TimeoutException("FoamLens smoke test timed out while loading the embedded frontend.");
+
+            var navigation = await completion.Task;
+            if (!navigation.IsSuccess)
+                throw new InvalidOperationException(
+                    $"FoamLens smoke-test navigation failed: {navigation.WebErrorStatus}");
+
+            var readyState = await _web.CoreWebView2.ExecuteScriptAsync("document.readyState");
+            if (!readyState.Contains("complete", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
+
+            var hasRoot = await _web.CoreWebView2.ExecuteScriptAsync(
+                "Boolean(document.body && document.body.innerText && document.body.innerText.includes('FoamLens'))");
+            if (!string.Equals(hasRoot.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("FoamLens frontend content was not visible after navigation.");
+
+            var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
+                "typeof window.chrome?.webview?.postMessage === 'function'");
+            if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
+
+            SmokeTestExitCode = 0;
+            Log("FoamLens Windows smoke test passed.");
+            BeginInvoke(Close);
+        }
+        finally
+        {
+            _web.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
         }
     }
 
