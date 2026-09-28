@@ -139,6 +139,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/solidification-analysis.test.cjs
 
+      - name: Test general Thermal Analysis
+        shell: pwsh
+        run: node desktop/tests/thermal-analysis.test.cjs
+
       - name: Test expanded general Field Mapping
         shell: pwsh
         run: node desktop/tests/field-mapping.test.cjs
