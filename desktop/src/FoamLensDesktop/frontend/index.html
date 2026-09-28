@@ -2646,7 +2646,7 @@ function parseParen(s){
 }
 
 async function parseFile(file){
-  const text=await file.text(),comments=[],rows=[];
+  const text=await file.text(),comments=[],rows=[],sourcePath=(file.webkitRelativePath||file.name),isPostProcessing=/(^|\/)postProcessing(\/|$)/i.test(String(sourcePath||'')),postProcessing=isPostProcessing?flClassifyPostProcessingSample(text,file.name):null;
   for(const raw of text.split(/\r?\n/)){
     const line=raw.trim();
     if(!line)continue;
@@ -2680,7 +2680,8 @@ async function parseFile(file){
     }
     if(!t.length)continue;
     out.push({
-      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath:(file.webkitRelativePath||file.name),field,probe:j,location:probes[j]||'',
+      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:probes[j]||'',
+      postProcessing:postProcessing?{kind:postProcessing.kind||'',reduction:postProcessing.reduction||'',selection:{...(postProcessing.selection||{})},columns:[...(postProcessing.columns||[])]}:null,
       t,y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:''
     });
   }
