@@ -86,6 +86,15 @@ test('cancellation does not modify OpenFOAM case files',()=>{
   assert(!program.includes('Directory.Delete(rootPath'));
 });
 
+test('runtime smoke verifies JavaScript keeps progressing while minimized',()=>{
+  for(const token of [
+    'window.__foamLensBackgroundTicks=0',
+    'WindowState = FormWindowState.Minimized',
+    'FoamLens background execution stalled while minimized',
+    'FoamLens minimized-window background smoke passed'
+  ]) assert(program.includes(token),'Missing minimized background smoke token '+token);
+});
+
 test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
   for(const token of [
     "page:horizontal-overflow",

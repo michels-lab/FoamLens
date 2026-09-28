@@ -462,7 +462,7 @@ Every workflow run currently returned by the repository Actions history, oldest 
 
 - **Review / Case Auditor context consistency:** screenshots from prerelease testing show a case selector and displayed health/root metadata becoming inconsistent across cases. Investigation started, but no corrective commit is recorded yet.
 - **Native Windows icon:** prerelease testing shows the FoamLens logo is not used by the desktop shortcut/taskbar. Inspection found no native `.ico` asset and no `ApplicationIcon` entry in the WinForms project. Investigation completed; fix still pending in Git at the time of this log snapshot.
-- **Background execution:** prerelease testing showed long import/analysis work could appear to stop when FoamLens was minimized or covered. Root cause: scanner/cooperative-yield code waited on `requestAnimationFrame()`, which depends on render frames. Fix prepared: computational yields use `scheduler.postTask` when available with timer fallback; rendering-only rAF usage remains untouched. CI validation pending at this log update.
+- **Background execution:** prerelease testing showed long import/analysis work could appear to stop when FoamLens was minimized or covered. Root cause: scanner/cooperative-yield code waited on `requestAnimationFrame()`, which depends on render frames. Computational yields now use `scheduler.postTask` when available with timer fallback; rendering-only rAF usage remains untouched. A Windows runtime smoke now minimizes the actual app and verifies JavaScript continues advancing before the build is accepted. CI validation pending at this log update.
 
 ## How to update this log
 

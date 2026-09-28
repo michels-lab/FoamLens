@@ -187,6 +187,23 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException("FoamLens launch UI rendered insufficient visible content.");
             }
 
+            // Verify that JavaScript work continues while the native window is minimized.
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "window.__foamLensBackgroundTicks=0;window.__foamLensBackgroundTimer=setInterval(()=>window.__foamLensBackgroundTicks++,50);");
+            WindowState = FormWindowState.Minimized;
+            await Task.Delay(1500);
+            var backgroundTicksJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "window.__foamLensBackgroundTicks");
+            WindowState = FormWindowState.Normal;
+            Activate();
+            if (!int.TryParse(backgroundTicksJson.Trim('"'), NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out var backgroundTicks) || backgroundTicks < 5)
+                throw new InvalidOperationException(
+                    $"FoamLens background execution stalled while minimized: {backgroundTicksJson}");
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "clearInterval(window.__foamLensBackgroundTimer);delete window.__foamLensBackgroundTimer;");
+            Log($"FoamLens minimized-window background smoke passed: {backgroundTicks} ticks.");
+
             await Task.Delay(250);
             var screenshotPath = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_SCREENSHOT");
             if (!string.IsNullOrWhiteSpace(screenshotPath))
