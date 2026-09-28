@@ -102,7 +102,7 @@ let taLastResult=null;
 
 function taBuildUi(){
   if(document.getElementById('taTools'))return;
-  const host=document.getElementById('differenceTools')||document.getElementById('analysisPanel')||document.querySelector('.analysisTools')||document.body;
+  const host=document.getElementById('generalAnalysisModules')||document.getElementById('analysisPanel')||document.querySelector('.analysisTools')||document.body;
   const box=document.createElement('div');box.id='taTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b id="taTitle">Temporal alignment</b><span class="badge">v1.3</span></div>
@@ -136,7 +136,7 @@ function taBuildUi(){
 }
 function taClearResult(){taLastResult=null;for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv']){const el=document.getElementById(id);if(el)el.disabled=true}}
 function taRefreshSources(){
-  const src=taSources(),box=document.getElementById('taTools'),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(box)box.style.display=src.length>=2?'':'none';if(!a||!b)return;
+  const src=taSources(),box=document.getElementById('taTools'),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(box)box.style.display=src.length>=2?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!a||!b)return;
   const oldA=a.value,oldB=b.value,opts=src.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${taSeriesLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
   a.innerHTML=opts;b.innerHTML=opts;if([...a.options].some(o=>o.value===oldA))a.value=oldA;if([...b.options].some(o=>o.value===oldB))b.value=oldB;
   if(!oldB&&b.options.length>1)b.selectedIndex=1;
