@@ -49,11 +49,10 @@ test('case tags do not drive style or scientific identity',()=>{
   assert(!index.slice(renameStart,renameEnd).includes('.tags'));
 });
 
-test('common semantic-looking tags have no hardcoded handling',()=>{
-  for(const token of ['reference','adaptive','experiment']){
-    const rx=new RegExp("tags[^\\n]{0,120}"+token,'i');
-    assert(!rx.test(index),'Tag meaning was hardcoded: '+token);
-  }
+test('case tags are not used as conditional scientific logic',()=>{
+  assert(!/if\s*\([^)]*(?:c|caseObj|seriesObj)\?*\.tags/i.test(index));
+  assert(!/switch\s*\([^)]*\.tags/i.test(index));
+  assert(!/\.tags\.(?:includes|some|find)\s*\(/i.test(index));
 });
 
 console.log('Explicit descriptive case-tag regression suite passed: '+passed.length+' checks.');
