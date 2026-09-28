@@ -187,9 +187,11 @@ test('capability-gated UI exists', () => {
   assert(html.includes('pmCaseCapabilities') && html.includes('pmRefreshCapabilityVisibility'));
 });
 
-test('Desktop reuses existing readText bridge', () => {
-  assert(!html.includes('parseOpenFOAMField'));
+test('Desktop uses streaming field parsing with small-file fallback', () => {
+  assert(html.includes("foamLensNativeOperation('parseOpenFOAMField'"));
+  assert(html.includes('pmParseLargeOpenFOAMField(record.file,record.sourcePath)'));
   assert(html.includes("pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath)"));
+  assert(html.includes('pmFieldCache'));
 });
 
 test('derived physical rates are explicit and auditable', () => {
