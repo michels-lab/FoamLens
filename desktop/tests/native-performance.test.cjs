@@ -86,5 +86,16 @@ test('cancellation does not modify OpenFOAM case files',()=>{
   assert(!program.includes('Directory.Delete(rootPath'));
 });
 
+test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
+  for(const token of [
+    "page:horizontal-overflow",
+    "content-clipped",
+    "outside-viewport",
+    "CapturePreviewAsync",
+    "FOAMLENS_SMOKE_SCREENSHOT",
+    "FoamLens visual smoke screenshot is unexpectedly small"
+  ]) assert(program.includes(token),'Missing runtime visual smoke token '+token);
+});
+
 console.log('Native performance/cancellation regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
