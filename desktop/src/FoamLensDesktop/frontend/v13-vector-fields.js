@@ -27,7 +27,7 @@ function vdFieldName(s){return String(s?.field?.raw||s?.field?.canonical||s?.fie
 function vdDataset(s){try{return datasetTypeOf(s)}catch{return s?.profileTime!=null?'profile':'timeseries'}}
 function vdGroupKey(s,d){return [s?.caseId??'',vdDataset(s),s?.region||s?.regionName||'',s?.sourcePath||s?.fileName||'',s?.profileTime??'',s?.profileLineKey||s?.profileLine||'',s?.profileAxis||'',s?.profileCoordUnit||'',d.base.toLowerCase()].join('|')}
 function vdGroups(){
-  const map=new Map();for(const s of (typeof series!=='undefined'&&Array.isArray(series)?series:[])){if(s?.derivedKind==='vectorMagnitude')continue;const d=vdComponentDescriptor(vdFieldName(s));if(!d)continue;const key=vdGroupKey(s,d);if(!map.has(key))map.set(key,{key,base:d.base,items:{},sample:s});map.get(key).items[d.component]=s}
+  const map=new Map();for(const s of (typeof series!=='undefined'&&Array.isArray(series)?series:[])){if(s?.derivedKind==='vectorMagnitude'||(typeof seriesMatchesGlobalContext==='function'&&!seriesMatchesGlobalContext(s)))continue;const d=vdComponentDescriptor(vdFieldName(s));if(!d)continue;const key=vdGroupKey(s,d);if(!map.has(key))map.set(key,{key,base:d.base,items:{},sample:s});map.get(key).items[d.component]=s}
   return [...map.values()].filter(g=>g.items.x&&g.items.y&&g.items.z)
 }
 function vdGroupLabel(g){const s=g.sample,c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(s?.caseId)):null,bits=[c?.name||s?.caseName||'Case',g.base,vdDataset(s)==='profile'?'Spatial profile':'Time series'];if(s?.region||s?.regionName)bits.push(s.region||s.regionName);if(s?.profileLine)bits.push(s.profileLine);if(Number.isFinite(Number(s?.profileTime)))bits.push('t='+s.profileTime+' s');return bits.join(' · ')}
