@@ -30,6 +30,12 @@ test('selected statistics are reproducible',()=>{
   assert(Math.abs(s.rms-Math.sqrt(7))<1e-12);
 });
 
+test('postProcessing provenance is exported explicitly',()=>{
+  const p=api.rxProvenance({sourcePath:'postProcessing/r/power/0/surfaceFieldValue.dat',postProcessing:{kind:'surfaceReduction',reduction:'sum(phi)',selection:{faces:true,area:true}}});
+  assert.strictEqual(p.postProcessing.kind,'surfaceReduction');
+  assert.strictEqual(p.postProcessing.selection.area,true);
+});
+
 test('derived provenance is explicit',()=>{
   const p=api.rxProvenance({
     derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens physical analysis',
