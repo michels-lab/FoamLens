@@ -49,6 +49,7 @@ test('JSON payload records case region field units and dimensions',()=>{
     "format:'FoamLens Series Export'",
     "generatedBy:'FoamLens v51-development / Desktop v1.3.0 development'",
     'caseRoot:',
+    'caseTags:[...(c?.tags||[])]',
     'region:rxRegion(s)',
     'dimensions,',
     'unit,',
@@ -67,7 +68,9 @@ test('profile export separates coordinate and physical profile time',()=>{
   assert(js.includes("['sample_index','coordinate','value','physical_time_s']"));
 });
 
-test('CSV embeds provenance and statistics metadata',()=>{
+test('CSV embeds case tags, provenance and statistics metadata',()=>{
+  assert(js.includes("'# caseTags='+(d.caseTags||[]).join(',')"));
+
   assert(js.includes("'# provenance='+JSON.stringify"));
   assert(js.includes("'# statistics='+JSON.stringify"));
 });
