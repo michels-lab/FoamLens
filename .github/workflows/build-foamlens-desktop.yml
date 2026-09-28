@@ -26,6 +26,34 @@ env:
   HAS_QUICKCUP_FIXTURE: ${{ secrets.QUICKCUP_FIXTURE_TOKEN != '' }}
 
 jobs:
+  quickcup-regression:
+    name: Real OpenFOAM QuickCup regression
+    runs-on: ubuntu-latest
+    env:
+      QUICKCUP_FIXTURE_TOKEN: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+    steps:
+      - name: Fixture token unavailable
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN == '' }}
+        run: echo "QUICKCUP_FIXTURE_TOKEN is not configured; real OpenFOAM fixture regression is skipped."
+
+      - name: Checkout FoamLens
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+
+      - name: Checkout private OpenFOAM regression fixture
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: main
+          token: ${{ env.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-fixture
+          sparse-checkout: cases_controlled_buoyancy
+
+      - name: Test real OpenFOAM fixture integration
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
+
   build:
     runs-on: windows-latest
     steps:
@@ -224,21 +252,6 @@ jobs:
       - name: Test bilingual UI and overflow hardening
         shell: pwsh
         run: node desktop/tests/bilingual-ui.test.cjs
-
-      - name: Checkout private OpenFOAM regression fixture
-        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          repository: realmichelduarte/QuickCup-Solidification
-          ref: main
-          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
-          path: quickcup-fixture
-          sparse-checkout: cases_controlled_buoyancy
-
-      - name: Test real OpenFOAM fixture integration
-        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
-        shell: pwsh
-        run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
       - name: Publish portable Windows executable
         shell: pwsh
