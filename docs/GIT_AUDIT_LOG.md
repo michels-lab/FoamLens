@@ -14,12 +14,12 @@ This file is the durable project bitácora. After any meaningful Git operation�
 | Item | State |
 |---|---|
 | Development branch | `development/v1.3.0-general-discovery` |
-| Development HEAD | `3ddc9b6795b76386cf411e9aa193c3814ae6ce25` — Fix sidebar restore handle and Cases panel stacking |
+| Development HEAD | `5e1d00de11dce70c34d94959c4bc2c402d058b9b` — Add native FoamLens Windows icon |
 | `main` HEAD | `3519bab807f64a0de8ea2734f5a67d4c61d956c5` — Build general OpenFOAM discovery model in v1.3.0 |
 | Open PR | #1 — Prepare FoamLens v1.3.0 general OpenFOAM release (Draft) |
 | Latest prerelease | `v1.3.0-rc.1` — FoamLens Desktop v1.3.0-rc.1 |
-| Commits represented below | 205 |
-| GitHub Actions runs represented below | 189 |
+| Commits represented below | 205 in the baseline table + subsequent changes section |
+| GitHub Actions runs represented below | 189 in the baseline table + runs #190–#194 below |
 
 ## Important project milestones
 
@@ -30,8 +30,9 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - **2026-09-28** — `v1.3.0-rc.1` prerelease was published from the development branch with portable EXE, SHA-256, and installer assets.
 - **2026-09-28** — prerelease testing exposed UI defects: hidden sidebar lacked an obvious restore affordance and the Cases popover could be covered by navigation. Commit `3ddc9b6` fixed both; Actions run #189 passed.
 - **2026-09-28** — prerelease testing exposed a background-execution defect: scanner yields depended on `requestAnimationFrame`, so scientific work could stall when the WebView stopped producing render frames. The pipeline was changed to a render-independent task scheduler and guarded by regression tests; Windows minimized-window smoke validation passed in run #191.
-- **2026-09-28** — prerelease review found Watch Run technically functional but too browser-oriented and too sparse for the desktop product. It was upgraded to a read-only live OpenFOAM run monitor with explicit RUNNING/COMPLETED/FAILED state, physical-time progress, deltaT, Courant, latest residual, coupling/corrector state, execution/clock time, five-second refresh, manual refresh/stop, and a Numerical Performance handoff. CI validation pending at this log update.
-- **Pending prerelease findings not yet committed at the time this log was created:** Review/Case Auditor can show inconsistent case-health/root context; Windows shortcut/taskbar icon is generic because the native desktop project currently lacks an application `.ico`. These are open work items, not completed fixes.
+- **2026-09-28** — prerelease review found Watch Run technically functional but too browser-oriented and too sparse for the desktop product. It was upgraded to a read-only live OpenFOAM run monitor with explicit RUNNING/COMPLETED/FAILED state, physical-time progress, deltaT, Courant, latest residual, coupling/corrector state, execution/clock time, five-second refresh, manual refresh/stop, and a Numerical Performance handoff. Actions run #192 passed.
+- **2026-09-28** — Review/Case Auditor identity was hardened after prerelease screenshots showed mixed case selector/health/root state. Commit `fafce7e97fa8d561fe6ba73e8e6b9da8aaf8b600`; Actions run #193 passed.
+- **2026-09-28** — native Windows branding was added to the EXE, form/taskbar, installer and shortcuts. Commit `5e1d00de11dce70c34d94959c4bc2c402d058b9b`; Actions run #194 passed.
 
 ## Releases
 
@@ -49,7 +50,7 @@ This file is the durable project bitácora. After any meaningful Git operation�
 
 | # | Created | State | Draft | Head → Base | Current head SHA | Title |
 |---:|---|---|---|---|---|---|
-| 1 | 2026-09-28 09:16:04 UTC | open | yes | `development/v1.3.0-general-discovery` → `main` | `3ddc9b6795b7` | Prepare FoamLens v1.3.0 general OpenFOAM release |
+| 1 | 2026-09-28 09:16:04 UTC | open | yes | `development/v1.3.0-general-discovery` → `main` | `5e1d00de11dc` | Prepare FoamLens v1.3.0 general OpenFOAM release |
 
 ## Complete commit history visible from the development branch
 
@@ -461,12 +462,34 @@ Every workflow run currently returned by the repository Actions history, oldest 
 
 ## Current open prerelease QA items
 
-- **Review / Case Auditor context consistency:** prerelease screenshots showed selector/health/root data from different cases. Stable source identity and single-`caseId` Review binding have now been implemented; CI validation pending.
-- **Native Windows icon:** prerelease testing showed the shortcut/taskbar using a generic icon because the WinForms project had no native icon. A FoamLens `.ico` based on the current square lens mark is now embedded in the EXE, assigned to the native window, used by the installer, and explicitly inherited by desktop/Start-menu shortcuts. CI validation pending.
+- **Review / Case Auditor context consistency:** resolved in commit `fafce7e97fa8d561fe6ba73e8e6b9da8aaf8b600`; Actions run #193 passed.
+- **Native Windows icon:** resolved in commit `5e1d00de11dce70c34d94959c4bc2c402d058b9b`; Actions run #194 passed packaging, portable smoke, installer build and installed-app smoke.
 - **Background execution:** resolved in commit `4a3701bb400a51cb907afbdc6de42de125c6418c`; Actions run #191 passed the real minimized-window runtime smoke.
 - **Watch Run desktop UX:** implementation upgraded in commit `128e68e022a4a82fe4f9a2ea7384503fa93a4c04`; Actions run #192 passed.
-- **Review / Case Auditor context consistency:** Smart Import now binds detected cases by stable source/root identity and carries the resolved `caseId` through the load pipeline instead of re-looking up mutable display names. Review uses a shared case-context binder and stamps all audit output with that same `caseId`. CI validation pending.
-- **Native Windows branding:** added a native FoamLens icon for the EXE, window/taskbar, installer, desktop shortcut and Start-menu shortcut. CI validation pending.
+- **Review / Case Auditor context consistency:** Smart Import now binds detected cases by stable source/root identity and carries the resolved `caseId` through the load pipeline instead of re-looking up mutable display names. Review uses a shared case-context binder and stamps all audit output with that same `caseId`. Run #193 passed.
+- **Native Windows branding:** native FoamLens icon is embedded in the EXE, assigned to the window/taskbar and used by installer/shortcuts. Run #194 passed.
+
+
+## Subsequent changes after the baseline history snapshot
+
+| Date | SHA | Change | Validation |
+|---|---|---|---|
+| 2026-09-28 | `ac013cc25bea` | Add complete Git development audit log | Documentation baseline |
+| 2026-09-28 | `43b62231af6f` | Keep scientific work running outside render frames | Run #190 success |
+| 2026-09-28 | `4a3701bb400a` | Smoke-test minimized background execution | Run #191 success |
+| 2026-09-28 | `128e68e022a4` | Upgrade Watch Run for desktop monitoring | Run #192 success |
+| 2026-09-28 | `fafce7e97fa8` | Keep Review data bound to the selected case | Run #193 success |
+| 2026-09-28 | `5e1d00de11dc` | Add native FoamLens Windows icon | Run #194 success |
+
+### GitHub Actions after the baseline snapshot
+
+| Run | Ref | SHA | Result |
+|---:|---|---|---|
+| #190 | `development/v1.3.0-general-discovery` | `43b62231af6f` | success |
+| #191 | `development/v1.3.0-general-discovery` | `4a3701bb400a` | success |
+| #192 | `development/v1.3.0-general-discovery` | `128e68e022a4` | success |
+| #193 | `development/v1.3.0-general-discovery` | `fafce7e97fa8` | success |
+| #194 | `development/v1.3.0-general-discovery` | `5e1d00de11dc` | success |
 
 ## How to update this log
 
