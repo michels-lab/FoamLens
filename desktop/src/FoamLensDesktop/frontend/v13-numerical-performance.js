@@ -121,17 +121,17 @@ function npSummaryFromImportedSeries(caseId){
 function npBuildUi(){
   if(document.getElementById('npTools'))return;
   const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='npTools';box.className='detailBlock';box.style.marginTop='10px';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Numerical Performance</b><span class="badge">solver logs</span></div>
-  <div class="smallnote" style="margin-top:5px">Physical results and numerical cost are reported separately. Linear-solver residuals are not treated as nonlinear/PIMPLE convergence.</div>
-  <div class="field" style="margin-top:8px"><label>Case</label><select id="npCase"></select></div>
-  <button class="btn primary" id="npRefresh" type="button">Analyze available log metrics</button>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Numerical Performance" data-fl-es="Rendimiento numérico">Numerical Performance</b><span class="badge" data-fl-en="solver logs" data-fl-es="logs del solver">solver logs</span></div>
+  <div class="smallnote" style="margin-top:5px" data-fl-en="Physical results and numerical cost are reported separately. Linear-solver residuals are not treated as nonlinear/PIMPLE convergence." data-fl-es="Los resultados físicos y el costo numérico se reportan por separado. Los residuales del solver lineal no se tratan como convergencia no lineal/PIMPLE.">Physical results and numerical cost are reported separately.</div>
+  <div class="field" style="margin-top:8px"><label data-fl-en="Case" data-fl-es="Caso">Case</label><select id="npCase"></select></div>
+  <button class="btn primary" id="npRefresh" type="button" data-fl-en="Analyze available log metrics" data-fl-es="Analizar métricas disponibles de logs">Analyze available log metrics</button>
   <div class="smallnote" id="npStatus" style="margin-top:7px"></div><div id="npResult" style="margin-top:8px"></div>
-  <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Numerical metric plot</b>
-  <div class="field"><label>Equation / metric</label><select id="npMetric"></select></div>
-  <div class="field"><label>X axis</label><select id="npXAxis"><option value="physicalTime" selected>Physical time [s]</option><option value="timestepIndex">Timestep index</option></select></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b data-fl-en="Numerical metric plot" data-fl-es="Gráfica de métrica numérica">Numerical metric plot</b>
+  <div class="field"><label data-fl-en="Equation / metric" data-fl-es="Ecuación / métrica">Equation / metric</label><select id="npMetric"></select></div>
+  <div class="field"><label data-fl-en="X axis" data-fl-es="Eje X">X axis</label><select id="npXAxis"><option value="physicalTime" selected data-fl-en="Physical time [s]" data-fl-es="Tiempo físico [s]">Physical time [s]</option><option value="timestepIndex" data-fl-en="Timestep index" data-fl-es="Índice de timestep">Timestep index</option></select></div>
   <canvas id="npChart" style="width:100%;height:210px;margin-top:6px"></canvas>
   <div class="smallnote" id="npChartStatus"></div>`;
-  host.appendChild(box);document.getElementById('npCase').addEventListener('change',()=>{npRefreshMetricOptions();npRender()});document.getElementById('npRefresh').addEventListener('click',()=>{npRender();npDrawMetric()});document.getElementById('npMetric').addEventListener('change',npDrawMetric);document.getElementById('npXAxis').addEventListener('change',npDrawMetric);npRefreshCases()
+  host.appendChild(box);flApplyBilingualText(box);document.getElementById('npCase').addEventListener('change',()=>{npRefreshMetricOptions();npRender()});document.getElementById('npRefresh').addEventListener('click',()=>{npRender();npDrawMetric()});document.getElementById('npMetric').addEventListener('change',npDrawMetric);document.getElementById('npXAxis').addEventListener('change',npDrawMetric);npRefreshCases()
 }
 function npRefreshCases(){
   const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}
@@ -144,31 +144,32 @@ function npRefreshMetricOptions(){
 }
 function npSelectedMetric(){const id=document.getElementById('npMetric')?.value,ss=npSeriesForCase(document.getElementById('npCase')?.value);return ss.find((s,i)=>String(s.id??i)===String(id))}
 function npDrawMetric(){
-  const s=npSelectedMetric(),cv=document.getElementById('npChart'),st=document.getElementById('npChartStatus');if(!cv||!st)return;if(!s){st.textContent='No numerical metric selected.';return}
-  const mode=document.getElementById('npXAxis')?.value||'physicalTime',d=npAxisData(s,mode);if(d.x.length<2){st.textContent='Not enough finite samples for this metric.';return}
+  const s=npSelectedMetric(),cv=document.getElementById('npChart'),st=document.getElementById('npChartStatus');if(!cv||!st)return;if(!s){st.textContent=flUi('No numerical metric selected.','No hay una métrica numérica seleccionada.');return}
+  const mode=document.getElementById('npXAxis')?.value||'physicalTime',d=npAxisData(s,mode);if(d.x.length<2){st.textContent=flUi('Not enough finite samples for this metric.','No hay suficientes muestras finitas para esta métrica.');return}
   const rect=cv.getBoundingClientRect(),W=Math.max(260,Math.round(rect.width||360)),H=210,dpr=Math.max(1,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   let xmin=Math.min(...d.x),xmax=Math.max(...d.x),ymin=Math.min(...d.y),ymax=Math.max(...d.y);if(xmax===xmin){xmin-=.5;xmax+=.5}if(ymax===ymin){ymin-=.5;ymax+=.5}
   const L=45,R=10,T=12,B=30,pw=W-L-R,ph=H-T-B,dark=document.body.classList.contains('dark'),fg=dark?'#b9c7d4':'#46586a',grid=dark?'#263442':'#dce4eb';ctx.strokeStyle=grid;ctx.strokeRect(L,T,pw,ph);ctx.strokeStyle=fg;ctx.beginPath();
-  d.x.forEach((x,i)=>{const px=L+(x-xmin)/(xmax-xmin)*pw,py=T+ph-(d.y[i]-ymin)/(ymax-ymin)*ph;i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.fillText(mode==='timestepIndex'?'Timestep index':'Physical time [s]',L,T+ph+18);
-  st.textContent=`${npMetricLabel(s)} · ${d.x.length} samples · X = ${mode==='timestepIndex'?'timestep index':'physical time'}.`
+  d.x.forEach((x,i)=>{const px=L+(x-xmin)/(xmax-xmin)*pw,py=T+ph-(d.y[i]-ymin)/(ymax-ymin)*ph;i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.fillText(mode==='timestepIndex'?flUi('Timestep index','Índice de timestep'):flUi('Physical time [s]','Tiempo físico [s]'),L,T+ph+18);
+  st.textContent=diagEs()?`${npMetricLabel(s)} · ${d.x.length} muestras · X = ${mode==='timestepIndex'?'índice de timestep':'tiempo físico'}.`:`${npMetricLabel(s)} · ${d.x.length} samples · X = ${mode==='timestepIndex'?'timestep index':'physical time'}.`
 }
 function npRender(){
   const id=document.getElementById('npCase')?.value,status=document.getElementById('npStatus'),out=document.getElementById('npResult');if(!out)return;
-  if(id==null||id===''){out.innerHTML='';if(status)status.textContent='Load solver logs to analyze numerical performance.';return}
-  const s=npSummaryFromImportedSeries(id);if(status)status.textContent=`${s.series} log series · ${s.timesteps} physical-time samples. Missing metrics remain unavailable; FoamLens does not invent values.`;
+  if(id==null||id===''){out.innerHTML='';if(status)status.textContent=flUi('Load solver logs to analyze numerical performance.','Carga logs del solver para analizar el rendimiento numérico.');return}
+  const s=npSummaryFromImportedSeries(id);if(status)status.textContent=diagEs()?`${s.series} series de log · ${s.timesteps} muestras de tiempo físico. Las métricas ausentes permanecen no disponibles; FoamLens no inventa valores.`:`${s.series} log series · ${s.timesteps} physical-time samples. Missing metrics remain unavailable; FoamLens does not invent values.`;
   out.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
-  <tr><th>Physical time</th><td>${npFmt(s.timeStart)}–${npFmt(s.timeEnd)} s</td><th>Samples</th><td>${s.timesteps}</td></tr>
-  <tr><th>Δt mean / range</th><td>${npFmt(s.deltaT.mean)} / ${npFmt(s.deltaT.min)}–${npFmt(s.deltaT.max)}</td><th>Max Courant</th><td>${npFmt(s.courantMax.max)}</td></tr>
-  <tr><th>Mean Courant</th><td>${npFmt(s.courantMean.mean)}</td><th>Linear iterations mean / max</th><td>${npFmt(s.iterations.mean)} / ${npFmt(s.iterations.max)}</td></tr>
-  <tr><th>Initial residual max</th><td>${npFmt(s.initialResidual.max)}</td><th>Final residual max</th><td>${npFmt(s.finalResidual.max)}</td></tr>
-  <tr><th>Execution time</th><td>${npFmt(s.executionTime)} s</td><th>Clock time</th><td>${npFmt(s.clockTime)} s</td></tr>
+  <tr><th>${flUi('Physical time','Tiempo físico')}</th><td>${npFmt(s.timeStart)}–${npFmt(s.timeEnd)} s</td><th>${flUi('Samples','Muestras')}</th><td>${s.timesteps}</td></tr>
+  <tr><th>${flUi('Δt mean / range','Δt media / rango')}</th><td>${npFmt(s.deltaT.mean)} / ${npFmt(s.deltaT.min)}–${npFmt(s.deltaT.max)}</td><th>${flUi('Max Courant','Courant máximo')}</th><td>${npFmt(s.courantMax.max)}</td></tr>
+  <tr><th>${flUi('Mean Courant','Courant medio')}</th><td>${npFmt(s.courantMean.mean)}</td><th>${flUi('Linear iterations mean / max','Iteraciones lineales media / máx.')}</th><td>${npFmt(s.iterations.mean)} / ${npFmt(s.iterations.max)}</td></tr>
+  <tr><th>${flUi('Initial residual max','Residual inicial máximo')}</th><td>${npFmt(s.initialResidual.max)}</td><th>${flUi('Final residual max','Residual final máximo')}</th><td>${npFmt(s.finalResidual.max)}</td></tr>
+  <tr><th>${flUi('Execution time','Tiempo de ejecución')}</th><td>${npFmt(s.executionTime)} s</td><th>${flUi('Clock time','Tiempo de reloj')}</th><td>${npFmt(s.clockTime)} s</td></tr>
   </tbody></table></div>
-  <div class="smallnote" style="margin-top:6px">Residual statistics above describe linear equation solves only. PIMPLE/SIMPLE coupling must be interpreted from its own outer-iteration records.</div>`
+  <div class="smallnote" style="margin-top:6px">${flUi('Residual statistics above describe linear equation solves only. PIMPLE/SIMPLE coupling must be interpreted from its own outer-iteration records.','Las estadísticas de residuales anteriores describen únicamente soluciones de ecuaciones lineales. El acoplamiento PIMPLE/SIMPLE debe interpretarse a partir de sus propios registros de iteración externa.')}</div>`
 }
 function npInit(){
   npInstallRawRunLogExtension();
   npBuildUi();
   try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(npRefreshCases,0);return x}}catch{}
+  document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('npTools');if(box)flApplyBilingualText(box);npRender();npDrawMetric()});
   window.FoamLensNumericalPerformance={npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseRunLog,npSummarizeRunLog,npAxisData};
 }
 npInit();

@@ -40,11 +40,15 @@ function sdProfileSources(){
 }
 function sdProfileLabel(s){
   const c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(s?.caseId)):null;
-  return [c?.name||s?.caseName||'Case',s?.profileLine||s?.profileLineKey||'profile',s?.field?.display||s?.field?.canonical||s?.field?.raw||'field'].filter(Boolean).join(' · ')
+  return [c?.name||s?.caseName||flUi('Case','Caso'),s?.profileLine||s?.profileLineKey||'profile',s?.field?.display||s?.field?.canonical||s?.field?.raw||'field'].filter(Boolean).join(' · ')
 }
 function sdId(s,i){return String(s?.id??('sd'+i))}
 function sdFind(id){const src=sdProfileSources();return src.find((s,i)=>sdId(s,i)===String(id))}
 function sdFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
+function sdReasonUi(reason){
+  const m={'missing profile':'falta un perfil','profile axes differ':'los ejes de los perfiles son distintos','coordinate units differ':'las unidades de coordenada son distintas','variables differ':'las variables son distintas'};
+  return diagEs()?(m[String(reason)]||String(reason)):String(reason)
+}
 let sdLast=null;
 function sdSamePhysicalKind(A,B){
   if(!A||!B)return{ok:false,reason:'missing profile'};
@@ -55,32 +59,32 @@ function sdSamePhysicalKind(A,B){
 }
 function sdBuildUi(){
   if(document.getElementById('sdTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='sdTools';box.className='detailBlock';box.style.marginTop='10px';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Spatial quantitative comparison</b><span class="badge">physical X</span></div>
-  <div class="smallnote" style="margin-top:5px">Uses the profiles currently rendered at the same physical playback time. Spatial samples are aligned by coordinate, never by array index, and are clipped to their shared spatial range.</div>
-  <div class="field" style="margin-top:8px"><label>Profile A</label><select id="sdA"></select></div>
-  <div class="field"><label>Profile B</label><select id="sdB"></select></div>
-  <div class="row2"><div class="field"><label>Spatial grid</label><select id="sdMode"><option value="common" selected>Common spatial grid</option><option value="referenceA">Reference A grid</option><option value="referenceB">Reference B grid</option></select></div><div class="field"><label>Relative epsilon</label><input id="sdEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
-  <button class="btn primary" id="sdRun" type="button">Compare profiles</button>
-  <button class="btn" id="sdExport" type="button" disabled>Export JSON</button>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Spatial quantitative comparison" data-fl-es="Comparación cuantitativa espacial">Spatial quantitative comparison</b><span class="badge" data-fl-en="physical X" data-fl-es="X física">physical X</span></div>
+  <div class="smallnote" style="margin-top:5px" data-fl-en="Uses the profiles currently rendered at the same physical playback time. Spatial samples are aligned by coordinate, never by array index, and are clipped to their shared spatial range." data-fl-es="Usa los perfiles renderizados actualmente en el mismo tiempo físico de reproducción. Las muestras espaciales se alinean por coordenada, nunca por índice de arreglo, y se recortan a su rango espacial compartido.">Uses the profiles currently rendered at the same physical playback time.</div>
+  <div class="field" style="margin-top:8px"><label data-fl-en="Profile A" data-fl-es="Perfil A">Profile A</label><select id="sdA"></select></div>
+  <div class="field"><label data-fl-en="Profile B" data-fl-es="Perfil B">Profile B</label><select id="sdB"></select></div>
+  <div class="row2"><div class="field"><label data-fl-en="Spatial grid" data-fl-es="Malla espacial">Spatial grid</label><select id="sdMode"><option value="common" selected data-fl-en="Common spatial grid" data-fl-es="Malla espacial común">Common spatial grid</option><option value="referenceA" data-fl-en="Reference A grid" data-fl-es="Malla de referencia A">Reference A grid</option><option value="referenceB" data-fl-en="Reference B grid" data-fl-es="Malla de referencia B">Reference B grid</option></select></div><div class="field"><label data-fl-en="Relative epsilon" data-fl-es="Epsilon relativo">Relative epsilon</label><input id="sdEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
+  <button class="btn primary" id="sdRun" type="button" data-fl-en="Compare profiles" data-fl-es="Comparar perfiles">Compare profiles</button>
+  <button class="btn" id="sdExport" type="button" disabled data-fl-en="Export JSON" data-fl-es="Exportar JSON">Export JSON</button>
   <div class="smallnote" id="sdStatus" style="margin-top:7px"></div><div id="sdResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);document.getElementById('sdRun').onclick=sdRun;document.getElementById('sdExport').onclick=sdExport;sdRefresh()
+  host.appendChild(box);flApplyBilingualText(box);document.getElementById('sdRun').onclick=sdRun;document.getElementById('sdExport').onclick=sdExport;sdRefresh()
 }
 function sdRefresh(){
   const src=sdProfileSources(),box=document.getElementById('sdTools'),a=document.getElementById('sdA'),b=document.getElementById('sdB');if(box)box.style.display=src.length>=2?'':'none';if(!a||!b)return;
   const oa=a.value,ob=b.value,opts=src.map((s,i)=>`<option value="${sdId(s,i).replace(/"/g,'&quot;')}">${sdProfileLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');a.innerHTML=opts;b.innerHTML=opts;if([...a.options].some(o=>o.value===oa))a.value=oa;if([...b.options].some(o=>o.value===ob))b.value=ob;if((!ob||b.value===a.value)&&b.options.length>1)b.selectedIndex=1;sdLast=null;const ex=document.getElementById('sdExport');if(ex)ex.disabled=true
 }
 function sdRun(){
-  const A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value),st=document.getElementById('sdStatus'),out=document.getElementById('sdResult');if(!A||!B||A===B){st.textContent='Choose two different compatible profiles.';return}
-  const compatible=sdSamePhysicalKind(A,B);if(!compatible.ok){st.textContent='Cannot compare: '+compatible.reason+'.';out.innerHTML='';return}
-  const mode=document.getElementById('sdMode')?.value||'common',epsilon=Number(document.getElementById('sdEpsilon')?.value)||1e-12,aligned=sdGrid(A,B,mode,3000);if(!aligned.valid){st.textContent='No safe common spatial range is available; no extrapolation was performed.';out.innerHTML='';return}
+  const A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value),st=document.getElementById('sdStatus'),out=document.getElementById('sdResult');if(!A||!B||A===B){st.textContent=flUi('Choose two different compatible profiles.','Elige dos perfiles compatibles distintos.');return}
+  const compatible=sdSamePhysicalKind(A,B);if(!compatible.ok){st.textContent=flUi('Cannot compare: ','No se puede comparar: ')+sdReasonUi(compatible.reason)+'.';out.innerHTML='';return}
+  const mode=document.getElementById('sdMode')?.value||'common',epsilon=Number(document.getElementById('sdEpsilon')?.value)||1e-12,aligned=sdGrid(A,B,mode,3000);if(!aligned.valid){st.textContent=flUi('No safe common spatial range is available; no extrapolation was performed.','No hay un rango espacial común seguro disponible; no se realizó extrapolación.');out.innerHTML='';return}
   const m=sdMetrics(aligned,epsilon);sdLast={A,B,aligned,metrics:m,epsilon};
   const unit=A.profileCoordUnit||'',time=Number(A.profileTime),metaA=A.playbackMeta||null,metaB=B.playbackMeta||null;
-  st.textContent=`Shared spatial range ${sdFmt(aligned.start)}–${sdFmt(aligned.end)} ${unit} · ${m.count} aligned samples · tPlay ${Number.isFinite(time)?sdFmt(time)+' s':'—'}.`;
+  st.textContent=diagEs()?`Rango espacial compartido ${sdFmt(aligned.start)}–${sdFmt(aligned.end)} ${unit} · ${m.count} muestras alineadas · tPlay ${Number.isFinite(time)?sdFmt(time)+' s':'—'}.`:`Shared spatial range ${sdFmt(aligned.start)}–${sdFmt(aligned.end)} ${unit} · ${m.count} aligned samples · tPlay ${Number.isFinite(time)?sdFmt(time)+' s':'—'}.`;
   out.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
   <tr><th>RMSE</th><td>${sdFmt(m.rmse)}</td><th>MAE</th><td>${sdFmt(m.mae)}</td></tr>
-  <tr><th>Max |A−B|</th><td>${sdFmt(m.maxAbs)}</td><th>at X</th><td>${sdFmt(m.maxAbsX)} ${unit}</td></tr>
-  <tr><th>Mean A−B</th><td>${sdFmt(m.meanDifference)}</td><th>Correlation</th><td>${sdFmt(m.correlation)}</td></tr>
-  <tr><th>Mean % difference</th><td>${sdFmt(m.meanPercent)}%</td><th>Grid</th><td>${mode==='common'?'Common spatial grid':mode==='referenceA'?'Reference A':'Reference B'}</td></tr>
+  <tr><th>Max |A−B|</th><td>${sdFmt(m.maxAbs)}</td><th>${flUi('at X','en X')}</th><td>${sdFmt(m.maxAbsX)} ${unit}</td></tr>
+  <tr><th>${flUi('Mean A−B','Media A−B')}</th><td>${sdFmt(m.meanDifference)}</td><th>${flUi('Correlation','Correlación')}</th><td>${sdFmt(m.correlation)}</td></tr>
+  <tr><th>${flUi('Mean % difference','Diferencia % media')}</th><td>${sdFmt(m.meanPercent)}%</td><th>${flUi('Grid','Malla')}</th><td>${mode==='common'?flUi('Common spatial grid','Malla espacial común'):mode==='referenceA'?flUi('Reference A','Referencia A'):flUi('Reference B','Referencia B')}</td></tr>
   </tbody></table></div>`;
   document.getElementById('sdExport').disabled=false
 }
@@ -88,6 +92,7 @@ function sdDownload(name,text){if(typeof downloadText==='function'){downloadText
 function sdExport(){
   const r=sdLast;if(!r)return;const p={generatedBy:'FoamLens Desktop v1.3.0 development',analysis:'spatial-profile-difference',sourceA:sdProfileLabel(r.A),sourceB:sdProfileLabel(r.B),variable:r.A.field?.canonical||r.A.field?.raw||'',profileAxis:r.A.profileAxis||'',coordinateUnit:r.A.profileCoordUnit||'',physicalTime:Number.isFinite(Number(r.A.profileTime))?Number(r.A.profileTime):null,spatialAlignment:{mode:r.aligned.mode,sharedRange:{start:r.aligned.start,end:r.aligned.end},epsilon:r.epsilon,noIndexAlignment:true,noExtrapolation:true},temporalProvenance:{A:r.A.playbackMeta||null,B:r.B.playbackMeta||null},metrics:r.metrics,points:r.aligned.grid.map((x,i)=>({x,A:r.aligned.A[i],B:r.aligned.B[i],difference:r.metrics.difference[i],absoluteDifference:r.metrics.absoluteDifference[i],relativeDifference:Number.isFinite(r.metrics.relativeDifference[i])?r.metrics.relativeDifference[i]:null,percentDifference:Number.isFinite(r.metrics.percentDifference[i])?r.metrics.percentDifference[i]:null}))};sdDownload('FoamLens_spatial_comparison.json',JSON.stringify(p,null,2))
 }
+document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('sdTools');if(box)flApplyBilingualText(box);if(sdLast)sdRun();else sdRefresh()});
 function sdInit(){
   sdBuildUi();try{const prev=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prev.apply(this,args);setTimeout(sdRefresh,0);return x}}catch{}
   try{const prevView=updateDatasetViewUI;updateDatasetViewUI=function(...args){const x=prevView.apply(this,args);setTimeout(sdRefresh,0);return x}}catch{}

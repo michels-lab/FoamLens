@@ -62,26 +62,26 @@ function saAddDerived(base,name,t,y,kind,formula){
 }
 function saRun(){
   const s=saSelected(),status=document.getElementById('saStatus'),out=document.getElementById('saResult');if(!s||!status||!out)return;
-  const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps),roleLabel=role==='liquidFraction'?'liquid fraction αL':'solid fraction αS';
+  const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps),roleLabel=role==='liquidFraction'?flUi('liquid fraction αL','fracción líquida αL'):flUi('solid fraction αS','fracción sólida αS');
   window.FoamLensLastSolidificationAnalysis={sourceId:s.id??null,source:saLabel(s),caseId:s.caseId??null,caseName:s.caseName||caseById(s.caseId)?.name||'',region:typeof seriesRegion==='function'?seriesRegion(s):'',role,epsilon:eps,analysis:a};
-  status.textContent=`${a.t.length} samples · explicit ${roleLabel} interpretation · physical-time derivative. ${a.outOfRangeCount?a.outOfRangeCount+' sample(s) outside [0,1]; raw values were retained.':'No samples outside [0,1].'}`;
+  status.textContent=diagEs()?`${a.t.length} muestras · interpretación explícita como ${roleLabel} · derivada respecto al tiempo físico. ${a.outOfRangeCount?a.outOfRangeCount+' muestra(s) fuera de [0,1]; se conservaron los valores originales.':'No hay muestras fuera de [0,1].'}`:`${a.t.length} samples · explicit ${roleLabel} interpretation · physical-time derivative. ${a.outOfRangeCount?a.outOfRangeCount+' sample(s) outside [0,1]; raw values were retained.':'No samples outside [0,1].'}`;
   const rows=[
-    ['Initial / Final',saFmt(a.initial)+' / '+saFmt(a.final)],
-    ['Δ fraction',saFmt(a.delta)],
-    ['Min / Max',saFmt(a.min)+' / '+saFmt(a.max)],
-    ['Integrated solidification amount',saFmt(a.solidificationAmount)],
-    ['Integrated remelting amount',saFmt(a.remeltingAmount)],
-    ['Solidification intervals',a.solidificationIntervals.length?a.solidificationIntervals.map(x=>saFmt(x.start)+'–'+saFmt(x.end)+' s').join(', '):'—'],
-    ['Remelting intervals',a.remeltingIntervals.length?a.remeltingIntervals.map(x=>saFmt(x.start)+'–'+saFmt(x.end)+' s').join(', '):'—']
+    [flUi('Initial / Final','Inicial / Final'),saFmt(a.initial)+' / '+saFmt(a.final)],
+    [flUi('Δ fraction','Δ fracción'),saFmt(a.delta)],
+    [flUi('Min / Max','Mín. / Máx.'),saFmt(a.min)+' / '+saFmt(a.max)],
+    [flUi('Integrated solidification amount','Cantidad integrada de solidificación'),saFmt(a.solidificationAmount)],
+    [flUi('Integrated remelting amount','Cantidad integrada de refusión'),saFmt(a.remeltingAmount)],
+    [flUi('Solidification intervals','Intervalos de solidificación'),a.solidificationIntervals.length?a.solidificationIntervals.map(x=>saFmt(x.start)+'–'+saFmt(x.end)+' s').join(', '):'—'],
+    [flUi('Remelting intervals','Intervalos de refusión'),a.remeltingIntervals.length?a.remeltingIntervals.map(x=>saFmt(x.start)+'–'+saFmt(x.end)+' s').join(', '):'—']
   ];
   out.innerHTML='<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>'+rows.map(r=>'<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>').join('')+'</tbody></table></div>';
 }
 function saCreateRates(){
   const s=saSelected();if(!s)return;const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps);
   series=series.filter(x=>x.solidificationSourceId!==s.id);
-  const solid=saAddDerived(s,'Solidification Rate: '+saLabel(s),a.t,a.solidificationRate,'solidification-rate',role==='liquidFraction'?'max(−dαL/dt,0)':'max(dαS/dt,0)');
+  const solid=saAddDerived(s,flUi('Solidification Rate: ','Tasa de solidificación: ')+saLabel(s),a.t,a.solidificationRate,'solidification-rate',role==='liquidFraction'?'max(−dαL/dt,0)':'max(dαS/dt,0)');
   solid.solidificationSourceId=s.id;
-  const remelt=saAddDerived(s,'Remelting Rate: '+saLabel(s),a.t,a.remeltingRate,'remelting-rate',role==='liquidFraction'?'max(dαL/dt,0)':'max(−dαS/dt,0)');
+  const remelt=saAddDerived(s,flUi('Remelting Rate: ','Tasa de refusión: ')+saLabel(s),a.t,a.remeltingRate,'remelting-rate',role==='liquidFraction'?'max(dαL/dt,0)':'max(−dαS/dt,0)');
   remelt.solidificationSourceId=s.id;activeId=solid.id;
   try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
 }
@@ -96,16 +96,17 @@ function saRefresh(){
 function saBuildUi(){
   if(document.getElementById('saTools'))return;
   const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='saTools';box.className='detailBlock';box.style.marginTop='10px';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Solidification Analysis</b><span class="badge">phase signal</span></div>
-  <div class="smallnote" style="margin-top:5px">Choose the phase-fraction signal explicitly. FoamLens computes progression, solidification and remelting from physical-time derivatives. It does not infer nucleation or recalescence from curve shape.</div>
-  <div class="field" style="margin-top:8px"><label>Phase signal</label><select id="saSource"></select></div>
-  <div class="row2"><div class="field"><label>Interpret as</label><select id="saRole"><option value="liquidFraction" selected>Liquid fraction αL</option><option value="solidFraction">Solid fraction αS</option></select></div><div class="field"><label>Rate epsilon [1/s]</label><input id="saEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="saRun" type="button">Analyze phase progression</button><button class="btn" id="saCreateRates" type="button">Create solidification + remelting rates</button><button class="btn" id="saExport" type="button">Export summary JSON</button></div>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Solidification Analysis" data-fl-es="Análisis de solidificación">Solidification Analysis</b><span class="badge" data-fl-en="phase signal" data-fl-es="señal de fase">phase signal</span></div>
+  <div class="smallnote" style="margin-top:5px" data-fl-en="Choose the phase-fraction signal explicitly. FoamLens computes progression, solidification and remelting from physical-time derivatives. It does not infer nucleation or recalescence from curve shape." data-fl-es="Elige explícitamente la señal de fracción de fase. FoamLens calcula progresión, solidificación y refusión a partir de derivadas respecto al tiempo físico. No infiere nucleación ni recalescencia a partir de la forma de la curva.">Choose the phase-fraction signal explicitly.</div>
+  <div class="field" style="margin-top:8px"><label data-fl-en="Phase signal" data-fl-es="Señal de fase">Phase signal</label><select id="saSource"></select></div>
+  <div class="row2"><div class="field"><label data-fl-en="Interpret as" data-fl-es="Interpretar como">Interpret as</label><select id="saRole"><option value="liquidFraction" selected data-fl-en="Liquid fraction αL" data-fl-es="Fracción líquida αL">Liquid fraction αL</option><option value="solidFraction" data-fl-en="Solid fraction αS" data-fl-es="Fracción sólida αS">Solid fraction αS</option></select></div><div class="field"><label data-fl-en="Rate epsilon [1/s]" data-fl-es="Epsilon de tasa [1/s]">Rate epsilon [1/s]</label><input id="saEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="saRun" type="button" data-fl-en="Analyze phase progression" data-fl-es="Analizar progresión de fase">Analyze phase progression</button><button class="btn" id="saCreateRates" type="button" data-fl-en="Create solidification + remelting rates" data-fl-es="Crear tasas de solidificación + refusión">Create solidification + remelting rates</button><button class="btn" id="saExport" type="button" data-fl-en="Export summary JSON" data-fl-es="Exportar resumen JSON">Export summary JSON</button></div>
   <div class="smallnote" id="saStatus" style="margin-top:7px"></div><div id="saResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);document.getElementById('saRun').onclick=saRun;document.getElementById('saCreateRates').onclick=saCreateRates;document.getElementById('saExport').onclick=saExport;saRefresh()
+  host.appendChild(box);flApplyBilingualText(box);document.getElementById('saRun').onclick=saRun;document.getElementById('saCreateRates').onclick=saCreateRates;document.getElementById('saExport').onclick=saExport;saRefresh()
 }
 function saInit(){
   saBuildUi();try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(saRefresh,0);return x}}catch{}
+  document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('saTools');if(box)flApplyBilingualText(box);if(window.FoamLensLastSolidificationAnalysis)saRun();else saRefresh()});
   window.FoamLensSolidificationAnalysis={saPairs,saDerivative,saTrapezoid,saContiguousIntervals,saAnalyzePhaseSignal}
 }
 saInit();

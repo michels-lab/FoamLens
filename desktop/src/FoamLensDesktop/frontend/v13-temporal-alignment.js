@@ -105,26 +105,26 @@ function taBuildUi(){
   const host=document.getElementById('generalAnalysisModules')||document.getElementById('analysisPanel')||document.querySelector('.analysisTools')||document.body;
   const box=document.createElement('div');box.id='taTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b id="taTitle">Temporal alignment</b><span class="badge">v1.3</span></div>
-    <div class="smallnote" id="taIntro" style="margin-top:5px">Compare physical time, never timestep or array index. No extrapolation.</div>
-    <div class="field" style="margin-top:8px"><label>Source A</label><select id="taSourceA"></select></div>
-    <div class="field"><label>Source B</label><select id="taSourceB"></select></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b id="taTitle" data-fl-en="Temporal alignment" data-fl-es="Alineación temporal">Temporal alignment</b><span class="badge">v1.3</span></div>
+    <div class="smallnote" id="taIntro" style="margin-top:5px" data-fl-en="Compare physical time, never timestep or array index. No extrapolation." data-fl-es="Compara tiempo físico, nunca timestep ni índice de arreglo. Sin extrapolación.">Compare physical time, never timestep or array index. No extrapolation.</div>
+    <div class="field" style="margin-top:8px"><label data-fl-en="Source A" data-fl-es="Fuente A">Source A</label><select id="taSourceA"></select></div>
+    <div class="field"><label data-fl-en="Source B" data-fl-es="Fuente B">Source B</label><select id="taSourceB"></select></div>
     <div class="row2">
-      <div class="field"><label>Alignment</label><select id="taMode"><option value="native" selected>Native</option><option value="common">Common Time Grid</option><option value="reference">Reference Case Grid</option></select></div>
-      <div class="field"><label>Method</label><select id="taMethod"><option value="linear" selected>Linear</option><option value="nearest">Nearest</option></select></div>
+      <div class="field"><label data-fl-en="Alignment" data-fl-es="Alineación">Alignment</label><select id="taMode"><option value="native" selected data-fl-en="Native" data-fl-es="Nativa">Native</option><option value="common" data-fl-en="Common Time Grid" data-fl-es="Malla temporal común">Common Time Grid</option><option value="reference" data-fl-en="Reference Case Grid" data-fl-es="Malla del caso de referencia">Reference Case Grid</option></select></div>
+      <div class="field"><label data-fl-en="Method" data-fl-es="Método">Method</label><select id="taMethod"><option value="linear" selected data-fl-en="Linear" data-fl-es="Lineal">Linear</option><option value="nearest" data-fl-en="Nearest" data-fl-es="Más cercano">Nearest</option></select></div>
     </div>
-    <div class="field" id="taReferenceField" style="display:none"><label>Reference source</label><select id="taReference"><option value="0">Source A</option><option value="1">Source B</option></select></div>
-    <div class="field"><label>Relative-difference epsilon</label><input id="taEpsilon" type="number" value="1e-12" min="0" step="any"></div>
+    <div class="field" id="taReferenceField" style="display:none"><label data-fl-en="Reference source" data-fl-es="Fuente de referencia">Reference source</label><select id="taReference"><option value="0" data-fl-en="Source A" data-fl-es="Fuente A">Source A</option><option value="1" data-fl-en="Source B" data-fl-es="Fuente B">Source B</option></select></div>
+    <div class="field"><label data-fl-en="Relative-difference epsilon" data-fl-es="Epsilon de diferencia relativa">Relative-difference epsilon</label><input id="taEpsilon" type="number" value="1e-12" min="0" step="any"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
-      <button class="btn primary" id="taRun" type="button">Align + compare</button>
-      <button class="btn" id="taAddSigned" type="button" disabled>Add A − B curve</button>
-      <button class="btn" id="taAddPercent" type="button" disabled>Add % difference</button>
-      <button class="btn" id="taExportJson" type="button" disabled>Export JSON</button>
-      <button class="btn" id="taExportCsv" type="button" disabled>Export CSV</button>
+      <button class="btn primary" id="taRun" type="button" data-fl-en="Align + compare" data-fl-es="Alinear + comparar">Align + compare</button>
+      <button class="btn" id="taAddSigned" type="button" disabled data-fl-en="Add A − B curve" data-fl-es="Agregar curva A − B">Add A − B curve</button>
+      <button class="btn" id="taAddPercent" type="button" disabled data-fl-en="Add % difference" data-fl-es="Agregar diferencia %">Add % difference</button>
+      <button class="btn" id="taExportJson" type="button" disabled data-fl-en="Export JSON" data-fl-es="Exportar JSON">Export JSON</button>
+      <button class="btn" id="taExportCsv" type="button" disabled data-fl-en="Export CSV" data-fl-es="Exportar CSV">Export CSV</button>
     </div>
-    <div class="smallnote" id="taStatus" style="margin-top:8px">Choose two temporal series.</div>
+    <div class="smallnote" id="taStatus" style="margin-top:8px" data-fl-en="Choose two temporal series." data-fl-es="Elige dos series temporales.">Choose two temporal series.</div>
     <div id="taResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);
+  host.appendChild(box);flApplyBilingualText(box);
   document.getElementById('taMode').addEventListener('change',()=>{document.getElementById('taReferenceField').style.display=document.getElementById('taMode').value==='reference'?'':'none';taClearResult()});
   for(const id of ['taSourceA','taSourceB','taMethod','taReference','taEpsilon'])document.getElementById(id)?.addEventListener('change',taClearResult);
   document.getElementById('taRun').addEventListener('click',taRunComparison);
@@ -140,26 +140,26 @@ function taRefreshSources(){
   const oldA=a.value,oldB=b.value,opts=src.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${taSeriesLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
   a.innerHTML=opts;b.innerHTML=opts;if([...a.options].some(o=>o.value===oldA))a.value=oldA;if([...b.options].some(o=>o.value===oldB))b.value=oldB;
   if(!oldB&&b.options.length>1)b.selectedIndex=1;
-  const st=document.getElementById('taStatus');if(st)st.textContent=src.length>=2?'Ready for physical-time alignment.':'Load at least two temporal series.';
+  const st=document.getElementById('taStatus');if(st)st.textContent=src.length>=2?flUi('Ready for physical-time alignment.','Listo para alineación por tiempo físico.'):flUi('Load at least two temporal series.','Carga al menos dos series temporales.');
 }
 function taSelected(sel){const src=taSources(),v=document.getElementById(sel)?.value;return src.find((s,i)=>String(s.id??i)===String(v))}
 function taRunComparison(){
   const A=taSelected('taSourceA'),B=taSelected('taSourceB'),status=document.getElementById('taStatus'),result=document.getElementById('taResult');
-  if(!A||!B||A===B){if(status)status.textContent='Choose two different temporal series.';return}
+  if(!A||!B||A===B){if(status)status.textContent=flUi('Choose two different temporal series.','Elige dos series temporales distintas.');return}
   const mode=document.getElementById('taMode')?.value||'common',method=document.getElementById('taMethod')?.value||'linear',referenceIndex=Number(document.getElementById('taReference')?.value)||0,epsilon=Number(document.getElementById('taEpsilon')?.value)||1e-12;
   const aligned=taAlignSeries([A,B],{mode,method,referenceIndex,maxPoints:2500});
-  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;if(status)status.textContent='No common physical-time interval exists. Nothing was extrapolated.';if(result)result.innerHTML='';return}
-  if(mode==='native'){taLastResult={A,B,aligned,epsilon};if(status)status.textContent=`Native mode preserves each source time grid. Shared range: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Choose Common Time Grid or Reference Case Grid for quantitative differences.`;if(result)result.innerHTML='';return}
+  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;if(status)status.textContent=flUi('No common physical-time interval exists. Nothing was extrapolated.','No existe un intervalo común de tiempo físico. No se extrapoló nada.');if(result)result.innerHTML='';return}
+  if(mode==='native'){taLastResult={A,B,aligned,epsilon};if(status)status.textContent=diagEs()?`El modo nativo conserva la malla temporal de cada fuente. Rango compartido: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Elige Malla temporal común o Malla del caso de referencia para diferencias cuantitativas.`:`Native mode preserves each source time grid. Shared range: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Choose Common Time Grid or Reference Case Grid for quantitative differences.`;if(result)result.innerHTML='';return}
   const m=taPairMetrics(aligned.grid,aligned.series[0].y,aligned.series[1].y,epsilon);
   taLastResult={A,B,aligned,metrics:m,epsilon};
   const metaCount=(arr,k)=>arr.reduce((n,x)=>n+(x?.status===k),0),ma=aligned.series[0].meta,mb=aligned.series[1].meta;
-  if(status)status.textContent=`Overlap ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} comparable points · no extrapolation.`;
+  if(status)status.textContent=diagEs()?`Solapamiento ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} puntos comparables · sin extrapolación.`:`Overlap ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} comparable points · no extrapolation.`;
   if(result)result.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
     <tr><th>RMSE</th><td>${taFmt(m.rmse)}</td><th>MAE</th><td>${taFmt(m.mae)}</td></tr>
-    <tr><th>Max |A−B|</th><td>${taFmt(m.maxAbs)}</td><th>at t</th><td>${taFmt(m.maxAbsTime)} s</td></tr>
-    <tr><th>Mean A−B</th><td>${taFmt(m.meanDifference)}</td><th>Pearson</th><td>${taFmt(m.correlation)}</td></tr>
-    <tr><th>A provenance</th><td colspan="3">native ${metaCount(ma,'native')} · interpolated ${metaCount(ma,'interpolated')} · nearest ${metaCount(ma,'nearest')}</td></tr>
-    <tr><th>B provenance</th><td colspan="3">native ${metaCount(mb,'native')} · interpolated ${metaCount(mb,'interpolated')} · nearest ${metaCount(mb,'nearest')}</td></tr>
+    <tr><th>Max |A−B|</th><td>${taFmt(m.maxAbs)}</td><th>${flUi('at t','en t')}</th><td>${taFmt(m.maxAbsTime)} s</td></tr>
+    <tr><th>${flUi('Mean A−B','Media A−B')}</th><td>${taFmt(m.meanDifference)}</td><th>Pearson</th><td>${taFmt(m.correlation)}</td></tr>
+    <tr><th>${flUi('A provenance','Procedencia A')}</th><td colspan="3">${flUi('native','nativa')} ${metaCount(ma,'native')} · ${flUi('interpolated','interpolada')} ${metaCount(ma,'interpolated')} · ${flUi('nearest','más cercana')} ${metaCount(ma,'nearest')}</td></tr>
+    <tr><th>${flUi('B provenance','Procedencia B')}</th><td colspan="3">${flUi('native','nativa')} ${metaCount(mb,'native')} · ${flUi('interpolated','interpolada')} ${metaCount(mb,'interpolated')} · ${flUi('nearest','más cercana')} ${metaCount(mb,'nearest')}</td></tr>
   </tbody></table></div>`;
   for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv'])document.getElementById(id).disabled=false
 }
@@ -182,7 +182,7 @@ function taExportComparison(format){
 function taAddDerived(kind){
   const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return;
   const y=taDifferenceValues(r.aligned.series[0].y,r.aligned.series[1].y,kind,r.epsilon),A=r.A,B=r.B;
-  const base=String(kind)==='percent'?'% difference':'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
+  const base=String(kind)==='percent'?flUi('% difference','% diferencia'):'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
   const diffField={...(A.field||{}),canonical:(kind==='percent'?'percentDifference:':'difference:')+taSeriesVariable(A),raw:name,name,displayName:name};
   if(kind==='percent'){diffField.unit='%';diffField.dimensions='[0 0 0 0 0 0 0]'}else{diffField.unit=A.field?.unit||A.unit||'';diffField.dimensions=A.field?.dimensions||A.dimensions||''}
   const d={...A,id:'ta_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:r.aligned.grid.slice(),y,caseName:taCaseName(A)+' vs '+taCaseName(B),derived:true,derivedKind:'temporalAlignmentDifference',sourceKind:'derived',sourcePath:'FoamLens temporal alignment',visible:true,hidden:false,checked:true,enabled:true,
@@ -190,7 +190,7 @@ function taAddDerived(kind){
     temporalAlignment:{mode:r.aligned.mode,method:r.aligned.method,range:r.aligned.range,sourceA:taSeriesLabel(A),sourceB:taSeriesLabel(B),epsilon:r.epsilon}};
   series.push(d);activeId=d.id;
   try{refreshDatasetControls();renderList();updateMeta();if(typeof setDataView==='function')setDataView('timeseries');else draw()}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
-  const st=document.getElementById('taStatus');if(st)st.textContent=`Added derived curve: ${name}`;
+  const st=document.getElementById('taStatus');if(st)st.textContent=diagEs()?`Se agregó la curva derivada: ${name}`:`Added derived curve: ${name}`;
 }
 function taInit(){
   taBuildUi();
@@ -198,6 +198,7 @@ function taInit(){
     const original=refreshDatasetControls;
     refreshDatasetControls=function(...args){const out=original.apply(this,args);setTimeout(taRefreshSources,0);return out}
   }catch{}
+  document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('taTools');if(box)flApplyBilingualText(box);if(taLastResult)taRunComparison();else taRefreshSources()});
   window.FoamLensTemporalAlignment={taFinitePairs,taCommonTimeRange,taNearestSample,taLinearSample,taCommonGrid,taReferenceGrid,taAlignSeries,taDifferenceValues,taPairMetrics};
 }
 taInit();

@@ -43,6 +43,20 @@ function thRoleStatement(role){
 }
 /* FOAMLENS_THERMAL_ANALYSIS_CORE_END */
 
+function thRoleStatementUi(role){
+  if(!diagEs())return thRoleStatement(role);
+  const m={
+    temperature:'Señal de temperatura. Las tasas de enfriamiento/calentamiento son derivadas respecto al tiempo físico.',
+    thermalGradient:'Gradiente térmico. La interpretación de dirección/signo depende de la coordenada o componente seleccionada.',
+    heatFlux:'Flujo de calor. No es energía salvo que se integre sobre área y tiempo con metadata compatible.',
+    energyFlux:'Flujo de energía. No es energía total salvo que los datos seleccionados y la integración la definan.',
+    sensibleEnthalpy:'Solo contribución de entalpía sensible; no se etiqueta como energía total.',
+    latentHeat:'Solo contribución de calor latente; se mantiene separada de la energía sensible salvo que se combinen explícitamente.',
+    boundaryPower:'Potencia de frontera/interfaz. La convención de signo debe provenir de la definición de la fuente/salida.',
+    userDefined:'Cantidad térmica definida por el usuario; FoamLens aplica únicamente estadísticas descriptivas.'
+  };return m[role]||m.userDefined
+}
+
 function thSources(){
   return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{const d=datasetTypeOf(s);return(d==='timeseries'||d==='profile')&&thPairs(s.t,s.y).length>=2&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return false}})
 }
@@ -58,22 +72,22 @@ function thAddRate(base,name,t,y,kind,formula){
 }
 function thRun(){
   const s=thSelected(),role=thRole(),status=document.getElementById('thStatus'),out=document.getElementById('thResult');if(!s||!status||!out)return;
-  const dtype=datasetTypeOf(s),unit=String(s?.field?.unit||s?.unit||''),stats=thWeightedStats(s.t,s.y),statement=thRoleStatement(role),rows=[['Role',role],['Min / Max',thFmt(stats.min)+' / '+thFmt(stats.max)+' '+unit],['Weighted mean',thFmt(stats.mean)+' '+unit],['Weighted RMS',thFmt(stats.rms)+' '+unit]];
+  const dtype=datasetTypeOf(s),unit=String(s?.field?.unit||s?.unit||''),stats=thWeightedStats(s.t,s.y),statement=thRoleStatementUi(role),rows=[[flUi('Role','Rol'),role],[flUi('Min / Max','Mín. / Máx.'),thFmt(stats.min)+' / '+thFmt(stats.max)+' '+unit],[flUi('Weighted mean','Media ponderada'),thFmt(stats.mean)+' '+unit],[flUi('Weighted RMS','RMS ponderado'),thFmt(stats.rms)+' '+unit]];
   let temperature=null;
   if(role==='temperature'&&dtype==='timeseries'){
     temperature=thAnalyzeTemperature(s.t,s.y,Math.max(0,Number(document.getElementById('thEpsilon')?.value)||0));
-    rows.push(['Cooling intervals',temperature.coolingIntervals.length?temperature.coolingIntervals.map(x=>thFmt(x.start)+'–'+thFmt(x.end)+' s').join(', '):'—']);
-    rows.push(['Heating intervals',temperature.heatingIntervals.length?temperature.heatingIntervals.map(x=>thFmt(x.start)+'–'+thFmt(x.end)+' s').join(', '):'—']);
+    rows.push([flUi('Cooling intervals','Intervalos de enfriamiento'),temperature.coolingIntervals.length?temperature.coolingIntervals.map(x=>thFmt(x.start)+'–'+thFmt(x.end)+' s').join(', '):'—']);
+    rows.push([flUi('Heating intervals','Intervalos de calentamiento'),temperature.heatingIntervals.length?temperature.heatingIntervals.map(x=>thFmt(x.start)+'–'+thFmt(x.end)+' s').join(', '):'—']);
   }
   window.FoamLensLastThermalAnalysis={sourceId:s.id??null,source:thLabel(s),caseId:s.caseId??null,caseName:s.caseName||caseById(s.caseId)?.name||'',region:typeof seriesRegion==='function'?seriesRegion(s):'',datasetType:dtype,role,unit,dimensions:s?.field?.dimensions||s?.dimensions||'',statement,statistics:stats,temperature};
-  status.textContent=statement+(role==='temperature'&&dtype!=='timeseries'?' Cooling/heating rates require a temporal temperature signal.':'');
+  status.textContent=statement+(role==='temperature'&&dtype!=='timeseries'?flUi(' Cooling/heating rates require a temporal temperature signal.',' Las tasas de enfriamiento/calentamiento requieren una señal temporal de temperatura.'):'');
   out.innerHTML='<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>'+rows.map(r=>'<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>').join('')+'</tbody></table></div>'
 }
 function thCreateRates(){
   const s=thSelected();if(!s||thRole()!=='temperature'||datasetTypeOf(s)!=='timeseries')return;
   const a=thAnalyzeTemperature(s.t,s.y,Math.max(0,Number(document.getElementById('thEpsilon')?.value)||0));series=series.filter(x=>x.thermalSourceId!==s.id);
-  const c=thAddRate(s,'Cooling Rate: '+thLabel(s),a.t,a.coolingRate,'thermal-cooling-rate','max(−dT/dt,0)');c.thermalSourceId=s.id;
-  const h=thAddRate(s,'Heating Rate: '+thLabel(s),a.t,a.heatingRate,'thermal-heating-rate','max(dT/dt,0)');h.thermalSourceId=s.id;activeId=c.id;
+  const c=thAddRate(s,flUi('Cooling Rate: ','Tasa de enfriamiento: ')+thLabel(s),a.t,a.coolingRate,'thermal-cooling-rate','max(−dT/dt,0)');c.thermalSourceId=s.id;
+  const h=thAddRate(s,flUi('Heating Rate: ','Tasa de calentamiento: ')+thLabel(s),a.t,a.heatingRate,'thermal-heating-rate','max(dT/dt,0)');h.thermalSourceId=s.id;activeId=c.id;
   try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
 }
 function thExport(){
@@ -85,16 +99,17 @@ function thRefresh(){
 }
 function thBuildUi(){
   if(document.getElementById('thTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Thermal Analysis</b><span class="badge">explicit role</span></div>
-  <div class="smallnote" style="margin-top:5px">Select the thermal quantity and its role explicitly. FoamLens keeps temperature, gradients, fluxes, sensible enthalpy, latent heat, and boundary/interface power conceptually separate.</div>
-  <div class="field" style="margin-top:8px"><label>Thermal signal</label><select id="thSource"></select></div>
-  <div class="row2"><div class="field"><label>Interpret as</label><select id="thRole"><option value="temperature">Temperature</option><option value="thermalGradient">Thermal gradient</option><option value="heatFlux">Heat flux</option><option value="energyFlux">Energy flux</option><option value="sensibleEnthalpy">Sensible enthalpy</option><option value="latentHeat">Latent heat</option><option value="boundaryPower">Boundary / interface power</option><option value="userDefined" selected>User defined</option></select></div><div class="field"><label>Rate epsilon</label><input id="thEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="thRun" type="button">Analyze thermal signal</button><button class="btn" id="thCreateRates" type="button">Create cooling + heating rates</button><button class="btn" id="thExport" type="button">Export summary JSON</button></div>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Thermal Analysis" data-fl-es="Análisis térmico">Thermal Analysis</b><span class="badge" data-fl-en="explicit role" data-fl-es="rol explícito">explicit role</span></div>
+  <div class="smallnote" style="margin-top:5px" data-fl-en="Select the thermal quantity and its role explicitly. FoamLens keeps temperature, gradients, fluxes, sensible enthalpy, latent heat, and boundary/interface power conceptually separate." data-fl-es="Selecciona explícitamente la cantidad térmica y su rol. FoamLens mantiene separados conceptualmente temperatura, gradientes, flujos, entalpía sensible, calor latente y potencia de frontera/interfaz.">Select the thermal quantity and its role explicitly.</div>
+  <div class="field" style="margin-top:8px"><label data-fl-en="Thermal signal" data-fl-es="Señal térmica">Thermal signal</label><select id="thSource"></select></div>
+  <div class="row2"><div class="field"><label data-fl-en="Interpret as" data-fl-es="Interpretar como">Interpret as</label><select id="thRole"><option value="temperature" data-fl-en="Temperature" data-fl-es="Temperatura">Temperature</option><option value="thermalGradient" data-fl-en="Thermal gradient" data-fl-es="Gradiente térmico">Thermal gradient</option><option value="heatFlux" data-fl-en="Heat flux" data-fl-es="Flujo de calor">Heat flux</option><option value="energyFlux" data-fl-en="Energy flux" data-fl-es="Flujo de energía">Energy flux</option><option value="sensibleEnthalpy" data-fl-en="Sensible enthalpy" data-fl-es="Entalpía sensible">Sensible enthalpy</option><option value="latentHeat" data-fl-en="Latent heat" data-fl-es="Calor latente">Latent heat</option><option value="boundaryPower" data-fl-en="Boundary / interface power" data-fl-es="Potencia de frontera / interfaz">Boundary / interface power</option><option value="userDefined" selected data-fl-en="User defined" data-fl-es="Definido por el usuario">User defined</option></select></div><div class="field"><label data-fl-en="Rate epsilon" data-fl-es="Epsilon de tasa">Rate epsilon</label><input id="thEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="thRun" type="button" data-fl-en="Analyze thermal signal" data-fl-es="Analizar señal térmica">Analyze thermal signal</button><button class="btn" id="thCreateRates" type="button" data-fl-en="Create cooling + heating rates" data-fl-es="Crear tasas de enfriamiento + calentamiento">Create cooling + heating rates</button><button class="btn" id="thExport" type="button" data-fl-en="Export summary JSON" data-fl-es="Exportar resumen JSON">Export summary JSON</button></div>
   <div class="smallnote" id="thStatus" style="margin-top:7px"></div><div id="thResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);document.getElementById('thRun').onclick=thRun;document.getElementById('thCreateRates').onclick=thCreateRates;document.getElementById('thExport').onclick=thExport;document.getElementById('thRole').onchange=()=>{document.getElementById('thCreateRates').disabled=thRole()!=='temperature'};thRefresh()
+  host.appendChild(box);flApplyBilingualText(box);document.getElementById('thRun').onclick=thRun;document.getElementById('thCreateRates').onclick=thCreateRates;document.getElementById('thExport').onclick=thExport;document.getElementById('thRole').onchange=()=>{document.getElementById('thCreateRates').disabled=thRole()!=='temperature'};thRefresh()
 }
 function thInit(){
   thBuildUi();try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(thRefresh,0);return x}}catch{}
+  document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('thTools');if(box)flApplyBilingualText(box);if(window.FoamLensLastThermalAnalysis)thRun();else thRefresh()});
   window.FoamLensThermalAnalysis={thPairs,thDerivative,thIntegral,thWeightedStats,thIntervals,thAnalyzeTemperature,thRoleStatement}
 }
 thInit();

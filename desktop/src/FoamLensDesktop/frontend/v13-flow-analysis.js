@@ -54,8 +54,8 @@ function faSelected(){const src=faSources(),id=document.getElementById('faSource
 function faFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 function faAxisInfo(s){
   const d=datasetTypeOf(s);
-  if(d==='profile')return{semantic:'spatial coordinate',unit:s.profileCoordUnit||'',symbol:s.profileAxis||'s'};
-  return{semantic:'physical time',unit:'s',symbol:'t'}
+  if(d==='profile')return{semantic:flUi('spatial coordinate','coordenada espacial'),unit:s.profileCoordUnit||'',symbol:s.profileAxis||'s'};
+  return{semantic:flUi('physical time','tiempo físico'),unit:'s',symbol:'t'}
 }
 function faInterpretation(){
   return document.getElementById('faInterpretation')?.value||'user-defined'
@@ -63,13 +63,13 @@ function faInterpretation(){
 function faRun(){
   const s=faSelected(),status=document.getElementById('faStatus'),out=document.getElementById('faResult');if(!s||!status||!out)return;
   const stats=faWeightedStats(s.t,s.y),cross=faZeroCrossings(s.t,s.y),axis=faAxisInfo(s),unit=s?.field?.unit||s?.unit||'',interp=faInterpretation();
-  const weighted=stats.span>0?(datasetTypeOf(s)==='profile'?'coordinate-weighted':'time-weighted'):'sample-based';
-  status.textContent=`${stats.count} samples · ${weighted} statistics · interpretation: ${interp}. No flow role is inferred from the case name.`;
+  const weighted=stats.span>0?(datasetTypeOf(s)==='profile'?flUi('coordinate-weighted','ponderadas por coordenada'):flUi('time-weighted','ponderadas por tiempo')):flUi('sample-based','basadas en muestras');
+  status.textContent=diagEs()?`${stats.count} muestras · estadísticas ${weighted} · interpretación: ${interp}. No se infiere ningún rol de flujo a partir del nombre del caso.`:`${stats.count} samples · ${weighted} statistics · interpretation: ${interp}. No flow role is inferred from the case name.`;
   out.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
-  <tr><th>Min / Max</th><td>${faFmt(stats.min)} / ${faFmt(stats.max)} ${unit}</td><th>Mean</th><td>${faFmt(stats.mean)} ${unit}</td></tr>
-  <tr><th>RMS</th><td>${faFmt(stats.rms)} ${unit}</td><th>Mean |value|</th><td>${faFmt(stats.meanAbs)} ${unit}</td></tr>
-  <tr><th>P5 / Median / P95</th><td colspan="3">${faFmt(stats.p5)} / ${faFmt(stats.median)} / ${faFmt(stats.p95)} ${unit}</td></tr>
-  <tr><th>Zero crossings</th><td>${cross.length}</td><th>${axis.semantic}</th><td>${cross.slice(0,8).map(v=>faFmt(v)+(axis.unit?' '+axis.unit:'')).join(', ')||'—'}${cross.length>8?' …':''}</td></tr>
+  <tr><th>${flUi('Min / Max','Mín. / Máx.')}</th><td>${faFmt(stats.min)} / ${faFmt(stats.max)} ${unit}</td><th>${flUi('Mean','Media')}</th><td>${faFmt(stats.mean)} ${unit}</td></tr>
+  <tr><th>RMS</th><td>${faFmt(stats.rms)} ${unit}</td><th>${flUi('Mean |value|','Media |valor|')}</th><td>${faFmt(stats.meanAbs)} ${unit}</td></tr>
+  <tr><th>${flUi('P5 / Median / P95','P5 / Mediana / P95')}</th><td colspan="3">${faFmt(stats.p5)} / ${faFmt(stats.median)} / ${faFmt(stats.p95)} ${unit}</td></tr>
+  <tr><th>${flUi('Zero crossings','Cruces por cero')}</th><td>${cross.length}</td><th>${axis.semantic}</th><td>${cross.slice(0,8).map(v=>faFmt(v)+(axis.unit?' '+axis.unit:'')).join(', ')||'—'}${cross.length>8?' …':''}</td></tr>
   </tbody></table></div>`;
   const caseObj=typeof caseById==='function'?caseById(s.caseId):null,region=typeof seriesRegion==='function'?seriesRegion(s):String(s?.region||s?.regionName||'');
   window.FoamLensLastFlowAnalysis={sourceId:s.id??null,source:faLabel(s),caseId:s.caseId??null,caseName:s.caseName||caseObj?.name||'',caseTags:[...(caseObj?.tags||[])],region,field:s?.field?.canonical||s?.field?.raw||s?.name||'',datasetType:datasetTypeOf(s),sourcePath:s?.sourcePath||'',profileTime:Number.isFinite(Number(s?.profileTime))?Number(s.profileTime):null,interpretation:interp,axis,unit,dimensions:s?.field?.dimensions||s?.dimensions||'',statistics:stats,zeroCrossings:cross,weightedBy:weighted}
@@ -87,16 +87,17 @@ function faRefresh(){
 function faBuildUi(){
   if(document.getElementById('faTools'))return;
   const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='faTools';box.className='detailBlock';box.style.marginTop='10px';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Flow Analysis</b><span class="badge">general signal</span></div>
-  <div class="smallnote" style="margin-top:5px">Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret. FoamLens does not infer the role from a case name. Means and RMS values are weighted by physical time or spatial coordinate, so adaptive/nonuniform sampling does not bias them by sample count.</div>
-  <div class="field" style="margin-top:8px"><label>Flow signal</label><select id="faSource"></select></div>
-  <div class="field"><label>Interpret as</label><select id="faInterpretation"><option value="user-defined" selected>User-defined flow signal</option><option value="velocity-component">Velocity component</option><option value="speed-magnitude">Speed / vector magnitude</option><option value="vorticity">Vorticity</option><option value="other">Other</option></select></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="faRun" type="button">Analyze flow signal</button><button class="btn" id="faExport" type="button" disabled>Export summary JSON</button></div>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Flow Analysis" data-fl-es="Análisis de flujo">Flow Analysis</b><span class="badge" data-fl-en="general signal" data-fl-es="señal general">general signal</span></div>
+  <div class="smallnote" style="margin-top:5px" data-fl-en="Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret. FoamLens does not infer the role from a case name. Means and RMS values are weighted by physical time or spatial coordinate, so adaptive/nonuniform sampling does not bias them by sample count." data-fl-es="Selecciona el componente de velocidad, rapidez/magnitud, vorticidad u otra señal de flujo que quieras interpretar. FoamLens no infiere el rol a partir del nombre del caso. Las medias y RMS se ponderan por tiempo físico o coordenada espacial, para que un muestreo adaptativo o no uniforme no sesgue los resultados por número de muestras.">Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret.</div>
+  <div class="field" style="margin-top:8px"><label data-fl-en="Flow signal" data-fl-es="Señal de flujo">Flow signal</label><select id="faSource"></select></div>
+  <div class="field"><label data-fl-en="Interpret as" data-fl-es="Interpretar como">Interpret as</label><select id="faInterpretation"><option value="user-defined" selected data-fl-en="User-defined flow signal" data-fl-es="Señal de flujo definida por el usuario">User-defined flow signal</option><option value="velocity-component" data-fl-en="Velocity component" data-fl-es="Componente de velocidad">Velocity component</option><option value="speed-magnitude" data-fl-en="Speed / vector magnitude" data-fl-es="Rapidez / magnitud vectorial">Speed / vector magnitude</option><option value="vorticity" data-fl-en="Vorticity" data-fl-es="Vorticidad">Vorticity</option><option value="other" data-fl-en="Other" data-fl-es="Otro">Other</option></select></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="faRun" type="button" data-fl-en="Analyze flow signal" data-fl-es="Analizar señal de flujo">Analyze flow signal</button><button class="btn" id="faExport" type="button" disabled data-fl-en="Export summary JSON" data-fl-es="Exportar resumen JSON">Export summary JSON</button></div>
   <div class="smallnote" id="faStatus" style="margin-top:7px"></div><div id="faResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);document.getElementById('faRun').onclick=faRun;document.getElementById('faExport').onclick=faExport;faRefresh()
+  host.appendChild(box);flApplyBilingualText(box);document.getElementById('faRun').onclick=faRun;document.getElementById('faExport').onclick=faExport;faRefresh()
 }
 function faInit(){
   faBuildUi();try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(faRefresh,0);return x}}catch{}
+  document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('faTools');if(box)flApplyBilingualText(box);if(window.FoamLensLastFlowAnalysis)faRun();else faRefresh()});
   window.FoamLensFlowAnalysis={faPairs,faPercentile,faWeightedStats,faZeroCrossings}
 }
 faInit();

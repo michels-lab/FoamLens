@@ -221,6 +221,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/analysis-ui-organization.test.cjs
 
+      - name: Test bilingual UI and overflow hardening
+        shell: pwsh
+        run: node desktop/tests/bilingual-ui.test.cjs
+
       - name: Checkout private OpenFOAM regression fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/checkout@v4
