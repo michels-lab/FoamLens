@@ -4173,7 +4173,7 @@ function flDerivedCatalogRows(){
   }
   return out
 }
-function flAllCatalogRows(){return cases.flatMap(flCatalogRowsForCase).concat(flDerivedCatalogRows())}
+function flAllCatalogRows(){return cases.flatMap(flCatalogRowsForCase).concat(flDerivedCatalogRows()).map(r=>({...r,caseTags:[...(caseById(r.caseId)?.tags||[])]}))}
 function flCatalogFmtRange(r){
   if(Number.isFinite(r.timeMin)&&Number.isFinite(r.timeMax))return r.timeMin===r.timeMax?pmFmt(r.timeMin)+' s':pmFmt(r.timeMin)+' → '+pmFmt(r.timeMax)+' s';
   return'—'
@@ -4195,9 +4195,9 @@ function renderDataCatalog(){
   if(!$('catalogTableBody'))return;flRefreshCatalogFilters();
   const caseId=$('catalogCase').value?Number($('catalogCase').value):null,region=$('catalogRegion').value||'',kind=$('catalogKind').value||'',q=String($('catalogSearch').value||'').toLowerCase();
   let rows=flAllCatalogRows().filter(r=>(caseId==null||r.caseId===caseId)&&(!region||r.region===region)&&(!kind||r.category===kind));
-  if(q)rows=rows.filter(r=>[r.caseName,r.name,r.region,r.type,r.dimensions,r.unit,r.origin,r.source,r.details].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(q)rows=rows.filter(r=>[r.caseName,(r.caseTags||[]).join(' '),r.name,r.region,r.type,r.dimensions,r.unit,r.origin,r.source,r.details].some(v=>String(v||'').toLowerCase().includes(q)));
   rows.sort((a,b)=>a.caseName.localeCompare(b.caseName,undefined,{numeric:true})||a.category.localeCompare(b.category)||a.region.localeCompare(b.region)||a.name.localeCompare(b.name,undefined,{numeric:true}));
-  $('catalogTableBody').innerHTML=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><small>'+esc(r.caseName)+'</small></td><td><span class="dataCatalogType">'+esc(r.category)+'</span><small>'+esc([r.spatial?'spatial':'',r.temporal?'temporal':''].filter(Boolean).join(' · ')||'metadata')+'</small></td><td>'+esc(r.region||'—')+'</td><td>'+esc(r.type||'unknown')+(r.details?'<small>'+esc(r.details)+'</small>':'')+'</td><td>'+esc(r.dimensions||'—')+((r.unit||pmUnitFromDimensions(r.dimensions))?'<small>'+esc(r.unit||pmUnitFromDimensions(r.dimensions))+'</small>':'')+'</td><td>'+esc(flCatalogFmtRange(r))+'</td><td>'+esc(String(r.samples??'—'))+'</td><td><span class="'+(r.derived?'dataCatalogDerived':'dataCatalogNative')+'">'+esc(r.origin)+'</span></td><td>'+esc(r.source||'—')+'</td></tr>').join(''):'<tr><td colspan="9">'+esc(diagEs()?'No hay datos que coincidan con estos filtros.':'No discovered data match these filters.')+'</td></tr>';
+  $('catalogTableBody').innerHTML=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><small>'+esc(r.caseName)+'</small>'+(r.caseTags?.length?'<small>Tags: '+esc(r.caseTags.join(', '))+'</small>':'')+'</td><td><span class="dataCatalogType">'+esc(r.category)+'</span><small>'+esc([r.spatial?'spatial':'',r.temporal?'temporal':''].filter(Boolean).join(' · ')||'metadata')+'</small></td><td>'+esc(r.region||'—')+'</td><td>'+esc(r.type||'unknown')+(r.details?'<small>'+esc(r.details)+'</small>':'')+'</td><td>'+esc(r.dimensions||'—')+((r.unit||pmUnitFromDimensions(r.dimensions))?'<small>'+esc(r.unit||pmUnitFromDimensions(r.dimensions))+'</small>':'')+'</td><td>'+esc(flCatalogFmtRange(r))+'</td><td>'+esc(String(r.samples??'—'))+'</td><td><span class="'+(r.derived?'dataCatalogDerived':'dataCatalogNative')+'">'+esc(r.origin)+'</span></td><td>'+esc(r.source||'—')+'</td></tr>').join(''):'<tr><td colspan="9">'+esc(diagEs()?'No hay datos que coincidan con estos filtros.':'No discovered data match these filters.')+'</td></tr>';
   const all=flAllCatalogRows(),fieldN=all.filter(x=>x.category==='field').length,postN=all.filter(x=>x.category==='postProcessing').length,derivedN=all.filter(x=>x.category==='derived').length,regions=new Set(cases.flatMap(c=>c.discoveryModel?.regions||[])).size;
   $('catalogSummary').innerHTML=[(diagEs()?'Campos':'Fields')+': '+fieldN,'postProcessing: '+postN,(diagEs()?'Derivados':'Derived')+': '+derivedN,(diagEs()?'Regiones':'Regions')+': '+regions,(diagEs()?'Mostrados':'Shown')+': '+rows.length].map(x=>'<span class="dataCatalogPill">'+esc(x)+'</span>').join('');
   $('catalogCount').textContent=String(all.length)
@@ -4891,6 +4891,7 @@ function addCase(name=null,quiet=false){
     name:caseName,
     dash:familyInfo?variantDash(familyInfo.variant):nextCaseDash(),
     visible:true,
+    tags:[],
     rootPath:'',
     config:{source:{fvSolution:false,controlDict:false}},
     discovery:{classification:'manual case',evidence:[],regions:[],outputs:[],datasetCounts:{},functionObjects:[],functionIncludes:[],allPaths:[],importIssues:[]},
@@ -5039,6 +5040,18 @@ function dashLabel(d){
   return d
 }
 
+function normalizeCaseTags(value){
+  const src=Array.isArray(value)?value:String(value||'').split(/[;,\n]+/);
+  const out=[],seen=new Set();
+  for(const raw of src){const tag=String(raw||'').trim();if(!tag)continue;const key=tag.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push(tag)}
+  return out
+}
+function setCaseTags(caseId,value){
+  const c=caseById(caseId);if(!c)return;
+  c.tags=normalizeCaseTags(value);
+  renderCaseManager();renderDataCatalog();updateMeta()
+}
+
 function renderCaseManager(){
   const box=$('caseManager');
   if(!box)return;
@@ -5097,6 +5110,12 @@ function renderCaseManager(){
         </div>
       </div>
 
+      <div class="field" style="margin-top:8px">
+        <label>${$('language').value==='es'?'Tags del caso':'Case tags'}</label>
+        <input data-role="tags" type="text" value="${esc((c.tags||[]).join(', '))}" placeholder="${$('language').value==='es'?'Ej. reference, adaptive, experiment':'e.g. reference, adaptive, experiment'}">
+        <div class="smallnote">${$('language').value==='es'?'Metadata descriptiva solamente; FoamLens no infiere significado de estos tags.':'Descriptive metadata only; FoamLens does not infer behavior from these tags.'}</div>
+      </div>
+
       <div class="caseActions">
         <button class="btn tiny" data-role="files">${esc(tr('caseFiles'))}</button>
         <button class="btn tiny" data-role="folder">${esc(tr('caseFolder'))}</button>
@@ -5113,6 +5132,10 @@ function renderCaseManager(){
     const name=el.querySelector('[data-role="name"]');
     name.addEventListener('change',()=>renameCase(c.id,name.value));
     name.addEventListener('keydown',e=>{if(e.key==='Enter')name.blur()});
+
+    const tags=el.querySelector('[data-role="tags"]');
+    tags?.addEventListener('change',()=>setCaseTags(c.id,tags.value));
+    tags?.addEventListener('keydown',e=>{if(e.key==='Enter')tags.blur()});
 
     el.querySelector('[data-role="case-visibility"]').onclick=()=>toggleCaseVisibility(c.id);
     el.querySelector('[data-role="remove-case"]').onclick=()=>removeCase(c.id);
@@ -5823,7 +5846,7 @@ function initPhaseMomentumUi(){
   $('pmRunStats')?.addEventListener('click',pmRunStatsAnalysis);$('pmRunRatio')?.addEventListener('click',pmRunRatioAnalysis);$('pmRunScatter')?.addEventListener('click',pmRunScatterAnalysis);$('pmRunEvolution')?.addEventListener('click',pmRunEvolutionAnalysis);$('pmRunVerify')?.addEventListener('click',pmRunVerification);$('pmMetadataFilter')?.addEventListener('input',pmRenderMetadata);
   refreshPhaseMomentumUi()
 }
-function workspacePayload(){return{format:'FoamLens Workspace',schemaVersion:2,productVersion:'v51-development',savedAt:new Date().toISOString(),projectName:projectDisplayName(),ui:{language:$('language').value,theme:$('theme').value,activeAppMode,currentDataView,activeContextCaseRoot:caseById(activeContextCaseId)?.rootPath||'',activeContextRegion,visual:currentVisualConfig()},cases:cases.map(c=>({name:c.name,rootPath:c.rootPath,visible:c.visible!==false,dash:c.dash})),seriesState:series.map(s=>({key:seriesWorkspaceKey(s),visible:s.visible!==false,color:s.color,width:s.width,dash:s.dash,opacity:s.opacity,axis:s.axis,customLabel:s.customLabel||''})),findings:{pinned:[...pinnedFindingKeys],dismissed:[...dismissedFindingKeys]},phaseMomentum:pmWorkspaceState()}}
+function workspacePayload(){return{format:'FoamLens Workspace',schemaVersion:2,productVersion:'v51-development',savedAt:new Date().toISOString(),projectName:projectDisplayName(),ui:{language:$('language').value,theme:$('theme').value,activeAppMode,currentDataView,activeContextCaseRoot:caseById(activeContextCaseId)?.rootPath||'',activeContextRegion,visual:currentVisualConfig()},cases:cases.map(c=>({name:c.name,rootPath:c.rootPath,visible:c.visible!==false,dash:c.dash,tags:[...(c.tags||[])]})),seriesState:series.map(s=>({key:seriesWorkspaceKey(s),visible:s.visible!==false,color:s.color,width:s.width,dash:s.dash,opacity:s.opacity,axis:s.axis,customLabel:s.customLabel||''})),findings:{pinned:[...pinnedFindingKeys],dismissed:[...dismissedFindingKeys]},phaseMomentum:pmWorkspaceState()}}
 function saveFoamLensWorkspace(){downloadText(`${projectDisplayName().replace(/[^A-Za-z0-9_-]+/g,'_')||'FoamLens'}.foamlens.json`,JSON.stringify(workspacePayload(),null,2),'application/json')}
 function applyWorkspacePayload(payload){if(!payload||payload.format!=='FoamLens Workspace')throw new Error('Not a FoamLens workspace file.');pendingWorkspaceRestore=payload;if(payload.findings){pinnedFindingKeys=new Set(payload.findings.pinned||[]);dismissedFindingKeys=new Set(payload.findings.dismissed||[])}if(payload.ui?.language)$('language').value=payload.ui.language;if(payload.ui?.theme)$('theme').value=payload.ui.theme;if(payload.ui?.visual)for(const[id,v]of Object.entries(payload.ui.visual))if($(id)&&!['elementOffsets','seriesPanelHidden','sidebarWidth','sidebarCollapsed','sideLegendWidth','workspaceZoom'].includes(id))writeControlValue(id,v);if(payload.phaseMomentum)pmRestoreWorkspaceState(payload.phaseMomentum);applyPendingWorkspaceRestore();applyLanguage();refreshWorkspaceReview();draw()}
 function applyPendingWorkspaceRestore(){
@@ -5842,7 +5865,7 @@ function applyPendingWorkspaceRestore(){
 
   for(const x of p.cases||[]){
     const c=cases.find(c=>c.rootPath===x.rootPath)||cases.find(c=>c.name===x.name);
-    if(c){c.visible=x.visible!==false;c.dash=x.dash||c.dash}
+    if(c){c.visible=x.visible!==false;c.dash=x.dash||c.dash;c.tags=normalizeCaseTags(x.tags||[])}
   }
 
   const by=new Map((p.seriesState||[]).map(x=>[x.key,x]));
