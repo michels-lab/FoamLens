@@ -3855,6 +3855,69 @@ function pmParseOpenFOAMFieldText(text,sourcePath=''){
   const values=(block.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[]).map(Number).filter(Number.isFinite);
   return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-scalar-values',format,fieldClass:cls,object,dimensions,kind,sourcePath}
 }
+/* FOAMLENS_INCREMENTAL_FIELD_CORE_START */
+const PM_FIELD_NATIVE_THRESHOLD=4*1024*1024;
+const PM_FIELD_HEAD_BYTES=512*1024;
+const PM_FIELD_CHUNK_BYTES=1024*1024;
+
+function pmLargeFieldState(kind,declaredCount){
+  return{kind:String(kind||''),declaredCount:Math.max(0,Number(declaredCount)||0),values:[],carry:'',done:false,closed:false}
+}
+function pmParseLargeFieldValueLine(raw,state){
+  if(state.done)return;
+  let line=String(raw||'').replace(/\/\/.*$/,'').trim();if(!line)return;
+  if(/^\)\s*;?/.test(line)){state.closed=true;state.done=true;return}
+  if(state.kind==='vector'){
+    const re=/\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s*\)/ig;
+    for(const m of line.matchAll(re)){
+      const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))state.values.push(v);
+      if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
+    }
+  }else{
+    const nums=line.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[];
+    for(const n of nums){
+      const v=Number(n);if(Number.isFinite(v))state.values.push(v);
+      if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
+    }
+  }
+}
+function pmConsumeLargeFieldChunk(state,text,isFinal=false){
+  if(state.done)return;
+  const merged=state.carry+String(text||''),parts=merged.split(/\r?\n/);
+  state.carry=isFinal?'':(parts.pop()||'');
+  for(const line of parts){pmParseLargeFieldValueLine(line,state);if(state.done)break}
+  if(isFinal&&!state.done&&merged&&!parts.length)pmParseLargeFieldValueLine(merged,state)
+}
+function pmLargeFieldHeader(text,sourcePath=''){
+  text=String(text||'');
+  const format=(text.match(/\bformat\s+([^;\s]+)\s*;/i)||[])[1]||'ascii';
+  const fieldClass=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
+  const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
+  const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
+  const kind=/vectorfield/i.test(fieldClass)?'vector':/scalarfield/i.test(fieldClass)?'scalar':'unknown';
+  const nonuniform=/\binternalField\s+nonuniform\s+(?:List<\s*(?:scalar|vector)\s*>|[^\s]+)\s+(\d+)\s*\(/i.exec(text);
+  return{format,fieldClass,object,dimensions,kind,declaredCount:nonuniform?Number(nonuniform[1]):NaN,listStart:nonuniform?nonuniform.index+nonuniform[0].length:-1}
+}
+/* FOAMLENS_INCREMENTAL_FIELD_CORE_END */
+
+async function pmParseLargeOpenFOAMField(file,sourcePath=''){
+  const size=Math.max(0,Number(file?.size)||0),headEnd=Math.min(size,PM_FIELD_HEAD_BYTES),head=await file.slice(0,headEnd).text(),meta=pmLargeFieldHeader(head,sourcePath);
+  const early=pmParseOpenFOAMFieldText(head,sourcePath);
+  if(early.supported||['binary-format','unsupported-field-class','invalid-uniform-value','invalid-uniform-vector'].includes(early.reason))return{...early,loadMeta:{incremental:true,sourceBytes:size,bytesRead:headEnd}};
+  if(meta.listStart<0||!Number.isFinite(meta.declaredCount))return{...early,reason:early.reason||'internalField-header-not-found',loadMeta:{incremental:true,sourceBytes:size,bytesRead:headEnd}};
+  const state=pmLargeFieldState(meta.kind,meta.declaredCount);
+  pmConsumeLargeFieldChunk(state,head.slice(meta.listStart),false);
+  let offset=headEnd;
+  while(offset<size&&!state.done){
+    const end=Math.min(size,offset+PM_FIELD_CHUNK_BYTES),chunk=await file.slice(offset,end).text();
+    pmConsumeLargeFieldChunk(state,chunk,false);offset=end
+  }
+  if(!state.done&&state.carry)pmParseLargeFieldValueLine(state.carry,state);
+  const values=state.values;
+  if(!values.length)return{supported:false,reason:meta.kind==='vector'?'no-vector-values':'no-scalar-values',format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset}};
+  return{supported:true,format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,uniform:false,values,count:values.length,declaredCount:meta.declaredCount,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset,closed:state.closed}}
+}
+
 function pmComponentValues(parsed,component='value',countHint=null){
   if(!parsed?.supported)return{ok:false,reason:parsed?.reason||'unsupported'};
   const nHint=Number.isFinite(Number(countHint))?Math.max(0,Math.floor(Number(countHint))):null;
@@ -4069,9 +4132,8 @@ async function pmLoadRecord(record){
   if(pmFieldCache.has(key))return pmFieldCache.get(key);
   let parsed;
   try{
-    // FoamLensNativeFile.text() already delegates to the Desktop readText bridge.
-    // Keeping one JavaScript parser prevents Web and Desktop from diverging.
-    parsed=pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
+    const nativeLarge=!!(FOAMLENS_NATIVE&&record.file?._nativeToken&&Number(record.file.size||record.size||0)>PM_FIELD_NATIVE_THRESHOLD&&typeof record.file?.slice==='function');
+    parsed=nativeLarge?await pmParseLargeOpenFOAMField(record.file,record.sourcePath):pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
   }catch(err){parsed={supported:false,reason:String(err),sourcePath:record.sourcePath}}
   parsed={...parsed,record,partition:record.partition||'',region:record.region||'',time:record.time,sourcePath:record.sourcePath};
   pmFieldCache.set(key,parsed);return parsed
