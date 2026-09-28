@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_FIELD_MAPPING_EXTENSION_CORE_START */',end='/* FOAMLENS
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Field Mapping extension core markers missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {FM_EXTRA_ROLES,fmNormDimensions,fmDimensionCompatibility,fmNameScore,fmSuggestMappingsWithMetadata};')();
+const api=new Function(core+'\nreturn {FM_EXTRA_ROLES,fmNormDimensions,fmDimensionCompatibility,fmNameScore,fmSuggestMappingsWithMetadata,fmRegionKey,fmMappingStorageKey,fmFilterDescriptorsByRegion};')();
 
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
@@ -71,6 +71,28 @@ test('ambiguous dimensionless fields are not guessed as Courant',()=>{
 test('enthalpy is name-driven because dimensions can overlap pressure-like quantities',()=>{
   const m=api.fmSuggestMappingsWithMetadata([{name:'mysteryEnergy',dimensions:'[0 2 -2 0 0 0 0]'}],api.FM_EXTRA_ROLES);
   assert.strictEqual(m.enthalpy,'');
+});
+
+test('mapping storage keys separate named regions',()=>{
+  assert.strictEqual(api.fmMappingStorageKey('CaseA',''),'CaseA');
+  assert.strictEqual(api.fmMappingStorageKey('CaseA','fluid'),'CaseA::region=fluid');
+  assert.notStrictEqual(api.fmMappingStorageKey('CaseA','fluid'),api.fmMappingStorageKey('CaseA','solid'));
+});
+
+test('mapping descriptors can be filtered by region',()=>{
+  const d=[{name:'T',region:'fluid'},{name:'T',region:'solid'},{name:'U',region:'fluid'}];
+  assert.deepStrictEqual(api.fmFilterDescriptorsByRegion(d,'fluid').map(x=>x.name),['T','U']);
+  assert.strictEqual(api.fmFilterDescriptorsByRegion(d,'solid').length,1);
+});
+
+test('region-aware mapping UI is explicit',()=>{
+  for(const token of [
+    'fmMappingRegion',
+    'fmMappingForRegion',
+    'fmSelectedAnalysisRegion',
+    "active.closest?.('#pmMappingRows')",
+    'Not enough compatible roles are mapped for this region yet.'
+  ]) assert(js.includes(token),'Missing region-aware mapping token '+token);
 });
 
 test('extension mutates the existing generic mapping UI rather than creating project-specific mapping',()=>{
