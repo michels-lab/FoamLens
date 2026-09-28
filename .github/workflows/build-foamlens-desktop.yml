@@ -131,6 +131,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/physical-analysis.test.cjs
 
+      - name: Test general flow-signal analysis
+        shell: pwsh
+        run: node desktop/tests/flow-analysis.test.cjs
+
       - name: Test expanded general Field Mapping
         shell: pwsh
         run: node desktop/tests/field-mapping.test.cjs
