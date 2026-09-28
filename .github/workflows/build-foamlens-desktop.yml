@@ -111,6 +111,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/derived-catalog.test.cjs
 
+      - name: Test reproducible selected-series exports
+        shell: pwsh
+        run: node desktop/tests/reproducible-export.test.cjs
+
       - name: Test temporal alignment and quantitative differences
         shell: pwsh
         run: node desktop/tests/temporal-alignment.test.cjs
