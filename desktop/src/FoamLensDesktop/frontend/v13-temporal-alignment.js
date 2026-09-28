@@ -96,7 +96,7 @@ function taSeriesComponent(s){return String(s?.component||s?.field?.component||s
 function taCaseName(s){const c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(s?.caseId)):null;return String(c?.name||s?.caseName||('Case '+(s?.caseId??'—')))}
 function taSeriesLabel(s){const bits=[taCaseName(s),taSeriesVariable(s)];const r=taSeriesRegion(s),c=taSeriesComponent(s);if(r)bits.push(r);if(c)bits.push(c);return bits.join(' · ')}
 function taIsTimeSeries(s){try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2&&s?.derivedKind!=='temporalAlignmentDifference'}catch{return taFinitePairs(s).length>=2&&!s?.profileTime&&!s?.logFamily}}
-function taSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(taIsTimeSeries)}
+function taSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>taIsTimeSeries(s)&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s)))}
 function taFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 let taLastResult=null;
 
