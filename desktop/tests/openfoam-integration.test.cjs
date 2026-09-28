@@ -23,6 +23,13 @@ assert(taA>=0&&taB>taA,'Temporal alignment core markers missing.');
 const taCore=taFile.slice(taA,taB+taEnd.length);
 const ta=new Function(taCore+'\nreturn {taCommonTimeRange,taAlignSeries};')();
 
+const npFile=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','v13-numerical-performance.js'),'utf8');
+const npBegin='/* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_START */',npEnd='/* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_END */';
+const npA=npFile.indexOf(npBegin),npB=npFile.indexOf(npEnd,npA);
+assert(npA>=0&&npB>npA,'Numerical performance core markers missing.');
+const npCore=npFile.slice(npA,npB+npEnd.length);
+const np=new Function(npCore+'\nreturn {npParseRunLog};')();
+
 const foamNumStart=html.indexOf('function foamLogNumber(token){');
 const foamNumEnd=html.indexOf('function foamLogDescriptor',foamNumStart);
 assert(foamNumStart>=0&&foamNumEnd>foamNumStart,'foamLogNumber function missing.');
@@ -60,8 +67,14 @@ function nonuniform(a){
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
 const b3=modelFor('B3_reference');
+const c3=modelFor('C3_reference');
 const b6=modelFor('B6_adaptiveDt');
 const c6=modelFor('C6_adaptiveDt');
+let parsedB3RunLog=null;
+function b3RunLog(){
+  if(!parsedB3RunLog)parsedB3RunLog=np.npParseRunLog(read(b3.root,'log.foamMultiRun'));
+  return parsedB3RunLog
+}
 
 test('real multi-region discovery',()=>{
   assert(b3.model.regions.includes('metal'));assert(b3.model.regions.includes('mold'));
@@ -122,6 +135,14 @@ test('real fixed and adaptive stored profile timelines are distinguishable',()=>
   assert(bt.length>10&&nonuniform(bt));assert(ct.length>10&&nonuniform(ct));
   assert.notDeepStrictEqual(bt,ct,'Independent adaptive cases unexpectedly share the exact same stored time grid.');
 });
+test('real fixed-vs-fixed cases align on physical time',()=>{
+  const at=profileTimes(b3.root),bt=profileTimes(c3.root);
+  assert(at.length>20&&bt.length>20,'Fixed fixtures do not expose enough stored profile times.');
+  assert(!nonuniform(at)&&!nonuniform(bt),'A fixed fixture unexpectedly has a nonuniform stored profile timeline.');
+  const aligned=ta.taAlignSeries([{t:at,y:at},{t:bt,y:bt}],{mode:'common',method:'linear',maxPoints:500});
+  assert(aligned.valid&&aligned.range.valid&&aligned.range.end>aligned.range.start);
+  assert(aligned.series.every(x=>x.meta.every(m=>m.ok)),'Fixed-vs-fixed alignment attempted extrapolation.');
+});
 test('real fixed-vs-adaptive physical-time alignment has common overlap',()=>{
   const ft=profileTimes(b3.root),bt=profileTimes(b6.root);
   const aligned=ta.taAlignSeries([{t:ft,y:ft},{t:bt,y:bt}],{mode:'common',method:'linear',maxPoints:500});
@@ -140,6 +161,23 @@ test('real adaptive-vs-adaptive physical-time alignment uses one global requeste
 test('real adaptive control metadata exists',()=>{
   const txt=read(b6.root,'system/controlDict');assert(/adjustTimeStep\s+yes\s*;/.test(txt));assert(/maxCo\s+[-+\deE.]+\s*;/.test(txt));
 });
+test('real raw OpenFOAM run log yields numerical-performance records',()=>{
+  const parsed=b3RunLog();
+  assert(parsed.steps.length>100,'Real run log yielded too few physical-time steps.');
+  assert(parsed.equations.length>1000,'Real run log yielded too few linear-solver records.');
+  assert(parsed.continuity.length>100,'Real run log yielded too few continuity records.');
+  assert(parsed.coupling.length>100,'Real run log yielded too few PIMPLE/SIMPLE coupling records.');
+  assert(parsed.equations.some(x=>Number.isFinite(x.initialResidual)&&Number.isFinite(x.finalResidual)),'Real residual values were not parsed.');
+  assert(parsed.steps.some(x=>Number.isFinite(x.courantMax)&&x.courantMax>=0),'Real Courant values were not parsed.');
+  assert(parsed.steps.some(x=>Number.isFinite(x.executionTime)&&Number.isFinite(x.clockTime)),'Real execution/clock time values were not parsed.');
+});
+test('real residuals remain distinct from nonlinear coupling iterations',()=>{
+  const parsed=b3RunLog();
+  assert(parsed.equations.some(x=>Number.isFinite(x.iterations)),'Linear iteration counts are missing.');
+  assert(parsed.coupling.some(x=>/PIMPLE|SIMPLE|PISO/.test(String(x.algorithm))&&Number.isFinite(x.outerIteration)),'Outer-coupling iterations are missing.');
+  assert(parsed.equations.every(x=>Object.prototype.hasOwnProperty.call(x,'initialResidual')&&Object.prototype.hasOwnProperty.call(x,'finalResidual')));
+});
+
 test('real foamLog deltaT output accepts time tokens with s suffix',()=>{
   const p=path.join(b6.root,'logs','deltaT_0');assert(fs.existsSync(p));
   const rows=fs.readFileSync(p,'utf8').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -157,7 +195,7 @@ test('absent optional dictionary is harmless',()=>{
   assert(!fs.existsSync(path.join(b3.root,'system','fvOptions')));assert(b3.model.dictionaries.length>0);
 });
 test('large real fixture is indexed without reading all field payloads',()=>{
-  const total=b3.files.length+b6.files.length+c6.files.length;assert(total>1000,'Fixture unexpectedly small: '+total);
+  const total=b3.files.length+c3.files.length+b6.files.length+c6.files.length;assert(total>1000,'Fixture unexpectedly small: '+total);
 });
 test('product discovery core remains fixture-agnostic',()=>{
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt'])assert(!core.includes(banned),'Fixture leaked into product core: '+banned);
