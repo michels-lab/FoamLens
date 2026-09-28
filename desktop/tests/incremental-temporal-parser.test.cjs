@@ -69,20 +69,31 @@ test('Desktop large-file threshold and chunks are bounded',()=>{
   assert(api.FL_TEMPORAL_CHUNK_SIZE<=4*1024*1024);
 });
 
-test('large native path uses slice while small/web path keeps text',()=>{
+test('large Desktop path prefers cancellable native streaming with JS chunk fallback',()=>{
   const start=index.indexOf('async function flReadTemporalColumns(file){');
   const end=index.indexOf('async function parseFile(file){',start);
   const body=index.slice(start,end);
   assert(body.includes("FOAMLENS_NATIVE&&file?._nativeToken"));
+  assert(body.includes("foamLensNativeOperation('parseTemporalFile'"));
+  assert(body.includes('foamLensActiveTemporalRequests.add(op.requestId)'));
   assert(body.includes('await file.slice(offset,end).text()'));
   assert(body.includes('const text=await file.text()'));
+  assert(body.includes('nativeStreaming:true'));
+});
+
+test('native temporal streaming reports byte progress and can be cancelled',()=>{
+  assert(index.includes("m.type==='operationProgress'||m.type==='operationStart'||m.type==='operationComplete'||m.type==='operationCancelled'"));
+  assert(index.includes('function cancelActiveTemporalReads()'));
+  assert(index.includes("foamLensNativeRequest('cancelOperation',{targetRequestId:requestId})"));
+  assert(index.includes("updateAppActivity(diagEs()?'Leyendo archivo temporal grande':'Reading large temporal file'"));
+  assert(index.includes("$('scanCancel')?.addEventListener('click',()=>{cancelActiveTemporalReads();"));
 });
 
 test('parseFile records whether loading was incremental',()=>{
   const start=index.indexOf('async function parseFile(file){');
   const end=index.indexOf('function inferProfileField',start);
   const body=index.slice(start,end);
-  assert(body.includes('loadMeta:{incremental:parsed.incremental'));
+  assert(body.includes('loadMeta:{incremental:parsed.incremental,nativeStreaming:parsed.nativeStreaming===true'));
   assert(!body.includes('rows=[]'));
 });
 
