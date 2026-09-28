@@ -71,7 +71,7 @@ function extractFunction(name){
   }
   throw new Error('Unclosed function '+name)
 }
-const parserFactory=new Function(extractFunction('flFieldKindFromClass')+';'+extractFunction('pmFieldComponentCount')+';'+extractFunction('pmParseComponentTuple')+';'+extractFunction('pmParseOpenFOAMFieldText')+';return pmParseOpenFOAMFieldText;');
+const parserFactory=new Function(extractFunction('pmFieldKindFromClass')+';'+extractFunction('pmFieldComponentCount')+';'+extractFunction('pmParseComponentTuple')+';'+extractFunction('pmParseOpenFOAMFieldText')+';return pmParseOpenFOAMFieldText;');
 const parseField=parserFactory();
 function foamField(cls,internal){return `FoamFile
 {

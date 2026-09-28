@@ -3888,6 +3888,15 @@ function pmCapabilitiesFromMapping(mapping,fieldNames=[]){
   const momentum=mechanisms.length>0||mapped('velocity');
   return{fields:present.size,phase,momentum,mechanisms:mechanisms.length,enabled:phase||mechanisms.length>0,scatter:present.size>=2,evolution:present.size>=1}
 }
+function pmFieldKindFromClass(cls){
+  const s=String(cls||'');
+  if(/sphericalTensorField/i.test(s))return'sphericalTensor';
+  if(/symmTensorField/i.test(s))return'symmTensor';
+  if(/tensorField/i.test(s))return'tensor';
+  if(/vectorField/i.test(s))return'vector';
+  if(/scalarField/i.test(s))return'scalar';
+  return'unknown'
+}
 function pmFieldComponentCount(kind){
   if(kind==='scalar'||kind==='sphericalTensor')return 1;
   if(kind==='vector')return 3;if(kind==='symmTensor')return 6;if(kind==='tensor')return 9;return 0
@@ -3903,7 +3912,7 @@ function pmParseOpenFOAMFieldText(text,sourcePath=''){
   const cls=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
   const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
   const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
-  const kind=flFieldKindFromClass(cls),componentCount=pmFieldComponentCount(kind);
+  const kind=pmFieldKindFromClass(cls),componentCount=pmFieldComponentCount(kind);
   if(String(format).toLowerCase()==='binary')return{supported:false,reason:'binary-format',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
   if(!componentCount)return{supported:false,reason:'unsupported-field-class',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
   const u=text.match(/\binternalField\s+uniform\s+([^;]+)\s*;/i);
@@ -3976,7 +3985,7 @@ function pmLargeFieldHeader(text,sourcePath=''){
   const fieldClass=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
   const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
   const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
-  const kind=flFieldKindFromClass(fieldClass),componentCount=pmFieldComponentCount(kind);
+  const kind=pmFieldKindFromClass(fieldClass),componentCount=pmFieldComponentCount(kind);
   const nonuniform=/\binternalField\s+nonuniform\s+(?:List<\s*(?:scalar|vector|tensor|symmTensor|sphericalTensor)\s*>|[^\s]+)\s+(\d+)\s*\(/i.exec(text);
   return{format,fieldClass,object,dimensions,kind,componentCount,declaredCount:nonuniform?Number(nonuniform[1]):NaN,listStart:nonuniform?nonuniform.index+nonuniform[0].length:-1}
 }
