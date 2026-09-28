@@ -21,7 +21,7 @@ test('temperature derivative uses physical time on nonuniform grid',()=>{
 });
 
 test('cooling and heating are separated by sign',()=>{
-  const a=api.thAnalyzeTemperature([0,1,2,4],[100,98,99,95],1e-12);
+  const a=api.thAnalyzeTemperature([0,1,2,4],[100,98,105,95],1e-12);
   assert(a.coolingRate.some(v=>v>0));
   assert(a.heatingRate.some(v=>v>0));
   assert(a.coolingIntegral>0);
