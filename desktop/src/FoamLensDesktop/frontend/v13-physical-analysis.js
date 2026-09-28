@@ -40,9 +40,37 @@ function paDimensionsShiftTime(dim,delta){
   const m=String(dim||'').trim().match(/^\[\s*([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s*\]$/);if(!m)return String(dim||'');
   const a=m.slice(1).map(Number);a[2]+=Number(delta)||0;return'['+a.map(v=>Number.isInteger(v)?String(v):String(v)).join(' ')+']'
 }
+function paDimensionsShiftLength(dim,delta){
+  const m=String(dim||'').trim().match(/^\[\s*([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)\s*\]$/);if(!m)return String(dim||'');
+  const a=m.slice(1).map(Number);a[1]+=Number(delta)||0;return'['+a.map(v=>Number.isInteger(v)?String(v):String(v)).join(' ')+']'
+}
+function paCoordinateScaleToMetres(unit){
+  const u=String(unit||'').trim().toLowerCase().replace('μ','µ');
+  if(u==='m'||u==='metre'||u==='meter')return 1;
+  if(u==='cm')return 1e-2;
+  if(u==='mm')return 1e-3;
+  if(u==='µm'||u==='um')return 1e-6;
+  if(u==='nm')return 1e-9;
+  return NaN
+}
+function paSpatialDerivative(x,y,coordinateScale=1){
+  const p=paFiniteXY(x,y),xx=p.map(q=>q[0]),out=new Array(p.length).fill(NaN),scale=Number(coordinateScale);
+  if(p.length<2||!Number.isFinite(scale)||scale<=0)return{t:xx,y:out};
+  for(let i=0;i<p.length;i++){
+    let a,b;if(i===0){a=p[0];b=p[1]}else if(i===p.length-1){a=p[i-1];b=p[i]}else{a=p[i-1];b=p[i+1]}
+    const ds=(b[0]-a[0])*scale;out[i]=ds!==0?(b[1]-a[1])/ds:NaN
+  }
+  return{t:xx,y:out}
+}
 function paUnitOf(s){return String(s?.field?.unit||s?.unit||'').trim()}
 function paKnownUnit(u){u=String(u||'').trim();return u&&u!=='-'&&u.toLowerCase()!=='unknown'?u:''}
 function paDerivativeUnit(u){const k=paKnownUnit(u);return k?(k==='1'?'1/s':k+'/s'):'1/s'}
+function paSpatialDerivativeUnit(u,coordinateUnit,siConverted=false){
+  const k=paKnownUnit(u),den=siConverted?'m':String(coordinateUnit||'').trim();
+  if(!k)return den?('1/'+den):'';
+  if(!den)return k+'/coordinate';
+  return k==='1'?('1/'+den):(k+'/'+den)
+}
 function paIntegralUnit(u){const k=paKnownUnit(u);return k?(k==='1'?'s':k+'·s'):'s'}
 function paCompatibleKnownUnits(seriesList){
   const known=[...new Set((seriesList||[]).map(paUnitOf).map(paKnownUnit).filter(Boolean))];return{compatible:known.length<=1,unit:known[0]||'',known}
@@ -50,14 +78,22 @@ function paCompatibleKnownUnits(seriesList){
 /* FOAMLENS_PHYSICAL_ANALYSIS_CORE_END */
 
 function paSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='timeseries'&&taFinitePairs(s).length>=2&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
+function paProfileSources(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='profile'&&paFiniteXY(s.t,s.y).length>=2&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return Number.isFinite(Number(s?.profileTime))&&Array.isArray(s?.t)&&Array.isArray(s?.y)&&s.t.length>=2}})}
 function paLabel(s){try{return taSeriesLabel(s)}catch{return String(s?.name||s?.label||'Series')}}
 function paFind(id){const src=paSources();return src.find((s,i)=>String(s.id??i)===String(id))}
 function paOpts(){return paSources().map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${paLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')}
+function paProfileFind(id){const src=paProfileSources();return src.find((s,i)=>String(s.id??i)===String(id))}
+function paProfileOpts(){return paProfileSources().map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${paLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')} · ${String(s.profileLine||'profile').replace(/&/g,'&amp;').replace(/</g,'&lt;')} · t=${paFmt(s.profileTime)} s</option>`).join('')}
 function paFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 function paAddSeries(base,name,t,y,metadata={}){
   const unit=metadata.outputUnit??paUnitOf(base),dimensions=metadata.outputDimensions??base?.field?.dimensions??base?.dimensions??'';
   const d={...base,id:'pa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:t.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens physical analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name,unit,dimensions},unit,dimensions,physicalAnalysis:{...metadata,outputUnit:unit,outputDimensions:dimensions}};
   series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch(e){console.warn('Physical derived series refresh failed',e)}return d
+}
+function paAddProfileSeries(base,name,x,y,metadata={}){
+  const unit=metadata.outputUnit??paUnitOf(base),dimensions=metadata.outputDimensions??base?.field?.dimensions??base?.dimensions??'';
+  const d={...base,id:'pa_profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:x.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens gradient analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name,unit,dimensions},unit,dimensions,physicalAnalysis:{...metadata,outputUnit:unit,outputDimensions:dimensions}};
+  series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();setDataView('profile')}catch(e){console.warn('Spatial gradient series refresh failed',e)}return d
 }
 function paRateConfig(){
   const mode=document.getElementById('paRateMode')?.value||'derivative';
@@ -71,6 +107,16 @@ function paCreateRate(){
   const s=paFind(document.getElementById('paRateSource')?.value);if(!s)return;const cfg=paRateConfig(),d=paDerivative(s.t,s.y,cfg.sign),name=`${cfg.label}: ${paLabel(s)}`;
   paAddSeries(s,name,d.t,d.y,{operation:'physical-time-derivative',formula:cfg.formula,source:paLabel(s),explicitUserRole:true,noMechanismInference:true,outputUnit:paDerivativeUnit(paUnitOf(s)),outputDimensions:paDimensionsShiftTime(s?.field?.dimensions||s?.dimensions||'',-1)});
   document.getElementById('paRateStatus').textContent=`Added ${name}. Derivative uses physical time, including nonuniform timesteps.`
+}
+function paCreateSpatialGradient(){
+  const s=paProfileFind(document.getElementById('paGradientSource')?.value),out=document.getElementById('paGradientStatus');if(!s||!out)return;
+  const coordUnit=String(s.profileCoordUnit||''),scale=paCoordinateScaleToMetres(coordUnit),si=Number.isFinite(scale),usedScale=si?scale:1;
+  const d=paSpatialDerivative(s.t,s.y,usedScale),axis=String(s.profileAxis||'s'),name=`Spatial Gradient dφ/d${axis}: ${paLabel(s)}`;
+  const baseDim=String(s?.field?.dimensions||s?.dimensions||''),baseUnit=paUnitOf(s),outputUnit=paSpatialDerivativeUnit(baseUnit,coordUnit,si);
+  paAddProfileSeries(s,name,d.t,d.y,{operation:'spatial-gradient',formula:`dφ/d${axis}`,source:paLabel(s),coordinateAxis:axis,coordinateUnit:coordUnit||'unknown',coordinateScaleToMetres:si?scale:null,siCoordinateConversion:si,noMechanismInference:true,outputUnit,outputDimensions:paDimensionsShiftLength(baseDim,-1)});
+  out.textContent=si
+    ?`Added ${name}. Coordinate increments were converted from ${coordUnit||'m'} to metres before differentiation.`
+    :`Added ${name}. Coordinate unit is not recognized for SI conversion; derivative is reported per ${coordUnit||'coordinate unit'} without relabeling it as per metre.`
 }
 function paEnergySources(){return ['paEnergyA','paEnergyB','paEnergyC'].map(id=>paFind(document.getElementById(id)?.value)).filter(Boolean)}
 function paRunEnergy(){
@@ -106,6 +152,12 @@ function paBuildUi(){
   <div class="field"><label>Source</label><select id="paRateSource"></select></div>
   <div class="field"><label>Transform</label><select id="paRateMode"><option value="derivative">dφ/dt</option><option value="negative">−dφ/dt</option><option value="cooling">Cooling Rate (−dT/dt)</option><option value="solidificationLiquid">Solidification Rate (−dαL/dt)</option><option value="solidificationSolid">Solidification Rate (dαS/dt)</option></select></div>
   <button class="btn primary" id="paCreateRate" type="button">Create rate series</button><div class="smallnote" id="paRateStatus"></div>
+  <div id="paGradientBlock">
+    <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Spatial Gradient Analysis</b>
+    <div class="smallnote">Differentiate a loaded spatial profile on its physical coordinate. Nonuniform spatial spacing is supported; array index is never used as distance.</div>
+    <div class="field"><label>Profile source</label><select id="paGradientSource"></select></div>
+    <button class="btn primary" id="paCreateGradient" type="button">Create dφ/ds profile</button><div class="smallnote" id="paGradientStatus"></div>
+  </div>
   <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Energy / power balance</b>
   <div class="smallnote">Choose temporal power/flux/integral terms and set their signs explicitly. FoamLens will not label a quantity “total energy” unless your selected terms define it.</div>
   <div class="row2"><div class="field"><label>Term A</label><select id="paEnergyA"></select></div><div class="field"><label>Coefficient</label><input id="paCoeffA" type="number" value="1" step="any"></div></div>
@@ -115,15 +167,16 @@ function paBuildUi(){
   <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Scatter / correlation</b>
   <div class="row2"><div class="field"><label>X</label><select id="paCorrA"></select></div><div class="field"><label>Y</label><select id="paCorrB"></select></div></div>
   <button class="btn primary" id="paRunCorrelation" type="button">Analyze correlation</button><div class="smallnote" id="paCorrStatus"></div><canvas id="paScatter" style="width:100%;height:220px;margin-top:7px"></canvas>`;
-  host.appendChild(box);document.getElementById('paCreateRate').onclick=paCreateRate;document.getElementById('paRunEnergy').onclick=paRunEnergy;document.getElementById('paRunCorrelation').onclick=paRunCorrelation;paRefreshSources()
+  host.appendChild(box);document.getElementById('paCreateRate').onclick=paCreateRate;document.getElementById('paCreateGradient').onclick=paCreateSpatialGradient;document.getElementById('paRunEnergy').onclick=paRunEnergy;document.getElementById('paRunCorrelation').onclick=paRunCorrelation;paRefreshSources()
 }
 function paRefreshSources(){
-  const sources=paSources(),box=document.getElementById('paTools');if(box)box.style.display=sources.length?'':'none';const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
+  const sources=paSources(),profiles=paProfileSources(),box=document.getElementById('paTools');if(box)box.style.display=(sources.length||profiles.length)?'':'none';const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
   const c=document.getElementById('paEnergyC');if(c){const old=c.value;c.innerHTML='<option value="">None</option>'+opts;if([...c.options].some(o=>o.value===old))c.value=old}
-  const b=document.getElementById('paEnergyB'),cy=document.getElementById('paCorrB');if(b&&b.options.length>1&&!b.value)b.selectedIndex=1;if(cy&&cy.options.length>1&&!cy.value)cy.selectedIndex=1
+  const b=document.getElementById('paEnergyB'),cy=document.getElementById('paCorrB');if(b&&b.options.length>1&&!b.value)b.selectedIndex=1;if(cy&&cy.options.length>1&&!cy.value)cy.selectedIndex=1;
+  const gs=document.getElementById('paGradientSource'),gb=document.getElementById('paGradientBlock');if(gb)gb.style.display=profiles.length?'':'none';if(gs){const old=gs.value;gs.innerHTML=paProfileOpts();if([...gs.options].some(o=>o.value===old))gs.value=old}
 }
 function paInit(){
   paBuildUi();try{const previous=refreshDatasetControls;refreshDatasetControls=function(...args){const x=previous.apply(this,args);setTimeout(paRefreshSources,0);return x}}catch{}
-  window.FoamLensPhysicalAnalysis={paDerivative,paTrapezoidIntegral,paWeightedSum,paPearson,paSpearman,paCorrelation}
+  window.FoamLensPhysicalAnalysis={paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paDimensionsShiftLength,paTrapezoidIntegral,paWeightedSum,paPearson,paSpearman,paCorrelation}
 }
 paInit();
