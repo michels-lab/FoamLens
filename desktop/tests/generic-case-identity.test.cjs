@@ -13,7 +13,7 @@ test('case names are labels only',()=>{
   const end=index.indexOf('function familyColor',start);
   const body=index.slice(start,end);
   assert(body.includes('return null'));
-  assert(!/match\\s*\\(/.test(body));
+  assert(!body.includes('.match('));
 });
 
 test('case rename does not change dash from name tokens',()=>{
