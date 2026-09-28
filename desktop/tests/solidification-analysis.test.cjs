@@ -61,8 +61,8 @@ test('raw out-of-range phase values are flagged, not clipped',()=>{
 });
 
 test('UI requires explicit liquid or solid fraction interpretation',()=>{
-  assert(js.includes('<option value="liquidFraction" selected>Liquid fraction αL</option>'));
-  assert(js.includes('<option value="solidFraction">Solid fraction αS</option>'));
+  assert(js.includes('value="liquidFraction" selected')); assert(js.includes('data-fl-es="Fracción líquida αL"'));
+  assert(js.includes('value="solidFraction"')); assert(js.includes('data-fl-es="Fracción sólida αS"'));
 });
 
 test('module forbids nucleation/recalescence inference',()=>{

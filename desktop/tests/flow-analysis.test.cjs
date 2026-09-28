@@ -46,8 +46,8 @@ test('zero crossings interpolate physical coordinate',()=>{
 });
 
 test('flow source is chosen explicitly by the user',()=>{
-  assert(js.includes('<label>Flow signal</label><select id="faSource"></select>'));
-  assert(js.includes('<label>Interpret as</label>'));
+  assert(js.includes('id="faSource"')); assert(js.includes('data-fl-en="Flow signal"')); assert(js.includes('data-fl-es="Señal de flujo"'));
+  assert(js.includes('data-fl-en="Interpret as"')); assert(js.includes('data-fl-es="Interpretar como"'));
   assert(js.includes('User-defined flow signal'));
   assert(js.includes('Velocity component'));
   assert(js.includes('Speed / vector magnitude'));
@@ -70,9 +70,10 @@ test('duplicate coordinates are collapsed before statistics',()=>{
 });
 
 test('flow analysis distinguishes temporal and spatial axes',()=>{
-  assert(js.includes("semantic:'physical time'"));
-  assert(js.includes("semantic:'spatial coordinate'"));
-  assert(js.includes("datasetTypeOf(s)==='profile'?'coordinate-weighted':'time-weighted'"));
+  assert(js.includes("flUi('physical time','tiempo físico')"));
+  assert(js.includes("flUi('spatial coordinate','coordenada espacial')"));
+  assert(js.includes("flUi('coordinate-weighted','ponderadas por coordenada')"));
+  assert(js.includes("flUi('time-weighted','ponderadas por tiempo')"));
 });
 
 test('flow analysis exports descriptive provenance without fixture coupling',()=>{

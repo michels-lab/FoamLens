@@ -75,12 +75,12 @@ test('known Spanish copy regressions stay removed',()=>{
     'workspace de análisis de OpenFOAM',
     'revisa findings basados en evidencia',
     "'Watch Run','Watch Run'",
-    "paper:'Paper'",
     "'Leyendo metadata'",
     "'Finalizando workspace'",
     "'Workspace listo'",
     "'Sin findings visibles.'"
   ])assert(!index.includes(banned),'Regression returned: '+banned);
+  assert(index.includes("paper:'Artículo'"),'Spanish Paper label must stay translated.');
 });
 
 console.log('Bilingual/UX regression suite passed: '+passed.length+' checks.');

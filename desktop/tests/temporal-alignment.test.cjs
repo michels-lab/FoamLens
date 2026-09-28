@@ -117,7 +117,7 @@ test('Native is the default visualization alignment', () => {
   const A={t:[0,1],y:[1,2]},B={t:[0,.5,1],y:[1,1.5,2]};
   const r=api.taAlignSeries([A,B]);
   assert(r.valid && r.mode==='native');
-  assert(js.includes('<option value="native" selected>Native</option>'));
+  assert(js.includes('value="native" selected')); assert(js.includes('data-fl-en="Native"')); assert(js.includes('data-fl-es="Nativa"'));
 });
 
 test('UI exposes required temporal alignment modes and derived differences', () => {

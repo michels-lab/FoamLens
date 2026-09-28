@@ -102,8 +102,8 @@ test('numerical metric X axis separates physical time from timestep index',()=>{
   const s={t:[0.1,0.18,0.31],y:[10,20,30]};
   assert.deepStrictEqual(api.npAxisData(s,'physicalTime').x,[0.1,0.18,0.31]);
   assert.deepStrictEqual(api.npAxisData(s,'timestepIndex').x,[0,1,2]);
-  assert(js.includes('<option value="physicalTime" selected>Physical time [s]</option>'));
-  assert(js.includes('<option value="timestepIndex">Timestep index</option>'));
+  assert(js.includes('value="physicalTime" selected')); assert(js.includes('data-fl-es="Tiempo físico [s]"'));
+  assert(js.includes('value="timestepIndex"')); assert(js.includes('data-fl-es="Índice de timestep"'));
 });
 
 test('UI explicitly separates physical results and numerical cost',()=>{
