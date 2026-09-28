@@ -103,6 +103,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/discovery-model.test.cjs
 
+      - name: Test OpenFOAM dimensions and SI-unit interpretation
+        shell: pwsh
+        run: node desktop/tests/dimensions-units.test.cjs
+
       - name: Test temporal alignment and quantitative differences
         shell: pwsh
         run: node desktop/tests/temporal-alignment.test.cjs
