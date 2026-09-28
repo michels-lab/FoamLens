@@ -35,8 +35,8 @@ test('native parser stops at declaredCount or list close',()=>{
 });
 
 test('uniform scalar/vector and binary formats have early paths',()=>{
-  assert(program.includes('OpenFoamFieldParseResult.UniformScalar'));
-  assert(program.includes('OpenFoamFieldParseResult.UniformVector'));
+  assert(program.includes('OpenFoamFieldParseResult.FromUniformScalar'));
+  assert(program.includes('OpenFoamFieldParseResult.FromUniformVector'));
   assert(program.includes('"binary-format"'));
   assert(program.includes('"unsupported-field-class"'));
 });
