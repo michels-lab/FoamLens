@@ -97,5 +97,15 @@ test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
   ]) assert(program.includes(token),'Missing runtime visual smoke token '+token);
 });
 
+test('scientific scanner yields are independent of render frames',()=>{
+  const index=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
+  assert(index.includes('function backgroundWorkYield(delay=0)'));
+  assert(index.includes("globalThis.scheduler?.postTask"));
+  assert(index.includes('function scannerYield(){return backgroundWorkYield(0)}'));
+  assert(index.includes('function scanTick(){return backgroundWorkYield(35)}'));
+  assert(!index.includes('function scannerYield(){return new Promise(resolve=>requestAnimationFrame'));
+  assert(!index.includes('function scanTick(){return new Promise(r=>requestAnimationFrame'));
+});
+
 console.log('Native performance/cancellation regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);

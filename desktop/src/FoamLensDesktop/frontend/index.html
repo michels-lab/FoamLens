@@ -4629,7 +4629,13 @@ function startOperationClock(){
 function stopOperationClock(){
   if(foamLensOperationTimer){clearInterval(foamLensOperationTimer);foamLensOperationTimer=null}
 }
-function scannerYield(){return new Promise(resolve=>requestAnimationFrame(()=>resolve()))}
+function backgroundWorkYield(delay=0){
+  const ms=Math.max(0,Number(delay)||0);
+  if(ms>0)return new Promise(resolve=>setTimeout(resolve,ms));
+  if(globalThis.scheduler?.postTask)return scheduler.postTask(()=>{}, {priority:'user-visible'});
+  return new Promise(resolve=>setTimeout(resolve,0))
+}
+function scannerYield(){return backgroundWorkYield(0)}
 function scanPathLabel(file){const p=(file?.webkitRelativePath||file?.name||'').replace(/\\/g,'/');return p.length>86?'…'+p.slice(-85):p}
 function scanSetLive(percent,task,detail='',processed=null,total=null){
   const p=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
@@ -4909,7 +4915,7 @@ async function importSelectedRaw(){
 
 function setOverlayOpen(id,on){const el=$(id);if(!el)return;el.classList.toggle('open',!!on);el.setAttribute('aria-hidden',on?'false':'true')}
 function scanStepState(name,state,meta=''){const el=document.querySelector(`#scanSteps [data-step="${name}"]`);if(!el)return;el.classList.remove('active','done');if(state)el.classList.add(state);const id='scanStep'+name[0].toUpperCase()+name.slice(1)+'Meta';if($(id)&&meta)$(id).textContent=meta}
-function scanProgress(v){$('scanProgressBar').style.width=`${Math.max(0,Math.min(100,v))}%`}function scanTick(){return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,35)))}
+function scanProgress(v){$('scanProgressBar').style.width=`${Math.max(0,Math.min(100,v))}%`}function scanTick(){return backgroundWorkYield(35)}
 async function scanCandidateConfigurations(candidates){let configs=0;for(const c of candidates)if(c.metadataFiles?.controlDict||c.metadataFiles?.fvSolution){try{await parseCaseConfigFiles(c.metadataFiles);configs++}catch{}}return configs}
 async function runProjectScan(files){
   if($('scanOverlay'))$('scanOverlay').classList.remove('folderReadMode');restoreScanStepLabels();

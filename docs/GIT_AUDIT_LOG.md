@@ -29,6 +29,7 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - **2026-09-28** — master-spec audit/regression hardening added physical-time playback cache/prefetch, solver corrector + termination parsing, and stronger Windows visual smoke tests.
 - **2026-09-28** — `v1.3.0-rc.1` prerelease was published from the development branch with portable EXE, SHA-256, and installer assets.
 - **2026-09-28** — prerelease testing exposed UI defects: hidden sidebar lacked an obvious restore affordance and the Cases popover could be covered by navigation. Commit `3ddc9b6` fixed both; Actions run #189 passed.
+- **2026-09-28** — prerelease testing exposed a background-execution defect: scanner yields depended on `requestAnimationFrame`, so scientific work could stall when the WebView stopped producing render frames. The pipeline was changed to a render-independent task scheduler and guarded by regression tests; CI result to be recorded after validation.
 - **Pending prerelease findings not yet committed at the time this log was created:** Review/Case Auditor can show inconsistent case-health/root context; Windows shortcut/taskbar icon is generic because the native desktop project currently lacks an application `.ico`. These are open work items, not completed fixes.
 
 ## Releases
@@ -461,6 +462,7 @@ Every workflow run currently returned by the repository Actions history, oldest 
 
 - **Review / Case Auditor context consistency:** screenshots from prerelease testing show a case selector and displayed health/root metadata becoming inconsistent across cases. Investigation started, but no corrective commit is recorded yet.
 - **Native Windows icon:** prerelease testing shows the FoamLens logo is not used by the desktop shortcut/taskbar. Inspection found no native `.ico` asset and no `ApplicationIcon` entry in the WinForms project. Investigation completed; fix still pending in Git at the time of this log snapshot.
+- **Background execution:** prerelease testing showed long import/analysis work could appear to stop when FoamLens was minimized or covered. Root cause: scanner/cooperative-yield code waited on `requestAnimationFrame()`, which depends on render frames. Fix prepared: computational yields use `scheduler.postTask` when available with timer fallback; rendering-only rAF usage remains untouched. CI validation pending at this log update.
 
 ## How to update this log
 
