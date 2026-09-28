@@ -494,3 +494,10 @@ Every workflow run currently returned by the repository Actions history, oldest 
 ## How to update this log
 
 When a new change is made, record the actual commit SHA and CI result after the operation completes. When a prerelease bug is found, add it as an open QA item first; move it into the milestone/commit history only after the fix is committed and validated. Releases should record the exact tag, target and generated binary assets.
+
+
+## 2026-09-28 — v1.3.1 release preparation
+
+- Desktop semantic version bumped from `1.3.0` to `1.3.1` before merging PR #1.
+- Reason: the `main` workflow publishes the GitHub Release from the desktop project version; keeping `1.3.0` would overwrite/reuse the existing `v1.3.0` release instead of creating a new patch release.
+- Target release after CI + merge: `v1.3.1`.
