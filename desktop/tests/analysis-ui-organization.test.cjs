@@ -50,5 +50,20 @@ test('General Analysis title is bilingual',()=>{
   assert(index.includes("'Análisis general':'General Analysis'"));
 });
 
+
+test('collapsed settings panel always exposes a restore handle above navigation',()=>{
+  assert(index.includes('.sidebarToggle{position:absolute;z-index:360;'));
+  assert(index.includes('.app.sidebarCollapsed .sidebarToggle{position:fixed;left:10px;top:50%;transform:translateY(-50%);z-index:460'));
+  assert(index.includes("collapsed?'›':'‹'"));
+  assert(index.includes("'Mostrar panel de ajustes':'Show settings panel'"));
+});
+
+test('Cases quick panel renders above navigation without viewport overflow',()=>{
+  assert(index.includes('.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:72px;padding:10px 20px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.90);backdrop-filter:blur(12px);position:relative;z-index:300;overflow:visible}'));
+  assert(index.includes('.caseQuickPanel{position:absolute;right:0;top:calc(100% + 8px);z-index:420;'));
+  assert(index.includes('max-height:min(420px,calc(100vh - 110px))'));
+  assert(index.includes('.modeNavBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel2);min-width:0;position:relative;z-index:120}'));
+});
+
 console.log('Analysis UI organization regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
