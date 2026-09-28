@@ -127,6 +127,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/numerical-performance.test.cjs
 
+      - name: Test neutral general case comparison
+        shell: pwsh
+        run: node desktop/tests/general-case-comparison.test.cjs
+
       - name: Test general derived physical analysis
         shell: pwsh
         run: node desktop/tests/physical-analysis.test.cjs
