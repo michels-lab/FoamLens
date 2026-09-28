@@ -90,12 +90,12 @@ function saExport(){
   downloadText('FoamLens_solidification_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'solidification-phase-signal',...p},null,2),'application/json')
 }
 function saRefresh(){
-  const src=saSources(),box=document.getElementById('saTools'),sel=document.getElementById('saSource');if(box)box.style.display=src.length?'':'none';if(!sel)return;
+  const src=saSources(),box=document.getElementById('saTools'),sel=document.getElementById('saSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
   const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${saId(s,i).replace(/"/g,'&quot;')}">${saLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
 }
 function saBuildUi(){
   if(document.getElementById('saTools'))return;
-  const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='saTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='saTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Solidification Analysis</b><span class="badge">phase signal</span></div>
   <div class="smallnote" style="margin-top:5px">Choose the phase-fraction signal explicitly. FoamLens computes progression, solidification and remelting from physical-time derivatives. It does not infer nucleation or recalescence from curve shape.</div>
   <div class="field" style="margin-top:8px"><label>Phase signal</label><select id="saSource"></select></div>
