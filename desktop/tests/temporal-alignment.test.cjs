@@ -96,6 +96,16 @@ test('difference metrics are evaluated only on aligned values', () => {
   assert(near(m.maxAbs,2) && near(m.maxAbsTime,2));
 });
 
+test('signed, absolute and correlation differences are quantitative', () => {
+  const t=[0,1,2,3],A=[2,4,6,8],B=[1,2,3,4];
+  const signed=api.taDifferenceValues(A,B,'signed',1e-12);
+  const absolute=api.taDifferenceValues(A,B,'absolute',1e-12);
+  assert.deepStrictEqual(signed,[1,2,3,4]);
+  assert.deepStrictEqual(absolute,[1,2,3,4]);
+  const m=api.taPairMetrics(t,A,B,1e-12);
+  assert(near(m.correlation,1));
+});
+
 test('relative and percent differences protect near-zero denominator', () => {
   const A=[2,4,6],B=[1,0,3];
   const rel=api.taDifferenceValues(A,B,'relative',1e-9);
