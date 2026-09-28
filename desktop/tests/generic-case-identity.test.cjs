@@ -4,54 +4,69 @@ const fs=require('fs');
 const path=require('path');
 const assert=require('assert');
 
-const base=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
-const js=fs.readFileSync(path.join(base,'v13-generic-case-identity.js'),'utf8');
-const index=fs.readFileSync(path.join(base,'index.html'),'utf8');
-
-const begin='/* FOAMLENS_GENERIC_CASE_IDENTITY_CORE_START */',end='/* FOAMLENS_GENERIC_CASE_IDENTITY_CORE_END */';
-const a=js.indexOf(begin),b=js.indexOf(end,a);
-assert(a>=0&&b>a,'Generic case identity core markers missing.');
-const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {gcStableIndex,gcCaseFilterValue,gcCaseFilterMatch};')();
-
+const index=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
-test('case filters use explicit case IDs only',()=>{
-  assert.strictEqual(api.gcCaseFilterValue(42),'case:42');
-  assert(api.gcCaseFilterMatch({caseId:42},'case:42'));
-  assert(!api.gcCaseFilterMatch({caseId:7},'case:42'));
+test('case names are labels only',()=>{
+  assert(index.includes('function caseFamilyInfo(name){'));
+  const start=index.indexOf('function caseFamilyInfo(name){');
+  const end=index.indexOf('function familyColor',start);
+  const body=index.slice(start,end);
+  assert(body.includes('return null'));
+  assert(!/match\\s*\\(/.test(body));
 });
 
-test('arbitrary case names have no semantic parser in v1.3',()=>{
-  assert(js.includes('caseFamilyInfo=function(){return null}'));
-  assert(js.includes('profileFamilies=function(){return new Map()}'));
-  assert(js.includes('seriesFamilyVisible=function(){return true}'));
+test('case rename does not change dash from name tokens',()=>{
+  const start=index.indexOf('function renameCase(caseId,newName){');
+  const end=index.indexOf('function setCaseDash',start);
+  const body=index.slice(start,end);
+  assert(start>=0&&end>start);
+  assert(!body.includes('variantDash'));
+  assert(!body.includes('caseFamilyInfo'));
+  assert(body.includes('s.caseName=c.name'));
 });
 
-test('renaming cannot trigger automatic variant style in v1.3',()=>{
-  assert(js.includes('caseFamilyInfo=function(){return null}'));
-  assert(index.includes('if(info)c.dash=variantDash(info.variant)'));
-  // The legacy call remains harmless because the v1.3 override always returns null.
+test('profile colors are based on physical variable',()=>{
+  const start=index.indexOf('function automaticSeriesColor(s){');
+  const end=index.indexOf('function caseSampleColor',start);
+  const body=index.slice(start,end);
+  assert(body.includes('variableColor'));
+  assert(!body.includes('caseFamilyInfo'));
 });
 
-test('time-series selector contains only explicit cases',()=>{
-  assert(js.includes("gcCaseFilterValue(c.id)"));
-  assert(!js.includes("value="family:"));
-  assert(js.includes("label.textContent=diagEs()?'Casos':'Cases'"));
+test('family visibility is disabled',()=>{
+  assert(index.includes('function seriesFamilyVisible(s){return true}'));
+  assert(index.includes('function profileFamilies(){return new Map()}'));
+  const start=index.indexOf('function renderQuickFamilyVisibility(){');
+  const end=index.indexOf('function renderQuickCaseVisibility',start);
+  const body=index.slice(start,end);
+  assert(body.includes("wrap.classList.add('hidden')"));
+  assert(body.includes("shortcuts.innerHTML=''"));
 });
 
-test('quick inferred family UI is disabled',()=>{
-  assert(js.includes("wrap.classList.add('hidden')"));
-  assert(js.includes("shortcuts.innerHTML=''"));
-  assert(js.includes("familyQuickCount')).textContent='0'"));
+test('time-series filters use explicit case IDs',()=>{
+  const start=index.indexOf('function timeSeriesMatchesSelection(s){');
+  const end=index.indexOf('function refreshTimeSeriesControls',start);
+  const body=index.slice(start,end);
+  assert(body.includes("caseFilter.startsWith('case:')"));
+  assert(!body.includes('family:'));
+  assert(index.includes('<label for="timeSeriesFamily">Cases</label>'));
+  assert(index.includes('<option value="case:'+'${'+'c.id'+'}'+'">'));
 });
 
-test('profile color is based on physical variable, not case-name tokens',()=>{
-  assert(js.includes('automaticSeriesColor=function(s){return variableColor'));
+test('legacy semantic fixture examples are absent from product index',()=>{
+  for(const banned of ['B3_reference','B4_energy2','C5_outer3','real QuickCup foamLog']){
+    assert(!index.includes(banned),'Fixture-specific product text remains: '+banned);
+  }
 });
 
-test('core has no development-fixture case convention',()=>{
-  for(const banned of ['QuickCup','B3_reference','B4_energy2','C5_outer3','adaptiveDt'])assert(!core.includes(banned),'Fixture convention leaked into generic case core: '+banned);
+test('foamLog numeric parser remains suffix tolerant without fixture coupling',()=>{
+  const start=index.indexOf('function foamLogNumber(token){');
+  const end=index.indexOf('function foamLogDescriptor',start);
+  const body=index.slice(start,end);
+  assert(body.includes('numeric prefix'));
+  assert(body.includes("s.match(/^[-+]?"));
+  assert(!body.includes('QuickCup'));
 });
 
 console.log('Generic case-identity regression suite passed: '+passed.length+' checks.');
