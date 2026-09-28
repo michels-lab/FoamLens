@@ -4140,8 +4140,8 @@ function flDerivedProvenance(s){
     return['Temporal alignment',a.mode,a.method,a.sourceA&&('A: '+a.sourceA),a.sourceB&&('B: '+a.sourceB),a.range&&Number.isFinite(Number(a.range.start))?('range '+pmFmt(a.range.start)+'–'+pmFmt(a.range.end)+' s'):''].filter(Boolean).join(' · ')
   }
   if(s?.physicalAnalysis){
-    const a=s.physicalAnalysis;
-    return['Physical analysis',a.operation,a.formula,a.source&&('source: '+a.source)].filter(Boolean).join(' · ')
+    const a=s.physicalAnalysis,termKinds=[...new Set((a.terms||[]).map(x=>x?.provenance?.postProcessing?.kind).filter(Boolean))];
+    return['Physical analysis',a.operation,a.formula,a.source&&('source: '+a.source),termKinds.length&&('sources: '+termKinds.join(', '))].filter(Boolean).join(' · ')
   }
   if(s?.vectorDerivation){
     const a=s.vectorDerivation;
