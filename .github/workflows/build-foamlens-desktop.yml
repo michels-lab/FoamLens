@@ -197,6 +197,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/incremental-temporal-parser.test.cjs
 
+      - name: Test incremental Desktop OpenFOAM field parsing
+        shell: pwsh
+        run: node desktop/tests/incremental-field-parser.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
