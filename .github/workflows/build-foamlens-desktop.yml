@@ -131,6 +131,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/generic-case-identity.test.cjs
 
+      - name: Test development version consistency
+        shell: pwsh
+        run: node desktop/tests/version-consistency.test.cjs
+
       - name: Guard product code from regression-fixture names
         shell: pwsh
         run: |
