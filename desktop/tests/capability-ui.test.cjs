@@ -10,7 +10,7 @@ const files={
 const checks=[
   ['temporal', "box.style.display=src.length>=2?'':'none'"],
   ['numerical', "box.style.display=ids.length?'':'none'"],
-  ['physical', "box.style.display=sources.length?'':'none'"],
+  ['physical', "box.style.display=(sources.length||profiles.length)?'':'none'"],
   ['vector', "box.style.display=groups.length?'':'none'"]
 ];
 for(const [name,token] of checks)assert(files[name].includes(token),name+' module is not capability-gated.');
