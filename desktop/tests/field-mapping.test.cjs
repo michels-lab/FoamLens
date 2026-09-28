@@ -95,6 +95,19 @@ test('region-aware mapping UI is explicit',()=>{
   ]) assert(js.includes(token),'Missing region-aware mapping token '+token);
 });
 
+test('capabilities are evaluated for the selected region',()=>{
+  assert(js.includes('pmCaseCapabilities=function(c)'));
+  assert(js.includes('pmUniqueFieldNames(c,region)'));
+  assert(js.includes('pmCapabilitiesFromMapping(m,names)'));
+  assert(js.includes('regional metadata'));
+});
+
+test('regional mapping keys remain workspace-persistable',()=>{
+  const index=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
+  assert(index.includes('mappings:[...pmFieldMappings.entries()]'));
+  assert(index.includes('for(const [k,v] of x.mappings||[])pmFieldMappings.set(k,v||{})'));
+});
+
 test('extension mutates the existing generic mapping UI rather than creating project-specific mapping',()=>{
   assert(js.includes('PM_ROLE_DEFS.splice'));
   assert(js.includes('pmMappingForCase=function(c,regionOverride)'));
