@@ -73,6 +73,8 @@ function fmRegionsForCase(c){
 }
 function fmMappingBaseKey(c){return c?.rootPath||c?.name||String(c?.id||'')}
 function fmSelectedAnalysisRegion(c){
+  const active=document.activeElement;
+  if(active&&(active.id==='pmUserRoleName'||active.closest?.('#pmMappingRows')))return fmSelectedMappingRegion(c);
   const selectedCase=Number(document.getElementById('pmCase')?.value);
   const r=String(document.getElementById('pmRegion')?.value||'');
   if(r&&(!Number.isFinite(selectedCase)||Number(c?.id)===selectedCase||fmRegionsForCase(c).includes(r)))return r;
