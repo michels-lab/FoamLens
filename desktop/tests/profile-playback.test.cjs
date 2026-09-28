@@ -180,5 +180,17 @@ test('playback timer yields to the UI and compensates rendering time', () => {
   assert(html.includes('profileAnimationTimer=setTimeout(profileAnimationLoop,delay)'));
 });
 
+test('playback caches computed frames and prefetches nearby physical times', () => {
+  assert(html.includes('const profilePlaybackFrameCache=new Map()'));
+  assert(html.includes('const PROFILE_PLAYBACK_CACHE_LIMIT=24'));
+  assert(html.includes('function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext())'));
+  assert(html.includes('profilePlaybackFrameCache.get(key)'));
+  assert(html.includes('profilePlaybackCacheStore(key,frame)'));
+  assert(html.includes('function prefetchProfilePlaybackFrames(values,index,radius=2)'));
+  assert(html.includes('prefetchProfilePlaybackFrames(profilePlaybackFrames,profilePlaybackFrameIndex,2)'));
+  assert(html.includes('prefetchProfilePlaybackFrames(vals,i,3)'));
+  assert(html.includes('clearProfilePlaybackFrameCache()'));
+});
+
 console.log('Spatial Profiles physical-time playback regression suite passed: ' + passed.length + ' checks.');
 for (const name of passed) console.log('  ✓ ' + name);

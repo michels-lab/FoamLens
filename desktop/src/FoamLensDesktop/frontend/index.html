@@ -2337,6 +2337,8 @@ let profilePlaybackFrameIndex=0;
 let profilePlaybackClockTime=NaN;
 let profilePlaybackRenderSeries=[];
 let profilePlaybackStatuses=[];
+const profilePlaybackFrameCache=new Map();
+const PROFILE_PLAYBACK_CACHE_LIMIT=24;
 let logAnimationTimer=null;
 let logAnimationPlaying=false;
 let logAnimationMode=null;
@@ -3315,14 +3317,35 @@ function profilePlaybackBracketSeries(group,tPlay){
   return before&&after?{exact:null,before,after}:null
 }
 function alignedProfileClone(source,tPlay,meta={}){return{...source,profileTime:Number(tPlay),profileTimeLabel:profileTimeDisplay(tPlay),playbackAligned:true,playbackMeta:meta}}
-function buildProfilePlaybackAtTime(tPlay){
-  tPlay=Number(tPlay);profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];if(!profilePlaybackUsesGlobalClock()||!Number.isFinite(tPlay))return;
-  const mode=$('profileAlignment')?.value==='interpolate'?'interpolate':'nearest';
-  for(const group of profilePlaybackGroups()){
+function profilePlaybackCacheContext(){
+  const mode=$('profileAlignment')?.value==='interpolate'?'interpolate':'nearest',groups=profilePlaybackGroups();
+  const signature=[
+    mode,
+    activeContextCaseId==null?'all':String(activeContextCaseId),
+    activeContextRegion||'all',
+    $('profileSet')?.value||'',
+    $('profileVariable')?.value||'',
+    $('profileLine')?.value||'',
+    $('compareHeights')?.checked?'1':'0',
+    groups.map(g=>g.map(s=>profilePlaybackGroupKey(s)+'@'+Number(s.profileTime)).join(',')).join(';')
+  ].join('|');
+  return{mode,groups,signature}
+}
+function profilePlaybackCacheKey(context,tPlay){return context.signature+'|t='+Number(tPlay).toPrecision(15)}
+function profilePlaybackCacheStore(key,frame){
+  if(profilePlaybackFrameCache.has(key))profilePlaybackFrameCache.delete(key);
+  profilePlaybackFrameCache.set(key,frame);
+  while(profilePlaybackFrameCache.size>PROFILE_PLAYBACK_CACHE_LIMIT)profilePlaybackFrameCache.delete(profilePlaybackFrameCache.keys().next().value)
+}
+function clearProfilePlaybackFrameCache(){profilePlaybackFrameCache.clear()}
+function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext()){
+  tPlay=Number(tPlay);const renderSeries=[],statuses=[];if(!Number.isFinite(tPlay))return{renderSeries,statuses};
+  const mode=context.mode;
+  for(const group of context.groups){
     if(!group.length)continue;const exact=profilePlaybackExactSeries(group,tPlay);
     if(exact){
-      profilePlaybackRenderSeries.push(alignedProfileClone(exact,tPlay,{mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay}));
-      profilePlaybackStatuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
+      renderSeries.push(alignedProfileClone(exact,tPlay,{mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay}));
+      statuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
     }
     if(mode==='interpolate'){
       const bracket=profilePlaybackBracketSeries(group,tPlay);
@@ -3330,14 +3353,30 @@ function buildProfilePlaybackAtTime(tPlay){
         const interp=playbackTemporalInterpolateProfiles(bracket.before,bracket.after,tPlay);
         if(interp.ok){
           const near=Math.abs(Number(bracket.before.profileTime)-tPlay)<=Math.abs(Number(bracket.after.profileTime)-tPlay)?bracket.before:bracket.after;
-          profilePlaybackRenderSeries.push({...alignedProfileClone(near,tPlay,{mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap}),t:interp.x,y:interp.y,fileName:`interpolated @ ${profileTimeDisplay(tPlay)} s`});
-          profilePlaybackStatuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
+          renderSeries.push({...alignedProfileClone(near,tPlay,{mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap}),t:interp.x,y:interp.y,fileName:`interpolated @ ${profileTimeDisplay(tPlay)} s`});
+          statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
         }
       }
     }
     const near=profilePlaybackNearestSeries(group,tPlay);if(!near)continue;const used=Number(near.profileTime),fallback=mode==='interpolate';
-    profilePlaybackRenderSeries.push(alignedProfileClone(near,tPlay,{mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback}));
-    profilePlaybackStatuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
+    renderSeries.push(alignedProfileClone(near,tPlay,{mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback}));
+    statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
+  }
+  return{renderSeries,statuses}
+}
+function buildProfilePlaybackAtTime(tPlay){
+  tPlay=Number(tPlay);profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];if(!profilePlaybackUsesGlobalClock()||!Number.isFinite(tPlay))return;
+  const context=profilePlaybackCacheContext(),key=profilePlaybackCacheKey(context,tPlay);
+  let frame=profilePlaybackFrameCache.get(key);
+  if(!frame){frame=computeProfilePlaybackFrame(tPlay,context);profilePlaybackCacheStore(key,frame)}
+  profilePlaybackRenderSeries=frame.renderSeries.slice();profilePlaybackStatuses=frame.statuses.slice()
+}
+function prefetchProfilePlaybackFrames(values,index,radius=2){
+  if(!profilePlaybackUsesGlobalClock()||!Array.isArray(values)||!values.length)return;
+  const context=profilePlaybackCacheContext(),limit=Math.min(values.length-1,index+Math.max(0,Math.round(radius)));
+  for(let i=index+1;i<=limit;i++){
+    const t=Number(values[i]);if(!Number.isFinite(t))continue;const key=profilePlaybackCacheKey(context,t);
+    if(!profilePlaybackFrameCache.has(key))profilePlaybackCacheStore(key,computeProfilePlaybackFrame(t,context))
   }
 }
 function profilePlaybackStatusText(st){
@@ -3390,7 +3429,7 @@ function stepProfileTime(delta,playback=false){
 }
 function jumpProfileBoundary(which){const vals=profileAvailableTimes();if(!vals.length)return;const i=which==='end'?vals.length-1:0;profilePlaybackFrameIndex=i;applyProfileTimeValue(vals[i])}
 function resetProfilePlaybackState(){
-  if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;profilePlaybackFrames=[];profilePlaybackFrameIndex=0;profilePlaybackClockTime=NaN;profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];
+  if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;profilePlaybackFrames=[];profilePlaybackFrameIndex=0;profilePlaybackClockTime=NaN;profilePlaybackRenderSeries=[];profilePlaybackStatuses=[];clearProfilePlaybackFrameCache();
   if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true
 }
 function computeProfileLockedRanges(){
@@ -3404,7 +3443,7 @@ function playbackIntervalMs(){const speed=Math.max(.25,Number($('playbackSpeed')
 function stopProfileAnimation(){if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true}
 function profileAnimationLoop(){
   if(!profileAnimationPlaying)return;if(profilePlaybackFrameIndex>=profilePlaybackFrames.length-1){stopProfileAnimation();return}
-  const started=performance.now(),next=playbackStepIndex(profilePlaybackFrameIndex,1,profilePlaybackFrames.length);profilePlaybackFrameIndex=next;applyProfilePlaybackFrame(profilePlaybackFrames[next],profilePlaybackFrames,next);
+  const started=performance.now(),next=playbackStepIndex(profilePlaybackFrameIndex,1,profilePlaybackFrames.length);profilePlaybackFrameIndex=next;applyProfilePlaybackFrame(profilePlaybackFrames[next],profilePlaybackFrames,next);prefetchProfilePlaybackFrames(profilePlaybackFrames,profilePlaybackFrameIndex,2);
   if(profilePlaybackFrameIndex>=profilePlaybackFrames.length-1){stopProfileAnimation();return}const spent=performance.now()-started,delay=Math.max(16,playbackIntervalMs()-spent);profileAnimationTimer=setTimeout(profileAnimationLoop,delay)
 }
 function startProfileAnimationTimer(){if(profileAnimationTimer)clearTimeout(profileAnimationTimer);profileAnimationTimer=setTimeout(profileAnimationLoop,Math.min(120,playbackIntervalMs()))}
@@ -3412,7 +3451,7 @@ function startProfileAnimation(){
   if(profileAnimationPlaying)return;const vals=profileAvailableTimes();if(vals.length<2){$('status').textContent=diagEs()?'No hay un intervalo temporal reproducible para perfiles espaciales.':'No playable physical-time interval is available for Spatial Profiles.';profilePlaybackScopeInfo(vals);return}
   stopLogAnimation();profilePlaybackFrames=vals.slice();const current=profilePlaybackUsesGlobalClock()&&Number.isFinite(profilePlaybackClockTime)?profilePlaybackClockTime:Number($('profileTime')?.value);
   let i=vals.findIndex(v=>playbackAlmostEqual(v,current));if(i<0){i=0;let d=Math.abs(vals[0]-current);for(let j=1;j<vals.length;j++){const nd=Math.abs(vals[j]-current);if(nd<d){d=nd;i=j}}}
-  if(i>=vals.length-1)i=0;profilePlaybackFrameIndex=i;applyProfilePlaybackFrame(vals[i],vals,i);activeId=null;pinnedPoints=[];if($('profileLockAxes').checked)computeProfileLockedRanges();
+  if(i>=vals.length-1)i=0;profilePlaybackFrameIndex=i;applyProfilePlaybackFrame(vals[i],vals,i);prefetchProfilePlaybackFrames(vals,i,3);activeId=null;pinnedPoints=[];if($('profileLockAxes').checked)computeProfileLockedRanges();
   profileAnimationPlaying=true;$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=false;
   $('status').textContent=profilePlaybackUsesGlobalClock()?(diagEs()?`Reproduciendo reloj físico común: ${vals.length} frames.`:`Playing synchronized physical-time clock: ${vals.length} frames.`):(diagEs()?`Reproduciendo ${vals.length} tiempos nativos.`:`Playing ${vals.length} native profile times.`);startProfileAnimationTimer()
 }
