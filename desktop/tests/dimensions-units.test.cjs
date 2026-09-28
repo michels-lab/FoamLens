@@ -10,7 +10,7 @@ const start=index.indexOf('function pmParseDimensions(dim){');
 const end=index.indexOf('function pmFieldDimensionInfo',start);
 assert(start>=0&&end>start,'Dimension/unit core was not found.');
 const core=index.slice(start,end);
-const api=new Function(core+'\nreturn {pmParseDimensions,pmDimensionsString,pmDerivativeDimensions,pmUnitFromDimensions};')();
+const api=new Function('pmFmt',core+'\nreturn {pmParseDimensions,pmDimensionsString,pmDerivativeDimensions,pmUnitFromDimensions};')((v)=>String(Number(v)));
 
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
