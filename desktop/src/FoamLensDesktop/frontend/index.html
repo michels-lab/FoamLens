@@ -2645,47 +2645,79 @@ function parseParen(s){
   return(s.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)||[]).map(Number)
 }
 
+/* FOAMLENS_INCREMENTAL_TEMPORAL_CORE_START */
+const FL_TEMPORAL_NATIVE_THRESHOLD=4*1024*1024;
+const FL_TEMPORAL_CHUNK_SIZE=1024*1024;
+const FL_TEMPORAL_CLASSIFY_HEAD=128*1024;
+
+function flTemporalParseState(){
+  return{columns:[],probes:{},carry:'',head:'',lineCount:0,dataCount:0}
+}
+function flParseTemporalLine(raw,state){
+  const line=String(raw||'').trim();if(!line)return;
+  state.lineCount++;
+  if(line.startsWith('#')){
+    const m=line.match(/^#\s*Probe\s+(\d+)\s*(.*)$/i);
+    if(m)state.probes[Number(m[1])]=m[2].trim();
+    return
+  }
+  const tok=tokenize(line);if(tok.length<2)return;
+  const time=Number(tok[0]);if(!Number.isFinite(time))return;
+  for(let j=0;j<tok.length-1;j++){
+    const q=tok[j+1];let value;
+    if(q.startsWith('(')){
+      const v=parseParen(q);value=v.length?Math.sqrt(v.reduce((a,b)=>a+b*b,0)):NaN
+    }else value=Number(q);
+    if(!Number.isFinite(value))continue;
+    if(!state.columns[j])state.columns[j]={t:[],y:[]};
+    state.columns[j].t.push(time);state.columns[j].y.push(value)
+  }
+  state.dataCount++
+}
+function flConsumeTemporalChunk(state,text,isFinal=false){
+  const merged=state.carry+String(text||''),parts=merged.split(/\r?\n/);
+  state.carry=isFinal?'':(parts.pop()||'');
+  for(const line of parts)flParseTemporalLine(line,state);
+  if(isFinal&&parts.length===0&&merged)flParseTemporalLine(merged,state);
+  else if(isFinal&&state.carry)flParseTemporalLine(state.carry,state)
+}
+function flCaptureTemporalHead(state,text){
+  if(state.head.length>=FL_TEMPORAL_CLASSIFY_HEAD)return;
+  state.head+=(String(text||'').slice(0,FL_TEMPORAL_CLASSIFY_HEAD-state.head.length))
+}
+/* FOAMLENS_INCREMENTAL_TEMPORAL_CORE_END */
+
+async function flReadTemporalColumns(file){
+  const state=flTemporalParseState(),nativeLarge=!!(FOAMLENS_NATIVE&&file?._nativeToken&&Number(file?.size)>FL_TEMPORAL_NATIVE_THRESHOLD&&typeof file?.slice==='function');
+  if(!nativeLarge){
+    const text=await file.text();flCaptureTemporalHead(state,text);
+    const parts=String(text||'').split(/\r?\n/);for(const line of parts)flParseTemporalLine(line,state);
+    return{state,incremental:false}
+  }
+  let offset=0;
+  while(offset<file.size){
+    const end=Math.min(file.size,offset+FL_TEMPORAL_CHUNK_SIZE),text=await file.slice(offset,end).text();
+    flCaptureTemporalHead(state,text);flConsumeTemporalChunk(state,text,false);offset=end
+  }
+  if(state.carry)flParseTemporalLine(state.carry,state);state.carry='';
+  return{state,incremental:true}
+}
+
 async function parseFile(file){
-  const text=await file.text(),comments=[],rows=[],sourcePath=(file.webkitRelativePath||file.name),isPostProcessing=/(^|\/)postProcessing(\/|$)/i.test(String(sourcePath||'')),postProcessing=isPostProcessing?flClassifyPostProcessingSample(text,file.name):null;
-  for(const raw of text.split(/\r?\n/)){
-    const line=raw.trim();
-    if(!line)continue;
-    if(line.startsWith('#')){comments.push(line);continue}
-    const tok=tokenize(line);
-    if(tok.length<2)continue;
-    const time=Number(tok[0]);
-    if(!Number.isFinite(time))continue;
-    const values=[];
-    for(const q of tok.slice(1)){
-      if(q.startsWith('(')){
-        const v=parseParen(q);
-        values.push(v.length?Math.sqrt(v.reduce((a,b)=>a+b*b,0)):NaN);
-      }else values.push(Number(q));
-    }
-    if(values.length)rows.push([time,values]);
-  }
-  if(!rows.length)throw Error('No probe time-series detected');
-
-  const width=Math.max(...rows.map(r=>r[1].length)),probes={};
-  for(const c of comments){
-    const m=c.match(/^#\s*Probe\s+(\d+)\s*(.*)$/i);
-    if(m)probes[Number(m[1])]=m[2].trim();
-  }
-
+  const sourcePath=(file.webkitRelativePath||file.name),isPostProcessing=/(^|\/)postProcessing(\/|$)/i.test(String(sourcePath||'')),parsed=await flReadTemporalColumns(file),state=parsed.state;
+  if(!state.dataCount||!state.columns.some(c=>c?.t?.length))throw Error('No probe time-series detected');
+  const postProcessing=isPostProcessing?flClassifyPostProcessingSample(state.head,file.name):null;
   const field=inferField(file.name),caseName=inferCase(file),out=[];
-  for(let j=0;j<width;j++){
-    const t=[],y=[];
-    for(const [tt,v] of rows){
-      if(Number.isFinite(v[j])){t.push(tt);y.push(v[j])}
-    }
-    if(!t.length)continue;
+  for(let j=0;j<state.columns.length;j++){
+    const col=state.columns[j];if(!col?.t?.length)continue;
     out.push({
-      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:probes[j]||'',
+      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:state.probes[j]||'',
       postProcessing:postProcessing?{kind:postProcessing.kind||'',reduction:postProcessing.reduction||'',selection:{...(postProcessing.selection||{})},columns:[...(postProcessing.columns||[])]}:null,
-      t,y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:''
-    });
+      t:col.t,y:col.y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:'',
+      loadMeta:{incremental:parsed.incremental,sourceBytes:Number(file?.size)||0}
+    })
   }
-  return out;
+  return out
 }
 
 function inferProfileField(name){
