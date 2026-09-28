@@ -30,7 +30,8 @@ function rxProvenance(s){
     vectorDerivation:rxSafeObject(s?.vectorDerivation),
     playbackMeta:rxSafeObject(s?.playbackMeta),
     differenceKey:s?.differenceKey||'',
-    numericalRunSummary:rxSafeObject(s?.numericalRunSummary)
+    numericalRunSummary:rxSafeObject(s?.numericalRunSummary),
+    postProcessing:rxSafeObject(s?.postProcessing)
   }
 }
 /* FOAMLENS_REPRODUCIBLE_EXPORT_CORE_END */
