@@ -145,7 +145,7 @@ function paDrawScatter(points,A,B){
   ctx.fillText(String(A?.name||A?.field?.canonical||'A').slice(0,28),L,T+ph+17);ctx.save();ctx.translate(11,T+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(String(B?.name||B?.field?.canonical||'B').slice(0,28),0,0);ctx.restore()
 }
 function paBuildUi(){
-  if(document.getElementById('paTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='paTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('paTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='paTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>General Physical Analysis</b><span class="badge">derived</span></div>
   <div class="smallnote" style="margin-top:5px">Derived quantities are explicit transforms of selected data. FoamLens does not infer nucleation, recalescence, dominance, or causality from these operations.</div>
   <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b>Physical-time rate</b>
@@ -170,7 +170,7 @@ function paBuildUi(){
   host.appendChild(box);document.getElementById('paCreateRate').onclick=paCreateRate;document.getElementById('paCreateGradient').onclick=paCreateSpatialGradient;document.getElementById('paRunEnergy').onclick=paRunEnergy;document.getElementById('paRunCorrelation').onclick=paRunCorrelation;paRefreshSources()
 }
 function paRefreshSources(){
-  const sources=paSources(),profiles=paProfileSources(),box=document.getElementById('paTools');if(box)box.style.display=(sources.length||profiles.length)?'':'none';const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
+  const sources=paSources(),profiles=paProfileSources(),box=document.getElementById('paTools');if(box)box.style.display=(sources.length||profiles.length)?'':'none';try{refreshGeneralAnalysisHost()}catch{}const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
   const c=document.getElementById('paEnergyC');if(c){const old=c.value;c.innerHTML='<option value="">None</option>'+opts;if([...c.options].some(o=>o.value===old))c.value=old}
   const b=document.getElementById('paEnergyB'),cy=document.getElementById('paCorrB');if(b&&b.options.length>1&&!b.value)b.selectedIndex=1;if(cy&&cy.options.length>1&&!cy.value)cy.selectedIndex=1;
   const gs=document.getElementById('paGradientSource'),gb=document.getElementById('paGradientBlock');if(gb)gb.style.display=profiles.length?'':'none';if(gs){const old=gs.value;gs.innerHTML=paProfileOpts();if([...gs.options].some(o=>o.value===old))gs.value=old}
