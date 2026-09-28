@@ -550,9 +550,9 @@ internal sealed class FoamLensForm : Form
                 {
                     var valueText = uniform.Groups[1].Value.Trim();
                     if (kind == "scalar" && double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var scalar))
-                        return OpenFoamFieldParseResult.UniformScalar(format, fieldClass, objectName, dimensions, scalar, totalBytes, stream.Position);
+                        return OpenFoamFieldParseResult.FromUniformScalar(format, fieldClass, objectName, dimensions, scalar, totalBytes, stream.Position);
                     if (kind == "vector" && TryParseVectorTuple(valueText, out var vector))
-                        return OpenFoamFieldParseResult.UniformVector(format, fieldClass, objectName, dimensions, vector, totalBytes, stream.Position);
+                        return OpenFoamFieldParseResult.FromUniformVector(format, fieldClass, objectName, dimensions, vector, totalBytes, stream.Position);
                     return OpenFoamFieldParseResult.Unsupported(kind == "vector" ? "invalid-uniform-vector" : "invalid-uniform-value", format, fieldClass, objectName, dimensions, kind, totalBytes, stream.Position);
                 }
 
@@ -874,9 +874,9 @@ internal sealed class FoamLensForm : Form
     {
         public static OpenFoamFieldParseResult Unsupported(string reason, string format, string fieldClass, string objectName, string dimensions, string kind, long sourceBytes, long bytesRead) =>
             new(false, reason, format, fieldClass, objectName, dimensions, kind, false, null, null, null, null, null, null, sourceBytes, bytesRead, false);
-        public static OpenFoamFieldParseResult UniformScalar(string format, string fieldClass, string objectName, string dimensions, double value, long sourceBytes, long bytesRead) =>
+        public static OpenFoamFieldParseResult FromUniformScalar(string format, string fieldClass, string objectName, string dimensions, double value, long sourceBytes, long bytesRead) =>
             new(true, "", format, fieldClass, objectName, dimensions, "scalar", true, value, null, null, null, null, null, sourceBytes, bytesRead, false);
-        public static OpenFoamFieldParseResult UniformVector(string format, string fieldClass, string objectName, string dimensions, double[] value, long sourceBytes, long bytesRead) =>
+        public static OpenFoamFieldParseResult FromUniformVector(string format, string fieldClass, string objectName, string dimensions, double[] value, long sourceBytes, long bytesRead) =>
             new(true, "", format, fieldClass, objectName, dimensions, "vector", true, null, value, null, null, null, null, sourceBytes, bytesRead, false);
     }
     private sealed record LogBatchItem(string Token, int Index);
