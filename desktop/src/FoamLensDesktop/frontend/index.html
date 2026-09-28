@@ -2737,7 +2737,6 @@ async function flReadTemporalColumns(file){
     state.dataCount=state.columns.reduce((n,col)=>Math.max(n,col?.t?.length||0),0);
     return{state,incremental:true,nativeStreaming:true}
   }catch(err){
-    foamLensActiveTemporalRequests.clear();
     if(/cancel/i.test(String(err?.message||err)))throw err;
     console.warn('Native temporal parser failed; falling back to chunked JavaScript parsing.',err)
   }
