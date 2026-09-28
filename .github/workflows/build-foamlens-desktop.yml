@@ -107,6 +107,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/dimensions-units.test.cjs
 
+      - name: Test derived Data Catalog provenance
+        shell: pwsh
+        run: node desktop/tests/derived-catalog.test.cjs
+
       - name: Test temporal alignment and quantitative differences
         shell: pwsh
         run: node desktop/tests/temporal-alignment.test.cjs
