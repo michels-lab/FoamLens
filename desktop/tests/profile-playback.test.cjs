@@ -32,6 +32,14 @@ test('same physical times', () => {
   assert(r.valid && near(r.start, 0) && near(r.end, 3));
   assert(near(api.playbackNearestTime([0,1,2,3], 2), 2));
 });
+test('fixed vs fixed', () => {
+  const a=[0,.5,1,1.5,2,2.5,3];
+  const b=[0,.5,1,1.5,2,2.5,3];
+  const r=api.playbackCommonPhysicalRange([a,b]);
+  assert(r.valid&&near(r.start,0)&&near(r.end,3));
+  const grid=api.playbackUniformTimeline(r.start,r.end,25);
+  assert.strictEqual(grid.length,25);
+});
 
 // 2. Fixed vs adaptive.
 test('fixed vs adaptive', () => {
@@ -133,6 +141,13 @@ test('missing times and restart-like gaps', () => {
   assert(r.valid && near(r.start, 3) && near(r.end, 9.5));
   assert(near(api.playbackNearestTime([3,3.5,7.2,9.5], 5), 3.5));
 });
+test('different write intervals', () => {
+  const frequent=[0,.25,.5,.75,1,1.25,1.5,1.75,2];
+  const sparse=[0,.8,1.6,2.4];
+  const r=api.playbackCommonPhysicalRange([frequent,sparse]);
+  assert(r.valid&&near(r.start,0)&&near(r.end,2));
+  assert(near(api.playbackNearestTime(sparse,1),.8));
+});
 
 // Playback resolution is independent of any case's sample count.
 test('independent animation resolution', () => {
@@ -146,6 +161,35 @@ test('alignment status metadata', () => {
   assert(html.includes("'Used'"));
   assert(html.includes('Δt:'));
   assert(html.includes("'Interpolated from'"));
+});
+
+test('playback reuses hydrated in-memory profiles instead of reading disk per frame', () => {
+  assert(html.includes('const lazyProfileFilesByCase=new Map()'));
+  assert(html.includes('if(lazyProfileHydrationPromise)return lazyProfileHydrationPromise'));
+  assert(html.includes('lazyProfileFilesByCase.delete(part.id)'));
+  const start=html.indexOf('function buildProfilePlaybackAtTime(tPlay)');
+  const end=html.indexOf('function profilePlaybackStatusText',start);
+  assert(start>=0&&end>start,'Playback render function is missing.');
+  const body=html.slice(start,end);
+  assert(!/\.text\s*\(|loadFiles\s*\(|readText|readSlice|_nativeToken/.test(body),'Playback frame rendering must not reread profile files.');
+});
+
+test('playback timer yields to the UI and compensates rendering time', () => {
+  assert(html.includes('const spent=performance.now()-started'));
+  assert(html.includes('Math.max(16,playbackIntervalMs()-spent)'));
+  assert(html.includes('profileAnimationTimer=setTimeout(profileAnimationLoop,delay)'));
+});
+
+test('playback caches computed frames and prefetches nearby physical times', () => {
+  assert(html.includes('const profilePlaybackFrameCache=new Map()'));
+  assert(html.includes('const PROFILE_PLAYBACK_CACHE_LIMIT=24'));
+  assert(html.includes('function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext())'));
+  assert(html.includes('profilePlaybackFrameCache.get(key)'));
+  assert(html.includes('profilePlaybackCacheStore(key,frame)'));
+  assert(html.includes('function prefetchProfilePlaybackFrames(values,index,radius=2)'));
+  assert(html.includes('prefetchProfilePlaybackFrames(profilePlaybackFrames,profilePlaybackFrameIndex,2)'));
+  assert(html.includes('prefetchProfilePlaybackFrames(vals,i,3)'));
+  assert(html.includes('clearProfilePlaybackFrameCache()'));
 });
 
 console.log('Spatial Profiles physical-time playback regression suite passed: ' + passed.length + ' checks.');

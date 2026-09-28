@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - development/v1.3.0-general-discovery
     tags:
       - 'v*'
     paths:
@@ -25,6 +26,34 @@ env:
   HAS_QUICKCUP_FIXTURE: ${{ secrets.QUICKCUP_FIXTURE_TOKEN != '' }}
 
 jobs:
+  quickcup-regression:
+    name: Real OpenFOAM QuickCup regression
+    runs-on: ubuntu-latest
+    env:
+      QUICKCUP_FIXTURE_TOKEN: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+    steps:
+      - name: Fixture token unavailable
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN == '' }}
+        run: echo "QUICKCUP_FIXTURE_TOKEN is not configured; real OpenFOAM fixture regression is skipped."
+
+      - name: Checkout FoamLens
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+
+      - name: Checkout private OpenFOAM regression fixture
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: main
+          token: ${{ env.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-fixture
+          sparse-checkout: cases_controlled_buoyancy
+
+      - name: Test real OpenFOAM fixture integration
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
+
   build:
     runs-on: windows-latest
     steps:
@@ -55,6 +84,7 @@ jobs:
           if (Test-Path $bundle) { Remove-Item $bundle -Force }
           New-Item -ItemType Directory -Force bundle_tmp | Out-Null
           Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v13-*.js bundle_tmp/
           Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
           Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
 
@@ -75,6 +105,9 @@ jobs:
           const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
           if(!scripts.length)throw new Error('No inline scripts found in FoamLens frontend.');
           scripts.forEach((m,i)=>{try{new Function(m[1])}catch(e){throw new Error('Inline script '+i+' failed syntax validation: '+e.message)}});
+          const extDir='desktop/src/FoamLensDesktop/frontend';
+          const extensions=fs.readdirSync(extDir).filter(name=>/^v13-.*\.js$/i.test(name));
+          extensions.forEach(name=>{const src=fs.readFileSync(extDir+'/'+name,'utf8');try{new Function(src)}catch(e){throw new Error(name+' failed syntax validation: '+e.message)}});
           if(!html.includes("window.chrome.webview.addEventListener('message'"))throw new Error('FoamLens native WebView2 bridge is missing.');
           for(const fragment of ['parseOpenFOAMRunLogRecords','parseOpenFOAMRunLogFile',"return'runlog'","path:'solver run log'"]){
             if(!html.includes(fragment))throw new Error('Raw OpenFOAM solver-log support missing: '+fragment);
@@ -82,7 +115,7 @@ jobs:
           for(const id of ['launchFolder','launchFiles','launchWorkspace']){
             if(!html.includes("$('"+id+"')"))throw new Error('Launch control wiring missing: '+id);
           }
-          console.log('Validated '+scripts.length+' inline FoamLens script blocks and launch controls.');
+          console.log('Validated '+scripts.length+' inline FoamLens script blocks, '+extensions.length+' v1.3 modules, and launch controls.');
           '@ | Set-Content -Path validate-foamlens-frontend.js -Encoding utf8
           node validate-foamlens-frontend.js
 
@@ -98,20 +131,143 @@ jobs:
         shell: pwsh
         run: node desktop/tests/discovery-model.test.cjs
 
-      - name: Checkout private OpenFOAM regression fixture
-        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          repository: realmichelduarte/QuickCup-Solidification
-          ref: main
-          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
-          path: quickcup-fixture
-          sparse-checkout: cases_controlled_buoyancy
-
-      - name: Test real OpenFOAM fixture integration
-        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
+      - name: Test OpenFOAM dimensions and SI-unit interpretation
         shell: pwsh
-        run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
+        run: node desktop/tests/dimensions-units.test.cjs
+
+      - name: Test derived Data Catalog provenance
+        shell: pwsh
+        run: node desktop/tests/derived-catalog.test.cjs
+
+      - name: Test reproducible selected-series exports
+        shell: pwsh
+        run: node desktop/tests/reproducible-export.test.cjs
+
+      - name: Test temporal alignment and quantitative differences
+        shell: pwsh
+        run: node desktop/tests/temporal-alignment.test.cjs
+
+      - name: Test quantitative spatial profile differences
+        shell: pwsh
+        run: node desktop/tests/spatial-differences.test.cjs
+
+      - name: Test numerical performance and solver-log analysis
+        shell: pwsh
+        run: node desktop/tests/numerical-performance.test.cjs
+
+      - name: Test neutral general case comparison
+        shell: pwsh
+        run: node desktop/tests/general-case-comparison.test.cjs
+
+      - name: Test general derived physical analysis
+        shell: pwsh
+        run: node desktop/tests/physical-analysis.test.cjs
+
+      - name: Test general Flow Analysis
+        shell: pwsh
+        run: node desktop/tests/flow-analysis.test.cjs
+
+      - name: Test general flow-signal analysis
+        shell: pwsh
+        run: node desktop/tests/flow-analysis.test.cjs
+
+      - name: Test solidification and remelting analysis
+        shell: pwsh
+        run: node desktop/tests/solidification-analysis.test.cjs
+
+      - name: Test general Thermal Analysis
+        shell: pwsh
+        run: node desktop/tests/thermal-analysis.test.cjs
+
+      - name: Test expanded general Field Mapping
+        shell: pwsh
+        run: node desktop/tests/field-mapping.test.cjs
+
+      - name: Test multi-region analysis context
+        shell: pwsh
+        run: node desktop/tests/multiregion-analysis.test.cjs
+
+      - name: Test case-name neutrality
+        shell: pwsh
+        run: node desktop/tests/generic-case-identity.test.cjs
+
+      - name: Test explicit descriptive case tags
+        shell: pwsh
+        run: node desktop/tests/case-tags.test.cjs
+
+      - name: Test development version consistency
+        shell: pwsh
+        run: node desktop/tests/version-consistency.test.cjs
+
+      - name: Test native Windows icon packaging
+        shell: pwsh
+        run: node desktop/tests/windows-icon.test.cjs
+
+      - name: Guard product code from regression-fixture names
+        shell: pwsh
+        run: |
+          @'
+          const fs=require('fs'),path=require('path');
+          const dir='desktop/src/FoamLensDesktop/frontend';
+          const files=fs.readdirSync(dir).filter(name=>name==='index.html'||/^v13-.*\.js$/i.test(name));
+          const banned=['QuickCup','B3_reference','B4_energy2','B5_outer3','B6_adaptiveDt','B7_outer4','C3_reference','C4_energy2','C5_outer3','C6_adaptiveDt','C7_outer4'];
+          const hits=[];
+          for(const file of files){
+            const s=fs.readFileSync(path.join(dir,file),'utf8');
+            for(const token of banned)if(s.includes(token))hits.push(file+': '+token);
+          }
+          if(hits.length)throw new Error('Regression-fixture names leaked into product code:\n'+hits.join('\n'));
+          console.log('Product code is fixture-name neutral across '+files.length+' frontend files.');
+          '@ | Set-Content -Path guard-fixture-neutrality.js -Encoding utf8
+          node guard-fixture-neutrality.js
+
+      - name: Test generic vector field derivation
+        shell: pwsh
+        run: node desktop/tests/vector-fields.test.cjs
+
+      - name: Test native background progress and cancellation
+        shell: pwsh
+        run: node desktop/tests/native-performance.test.cjs
+
+      - name: Test incremental Desktop temporal parsing
+        shell: pwsh
+        run: node desktop/tests/incremental-temporal-parser.test.cjs
+
+      - name: Test incremental Desktop OpenFOAM field parsing
+        shell: pwsh
+        run: node desktop/tests/incremental-field-parser.test.cjs
+
+      - name: Stress-test large incremental datasets
+        shell: pwsh
+        run: node desktop/tests/large-project-stress.test.cjs
+
+      - name: Test native OpenFOAM field streaming
+        shell: pwsh
+        run: node desktop/tests/native-field-streaming.test.cjs
+
+      - name: Test capability-driven contextual UI
+        shell: pwsh
+        run: node desktop/tests/capability-ui.test.cjs
+
+      - name: Test Analysis UI organization
+        shell: pwsh
+        run: node desktop/tests/analysis-ui-organization.test.cjs
+
+      - name: Test Watch Run desktop monitoring
+        shell: pwsh
+        run: node desktop/tests/live-run.test.cjs
+
+      - name: Test Review case identity binding
+        shell: pwsh
+        run: node desktop/tests/review-case-binding.test.cjs
+
+      - name: Audit bilingual UI and overflow safeguards
+        shell: pwsh
+        run: node desktop/tests/bilingual-ui-audit.test.cjs
+
+      - name: Test bilingual UI and overflow hardening
+        shell: pwsh
+        run: node desktop/tests/bilingual-ui.test.cjs
 
       - name: Publish portable Windows executable
         shell: pwsh
@@ -121,6 +277,27 @@ jobs:
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
           dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/publish
           Copy-Item artifacts/publish/FoamLens.exe "artifacts/FoamLens-Portable-v$v.exe"
+
+      - name: Smoke-test packaged FoamLens executable
+        shell: pwsh
+        run: |
+          $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
+          $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $process.WaitForExit(45000)) {
+            try { $process.Kill($true) } catch {}
+            throw 'FoamLens executable smoke test timed out after 45 seconds.'
+          }
+          if ($process.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+            if (Test-Path $log) {
+              Write-Host '---- FoamLens desktop log ----'
+              Get-Content $log
+              Write-Host '------------------------------'
+            }
+            throw "FoamLens executable smoke test failed with exit code $($process.ExitCode)."
+          }
+          Write-Host 'FoamLens executable started, loaded its embedded frontend, verified the native WebView2 bridge, and exited successfully.'
 
       - name: Optional Authenticode signing for portable EXE
         if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
@@ -166,6 +343,65 @@ jobs:
           & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Setup-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
 
+      - name: Install and smoke-test FoamLens installer
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          $installer=(Resolve-Path "artifacts/FoamLens-Setup-v$v.exe").Path
+          $installDir=Join-Path (Resolve-Path 'artifacts').Path 'installed-smoke'
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+
+          $installArgs=@(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/SP-',
+            '/CURRENTUSER',
+            "/DIR=`"$installDir`""
+          )
+          $install=Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru
+          if (-not $install.WaitForExit(60000)) {
+            try { $install.Kill($true) } catch {}
+            throw 'FoamLens installer smoke test timed out during silent installation.'
+          }
+          if ($install.ExitCode -ne 0) {
+            throw "FoamLens installer failed with exit code $($install.ExitCode)."
+          }
+
+          $installedExe=Join-Path $installDir 'FoamLens.exe'
+          if (-not (Test-Path $installedExe)) {
+            throw "FoamLens.exe was not installed to $installDir."
+          }
+
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
+          $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(45000)) {
+            try { $app.Kill($true) } catch {}
+            throw 'Installed FoamLens smoke test timed out after 45 seconds.'
+          }
+          if ($app.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+            if (Test-Path $log) {
+              Write-Host '---- FoamLens desktop log ----'
+              Get-Content $log
+              Write-Host '------------------------------'
+            }
+            throw "Installed FoamLens smoke test failed with exit code $($app.ExitCode)."
+          }
+
+          $uninstaller=Join-Path $installDir 'unins000.exe'
+          if (Test-Path $uninstaller) {
+            $uninstall=Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -PassThru
+            if (-not $uninstall.WaitForExit(60000)) {
+              try { $uninstall.Kill($true) } catch {}
+              throw 'FoamLens uninstall cleanup timed out.'
+            }
+            if ($uninstall.ExitCode -ne 0) {
+              throw "FoamLens uninstall cleanup failed with exit code $($uninstall.ExitCode)."
+            }
+          }
+          Write-Host 'FoamLens installer installed successfully and the installed executable passed its startup smoke test.'
+
       - name: Upload FoamLens Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -174,6 +410,8 @@ jobs:
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Portable-smoke.png
+            artifacts/FoamLens-Installed-smoke.png
           if-no-files-found: error
 
       - name: Publish GitHub Release
