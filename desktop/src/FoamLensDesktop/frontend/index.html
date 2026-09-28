@@ -2051,6 +2051,7 @@ const FOAMLENS_NATIVE=!!(window.chrome&&window.chrome.webview&&typeof window.chr
 let foamLensNativeSeq=0;
 const foamLensNativePending=new Map();
 const foamLensNativeFolderPending=new Map();
+const foamLensActiveTemporalRequests=new Set();
 
 function foamLensNativeRequest(type,payload={}){
   if(!FOAMLENS_NATIVE)return Promise.reject(new Error('FoamLens native bridge is unavailable'));
@@ -2059,6 +2060,22 @@ function foamLensNativeRequest(type,payload={}){
     foamLensNativePending.set(requestId,{resolve,reject});
     window.chrome.webview.postMessage({type,requestId,...payload})
   })
+}
+
+function foamLensNativeOperation(type,payload={},onProgress=null){
+  if(!FOAMLENS_NATIVE)return{requestId:'',promise:Promise.reject(new Error('FoamLens native bridge is unavailable')),cancel:()=>{}};
+  const requestId='op_'+Date.now().toString(36)+'_'+(++foamLensNativeSeq).toString(36);
+  const promise=new Promise((resolve,reject)=>{
+    foamLensNativePending.set(requestId,{resolve,reject,onProgress});
+    window.chrome.webview.postMessage({type,requestId,...payload})
+  });
+  const cancel=()=>foamLensNativeRequest('cancelOperation',{targetRequestId:requestId}).catch(()=>{});
+  return{requestId,promise,cancel}
+}
+function cancelActiveTemporalReads(){
+  for(const requestId of [...foamLensActiveTemporalRequests]){
+    foamLensNativeRequest('cancelOperation',{targetRequestId:requestId}).catch(()=>{})
+  }
 }
 
 class FoamLensNativeFile{
@@ -2107,9 +2124,15 @@ function pickNativeOpenFOAMFolder(){
 if(FOAMLENS_NATIVE){
   window.chrome.webview.addEventListener('message',event=>{
     const m=event.data||{},requestId=m.requestId||'';
+    if(m.type==='operationProgress'||m.type==='operationStart'||m.type==='operationComplete'||m.type==='operationCancelled'){
+      const op=foamLensNativePending.get(requestId);
+      if(op?.onProgress)try{op.onProgress(m)}catch{}
+      return
+    }
     if(m.type==='nativeReply'){
       const p=foamLensNativePending.get(requestId);if(!p)return;
       foamLensNativePending.delete(requestId);
+      foamLensActiveTemporalRequests.delete(requestId);
       if(m.ok)p.resolve(m.data);else p.reject(new Error(m.error||'Native FoamLens request failed'));
       return
     }
@@ -2692,15 +2715,42 @@ async function flReadTemporalColumns(file){
   if(!nativeLarge){
     const text=await file.text();flCaptureTemporalHead(state,text);
     const parts=String(text||'').split(/\r?\n/);for(const line of parts)flParseTemporalLine(line,state);
-    return{state,incremental:false}
+    return{state,incremental:false,nativeStreaming:false}
   }
+
+  try{
+    const op=foamLensNativeOperation('parseTemporalFile',{token:file._nativeToken},m=>{
+      const done=Number(m.completedBytes)||0,total=Number(m.totalBytes)||Number(file.size)||0;
+      if(total>0){
+        const pct=Math.max(0,Math.min(100,100*done/total));
+        updateAppActivity(diagEs()?'Leyendo archivo temporal grande':'Reading large temporal file',`${file.name} · ${pct.toFixed(0)}% · ${done.toLocaleString()} / ${total.toLocaleString()} bytes`)
+      }
+    });
+    foamLensActiveTemporalRequests.add(op.requestId);
+    const data=await op.promise;
+    for(let j=0;j<(data?.columns||[]).length;j++){
+      const col=data.columns[j];if(!col)continue;
+      state.columns[j]={t:(col.t||[]).map(Number),y:(col.y||[]).map(Number)}
+    }
+    for(const [k,v] of Object.entries(data?.probes||{}))state.probes[Number(k)]=String(v||'');
+    state.head=String(data?.head||'').slice(0,FL_TEMPORAL_CLASSIFY_HEAD);
+    state.dataCount=state.columns.reduce((n,col)=>Math.max(n,col?.t?.length||0),0);
+    return{state,incremental:true,nativeStreaming:true}
+  }catch(err){
+    foamLensActiveTemporalRequests.clear();
+    if(/cancel/i.test(String(err?.message||err)))throw err;
+    console.warn('Native temporal parser failed; falling back to chunked JavaScript parsing.',err)
+  }
+
   let offset=0;
   while(offset<file.size){
     const end=Math.min(file.size,offset+FL_TEMPORAL_CHUNK_SIZE),text=await file.slice(offset,end).text();
-    flCaptureTemporalHead(state,text);flConsumeTemporalChunk(state,text,false);offset=end
+    flCaptureTemporalHead(state,text);flConsumeTemporalChunk(state,text,false);offset=end;
+    updateAppActivity(diagEs()?'Leyendo archivo temporal grande':'Reading large temporal file',`${file.name} · ${Math.round(100*offset/file.size)}%`);
+    await scannerYield()
   }
   if(state.carry)flParseTemporalLine(state.carry,state);state.carry='';
-  return{state,incremental:true}
+  return{state,incremental:true,nativeStreaming:false}
 }
 
 async function parseFile(file){
@@ -2714,7 +2764,7 @@ async function parseFile(file){
       id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:state.probes[j]||'',
       postProcessing:postProcessing?{kind:postProcessing.kind||'',reduction:postProcessing.reduction||'',selection:{...(postProcessing.selection||{})},columns:[...(postProcessing.columns||[])]}:null,
       t:col.t,y:col.y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:'',
-      loadMeta:{incremental:parsed.incremental,sourceBytes:Number(file?.size)||0}
+      loadMeta:{incremental:parsed.incremental,nativeStreaming:parsed.nativeStreaming===true,sourceBytes:Number(file?.size)||0}
     })
   }
   return out
@@ -8404,7 +8454,7 @@ $('phaseFrontCreateCurves')?.addEventListener('click',createPhaseFrontTrajectori
 $('phaseFrontExport')?.addEventListener('click',exportPhaseFrontCsv);
 
 $('scanContinue')?.addEventListener('click',()=>{setOverlayOpen('scanOverlay',false);if(pendingScanCandidates.length)openSmartImport(pendingScanCandidates);else{const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case');loadFiles(pendingScanFiles,c.id).then(()=>{refreshWorkspaceReview();openReadyOverlay()})}});
-$('scanCancel')?.addEventListener('click',()=>{pendingScanFiles=[];pendingScanCandidates=[];stopOperationClock();setOverlayOpen('scanOverlay',false)});
+$('scanCancel')?.addEventListener('click',()=>{cancelActiveTemporalReads();pendingScanFiles=[];pendingScanCandidates=[];stopOperationClock();setOverlayOpen('scanOverlay',false)});
 $('readyOpen')?.addEventListener('click',()=>{setOverlayOpen('readyOverlay',false);setAppMode('workspace');refreshWorkspaceReview()});
 $('globalCaseSelect')?.addEventListener('change',()=>{activeContextCaseId=$('globalCaseSelect').value?Number($('globalCaseSelect').value):null;activeContextRegion='';refreshGlobalContext();applyGlobalContext()});
 $('globalRegionSelect')?.addEventListener('change',()=>{activeContextRegion=$('globalRegionSelect').value||'';applyGlobalContext()});
