@@ -160,6 +160,9 @@ internal sealed class FoamLensForm : Form
                 case "parseFoamLogBatch":
                     await HandleFoamLogBatchAsync(root, requestId);
                     break;
+                case "parseTemporalFile":
+                    await HandleTemporalFileAsync(root, requestId);
+                    break;
                 case "cancelOperation":
                     HandleCancelOperation(root, requestId);
                     break;
@@ -298,6 +301,172 @@ internal sealed class FoamLensForm : Form
             read += n;
         }
         Reply(requestId, true, Encoding.UTF8.GetString(buffer, 0, read), null);
+    }
+
+    private async Task HandleTemporalFileAsync(JsonElement root, string requestId)
+    {
+        var token = RequiredString(root, "token");
+        var path = ResolveToken(token);
+        var operation = BeginOperation(requestId);
+        var completedBytes = 0L;
+        var totalBytes = new FileInfo(path).Length;
+        Post(new { type = "operationStart", requestId, operation = "temporalFile", completedBytes, totalBytes });
+
+        try
+        {
+            var result = await ParseTemporalFileAsync(path, requestId, operation.Token);
+            completedBytes = totalBytes;
+            Reply(requestId, true, result, null);
+            Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes });
+        }
+        catch (OperationCanceledException)
+        {
+            Reply(requestId, false, null, "Operation cancelled.");
+            Post(new { type = "operationCancelled", requestId, operation = "temporalFile", completedBytes, totalBytes });
+        }
+        finally
+        {
+            EndOperation(requestId, operation);
+        }
+    }
+
+    private async Task<TemporalParseResult> ParseTemporalFileAsync(string path, string requestId, CancellationToken ct)
+    {
+        const int headLimit = 128 * 1024;
+        var columns = new List<(List<double> T, List<double> Y)>();
+        var probes = new Dictionary<int, string>();
+        var head = new StringBuilder(Math.Min(headLimit, 16 * 1024));
+        var totalBytes = new FileInfo(path).Length;
+        var nextProgress = Stopwatch.StartNew();
+
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
+            bufferSize: 65536, useAsync: true);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 65536);
+
+        while (!reader.EndOfStream)
+        {
+            ct.ThrowIfCancellationRequested();
+            var raw = await reader.ReadLineAsync(ct) ?? "";
+            if (head.Length < headLimit)
+            {
+                var take = Math.Min(raw.Length + 1, headLimit - head.Length);
+                if (take > 0)
+                {
+                    var fragment = raw + Environment.NewLine;
+                    head.Append(fragment.AsSpan(0, Math.Min(take, fragment.Length)));
+                }
+            }
+
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            if (line.StartsWith('#'))
+            {
+                var probe = ParseProbeHeader(line);
+                if (probe is not null) probes[probe.Value.Index] = probe.Value.Location;
+            }
+            else
+            {
+                var tokens = SplitTemporalTokens(line);
+                if (tokens.Count >= 2 &&
+                    double.TryParse(tokens[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
+                {
+                    for (var j = 1; j < tokens.Count; j++)
+                    {
+                        if (!TryParseTemporalValue(tokens[j], out var value)) continue;
+                        while (columns.Count < j) columns.Add((new List<double>(), new List<double>()));
+                        columns[j - 1].T.Add(time);
+                        columns[j - 1].Y.Add(value);
+                    }
+                }
+            }
+
+            if (nextProgress.ElapsedMilliseconds >= 120)
+            {
+                nextProgress.Restart();
+                var completedBytes = Math.Min(stream.Position, totalBytes);
+                Post(new { type = "operationProgress", requestId, operation = "temporalFile", completedBytes, totalBytes });
+            }
+        }
+
+        ct.ThrowIfCancellationRequested();
+        var resultColumns = columns
+            .Select(x => new TemporalColumn(x.T.ToArray(), x.Y.ToArray()))
+            .ToArray();
+        return new TemporalParseResult(resultColumns, probes, head.ToString(), totalBytes);
+    }
+
+    private static (int Index, string Location)? ParseProbeHeader(string line)
+    {
+        var text = line.AsSpan().Trim();
+        if (!text.StartsWith("#", StringComparison.Ordinal)) return null;
+        text = text[1..].TrimStart();
+        if (!text.StartsWith("Probe", StringComparison.OrdinalIgnoreCase)) return null;
+        text = text[5..].TrimStart();
+        var i = 0;
+        while (i < text.Length && char.IsDigit(text[i])) i++;
+        if (i == 0 || !int.TryParse(text[..i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
+            return null;
+        return (index, text[i..].Trim().ToString());
+    }
+
+    private static List<string> SplitTemporalTokens(string line)
+    {
+        var tokens = new List<string>();
+        var i = 0;
+        while (i < line.Length)
+        {
+            while (i < line.Length && char.IsWhiteSpace(line[i])) i++;
+            if (i >= line.Length) break;
+            if (line[i] == '(')
+            {
+                var start = i++;
+                var depth = 1;
+                while (i < line.Length && depth > 0)
+                {
+                    if (line[i] == '(') depth++;
+                    else if (line[i] == ')') depth--;
+                    i++;
+                }
+                tokens.Add(line[start..i]);
+            }
+            else
+            {
+                var start = i;
+                while (i < line.Length && !char.IsWhiteSpace(line[i])) i++;
+                tokens.Add(line[start..i]);
+            }
+        }
+        return tokens;
+    }
+
+    private static bool TryParseTemporalValue(string token, out double value)
+    {
+        if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+            return true;
+
+        var text = token.AsSpan().Trim();
+        if (text.Length >= 2 && text[0] == '(' && text[^1] == ')')
+        {
+            var inner = text[1..^1].ToString();
+            var parts = inner.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            var sum = 0.0;
+            var count = 0;
+            foreach (var part in parts)
+            {
+                if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var component))
+                    continue;
+                sum += component * component;
+                count++;
+            }
+            if (count > 0)
+            {
+                value = Math.Sqrt(sum);
+                return true;
+            }
+        }
+
+        value = double.NaN;
+        return false;
     }
 
     private async Task HandleFoamLogBatchAsync(JsonElement root, string requestId)
@@ -486,6 +655,8 @@ internal sealed class FoamLensForm : Form
     }
 
     private sealed record NativeFileRef(string Token, string Name, string RelativePath, long Size, long LastModified);
+    private sealed record TemporalColumn(double[] T, double[] Y);
+    private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes);
     private sealed record LogBatchItem(string Token, int Index);
     private sealed record LogParseResult(int Index, double[] T, double[] Y, string? Error);
 }
