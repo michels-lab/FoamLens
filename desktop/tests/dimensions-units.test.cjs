@@ -48,7 +48,7 @@ test('time derivative shifts OpenFOAM time exponent',()=>{
 
 test('Data Catalog preserves raw dimensions and adds recognized unit',()=>{
   assert(index.includes('<th id="catalogColDimensions">Dimensions / SI unit</th>'));
-  assert(index.includes("r.dimensions&&pmUnitFromDimensions(r.dimensions)?'<small>'+esc(pmUnitFromDimensions(r.dimensions))+'</small>':''"));
+  assert(index.includes("r.unit||pmUnitFromDimensions(r.dimensions)"));
 });
 
 test('Data Catalog dimension header is bilingual',()=>{
