@@ -1854,7 +1854,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
     </div>
     <div class="reviewPane" data-review-pane="compare">
       <div class="auditCaseSelect"><div class="field"><label id="compareRootLabel">Common solved field</label><select id="compareRoot"></select></div></div>
-      <div class="extNote" id="compareCasesNote">Only metrics available in the selected cases are shown. FoamLens does not select a “best” case.</div>
+      <div class="extNote" id="compareCasesNote">Only metrics available in the selected cases are shown. Missing values remain unavailable; FoamLens does not rank or select a “best” case.</div>
       <div class="extTableWrap"><table class="compareCasesTable" id="compareCasesTable"></table></div>
     </div>
     <div class="reviewPane" data-review-pane="outputs">
@@ -5594,9 +5594,45 @@ function renderOutputCompleteness(){
   $('outputCompletenessTable').innerHTML=rows.length?`<thead><tr><th>${es?'Objeto':'Object'}</th><th>Type</th><th>Region</th><th>Fields</th><th>${es?'Estado':'Status'}</th><th>${es?'Salida detectada':'Detected output'}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.type||'—')}</td><td>${esc(r.region||'—')}</td><td>${esc((r.fields||[]).join(', ')||'—')}</td><td><span class="outputStatus ${r.status==='FOUND'?'found':'missing'}">${esc(r.status)}</span></td><td>${esc(r.path||'—')}</td></tr>`).join('')}</tbody>`:`<tbody><tr><td>${es?'No se pudieron inferir function objects desde los archivos cargados.':'No function objects could be inferred from the loaded configuration.'}</td></tr></tbody>`
 }
 function commonInitialRootsAcrossCases(cs){const sets=cs.map(c=>new Set(caseInitialRoots(c.id)));if(!sets.length)return[];return[...sets[0]].filter(x=>sets.every(s=>s.has(x))).sort()}
+function compareCaseDataSummary(c){
+  const ss=series.filter(s=>s.caseId===c.id),range=observedCaseTimeRange(c.id),profiles=ss.filter(s=>datasetTypeOf(s)==='profile'),logs=ss.filter(s=>datasetTypeOf(s)==='log'),temporal=ss.filter(s=>datasetTypeOf(s)==='timeseries');
+  const model=c.discoveryModel||{},cfg=c.config||{},meanCo=maxAbsSeries(c.id,'CourantMean',0),maxCo=maxAbsSeries(c.id,'CourantMax',0);
+  return{
+    tags:[...(c.tags||[])],
+    range,
+    temporal:temporal.length,
+    profiles:profiles.length,
+    logs:logs.length,
+    fields:model.fields?.length||0,
+    postProcessing:model.postProcessing?.length||0,
+    dictionaries:model.dictionaries?.length||0,
+    regions:model.regions?.length||c.discovery?.regions?.length||0,
+    deltaT:Number(cfg.deltaT),
+    adjustTimeStep:String(cfg.adjustTimeStep||''),
+    meanCo,maxCo,
+    execution:lastSeriesValue(c.id,'executionTime'),
+    clock:lastSeriesValue(c.id,'clockTime')
+  }
+}
 function renderCompareCases(){
   const table=$('compareCasesTable'),sel=$('compareRoot');if(!table||!sel)return;const cs=cases.filter(c=>c.visible!==false),roots=commonInitialRootsAcrossCases(cs),old=sel.value;sel.innerHTML=`<option value="">${diagEs()?'Métricas generales':'General metrics'}</option>`+roots.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');if(roots.includes(old))sel.value=old;
-  const root=sel.value,es=diagEs();table.innerHTML=`<thead><tr><th>${es?'Caso':'Case'}</th><th>Health</th><th>${es?'Estado corrida':'Run status'}</th><th>Application</th><th>Algorithm</th>${root?'<th>median R</th><th>p95 R</th><th>R&gt;1</th><th>max Initial</th>':''}<th>Courant max</th><th>CPU [s]</th><th>Clock [s]</th></tr></thead><tbody>${cs.map(c=>{const h=healthForCase(c),sum=root?caseDiagnosticSummary(c.id,root):null,co=maxAbsSeries(c.id,'CourantMax',0);return`<tr><td>${esc(c.name)}</td><td>${esc(h.state)}</td><td>${esc(h.runStatus)}</td><td>${esc(c.config?.application||'—')}</td><td>${esc(c.config?.algorithm||'—')}</td>${root?`<td>${diagFmt(sum?.medianR)}</td><td>${diagFmt(sum?.p95R)}</td><td>${diagPct(sum?.fracGt1)}</td><td>${diagFmt(sum?.maxInitial)}</td>`:''}<td>${diagFmt(co)}</td><td>${diagFmt(lastSeriesValue(c.id,'executionTime'))}</td><td>${diagFmt(lastSeriesValue(c.id,'clockTime'))}</td></tr>`}).join('')}</tbody>`
+  const root=sel.value,es=diagEs();
+  const generalHeaders=[
+    es?'Caso':'Case','Tags','Health',es?'Estado corrida':'Run status','Application','Algorithm',
+    es?'Rango tiempo [s]':'Time range [s]','deltaT [s]','adjustTimeStep','Courant mean','Courant max',
+    es?'Series temp.':'Time series',es?'Perfiles':'Profiles','Logs','Fields','postProcessing','Regions','CPU [s]','Clock [s]'
+  ];
+  if(root)generalHeaders.push('median R','p95 R','R>1','max Initial');
+  table.innerHTML='<thead><tr>'+generalHeaders.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+cs.map(c=>{
+    const h=healthForCase(c),d=compareCaseDataSummary(c),sum=root?caseDiagnosticSummary(c.id,root):null,range=Number.isFinite(d.range.min)?diagFmt(d.range.min)+' → '+diagFmt(d.range.max):'—';
+    const cells=[
+      c.name,(d.tags||[]).join(', ')||'—',h.state,h.runStatus,c.config?.application||'—',c.config?.algorithm||'—',
+      range,Number.isFinite(d.deltaT)?diagFmt(d.deltaT):'—',d.adjustTimeStep||'—',diagFmt(d.meanCo),diagFmt(d.maxCo),
+      d.temporal,d.profiles,d.logs,d.fields,d.postProcessing,d.regions,diagFmt(d.execution),diagFmt(d.clock)
+    ];
+    if(root)cells.push(diagFmt(sum?.medianR),diagFmt(sum?.p95R),diagPct(sum?.fracGt1),diagFmt(sum?.maxInitial));
+    return'<tr>'+cells.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>'
+  }).join('')+'</tbody>'
 }
 function configComparableEntries(c){
   const cfg=c?.config||{},keys=['application','algorithm','startTime','endTime','deltaT','adjustTimeStep','maxCo','maxDeltaT','writeControl','writeInterval','purgeWrite','nOuterCorrectors','nCorrectors','nNonOrthogonalCorrectors','nEnergyCorrectors','residualControl','relaxationFactors'];
