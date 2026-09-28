@@ -32,7 +32,7 @@ function vdGroups(){
 }
 function vdGroupLabel(g){const s=g.sample,c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(s?.caseId)):null,bits=[c?.name||s?.caseName||'Case',g.base,vdDataset(s)==='profile'?'Spatial profile':'Time series'];if(s?.region||s?.regionName)bits.push(s.region||s.regionName);if(s?.profileLine)bits.push(s.profileLine);if(Number.isFinite(Number(s?.profileTime)))bits.push('t='+s.profileTime+' s');return bits.join(' · ')}
 function vdRefreshUi(){
-  const sel=document.getElementById('vdGroup');if(!sel)return;const old=sel.value,groups=vdGroups(),box=document.getElementById('vdTools');if(box)box.style.display=groups.length?'':'none';sel.innerHTML=groups.map(g=>`<option value="${String(g.key).replace(/"/g,'&quot;')}">${vdGroupLabel(g).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old;document.getElementById('vdStatus').textContent=groups.length?`${groups.length} compatible vector group(s) detected. Magnitudes are created only when requested.`:'No complete X/Y/Z vector group is currently loaded.'
+  const sel=document.getElementById('vdGroup');if(!sel)return;const old=sel.value,groups=vdGroups(),box=document.getElementById('vdTools');if(box)box.style.display=groups.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}sel.innerHTML=groups.map(g=>`<option value="${String(g.key).replace(/"/g,'&quot;')}">${vdGroupLabel(g).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old;document.getElementById('vdStatus').textContent=groups.length?`${groups.length} compatible vector group(s) detected. Magnitudes are created only when requested.`:'No complete X/Y/Z vector group is currently loaded.'
 }
 function vdAddMagnitude(){
   const key=document.getElementById('vdGroup')?.value,g=vdGroups().find(x=>x.key===key),st=document.getElementById('vdStatus');if(!g)return;
@@ -43,7 +43,7 @@ function vdAddMagnitude(){
   series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();draw()}catch(e){console.warn('Vector magnitude refresh failed',e)}st.textContent=`Added ${name} from X/Y/Z components aligned by physical coordinate/time.`
 }
 function vdBuildUi(){
-  if(document.getElementById('vdTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='vdTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('vdTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='vdTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Generic Vector Fields</b><span class="badge">X · Y · Z · magnitude</span></div><div class="smallnote" style="margin-top:5px">Any compatible X/Y/Z field can be combined. FoamLens aligns components by their physical coordinate/time; it never assumes array indices represent the same location.</div><div class="field" style="margin-top:8px"><label>Vector group</label><select id="vdGroup"></select></div><button class="btn primary" id="vdAdd" type="button">Add magnitude</button><div class="smallnote" id="vdStatus"></div>`;
   host.appendChild(box);document.getElementById('vdAdd').onclick=vdAddMagnitude;vdRefreshUi()
 }
