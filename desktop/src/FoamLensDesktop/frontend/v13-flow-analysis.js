@@ -71,7 +71,9 @@ function faRun(){
   <tr><th>P5 / Median / P95</th><td colspan="3">${faFmt(stats.p5)} / ${faFmt(stats.median)} / ${faFmt(stats.p95)} ${unit}</td></tr>
   <tr><th>Zero crossings</th><td>${cross.length}</td><th>${axis.semantic}</th><td>${cross.slice(0,8).map(v=>faFmt(v)+(axis.unit?' '+axis.unit:'')).join(', ')||'—'}${cross.length>8?' …':''}</td></tr>
   </tbody></table></div>`;
-  window.FoamLensLastFlowAnalysis={sourceId:s.id??null,source:faLabel(s),interpretation:interp,axis,unit,dimensions:s?.field?.dimensions||s?.dimensions||'',statistics:stats,zeroCrossings:cross,weightedBy:weighted}
+  const caseObj=typeof caseById==='function'?caseById(s.caseId):null,region=typeof seriesRegion==='function'?seriesRegion(s):String(s?.region||s?.regionName||'');
+  window.FoamLensLastFlowAnalysis={sourceId:s.id??null,source:faLabel(s),caseId:s.caseId??null,caseName:s.caseName||caseObj?.name||'',caseTags:[...(caseObj?.tags||[])],region,field:s?.field?.canonical||s?.field?.raw||s?.name||'',datasetType:datasetTypeOf(s),sourcePath:s?.sourcePath||'',profileTime:Number.isFinite(Number(s?.profileTime))?Number(s.profileTime):null,interpretation:interp,axis,unit,dimensions:s?.field?.dimensions||s?.dimensions||'',statistics:stats,zeroCrossings:cross,weightedBy:weighted}
+  const ex=document.getElementById('faExport');if(ex)ex.disabled=false
 }
 function faExport(){
   const p=window.FoamLensLastFlowAnalysis;if(!p)return;
@@ -79,6 +81,7 @@ function faExport(){
 }
 function faRefresh(){
   const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display=src.length?'':'none';if(!sel)return;
+  window.FoamLensLastFlowAnalysis=null;const ex=document.getElementById('faExport');if(ex)ex.disabled=true;
   const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${faId(s,i).replace(/"/g,'&quot;')}">${faLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
 }
 function faBuildUi(){
@@ -88,7 +91,7 @@ function faBuildUi(){
   <div class="smallnote" style="margin-top:5px">Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret. FoamLens does not infer the role from a case name. Means and RMS values are weighted by physical time or spatial coordinate, so adaptive/nonuniform sampling does not bias them by sample count.</div>
   <div class="field" style="margin-top:8px"><label>Flow signal</label><select id="faSource"></select></div>
   <div class="field"><label>Interpret as</label><select id="faInterpretation"><option value="user-defined" selected>User-defined flow signal</option><option value="velocity-component">Velocity component</option><option value="speed-magnitude">Speed / vector magnitude</option><option value="vorticity">Vorticity</option><option value="other">Other</option></select></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="faRun" type="button">Analyze flow signal</button><button class="btn" id="faExport" type="button">Export summary JSON</button></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="faRun" type="button">Analyze flow signal</button><button class="btn" id="faExport" type="button" disabled>Export summary JSON</button></div>
   <div class="smallnote" id="faStatus" style="margin-top:7px"></div><div id="faResult" style="margin-top:8px"></div>`;
   host.appendChild(box);document.getElementById('faRun').onclick=faRun;document.getElementById('faExport').onclick=faExport;faRefresh()
 }
