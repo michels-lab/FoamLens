@@ -30,6 +30,15 @@ const api=new Function('series','datasetTypeOf','caseById','seriesRegion','pmFmt
       sourceKind:'derived',sourcePath:'FoamLens generic vector magnitude',datasetType:'profile',profileTime:3.5,
       t:[0,1,2],y:[2,3,4],field:{canonical:'mag:vorticity',unit:'1/s',dimensions:'[0 0 -1 0 0 0 0]'},
       vectorDerivation:{base:'vorticity',components:['x','y','z'],alignment:'physical-coordinate-linear'}
+    },
+    {
+      id:'d4',caseId:1,caseName:'Case A',name:'Net energy/power balance',derived:true,derivedKind:'physicalDerived',
+      sourceKind:'derived',sourcePath:'FoamLens physical analysis',t:[0,1],y:[5,2],
+      field:{canonical:'derived:balance',unit:'W',dimensions:'[1 2 -3 0 0 0 0]'},
+      physicalAnalysis:{operation:'weighted-energy-power-balance',terms:[
+        {source:'volume term',provenance:{postProcessing:{kind:'volumeReduction'}}},
+        {source:'surface term',provenance:{postProcessing:{kind:'surfaceReduction'}}}
+      ]}
     }
   ],
   s=>s.datasetType==='profile'?'profile':'timeseries',
@@ -43,8 +52,16 @@ const passed=[];function test(name,fn){fn();passed.push(name)}
 const rows=api.flDerivedCatalogRows();
 
 test('derived catalog includes all test derivations',()=>{
-  assert.strictEqual(rows.length,3);
+  assert.strictEqual(rows.length,4);
   assert(rows.every(r=>r.category==='derived'&&r.origin==='FoamLens derived'&&r.derived===true));
+});
+
+test('Energy Balance catalog provenance exposes volume and surface source types',()=>{
+  const r=rows.find(x=>x.name==='Net energy/power balance');
+  assert(r);
+  assert(r.details.includes('weighted-energy-power-balance'));
+  assert(r.details.includes('volumeReduction'));
+  assert(r.details.includes('surfaceReduction'));
 });
 
 test('temporal difference provenance is preserved',()=>{
