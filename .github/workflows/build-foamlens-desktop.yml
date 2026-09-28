@@ -205,6 +205,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/incremental-field-parser.test.cjs
 
+      - name: Test native OpenFOAM field streaming
+        shell: pwsh
+        run: node desktop/tests/native-field-streaming.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
