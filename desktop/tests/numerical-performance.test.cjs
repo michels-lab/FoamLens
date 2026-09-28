@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_NUMERICAL_PERFORMANCE_CORE_START */',end='/* FOAMLENS_N
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Numerical performance core markers are missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npClassifyEvent,npParseRunLog,npBasicStats,npSummarizeRunLog,npAxisData};')();
+const api=new Function(core+'\nreturn {npParseResidualLine,npParseCourantLine,npParseContinuityLine,npParseTimingLine,npParseDeltaTLine,npParseCouplingIteration,npParseCorrectorLine,npParseTerminationLine,npClassifyEvent,npParseRunLog,npBasicStats,npSummarizeRunLog,npAxisData};')();
 
 const near=(x,y,t=1e-12)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
@@ -49,15 +49,30 @@ test('SIMPLE convergence record',()=>{
   assert(r&&r.algorithm==='SIMPLE'&&r.iteration===287&&r.converged);
 });
 
+test('pressure corrector records stay distinct from outer coupling',()=>{
+  const a=api.npParseCorrectorLine('PIMPLE: pressure corrector 2');
+  const b=api.npParseCorrectorLine('pressure corrector 3');
+  assert(a&&a.algorithm==='PIMPLE'&&a.corrector===2);
+  assert(b&&b.algorithm===''&&b.corrector===3);
+});
+
+test('run termination distinguishes completed and failed logs',()=>{
+  assert.strictEqual(api.npParseTerminationLine('End').status,'completed');
+  assert.strictEqual(api.npParseTerminationLine('FOAM FATAL ERROR: bad field').status,'failed');
+  assert.strictEqual(api.npParseTerminationLine('ordinary solver line'),null);
+});
+
 const log=`Application : foamMultiRun
 deltaT = 0.1
 Time = 0.1
 Courant Number mean: 0.02 max: 0.30
 PIMPLE: iteration 1
+PIMPLE: pressure corrector 1
 smoothSolver: Solving for Ux, Initial residual = 0.01, Final residual = 1e-06, No Iterations 2
 GAMG: Solving for p_rgh, Initial residual = 0.1, Final residual = 0.001, No Iterations 4
 time step continuity errors : sum local = 1e-08, global = -1e-10, cumulative = 2e-09
 PIMPLE: iteration 2
+PIMPLE: pressure corrector 2
 smoothSolver: Solving for Ux, Initial residual = 0.005, Final residual = 2e-07, No Iterations 1
 ExecutionTime = 1.5 s  ClockTime = 2 s
 deltaT = 0.08
@@ -66,6 +81,7 @@ Courant Number mean: 0.018 max: 0.25
 --> FOAM Warning : synthetic warning
 GAMG: Solving for p_rgh, Initial residual = 0.08, Final residual = 0.0005, No Iterations 3
 ExecutionTime = 2.5 s  ClockTime = 3 s
+End
 `;
 
 test('raw run log separates physical and numerical records',()=>{
@@ -74,6 +90,8 @@ test('raw run log separates physical and numerical records',()=>{
   assert.strictEqual(p.steps.length,2);
   assert.strictEqual(p.equations.length,4);
   assert.strictEqual(p.coupling.length,2);
+  assert.strictEqual(p.correctors.length,2);
+  assert.strictEqual(p.termination.status,'completed');
   assert.strictEqual(p.continuity.length,1);
   assert.strictEqual(p.events.filter(e=>e.severity==='warning').length,1);
   assert(near(p.steps[0].time,.1)&&near(p.steps[0].deltaT,.1)&&near(p.steps[0].courantMax,.3));
@@ -87,6 +105,8 @@ test('summary keeps linear solves distinct from coupling records',()=>{
   assert.strictEqual(s.timesteps,2);
   assert.strictEqual(s.linearSolves,4);
   assert.strictEqual(s.couplingRecords,2);
+  assert.strictEqual(s.correctorRecords,2);
+  assert.strictEqual(s.terminationStatus,'completed');
   assert(near(s.deltaT.mean,.09));
   assert(near(s.courantMax.max,.3));
   assert.strictEqual(s.warnings,1);
@@ -96,6 +116,8 @@ test('fatal and floating-point events are errors, not inferred solver states',()
   assert.strictEqual(api.npClassifyEvent('FOAM FATAL ERROR: bad field').severity,'error');
   assert.strictEqual(api.npClassifyEvent('Floating point exception').severity,'error');
   assert.strictEqual(api.npClassifyEvent('ordinary solver line'),null);
+  assert.strictEqual(api.npParseRunLog('Time = 1\nFOAM FATAL ERROR: bad field\n').termination.status,'failed');
+  assert.strictEqual(api.npParseRunLog('Time = 1\nExecutionTime = 1 s ClockTime = 1 s\n').termination.status,'incomplete');
 });
 
 test('numerical metric X axis separates physical time from timestep index',()=>{
@@ -118,6 +140,7 @@ test('raw solver-log import is extended without replacing legacy metrics',()=>{
     "const original=await base(file)",
     "'deltaT','deltaT','deltaT','Physical timestep Δt'",
     "'outerIterations',algorithm+' outer iterations'",
+    "'correctors',algorithm+' correctors'",
     'return original.concat(extra)'
   ]) assert(js.includes(token),'Missing raw-log extension token '+token);
 });
