@@ -598,7 +598,7 @@ body.dark .derivedBadge{color:#b9a7ff}
 @media(max-width:680px){.profileTimeOptions{grid-template-columns:1fr 1fr}.profileTimeOptions .inlineCheck{grid-column:1/-1}.analysisGrid{grid-template-columns:1fr}.zoomControls{border-left:0;padding-left:0}.plotHeadActions{gap:5px}.zoomControls .btn{padding:4px 6px}}
 
 
-/* v30 — real QuickCup foamLog parsing and semantic log families */
+/* v30 — foamLog parsing and semantic log families */
 /* v29 — family controls, metrics, references and thesis figure */
 .familyQuickSection{padding:7px 0 9px;margin-bottom:7px;border-bottom:1px solid var(--line)}
 .familyQuickTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 2px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
@@ -1061,7 +1061,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
         <div class="row2">
           <div class="field"><label for="timeSeriesVariable">Variable</label><select id="timeSeriesVariable"></select></div>
           <div class="field"><label for="timeSeriesProbe">Probe</label><select id="timeSeriesProbe"></select></div>        </div>
-        <div class="field"><label for="timeSeriesFamily">Cases / family</label><select id="timeSeriesFamily"></select></div>
+        <div class="field"><label for="timeSeriesFamily">Cases</label><select id="timeSeriesFamily"></select></div>
         <div class="timeSeriesActions">
           <button class="btn soft" id="timeSeriesResetFilters" type="button">Reset filters</button>
           <button class="btn soft" id="timeSeriesShowAllVars" type="button">Show all variables</button>
@@ -2339,12 +2339,9 @@ function variableColor(field){
 }
 
 function caseFamilyInfo(name){
-  const raw=String(name||'').trim();
-  // Spatial-profile family convention: B3_reference, B4_energy2, C5_outer3, etc.
-  // The family is the alphabetic prefix and the first number is the variant.
-  const m=raw.match(/(?:^|[_\-\s])([A-Za-z]+)(\d+)(?=$|[_\-\s])/);
-  if(!m)return null;
-  return {family:m[1].toUpperCase(),variant:Number(m[2]),token:`${m[1].toUpperCase()}${m[2]}`};
+  // v1.3: case names are labels only. FoamLens never infers family, baseline,
+  // variant, solver strategy, material, or experiment type from a case name.
+  return null
 }
 
 function familyColor(family){
@@ -2359,27 +2356,19 @@ function familyColor(family){
 }
 
 function variantDash(variant){
-  const v=Number(variant);
-  if(v===3)return 'solid';
-  if(v===4)return 'dash';
-  if(v===5)return 'dot';
-  if(v===6)return 'dashdot';
-  return 'solid';
+  // Kept for workspace compatibility only; case styling is explicit in v1.3.
+  return 'solid'
 }
 
 function automaticSeriesColor(s){
-  if(datasetTypeOf(s)==='profile' && s?.derivedKind!=='difference'){
-    const info=caseFamilyInfo(s.caseName||caseById(s.caseId)?.name);
-    if(info)return familyColor(info.family);
-  }
-  // Time-series/probes intentionally stay color-coded by physical variable.
-  return variableColor(s.field);
+  // Physical variables keep consistent colors across cases. Case identity is
+  // represented by the explicit line style selected by the user.
+  return variableColor(s?.field||{})
 }
 
 function caseSampleColor(c,caseSeries=[]){
-  const hasProfiles=caseSeries.some(s=>datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference');
-  const info=hasProfiles?caseFamilyInfo(c?.name):null;
-  return info?familyColor(info.family):variableColor({quantity:'temperature',canonical:'T'});
+  const sample=(caseSeries||[]).find(s=>s?.field)||null;
+  return variableColor(sample?.field||{canonical:'case',display:'Case'})
 }
 
 function caseById(id){return cases.find(c=>c.id===id)}
@@ -2411,11 +2400,7 @@ function isCaseVisible(caseId){
   return !c||c.visible!==false
 }
 function familyVisible(family){return familyVisibility.get(String(family||'').toUpperCase())!==false}
-function seriesFamilyVisible(s){
-  if(datasetTypeOf(s)!=='profile')return true;
-  const info=caseFamilyInfo(s.caseName||caseById(s.caseId)?.name);
-  return !info||familyVisible(info.family)
-}
+function seriesFamilyVisible(s){return true}
 function datasetTypeOf(s){
   if(s?.datasetType==='profile')return 'profile';
   if(s?.datasetType==='log')return 'log';
@@ -2509,18 +2494,10 @@ function timeSeriesMatchesSelection(s){
   if(datasetTypeOf(s)!=='timeseries')return false;
   const variable=$('timeSeriesVariable')?.value||'';
   const probe=$('timeSeriesProbe')?.value||'';
-  const family=$('timeSeriesFamily')?.value||'';
+  const caseFilter=$('timeSeriesFamily')?.value||'';
   if(variable&&s.field.canonical!==variable)return false;
   if(probe!==''&&String(s.probe)!==String(probe))return false;
-  if(family){
-    if(family.startsWith('family:')){
-      const info=caseFamilyInfo(s.caseName||caseById(s.caseId)?.name);
-      const fam=(info?.family||'UNGROUPED').toUpperCase();
-      if(fam!==family.slice(7).toUpperCase())return false;
-    }else if(family.startsWith('case:')){
-      if(String(s.caseId)!==family.slice(5))return false;
-    }
-  }
+  if(caseFilter&&caseFilter.startsWith('case:')&&String(s.caseId)!==caseFilter.slice(5))return false;
   return true;
 }
 function refreshTimeSeriesControls(){
@@ -2551,22 +2528,15 @@ function refreshTimeSeriesControls(){
   else pSel.value='';
 
   const byProbe=byVar.filter(s=>pSel.value===''||String(s.probe)===String(pSel.value));
-  const caseMap=new Map(),familyMap=new Map();
+  const caseMap=new Map();
   for(const s of byProbe){
-    if(s.caseId!=null&&!caseMap.has(s.caseId))caseMap.set(s.caseId,caseById(s.caseId)||{id:s.caseId,name:s.caseName||`Case ${s.caseId}`});
-    const info=caseFamilyInfo(s.caseName||caseById(s.caseId)?.name);
-    const fam=(info?.family||'UNGROUPED').toUpperCase();
-    if(!familyMap.has(fam))familyMap.set(fam,0);
-    familyMap.set(fam,familyMap.get(fam)+1);
+    if(s.caseId!=null&&!caseMap.has(s.caseId))caseMap.set(s.caseId,caseById(s.caseId)||{id:s.caseId,name:s.caseName||`Case ${s.caseId}`})
   }
-  const familyOptions=[...familyMap.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   const caseOptions=[...caseMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{numeric:true}));
-  let html='<option value="">All matching cases</option>';
-  if(familyOptions.length){html+='<optgroup label="Families">'+familyOptions.map(f=>`<option value="family:${esc(f)}">${esc(f)}</option>`).join('')+'</optgroup>'}
-  if(caseOptions.length){html+='<optgroup label="Individual cases">'+caseOptions.map(c=>`<option value="case:${c.id}">${esc(c.name||`Case ${c.id}`)}</option>`).join('')+'</optgroup>'}
-  fSel.innerHTML=html;
-  if((!oldF&&fSel.value==='')||[...fSel.options].some(o=>o.value===oldF))fSel.value=oldF;
+  fSel.innerHTML='<option value="">All matching cases</option>'+caseOptions.map(c=>`<option value="case:${c.id}">${esc(c.name||`Case ${c.id}`)}</option>`).join('');
+  if([...fSel.options].some(o=>o.value===oldF)&&!String(oldF).startsWith('family:'))fSel.value=oldF;
   else fSel.value='';
+  const caseLabel=document.querySelector('label[for="timeSeriesFamily"]');if(caseLabel)caseLabel.textContent=diagEs()?'Casos':'Cases';
 
   const matching=timeSeriesOptionsBase().filter(timeSeriesMatchesSelection);
   const uniqueCases=new Set(matching.map(s=>s.caseId)).size;
@@ -2783,7 +2753,7 @@ function profileHeaderTokens(comments,width,pathHint){
 }
 
 function foamLogNumber(token){
-  // Real foamLog files in QuickCup use values such as "0.001s". Parse the
+  // foamLog outputs may use values such as "0.001s". Parse the
   // numeric prefix while still accepting normal decimal/scientific notation.
   const s=String(token??'').trim();
   const m=s.match(/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/);
@@ -4899,15 +4869,7 @@ function renameCase(caseId,newName){
   const c=caseById(caseId);
   if(!c)return;
   c.name=(newName||'').trim()||c.name;
-  const info=caseFamilyInfo(c.name);
-  if(info)c.dash=variantDash(info.variant);
-  series.filter(s=>s.caseId===caseId).forEach(s=>{
-    s.caseName=c.name;
-    if(datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference'){
-      s.color=automaticSeriesColor(s);
-      if(info)s.dash=c.dash;
-    }
-  });
+  series.filter(s=>s.caseId===caseId).forEach(s=>{s.caseName=c.name});
   syncPlaybackSelectionsAfterVisibilityChange();
   renderCaseManager();renderList();draw();updateMeta();refreshWorkspaceReview()
 }
@@ -4939,18 +4901,7 @@ function toggleCaseVisibility(caseId){
 }
 
 
-function profileFamilies(){
-  const map=new Map();
-  for(const c of cases){
-    const hasProfiles=series.some(s=>s.caseId===c.id&&datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference');
-    if(!hasProfiles)continue;
-    const info=caseFamilyInfo(c.name);if(!info)continue;
-    if(!map.has(info.family))map.set(info.family,[]);
-    map.get(info.family).push({case:c,info});
-  }
-  for(const items of map.values())items.sort((a,b)=>a.info.variant-b.info.variant);
-  return map
-}
+function profileFamilies(){return new Map()}
 function setFamilyVisible(family,visible){
   familyVisibility.set(String(family).toUpperCase(),!!visible);
   syncPlaybackSelectionsAfterVisibilityChange();
@@ -4965,27 +4916,11 @@ function showOnlyCases(caseIds){
   renderQuickCaseVisibility();renderCaseManager();renderList();draw();updateMeta()
 }
 function renderQuickFamilyVisibility(){
-  const wrap=$('familyQuickSection'),list=$('familyQuickList'),shortcuts=$('caseCompareShortcuts');if(!wrap||!list||!shortcuts)return;
-  const fam=profileFamilies();list.innerHTML='';shortcuts.innerHTML='';
-  wrap.classList.toggle('hidden',fam.size===0);$('familyQuickCount').textContent=String(fam.size);
-  const es=$('language').value==='es';$('familyQuickTitle').textContent=es?'Familias de perfiles':'Profile families';
-  for(const [family,items] of fam){
-    const visible=familyVisible(family),tokens=items.map(x=>x.info.token);
-    const row=document.createElement('div');row.className='familyQuickRow'+(visible?'':' familyOff');
-    row.innerHTML=`<button class="caseQuickEye ${visible?'':'off'}" type="button" aria-label="${visible?(es?'Ocultar familia':'Hide family'):(es?'Mostrar familia':'Show family')}"><svg class="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eyeClosed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6.5 0 10 6 10 6"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6"/></svg></button><div><div class="caseQuickName"><span class="familyQuickSwatch" style="background:${familyColor(family)}"></span>${es?'Familia':'Family'} ${esc(family)}</div><div class="caseQuickSub">${tokens.map(esc).join(' · ')}</div></div><button class="btn familyQuickOnly" type="button">${es?'Solo':'Only'}</button>`;
-    row.querySelector('.caseQuickEye').onclick=()=>toggleFamilyVisibility(family);
-    row.querySelector('.familyQuickOnly').onclick=()=>showOnlyCases(items.map(x=>x.case.id));
-    list.appendChild(row)
-  }
-  // Fast family shortcuts and same-variant comparisons (B3 vs C3, B4 vs C4, ...).
-  for(const [family,items] of fam){
-    const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=items.map(x=>x.info.token).join('/');b.onclick=()=>showOnlyCases(items.map(x=>x.case.id));shortcuts.appendChild(b)
-  }
-  const byVariant=new Map();
-  for(const items of fam.values())for(const item of items){if(!byVariant.has(item.info.variant))byVariant.set(item.info.variant,[]);byVariant.get(item.info.variant).push(item)}
-  for(const [variant,items] of [...byVariant.entries()].sort((a,b)=>a[0]-b[0])){
-    if(items.length<2)continue;const b=document.createElement('button');b.className='btn soft';b.type='button';b.textContent=items.map(x=>x.info.token).join(' vs ');b.onclick=()=>showOnlyCases(items.map(x=>x.case.id));shortcuts.appendChild(b)
-  }
+  const wrap=$('familyQuickSection'),list=$('familyQuickList'),shortcuts=$('caseCompareShortcuts');
+  if(wrap)wrap.classList.add('hidden');
+  if(list)list.innerHTML='';
+  if(shortcuts)shortcuts.innerHTML='';
+  if($('familyQuickCount'))$('familyQuickCount').textContent='0'
 }
 
 function renderQuickCaseVisibility(){
@@ -5099,7 +5034,7 @@ function renderCaseManager(){
         <button class="btn tiny" data-role="folder">${esc(tr('caseFolder'))}</button>
       </div>
 
-      <div class="caseMeta">${count?`${caseSeries.filter(s=>datasetTypeOf(s)==='timeseries').length} ${esc(tr('timeSeriesCurves'))} · ${profileFiles.length} ${esc(tr('profileFiles'))} · ${logFiles.length} logs`:tr('noCaseFiles')}${profileFiles.length&&caseFamilyInfo(c.name)?` · ${$('language').value==='es'?'Familia':'Family'} ${esc(caseFamilyInfo(c.name).family)} · ${$('language').value==='es'?'Variante':'Variant'} ${esc(String(caseFamilyInfo(c.name).variant))}`:''}${c.visible===false?` · ${esc(tr('caseHidden'))}`:''}</div>
+      <div class="caseMeta">${count?`${caseSeries.filter(s=>datasetTypeOf(s)==='timeseries').length} ${esc(tr('timeSeriesCurves'))} · ${profileFiles.length} ${esc(tr('profileFiles'))} · ${logFiles.length} logs`:tr('noCaseFiles')}${c.visible===false?` · ${esc(tr('caseHidden'))}`:''}</div>
       ${fileRows}
 
       <div class="caseDeleteRow">
