@@ -120,7 +120,7 @@ function npSummaryFromImportedSeries(caseId){
 }
 function npBuildUi(){
   if(document.getElementById('npTools'))return;
-  const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='npTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='npTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Numerical Performance</b><span class="badge">solver logs</span></div>
   <div class="smallnote" style="margin-top:5px">Physical results and numerical cost are reported separately. Linear-solver residuals are not treated as nonlinear/PIMPLE convergence.</div>
   <div class="field" style="margin-top:8px"><label>Case</label><select id="npCase"></select></div>
@@ -134,7 +134,7 @@ function npBuildUi(){
   host.appendChild(box);document.getElementById('npCase').addEventListener('change',()=>{npRefreshMetricOptions();npRender()});document.getElementById('npRefresh').addEventListener('click',()=>{npRender();npDrawMetric()});document.getElementById('npMetric').addEventListener('change',npDrawMetric);document.getElementById('npXAxis').addEventListener('change',npDrawMetric);npRefreshCases()
 }
 function npRefreshCases(){
-  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';
+  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}
   sel.innerHTML=ids.map(id=>`<option value="${String(id).replace(/"/g,'&quot;')}">${String(npCaseLabel(id)).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
   if([...sel.options].some(o=>o.value===old))sel.value=old;npRefreshMetricOptions();npRender()
 }
