@@ -53,6 +53,25 @@ test('foamLog reader checks cancellation per line',()=>{
   assert(program.includes('ct.ThrowIfCancellationRequested()'));
 });
 
+test('large temporal files have a cancellable native streaming parser',()=>{
+  assert(program.includes('case "parseTemporalFile"'));
+  assert(program.includes('HandleTemporalFileAsync(root, requestId)'));
+  assert(program.includes('ParseTemporalFileAsync(path, requestId, operation.Token)'));
+  assert(program.includes('private async Task<TemporalParseResult> ParseTemporalFileAsync'));
+  assert(program.includes('await reader.ReadLineAsync(ct)'));
+  assert(program.includes('type = "operationProgress", requestId, operation = "temporalFile"'));
+  assert(program.includes('completedBytes'));
+  assert(program.includes('totalBytes'));
+});
+
+test('native temporal parser preserves vector magnitudes and probe metadata',()=>{
+  assert(program.includes('SplitTemporalTokens(line)'));
+  assert(program.includes('TryParseTemporalValue(tokens[j], out var value)'));
+  assert(program.includes('Math.Sqrt(sum)'));
+  assert(program.includes('ParseProbeHeader(line)'));
+  assert(program.includes('Dictionary<int, string> probes'));
+});
+
 test('UI displays progress and sends cancel request',()=>{
   for(const token of [
     'nativeOperationHud','folderProgress','operationProgress',
