@@ -20,14 +20,15 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequiredOverridesAllowed=dialog
+SetupIconFile=..\src\FoamLensDesktop\Assets\FoamLens.ico
 UninstallDisplayIcon={app}\FoamLens.exe
 
 [Files]
 Source: "{#PublishDir}\FoamLens.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\FoamLens"; Filename: "{app}\FoamLens.exe"
-Name: "{autodesktop}\FoamLens"; Filename: "{app}\FoamLens.exe"; Tasks: desktopicon
+Name: "{autoprograms}\FoamLens"; Filename: "{app}\FoamLens.exe"; IconFilename: "{app}\FoamLens.exe"
+Name: "{autodesktop}\FoamLens"; Filename: "{app}\FoamLens.exe"; IconFilename: "{app}\FoamLens.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked

@@ -462,10 +462,11 @@ Every workflow run currently returned by the repository Actions history, oldest 
 ## Current open prerelease QA items
 
 - **Review / Case Auditor context consistency:** prerelease screenshots showed selector/health/root data from different cases. Stable source identity and single-`caseId` Review binding have now been implemented; CI validation pending.
-- **Native Windows icon:** prerelease testing shows the FoamLens logo is not used by the desktop shortcut/taskbar. Inspection found no native `.ico` asset and no `ApplicationIcon` entry in the WinForms project. Investigation completed; fix still pending in Git at the time of this log snapshot.
+- **Native Windows icon:** prerelease testing showed the shortcut/taskbar using a generic icon because the WinForms project had no native icon. A FoamLens `.ico` based on the current square lens mark is now embedded in the EXE, assigned to the native window, used by the installer, and explicitly inherited by desktop/Start-menu shortcuts. CI validation pending.
 - **Background execution:** resolved in commit `4a3701bb400a51cb907afbdc6de42de125c6418c`; Actions run #191 passed the real minimized-window runtime smoke.
 - **Watch Run desktop UX:** implementation upgraded in commit `128e68e022a4a82fe4f9a2ea7384503fa93a4c04`; Actions run #192 passed.
 - **Review / Case Auditor context consistency:** Smart Import now binds detected cases by stable source/root identity and carries the resolved `caseId` through the load pipeline instead of re-looking up mutable display names. Review uses a shared case-context binder and stamps all audit output with that same `caseId`. CI validation pending.
+- **Native Windows branding:** added a native FoamLens icon for the EXE, window/taskbar, installer, desktop shortcut and Start-menu shortcut. CI validation pending.
 
 ## How to update this log
 

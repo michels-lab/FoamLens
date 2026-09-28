@@ -199,6 +199,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/version-consistency.test.cjs
 
+      - name: Test native Windows icon packaging
+        shell: pwsh
+        run: node desktop/tests/windows-icon.test.cjs
+
       - name: Guard product code from regression-fixture names
         shell: pwsh
         run: |

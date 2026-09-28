@@ -45,6 +45,8 @@ internal sealed class FoamLensForm : Form
         _smokeTest = smokeTest;
         SmokeTestExitCode = smokeTest ? 1 : 0;
         Text = "FoamLens Desktop";
+        var executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        if (executableIcon is not null) Icon = executableIcon;
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(1120, 720);
