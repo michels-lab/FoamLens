@@ -143,6 +143,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/generic-case-identity.test.cjs
 
+      - name: Test explicit descriptive case tags
+        shell: pwsh
+        run: node desktop/tests/case-tags.test.cjs
+
       - name: Test development version consistency
         shell: pwsh
         run: node desktop/tests/version-consistency.test.cjs
