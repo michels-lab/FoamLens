@@ -206,7 +206,21 @@ body:not(.dark) .launchCapability{background:rgba(255,255,255,.75)}
 .liveHero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center}
 .liveStatus{font-size:10px;color:var(--muted);line-height:1.55}
 .liveDot{width:10px;height:10px;border-radius:50%;background:#8191a4;display:inline-block;margin-right:6px}
-.liveDot.on{background:#28a46b}.liveDot.warn{background:#c38a31}
+.liveDot.on{background:#28a46b}.liveDot.warn{background:#c38a31}.liveDot.fail{background:#c64955}
+.liveActions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.liveRunHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.liveRunState{font-size:17px;font-weight:900;letter-spacing:.02em}.liveRunState.running{color:#39b87c}.liveRunState.completed{color:#62a9ec}.liveRunState.failed{color:#e56570}.liveRunState.waiting{color:var(--muted)}
+.liveRunMeta{font-size:9px;color:var(--muted);text-align:right}
+.liveProgress{height:9px;border-radius:999px;background:rgba(120,140,160,.14);overflow:hidden;margin:10px 0 12px;border:1px solid var(--line)}
+.liveProgressBar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#3ab47a);transition:width .25s ease}
+.liveMetricGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.liveMetric{border:1px solid var(--line);border-radius:13px;background:var(--panel2);padding:9px;min-width:0}
+.liveMetric span{display:block;color:var(--muted);font-size:7px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+.liveMetric b{display:block;font-size:12px;margin-top:4px;overflow-wrap:anywhere}.liveMetric small{display:block;color:var(--muted);font-size:8px;margin-top:3px;overflow-wrap:anywhere}
+.liveDetail{margin-top:10px;line-height:1.6}
+.liveMonitorNote{font-size:9px;color:var(--muted);line-height:1.55}
+@media(max-width:980px){.liveMetricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.liveHero{grid-template-columns:1fr}.liveActions{justify-content:flex-start}}
+@media(max-width:560px){.liveMetricGrid{grid-template-columns:1fr}}
 
 body.appMode-workspace .app,body.appMode-review .app,body.appMode-live .app{grid-template-columns:0 minmax(0,1fr)}
 body.appMode-workspace .sidebar,body.appMode-review .sidebar,body.appMode-live .sidebar{opacity:0;padding:0;border:0;pointer-events:none;overflow:hidden}
@@ -1874,18 +1888,34 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
 <section class="modeSurface" id="liveSurface">
   <div class="surfaceGrid">
     <div class="surfaceCard">
-      <div class="surfaceCardHead"><strong id="liveTitle">Watch Run</strong><span class="badge" id="liveCapabilityBadge">Checking browser…</span></div>
+      <div class="surfaceCardHead"><strong id="liveTitle">Watch Run</strong><span class="badge" id="liveCapabilityBadge">Checking folder access…</span></div>
       <div class="surfaceCardBody">
         <div class="liveHero">
-          <div class="liveStatus" id="liveStatus"><span class="liveDot" id="liveDot"></span>Watch Run requires explicit access to a local case folder and only works while this tab remains open.</div>
-          <button class="btn primary" id="liveChooseFolder">Choose case folder</button>
+          <div class="liveStatus" id="liveStatus"><span class="liveDot" id="liveDot"></span>Select an OpenFOAM case folder to monitor its solver log. FoamLens only reads files.</div>
+          <div class="liveActions"><button class="btn primary" id="liveChooseFolder">Choose case folder</button><button class="btn" id="liveRefreshNow" disabled>Refresh now</button><button class="btn soft" id="liveStop" disabled>Stop watching</button></div>
         </div>
-        <div class="extInfo" id="liveDetail">No folder connected.</div>
+        <div class="liveRunHead"><div><div class="liveRunState waiting" id="liveRunState">WAITING FOR FOLDER</div><div class="liveStatus" id="liveRunCase">No case connected.</div></div><div class="liveRunMeta" id="liveLastUpdated">Not updated yet</div></div>
+        <div class="liveProgress" title="Physical-time progress"><div class="liveProgressBar" id="liveProgressBar"></div></div>
+        <div class="liveMetricGrid" id="liveMetricGrid">
+          <div class="liveMetric"><span id="liveMetricTimeLabel">Physical time</span><b id="liveMetricTime">—</b><small id="liveMetricProgress">—</small></div>
+          <div class="liveMetric"><span>deltaT</span><b id="liveMetricDeltaT">—</b><small id="liveMetricTimeStepMode">—</small></div>
+          <div class="liveMetric"><span>Courant</span><b id="liveMetricCourant">—</b><small id="liveMetricMaxCo">—</small></div>
+          <div class="liveMetric"><span id="liveMetricResidualLabel">Latest residual</span><b id="liveMetricResidual">—</b><small id="liveMetricEquation">—</small></div>
+          <div class="liveMetric"><span id="liveMetricCouplingLabel">Coupling iteration</span><b id="liveMetricCoupling">—</b><small id="liveMetricCorrector">—</small></div>
+          <div class="liveMetric"><span id="liveMetricExecutionLabel">Execution / clock</span><b id="liveMetricExecution">—</b><small id="liveMetricApplication">—</small></div>
+          <div class="liveMetric"><span id="liveMetricLogLabel">Run log</span><b id="liveMetricLog">—</b><small id="liveMetricLogCount">—</small></div>
+          <div class="liveMetric"><span id="liveMetricUpdatedLabel">Last update</span><b id="liveMetricUpdated">—</b><small id="liveMetricMonitor">5 s monitor</small></div>
+        </div>
+        <div class="extInfo liveDetail" id="liveDetail">No folder connected.</div>
       </div>
     </div>
     <div class="surfaceCard">
-      <div class="surfaceCardHead"><strong id="liveLimitsTitle">Web-only limits</strong></div>
-      <div class="surfaceCardBody"><div class="extNote" id="liveLimits">FoamLens cannot monitor a run after the browser closes or after folder permission is revoked. Unsupported browsers will show a fallback instead of pretending monitoring is active.</div></div>
+      <div class="surfaceCardHead"><strong id="liveLimitsTitle">Monitoring</strong></div>
+      <div class="surfaceCardBody">
+        <div class="liveMonitorNote" id="liveLimits">FoamLens re-reads the latest solver-log tail every 5 seconds while the desktop app stays open. Monitoring continues when the FoamLens window is minimized. The case is never modified.</div>
+        <div class="extActions" style="margin-top:12px"><button class="btn" id="liveOpenNumerical">Open Numerical Performance</button></div>
+        <div class="extNote" id="liveNumericalNote" style="margin-top:10px">Numerical Performance uses log data already imported into the workspace; Watch Run reads the selected folder directly for live status.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -5566,6 +5596,7 @@ let pendingScanCandidates=[];
 let pendingScanFiles=[];
 let liveDirectoryHandle=null;
 let liveWatchTimer=null;
+let liveLastSnapshot=null;
 
 function observedCaseTimeRange(caseId){const rec=healthCaseIndex(caseId);if(rec)return {...rec.range};const vals=[];for(const s of series.filter(s=>s.caseId===Number(caseId))){if(datasetTypeOf(s)==='profile'&&Number.isFinite(s.profileTime))vals.push(Number(s.profileTime));else if(Array.isArray(s.t))for(const t of s.t)if(Number.isFinite(Number(t)))vals.push(Number(t))}if(!vals.length)return{min:NaN,max:NaN,count:0};return{min:Math.min(...vals),max:Math.max(...vals),count:vals.length}}
 function caseLogFamilies(caseId){const rec=healthCaseIndex(caseId);return rec?[...rec.families.keys()].filter(Boolean).sort():[...new Set(logOptionsBase().filter(s=>s.caseId===Number(caseId)).map(s=>s.logFamily).filter(Boolean))].sort()}
@@ -6430,38 +6461,119 @@ function navigateFinding(f){
 }
 function findingById(id){return currentFindings.find(f=>f.id===id)}
 
+function liveLastMatch(text,re){
+  const all=[...String(text||'').matchAll(re)];return all.length?all[all.length-1]:null
+}
+function liveNum(v){const n=Number(v);return Number.isFinite(n)?n:NaN}
+function parseLiveLogSnapshot(text){
+  text=String(text||'');
+  const tm=liveLastMatch(text,/(?:^|\n)\s*Time\s*=\s*([-+\deE.]+)/g);
+  const dt=liveLastMatch(text,/(?:^|\n)\s*deltaT\s*=\s*([-+\deE.]+)/gi);
+  const co=liveLastMatch(text,/Courant\s+Number\s+mean:\s*([-+\deE.]+)\s+max:\s*([-+\deE.]+)/gi);
+  const res=liveLastMatch(text,/Solving\s+for\s+([^,]+),\s*Initial\s+residual\s*=\s*([-+\deE.]+),\s*Final\s+residual\s*=\s*([-+\deE.]+),\s*No\s+Iterations\s+(\d+)/gi);
+  const outer=liveLastMatch(text,/\b(PIMPLE|SIMPLE|PISO)\s*:\s*(?:iteration|Iteration)\s*(\d+)/gi);
+  const conv=liveLastMatch(text,/\b(PIMPLE|SIMPLE|PISO)(?:\s+solution)?\s+converged\s+in\s+(\d+)\s+iterations?/gi);
+  const corr=liveLastMatch(text,/\b(?:PIMPLE|SIMPLE|PISO)?\s*:?\s*(?:pressure\s+)?corrector(?:\s+iteration)?\s*[:=]?\s*(\d+)/gi);
+  const timing=liveLastMatch(text,/ExecutionTime\s*=\s*([-+\deE.]+)\s*s\s+ClockTime\s*=\s*([-+\deE.]+)\s*s/gi);
+  const failed=/FOAM FATAL ERROR|FOAM FATAL IO ERROR|segmentation fault|Floating point exception/i.test(text);
+  const ended=/(?:^|\n)\s*End\s*(?:\n|$)/m.test(text);
+  return{
+    currentTime:liveNum(tm?.[1]),deltaT:liveNum(dt?.[1]),
+    courantMean:liveNum(co?.[1]),courantMax:liveNum(co?.[2]),
+    residualEquation:res?.[1]?.trim()||'',initialResidual:liveNum(res?.[2]),finalResidual:liveNum(res?.[3]),linearIterations:liveNum(res?.[4]),
+    algorithm:(outer?.[1]||conv?.[1]||'').toUpperCase(),outerIteration:liveNum(outer?.[2]??conv?.[2]),corrector:liveNum(corr?.[1]),
+    executionTime:liveNum(timing?.[1]),clockTime:liveNum(timing?.[2]),failed,ended
+  }
+}
+function liveFmt(v,d=6){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumFractionDigits:d}):'—'}
+function liveRunState(snapshot){
+  if(snapshot?.failed)return'failed';if(snapshot?.ended)return'completed';if(snapshot?.logName)return'running';return'waiting'
+}
+function renderLiveSnapshot(snapshot){
+  liveLastSnapshot=snapshot||null;const s=snapshot||{},state=liveRunState(s),es=diagEs();
+  const stateLabel={failed:es?'FALLIDA':'FAILED',completed:es?'COMPLETADA':'COMPLETED',running:es?'EJECUTÁNDOSE':'RUNNING',waiting:es?'ESPERANDO LOG':'WAITING FOR LOG'}[state];
+  const stateEl=$('liveRunState');if(stateEl){stateEl.className='liveRunState '+state;stateEl.textContent=stateLabel}
+  const dot=$('liveStatus')?.querySelector('.liveDot');if(dot){dot.classList.remove('on','warn','fail');dot.classList.add(state==='failed'?'fail':state==='waiting'?'warn':'on')}
+  if($('liveRunCase'))$('liveRunCase').textContent=s.folderName?(es?'Vigilando '+s.folderName:'Watching '+s.folderName):(es?'No hay caso conectado.':'No case connected.');
+  const end=Number(s.endTime),cur=Number(s.currentTime),pct=Number.isFinite(cur)&&Number.isFinite(end)&&end!==0?Math.max(0,Math.min(100,100*cur/end)):NaN;
+  if($('liveProgressBar'))$('liveProgressBar').style.width=Number.isFinite(pct)?pct.toFixed(2)+'%':'0%';
+  if($('liveMetricTime'))$('liveMetricTime').textContent=Number.isFinite(cur)?liveFmt(cur)+' / '+liveFmt(end)+' s':'—';
+  if($('liveMetricProgress'))$('liveMetricProgress').textContent=Number.isFinite(pct)?liveFmt(pct,2)+'% '+(es?'del endTime':'of endTime'):(Number.isFinite(end)?'endTime '+liveFmt(end)+' s':'—');
+  if($('liveMetricDeltaT'))$('liveMetricDeltaT').textContent=Number.isFinite(s.deltaT)?liveFmt(s.deltaT)+' s':(Number.isFinite(s.configuredDeltaT)?liveFmt(s.configuredDeltaT)+' s':'—');
+  if($('liveMetricTimeStepMode'))$('liveMetricTimeStepMode').textContent=s.adjustTimeStep?'adjustTimeStep='+s.adjustTimeStep:'—';
+  if($('liveMetricCourant'))$('liveMetricCourant').textContent=Number.isFinite(s.courantMax)?(es?'media ':'mean ')+liveFmt(s.courantMean)+' · max '+liveFmt(s.courantMax):'—';
+  if($('liveMetricMaxCo'))$('liveMetricMaxCo').textContent=Number.isFinite(s.maxCo)?'maxCo='+liveFmt(s.maxCo):'—';
+  if($('liveMetricResidual'))$('liveMetricResidual').textContent=Number.isFinite(s.finalResidual)?liveFmt(s.initialResidual)+' → '+liveFmt(s.finalResidual):'—';
+  if($('liveMetricEquation'))$('liveMetricEquation').textContent=s.residualEquation?(s.residualEquation+(Number.isFinite(s.linearIterations)?' · '+s.linearIterations+' iter':'')):'—';
+  if($('liveMetricCoupling'))$('liveMetricCoupling').textContent=s.algorithm?(s.algorithm+(Number.isFinite(s.outerIteration)?' #'+s.outerIteration:'')):'—';
+  if($('liveMetricCorrector'))$('liveMetricCorrector').textContent=Number.isFinite(s.corrector)?'corrector #'+s.corrector:'—';
+  if($('liveMetricExecution'))$('liveMetricExecution').textContent=Number.isFinite(s.executionTime)?liveFmt(s.executionTime)+' / '+liveFmt(s.clockTime)+' s':'—';
+  if($('liveMetricApplication'))$('liveMetricApplication').textContent=s.application||'—';
+  if($('liveMetricLog'))$('liveMetricLog').textContent=s.logName||'—';
+  if($('liveMetricLogCount'))$('liveMetricLogCount').textContent=s.logCount?s.logCount+' '+(es?'log(s) detectados':'log file(s) detected'):(es?'Sin log.* en la raíz':'No root log.* found');
+  const updated=s.updatedAt?new Date(s.updatedAt):null,updatedText=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleTimeString():'—';
+  if($('liveMetricUpdated'))$('liveMetricUpdated').textContent=updatedText;
+  if($('liveLastUpdated'))$('liveLastUpdated').textContent=s.updatedAt?(es?'Última actualización '+updatedText:'Last updated '+updatedText):(es?'Sin actualizar':'Not updated yet');
+  if($('liveDetail')){
+    const status=state==='failed'?(es?'El log contiene una señal explícita de fallo.':'The log contains an explicit failure marker.'):state==='completed'?(es?'Se encontró el marcador End.':'An End marker was found.'):state==='running'?(es?'El log está activo; FoamLens seguirá actualizando cada 5 s.':'The log is active; FoamLens will refresh every 5 s.'):(es?'Carpeta conectada, pero todavía no se encontró log.* en la raíz.':'Folder connected, but no root log.* file has been found yet.');
+    $('liveDetail').innerHTML='<b>'+esc(s.folderName||'—')+'</b><br>'+esc(status)+(s.logName?'<br>'+esc(s.logName)+(s.logBytes?' · '+(s.logBytes/1024).toFixed(1)+' KiB':''):'')
+  }
+}
 async function refreshLiveCapability(){
-  const supported=typeof window.showDirectoryPicker==='function';
-  $('liveCapabilityBadge').textContent=supported?(diagEs()?'Compatible en este navegador':'Supported in this browser'):(diagEs()?'No compatible':'Unsupported');
+  const supported=typeof window.showDirectoryPicker==='function',desktop=!!window.chrome?.webview;
+  $('liveCapabilityBadge').textContent=supported?(desktop?(diagEs()?'Monitor de escritorio':'Desktop monitoring'):(diagEs()?'Acceso a carpeta disponible':'Folder access available')):(diagEs()?'Acceso a carpeta no disponible':'Folder access unavailable');
   $('liveChooseFolder').disabled=!supported;
-  if(!supported)$('liveDetail').textContent=diagEs()?'Este navegador no expone File System Access API. Usa importación manual como fallback.':'This browser does not expose the File System Access API. Use manual import as fallback.'
+  if($('liveLimits'))$('liveLimits').textContent=desktop
+    ?(diagEs()?'FoamLens vuelve a leer la parte final del log del solver cada 5 segundos mientras la aplicación permanezca abierta. El monitoreo continúa con la ventana minimizada. El caso nunca se modifica.':'FoamLens re-reads the latest solver-log tail every 5 seconds while the desktop app stays open. Monitoring continues when the FoamLens window is minimized. The case is never modified.')
+    :(diagEs()?'FoamLens monitorea mientras esta ventana permanezca abierta y conserve permiso de lectura sobre la carpeta.':'FoamLens monitors while this window stays open and retains read permission for the folder.');
+  if(!supported&&$('liveDetail'))$('liveDetail').textContent=diagEs()?'Este entorno no expone acceso directo a carpetas locales.':'This environment does not expose direct local-folder access.'
 }
 async function inspectLiveDirectory(){
   if(!liveDirectoryHandle)return;
   try{
-    let logInfo=[],controlInfo='';
+    const logs=[];let controlText='';
     for await(const [name,entry] of liveDirectoryHandle.entries()){
-      if(entry.kind==='file'&&/^log(?:\\.|$)/i.test(name)){
-        const file=await entry.getFile(),tail=await file.slice(Math.max(0,file.size-250000)).text(),tm=[...tail.matchAll(/(?:^|\\n)\\s*Time\\s*=\\s*([-+\\deE.]+)/g)].at(-1)?.[1],fatal=/FOAM FATAL|segmentation fault/i.test(tail),ended=/(?:^|\\n)\\s*End\\s*(?:\\n|$)/m.test(tail);
-        logInfo.push(`${name}: ${tm?`Time=${tm}`:'time unavailable'}${fatal?' · FATAL':''}${ended?' · End':''}`)
-      }
+      if(entry.kind==='file'&&/^log(?:\.|$)/i.test(name)){const file=await entry.getFile();logs.push({name,file})}
     }
-    try{
-      const sys=await liveDirectoryHandle.getDirectoryHandle('system'),cd=await sys.getFileHandle('controlDict'),txt=await(await cd.getFile()).text();
-      controlInfo=`application=${configWord(txt,'application')||'—'} · endTime=${configNumber(txt,'endTime')??'—'} · adjustTimeStep=${configWord(txt,'adjustTimeStep')||'—'}`
-    }catch{}
-    $('liveStatus')?.querySelector('.liveDot')?.classList.add('on');$('liveDetail').innerHTML=`<b>${esc(liveDirectoryHandle.name)}</b><br>${esc(controlInfo||'controlDict unavailable')}<br>${logInfo.length?logInfo.map(esc).join('<br>'):(diagEs()?'No se encontró log.* en la raíz.':'No root log.* file found.')}`;
-  }catch(err){$('liveStatus')?.querySelector('.liveDot')?.classList.add('warn');$('liveDetail').textContent=String(err)}
+    logs.sort((a,b)=>(b.file.lastModified||0)-(a.file.lastModified||0));
+    try{const sys=await liveDirectoryHandle.getDirectoryHandle('system'),cd=await sys.getFileHandle('controlDict');controlText=await(await cd.getFile()).text()}catch{}
+    const latest=logs[0]||null,tail=latest?await latest.file.slice(Math.max(0,latest.file.size-750000)).text():'',parsed=parseLiveLogSnapshot(tail);
+    const snap={
+      ...parsed,folderName:liveDirectoryHandle.name,logName:latest?.name||'',logCount:logs.length,logBytes:latest?.file?.size||0,
+      application:controlText?configWord(controlText,'application')||'':'',
+      endTime:controlText?configNumber(controlText,'endTime'):NaN,
+      adjustTimeStep:controlText?configWord(controlText,'adjustTimeStep')||'':'',
+      configuredDeltaT:controlText?configNumber(controlText,'deltaT'):NaN,
+      maxCo:controlText?configNumber(controlText,'maxCo'):NaN,
+      updatedAt:Date.now()
+    };
+    renderLiveSnapshot(snap);
+    if($('liveRefreshNow'))$('liveRefreshNow').disabled=false;if($('liveStop'))$('liveStop').disabled=false
+  }catch(err){
+    const dot=$('liveStatus')?.querySelector('.liveDot');if(dot){dot.classList.remove('on');dot.classList.add('warn')}
+    if($('liveDetail'))$('liveDetail').textContent=String(err)
+  }
+}
+function stopLiveWatch(){
+  if(liveWatchTimer){clearInterval(liveWatchTimer);liveWatchTimer=null}
+  liveDirectoryHandle=null;liveLastSnapshot=null;
+  if($('liveRefreshNow'))$('liveRefreshNow').disabled=true;if($('liveStop'))$('liveStop').disabled=true;
+  renderLiveSnapshot(null);
+  if($('liveStatus'))$('liveStatus').innerHTML='<span class="liveDot" id="liveDot"></span>'+(diagEs()?'Selecciona una carpeta de caso OpenFOAM para monitorear su log. FoamLens solo lee archivos.':'Select an OpenFOAM case folder to monitor its solver log. FoamLens only reads files.')
 }
 async function chooseLiveFolder(){
   if(typeof window.showDirectoryPicker!=='function')return;
   try{
     liveDirectoryHandle=await window.showDirectoryPicker({mode:'read'});
-    $('liveStatus').innerHTML=`<span class="liveDot on"></span>${diagEs()?'Conectado mientras esta pestaña permanezca abierta y conserve permiso.':'Connected while this tab stays open and permission remains granted.'}`;
+    if($('liveStatus'))$('liveStatus').innerHTML='<span class="liveDot on" id="liveDot"></span>'+(diagEs()?'Monitoreo activo. Puedes minimizar FoamLens; el caso permanece en modo solo lectura.':'Monitoring active. You can minimize FoamLens; the case remains read-only.');
     if(liveWatchTimer)clearInterval(liveWatchTimer);await inspectLiveDirectory();liveWatchTimer=setInterval(inspectLiveDirectory,5000)
-  }catch(err){if(err?.name!=='AbortError')$('liveDetail').textContent=String(err)}
+  }catch(err){if(err?.name!=='AbortError'&&$('liveDetail'))$('liveDetail').textContent=String(err)}
 }
-
+function openLiveNumericalPerformance(){
+  setAppMode('analysis');refreshGeneralAnalysisHost();
+  if(activeContextCaseId!=null&&$('npCase')&&[...$('npCase').options].some(o=>String(o.value)===String(activeContextCaseId)))$('npCase').value=String(activeContextCaseId);
+  const box=$('npTools');if(box){box.scrollIntoView({block:'start',behavior:'smooth'});if(typeof npRender==='function')npRender();if(typeof npDrawMetric==='function')npDrawMetric()}
+}
 function refreshLogSelectors(){
   const logs=logContextOptionsBase(),fam=$('logFamily'),member=$('logMember');if(!fam||!member)return;
   const oldF=fam.value,oldM=member.value;
@@ -7836,10 +7948,10 @@ function applyV35Language(){
   set('workspaceHealthTitle','Numerical Health','Health numérico');set('workspaceFindingsTitle','Findings requiring attention','Hallazgos que requieren atención');set('workspaceProjectTitle','Workspace discovery','Descubrimiento del workspace');set('workspaceQuickTitle','Quick actions','Acciones rápidas');
   set('workspaceLoadFolder','Choose OpenFOAM folder','Elegir carpeta OpenFOAM');set('workspaceGoData','Open data','Abrir datos');set('workspaceGoCoupling','Coupling diagnostics','Diagnóstico de acoplamiento');set('workspaceGoAuditor','Case auditor','Auditor de casos');set('workspaceGoInspector','What FoamLens detected','Qué detectó FoamLens');set('workspaceOpenAllFindings','Review all','Revisar todos');
   set('reviewTitle','Review & Audit','Revisión y auditoría');set('reviewTabAuditor','Case Auditor','Auditor de casos');set('reviewTabFindings','Findings','Hallazgos');set('reviewTabInspector','Auto-detection Inspector','Inspector de autodetección');set('reviewTabConfiguration','Compare Configuration','Comparar configuración');set('reviewTabRelationships','Case Relationships','Relaciones entre casos');set('auditCaseLabel','Case','Caso');set('auditRefresh','Refresh audit','Actualizar auditoría');
-  set('liveTitle','Watch Run','Monitorear ejecución');set('liveChooseFolder','Choose case folder','Elegir carpeta del caso');set('liveLimitsTitle','Web-only limits','Límites del modo web');
+  set('liveTitle','Watch Run','Monitorear ejecución');set('liveChooseFolder','Choose case folder','Elegir carpeta del caso');set('liveRefreshNow','Refresh now','Actualizar ahora');set('liveStop','Stop watching','Detener monitoreo');set('liveLimitsTitle','Monitoring','Monitoreo');set('liveOpenNumerical','Open Numerical Performance','Abrir rendimiento numérico');set('liveMetricTimeLabel','Physical time','Tiempo físico');set('liveMetricResidualLabel','Latest residual','Residual más reciente');set('liveMetricCouplingLabel','Coupling iteration','Iteración de acoplamiento');set('liveMetricExecutionLabel','Execution / clock','Ejecución / reloj');set('liveMetricLogLabel','Run log','Log de ejecución');set('liveMetricUpdatedLabel','Last update','Última actualización');
   if($('configCompareNote'))$('configCompareNote').textContent=es?'Las diferencias de configuración son descriptivas; FoamLens no decide si una diferencia es buena o mala.':'Configuration differences are descriptive; FoamLens does not label a difference as good or bad.';
   if($('relationshipsNote'))$('relationshipsNote').textContent=es?'Los casos se agrupan solo por similitud de configuración; no se infiere la intención científica.':'Cases are grouped by configuration similarity only; scientific intent is not inferred.';
-  refreshWorkspaceReview();if(activeAppMode==='live')refreshLiveCapability();setAppMode(activeAppMode);updateContextTrail()
+  refreshWorkspaceReview();if(activeAppMode==='live'){refreshLiveCapability();if(liveLastSnapshot)renderLiveSnapshot(liveLastSnapshot)}setAppMode(activeAppMode);updateContextTrail()
 }
 function applyLanguage(){
   const L=lang();
@@ -8764,6 +8876,9 @@ $('inspectorCase')?.addEventListener('change',()=>{const c=caseById(Number($('in
 for(const id of ['workspaceFindings','allFindings','auditFindings'])$(id)?.addEventListener('click',e=>{const row=e.target.closest('[data-finding-id]');if(row)openFindingDetail(findingById(row.dataset.findingId))});
 $('workspaceHealthCases')?.addEventListener('click',e=>{const row=e.target.closest('[data-case]');if(!row)return;setAppMode('review');setReviewPane('auditor');$('auditCase').value=row.dataset.case;renderAuditCase(caseById(Number(row.dataset.case)))});
 $('liveChooseFolder')?.addEventListener('click',chooseLiveFolder);
+$('liveRefreshNow')?.addEventListener('click',inspectLiveDirectory);
+$('liveStop')?.addEventListener('click',stopLiveWatch);
+$('liveOpenNumerical')?.addEventListener('click',openLiveNumericalPerformance);
 $('profileSet').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshDatasetControls();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 
 $('timeSeriesVariable').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});

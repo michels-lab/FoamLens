@@ -249,6 +249,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/analysis-ui-organization.test.cjs
 
+      - name: Test Watch Run desktop monitoring
+        shell: pwsh
+        run: node desktop/tests/live-run.test.cjs
+
       - name: Audit bilingual UI and overflow safeguards
         shell: pwsh
         run: node desktop/tests/bilingual-ui-audit.test.cjs
