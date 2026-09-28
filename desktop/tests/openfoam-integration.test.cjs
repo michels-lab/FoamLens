@@ -16,6 +16,18 @@ assert(a>=0&&b>a,'Discovery core markers missing.');
 const core=html.slice(a,b+end.length);
 const api=new Function(core+'\nreturn {flBuildCaseDiscoveryModel,flParseFoamFieldHeader,flClassifyPostProcessingSample};')();
 
+const taFile=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','v13-temporal-alignment.js'),'utf8');
+const taBegin='/* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_START */',taEnd='/* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_END */';
+const taA=taFile.indexOf(taBegin),taB=taFile.indexOf(taEnd,taA);
+assert(taA>=0&&taB>taA,'Temporal alignment core markers missing.');
+const taCore=taFile.slice(taA,taB+taEnd.length);
+const ta=new Function(taCore+'\nreturn {taCommonTimeRange,taAlignSeries};')();
+
+const foamNumStart=html.indexOf('function foamLogNumber(token){');
+const foamNumEnd=html.indexOf('function foamLogDescriptor',foamNumStart);
+assert(foamNumStart>=0&&foamNumEnd>foamNumStart,'foamLogNumber function missing.');
+const foamLogNumber=new Function(html.slice(foamNumStart,foamNumEnd)+'\nreturn foamLogNumber;')();
+
 function walk(dir,base=dir,out=[]){
   for(const e of fs.readdirSync(dir,{withFileTypes:true})){
     const full=path.join(dir,e.name);
@@ -30,7 +42,7 @@ function modelFor(caseName){
   return{root,files,model:api.flBuildCaseDiscoveryModel(files,caseName)}
 }
 function read(root,rel){return fs.readFileSync(path.join(root,...rel.split('/')),'utf8')}
-function adaptiveTimes(root){
+function profileTimes(root){
   const base=path.join(root,'postProcessing');if(!fs.existsSync(base))return[];
   const vals=[];
   for(const f of walk(base,base)){
@@ -87,6 +99,7 @@ const probePath='postProcessing/metal/temperatureProbe/0/T';
 const xyPath='postProcessing/metal/horizontalProfiles/10/line_y20mm.xy';
 const volPath='postProcessing/metal/metalMeanLiquidFraction/0/volFieldValue.dat';
 const maxPath='postProcessing/metal/metalMaxCourant/0/volFieldValue.dat';
+const surfacePath='postProcessing/metal/metalBoundaryEnergyPower/0/surfaceFieldValue.dat';
 test('real probe structure',()=>{
   const p=api.flClassifyPostProcessingSample(read(b3.root,probePath),'T');assert.strictEqual(p.kind,'probe');assert(p.temporal);
 });
@@ -99,14 +112,42 @@ test('real volFieldValue average',()=>{
 test('real volFieldValue max location/cell',()=>{
   const p=api.flClassifyPostProcessingSample(read(b3.root,maxPath),'volFieldValue.dat');assert.strictEqual(p.kind,'volumeReduction');assert(p.columns.some(x=>/location/i.test(x)));assert(p.columns.some(x=>/^cell$/i.test(x)));
 });
-test('real adaptive timestep stored profile times are nonuniform',()=>{
-  const bt=adaptiveTimes(b6.root),ct=adaptiveTimes(c6.root);assert(bt.length>10&&nonuniform(bt));assert(ct.length>10&&nonuniform(ct));
+test('real surfaceFieldValue is structurally distinct from volume reduction',()=>{
+  const p=api.flClassifyPostProcessingSample(read(b6.root,surfacePath),'surfaceFieldValue.dat');
+  assert.strictEqual(p.kind,'surfaceReduction');assert(p.selection.faces);assert(p.selection.area);assert(/sum\(/.test(p.reduction));
+});
+test('real fixed and adaptive stored profile timelines are distinguishable',()=>{
+  const ft=profileTimes(b3.root),bt=profileTimes(b6.root),ct=profileTimes(c6.root);
+  assert(ft.length>20&&!nonuniform(ft),'Reference profile timeline is not fixed/uniform enough for this fixture.');
+  assert(bt.length>10&&nonuniform(bt));assert(ct.length>10&&nonuniform(ct));
+  assert.notDeepStrictEqual(bt,ct,'Independent adaptive cases unexpectedly share the exact same stored time grid.');
+});
+test('real fixed-vs-adaptive physical-time alignment has common overlap',()=>{
+  const ft=profileTimes(b3.root),bt=profileTimes(b6.root);
+  const aligned=ta.taAlignSeries([{t:ft,y:ft},{t:bt,y:bt}],{mode:'common',method:'linear',maxPoints:500});
+  assert(aligned.valid);assert(aligned.range.valid);assert(aligned.range.end>aligned.range.start);
+  assert(aligned.series[1].meta.some(x=>x.status==='interpolated'),'Adaptive fixture never exercised temporal interpolation.');
+  assert(aligned.series.every(s=>s.meta.every(m=>m.ok)),'Alignment attempted extrapolation.');
+});
+test('real adaptive-vs-adaptive physical-time alignment uses one global requested grid',()=>{
+  const bt=profileTimes(b6.root),ct=profileTimes(c6.root);
+  const aligned=ta.taAlignSeries([{t:bt,y:bt},{t:ct,y:ct}],{mode:'common',method:'linear',maxPoints:500});
+  assert(aligned.valid&&aligned.grid.length>5);
+  assert.deepStrictEqual(aligned.series[0].t,aligned.grid);
+  assert.deepStrictEqual(aligned.series[1].t,aligned.grid);
+  assert(aligned.series[0].meta.some(x=>x.status==='interpolated')||aligned.series[1].meta.some(x=>x.status==='interpolated'));
 });
 test('real adaptive control metadata exists',()=>{
   const txt=read(b6.root,'system/controlDict');assert(/adjustTimeStep\s+yes\s*;/.test(txt));assert(/maxCo\s+[-+\deE.]+\s*;/.test(txt));
 });
-test('real foamLog deltaT output exists for adaptive fixture',()=>{
-  assert(fs.existsSync(path.join(b6.root,'logs','deltaT_0')));
+test('real foamLog deltaT output accepts time tokens with s suffix',()=>{
+  const p=path.join(b6.root,'logs','deltaT_0');assert(fs.existsSync(p));
+  const rows=fs.readFileSync(p,'utf8').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const parsed=[];
+  for(const row of rows){const tok=row.split(/\s+/);if(tok.length<2)continue;const t=foamLogNumber(tok[0]),dt=foamLogNumber(tok[1]);if(Number.isFinite(t)&&Number.isFinite(dt))parsed.push([t,dt])}
+  assert(parsed.length>100,'Real adaptive deltaT log did not yield enough parsed samples.');
+  assert(parsed.every(([t,dt])=>Number.isFinite(t)&&dt>0));
+  assert(rows.some(x=>/^\d+(?:\.\d+)?s\s/.test(x)),'Fixture no longer exercises the time-suffix format.');
 });
 test('real momentum post-processing dictionary is discovered, not required',()=>{
   const p=path.join(b6.root,'system','momentumPostProcessing');assert(fs.existsSync(p));
