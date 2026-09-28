@@ -330,6 +330,64 @@ jobs:
           & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Setup-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
 
+      - name: Install and smoke-test FoamLens installer
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          $installer=(Resolve-Path "artifacts/FoamLens-Setup-v$v.exe").Path
+          $installDir=Join-Path (Resolve-Path 'artifacts').Path 'installed-smoke'
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+
+          $installArgs=@(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/SP-',
+            '/CURRENTUSER',
+            "/DIR=`"$installDir`""
+          )
+          $install=Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru
+          if (-not $install.WaitForExit(60000)) {
+            try { $install.Kill($true) } catch {}
+            throw 'FoamLens installer smoke test timed out during silent installation.'
+          }
+          if ($install.ExitCode -ne 0) {
+            throw "FoamLens installer failed with exit code $($install.ExitCode)."
+          }
+
+          $installedExe=Join-Path $installDir 'FoamLens.exe'
+          if (-not (Test-Path $installedExe)) {
+            throw "FoamLens.exe was not installed to $installDir."
+          }
+
+          $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(45000)) {
+            try { $app.Kill($true) } catch {}
+            throw 'Installed FoamLens smoke test timed out after 45 seconds.'
+          }
+          if ($app.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+            if (Test-Path $log) {
+              Write-Host '---- FoamLens desktop log ----'
+              Get-Content $log
+              Write-Host '------------------------------'
+            }
+            throw "Installed FoamLens smoke test failed with exit code $($app.ExitCode)."
+          }
+
+          $uninstaller=Join-Path $installDir 'unins000.exe'
+          if (Test-Path $uninstaller) {
+            $uninstall=Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -PassThru
+            if (-not $uninstall.WaitForExit(60000)) {
+              try { $uninstall.Kill($true) } catch {}
+              throw 'FoamLens uninstall cleanup timed out.'
+            }
+            if ($uninstall.ExitCode -ne 0) {
+              throw "FoamLens uninstall cleanup failed with exit code $($uninstall.ExitCode)."
+            }
+          }
+          Write-Host 'FoamLens installer installed successfully and the installed executable passed its startup smoke test.'
+
       - name: Upload FoamLens Windows build
         uses: actions/upload-artifact@v4
         with:
