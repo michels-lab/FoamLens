@@ -10,7 +10,7 @@ const begin='/* FOAMLENS_PHYSICAL_ANALYSIS_CORE_START */',end='/* FOAMLENS_PHYSI
 const a=js.indexOf(begin),b=js.indexOf(end,a);
 assert(a>=0&&b>a,'Physical analysis core markers are missing.');
 const core=js.slice(a,b+end.length);
-const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation,paDimensionsShiftTime,paDimensionsShiftLength,paDerivativeUnit,paSpatialDerivativeUnit,paIntegralUnit,paCompatibleKnownUnits};')();
+const api=new Function(core+'\nreturn {paFiniteXY,paDerivative,paSpatialDerivative,paCoordinateScaleToMetres,paTrapezoidIntegral,paWeightedSum,paRanks,paPearson,paSpearman,paCorrelation,paDimensionsShiftTime,paDimensionsShiftLength,paDerivativeUnit,paSpatialDerivativeUnit,paIntegralUnit,paCompatibleKnownUnits,paSourceProvenance};')();
 
 const near=(x,y,t=1e-10)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
@@ -105,6 +105,20 @@ test('UI exposes explicit thermal and solidification transforms',()=>{
 
 test('UI warns against unsupported physical inference',()=>{
   for(const token of ['does not infer nucleation, recalescence, dominance, or causality','will not label a quantity “total energy”'])assert(js.includes(token),'Missing caution '+token);
+});
+
+test('energy source provenance distinguishes volume and surface reductions',()=>{
+  const vol=api.paSourceProvenance({sourcePath:'postProcessing/region/mean/0/volFieldValue.dat',postProcessing:{kind:'volumeReduction',reduction:'volAverage(T)',selection:{cells:true,volume:true}}});
+  const surf=api.paSourceProvenance({sourcePath:'postProcessing/region/power/0/surfaceFieldValue.dat',postProcessing:{kind:'surfaceReduction',reduction:'sum(phi)',selection:{faces:true,area:true}}});
+  assert.strictEqual(vol.postProcessing.kind,'volumeReduction');
+  assert.strictEqual(vol.postProcessing.selection.volume,true);
+  assert.strictEqual(surf.postProcessing.kind,'surfaceReduction');
+  assert.strictEqual(surf.postProcessing.selection.area,true);
+});
+
+test('Energy Balance terms carry source provenance',()=>{
+  assert(js.includes('provenance:paSourceProvenance(x.s)'));
+  assert(js.includes('Source types:'));
 });
 
 test('energy balance uses common physical-time alignment and no extrapolation metadata',()=>{
