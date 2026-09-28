@@ -100,7 +100,7 @@ function npInstallRawRunLogExtension(){
   extended.__foamLensNumericalExtended=true;parseOpenFOAMRunLogFile=extended
 }
 function npSeriesText(s){return [s?.name,s?.label,s?.logRoot,s?.logMetric,s?.field?.canonical,s?.field?.raw,s?.sourcePath].filter(Boolean).join(' ').toLowerCase()}
-function npLogSeries(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='log'}catch{return !!s?.logFamily}})}
+function npLogSeries(){return (typeof series!=='undefined'&&Array.isArray(series)?series:[]).filter(s=>{try{return datasetTypeOf(s)==='log'&&(typeof seriesMatchesGlobalContext!=='function'||seriesMatchesGlobalContext(s))}catch{return !!s?.logFamily}})}
 function npCaseLabel(id){const c=(typeof cases!=='undefined'&&Array.isArray(cases))?cases.find(x=>String(x.id)===String(id)):null;return c?.name||('Case '+id)}
 function npSeriesForCase(id){return npLogSeries().filter(s=>String(s.caseId)===String(id))}
 function npMetricSeries(items,re){return items.filter(s=>re.test(npSeriesText(s)))}
