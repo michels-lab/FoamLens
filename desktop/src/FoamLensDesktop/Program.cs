@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -162,6 +163,9 @@ internal sealed class FoamLensForm : Form
                     break;
                 case "parseTemporalFile":
                     await HandleTemporalFileAsync(root, requestId);
+                    break;
+                case "parseOpenFOAMField":
+                    await HandleOpenFoamFieldAsync(root, requestId);
                     break;
                 case "cancelOperation":
                     HandleCancelOperation(root, requestId);
@@ -469,6 +473,212 @@ internal sealed class FoamLensForm : Form
         return false;
     }
 
+    private async Task HandleOpenFoamFieldAsync(JsonElement root, string requestId)
+    {
+        var token = RequiredString(root, "token");
+        var path = ResolveToken(token);
+        var operation = BeginOperation(requestId);
+        var totalBytes = new FileInfo(path).Length;
+        Post(new { type = "operationStart", requestId, operation = "openFoamField", completedBytes = 0L, totalBytes });
+
+        try
+        {
+            var result = await ParseOpenFoamFieldAsync(path, requestId, operation.Token);
+            Reply(requestId, true, result, null);
+            Post(new { type = "operationComplete", requestId, operation = "openFoamField", completedBytes = result.BytesRead, totalBytes });
+        }
+        catch (OperationCanceledException)
+        {
+            Reply(requestId, false, null, "Operation cancelled.");
+            Post(new { type = "operationCancelled", requestId, operation = "openFoamField", completedBytes = 0L, totalBytes });
+        }
+        finally
+        {
+            EndOperation(requestId, operation);
+        }
+    }
+
+    private async Task<OpenFoamFieldParseResult> ParseOpenFoamFieldAsync(string path, string requestId, CancellationToken ct)
+    {
+        const int prefixLimit = 512 * 1024;
+        var totalBytes = new FileInfo(path).Length;
+        var prefix = new StringBuilder(Math.Min(prefixLimit, 32 * 1024));
+        var scalarValues = new List<double>();
+        var vectorValues = new List<double[]>();
+        var nextProgress = Stopwatch.StartNew();
+        string format = "ascii", fieldClass = "", objectName = Path.GetFileName(path), dimensions = "", kind = "unknown";
+        int? declaredCount = null;
+        var valuesStarted = false;
+        var closed = false;
+
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
+            bufferSize: 65536, useAsync: true);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 65536);
+
+        while (!reader.EndOfStream)
+        {
+            ct.ThrowIfCancellationRequested();
+            var raw = await reader.ReadLineAsync(ct) ?? "";
+            var line = raw.Trim();
+
+            if (!valuesStarted)
+            {
+                if (prefix.Length < prefixLimit)
+                {
+                    var fragment = raw + Environment.NewLine;
+                    var take = Math.Min(fragment.Length, prefixLimit - prefix.Length);
+                    if (take > 0) prefix.Append(fragment.AsSpan(0, take));
+                }
+
+                var text = prefix.ToString();
+                format = FoamHeaderValue(text, "format") ?? format;
+                fieldClass = FoamHeaderValue(text, "class") ?? fieldClass;
+                objectName = FoamHeaderValue(text, "object") ?? objectName;
+                dimensions = Regex.Match(text, @"\bdimensions\s+(\[[^\]]+\])\s*;", RegexOptions.IgnoreCase).Groups[1].Value is { Length: > 0 } dims ? dims : dimensions;
+                kind = fieldClass.Contains("vectorField", StringComparison.OrdinalIgnoreCase) ? "vector"
+                    : fieldClass.Contains("scalarField", StringComparison.OrdinalIgnoreCase) ? "scalar" : "unknown";
+
+                if (format.Equals("binary", StringComparison.OrdinalIgnoreCase))
+                    return OpenFoamFieldParseResult.Unsupported("binary-format", format, fieldClass, objectName, dimensions, kind, totalBytes, stream.Position);
+
+                if (kind == "unknown" && !string.IsNullOrWhiteSpace(fieldClass) &&
+                    Regex.IsMatch(text, @"\binternalField\b", RegexOptions.IgnoreCase))
+                    return OpenFoamFieldParseResult.Unsupported("unsupported-field-class", format, fieldClass, objectName, dimensions, kind, totalBytes, stream.Position);
+
+                var uniform = Regex.Match(text, @"\binternalField\s+uniform\s+([^;]+)\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                if (uniform.Success)
+                {
+                    var valueText = uniform.Groups[1].Value.Trim();
+                    if (kind == "scalar" && double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var scalar))
+                        return OpenFoamFieldParseResult.UniformScalar(format, fieldClass, objectName, dimensions, scalar, totalBytes, stream.Position);
+                    if (kind == "vector" && TryParseVectorTuple(valueText, out var vector))
+                        return OpenFoamFieldParseResult.UniformVector(format, fieldClass, objectName, dimensions, vector, totalBytes, stream.Position);
+                    return OpenFoamFieldParseResult.Unsupported(kind == "vector" ? "invalid-uniform-vector" : "invalid-uniform-value", format, fieldClass, objectName, dimensions, kind, totalBytes, stream.Position);
+                }
+
+                var nonuniform = Regex.Match(text,
+                    @"\binternalField\s+nonuniform\s+(?:List<\s*(?:scalar|vector)\s*>|[^\s]+)\s+(\d+)\s*\(",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                if (nonuniform.Success)
+                {
+                    declaredCount = int.TryParse(nonuniform.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) ? count : null;
+                    valuesStarted = true;
+                    var remainder = text[(nonuniform.Index + nonuniform.Length)..];
+                    foreach (var valueLine in remainder.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
+                    {
+                        if (ParseOpenFoamFieldValueLine(valueLine, kind, declaredCount, scalarValues, vectorValues, out closed))
+                            break;
+                    }
+                    prefix.Clear();
+                }
+                else if (prefix.Length >= prefixLimit)
+                {
+                    return OpenFoamFieldParseResult.Unsupported("internalField-header-too-large", format, fieldClass, objectName, dimensions, kind, totalBytes, stream.Position);
+                }
+            }
+            else
+            {
+                ParseOpenFoamFieldValueLine(line, kind, declaredCount, scalarValues, vectorValues, out closed);
+            }
+
+            var parsedCount = kind == "vector" ? vectorValues.Count : scalarValues.Count;
+            if (valuesStarted && ((declaredCount.HasValue && parsedCount >= declaredCount.Value) || closed))
+                break;
+
+            if (nextProgress.ElapsedMilliseconds >= 120)
+            {
+                nextProgress.Restart();
+                Post(new { type = "operationProgress", requestId, operation = "openFoamField", completedBytes = Math.Min(stream.Position, totalBytes), totalBytes });
+            }
+        }
+
+        ct.ThrowIfCancellationRequested();
+        var bytesRead = Math.Min(stream.Position, totalBytes);
+        var countParsed = kind == "vector" ? vectorValues.Count : scalarValues.Count;
+        if (countParsed == 0)
+            return OpenFoamFieldParseResult.Unsupported(kind == "vector" ? "no-vector-values" : "no-scalar-values", format, fieldClass, objectName, dimensions, kind, totalBytes, bytesRead);
+
+        if (declaredCount.HasValue)
+        {
+            if (kind == "vector" && vectorValues.Count > declaredCount.Value)
+                vectorValues.RemoveRange(declaredCount.Value, vectorValues.Count - declaredCount.Value);
+            if (kind == "scalar" && scalarValues.Count > declaredCount.Value)
+                scalarValues.RemoveRange(declaredCount.Value, scalarValues.Count - declaredCount.Value);
+        }
+
+        return new OpenFoamFieldParseResult(
+            true, "", format, fieldClass, objectName, dimensions, kind, false,
+            null, null,
+            kind == "scalar" ? scalarValues.ToArray() : null,
+            kind == "vector" ? vectorValues.ToArray() : null,
+            kind == "vector" ? vectorValues.Count : scalarValues.Count,
+            declaredCount, totalBytes, bytesRead, closed);
+    }
+
+    private static string? FoamHeaderValue(string text, string key)
+    {
+        var match = Regex.Match(text, $@"\b{Regex.Escape(key)}\s+([^;\s]+)\s*;", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    private static bool ParseOpenFoamFieldValueLine(
+        string raw, string kind, int? declaredCount,
+        List<double> scalarValues, List<double[]> vectorValues, out bool closed)
+    {
+        closed = false;
+        var line = Regex.Replace(raw ?? "", @"//.*$", "").Trim();
+        if (line.Length == 0) return false;
+        if (Regex.IsMatch(line, @"^\)\s*;?"))
+        {
+            closed = true;
+            return true;
+        }
+
+        if (kind == "vector")
+        {
+            foreach (Match match in Regex.Matches(line,
+                @"\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s*\)"))
+            {
+                var vector = new[]
+                {
+                    double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture),
+                    double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture),
+                    double.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture)
+                };
+                vectorValues.Add(vector);
+                if (declaredCount.HasValue && vectorValues.Count >= declaredCount.Value) return true;
+            }
+        }
+        else
+        {
+            foreach (Match match in Regex.Matches(line, @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"))
+            {
+                if (double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                    scalarValues.Add(value);
+                if (declaredCount.HasValue && scalarValues.Count >= declaredCount.Value) return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool TryParseVectorTuple(string text, out double[] vector)
+    {
+        var match = Regex.Match(text,
+            @"^\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s*\)$");
+        if (match.Success)
+        {
+            vector = new[]
+            {
+                double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture),
+                double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture),
+                double.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture)
+            };
+            return true;
+        }
+        vector = Array.Empty<double>();
+        return false;
+    }
+
     private async Task HandleFoamLogBatchAsync(JsonElement root, string requestId)
     {
         var items = new List<LogBatchItem>();
@@ -657,6 +867,18 @@ internal sealed class FoamLensForm : Form
     private sealed record NativeFileRef(string Token, string Name, string RelativePath, long Size, long LastModified);
     private sealed record TemporalColumn(double[] T, double[] Y);
     private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes);
+    private sealed record OpenFoamFieldParseResult(
+        bool Supported, string Reason, string Format, string FieldClass, string Object, string Dimensions, string Kind,
+        bool Uniform, double? UniformScalar, double[]? UniformVector, double[]? ScalarValues, double[][]? VectorValues,
+        int? Count, int? DeclaredCount, long SourceBytes, long BytesRead, bool Closed)
+    {
+        public static OpenFoamFieldParseResult Unsupported(string reason, string format, string fieldClass, string objectName, string dimensions, string kind, long sourceBytes, long bytesRead) =>
+            new(false, reason, format, fieldClass, objectName, dimensions, kind, false, null, null, null, null, null, null, sourceBytes, bytesRead, false);
+        public static OpenFoamFieldParseResult UniformScalar(string format, string fieldClass, string objectName, string dimensions, double value, long sourceBytes, long bytesRead) =>
+            new(true, "", format, fieldClass, objectName, dimensions, "scalar", true, value, null, null, null, null, null, sourceBytes, bytesRead, false);
+        public static OpenFoamFieldParseResult UniformVector(string format, string fieldClass, string objectName, string dimensions, double[] value, long sourceBytes, long bytesRead) =>
+            new(true, "", format, fieldClass, objectName, dimensions, "vector", true, null, value, null, null, null, null, sourceBytes, bytesRead, false);
+    }
     private sealed record LogBatchItem(string Token, int Index);
     private sealed record LogParseResult(int Index, double[] T, double[] Y, string? Error);
 }
