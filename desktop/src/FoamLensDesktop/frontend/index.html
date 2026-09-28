@@ -3888,36 +3888,46 @@ function pmCapabilitiesFromMapping(mapping,fieldNames=[]){
   const momentum=mechanisms.length>0||mapped('velocity');
   return{fields:present.size,phase,momentum,mechanisms:mechanisms.length,enabled:phase||mechanisms.length>0,scatter:present.size>=2,evolution:present.size>=1}
 }
+function pmFieldComponentCount(kind){
+  if(kind==='scalar'||kind==='sphericalTensor')return 1;
+  if(kind==='vector')return 3;if(kind==='symmTensor')return 6;if(kind==='tensor')return 9;return 0
+}
+function pmParseComponentTuple(raw,expected){
+  let s=String(raw||'').trim();if(s.startsWith('(')&&s.endsWith(')'))s=s.slice(1,-1).trim();
+  const parts=s?s.split(/\s+/):[];if(parts.length!==expected)return null;
+  const out=parts.map(Number);return out.every(Number.isFinite)?out:null
+}
 function pmParseOpenFOAMFieldText(text,sourcePath=''){
   text=String(text||'');
   const format=(text.match(/\bformat\s+([^;\s]+)\s*;/i)||[])[1]||'ascii';
   const cls=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
   const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
   const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
-  const kind=/vectorfield/i.test(cls)?'vector':/scalarfield/i.test(cls)?'scalar':'unknown';
-  if(String(format).toLowerCase()==='binary')return{supported:false,reason:'binary-format',format,fieldClass:cls,object,dimensions,kind,sourcePath};
-  if(!['scalar','vector'].includes(kind))return{supported:false,reason:'unsupported-field-class',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  const kind=flFieldKindFromClass(cls),componentCount=pmFieldComponentCount(kind);
+  if(String(format).toLowerCase()==='binary')return{supported:false,reason:'binary-format',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
+  if(!componentCount)return{supported:false,reason:'unsupported-field-class',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
   const u=text.match(/\binternalField\s+uniform\s+([^;]+)\s*;/i);
   if(u){
     const raw=u[1].trim();
     if(kind==='scalar'){
-      const v=Number(raw);return Number.isFinite(v)?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:true,uniformValue:v,count:null,sourcePath}:{supported:false,reason:'invalid-uniform-value',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+      const v=Number(raw);return Number.isFinite(v)?{supported:true,format,fieldClass:cls,object,dimensions,kind,componentCount,uniform:true,uniformValue:v,count:null,sourcePath}:{supported:false,reason:'invalid-uniform-value',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath}
     }
-    const m=raw.match(/\(\s*([-+\deE.]+)\s+([-+\deE.]+)\s+([-+\deE.]+)\s*\)/);
-    if(m){const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))return{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:true,uniformValue:v,count:null,sourcePath}}
-    return{supported:false,reason:'invalid-uniform-vector',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+    const v=pmParseComponentTuple(raw,componentCount);
+    if(v)return{supported:true,format,fieldClass:cls,object,dimensions,kind,componentCount,uniform:true,uniformValue:v,count:null,sourcePath};
+    return{supported:false,reason:kind==='vector'?'invalid-uniform-vector':'invalid-uniform-components',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath}
   }
-  const head=/\binternalField\s+nonuniform\s+(?:List<\s*(scalar|vector)\s*>|[^\s]+)\s+(\d+)\s*\(/ig,hm=head.exec(text);
-  if(!hm)return{supported:false,reason:'internalField-not-readable',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  const head=/\binternalField\s+nonuniform\s+(?:List<\s*([A-Za-z][A-Za-z0-9_]*)\s*>|[^\s]+)\s+(\d+)\s*\(/ig,hm=head.exec(text);
+  if(!hm)return{supported:false,reason:'internalField-not-readable',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
   const declared=Number(hm[2]),start=head.lastIndex,tail=text.slice(start),close=/^\s*\)\s*;/m.exec(tail);
-  if(!close)return{supported:false,reason:'internalField-list-not-closed',format,fieldClass:cls,object,dimensions,kind,sourcePath};
+  if(!close)return{supported:false,reason:'internalField-list-not-closed',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath};
   const block=tail.slice(0,close.index);
-  if(kind==='vector'){
-    const values=[];for(const m of block.matchAll(/\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s*\)/ig)){const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))values.push(v)}
-    return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-vector-values',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+  if(kind==='scalar'){
+    const values=(block.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[]).map(Number).filter(Number.isFinite);
+    return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,componentCount,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-scalar-values',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath}
   }
-  const values=(block.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[]).map(Number).filter(Number.isFinite);
-  return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:'no-scalar-values',format,fieldClass:cls,object,dimensions,kind,sourcePath}
+  let values=[...block.matchAll(/\([^()]*\)/g)].map(m=>pmParseComponentTuple(m[0],componentCount)).filter(Boolean);
+  if(kind==='sphericalTensor'&&!values.length)values=(block.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[]).map(Number).filter(Number.isFinite).map(v=>[v]);
+  return values.length?{supported:true,format,fieldClass:cls,object,dimensions,kind,componentCount,uniform:false,values,count:values.length,declaredCount:declared,sourcePath}:{supported:false,reason:kind==='vector'?'no-vector-values':'no-component-values',format,fieldClass:cls,object,dimensions,kind,componentCount,sourcePath}
 }
 /* FOAMLENS_INCREMENTAL_FIELD_CORE_START */
 const PM_FIELD_NATIVE_THRESHOLD=4*1024*1024;
@@ -3931,16 +3941,24 @@ function pmParseLargeFieldValueLine(raw,state){
   if(state.done)return;
   let line=String(raw||'').replace(/\/\/.*$/,'').trim();if(!line)return;
   if(/^\)\s*;?/.test(line)){state.closed=true;state.done=true;return}
-  if(state.kind==='vector'){
-    const re=/\(\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)\s*\)/ig;
-    for(const m of line.matchAll(re)){
-      const v=[Number(m[1]),Number(m[2]),Number(m[3])];if(v.every(Number.isFinite))state.values.push(v);
-      if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
-    }
-  }else{
+  if(state.kind==='scalar'){
     const nums=line.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[];
     for(const n of nums){
       const v=Number(n);if(Number.isFinite(v))state.values.push(v);
+      if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
+    }
+    return
+  }
+  const expected=pmFieldComponentCount(state.kind);if(!expected)return;
+  let foundTuple=false;
+  for(const m of line.matchAll(/\([^()]*\)/g)){
+    foundTuple=true;const v=pmParseComponentTuple(m[0],expected);if(v)state.values.push(v);
+    if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
+  }
+  if(state.kind==='sphericalTensor'&&!foundTuple&&!state.done){
+    const nums=line.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/ig)||[];
+    for(const n of nums){
+      const v=Number(n);if(Number.isFinite(v))state.values.push([v]);
       if(state.declaredCount&&state.values.length>=state.declaredCount){state.values.length=state.declaredCount;state.done=true;break}
     }
   }
@@ -3958,9 +3976,9 @@ function pmLargeFieldHeader(text,sourcePath=''){
   const fieldClass=(text.match(/\bclass\s+([^;\s]+)\s*;/i)||[])[1]||'';
   const object=(text.match(/\bobject\s+([^;\s]+)\s*;/i)||[])[1]||String(sourcePath).split('/').pop()||'field';
   const dimensions=(text.match(/\bdimensions\s+(\[[^\]]+\])\s*;/i)||[])[1]||'';
-  const kind=/vectorfield/i.test(fieldClass)?'vector':/scalarfield/i.test(fieldClass)?'scalar':'unknown';
-  const nonuniform=/\binternalField\s+nonuniform\s+(?:List<\s*(?:scalar|vector)\s*>|[^\s]+)\s+(\d+)\s*\(/i.exec(text);
-  return{format,fieldClass,object,dimensions,kind,declaredCount:nonuniform?Number(nonuniform[1]):NaN,listStart:nonuniform?nonuniform.index+nonuniform[0].length:-1}
+  const kind=flFieldKindFromClass(fieldClass),componentCount=pmFieldComponentCount(kind);
+  const nonuniform=/\binternalField\s+nonuniform\s+(?:List<\s*(?:scalar|vector|tensor|symmTensor|sphericalTensor)\s*>|[^\s]+)\s+(\d+)\s*\(/i.exec(text);
+  return{format,fieldClass,object,dimensions,kind,componentCount,declaredCount:nonuniform?Number(nonuniform[1]):NaN,listStart:nonuniform?nonuniform.index+nonuniform[0].length:-1}
 }
 /* FOAMLENS_INCREMENTAL_FIELD_CORE_END */
 
@@ -3971,12 +3989,12 @@ async function pmParseNativeOpenFOAMField(file,sourcePath=''){
   });
   foamLensActiveFieldRequests.add(op.requestId);setActivityCancelVisible(true);
   try{
-    const data=await op.promise,kind=String(data?.kind||'unknown');
+    const data=await op.promise,kind=String(data?.kind||'unknown'),componentCount=Number(data?.componentCount)||pmFieldComponentCount(kind);
+    const uniformValue=data?.uniform?(kind==='scalar'?Number(data?.uniformScalar):kind==='vector'?(data?.uniformVector||[]).map(Number):(data?.uniformComponents||[]).map(Number)):undefined;
+    const values=data?.uniform?undefined:(kind==='scalar'?(data?.scalarValues||[]).map(Number):kind==='vector'?(data?.vectorValues||[]).map(v=>(v||[]).map(Number)):(data?.componentValues||[]).map(v=>(v||[]).map(Number)));
     return{
       supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||'ascii'),fieldClass:String(data?.fieldClass||''),object:String(data?.object||String(sourcePath).split('/').pop()||'field'),
-      dimensions:String(data?.dimensions||''),kind,uniform:!!data?.uniform,
-      uniformValue:data?.uniform?(kind==='vector'?(data?.uniformVector||[]).map(Number):Number(data?.uniformScalar)):undefined,
-      values:data?.uniform?undefined:(kind==='vector'?(data?.vectorValues||[]).map(v=>(v||[]).map(Number)):(data?.scalarValues||[]).map(Number)),
+      dimensions:String(data?.dimensions||''),kind,componentCount,uniform:!!data?.uniform,uniformValue,values,
       count:data?.count==null?null:Number(data.count),declaredCount:data?.declaredCount==null?null:Number(data.declaredCount),sourcePath,
       loadMeta:{incremental:true,nativeStreaming:true,sourceBytes:Number(data?.sourceBytes)||Number(file?.size)||0,bytesRead:Number(data?.bytesRead)||0,closed:!!data?.closed}
     }
@@ -3989,7 +4007,7 @@ async function pmParseNativeOpenFOAMField(file,sourcePath=''){
 async function pmParseLargeOpenFOAMField(file,sourcePath=''){
   const size=Math.max(0,Number(file?.size)||0),headEnd=Math.min(size,PM_FIELD_HEAD_BYTES),head=await file.slice(0,headEnd).text(),meta=pmLargeFieldHeader(head,sourcePath);
   const early=pmParseOpenFOAMFieldText(head,sourcePath);
-  if(early.supported||['binary-format','unsupported-field-class','invalid-uniform-value','invalid-uniform-vector'].includes(early.reason))return{...early,loadMeta:{incremental:true,sourceBytes:size,bytesRead:headEnd}};
+  if(early.supported||['binary-format','unsupported-field-class','invalid-uniform-value','invalid-uniform-vector','invalid-uniform-components'].includes(early.reason))return{...early,loadMeta:{incremental:true,sourceBytes:size,bytesRead:headEnd}};
   if(meta.listStart<0||!Number.isFinite(meta.declaredCount))return{...early,reason:early.reason||'internalField-header-not-found',loadMeta:{incremental:true,sourceBytes:size,bytesRead:headEnd}};
   const state=pmLargeFieldState(meta.kind,meta.declaredCount);
   pmConsumeLargeFieldChunk(state,head.slice(meta.listStart),false);
@@ -4000,18 +4018,24 @@ async function pmParseLargeOpenFOAMField(file,sourcePath=''){
   }
   if(!state.done&&state.carry)pmParseLargeFieldValueLine(state.carry,state);
   const values=state.values;
-  if(!values.length)return{supported:false,reason:meta.kind==='vector'?'no-vector-values':'no-scalar-values',format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset}};
-  return{supported:true,format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,uniform:false,values,count:values.length,declaredCount:meta.declaredCount,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset,closed:state.closed}}
+  if(!values.length)return{supported:false,reason:meta.kind==='scalar'?'no-scalar-values':meta.kind==='vector'?'no-vector-values':'no-component-values',format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,componentCount:meta.componentCount,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset}};
+  return{supported:true,format:meta.format,fieldClass:meta.fieldClass,object:meta.object,dimensions:meta.dimensions,kind:meta.kind,componentCount:meta.componentCount,uniform:false,values,count:values.length,declaredCount:meta.declaredCount,sourcePath,loadMeta:{incremental:true,sourceBytes:size,bytesRead:offset,closed:state.closed}}
 }
 
 function pmComponentValues(parsed,component='value',countHint=null){
   if(!parsed?.supported)return{ok:false,reason:parsed?.reason||'unsupported'};
   const nHint=Number.isFinite(Number(countHint))?Math.max(0,Math.floor(Number(countHint))):null;
   const transform=v=>{
-    if(parsed.kind==='scalar')return component==='value'||component==='magnitude'?Number(v):NaN;
-    if(!Array.isArray(v)||v.length<3)return NaN;
-    if(component==='x')return Number(v[0]);if(component==='y')return Number(v[1]);if(component==='z')return Number(v[2]);
-    return Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))
+    const kind=String(parsed.kind||'');
+    if(kind==='scalar')return component==='value'||component==='magnitude'?Number(v):NaN;
+    if(!Array.isArray(v))return NaN;
+    const labels=kind==='vector'?['x','y','z']:kind==='tensor'?['xx','xy','xz','yx','yy','yz','zx','zy','zz']:kind==='symmTensor'?['xx','xy','xz','yy','yz','zz']:kind==='sphericalTensor'?['ii']:Array.from({length:v.length},(_,i)=>'c'+i);
+    const i=labels.indexOf(String(component));if(i>=0)return Number(v[i]);
+    if(component!=='value'&&component!=='magnitude')return NaN;
+    const a=v.map(Number);if(!a.every(Number.isFinite))return NaN;
+    if(kind==='symmTensor'&&a.length===6)return Math.sqrt(a[0]*a[0]+a[3]*a[3]+a[5]*a[5]+2*(a[1]*a[1]+a[2]*a[2]+a[4]*a[4]));
+    if(kind==='sphericalTensor'&&a.length===1)return Math.sqrt(3)*Math.abs(a[0]);
+    return Math.hypot(...a)
   };
   if(parsed.uniform){
     const value=transform(parsed.uniformValue);if(!Number.isFinite(value))return{ok:false,reason:'component-incompatible'};
