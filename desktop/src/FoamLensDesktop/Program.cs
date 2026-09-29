@@ -170,7 +170,7 @@ internal sealed class FoamLensForm : Form
             // into the rendered Data View. Syntax-only validation cannot catch
             // an extension injected into the wrong lexical IIFE.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{document.body.classList.add('hasWorkspaceData');document.querySelector('.modeNavBtn[data-mode=\\\"data\\\"]')?.click();const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
+                "(()=>{document.body.classList.add('hasWorkspaceData');document.getElementById('appShell')?.classList.remove('sidebarCollapsed');document.querySelector('.modeNavBtn[data-mode=\\\"data\\\"]')?.click();const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
