@@ -78,7 +78,7 @@ test('product wiring extends p_rgh acceleration mapping and avoids causal verdic
     "Auditoría automática de balance de mecanismos",
     "pmRatioPairs(",
     "pmCollectSubsetValues(",
-    "component,'magnitude'",
+    "'magnitude'",
     "fractionGt1",
     "noCausalityInference:true",
     "not, by itself, proof of causality",
