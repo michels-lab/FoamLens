@@ -52,7 +52,7 @@ test('iso vertex de-duplication key is tolerance based',()=>{
 
 test('Field View product wiring renders iso-surfaces as transient interior geometry',()=>{
   for(const token of [
-    'id="fvIsoPanel"',
+    "box.id='fvIsoPanel'",
     'id="fvIso"',
     'id="fvIsoValue"',
     'id="fvIsoOpacity"',
