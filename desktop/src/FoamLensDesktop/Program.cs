@@ -190,6 +190,9 @@ internal sealed class FoamLensForm : Form
                         $"FoamLens Field View extension did not mount visibly/enabled in Data mode: {fieldViewUiJson}");
             }
 
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "document.body.classList.remove('hasWorkspaceData')");
+
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
             using (var duplicateIds = JsonDocument.Parse(duplicateIdsJson))
