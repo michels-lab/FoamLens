@@ -605,3 +605,26 @@ When a new change is made, record the actual commit SHA and CI result after the 
 - Final tested head: `c3cd5651e99211a4af4168fb8ecac063bcbf0f41`.
 - Run #213 artifact: `FoamLens-Windows-v1.4.0` (artifact id `11058631160`).
 - No GitHub Release was published and `main` was not modified.
+
+
+## 2026-09-29 — FoamLens Desktop v1.4.0 released
+
+- Development branch: `development/v1.4.0-field-view`.
+- PR #3 (`Release FoamLens Desktop v1.4.0`) merged into `main`.
+- Merge commit: `361821e98ee77bb7bf39ec250a50d71f97566e52`.
+- Main/release validation: GitHub Actions run #214 — **success**.
+- Real QuickCup regression: success.
+- 3D OpenFOAM Field View regression: success.
+- Portable EXE smoke: success.
+- Installer build: success.
+- Installed-app smoke: success.
+- Published GitHub Release: `FoamLens v1.4.0`.
+- Release type: normal release, not prerelease.
+- Tag: `v1.4.0`.
+- Release target: `main`.
+- Release published at 2026-09-29 19:59:43 UTC.
+- Release assets:
+  - `FoamLens-Portable-v1.4.0.exe` — 72,864,903 bytes.
+  - `FoamLens-Portable-v1.4.0.exe.sha256` — 96 bytes.
+  - `FoamLens-Setup-v1.4.0.exe` — 67,776,500 bytes.
+- v1.4.0 introduces the OpenFOAM Field View with transient mesh coloring, physical-time playback, vector glyphs, streamlines, multi-region support, and synchronized colormap legends.
