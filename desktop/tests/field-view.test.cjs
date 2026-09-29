@@ -125,8 +125,8 @@ test('Field View stays discoverable even when no compatible 3D case is loaded',(
 
 test('native host injects extensions into the main FoamLens IIFE, not the last document IIFE',()=>{
   assert(program.includes('const string mainIifeMarker = "const FOAMLENS_NATIVE=";'));
-  assert(program.includes('html.IndexOf(iifeClose, mainMarker'));
-  assert(!program.includes('html.LastIndexOf(iifeClose'));
+  assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
+  assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
   assert(program.includes("document.getElementById('fieldViewTab')"));
   assert(program.includes('FoamLens Field View extension did not mount visibly'));
 });
