@@ -25,7 +25,7 @@ function tokenize(line){
 }
 function parseParen(s){return(s.match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)||[]).map(Number)}
 
-const api=new Function('tokenize','parseParen',core+'\nreturn {FL_TEMPORAL_NATIVE_THRESHOLD,FL_TEMPORAL_CHUNK_SIZE,flTemporalParseState,flParseTemporalLine,flConsumeTemporalChunk,flCaptureTemporalHead};')(tokenize,parseParen);
+const api=new Function('tokenize','parseParen',core+'\nreturn {FL_TEMPORAL_NATIVE_THRESHOLD,FL_TEMPORAL_CHUNK_SIZE,flTemporalParseState,flParseTemporalLine,flConsumeTemporalChunk,flCaptureTemporalHead,flReductionColumnDescriptor};')(tokenize,parseParen);
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
 test('chunk boundary inside scalar row preserves one complete row',()=>{
@@ -88,6 +88,23 @@ test('native temporal streaming reports byte progress and can be cancelled',()=>
   assert(index.includes("updateAppActivity(diagEs()?'Leyendo archivo temporal grande':'Reading large temporal file'"));
   assert(index.includes('function cancelActiveDataReads(){cancelActiveTemporalReads();cancelActiveFieldReads()}'));
   assert(index.includes("$('scanCancel')?.addEventListener('click',()=>{cancelActiveDataReads();"));
+});
+
+test('OpenFOAM reduction headers preserve operation and field identity',()=>{
+  assert.deepStrictEqual(api.flReductionColumnDescriptor('sum(energyFlux)'),{raw:'sum(energyFlux)',operation:'sum',fieldName:'energyFlux'});
+  assert.deepStrictEqual(api.flReductionColumnDescriptor('volIntegrate(h)'),{raw:'volIntegrate(h)',operation:'volIntegrate',fieldName:'h'});
+  assert.deepStrictEqual(api.flReductionColumnDescriptor('energyFlux'),{raw:'energyFlux',operation:'',fieldName:'energyFlux'});
+});
+
+test('parseFile maps postProcessing columns individually instead of reusing the filename field',()=>{
+  const start=index.indexOf('async function parseFile(file){');
+  const end=index.indexOf('function inferProfileField',start);
+  const body=index.slice(start,end);
+  assert(body.includes("const columnLabel=postProcessing?.columns?.[j+1]||''"));
+  assert(body.includes('flReductionColumnDescriptor(columnLabel)'));
+  assert(body.includes('const field=columnMeta.fieldName?inferField(columnMeta.fieldName):fallbackField'));
+  assert(body.includes('fieldName:columnMeta.fieldName'));
+  assert(body.includes('operation:columnMeta.operation'));
 });
 
 test('parseFile records whether loading was incremental',()=>{
