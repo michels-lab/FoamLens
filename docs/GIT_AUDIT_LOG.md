@@ -628,3 +628,71 @@ When a new change is made, record the actual commit SHA and CI result after the 
   - `FoamLens-Portable-v1.4.0.exe.sha256` — 96 bytes.
   - `FoamLens-Setup-v1.4.0.exe` — 67,776,500 bytes.
 - v1.4.0 introduces the OpenFOAM Field View with transient mesh coloring, physical-time playback, vector glyphs, streamlines, multi-region support, and synchronized colormap legends.
+
+
+## 2026-09-29 — v1.4.1 post-release hotfix + thesis-analysis expansion
+
+Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
+
+### Field View hotfix
+- Fixed versioned frontend extension injection so v14 modules are inserted inside the main FoamLens frontend IIFE rather than an unrelated inner/later IIFE.
+- Field View remains discoverable even when no compatible 3D dataset is available and reports the missing requirement instead of disappearing.
+- Added Overview quick access to 3D Field View.
+- Added packaged-executable smoke validation for the actual mounted Field View UI.
+- Final Field View smoke path validated in the portable and installed Desktop build.
+
+### Sidebar UX
+- Added persistent collapsible/expandable sidebar sections.
+- Section state is stored locally and restored across sessions.
+- Case-management-heavy content is compactable so it no longer dominates the working sidebar.
+
+### Smart Import version grouping
+- Detected case/version groups are exposed in Smart Import.
+- Users can select/deselect a detected version group in one action while preserving per-case selection.
+
+### Dual-variable Time-Series Focus
+- Added optional second simultaneous variable for time-series comparison.
+- Supports independent left/right Y axes for quantities with different units (for example temperature and liquid fraction).
+- Existing single-variable workflow remains valid.
+
+### Formal convergence audit
+- Added explicit linear-solver and PIMPLE/nonlinear coupling evidence.
+- Keeps same-solve initial→final residual convergence separate from cross-outer coupling convergence.
+- Adds formal coupling-ratio metrics and regression coverage.
+
+### Automatic momentum mechanism audit
+- Detects mapped Darcy, buoyancy and pressure-gradient acceleration fields generically.
+- Calculates per-cell magnitude statistics and local mechanism ratios.
+- Reports median/P95/fraction > 1 and excluded near-zero denominators.
+- Can create physical-time evolution curves without temporal extrapolation.
+- Does not convert ratios into causal/mechanism verdicts.
+
+### postProcessing provenance correction
+- Multi-column OpenFOAM reductions now preserve per-column identity instead of assigning every column the field inferred from the filename.
+- `sum(energyFlux)`, `sum(heatFlux)`, `volIntegrate(h)`, etc. preserve operation + field metadata.
+- Parsed function-object metadata now includes `operation`, `weightField`, `patch`, `patches` and `cellZone`.
+
+### Automatic Energy Audit
+- Added automatic detection of OpenFOAM energy-flux decomposition.
+- Checks the OpenFOAM v14 identity `energyFlux = energyAdvectiveFlux + heatFlux` over common physical times.
+- Reports absolute and relative closure residuals plus integrated advective/diffusive/total/residual energies.
+- Detects sensible-energy inventory only when provenance supports a rho-weighted volume integral of specific energy.
+- Detects integrated latent-heat power when compatible volume-reduction provenance is present.
+- Does not impose an unverified conservation sign convention across boundary/sensible/latent terms.
+- Can create derived closure-residual and cumulative-boundary-energy curves.
+
+### Validation
+- Run #241: success after per-column postProcessing provenance regression.
+- Runs #236–#239: success for automatic momentum mechanism audit and CI wiring.
+- Runs #233–#235: success for formal convergence audit and CI wiring.
+- Runs #230–#232: success for dual-variable Time-Series Focus and CI wiring.
+- Runs #227–#229: success for Smart Import version grouping and CI wiring.
+- Runs #224–#226: success for persistent collapsible sidebar sections and CI wiring.
+- **Run #244: SUCCESS** at head `64a13fff1b018b986a0e0581b59c9692644d3e1b`.
+  - Real QuickCup regression: success.
+  - Automatic Energy Audit regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063691879`).
+- No GitHub Release was published from the hotfix branch; `main` remains the released v1.4.0 until the branch is intentionally promoted.
