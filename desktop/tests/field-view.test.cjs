@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline};')();
+const api=new Function(core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -59,6 +59,16 @@ test('mesh inventory recognizes default and named-region polyMesh groups',()=>{
   assert.equal(inv.length,2);
   assert(inv.every(x=>x.complete));
   assert.deepEqual(inv.map(x=>x.region),['','fluid']);
+});
+
+test('multi-region cases enable Field View when a meshed region has volume fields',()=>{
+  const c={meshInventory:[{region:'metal',complete:true},{region:'mold',complete:true}],discoveryModel:{fields:[
+    {region:'metal',storage:'volume',kind:'scalar',times:[0,1],name:'T'},
+    {region:'metal',storage:'volume',kind:'vector',times:[0,1],name:'U'},
+    {region:'mold',storage:'volume',kind:'scalar',times:[0,1],name:'T'}
+  ]}};
+  assert.equal(api.fvCaseViewAvailable(c),true);
+  assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'mold',storage:'volume',kind:'scalar',times:[0]}]}}),false);
 });
 
 test('time navigation uses physical values without index assumptions',()=>{
