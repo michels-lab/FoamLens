@@ -531,4 +531,6 @@ When a new change is made, record the actual commit SHA and CI result after the 
 - The existing `v1.3.1` artifacts are intentionally not being silently replaced from a different commit. A clean patch release is being prepared instead.
 - Branch `release/v1.3.2` was created directly from `main` commit `3735424af6f6413b72fbfe7e101a97040448fa40`.
 - v1.3.2 removes development/RC wording, reports frontend `v51` and Desktop `v1.3.2`, stores new workspace payloads as `productVersion: v51`, and updates README/version regressions accordingly.
-- CI on release branches is enabled through the `release/**` workflow branch pattern. Validation pending at this log update.
+- CI on release branches is enabled through the `release/**` workflow branch pattern. Actions run #198 completed successfully: real QuickCup regression, complete scientific/UI suites, portable EXE smoke, native icon checks, minimized background execution, installer build and installed-app smoke all passed.
+
+| #198 | 2026-09-29 | `release/v1.3.2` | `ada3a9168610` | success | v1.3.2 release correction; full Windows + QuickCup validation passed. |
