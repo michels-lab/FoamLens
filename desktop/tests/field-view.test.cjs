@@ -130,7 +130,7 @@ test('streamline integrator follows a uniform cell-centred velocity field',()=>{
 });
 
 test('Field View product module is wired to native mesh, transient fields and WebGL',()=>{
-  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','field3d','fvVectors','fvStreamlines']){
+  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','field3d','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
     assert(source.includes(token),'Missing Field View wiring token: '+token);
   }
 });
