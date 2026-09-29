@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.3.2
+# FoamLens Desktop v1.4.1
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The current release is **FoamLens Desktop v1.3.2 with frontend v51**.
+The current release is **FoamLens Desktop v1.4.1 with frontend v51**.
 
 ## Architecture
 
@@ -17,6 +17,7 @@ The current release is **FoamLens Desktop v1.3.2 with frontend v51**.
 - **General discovery model:** indexes scalar/vector/tensor field classes, dimensions, representative boundary patches, physical time directories, region evidence, logs, dictionaries, probes, sampled sets, volume/surface reductions, and arbitrary tabular `postProcessing` outputs by structure/content rather than project names.
 - **Data Catalog:** exposes discovered provenance and metadata without adding all detected fields to the active plot.
 - **Phase Change / Momentum:** analysis is enabled from detected capabilities and explicit field mapping, with cell-wise statistics, phase subsets, mechanism ratios, correlations, temporal evolution, derived-rate calculations and formula verification.
+- **3D Field View:** transient OpenFOAM volume fields can be rendered on detected ASCII `constant/polyMesh` geometry with vectors, streamlines and physical-time playback. The Field View entry remains visible even when required mesh/fields are missing and reports what is unavailable.
 - **Read-only safety:** analyses read files on demand and persist only FoamLens mappings/settings; OpenFOAM case files are never modified.
 
 The frontend retains its normal web folder flow when opened as HTML. The native bridge is detected automatically only inside FoamLens Desktop.
