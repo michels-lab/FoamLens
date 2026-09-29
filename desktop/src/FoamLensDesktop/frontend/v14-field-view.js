@@ -90,7 +90,8 @@ function fvBuildMeshFromTexts(pointsText,facesText,ownerText,neighbourText){
     for(let j=0;j<face.length;j++){const a=face[j],b=face[(j+1)%face.length],lo=Math.min(a,b),hi=Math.max(a,b),k=lo+':'+hi;if(!edgeSet.has(k)){edgeSet.add(k);edges.push(lo,hi)}}
     for(let j=1;j<face.length-1;j++){triangles.push(face[0],face[j],face[j+1]);surfaceOwners.push(owners[fi])}
   }
-  return{supported:true,reason:'',format:'ascii',points:P.points,surfaceTriangles:triangles,surfaceOwners,surfaceEdges:edges,cellCenters:centers,pointCount,faceCount:faces.length,internalFaceCount,boundaryFaceCount:faces.length-internalFaceCount,cellCount,boundsMin:min,boundsMax:max,cellCenterMethod:'mean-face-centres'}
+  const faceOffsets=[0],facePoints=[];for(const face of faces){facePoints.push(...face);faceOffsets.push(facePoints.length)}
+  return{supported:true,reason:'',format:'ascii',points:P.points,surfaceTriangles:triangles,surfaceOwners,surfaceEdges:edges,cellCenters:centers,faceOffsets,facePoints,owners:[...owners],neighbours:[...neighbours],pointCount,faceCount:faces.length,internalFaceCount,boundaryFaceCount:faces.length-internalFaceCount,cellCount,boundsMin:min,boundsMax:max,cellCenterMethod:'mean-face-centres'}
 }
 function fvPaletteStops(name){
   if(name==='coolwarm')return[[0,[0.231,0.298,0.753]],[.5,[.865,.865,.865]],[1,[.706,.016,.15]]];
@@ -152,6 +153,50 @@ function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax){
   const back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1);
   return back.slice(0,-1).concat(fwd)
 }
+function fvMeshFacePoints(mesh,faceIndex){
+  const o=mesh?.faceOffsets||[],p=mesh?.facePoints||[],a=Number(o[faceIndex]),b=Number(o[faceIndex+1]);return Number.isInteger(a)&&Number.isInteger(b)&&a>=0&&b>=a?p.slice(a,b):[]
+}
+function fvCellFaces(mesh){
+  if(mesh?._cellFaces)return mesh._cellFaces;const n=Number(mesh?.cellCount)||0,out=Array.from({length:n},()=>[]),owners=mesh?.owners||[],neighbours=mesh?.neighbours||[];
+  for(let fi=0;fi<owners.length;fi++){const a=Number(owners[fi]);if(a>=0&&a<n)out[a].push(fi);if(fi<neighbours.length){const b=Number(neighbours[fi]);if(b>=0&&b<n)out[b].push(fi)}}
+  if(mesh)mesh._cellFaces=out;return out
+}
+function fvPointCells(mesh){
+  if(mesh?._pointCells)return mesh._pointCells;const n=Number(mesh?.pointCount)||Math.floor((mesh?.points?.length||0)/3),sets=Array.from({length:n},()=>new Set()),owners=mesh?.owners||[],neighbours=mesh?.neighbours||[];
+  for(let fi=0;fi<owners.length;fi++){const cells=[Number(owners[fi]),fi<neighbours.length?Number(neighbours[fi]):-1],fp=fvMeshFacePoints(mesh,fi);for(const pi of fp)if(pi>=0&&pi<n)for(const c of cells)if(c>=0&&c<(mesh?.cellCount||0))sets[pi].add(c)}
+  const out=sets.map(x=>[...x]);if(mesh)mesh._pointCells=out;return out
+}
+function fvPointValuesFromCells(mesh,cellValues){
+  const pts=mesh?.points||[],centers=mesh?.cellCenters||[],adj=fvPointCells(mesh),out=new Array(adj.length).fill(NaN);
+  for(let pi=0;pi<adj.length;pi++){let sum=0,wsum=0,exact=NaN;const px=Number(pts[3*pi]),py=Number(pts[3*pi+1]),pz=Number(pts[3*pi+2]);
+    for(const c of adj[pi]){const v=Number(cellValues?.[c]);if(!Number.isFinite(v))continue;const dx=px-Number(centers[3*c]),dy=py-Number(centers[3*c+1]),dz=pz-Number(centers[3*c+2]),d2=dx*dx+dy*dy+dz*dz;if(d2<=1e-30){exact=v;break}const w=1/Math.sqrt(d2);sum+=w*v;wsum+=w}
+    out[pi]=Number.isFinite(exact)?exact:(wsum>0?sum/wsum:NaN)
+  }return out
+}
+function fvUniqueSlicePoint(list,p,value,tol){
+  for(const q of list){const dx=q.p[0]-p[0],dy=q.p[1]-p[1],dz=q.p[2]-p[2];if(dx*dx+dy*dy+dz*dz<=tol*tol){if(Number.isFinite(value)&&!Number.isFinite(q.value))q.value=value;return}}
+  list.push({p:[...p],value})
+}
+function fvSliceTetra(vertices,values,axis,coord,tol){
+  const edges=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]],hits=[];
+  for(const [ia,ib] of edges){const a=vertices[ia],b=vertices[ib],va=Number(values[ia]),vb=Number(values[ib]),da=a[axis]-coord,db=b[axis]-coord,za=Math.abs(da)<=tol,zb=Math.abs(db)<=tol;
+    if(za)fvUniqueSlicePoint(hits,a,va,tol);if(zb)fvUniqueSlicePoint(hits,b,vb,tol);
+    if(!za&&!zb&&da*db<0){const f=da/(da-db),p=[a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1]),a[2]+f*(b[2]-a[2])],v=Number.isFinite(va)&&Number.isFinite(vb)?va+f*(vb-va):NaN;fvUniqueSlicePoint(hits,p,v,tol)}
+  }
+  if(hits.length<3)return[];const other=[0,1,2].filter(a=>a!==axis),centroid=[0,0,0];for(const h of hits)for(let a=0;a<3;a++)centroid[a]+=h.p[a]/hits.length;
+  hits.sort((a,b)=>Math.atan2(a.p[other[1]]-centroid[other[1]],a.p[other[0]]-centroid[other[0]])-Math.atan2(b.p[other[1]]-centroid[other[1]],b.p[other[0]]-centroid[other[0]]));
+  const out=[];for(let i=1;i<hits.length-1;i++)out.push([hits[0],hits[i],hits[i+1]]);return out
+}
+function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
+  const ai={x:0,y:1,z:2}[axis]??0,min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],pos=fvClamp(Number(position),0,1),coord=Number(min[ai])+(Number(max[ai])-Number(min[ai]))*pos,diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
+  const pointValues=fvPointValuesFromCells(mesh,cellValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],values=[];
+  for(let c=0;c<cellFaces.length;c++){const cv=Number(cellValues?.[c]);if(!Number.isFinite(cv))continue;const center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!center.every(Number.isFinite))continue;
+    for(const fi of cellFaces[c]){const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];for(let j=1;j<face.length-1;j++){const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>Number(pointValues[pi]))];
+      for(const tri of fvSliceTetra(vertices,vals,ai,coord,tol))for(const h of tri){positions.push(...h.p);values.push(h.value)}
+    }}
+  }
+  return{axis,axisIndex:ai,position:pos,coordinate:coord,positions:new Float32Array(positions),values:new Float64Array(values),triangleCount:positions.length/9,interpolation:'cell-to-point inverse-distance + cell-centre tetrahedralization'}
+}
 function fvCaseViewAvailable(caseObj){
   const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=caseObj?.discoveryModel?.fields||[];
   return meshes.some(mesh=>fields.some(f=>String(f?.region||'')===String(mesh?.region||'')&&f?.storage==='volume'&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length))
@@ -191,7 +236,8 @@ function fvNormalizeNativeMesh(data){
   return{
     supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||''),
     points:(data?.points||[]).map(Number),surfaceTriangles:(data?.surfaceTriangles||[]).map(Number),surfaceOwners:(data?.surfaceOwners||[]).map(Number),surfaceEdges:(data?.surfaceEdges||[]).map(Number),
-    cellCenters:(data?.cellCenters||[]).map(Number),pointCount:Number(data?.pointCount)||0,faceCount:Number(data?.faceCount)||0,internalFaceCount:Number(data?.internalFaceCount)||0,boundaryFaceCount:Number(data?.boundaryFaceCount)||0,
+    cellCenters:(data?.cellCenters||[]).map(Number),faceOffsets:(data?.faceOffsets||[]).map(Number),facePoints:(data?.facePoints||[]).map(Number),owners:(data?.owners||[]).map(Number),neighbours:(data?.neighbours||[]).map(Number),
+    pointCount:Number(data?.pointCount)||0,faceCount:Number(data?.faceCount)||0,internalFaceCount:Number(data?.internalFaceCount)||0,boundaryFaceCount:Number(data?.boundaryFaceCount)||0,
     cellCount:Number(data?.cellCount)||0,boundsMin:(data?.boundsMin||[]).map(Number),boundsMax:(data?.boundsMax||[]).map(Number),cellCenterMethod:String(data?.cellCenterMethod||''),sourceBytes:Number(data?.sourceBytes)||0
   }
 }
