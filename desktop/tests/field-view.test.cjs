@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -111,6 +111,24 @@ test('Field View product module is wired to native mesh, transient fields and We
   for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','field3d','fvVectors','fvStreamlines']){
     assert(source.includes(token),'Missing Field View wiring token: '+token);
   }
+});
+
+
+test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
+  const a=api.fvAvailability(null);
+  assert.equal(a.ready,false);
+  assert(/Load an OpenFOAM case/i.test(a.reason));
+  assert(source.includes("tab.disabled=false"),'Field View tab is still disabled when unavailable.');
+  assert(source.includes("workspaceGoFieldView"),'Overview quick action for Field View is missing.');
+  assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
+});
+
+test('native host injects extensions into the main FoamLens IIFE, not the last document IIFE',()=>{
+  assert(program.includes('const string mainIifeMarker = "const FOAMLENS_NATIVE=";'));
+  assert(program.includes('html.IndexOf(iifeClose, mainMarker'));
+  assert(!program.includes('html.LastIndexOf(iifeClose'));
+  assert(program.includes("document.getElementById('fieldViewTab')"));
+  assert(program.includes('FoamLens Field View extension did not mount visibly'));
 });
 
 test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
