@@ -696,3 +696,47 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063691879`).
 - No GitHub Release was published from the hotfix branch; `main` remains the released v1.4.0 until the branch is intentionally promoted.
+
+
+## 2026-09-29 — Experimental validation workflow
+
+### Evidence boundary from the thesis project
+- The QuickCup project audit explicitly states that the repository **does not currently contain a numeric experimental Quick-Cup thermocouple time series** (CSV/XLSX/raw points).
+- Therefore FoamLens does not report experimental RMSE/MAE or event errors from repository data and no synthetic values are treated as thesis results.
+- The validation workflow is prepared for a future raw or digitized experimental curve.
+
+### Simulation vs experiment module
+- Added `v14-experimental-validation.js`.
+- Imports experimental `.csv`, `.txt`, `.dat` and `.tsv` time-temperature tables.
+- Supports comma, semicolon, tab and whitespace delimiters.
+- Semicolon-delimited files with decimal commas are parsed without confusing decimal commas for separators.
+- Time and temperature columns are auto-detected but remain explicitly selectable.
+- Experimental temperature units can be declared as K or °C.
+- Experimental time alignment uses an explicit user-defined time shift; no hidden automatic shift is applied.
+- Comparison is restricted to the shared physical-time interval and never extrapolates.
+- Reports:
+  - RMSE of T(t);
+  - MAE of T(t);
+  - mean bias (simulation − experiment);
+  - maximum absolute temperature difference;
+  - Tmin and its time;
+  - thermal-rebound candidate amplitude, peak time and maximum positive dT/dt.
+- An optional liquid-fraction series provides independent phase evidence:
+  - alphaL onset/completion threshold-crossing times;
+  - phase-defined solidification duration;
+  - liquid-fraction trend during the simulated thermal-rebound candidate.
+- A positive dT/dt interval is **not** automatically labelled recalescence. Phase evidence is displayed separately as solidifying, remelting, approximately stationary or unavailable.
+- Can add the aligned experimental temperature curve and ΔT(sim−exp) residual to the standard Time-Series plot.
+
+### Regression and packaging
+- Run #247 exposed an actual delimiter-detection bug: decimal commas in semicolon CSV files biased the first implementation toward comma separation.
+- Fixed delimiter detection to prefer a consistent tabular column count across sampled rows.
+- **Run #248: SUCCESS** at code head `5854f4dcc5cbcd3b32e600ef772aa3c773bc2dd2`.
+  - Simulation-vs-experiment regression: success.
+  - Real QuickCup regression: success.
+  - All previous Field View/sidebar/import/convergence/momentum/energy regressions: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063823771`).
+- No GitHub Release was published; this remains on the v1.4.1 hotfix/development branch.
