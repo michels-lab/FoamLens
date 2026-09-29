@@ -272,6 +272,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/momentum-mechanisms.test.cjs
 
+      - name: Test automatic energy audit
+        shell: pwsh
+        run: node desktop/tests/energy-audit.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
