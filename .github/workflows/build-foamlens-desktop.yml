@@ -256,6 +256,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/isosurface.test.cjs
 
+      - name: Test Field View 3D probe picking
+        shell: pwsh
+        run: node desktop/tests/field-probe.test.cjs
+
       - name: Test collapsible sidebar sections
         shell: pwsh
         run: node desktop/tests/sidebar-sections.test.cjs
