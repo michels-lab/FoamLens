@@ -149,6 +149,10 @@ function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax){
   const back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1);
   return back.slice(0,-1).concat(fwd)
 }
+function fvCaseViewAvailable(caseObj){
+  const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=caseObj?.discoveryModel?.fields||[];
+  return meshes.some(mesh=>fields.some(f=>String(f?.region||'')===String(mesh?.region||'')&&f?.storage==='volume'&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length))
+}
 /* FOAMLENS_FIELD_VIEW_CORE_END */
 
 const fvState={
@@ -334,7 +338,7 @@ function fvInstallCamera(){
   canvas.addEventListener('wheel',e=>{e.preventDefault();fvState.camera.distance*=Math.exp(e.deltaY*.001);fvState.camera.distance=Math.max(1e-10,fvState.camera.distance);fvRender()},{passive:false});canvas.addEventListener('dblclick',fvCameraReset)
 }
 function fvRefreshSelectors(preserve=true){
-  const caseSel=document.getElementById('fvCase');if(!caseSel)return;const oldCase=preserve?caseSel.value:'',available=cases.filter(c=>fvMeshes(c).length&&fvFieldGroups(c).length);
+  const caseSel=document.getElementById('fvCase');if(!caseSel)return;const oldCase=preserve?caseSel.value:'',available=cases.filter(fvCaseViewAvailable);
   caseSel.innerHTML=available.map(c=>`<option value="${c.id}">${fvEsc(c.name)}</option>`).join('');if(oldCase&&available.some(c=>String(c.id)===oldCase))caseSel.value=oldCase;else if(activeContextCaseId!=null&&available.some(c=>Number(c.id)===Number(activeContextCaseId)))caseSel.value=String(activeContextCaseId);
   const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=fvMeshes(c).map(g=>String(g.region||''));
   regionSel.innerHTML=meshRegions.map(r=>`<option value="${fvEsc(r)}">${fvEsc(r||flUi('Default region','Región predeterminada'))}</option>`).join('');if(meshRegions.includes(oldRegion))regionSel.value=oldRegion;else if(activeContextRegion&&meshRegions.includes(activeContextRegion))regionSel.value=activeContextRegion;
@@ -400,7 +404,7 @@ function fvInstallUi(){
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'))
 }
 function fvShow(){
-  fvInstallUi();fvRefreshSelectors(true);const available=cases.some(c=>fvMeshes(c).length&&fvFieldGroups(c).length);if(!available)return;currentDataView='field3d';stopAllPlayback();document.querySelectorAll('.datasetTab').forEach(x=>x.classList.toggle('active',x.id==='fieldViewTab'));
+  fvInstallUi();fvRefreshSelectors(true);const available=cases.some(fvCaseViewAvailable);if(!available)return;currentDataView='field3d';stopAllPlayback();document.querySelectorAll('.datasetTab').forEach(x=>x.classList.toggle('active',x.id==='fieldViewTab'));
   for(const id of ['timeSeriesControls','profileControls','logControls','catalogControls','playbackGlobal'])document.getElementById(id)?.classList.add('hidden');document.getElementById('fieldViewControls')?.classList.remove('hidden');document.querySelector('#chartViewport .chartwrap')?.classList.add('hidden');document.getElementById('dataCatalogPanel')?.classList.remove('active');document.getElementById('dataCatalogPanel')?.classList.add('hidden');
   document.getElementById('fieldViewPanel')?.classList.add('active');document.getElementById('workspace')?.classList.add('fvMode');const pt=document.getElementById('plotTitle');if(pt)pt.textContent=flUi('3D OpenFOAM Field View','Vista 3D de campos OpenFOAM');const pi=document.getElementById('plotInfo');if(pi)pi.textContent=flUi('Mesh + transient fields','Malla + campos transitorios');setTimeout(()=>fvLoadSelection(),0)
 }
