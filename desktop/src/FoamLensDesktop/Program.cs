@@ -170,7 +170,7 @@ internal sealed class FoamLensForm : Form
             // into the rendered Data View. Syntax-only validation cannot catch
             // an extension injected into the wrong lexical IIFE.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{document.body.classList.add('hasWorkspaceData');document.getElementById('appShell')?.classList.remove('sidebarCollapsed');document.querySelector('.modeNavBtn[data-mode=\\\"data\\\"]')?.click();const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
+                "(()=>{const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,hiddenClass:!!tab?.classList.contains('hidden'),inlineDisplay:tab?.style?.display||'',text:tab?.innerText||''}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
@@ -178,20 +178,16 @@ internal sealed class FoamLensForm : Form
                     root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
                     root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
                     root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
-                var visible =
-                    root.TryGetProperty("display", out var displayNode) &&
-                    !string.Equals(displayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase) &&
-                    root.TryGetProperty("visibility", out var visibilityNode) &&
-                    !string.Equals(visibilityNode.GetString(), "hidden", StringComparison.OrdinalIgnoreCase);
                 var enabled =
                     root.TryGetProperty("disabled", out var disabledNode) && !disabledNode.GetBoolean();
-                if (!mounted || !visible || !enabled)
+                var locallyVisible =
+                    root.TryGetProperty("hiddenClass", out var hiddenNode) && !hiddenNode.GetBoolean() &&
+                    root.TryGetProperty("inlineDisplay", out var inlineDisplayNode) &&
+                    !string.Equals(inlineDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
+                if (!mounted || !enabled || !locallyVisible)
                     throw new InvalidOperationException(
-                        $"FoamLens Field View extension did not mount visibly/enabled in Data mode: {fieldViewUiJson}");
+                        $"FoamLens Field View extension did not mount enabled/discoverable: {fieldViewUiJson}");
             }
-
-            await _web.CoreWebView2.ExecuteScriptAsync(
-                "document.body.classList.remove('hasWorkspaceData')");
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
