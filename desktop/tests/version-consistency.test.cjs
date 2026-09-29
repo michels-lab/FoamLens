@@ -7,6 +7,7 @@ const assert=require('assert');
 const root=path.join(__dirname,'..');
 const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
 const project=fs.readFileSync(path.join(root,'src','FoamLensDesktop','FoamLensDesktop.csproj'),'utf8');
+const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs'),'utf8');
 const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
 
 assert(index.includes('<title>FoamLens v51 — by Michel Duarte</title>'),'Frontend title is not v51.');
