@@ -218,7 +218,7 @@ const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,vectorName:'',vectorValues:null,vectorTime:NaN,
   lockedRange:null,frameSeq:0,playing:false,timer:null,renderer:null,camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
-  drag:null,streamlines:[],spatialHash:null,lastStatus:''
+  drag:null,streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
 
 function fvEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -271,7 +271,7 @@ function fvCreateRenderer(canvas){
   const gl=canvas.getContext('webgl2',{antialias:true,alpha:true,preserveDrawingBuffer:true})||canvas.getContext('webgl',{antialias:true,alpha:true,preserveDrawingBuffer:true});
   if(!gl)throw new Error(flUi('WebGL is unavailable on this system.','WebGL no está disponible en este sistema.'));
   const program=fvProgram(gl,'attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}','precision mediump float; varying vec3 vColor; uniform float uOpacity; void main(){gl_FragColor=vec4(vColor,uOpacity);}');
-  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0}
+  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0}
 }
 function fvUploadBuffer(r,key,data,usage){const gl=r.gl;if(r[key])gl.deleteBuffer(r[key]);const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW);r[key]=b}
 function fvBuildSurfaceBuffers(mesh){
@@ -299,11 +299,23 @@ function fvBindDraw(r,posBuffer,colorBuffer,count,mode,opacity){
   if(!posBuffer||!colorBuffer||!count)return;const gl=r.gl;gl.bindBuffer(gl.ARRAY_BUFFER,posBuffer);gl.enableVertexAttribArray(r.pos);gl.vertexAttribPointer(r.pos,3,gl.FLOAT,false,0,0);
   gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);gl.enableVertexAttribArray(r.color);gl.vertexAttribPointer(r.color,3,gl.FLOAT,false,0,0);gl.uniform1f(r.opacity,opacity);gl.drawArrays(mode,0,count)
 }
+function fvSliceColors(values,range,palette){
+  const out=new Float32Array((values?.length||0)*3);for(let i=0;i<(values?.length||0);i++){const rgb=fvColorMap(values[i],range.min,range.max,palette);out[3*i]=rgb[0];out[3*i+1]=rgb[1];out[3*i+2]=rgb[2]}return out
+}
+function fvUpdateSlice(range=null){
+  const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvSlice')?.checked;if(!r||!mesh){return}
+  if(!enabled||!fvState.fieldValues){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Enable the slice to inspect the reconstructed interior field.','Activa el corte para inspeccionar el campo interior reconstruido.');fvRender();return}
+  const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis',geom=fvBuildSliceGeometry(mesh,fvState.fieldValues,axis,position);
+  fvState.sliceGeometry=geom;fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,displayRange,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3;
+  const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
+  fvRender()
+}
 function fvRender(){
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
-  const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1);
-  if(showSurface)fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
+  const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,showSlice=!!document.getElementById('fvSlice')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1);
+  if(showSurface){gl.depthMask(!showSlice);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,showSlice?Math.min(opacity,.28):opacity);gl.depthMask(true)}
+  if(showSlice){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
@@ -311,7 +323,7 @@ function fvRender(){
 function fvUpdateMeshBuffers(mesh){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;
-  fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.4,.55,.7]));
+  fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.4,.55,.7]));r.sliceCount=0;fvState.sliceGeometry=null;
   fvState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);fvCameraReset()
 }
 function fvUpdateSurfaceColors(values,range){
@@ -340,7 +352,7 @@ async function fvLoadFrame(index=null){
   const range=fvFiniteRange(vals.values);if(!range.valid)throw new Error(flUi('The selected field has no finite values.','El campo seleccionado no tiene valores finitos.'));
   const lock=document.getElementById('fvLockRange')?.checked;if(lock&&!fvState.lockedRange)fvState.lockedRange={valid:true,min:range.min,max:range.max};if(!lock)fvState.lockedRange=null;
   const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;
-  fvUpdateSurfaceColors(vals.values,displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}`;
+  fvUpdateSurfaceColors(vals.values,displayRange);fvUpdateSlice(displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}`;
   await fvUpdateStreamlines(time,seq);if(seq!==fvState.frameSeq)return;fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · t=${fvFmt(time)} s`)
 }
 function fvVectorArray(parsed,count){
@@ -432,6 +444,12 @@ function fvUiHtml(){
     <div class="fvChecks"><label class="inlineCheck"><input id="fvSurface" type="checkbox" checked> <span data-fl-en="Surface" data-fl-es="Superficie">Surface</span></label><label class="inlineCheck"><input id="fvEdges" type="checkbox" checked> <span data-fl-en="Mesh edges" data-fl-es="Aristas de malla">Mesh edges</span></label><label class="inlineCheck"><input id="fvLockRange" type="checkbox"> <span data-fl-en="Lock color range" data-fl-es="Bloquear rango de color">Lock color range</span></label></div>
     <div class="field"><label data-fl-en="Surface opacity" data-fl-es="Opacidad de superficie">Surface opacity</label><input id="fvOpacity" type="range" min=".05" max="1" step=".05" value=".92"></div>
     <div class="fvTimeline"><input id="fvTimeSlider" type="range" min="0" max="0" step="1" value="0"><div class="fvTimelineActions"><button class="btn tiny" id="fvPrev" type="button">‹</button><button class="btn soft" id="fvPlay" type="button">▶ Play</button><button class="btn tiny" id="fvNext" type="button">›</button><select id="fvSpeed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div><div class="smallnote" id="fvTimeReadout">t = —</div></div>
+    <details class="analysisExt" open><summary class="analysisExtHead"><strong data-fl-en="Interior slice" data-fl-es="Corte interior">Interior slice</strong><span class="badge">polyMesh</span></summary><div class="extSectionBody">
+      <div class="fvChecks"><label class="inlineCheck"><input id="fvSlice" type="checkbox"> <span data-fl-en="Show slice" data-fl-es="Mostrar corte">Show slice</span></label></div>
+      <div class="row2"><div class="field"><label data-fl-en="Plane normal" data-fl-es="Normal del plano">Plane normal</label><select id="fvSliceAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></div><div class="field"><label data-fl-en="Slice opacity" data-fl-es="Opacidad del corte">Slice opacity</label><input id="fvSliceOpacity" type="range" min=".05" max="1" step=".05" value=".96"></div></div>
+      <div class="field"><label data-fl-en="Plane position" data-fl-es="Posición del plano">Plane position</label><input id="fvSlicePosition" type="range" min=".001" max=".999" step=".005" value=".5"></div>
+      <div class="smallnote" id="fvSliceMeta" data-fl-en="Values are reconstructed from cell-centred fields using adjacent-cell interpolation and cell tetrahedralization; results are not claimed to be bit-identical to ParaView/VTK." data-fl-es="Los valores se reconstruyen desde campos centrados en celdas mediante interpolación de celdas adyacentes y tetraedrización; no se afirma equivalencia bit a bit con ParaView/VTK.">Values are reconstructed from cell-centred fields using adjacent-cell interpolation and cell tetrahedralization; results are not claimed to be bit-identical to ParaView/VTK.</div>
+    </div></details>
     <details class="analysisExt" open><summary class="analysisExtHead"><strong data-fl-en="Vector field visualization" data-fl-es="Visualización de campo vectorial">Vector field visualization</strong><span class="badge">U(x,t)</span></summary><div class="extSectionBody">
       <div class="fvChecks"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <span data-fl-en="Vectors" data-fl-es="Vectores">Vectors</span></label><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <span data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</span></label></div>
       <div class="field"><label data-fl-en="Vector field" data-fl-es="Campo vectorial">Vector field</label><select id="fvVector"></select></div>
@@ -459,13 +477,17 @@ function fvInstallUi(){
   const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);tab.onclick=()=>setDataView('field3d');fvInstallCamera();
   document.getElementById('fvCase').onchange=()=>{fvRefreshSelectors(false);fvLoadSelection()};document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.lockedRange=null;fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};
-  document.getElementById('fvPalette').onchange=()=>{const range=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);if(fvState.fieldValues&&range.valid){fvUpdateSurfaceColors(fvState.fieldValues,range);fvLegend(range,fvState.fieldParsed)}};
+  document.getElementById('fvPalette').onchange=()=>{const range=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);if(fvState.fieldValues&&range.valid){fvUpdateSurfaceColors(fvState.fieldValues,range);fvUpdateSlice(range);fvLegend(range,fvState.fieldParsed)}};
   document.getElementById('fvSurface').onchange=fvRender;document.getElementById('fvEdges').onchange=fvRender;document.getElementById('fvOpacity').oninput=fvRender;
-  document.getElementById('fvLockRange').onchange=e=>{fvState.lockedRange=e.target.checked?fvFiniteRange(fvState.fieldValues):null;if(fvState.fieldValues){const r=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);fvUpdateSurfaceColors(fvState.fieldValues,r);fvLegend(r,fvState.fieldParsed)}};
+  document.getElementById('fvLockRange').onchange=e=>{fvState.lockedRange=e.target.checked?fvFiniteRange(fvState.fieldValues):null;if(fvState.fieldValues){const r=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);fvUpdateSurfaceColors(fvState.fieldValues,r);fvUpdateSlice(r);fvLegend(r,fvState.fieldParsed)}};
   document.getElementById('fvTimeSlider').oninput=e=>{fvStopPlayback();fvLoadFrame(Number(e.target.value)).catch(err=>fvSetStatus(String(err?.message||err),true))};
   document.getElementById('fvPrev').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,-1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvNext').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvPlay').onclick=()=>fvState.playing?fvStopPlayback():fvSchedulePlayback();document.getElementById('fvResetCamera').onclick=fvCameraReset;
+  document.getElementById('fvSlice').onchange=()=>fvUpdateSlice();
+  document.getElementById('fvSliceAxis').onchange=()=>fvUpdateSlice();
+  document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
+  document.getElementById('fvSliceOpacity').oninput=fvRender;
   for(const id of ['fvVectors','fvStreamlines','fvVector','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id).addEventListener(id==='fvSeedPosition'?'input':'change',()=>fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true)));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'));
   const goData=document.getElementById('workspaceGoData'),actions=goData?.parentElement;if(actions&&!document.getElementById('workspaceGoFieldView')){const q=document.createElement('button');q.className='btn';q.id='workspaceGoFieldView';q.type='button';q.setAttribute('data-fl-en','Open 3D Field View');q.setAttribute('data-fl-es','Abrir Vista 3D');q.textContent=flUi('Open 3D Field View','Abrir Vista 3D');q.onclick=()=>{try{setAppMode('data')}catch{}setDataView('field3d')};goData.insertAdjacentElement('afterend',q);flApplyBilingualText(q)}
