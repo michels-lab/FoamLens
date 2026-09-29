@@ -170,7 +170,7 @@ internal sealed class FoamLensForm : Form
             // into the rendered Data View. Syntax-only validation cannot catch
             // an extension injected into the wrong lexical IIFE.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
+                "(()=>{document.body.classList.add('hasWorkspaceData');document.querySelector('.modeNavBtn[data-mode=\\\"data\\\"]')?.click();const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
@@ -183,9 +183,11 @@ internal sealed class FoamLensForm : Form
                     !string.Equals(displayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase) &&
                     root.TryGetProperty("visibility", out var visibilityNode) &&
                     !string.Equals(visibilityNode.GetString(), "hidden", StringComparison.OrdinalIgnoreCase);
-                if (!mounted || !visible)
+                var enabled =
+                    root.TryGetProperty("disabled", out var disabledNode) && !disabledNode.GetBoolean();
+                if (!mounted || !visible || !enabled)
                     throw new InvalidOperationException(
-                        $"FoamLens Field View extension did not mount visibly: {fieldViewUiJson}");
+                        $"FoamLens Field View extension did not mount visibly/enabled in Data mode: {fieldViewUiJson}");
             }
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
