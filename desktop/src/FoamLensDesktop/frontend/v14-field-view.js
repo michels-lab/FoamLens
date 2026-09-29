@@ -271,7 +271,7 @@ function fvCreateRenderer(canvas){
   const gl=canvas.getContext('webgl2',{antialias:true,alpha:true,preserveDrawingBuffer:true})||canvas.getContext('webgl',{antialias:true,alpha:true,preserveDrawingBuffer:true});
   if(!gl)throw new Error(flUi('WebGL is unavailable on this system.','WebGL no está disponible en este sistema.'));
   const program=fvProgram(gl,'attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}','precision mediump float; varying vec3 vColor; uniform float uOpacity; void main(){gl_FragColor=vec4(vColor,uOpacity);}');
-  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,isoPos:null,isoColor:null,isoCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0}
+  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,isoPos:null,isoColor:null,isoCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0,probePos:null,probeColor:null,probeCount:0}
 }
 function fvUploadBuffer(r,key,data,usage){const gl=r.gl;if(r[key])gl.deleteBuffer(r[key]);const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW);r[key]=b}
 function fvBuildSurfaceBuffers(mesh){
@@ -319,12 +319,13 @@ function fvRender(){
   if(showIso){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
-  if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
+  if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  if(r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
 }
 function fvUpdateMeshBuffers(mesh){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;
-  fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.4,.55,.7]));r.sliceCount=0;r.isoCount=0;fvState.sliceGeometry=null;fvState.isoGeometry=null;
+  fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.4,.55,.7]));r.sliceCount=0;r.isoCount=0;r.probeCount=0;fvState.sliceGeometry=null;fvState.isoGeometry=null;if(typeof fpClear==='function')fpClear();
   fvState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);fvCameraReset()
 }
 function fvUpdateSurfaceColors(values,range){
@@ -344,6 +345,7 @@ function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exa
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
 async function fvLoadFrame(index=null){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup(),mesh=fvState.mesh;if(!c||!g||!mesh)return;
+  if(typeof fpClear==='function')fpClear();
   const times=(g.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
   const time=times[i],seq=++fvState.frameSeq;fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
   const set=await pmLoadFieldSet(c.id,g.name,time,region);if(seq!==fvState.frameSeq)return;const parsed=fvPickFieldPart(set);
