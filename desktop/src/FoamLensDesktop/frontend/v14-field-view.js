@@ -207,7 +207,7 @@ function fvCreateRenderer(canvas){
   const gl=canvas.getContext('webgl2',{antialias:true,alpha:true,preserveDrawingBuffer:true})||canvas.getContext('webgl',{antialias:true,alpha:true,preserveDrawingBuffer:true});
   if(!gl)throw new Error(flUi('WebGL is unavailable on this system.','WebGL no está disponible en este sistema.'));
   const program=fvProgram(gl,'attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}','precision mediump float; varying vec3 vColor; uniform float uOpacity; void main(){gl_FragColor=vec4(vColor,uOpacity);}');
-  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,linePos:null,lineColor:null,lineCount:0}
+  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,edgePos:null,edgeColor:null,edgeCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0}
 }
 function fvUploadBuffer(r,key,data,usage){const gl=r.gl;if(r[key])gl.deleteBuffer(r[key]);const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW);r[key]=b}
 function fvBuildSurfaceBuffers(mesh){
@@ -241,6 +241,7 @@ function fvRender(){
   const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1);
   if(showSurface)fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
+  if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
 }
 function fvUpdateMeshBuffers(mesh){
@@ -286,16 +287,39 @@ function fvBuildLineBuffers(lines,range){
   const positions=[],colors=[],palette='turbo';for(const line of lines||[])for(let i=1;i<line.length;i++){for(const q of [line[i-1],line[i]]){positions.push(...q.p);const rgb=fvColorMap(q.speed,range.min,range.max,palette);colors.push(...rgb)}}
   return{positions:new Float32Array(positions),colors:new Float32Array(colors)}
 }
+function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260){
+  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
+  const mags=new Array(count);for(let i=0;i<count;i++){const v=vectors[i]||[];mags[i]=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))}
+  const range=fvFiniteRange(mags),stride=Math.max(1,Math.ceil(count/Math.max(1,maxGlyphs))),positions=[],colors=[];
+  for(let ci=0;ci<count;ci+=stride){
+    const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1));
+    const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
+    const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
+    const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
+    for(const seg of [[p,q],[q,left],[q,right]])for(const point of seg){positions.push(...point);colors.push(...rgb)}
+  }
+  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range}
+}
 async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
-  const enabled=document.getElementById('fvStreamlines')?.checked,mesh=fvState.mesh,r=fvState.renderer;if(!r||!mesh)return;
-  if(!enabled){r.lineCount=0;fvRender();return}
-  const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvVectorGroup();if(!c||!g){r.lineCount=0;fvRender();return}
+  const showStreamlines=!!document.getElementById('fvStreamlines')?.checked,showVectors=!!document.getElementById('fvVectors')?.checked,mesh=fvState.mesh,r=fvState.renderer;if(!r||!mesh)return;
+  if(!showStreamlines&&!showVectors){r.lineCount=0;r.vectorCount=0;fvRender();return}
+  const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvVectorGroup();if(!c||!g){r.lineCount=0;r.vectorCount=0;fvRender();return}
   const vt=fvNearestTime(g.times,time);if(!Number.isFinite(vt))return;const set=await pmLoadFieldSet(c.id,g.name,vt,region);if(seq!==fvState.frameSeq)return;const parsed=fvPickFieldPart(set);if(!parsed)return;
-  const vectors=fvVectorArray(parsed,mesh.cellCount);if(!vectors)throw new Error(flUi('The selected streamline field does not match the mesh cell count.','El campo seleccionado para streamlines no coincide con el número de celdas de la malla.'));
-  const axis=document.getElementById('fvSeedAxis')?.value||'x',seedCount=Number(document.getElementById('fvSeedCount')?.value)||16,pos=Number(document.getElementById('fvSeedPosition')?.value)||.5,seeds=fvSeedPlane(mesh.boundsMin,mesh.boundsMax,axis,seedCount,pos),lines=[];
-  for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax);if(line.length>2)lines.push(line)}
-  const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3;
-  fvState.streamlines=lines;fvState.vectorValues=vectors;fvState.vectorName=g.name;fvState.vectorTime=vt;fvRender();const meta=document.getElementById('fvStreamMeta');if(meta)meta.textContent=`${lines.length} ${flUi('streamlines','líneas de corriente')} · ${g.name} @ ${fvFmt(vt)} s`
+  const vectors=fvVectorArray(parsed,mesh.cellCount);if(!vectors)throw new Error(flUi('The selected vector field does not match the mesh cell count.','El campo vectorial seleccionado no coincide con el número de celdas de la malla.'));
+  fvState.vectorValues=vectors;fvState.vectorName=g.name;fvState.vectorTime=vt;
+
+  if(showVectors){
+    const glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,280);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
+  }else r.vectorCount=0;
+
+  let lines=[];
+  if(showStreamlines){
+    const axis=document.getElementById('fvSeedAxis')?.value||'x',seedCount=Number(document.getElementById('fvSeedCount')?.value)||16,pos=Number(document.getElementById('fvSeedPosition')?.value)||.5,seeds=fvSeedPlane(mesh.boundsMin,mesh.boundsMax,axis,seedCount,pos);
+    for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax);if(line.length>2)lines.push(line)}
+    const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
+  }else r.lineCount=0;
+  fvState.streamlines=lines;fvRender();const meta=document.getElementById('fvStreamMeta');if(meta){const parts=[];if(showVectors)parts.push(Math.round(r.vectorCount/6)+' '+flUi('vector glyphs','glyphs vectoriales'));if(showStreamlines)parts.push(lines.length+' '+flUi('streamlines','líneas de corriente'));meta.textContent=parts.join(' · ')+' · '+g.name+' @ '+fvFmt(vt)+' s'}
 }
 function fvStopPlayback(){fvState.playing=false;if(fvState.timer){clearTimeout(fvState.timer);fvState.timer=null}const b=document.getElementById('fvPlay');if(b)b.textContent='▶ '+flUi('Play','Reproducir')}
 function fvSchedulePlayback(){
@@ -338,8 +362,8 @@ function fvUiHtml(){
     <div class="fvChecks"><label class="inlineCheck"><input id="fvSurface" type="checkbox" checked> <span data-fl-en="Surface" data-fl-es="Superficie">Surface</span></label><label class="inlineCheck"><input id="fvEdges" type="checkbox" checked> <span data-fl-en="Mesh edges" data-fl-es="Aristas de malla">Mesh edges</span></label><label class="inlineCheck"><input id="fvLockRange" type="checkbox"> <span data-fl-en="Lock color range" data-fl-es="Bloquear rango de color">Lock color range</span></label></div>
     <div class="field"><label data-fl-en="Surface opacity" data-fl-es="Opacidad de superficie">Surface opacity</label><input id="fvOpacity" type="range" min=".05" max="1" step=".05" value=".92"></div>
     <div class="fvTimeline"><input id="fvTimeSlider" type="range" min="0" max="0" step="1" value="0"><div class="fvTimelineActions"><button class="btn tiny" id="fvPrev" type="button">‹</button><button class="btn soft" id="fvPlay" type="button">▶ Play</button><button class="btn tiny" id="fvNext" type="button">›</button><select id="fvSpeed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div><div class="smallnote" id="fvTimeReadout">t = —</div></div>
-    <details class="analysisExt" open><summary class="analysisExtHead"><strong data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</strong><span class="badge">U(x,t)</span></summary><div class="extSectionBody">
-      <label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <span data-fl-en="Show streamlines" data-fl-es="Mostrar líneas de corriente">Show streamlines</span></label>
+    <details class="analysisExt" open><summary class="analysisExtHead"><strong data-fl-en="Vector field visualization" data-fl-es="Visualización de campo vectorial">Vector field visualization</strong><span class="badge">U(x,t)</span></summary><div class="extSectionBody">
+      <div class="fvChecks"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <span data-fl-en="Vectors" data-fl-es="Vectores">Vectors</span></label><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <span data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</span></label></div>
       <div class="field"><label data-fl-en="Vector field" data-fl-es="Campo vectorial">Vector field</label><select id="fvVector"></select></div>
       <div class="row2"><div class="field"><label data-fl-en="Seed plane normal" data-fl-es="Normal del plano de semillas">Seed plane normal</label><select id="fvSeedAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></div><div class="field"><label data-fl-en="Seeds" data-fl-es="Semillas">Seeds</label><input id="fvSeedCount" type="number" min="1" max="64" step="1" value="16"></div></div>
       <div class="field"><label data-fl-en="Seed plane position" data-fl-es="Posición del plano de semillas">Seed plane position</label><input id="fvSeedPosition" type="range" min="0" max="1" step=".02" value=".5"></div>
@@ -372,7 +396,7 @@ function fvInstallUi(){
   document.getElementById('fvPrev').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,-1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvNext').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvPlay').onclick=()=>fvState.playing?fvStopPlayback():fvSchedulePlayback();document.getElementById('fvResetCamera').onclick=fvCameraReset;
-  for(const id of ['fvStreamlines','fvVector','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id).addEventListener(id==='fvSeedPosition'?'input':'change',()=>fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true)));
+  for(const id of ['fvVectors','fvStreamlines','fvVector','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id).addEventListener(id==='fvSeedPosition'?'input':'change',()=>fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true)));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'))
 }
 function fvShow(){
