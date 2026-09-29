@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable};')();
+const api=new Function(core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -86,6 +86,14 @@ test('colormap stays finite and normalized',()=>{
       assert(c.every(x=>Number.isFinite(x)&&x>=0&&x<=1));
     }
   }
+});
+
+test('legend gradient follows the selected colormap',()=>{
+  const viridis=api.fvLegendGradient('viridis'),turbo=api.fvLegendGradient('turbo'),coolwarm=api.fvLegendGradient('coolwarm');
+  assert(/^linear-gradient\(90deg,/.test(viridis));
+  assert.notEqual(viridis,turbo);
+  assert.notEqual(viridis,coolwarm);
+  assert.notEqual(turbo,coolwarm);
 });
 
 test('streamline integrator follows a uniform cell-centred velocity field',()=>{
