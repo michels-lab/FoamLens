@@ -53,7 +53,7 @@ function fvExtractList(text){
   return{ok:true,format,declared,body:clean.slice(open+1,close)}
 }
 function fvParsePointsText(text){
-  const l=fvExtractList(text);if(!l.ok)return l;const num='[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?',re=new RegExp('\\\\(\\\\s*('+num+')\\\\s+('+num+')\\\\s+('+num+')\\\\s*\\\\)','g');
+  const l=fvExtractList(text);if(!l.ok)return l;const num='[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?',re=new RegExp('\\(\\s*('+num+')\\s+('+num+')\\s+('+num+')\\s*\\)','g');
   const points=[];let m;while((m=re.exec(l.body)))points.push(Number(m[1]),Number(m[2]),Number(m[3]));
   return points.length===l.declared*3?{ok:true,format:l.format,points,count:l.declared}:{ok:false,reason:'point-count-mismatch',format:l.format}
 }
