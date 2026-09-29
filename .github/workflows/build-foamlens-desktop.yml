@@ -276,6 +276,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/energy-audit.test.cjs
 
+      - name: Test simulation vs experiment validation
+        shell: pwsh
+        run: node desktop/tests/experimental-validation.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
