@@ -805,9 +805,19 @@ internal sealed class FoamLensForm : Form
             }
         }
 
+        var faceOffsets = new int[faces.Length + 1];
+        var flattenedFacePoints = new List<int>(faces.Sum(face => face.Length));
+        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        {
+            faceOffsets[faceIndex] = flattenedFacePoints.Count;
+            flattenedFacePoints.AddRange(faces[faceIndex]);
+        }
+        faceOffsets[faces.Length] = flattenedFacePoints.Count;
+
         return new OpenFoamMeshParseResult(
             true, "", "ascii",
             pointList, triangles.ToArray(), triangleOwners.ToArray(), edges.ToArray(), cellCenters,
+            faceOffsets, flattenedFacePoints.ToArray(), owners, neighbours,
             pointCount, faces.Length, internalFaceCount, faces.Length - internalFaceCount, cellCount,
             boundsMin, boundsMax, "mean-face-centres", sourceBytes);
     }
@@ -1449,12 +1459,15 @@ internal sealed class FoamLensForm : Form
     private sealed record OpenFoamMeshParseResult(
         bool Supported, string Reason, string Format,
         double[] Points, int[] SurfaceTriangles, int[] SurfaceOwners, int[] SurfaceEdges, double[] CellCenters,
+        int[] FaceOffsets, int[] FacePoints, int[] Owners, int[] Neighbours,
         int PointCount, int FaceCount, int InternalFaceCount, int BoundaryFaceCount, int CellCount,
         double[] BoundsMin, double[] BoundsMax, string CellCenterMethod, long SourceBytes)
     {
         public static OpenFoamMeshParseResult Unsupported(string reason, string format, long sourceBytes) =>
             new(false, reason, format, Array.Empty<double>(), Array.Empty<int>(), Array.Empty<int>(),
-                Array.Empty<int>(), Array.Empty<double>(), 0, 0, 0, 0, 0,
+                Array.Empty<int>(), Array.Empty<double>(),
+                Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(),
+                0, 0, 0, 0, 0,
                 Array.Empty<double>(), Array.Empty<double>(), "", sourceBytes);
     }
 
