@@ -14,7 +14,7 @@ This file is the durable project bitácora. After any meaningful Git operation�
 | Item | State |
 |---|---|
 | Development branch | `development/v1.3.0-general-discovery` |
-| Development HEAD | pending release-finalization commit — Finalize FoamLens v1.3.1 release identity |
+| Development HEAD | `37cdf299c700fb206191a9a2dc7d49f5e628bd6a` — Finalize FoamLens v1.3.1 release identity |
 | `main` HEAD | `3519bab807f64a0de8ea2734f5a67d4c61d956c5` — Build general OpenFOAM discovery model in v1.3.0 |
 | Open PR | #1 — Prepare FoamLens v1.3.0 general OpenFOAM release (Draft) |
 | Latest prerelease | `v1.3.0-rc.1` — FoamLens Desktop v1.3.0-rc.1 |
@@ -34,7 +34,7 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - **2026-09-28** — Review/Case Auditor identity was hardened after prerelease screenshots showed mixed case selector/health/root state. Commit `fafce7e97fa8d561fe6ba73e8e6b9da8aaf8b600`; Actions run #193 passed.
 - **2026-09-28** — native Windows branding was added to the EXE, form/taskbar, installer and shortcuts. Commit `5e1d00de11dce70c34d94959c4bc2c402d058b9b`; Actions run #194 passed.
 
-- **2026-09-29** — release presentation was finalized for the normal v1.3.1 release: frontend About/version changed from development/RC wording to v51 / Desktop v1.3.1, new workspace payloads report productVersion v51, and README/version regression expectations were updated. Final CI and PR #1 merge pending at this log update.
+- **2026-09-29** — release presentation was finalized for the normal v1.3.1 release: frontend About/version changed from development/RC wording to v51 / Desktop v1.3.1, new workspace payloads report productVersion v51, and README/version regression expectations were updated. Commit `37cdf299c700fb206191a9a2dc7d49f5e628bd6a`; Actions run #197 passed the complete build, real QuickCup integration, portable EXE smoke, installer build, installed-app smoke, bilingual/UI checks, Watch Run and Review case-binding regressions.
 
 ## Releases
 
@@ -503,3 +503,10 @@ When a new change is made, record the actual commit SHA and CI result after the 
 - Desktop semantic version bumped from `1.3.0` to `1.3.1` before merging PR #1.
 - Reason: the `main` workflow publishes the GitHub Release from the desktop project version; keeping `1.3.0` would overwrite/reuse the existing `v1.3.0` release instead of creating a new patch release.
 - Target release after CI + merge: `v1.3.1`.
+
+
+### Subsequent validation runs
+
+| Run | Date | Ref | SHA | Result | Notes |
+|---:|---|---|---|---|---|
+| #197 | 2026-09-29 | `development/v1.3.0-general-discovery` | `37cdf299c700` | success | Final v1.3.1 release identity; complete Windows + QuickCup validation passed. |
