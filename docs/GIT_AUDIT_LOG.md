@@ -825,3 +825,58 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11068679330`).
 - No GitHub Release was published from the hotfix branch.
+
+
+## 2026-09-29 — 3D Field View probe / picking
+
+### Probe interaction
+- Added a dedicated 3D probe mode to Field View.
+- Clicking rendered geometry performs a true 3D ray cast against the triangles currently represented by FoamLens rather than selecting the nearest screen pixel.
+- Supported pick targets:
+  - boundary surface;
+  - interior slice;
+  - iso-surface.
+- Boundary-surface picks resolve the exact owner cell and report that cell-centred field value.
+- Slice picks use barycentric interpolation of the reconstructed slice vertex values.
+- Iso-surface picks report the selected constant iso value.
+- For reconstructed interior geometry, FoamLens also reports the nearest cell explicitly as an approximation; it is labelled as nearest rather than presented as an exact containing-cell lookup.
+- Probe readout reports:
+  - source geometry;
+  - selected field;
+  - value and inferred unit;
+  - physical time;
+  - X/Y/Z;
+  - cell / nearest-cell identity when available.
+- A 3-axis marker is rendered at the picked 3D location.
+- Pointer-drag motion is separated from clicking so orbiting the camera does not accidentally create a probe.
+- Probe state is cleared whenever the displayed physical-time frame/field changes so FoamLens never leaves a stale value from a previous timestep on screen.
+
+### Numerical implementation
+- Canvas coordinates are unprojected through the inverse current model-view-projection matrix.
+- Ray / triangle intersection uses Möller–Trumbore geometry.
+- Slice scalar values are interpolated with barycentric coordinates.
+- When several triangles lie along the ray, the nearest positive intersection is selected.
+
+### Regression
+- Dedicated test: `desktop/tests/field-probe.test.cjs`.
+- Validates:
+  - 4×4 matrix inversion on identity;
+  - a known ray/triangle intersection;
+  - barycentric interpolation;
+  - nearest-hit selection;
+  - iso constant-value picking;
+  - rejection of parallel/outside rays;
+  - UI controls and WebGL marker-buffer wiring;
+  - fixture-name neutrality.
+
+### Validation
+- **GitHub Actions run #264: SUCCESS**.
+- Validated head: `4d481d8a4c33a4783e2b677d4937ced121990472`.
+- Real QuickCup regression: success.
+- 3D Field View, slice, iso-surface and probe regressions: success.
+- All previous scientific/UI regressions: success.
+- Portable EXE smoke: success.
+- Installer build: success.
+- Installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11069760533`).
+- No GitHub Release was published from the hotfix branch.
