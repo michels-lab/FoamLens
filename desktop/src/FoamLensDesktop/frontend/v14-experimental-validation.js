@@ -9,9 +9,14 @@ function evSplitDelimitedLine(line,delimiter){
   out.push(cur.trim());return out
 }
 function evDetectDelimiter(lines){
-  const sample=(lines||[]).filter(x=>String(x).trim()&&!/^\s*#/.test(x)).slice(0,8);if(!sample.length)return'whitespace';
-  const score=d=>sample.reduce((n,l)=>n+Math.max(0,evSplitDelimitedLine(l,d).length-1),0);
-  const candidates=[',',';','\t'],rank=candidates.map(d=>[d,score(d)]).sort((a,b)=>b[1]-a[1]);return rank[0][1]>0?rank[0][0]:'whitespace'
+  const sample=(lines||[]).filter(x=>String(x).trim()&&!/^\s*#/.test(x)).slice(0,12);if(!sample.length)return'whitespace';
+  const score=d=>{
+    const counts=sample.map(l=>evSplitDelimitedLine(l,d).length),freq=new Map();for(const n of counts)if(n>=2)freq.set(n,(freq.get(n)||0)+1);
+    if(!freq.size)return-1;
+    const [mode,count]=[...freq.entries()].sort((a,b)=>b[1]-a[1]||b[0]-a[0])[0],inconsistent=counts.filter(n=>n!==mode).length;
+    return count*100+mode*5-inconsistent*20
+  };
+  const candidates=[',',';','\t'],rank=candidates.map(d=>[d,score(d)]).sort((a,b)=>b[1]-a[1]);return rank[0][1]>=0?rank[0][0]:'whitespace'
 }
 function evParseNumber(value,delimiter='whitespace'){
   let s=String(value??'').trim().replace(/^["']|["']$/g,'');if(!s)return NaN;
