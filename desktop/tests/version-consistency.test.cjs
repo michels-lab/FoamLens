@@ -15,10 +15,13 @@ assert(index.includes("productVersion:'v51'"),'Workspace productVersion is not v
 assert(!index.includes('v51 development'),'Release UI still reports a development build.');
 assert(!index.includes('release candidate build'),'Release UI still reports a release candidate.');
 assert(!index.includes("productVersion:'v51-development'"),'Workspace payload still reports a development version.');
-assert(/<Version>1\.3\.2<\/Version>/.test(project),'Desktop project version is not 1.3.2.');
-assert(/<AssemblyVersion>1\.3\.2\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.3.2.0.');
-assert(/<FileVersion>1\.3\.2\.0<\/FileVersion>/.test(project),'FileVersion is not 1.3.2.0.');
+assert(/<Version>1\.4\.0<\/Version>/.test(project),'Development Desktop project version is not 1.4.0.');
+assert(/<AssemblyVersion>1\.4\.0\.0<\/AssemblyVersion>/.test(project),'Development AssemblyVersion is not 1.4.0.0.');
+assert(/<FileVersion>1\.4\.0\.0<\/FileVersion>/.test(project),'Development FileVersion is not 1.4.0.0.');
 assert(readme.includes('# FoamLens Desktop v1.3.2'),'Desktop README is not v1.3.2.');
 assert(readme.includes('current release is **FoamLens Desktop v1.3.2 with frontend v51**'),'Desktop README does not describe v1.3.2/v51 as the current release.');
 
-console.log('Release version consistency regression passed: frontend v51 / Desktop v1.3.2.');
+const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
+assert(fieldView.includes("Desktop v1.4.0 development"),'Field View development module does not expose the v1.4.0 build identity.');
+assert(program.includes('"FoamLens", "Desktop", "1.4.0", "app"'),'Desktop app bundle root is not isolated for v1.4.0 development.');
+console.log('Development version consistency passed: current public release remains v1.3.2; branch build is Desktop v1.4.0 development.');
