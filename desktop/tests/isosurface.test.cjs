@@ -21,7 +21,7 @@ const api=new Function(core+';return {fvIsoPointKey,fvIsoTriangleArea,fvIsoTetra
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
-function near(a,b,e=1e-10){assert(Math.abs(a-b)<=e,\`${a} != ${b}\`)}
+function near(a,b,e=1e-10){assert(Math.abs(a-b)<=e,String(a)+' != '+String(b))}
 
 test('linear tetra field produces the exact phi=0.5 triangle',()=>{
   const vertices=[[0,0,0],[1,0,0],[0,1,0],[0,0,1]];
