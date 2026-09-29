@@ -437,7 +437,7 @@ function fvApplyBuildIdentity(){
   const overlay=document.getElementById('versionOverlay');if(!overlay)return;
   for(const block of overlay.querySelectorAll('.detailBlock')){
     const label=String(block.querySelector('span')?.textContent||'').trim().toLowerCase();
-    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.4.0 development'}
+    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.4.1'}
   }
 }
 function fvInstallIntegration(){
