@@ -12,6 +12,7 @@ on:
     branches:
       - main
       - development/v1.3.0-general-discovery
+      - development/v1.4.0-field-view
       - 'release/**'
     tags:
       - 'v*'
@@ -85,7 +86,7 @@ jobs:
           if (Test-Path $bundle) { Remove-Item $bundle -Force }
           New-Item -ItemType Directory -Force bundle_tmp | Out-Null
           Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
-          Copy-Item desktop/src/FoamLensDesktop/frontend/v13-*.js bundle_tmp/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/
           Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
           Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
 
@@ -107,7 +108,7 @@ jobs:
           if(!scripts.length)throw new Error('No inline scripts found in FoamLens frontend.');
           scripts.forEach((m,i)=>{try{new Function(m[1])}catch(e){throw new Error('Inline script '+i+' failed syntax validation: '+e.message)}});
           const extDir='desktop/src/FoamLensDesktop/frontend';
-          const extensions=fs.readdirSync(extDir).filter(name=>/^v13-.*\.js$/i.test(name));
+          const extensions=fs.readdirSync(extDir).filter(name=>/^v\d+-.*\.js$/i.test(name));
           extensions.forEach(name=>{const src=fs.readFileSync(extDir+'/'+name,'utf8');try{new Function(src)}catch(e){throw new Error(name+' failed syntax validation: '+e.message)}});
           if(!html.includes("window.chrome.webview.addEventListener('message'"))throw new Error('FoamLens native WebView2 bridge is missing.');
           for(const fragment of ['parseOpenFOAMRunLogRecords','parseOpenFOAMRunLogFile',"return'runlog'","path:'solver run log'"]){
@@ -116,7 +117,7 @@ jobs:
           for(const id of ['launchFolder','launchFiles','launchWorkspace']){
             if(!html.includes("$('"+id+"')"))throw new Error('Launch control wiring missing: '+id);
           }
-          console.log('Validated '+scripts.length+' inline FoamLens script blocks, '+extensions.length+' v1.3 modules, and launch controls.');
+          console.log('Validated '+scripts.length+' inline FoamLens script blocks, '+extensions.length+' versioned frontend modules, and launch controls.');
           '@ | Set-Content -Path validate-foamlens-frontend.js -Encoding utf8
           node validate-foamlens-frontend.js
 
@@ -210,7 +211,7 @@ jobs:
           @'
           const fs=require('fs'),path=require('path');
           const dir='desktop/src/FoamLensDesktop/frontend';
-          const files=fs.readdirSync(dir).filter(name=>name==='index.html'||/^v13-.*\.js$/i.test(name));
+          const files=fs.readdirSync(dir).filter(name=>name==='index.html'||/^v\d+-.*\.js$/i.test(name));
           const banned=['QuickCup','B3_reference','B4_energy2','B5_outer3','B6_adaptiveDt','B7_outer4','C3_reference','C4_energy2','C5_outer3','C6_adaptiveDt','C7_outer4'];
           const hits=[];
           for(const file of files){
@@ -245,6 +246,10 @@ jobs:
       - name: Test native OpenFOAM field streaming
         shell: pwsh
         run: node desktop/tests/native-field-streaming.test.cjs
+
+      - name: Test 3D OpenFOAM Field View
+        shell: pwsh
+        run: node desktop/tests/field-view.test.cjs
 
       - name: Test capability-driven contextual UI
         shell: pwsh

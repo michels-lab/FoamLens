@@ -564,3 +564,44 @@ When a new change is made, record the actual commit SHA and CI result after the 
   - `FoamLens-Setup-v1.3.2.exe`
 - Release published at 2026-09-29 17:28:32 UTC.
 - `v1.3.1` was left intact; its assets were not silently replaced.
+
+
+## 2026-09-29 — v1.4.0 Field View development started
+
+- Development branch: `development/v1.4.0-field-view`, created directly from released `main` v1.3.2 commit `2ab17037bcc6922f25ed2f28d9e2a493a33fa327`.
+- Native Desktop bridge extended with read-only, cancellable ASCII OpenFOAM `polyMesh` parsing for `points`, `faces`, `owner`, and `neighbour`.
+- Frontend extension loading generalized from `v13-*.js` to `v*-*.js`; the new viewer lives in isolated module `v14-field-view.js` rather than modifying the monolithic v51 frontend.
+- Added the **Field View** data tab with WebGL mesh rendering, boundary-surface scalar coloring, mesh edges, camera orbit/zoom, color maps, locked color ranges and physical-time playback.
+- Added vector-field visualization with magnitude/component selection, velocity glyphs and configurable streamlines derived from the actual instantaneous cell-centred OpenFOAM vector field.
+- Streamlines use local inverse-distance vector interpolation with midpoint integration; this is an explicit FoamLens approximation and is not claimed to reproduce ParaView/VTK interpolation bit-for-bit.
+- Added default-region and named-region `constant/polyMesh` discovery.
+- Fixed multi-region eligibility so cases such as `metal` / `mold` are visualizable when a meshed named region has compatible volume fields.
+- Decomposed processor fields are not silently mapped onto a reconstructed mesh; Field View requests reconstruction when topology/count alignment cannot be established.
+- Initial fallback QA exposed and fixed an over-escaped ASCII `points` parser regex (`point-count-mismatch` on a valid cube).
+- Initial WebGL QA exposed and fixed a renderer-factory naming typo before release.
+- Dedicated regression: `desktop/tests/field-view.test.cjs` validates a synthetic OpenFOAM cube, region discovery, multi-region availability, physical-time navigation, colormaps, streamline integration, native bridge wiring, vector/streamline product wiring and generic versioned module loading.
+- Real QuickCup regression remains green, but the QuickCup fixture repository does not version `polyMesh`; therefore mesh geometry itself is currently regression-tested with the synthetic OpenFOAM fixture. QuickCup's `controlDict` uses `writeFormat ascii`, matching the supported mesh format.
+- Validation progression:
+  - Run #200: failed only in the new Field View cube parser.
+  - Run #201: failed on the same fallback parser after the separate renderer typo was fixed.
+  - Run #202: success after fixing ASCII point parsing.
+  - Runs #203 and #204: success with vector glyphs and their regression coverage.
+  - Run #206: **success** after the multi-region fix and dedicated multi-region test; real QuickCup regression, all legacy suites, Field View suite, portable EXE smoke, installer build and installed-app smoke all passed.
+- Final validated code SHA for run #206: `919131e08b4edaa65e458bcbf955b73f06c62847`.
+- Documentation-only scope record added afterward in `docs/v1.4.0-field-view-spec.md`; no release was published and `main` remains v1.3.2.
+
+
+### 2026-09-29 — v1.4.0 development packaging and final Field View validation
+
+- Branch-only Desktop version advanced to `1.4.0` so development artifacts are not mislabeled as the stable v1.3.2 release.
+- v1.4 uses an isolated local app-bundle root (`FoamLens/Desktop/1.4.0/app`); the public `main` release remains v1.3.2.
+- The version overlay identifies this branch as `Desktop v1.4.0 development` while the retained v51 base remains release-clean.
+- Added vector glyphs derived from the actual cell-centred vector field, alongside streamlines.
+- Fixed Field View availability for named multi-regions such as `metal` / `mold`.
+- Fixed colormap legend synchronization so Viridis, Turbo and cool–warm legends match the colors actually rendered on the mesh.
+- Run #211 validated the complete v1.4.0 development build identity, full scientific/UI suites, real QuickCup regression, portable EXE smoke, installer and installed-app smoke.
+- Runs #212/#213 validated the colormap legend correction.
+- **Final validation: GitHub Actions run #213 — success.**
+- Final tested head: `c3cd5651e99211a4af4168fb8ecac063bcbf0f41`.
+- Run #213 artifact: `FoamLens-Windows-v1.4.0` (artifact id `11058631160`).
+- No GitHub Release was published and `main` was not modified.
