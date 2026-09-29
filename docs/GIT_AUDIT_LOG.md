@@ -13,11 +13,12 @@ This file is the durable project bitácora. After any meaningful Git operation�
 
 | Item | State |
 |---|---|
-| Development branch | `development/v1.3.0-general-discovery` |
-| Development HEAD | `5e1d00de11dce70c34d94959c4bc2c402d058b9b` — Add native FoamLens Windows icon |
-| `main` HEAD | `3519bab807f64a0de8ea2734f5a67d4c61d956c5` — Build general OpenFOAM discovery model in v1.3.0 |
-| Open PR | #1 — Prepare FoamLens v1.3.0 general OpenFOAM release (Draft) |
-| Latest prerelease | `v1.3.0-rc.1` — FoamLens Desktop v1.3.0-rc.1 |
+| Active release branch | `release/v1.3.2` — merged into `main` |
+| Release branch head | `f5e6ab835da5f2767df657b40d1f85a816b8e27b` — Record v1.3.2 release validation |
+| `main` HEAD | `368655e5b4f9aaddb4f528d530318612f7cb6b19` — Merge FoamLens Desktop v1.3.2 |
+| Pull requests | #1 merged for v1.3.1; #2 merged for v1.3.2 |
+| Latest release | `v1.3.2` — FoamLens v1.3.2 |
+| Latest prerelease | `v1.3.0-rc.1` — legacy prerelease retained for history |
 | Commits represented below | 205 in the baseline table + subsequent changes section |
 | GitHub Actions runs represented below | 189 in the baseline table + runs #190–#194 below |
 
@@ -45,12 +46,15 @@ This file is the durable project bitácora. After any meaningful Git operation�
 | 2026-09-27 22:37:10 UTC | `v1.2.0` | FoamLens v1.2.0 | Release | `main` | `FoamLens-Portable-v1.2.0.exe`, `FoamLens-Portable-v1.2.0.exe.sha256`, `FoamLens-Setup-v1.2.0.exe` |
 | 2026-09-27 23:25:42 UTC | `v1.3.0` | FoamLens v1.3.0 | Release | `main` | `FoamLens-Portable-v1.3.0.exe`, `FoamLens-Portable-v1.3.0.exe.sha256`, `FoamLens-Setup-v1.3.0.exe` |
 | 2026-09-28 18:18:03 UTC | `v1.3.0-rc.1` | FoamLens Desktop v1.3.0-rc.1 | Pre-release | `development/v1.3.0-general-discovery` | `FoamLens-Portable-v1.3.0-rc.1.exe`, `FoamLens-Portable-v1.3.0-rc.1.exe.sha256`, `FoamLens-Setup-v1.3.0-rc.1.exe` |
+| 2026-09-28 20:04:27 UTC | `v1.3.1` | FoamLens v1.3.1 | Release | `main` | `FoamLens-Portable-v1.3.1.exe`, `FoamLens-Portable-v1.3.1.exe.sha256`, `FoamLens-Setup-v1.3.1.exe` |
+| 2026-09-29 17:28:32 UTC | `v1.3.2` | FoamLens v1.3.2 | Release | `main` | `FoamLens-Portable-v1.3.2.exe`, `FoamLens-Portable-v1.3.2.exe.sha256`, `FoamLens-Setup-v1.3.2.exe` |
 
 ## Pull requests
 
 | # | Created | State | Draft | Head → Base | Current head SHA | Title |
 |---:|---|---|---|---|---|---|
-| 1 | 2026-09-28 09:16:04 UTC | open | yes | `development/v1.3.0-general-discovery` → `main` | `5e1d00de11dc` | Prepare FoamLens v1.3.0 general OpenFOAM release |
+| 1 | 2026-09-28 09:16:04 UTC | merged | no | `development/v1.3.0-general-discovery` → `main` | `d5a94b527ae6` | Release FoamLens Desktop v1.3.1 |
+| 2 | 2026-09-29 17:25:23 UTC | merged | no | `release/v1.3.2` → `main` | `f5e6ab835da5` | Release FoamLens Desktop v1.3.2 |
 
 ## Complete commit history visible from the development branch
 
@@ -534,3 +538,29 @@ When a new change is made, record the actual commit SHA and CI result after the 
 - CI on release branches is enabled through the `release/**` workflow branch pattern. Actions run #198 completed successfully: real QuickCup regression, complete scientific/UI suites, portable EXE smoke, native icon checks, minimized background execution, installer build and installed-app smoke all passed.
 
 | #198 | 2026-09-29 | `release/v1.3.2` | `ada3a9168610` | success | v1.3.2 release correction; full Windows + QuickCup validation passed. |
+
+
+## 2026-09-29 — FoamLens Desktop v1.3.2 released
+
+- Release branch: `release/v1.3.2`.
+- Release preparation commit: `ada3a9168610ddec3bf56973e4dc1aef85568db8`.
+- Release validation record commit: `f5e6ab835da5f2767df657b40d1f85a816b8e27b`.
+- PR #2 (`Release FoamLens Desktop v1.3.2`) merged into `main`.
+- Merge commit: `368655e5b4f9aaddb4f528d530318612f7cb6b19`.
+- Release-branch validation: GitHub Actions run #198 — success.
+- Main/release validation: GitHub Actions run #199 — success.
+- Real QuickCup regression: success.
+- Portable EXE smoke: success.
+- Installed-app smoke: success.
+- Native Windows icon packaging: success.
+- Minimized/background execution smoke: success.
+- Watch Run desktop monitoring test: success.
+- Review case identity binding test: success.
+- Published GitHub Release: `FoamLens v1.3.2`.
+- Release type: normal release, not prerelease.
+- Release assets:
+  - `FoamLens-Portable-v1.3.2.exe`
+  - `FoamLens-Portable-v1.3.2.exe.sha256`
+  - `FoamLens-Setup-v1.3.2.exe`
+- Release published at 2026-09-29 17:28:32 UTC.
+- `v1.3.1` was left intact; its assets were not silently replaced.
