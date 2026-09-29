@@ -14,7 +14,7 @@ This file is the durable project bitácora. After any meaningful Git operation�
 | Item | State |
 |---|---|
 | Development branch | `development/v1.3.0-general-discovery` |
-| Development HEAD | `5e1d00de11dce70c34d94959c4bc2c402d058b9b` — Add native FoamLens Windows icon |
+| Development HEAD | pending release-finalization commit — Finalize FoamLens v1.3.1 release identity |
 | `main` HEAD | `3519bab807f64a0de8ea2734f5a67d4c61d956c5` — Build general OpenFOAM discovery model in v1.3.0 |
 | Open PR | #1 — Prepare FoamLens v1.3.0 general OpenFOAM release (Draft) |
 | Latest prerelease | `v1.3.0-rc.1` — FoamLens Desktop v1.3.0-rc.1 |
@@ -33,6 +33,8 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - **2026-09-28** — prerelease review found Watch Run technically functional but too browser-oriented and too sparse for the desktop product. It was upgraded to a read-only live OpenFOAM run monitor with explicit RUNNING/COMPLETED/FAILED state, physical-time progress, deltaT, Courant, latest residual, coupling/corrector state, execution/clock time, five-second refresh, manual refresh/stop, and a Numerical Performance handoff. Actions run #192 passed.
 - **2026-09-28** — Review/Case Auditor identity was hardened after prerelease screenshots showed mixed case selector/health/root state. Commit `fafce7e97fa8d561fe6ba73e8e6b9da8aaf8b600`; Actions run #193 passed.
 - **2026-09-28** — native Windows branding was added to the EXE, form/taskbar, installer and shortcuts. Commit `5e1d00de11dce70c34d94959c4bc2c402d058b9b`; Actions run #194 passed.
+
+- **2026-09-29** — release presentation was finalized for the normal v1.3.1 release: frontend About/version changed from development/RC wording to v51 / Desktop v1.3.1, new workspace payloads report productVersion v51, and README/version regression expectations were updated. Final CI and PR #1 merge pending at this log update.
 
 ## Releases
 
