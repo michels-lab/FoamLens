@@ -608,7 +608,7 @@ internal sealed class FoamLensForm : Form
         return false;
     }
 
-    private const string FoamMeshNumberPattern = @"[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?";
+    private const string FoamMeshNumberPattern = @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?";
 
     private async Task HandleOpenFoamMeshAsync(JsonElement root, string requestId)
     {
@@ -795,8 +795,8 @@ internal sealed class FoamLensForm : Form
             return null;
         }
 
-        var pattern = @"\\(\\s*(" + FoamMeshNumberPattern + @")\\s+(" + FoamMeshNumberPattern +
-                      @")\\s+(" + FoamMeshNumberPattern + @")\\s*\\)";
+        var pattern = @"\(\s*(" + FoamMeshNumberPattern + @")\s+(" + FoamMeshNumberPattern +
+                      @")\s+(" + FoamMeshNumberPattern + @")\s*\)";
         var matches = Regex.Matches(body, pattern);
         if (matches.Count != declared)
         {
@@ -833,7 +833,7 @@ internal sealed class FoamLensForm : Form
             return null;
         }
 
-        var matches = Regex.Matches(body, @"(?m)(\\d+)\\s*\\(([^()]*)\\)");
+        var matches = Regex.Matches(body, @"(?m)(\d+)\s*\(([^()]*)\)");
         if (matches.Count != declared)
         {
             reason = "face-count-mismatch";
@@ -850,7 +850,7 @@ internal sealed class FoamLensForm : Form
                 reason = "invalid-face-size";
                 return null;
             }
-            var labels = Regex.Matches(matches[i].Groups[2].Value, @"[-+]?\\d+")
+            var labels = Regex.Matches(matches[i].Groups[2].Value, @"[-+]?\d+")
                 .Select(match => int.Parse(match.Value, CultureInfo.InvariantCulture)).ToArray();
             if (labels.Length != expected)
             {
@@ -874,7 +874,7 @@ internal sealed class FoamLensForm : Form
             return null;
         }
 
-        var matches = Regex.Matches(body, @"[-+]?\\d+");
+        var matches = Regex.Matches(body, @"[-+]?\d+");
         if (matches.Count != declared)
         {
             reason = "label-count-mismatch";
@@ -900,7 +900,7 @@ internal sealed class FoamLensForm : Form
         declaredCount = 0;
         body = "";
         reason = "";
-        var clean = Regex.Replace(StringOrEmpty(text), @"/\\*[\\s\\S]*?\\*/", "");
+        var clean = Regex.Replace(StringOrEmpty(text), @"/\*[\s\S]*?\*/", "");
         clean = Regex.Replace(clean, @"//.*$", "", RegexOptions.Multiline);
         format = FoamHeaderValue(clean, "format") ?? "ascii";
         if (!string.Equals(format, "ascii", StringComparison.OrdinalIgnoreCase))
@@ -922,7 +922,7 @@ internal sealed class FoamLensForm : Form
         }
 
         var tail = clean[searchStart..];
-        var countMatch = Regex.Match(tail, @"(?m)(?:^|\\s)(\\d+)\\s*\\(");
+        var countMatch = Regex.Match(tail, @"(?m)(?:^|\s)(\d+)\s*\(");
         if (!countMatch.Success ||
             !int.TryParse(countMatch.Groups[1].Value, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out declaredCount))
