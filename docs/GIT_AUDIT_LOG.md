@@ -523,3 +523,14 @@ When a new change is made, record the actual commit SHA and CI result after the 
   - `FoamLens-Portable-v1.3.1.exe.sha256`
   - `FoamLens-Setup-v1.3.1.exe`
 - Release published at 2026-09-28 20:04:27 UTC.
+
+## 2026-09-29 — v1.3.2 release correction
+
+- GitHub already published normal release `v1.3.1` from merge commit `97060108c7cbed8d06310644195a7c2ee0989562`; Actions run #196 passed.
+- Post-release inspection found that the binary still carried internal `development / release candidate` wording even though the functional prerelease QA fixes were included.
+- The existing `v1.3.1` artifacts are intentionally not being silently replaced from a different commit. A clean patch release is being prepared instead.
+- Branch `release/v1.3.2` was created directly from `main` commit `3735424af6f6413b72fbfe7e101a97040448fa40`.
+- v1.3.2 removes development/RC wording, reports frontend `v51` and Desktop `v1.3.2`, stores new workspace payloads as `productVersion: v51`, and updates README/version regressions accordingly.
+- CI on release branches is enabled through the `release/**` workflow branch pattern. Actions run #198 completed successfully: real QuickCup regression, complete scientific/UI suites, portable EXE smoke, native icon checks, minimized background execution, installer build and installed-app smoke all passed.
+
+| #198 | 2026-09-29 | `release/v1.3.2` | `ada3a9168610` | success | v1.3.2 release correction; full Windows + QuickCup validation passed. |
