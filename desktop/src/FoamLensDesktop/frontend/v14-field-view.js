@@ -411,8 +411,15 @@ function fvShow(){
 function fvHide(){
   fvStopPlayback();document.getElementById('fieldViewControls')?.classList.add('hidden');document.getElementById('fieldViewPanel')?.classList.remove('active');document.getElementById('workspace')?.classList.remove('fvMode');document.querySelector('#chartViewport .chartwrap')?.classList.remove('hidden');document.getElementById('dataCatalogPanel')?.classList.remove('hidden')
 }
+function fvApplyBuildIdentity(){
+  const overlay=document.getElementById('versionOverlay');if(!overlay)return;
+  for(const block of overlay.querySelectorAll('.detailBlock')){
+    const label=String(block.querySelector('span')?.textContent||'').trim().toLowerCase();
+    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.4.0 development'}
+  }
+}
 function fvInstallIntegration(){
-  fvInstallUi();const prevApply=applyCandidateMetadata;applyCandidateMetadata=async function(c,candidate){const x=await prevApply.apply(this,arguments);c.meshInventory=fvBuildMeshInventory(candidate?.allFiles||[],c?.rootPath||'');c.discovery={...(c.discovery||{}),hasMesh:c.meshInventory.some(g=>g.complete),meshRegions:c.meshInventory.filter(g=>g.complete).map(g=>g.region||'')};setTimeout(()=>fvRefreshSelectors(true),0);return x};
+  fvApplyBuildIdentity();fvInstallUi();const prevApply=applyCandidateMetadata;applyCandidateMetadata=async function(c,candidate){const x=await prevApply.apply(this,arguments);c.meshInventory=fvBuildMeshInventory(candidate?.allFiles||[],c?.rootPath||'');c.discovery={...(c.discovery||{}),hasMesh:c.meshInventory.some(g=>g.complete),meshRegions:c.meshInventory.filter(g=>g.complete).map(g=>g.region||'')};setTimeout(()=>fvRefreshSelectors(true),0);return x};
   const prevSet=setDataView;setDataView=function(mode){if(mode==='field3d'){fvShow();return}if(currentDataView==='field3d'){fvHide();currentDataView='catalog'}return prevSet.apply(this,arguments)};
   try{const prevRefresh=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prevRefresh.apply(this,args);setTimeout(()=>fvRefreshSelectors(true),0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const c=document.getElementById('fieldViewControls'),p=document.getElementById('fieldViewPanel');if(c)flApplyBilingualText(c);if(p)flApplyBilingualText(p);if(currentDataView==='field3d')fvRefreshSelectors(true)});
