@@ -264,6 +264,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs
 
+      - name: Test formal convergence audit
+        shell: pwsh
+        run: node desktop/tests/coupling-audit.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
