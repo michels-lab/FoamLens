@@ -166,6 +166,28 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
+            // Extension integration smoke: v14 Field View must actually mount
+            // into the rendered Data View. Syntax-only validation cannot catch
+            // an extension injected into the wrong lexical IIFE.
+            var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,text:tab?.innerText||'',display:tab?getComputedStyle(tab).display:'missing',visibility:tab?getComputedStyle(tab).visibility:'missing'}})()");
+            using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
+            {
+                var root = fieldViewUi.RootElement;
+                var mounted =
+                    root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
+                    root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
+                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
+                var visible =
+                    root.TryGetProperty("display", out var displayNode) &&
+                    !string.Equals(displayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase) &&
+                    root.TryGetProperty("visibility", out var visibilityNode) &&
+                    !string.Equals(visibilityNode.GetString(), "hidden", StringComparison.OrdinalIgnoreCase);
+                if (!mounted || !visible)
+                    throw new InvalidOperationException(
+                        $"FoamLens Field View extension did not mount visibly: {fieldViewUiJson}");
+            }
+
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
             using (var duplicateIds = JsonDocument.Parse(duplicateIdsJson))
@@ -256,14 +278,25 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
-        var insertionPoint = html.LastIndexOf(iifeClose, StringComparison.Ordinal);
-        if (insertionPoint < 0)
-            throw new InvalidOperationException("FoamLens frontend IIFE closing marker was not found.");
+        var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
+        if (mainMarker < 0)
+            throw new InvalidOperationException("FoamLens main frontend IIFE marker was not found.");
 
-        // Development modules are injected inside the existing frontend IIFE.
-        // They reuse the current series/case model without exposing scientific
-        // state globally or duplicating it in the native host.
+        // Find the closing marker of the MAIN FoamLens IIFE only. The document
+        // also contains smaller independent IIFEs (for example About), so using
+        // LastIndexOf() can inject extensions into the wrong lexical scope.
+        var insertionPoint = html.IndexOf(iifeClose, mainMarker, StringComparison.Ordinal);
+        if (insertionPoint < 0)
+            throw new InvalidOperationException("FoamLens main frontend IIFE closing marker was not found.");
+
+        var nextScriptClose = html.IndexOf("</script>", mainMarker, StringComparison.OrdinalIgnoreCase);
+        if (nextScriptClose >= 0 && insertionPoint > nextScriptClose)
+            throw new InvalidOperationException("FoamLens extension insertion escaped the main frontend script.");
+
+        // Versioned modules are injected inside the main frontend IIFE so they
+        // share the live case/series model without exporting private state.
         var extension = string.Join(Environment.NewLine,
             extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
         html = html.Insert(insertionPoint, Environment.NewLine + extension + Environment.NewLine);
