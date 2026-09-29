@@ -256,6 +256,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/sidebar-sections.test.cjs
 
+      - name: Test Smart Import version grouping
+        shell: pwsh
+        run: node desktop/tests/smart-import-groups.test.cjs
+
       - name: Test capability-driven contextual UI
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
