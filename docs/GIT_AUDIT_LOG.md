@@ -740,3 +740,44 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063823771`).
 - No GitHub Release was published; this remains on the v1.4.1 hotfix/development branch.
+
+
+## 2026-09-29 — Field View interior slice reconstruction
+
+### Mesh topology
+- Extended the native OpenFOAM ASCII `polyMesh` result with full volumetric connectivity:
+  - flattened face-point indices;
+  - face offsets;
+  - owner labels;
+  - neighbour labels.
+- The browser fallback parser exposes the same connectivity, so native and web paths share the same slice algorithm.
+
+### Interior Slice
+- Added a real interior slice reconstruction to Field View rather than a near-plane cell-centre point filter.
+- Reconstructs point values from adjacent cell-centred values using inverse-distance weighting.
+- Decomposes each polyhedral cell into tetrahedra formed by the reconstructed cell centre and triangulated cell faces.
+- Intersects those tetrahedra with an arbitrary X/Y/Z plane and interpolates the selected scalar/vector-component values at the intersection vertices.
+- Controls added:
+  - Show slice;
+  - plane normal X/Y/Z;
+  - normalized plane position;
+  - slice opacity.
+- Slice updates with the physical-time playback, selected field/component and current colormap/range.
+- When a slice is active the boundary surface is rendered as translucent contextual geometry without depth-writing over the interior cut.
+- The UI explicitly states that the cell-to-point reconstruction/tetrahedralization is not claimed to be bit-identical to ParaView/VTK.
+
+### Validation
+- Synthetic unit-cube regression checks a plane at `x=0.37`:
+  - every slice vertex lies on the requested plane;
+  - a uniform cell value remains uniform on the slice;
+  - reconstructed cross-sectional area is 1.0.
+- Native parser regression verifies full face/owner/neighbour connectivity is exported.
+- Field View regression verifies slice controls and WebGL buffers remain wired.
+- **Run #253: SUCCESS** at code head `ef6506953af2bd9484542ffa99e71ec87bcdb5a4`.
+  - Field View/slice regression: success.
+  - Real QuickCup regression: success (QuickCup repository still does not track a polyMesh fixture, so the actual thesis mesh is not represented by this fixture).
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063484823`).
+- No GitHub Release was published from this branch.
