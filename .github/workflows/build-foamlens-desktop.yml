@@ -12,6 +12,7 @@ on:
     branches:
       - main
       - development/v1.3.0-general-discovery
+      - 'release/**'
     tags:
       - 'v*'
     paths:
@@ -195,7 +196,7 @@ jobs:
         shell: pwsh
         run: node desktop/tests/case-tags.test.cjs
 
-      - name: Test development version consistency
+      - name: Test release version consistency
         shell: pwsh
         run: node desktop/tests/version-consistency.test.cjs
 
