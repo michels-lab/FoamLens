@@ -781,3 +781,47 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063484823`).
 - No GitHub Release was published from this branch.
+
+
+## 2026-09-29 — Field View iso-surface / contour reconstruction
+
+### Iso-surface
+- Added a reconstructed 3D iso-surface / contour layer to Field View for the currently selected scalar or vector component.
+- Uses the same volumetric reconstruction basis as interior slices:
+  - cell-centred values;
+  - inverse-distance cell-to-point reconstruction;
+  - polyhedral cell tetrahedralization.
+- Extracts the constant-value surface with marching tetrahedra.
+- Removes duplicate reconstructed triangles by tolerance-based geometric keys and rejects degenerate triangles.
+- User controls:
+  - Show iso-surface;
+  - explicit iso value (default `0.5`);
+  - opacity;
+  - use-current-midrange helper.
+- For liquid fraction, `alphaL = 0.5` can be viewed directly as a mid-front contour; temperature can use an explicitly selected isotherm.
+- Iso-surfaces update with:
+  - physical-time playback;
+  - selected field/component;
+  - color map;
+  - locked/unlocked display range.
+- When an interior slice or iso-surface is active, the external boundary surface is rendered as translucent context rather than depth-occluding the interior geometry.
+- FoamLens explicitly describes the reconstruction as marching tetrahedra on reconstructed cell-centred data and does not claim bit-identical ParaView/VTK output.
+
+### Regression
+- Dedicated test: `desktop/tests/isosurface.test.cjs`.
+- Analytic tetrahedron regression verifies a linear scalar field produces the expected `phi = 0.5` plane and triangle area.
+- Four-edge tetrahedron intersections are triangulated into finite non-degenerate triangles.
+- Out-of-range iso values produce no geometry.
+- Product wiring regression verifies controls, WebGL iso buffers and physical-time update hooks.
+
+### Validation
+- **GitHub Actions run #260: SUCCESS**.
+- Validated head: `1b0acb91076a55bd7bca9dde2b450c83c5c51619`.
+- Real QuickCup regression: success.
+- Field View + iso-surface regression: success.
+- All previous sidebar/import/dual-series/convergence/momentum/energy/experimental-validation suites: success.
+- Portable EXE smoke: success.
+- Installer build: success.
+- Installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11068679330`).
+- No GitHub Release was published from the hotfix branch.
