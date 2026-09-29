@@ -589,3 +589,19 @@ When a new change is made, record the actual commit SHA and CI result after the 
   - Run #206: **success** after the multi-region fix and dedicated multi-region test; real QuickCup regression, all legacy suites, Field View suite, portable EXE smoke, installer build and installed-app smoke all passed.
 - Final validated code SHA for run #206: `919131e08b4edaa65e458bcbf955b73f06c62847`.
 - Documentation-only scope record added afterward in `docs/v1.4.0-field-view-spec.md`; no release was published and `main` remains v1.3.2.
+
+
+### 2026-09-29 — v1.4.0 development packaging and final Field View validation
+
+- Branch-only Desktop version advanced to `1.4.0` so development artifacts are not mislabeled as the stable v1.3.2 release.
+- v1.4 uses an isolated local app-bundle root (`FoamLens/Desktop/1.4.0/app`); the public `main` release remains v1.3.2.
+- The version overlay identifies this branch as `Desktop v1.4.0 development` while the retained v51 base remains release-clean.
+- Added vector glyphs derived from the actual cell-centred vector field, alongside streamlines.
+- Fixed Field View availability for named multi-regions such as `metal` / `mold`.
+- Fixed colormap legend synchronization so Viridis, Turbo and cool–warm legends match the colors actually rendered on the mesh.
+- Run #211 validated the complete v1.4.0 development build identity, full scientific/UI suites, real QuickCup regression, portable EXE smoke, installer and installed-app smoke.
+- Runs #212/#213 validated the colormap legend correction.
+- **Final validation: GitHub Actions run #213 — success.**
+- Final tested head: `c3cd5651e99211a4af4168fb8ecac063bcbf0f41`.
+- Run #213 artifact: `FoamLens-Windows-v1.4.0` (artifact id `11058631160`).
+- No GitHub Release was published and `main` was not modified.
