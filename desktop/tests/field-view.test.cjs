@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -42,11 +42,33 @@ test('browser fallback parses a one-cell OpenFOAM cube mesh',()=>{
   assert.equal(mesh.surfaceOwners.length,12);
   assert.equal(mesh.surfaceTriangles.length,36);
   assert.equal(mesh.surfaceEdges.length,24);
+  assert.equal(mesh.faceOffsets.length,7);
+  assert.equal(mesh.facePoints.length,24);
+  assert.equal(mesh.owners.length,6);
+  assert.equal(mesh.neighbours.length,0);
+  assert.deepEqual(mesh.faceOffsets,[0,4,8,12,16,20,24]);
   assert.deepEqual(mesh.boundsMin,[0,0,0]);
   assert.deepEqual(mesh.boundsMax,[1,1,1]);
   assert(Math.abs(mesh.cellCenters[0]-.5)<1e-12);
   assert(Math.abs(mesh.cellCenters[1]-.5)<1e-12);
   assert(Math.abs(mesh.cellCenters[2]-.5)<1e-12);
+});
+
+test('polyMesh slice reconstruction cuts a unit cube at the requested plane',()=>{
+  const mesh=api.fvBuildMeshFromTexts(points,faces,owner,neighbour);
+  const cut=api.fvBuildSliceGeometry(mesh,[10],'x',.37);
+  assert(cut.triangleCount>0);
+  assert.equal(cut.positions.length,cut.triangleCount*9);
+  assert.equal(cut.values.length,cut.triangleCount*3);
+  for(let i=0;i<cut.positions.length;i+=3)assert(Math.abs(cut.positions[i]-.37)<1e-6,'slice vertex escaped x=0.37');
+  for(const v of cut.values)assert(Math.abs(v-10)<1e-9,'uniform cell value was not preserved on slice');
+  let area=0;
+  for(let i=0;i<cut.positions.length;i+=9){
+    const y0=cut.positions[i+1],z0=cut.positions[i+2],y1=cut.positions[i+4],z1=cut.positions[i+5],y2=cut.positions[i+7],z2=cut.positions[i+8];
+    area+=Math.abs((y1-y0)*(z2-z0)-(z1-z0)*(y2-y0))*.5;
+  }
+  assert(Math.abs(area-1)<1e-5,'unit-cube slice area should be 1, got '+area);
+  assert(/tetrahedralization/.test(cut.interpolation));
 });
 
 test('mesh inventory recognizes default and named-region polyMesh groups',()=>{
@@ -136,6 +158,10 @@ test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
   assert(program.includes('HandleOpenFoamMeshAsync(root, requestId)'));
   assert(program.includes('operation = "openFoamMesh"'));
   assert(program.includes('OpenFoamMeshParseResult'));
+  assert(program.includes('FaceOffsets'));
+  assert(program.includes('FacePoints'));
+  assert(program.includes('Owners'));
+  assert(program.includes('Neighbours'));
   assert(program.includes('"binary-format"'));
   const start=program.indexOf('private async Task HandleOpenFoamMeshAsync');
   const finish=program.indexOf('private async Task HandleOpenFoamFieldAsync',start);
