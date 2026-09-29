@@ -284,16 +284,18 @@ internal sealed class FoamLensForm : Form
         if (mainMarker < 0)
             throw new InvalidOperationException("FoamLens main frontend IIFE marker was not found.");
 
-        // Find the closing marker of the MAIN FoamLens IIFE only. The document
-        // also contains smaller independent IIFEs (for example About), so using
-        // LastIndexOf() can inject extensions into the wrong lexical scope.
-        var insertionPoint = html.IndexOf(iifeClose, mainMarker, StringComparison.Ordinal);
-        if (insertionPoint < 0)
-            throw new InvalidOperationException("FoamLens main frontend IIFE closing marker was not found.");
+        // Scope the search to the script element that owns FOAMLENS_NATIVE.
+        // That script contains an inner helper IIFE as well as the main FoamLens
+        // IIFE, while later script elements contain independent UI such as About.
+        // The correct injection point is therefore the LAST IIFE close before
+        // this script element ends.
+        var scriptClose = html.IndexOf("</script>", mainMarker, StringComparison.OrdinalIgnoreCase);
+        if (scriptClose < 0)
+            throw new InvalidOperationException("FoamLens main frontend script closing tag was not found.");
 
-        var nextScriptClose = html.IndexOf("</script>", mainMarker, StringComparison.OrdinalIgnoreCase);
-        if (nextScriptClose >= 0 && insertionPoint > nextScriptClose)
-            throw new InvalidOperationException("FoamLens extension insertion escaped the main frontend script.");
+        var insertionPoint = html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal);
+        if (insertionPoint < mainMarker)
+            throw new InvalidOperationException("FoamLens main frontend IIFE closing marker was not found in its script.");
 
         // Versioned modules are injected inside the main frontend IIFE so they
         // share the live case/series model without exporting private state.
