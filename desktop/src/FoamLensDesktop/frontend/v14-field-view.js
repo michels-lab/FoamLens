@@ -102,6 +102,9 @@ function fvColorMap(value,min,max,palette='viridis'){
   const s=fvPaletteStops(palette);let a=s[0],b=s.at(-1);for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
   const f=b[0]===a[0]?0:(t-a[0])/(b[0]-a[0]);return a[1].map((v,i)=>v+(b[1][i]-v)*f)
 }
+function fvLegendGradient(name){
+  return 'linear-gradient(90deg,'+fvPaletteStops(name).map(([at,rgb])=>'rgb('+rgb.map(v=>Math.round(v*255)).join(',')+') '+Math.round(at*100)+'%').join(',')+')'
+}
 function fvFiniteRange(values){
   let min=Infinity,max=-Infinity,sum=0,n=0;for(const raw of values||[]){const v=Number(raw);if(!Number.isFinite(v))continue;min=Math.min(min,v);max=Math.max(max,v);sum+=v;n++}
   return n?{valid:true,min,max,mean:sum/n,count:n}:{valid:false,min:NaN,max:NaN,mean:NaN,count:0}
@@ -264,8 +267,8 @@ function fvSetStats(mesh,range,parsed){
   e.innerHTML=`<div><span>${flUi('Cells','Celdas')}</span><b>${Number(mesh?.cellCount||0).toLocaleString()}</b></div><div><span>${flUi('Surface triangles','Triángulos de superficie')}</span><b>${Number((mesh?.surfaceOwners||[]).length).toLocaleString()}</b></div><div><span>Min</span><b>${fvFmt(range?.min)}${unit?' '+fvEsc(unit):''}</b></div><div><span>Max</span><b>${fvFmt(range?.max)}${unit?' '+fvEsc(unit):''}</b></div><div><span>${flUi('Mean','Media')}</span><b>${fvFmt(range?.mean)}${unit?' '+fvEsc(unit):''}</b></div>`
 }
 function fvLegend(range,parsed){
-  const e=document.getElementById('fvLegend');if(!e)return;const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'';
-  e.innerHTML=`<div class="fvLegendTitle">${fvEsc(parsed?.object||fvState.fieldName||'Field')}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvLegendBar"></div><div class="fvLegendTicks"><span>${fvFmt(range?.min)}</span><span>${fvFmt((range?.min+range?.max)/2)}</span><span>${fvFmt(range?.max)}</span></div>`
+  const e=document.getElementById('fvLegend');if(!e)return;const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',palette=document.getElementById('fvPalette')?.value||'viridis';
+  e.innerHTML=`<div class="fvLegendTitle">${fvEsc(parsed?.object||fvState.fieldName||'Field')}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvLegendBar" style="background:${fvEsc(fvLegendGradient(palette))}"></div><div class="fvLegendTicks"><span>${fvFmt(range?.min)}</span><span>${fvFmt((range?.min+range?.max)/2)}</span><span>${fvFmt(range?.max)}</span></div>`
 }
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
@@ -393,7 +396,7 @@ function fvInstallUi(){
   const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);tab.onclick=()=>setDataView('field3d');fvInstallCamera();
   document.getElementById('fvCase').onchange=()=>{fvRefreshSelectors(false);fvLoadSelection()};document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.lockedRange=null;fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};
-  document.getElementById('fvPalette').onchange=()=>{const range=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);if(fvState.fieldValues&&range.valid)fvUpdateSurfaceColors(fvState.fieldValues,range)};
+  document.getElementById('fvPalette').onchange=()=>{const range=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);if(fvState.fieldValues&&range.valid){fvUpdateSurfaceColors(fvState.fieldValues,range);fvLegend(range,fvState.fieldParsed)}};
   document.getElementById('fvSurface').onchange=fvRender;document.getElementById('fvEdges').onchange=fvRender;document.getElementById('fvOpacity').oninput=fvRender;
   document.getElementById('fvLockRange').onchange=e=>{fvState.lockedRange=e.target.checked?fvFiniteRange(fvState.fieldValues):null;if(fvState.fieldValues){const r=fvState.lockedRange||fvFiniteRange(fvState.fieldValues);fvUpdateSurfaceColors(fvState.fieldValues,r);fvLegend(r,fvState.fieldParsed)}};
   document.getElementById('fvTimeSlider').oninput=e=>{fvStopPlayback();fvLoadFrame(Number(e.target.value)).catch(err=>fvSetStatus(String(err?.message||err),true))};
