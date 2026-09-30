@@ -269,7 +269,7 @@ function fvAvailability(caseObj=null){
 const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,vectorName:'',vectorValues:null,vectorTime:NaN,
-  lockedRange:null,frameSeq:0,playing:false,timer:null,renderer:null,camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
+  lockedRange:null,frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
   drag:null,streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
 
@@ -283,7 +283,7 @@ function fvFieldGroups(c,region='',kind=null){
 }
 function fvCurrentFieldGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvField')?.value||'';return fvFieldGroups(c,r).find(g=>g.name===name)}
 function fvVectorGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvVector')?.value||'';return fvFieldGroups(c,r,'vector').find(g=>g.name===name)}
-function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||''].join('|')}
+function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||''].join('|')}
 function fvNormalizeNativeMesh(data){
   return{
     supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||''),
@@ -294,7 +294,7 @@ function fvNormalizeNativeMesh(data){
   }
 }
 async function fvLoadMesh(c,g){
-  if(!c||!g?.complete)throw new Error(flUi('No complete constant/polyMesh was detected for this region.','No se detectó un constant/polyMesh completo para esta región.'));
+  if(!c||!g?.complete)throw new Error(flUi('No complete polyMesh state is available for this region/time.','No hay un estado polyMesh completo disponible para esta región/tiempo.'));
   const key=fvMeshCacheKey(c,g);if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
   let mesh;const files=g.files||{},native=FOAMLENS_NATIVE&&['points','faces','owner','neighbour'].every(k=>files[k]?._nativeToken);
   if(native){
@@ -306,7 +306,18 @@ async function fvLoadMesh(c,g){
     const [pt,ft,ot,nt]=await Promise.all([files.points.text(),files.faces.text(),files.owner.text(),files.neighbour.text()]);mesh=fvBuildMeshFromTexts(pt,ft,ot,nt)
   }
   if(!mesh?.supported)throw new Error(flUi('Mesh could not be parsed: ','No se pudo interpretar la malla: ')+(mesh?.reason||'unknown'));
+  mesh.meshTime=g.time==null?null:Number(g.time);mesh.meshTimeLabel=g.timeLabel||'constant';mesh.dynamicMesh=!!g.dynamic;mesh.changedMeshFiles=[...(g.changed||[])];
   fvState.meshCache.set(key,mesh);return mesh
+}
+async function fvEnsureMeshForTime(c,group,time,{resetCamera=false}={}){
+  const snap=fvMeshSnapshotForTime(group,time);if(!snap)throw new Error(flUi('No mesh state exists at or before this field time.','No existe un estado de malla en este tiempo de campo o antes.'));
+  const key=fvMeshCacheKey(c,snap);if(fvState.mesh&&fvState.meshCacheKey===key){fvState.meshSnapshot=snap;return fvState.mesh}
+  const mesh=await fvLoadMesh(c,snap);fvState.mesh=mesh;fvState.meshSnapshot=snap;fvState.meshCacheKey=key;fvUpdateMeshBuffers(mesh,resetCamera);
+  return mesh
+}
+function fvMeshStateLabel(){
+  const snap=fvState.meshSnapshot;if(!snap)return'';
+  return snap.time==null?flUi('mesh: constant','malla: constant'):`${flUi('mesh','malla')}: t=${fvFmt(snap.time)} s`
 }
 
 function fvMat4Mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o}
