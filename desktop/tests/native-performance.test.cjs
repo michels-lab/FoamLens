@@ -106,6 +106,21 @@ test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
   ]) assert(program.includes(token),'Missing runtime visual smoke token '+token);
 });
 
+test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside WebView2',()=>{
+  for(const token of [
+    'FoamLens v1.4.3 3D runtime UI smoke passed',
+    "'fcExtra'+id+'Viewport'",
+    "'fcExtra'+id+'Canvas'",
+    "primaryCanvasPosition",
+    "fieldCanvasPosition",
+    "rangeModes",
+    "cameraPresetCount",
+    "MediaRecorder",
+    "captureStream",
+    "FoamLens WebView2 video runtime smoke passed"
+  ]) assert(program.includes(token),'Missing v1.4.3 runtime-smoke token '+token);
+});
+
 test('scientific scanner yields are independent of render frames',()=>{
   const index=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
   assert(index.includes('function backgroundWorkYield(delay=0)'));
