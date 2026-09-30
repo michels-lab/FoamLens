@@ -138,6 +138,9 @@ test('packaged Windows smoke imports a real OpenFOAM case into Field View when a
     'FOAMLENS_SMOKE_FIELD',
     'surfaceVertices',
     'glError',
+    'plotTitle',
+    'plotInfo',
+    'FoamLens Field View lost ownership of the active plot header',
     'FoamLens real OpenFOAM packaged runtime smoke passed'
   ])assert(program.includes(token),'Missing real-case packaged runtime token '+token);
   assert(program.includes('if (_smokeTest)'),'Real-case import helper is not smoke-gated.');
