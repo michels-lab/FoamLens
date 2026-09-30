@@ -91,7 +91,8 @@ test('region-aware mapping UI is explicit',()=>{
     'fmMappingForRegion',
     'fmSelectedAnalysisRegion',
     "active.closest?.('#pmMappingRows')",
-    'Not enough compatible roles are mapped for this region yet.'
+    "flSetIssue(status,'field-mapping-incomplete'",
+    "expected:'Map the physical roles required by the dependent analysis'"
   ]) assert(js.includes(token),'Missing region-aware mapping token '+token);
 });
 
