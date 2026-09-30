@@ -128,7 +128,6 @@ test('surface boundary product wiring uses chunked native reads and explicit pat
     'sourcePaths?.boundary',
     'fvLoadSurfaceBoundaryValues',
     'fvLoadDecomposedSurfaceBoundaryValues',
-    'fsbMergeDecomposedBoundaryValues',
     'surfaceBoundary',
     'boundaryFieldPos:null',
     'boundaryFieldColor:null',
@@ -139,8 +138,10 @@ test('surface boundary product wiring uses chunked native reads and explicit pat
     'file.slice(offset,end).text()',
     '4*1024*1024',
     'no-explicit-value',
-    'mesh-boundary-metadata-unavailable'
-  ])assert(source.includes(token),'Missing boundary parser safety token: '+token);
+    'mesh-boundary-metadata-unavailable',
+    'fsbMergeDecomposedBoundaryValues',
+    'decomposed-partition-boundary-patches'
+  ])assert(source.includes(token),'Missing boundary parser safety/decomposed token: '+token);
   for(const token of ['boundaryFace','surfaceBoundaryGeometry','explicit patch value'])assert(probe.includes(token),'Missing probe boundary wiring token: '+token);
   for(const banned of ['QuickCup','B3_reference','metalTopEnergyPower'])assert(!source.includes(banned),'Project-specific token leaked into surface boundary module: '+banned);
 });
