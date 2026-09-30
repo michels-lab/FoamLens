@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: realmichelduarte/QuickCup-Solidification
-          ref: main
+          ref: foamlens-real-fixture-b13
           token: ${{ env.QUICKCUP_FIXTURE_TOKEN }}
           path: quickcup-fixture
           sparse-checkout: cases_controlled_buoyancy
