@@ -410,7 +410,7 @@ const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',fieldStorage:'volume',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
   rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,videoRangeOverride:null,
-  fieldCache:new Map(),fieldCacheBytes:0,fieldCacheLimit:512*1024*1024,fieldInflight:new Map(),prefetchSeq:0,
+  fieldInflight:new Map(),prefetchSeq:0,
   frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
   drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
@@ -424,21 +424,16 @@ function fvFmtRange(v,range){
 }
 function fvRangeUniform(range){const min=Number(range?.min),max=Number(range?.max),scale=Math.max(Math.abs(min),Math.abs(max),1);return Number.isFinite(min)&&Number.isFinite(max)&&Math.abs(max-min)<=scale*1e-12}
 function fvFieldCacheKey(caseId,name,time,region){return[String(caseId??''),String(region||''),String(name||''),Number(time)].join('|')}
-function fvEstimateFieldSetBytes(set){
-  let bytes=0;for(const p of set||[]){const src=Number(p?.sourceBytes)||0;let numeric=0;if(Array.isArray(p?.values)){numeric=p.values.length&&Array.isArray(p.values[0])?p.values.reduce((n,v)=>n+(Array.isArray(v)?v.length:0),0)*8:p.values.length*8}bytes+=Math.max(src,numeric,256)}
-  return Math.max(256,Math.ceil(bytes*1.15))
-}
-function fvTrimFieldCache(){
-  while(fvState.fieldCacheBytes>fvState.fieldCacheLimit&&fvState.fieldCache.size>1){const first=fvState.fieldCache.keys().next().value,entry=fvState.fieldCache.get(first);fvState.fieldCache.delete(first);fvState.fieldCacheBytes=Math.max(0,fvState.fieldCacheBytes-(Number(entry?.bytes)||0))}
-  fvUpdateCacheReadout()
-}
 function fvUpdateCacheReadout(extra=''){
-  const e=document.getElementById('fvCacheReadout');if(!e)return;const mb=fvState.fieldCacheBytes/1048576,limit=fvState.fieldCacheLimit/1048576;e.textContent=(extra?extra+' · ':'')+flUi('Frame cache','Caché de frames')+': '+fvState.fieldCache.size+' · '+mb.toFixed(mb<10?1:0)+'/'+limit.toFixed(0)+' MB'
+  const e=document.getElementById('fvCacheReadout');if(!e)return;const stats=typeof pmFieldCacheStats==='function'?pmFieldCacheStats():{entries:0,bytes:0,limit:0},mb=Number(stats.bytes||0)/1048576,limit=Number(stats.limit||0)/1048576;
+  e.textContent=(extra?extra+' · ':'')+flUi('Field cache','Caché de campos')+': '+Number(stats.entries||0)+' · '+mb.toFixed(mb<10?1:0)+'/'+limit.toFixed(0)+' MB'
 }
 async function fvLoadFieldSetCached(caseId,name,time,region){
-  const key=fvFieldCacheKey(caseId,name,time,region),hit=fvState.fieldCache.get(key);if(hit){fvState.fieldCache.delete(key);fvState.fieldCache.set(key,hit);fvUpdateCacheReadout(flUi('cached','en caché'));return hit.set}
-  if(fvState.fieldInflight.has(key))return fvState.fieldInflight.get(key);
-  const task=(async()=>{const set=await pmLoadFieldSet(caseId,name,time,region),bytes=fvEstimateFieldSetBytes(set);fvState.fieldCache.set(key,{set,bytes,at:Date.now()});fvState.fieldCacheBytes+=bytes;fvTrimFieldCache();return set})().finally(()=>fvState.fieldInflight.delete(key));fvState.fieldInflight.set(key,task);return task
+  const key=fvFieldCacheKey(caseId,name,time,region);if(fvState.fieldInflight.has(key))return fvState.fieldInflight.get(key);
+  const task=(async()=>{const set=await pmLoadFieldSet(caseId,name,time,region);fvUpdateCacheReadout();return set})().finally(()=>fvState.fieldInflight.delete(key));fvState.fieldInflight.set(key,task);return task
+}
+function fvSetCacheLimitMb(value){
+  const bytes=Math.max(64,Number(value)||512)*1048576;if(typeof pmSetFieldCacheLimit==='function')pmSetFieldCacheLimit(bytes);fvUpdateCacheReadout()
 }
 function fvSchedulePrefetch(c,g,region,times,index){
   const seq=++fvState.prefetchSeq,order=[index+1,index+2,index-1].filter(i=>i>=0&&i<times.length);setTimeout(async()=>{for(const i of order){if(seq!==fvState.prefetchSeq)return;try{fvUpdateCacheReadout(flUi('Prefetching','Precargando')+' '+(i+1)+'/'+times.length);await fvLoadFieldSetCached(c.id,g.name,times[i],region)}catch{}await new Promise(r=>setTimeout(r,0))}if(seq===fvState.prefetchSeq)fvUpdateCacheReadout()},0)
@@ -856,7 +851,7 @@ function fvInstallUi(){
   document.getElementById('fvPalette').onchange=refreshRange;
   document.getElementById('fvRangeMode').onchange=()=>{fvState.rangeMode=fvCurrentRangeMode();document.getElementById('fvManualRange')?.classList.toggle('hidden',fvState.rangeMode!=='manual');fvState.globalRange=null;fvState.globalRangeKey='';refreshRange();if(fvState.rangeMode==='global')fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))};
   for(const id of ['fvRangeMin','fvRangeMax'])document.getElementById(id).addEventListener('input',refreshRange);
-  document.getElementById('fvCacheLimit').onchange=e=>{fvState.fieldCacheLimit=Math.max(64,Number(e.target.value)||512)*1048576;fvTrimFieldCache()};
+  document.getElementById('fvCacheLimit').onchange=e=>fvSetCacheLimitMb(e.target.value);
   document.getElementById('fvSurface').onchange=fvRender;document.getElementById('fvEdges').onchange=fvRender;document.getElementById('fvOpacity').oninput=fvRender;
   document.getElementById('fvTimeSlider').oninput=e=>{fvStopPlayback();fvLoadFrame(Number(e.target.value)).catch(err=>fvSetStatus(String(err?.message||err),true))};
   document.getElementById('fvPrev').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,-1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
