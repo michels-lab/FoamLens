@@ -55,6 +55,20 @@ test('browser fallback parses a one-cell OpenFOAM cube mesh',()=>{
   assert(Math.abs(mesh.cellCenters[2]-.5)<1e-12);
 });
 
+test('polyhedral cell centroid is volume weighted on an asymmetric square pyramid',()=>{
+  const pyramidPoints=foamFile('vectorField','points','5\n(\n(-1 -1 0)\n(1 -1 0)\n(1 1 0)\n(-1 1 0)\n(0 0 3)\n)');
+  const pyramidFaces=foamFile('faceList','faces','5\n(\n4(0 3 2 1)\n3(0 1 4)\n3(1 2 4)\n3(2 3 4)\n3(3 0 4)\n)');
+  const pyramidOwner=foamFile('labelList','owner','5\n(\n0\n0\n0\n0\n0\n)');
+  const pyramidNeighbour=foamFile('labelList','neighbour','0\n(\n)');
+  const mesh=api.fvBuildMeshFromTexts(pyramidPoints,pyramidFaces,pyramidOwner,pyramidNeighbour);
+  assert.equal(mesh.supported,true);
+  near(mesh.cellCenters[0],0,1e-12);
+  near(mesh.cellCenters[1],0,1e-12);
+  near(mesh.cellCenters[2],.75,1e-12);
+  assert.notEqual(mesh.cellCenters[2],.8,'regressed to mean of face centres');
+  assert.equal(mesh.cellCenterMethod,'volume-weighted-polyhedral');
+});
+
 test('polyMesh slice reconstruction cuts a unit cube at the requested plane',()=>{
   const mesh=api.fvBuildMeshFromTexts(points,faces,owner,neighbour);
   const cut=api.fvBuildSliceGeometry(mesh,[10],'x',.37);
@@ -184,6 +198,10 @@ test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
   assert(program.includes('HandleOpenFoamMeshAsync(root, requestId)'));
   assert(program.includes('operation = "openFoamMesh"'));
   assert(program.includes('OpenFoamMeshParseResult'));
+  assert(program.includes('ComputePolyhedralCellCenters('));
+  assert(program.includes('"volume-weighted-polyhedral"'));
+  assert(program.includes('owners[faceIndex] == cell'));
+  assert(!program.includes('boundsMin, boundsMax, "mean-face-centres", sourceBytes'));
   assert(program.includes('FaceOffsets'));
   assert(program.includes('FacePoints'));
   assert(program.includes('Owners'));
