@@ -1824,3 +1824,77 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### Candidate rule
 - `a407131baa9a8b837a55fccb0c1fec8bfb434f52` is now the strongest validated v1.4.3 product candidate.
 - Any product-code or workflow behavior change after that head requires a new full validation run before replacing it as the candidate.
+
+
+## 2026-09-30 — v1.4.3 late-time thermal visualization closed on real B13 packaged runtime
+
+### Why this check was added
+- User testing of v1.4.2 showed a Field View legend of `1500 / 1500 / 1500` even around `t = 9.8 s`, although the real simulation was known to have thermal evolution.
+- Direct inspection of the B13 OpenFOAM fixture established:
+  - `t = 0 s`: `internalField uniform 1500`;
+  - `t = 9.8 s`: 6400 cell values, min `1417.57 K`, max `1481.90 K`, span `64.33 K`;
+  - `t = 9.9 s`: min `1417.56 K`, max `1481.56 K`, span `64.00 K`.
+- Therefore a `1500 / 1500 / 1500` legend is correct only for the initial uniform frame and incorrect for the late-time B13 field.
+
+### Smoke contract strengthened
+- The smoke-only OpenFOAM import helper can now request a specific physical time.
+- The packaged runtime reports:
+  - selected physical time;
+  - field min/max;
+  - field span;
+  - rendered legend text;
+  - cells/points/value count;
+  - WebGL status/error;
+  - active 3D plot title/info.
+- CI now requests:
+  - region: `metal`;
+  - field: `T`;
+  - physical time: `9.8 s`;
+  - minimum acceptable field span: `1 K`.
+- Portable and installed application smokes fail if the late B13 frame collapses back to an effectively uniform field.
+
+### Final validation
+- Tested head: `dd3348ce268db23ad330573b34aa62e06a035d40`.
+- GitHub Actions run **#416 — SUCCESS**.
+- Real QuickCup/B13 regression: **SUCCESS**.
+- Full Windows regression suite: **SUCCESS**.
+- Portable packaged runtime smoke: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- WebView2 video primitive smoke:
+  - MIME: `video/mp4;codecs=avc1`;
+  - encoded blob non-empty.
+- Portable B13 runtime evidence at `t = 9.8 s`:
+  - case: `B13_prghPressure_airGapOF14`;
+  - region: `metal`;
+  - field: `T`;
+  - association/storage: cell / volume;
+  - cells: `6400`;
+  - points: `13122`;
+  - values: `6400`;
+  - min: `1417.57 K`;
+  - max: `1481.90 K`;
+  - span: `64.33 K`;
+  - WebGL error: `0`;
+  - surface vertices: `78720`;
+  - legend: `T [K] · 1,418 · 1,450 · 1,482 · current · Δ 64`;
+  - active header: `3D OpenFOAM Field View · Mesh + transient fields`.
+- Installed runtime returned the same numerical and rendering evidence.
+- Visual screenshots confirm a visible late-time thermal gradient and no cross-application canvas overlay lines.
+
+### Candidate artifact
+- Artifact: `FoamLens-Windows-v1.4.3`.
+- Artifact id: `11112882822`.
+- Artifact size: `135,326,030 bytes`.
+- Artifact digest: `sha256:0c913f1afb2f5e1c970feb6ded50b94acb5e6aa336518de0847a410aded39bb6`.
+- Artifact contains:
+  - portable EXE;
+  - portable SHA-256 file;
+  - installer EXE;
+  - portable B13 smoke screenshot;
+  - installed B13 smoke screenshot;
+  - portable runtime evidence log;
+  - installed runtime evidence log.
+- GitHub Release publication remains **SKIPPED**. Public stable remains v1.4.2 until explicit promotion of v1.4.3.
+
+### Candidate rule
+- Any product-code change after `dd3348ce268db23ad330573b34aa62e06a035d40` requires a new full candidate run before promotion.
