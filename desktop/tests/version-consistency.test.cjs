@@ -19,7 +19,7 @@ assert(!index.includes("productVersion:'v51-development'"),'Workspace payload st
 assert(/<Version>1.4.5<\/Version>/.test(project),'Desktop project version is not 1.4.5.');
 assert(/<AssemblyVersion>1.4.5\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.5.0.');
 assert(/<FileVersion>1.4.5\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.5.0.');
-assert(readme.includes('The current public release is **FoamLens Desktop v1.4.4 with frontend v51**'),'Desktop README does not identify v1.4.3 as the current public release.');
+assert(readme.includes('The current public release is **FoamLens Desktop v1.4.4 with frontend v51**'),'Desktop README does not identify v1.4.4 as the current public release.');
 assert(readme.includes('# FoamLens Desktop v1.4.5 development build'),'Desktop README does not identify the v1.4.5 development build.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
