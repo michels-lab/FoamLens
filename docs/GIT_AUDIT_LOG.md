@@ -1089,3 +1089,48 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installer build and installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075183630`).
 - No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — v1.4.1 candidate final reconciliation
+
+### Requested UX/features closed
+- Smart Import groups detected cases by version and supports group select/deselect while preserving per-case control.
+- Large case-management block is moved to the end of the sidebar at runtime and is collapsed by default.
+- Sidebar sections are individually collapsible/expandable with persistent state.
+- Time-Series Focus supports an optional second simultaneous variable with independent left/right Y axes.
+- Field View is always discoverable, has an Overview quick action and reports missing 3D prerequisites instead of disappearing.
+
+### Thesis/scientific-analysis gaps closed
+- Formal linear-solver vs PIMPLE/nonlinear convergence audit.
+- Automatic momentum-mechanism audit.
+- Automatic OpenFOAM energy audit with provenance and closure checks.
+- Simulation-vs-experiment validation with RMSE/MAE/bias and independent phase evidence.
+- Dual temperature/liquid-fraction plotting for coupled solidification inspection.
+- 3D slices, iso-surfaces, probe picking, synchronized case comparison and strict signed difference fields.
+- Volume-weighted polyhedral cell centroids.
+- Native ASCII/binary polyMesh support.
+- Time-varying/dynamic mesh playback synchronized causally in physical time.
+
+### Remaining explicit non-blocking boundaries
+- 3D Field View maps volume scalar/vector fields. Surface/point-associated fields remain discoverable in Data Catalog but are not rendered because FoamLens does not yet preserve enough boundary/face/point association to do so without inventing values.
+- Browser fallback remains ASCII-only for polyMesh; native Desktop supports binary.
+- FoamLens streamline and reconstructed slice/iso algorithms are documented approximations and are not claimed bit-identical to ParaView/VTK.
+- The QuickCup repository does not version its actual polyMesh, so real thesis-mesh rendering cannot be CI-regressed from that repository; real QuickCup fields/postProcessing are still regression-tested.
+
+### Documentation reconciliation
+- Updated Field View specification from the obsolete first-v1.4 slice to the actual v1.4.1 candidate capability set.
+- Desktop README now distinguishes the public v1.4.0 release from the v1.4.1 candidate.
+- Root README corrected from stale Desktop v1.3.2 to public v1.4.0 and documents the validated v1.4.1 candidate features.
+
+### Final candidate validation
+- **GitHub Actions run #288: SUCCESS** at tested code head `7e478c3df54d1f97bbf41846374d6c94adccffcb`.
+- Real QuickCup regression: success.
+- All scientific/UI regressions: success.
+- Dynamic mesh regression: success.
+- Field View / slice / iso / probe / strict 3D difference regressions: success.
+- Version/release-label consistency regression: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075137890`).
+- Root README was updated afterward as documentation only; no product code changed after the tested head.
+- v1.4.1 has **not** been published as a GitHub Release yet.
