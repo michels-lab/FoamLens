@@ -121,10 +121,13 @@ test('Energy Balance terms carry source provenance',()=>{
   assert(js.includes('Source types:'));
 });
 
-test('energy balance uses common physical-time alignment and no extrapolation metadata',()=>{
+test('energy balance uses common physical-time alignment and actionable compatibility diagnostics',()=>{
   assert(js.includes("taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear'"));
   assert(js.includes('noExtrapolation:true'));
-  assert(js.includes('Cannot build a physical balance from incompatible known units'));
+  assert(js.includes("flSetIssue(out,'incompatible known units: '"));
+  assert(js.includes("flSetIssue(out,'incompatible OpenFOAM dimensions: '"));
+  assert(js.includes("flSetIssue(out,'no shared physical-time interval'"));
+  assert(js.includes("flSetIssue(out,'selection-missing',{analysis:'Physical Balance'"));
   assert(js.includes('outputDimensions:paDimensionsShiftTime'));
 });
 
