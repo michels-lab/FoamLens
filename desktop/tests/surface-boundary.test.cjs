@@ -106,5 +106,27 @@ test('surface boundary product wiring uses chunked native reads and explicit pat
   for(const banned of ['QuickCup','B3_reference','metalTopEnergyPower'])assert(!source.includes(banned),'Project-specific token leaked into surface boundary module: '+banned);
 });
 
+
+test('Desktop native path preserves mesh and field boundary patch payloads',()=>{
+  const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs'),'utf8');
+  const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
+  const fv=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
+  for(const token of [
+    'OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync',
+    'BoundaryPatches = boundaryPatches',
+    'BoundaryPatchStatus',
+    'boundaryToken'
+  ])assert(program.includes(token),'Missing native boundary payload token: '+token);
+  assert(index.includes('boundaryPatches:(data?.boundaryPatches||[])'),'Native field boundary patches are dropped by frontend normalization.');
+  for(const token of [
+    'boundaryToken:files.boundary?._nativeToken||null',
+    'surfaceTriangleFaces:(data?.surfaceTriangleFaces||[])',
+    'boundaryPatches:(data?.boundaryPatches||[])',
+    'boundaryPatchStatus:String(data?.boundaryPatchStatus'
+  ])assert(fv.includes(token),'Native mesh boundary payload is not preserved: '+token);
+  assert(source.includes("source=nativeRows?.length?'native-boundary-patches':'text-fallback'"));
+  assert(source.includes('fsbNativeFieldPatches'));
+});
+
 console.log('FoamLens explicit surface boundary regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
