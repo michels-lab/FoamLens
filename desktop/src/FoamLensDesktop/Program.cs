@@ -386,9 +386,21 @@ internal sealed class FoamLensForm : Form
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIME") ?? "";
                 var minimumFieldSpanText =
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_MIN_FIELD_SPAN") ?? "";
+                var minimumCasesText =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_MIN_CASES") ?? "";
+                var initialCaseName =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_INITIAL_CASE") ?? "";
+                var switchCaseName =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_SWITCH_CASE") ?? "";
                 var refsJson = JsonSerializer.Serialize(smokeRefs, _json);
                 var optionsJson = JsonSerializer.Serialize(
-                    new { region = preferredRegion, field = preferredField, time = preferredTime }, _json);
+                    new {
+                        region = preferredRegion,
+                        field = preferredField,
+                        time = preferredTime,
+                        initialCase = initialCaseName,
+                        switchCase = switchCaseName
+                    }, _json);
 
                 await _web.CoreWebView2.ExecuteScriptAsync(
                     "window.__foamLensRealCaseSmokeResult=null;");
@@ -452,6 +464,33 @@ internal sealed class FoamLensForm : Form
                         string.IsNullOrWhiteSpace(fieldModeTextNode.GetString()))
                         throw new InvalidOperationException(
                             $"FoamLens Field View top-level navigation is not visible after case import: {realCaseJson}");
+
+                    if (!string.IsNullOrWhiteSpace(minimumCasesText) &&
+                        int.TryParse(minimumCasesText, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out var minimumCases))
+                    {
+                        if (!data.TryGetProperty("caseCount", out var caseCountNode) ||
+                            caseCountNode.GetInt32() < minimumCases ||
+                            !data.TryGetProperty("readyCaseCount", out var readyCaseCountNode) ||
+                            readyCaseCountNode.GetInt32() < minimumCases)
+                            throw new InvalidOperationException(
+                                $"FoamLens multi-case smoke imported fewer than {minimumCases} 3D-ready cases: {realCaseJson}");
+                    }
+                    if (!string.IsNullOrWhiteSpace(initialCaseName) &&
+                        !string.IsNullOrWhiteSpace(switchCaseName))
+                    {
+                        if (!data.TryGetProperty("initialCaseName", out var initialCaseNode) ||
+                            !string.Equals(initialCaseNode.GetString(), initialCaseName, StringComparison.Ordinal) ||
+                            !data.TryGetProperty("switchedCaseName", out var switchedCaseNode) ||
+                            !string.Equals(switchedCaseNode.GetString(), switchCaseName, StringComparison.Ordinal) ||
+                            !data.TryGetProperty("caseSwitchChanged", out var changedNode) ||
+                            !changedNode.GetBoolean() ||
+                            !data.TryGetProperty("rendererCaseId", out var rendererCaseNode) ||
+                            !data.TryGetProperty("switchedCaseId", out var switchedCaseIdNode) ||
+                            rendererCaseNode.GetInt32() != switchedCaseIdNode.GetInt32())
+                            throw new InvalidOperationException(
+                                $"FoamLens 3D case selector did not switch the rendered case from '{initialCaseName}' to '{switchCaseName}': {realCaseJson}");
+                    }
 
                     if (!string.IsNullOrWhiteSpace(preferredRegion) &&
                         (!data.TryGetProperty("region", out var regionNode) ||
@@ -593,9 +632,22 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   await importSelectedAsCases();
   setOverlayOpen('readyOverlay',false);
   setOverlayOpen('scanOverlay',false);
-  try{setAppMode('data')}catch{}
+  try{setAppMode('field')}catch{}
   setDataView('field3d');
   fvRefreshSelectors(false);
+  const caseSel=document.getElementById('fvCase');
+  const selectSmokeCase=async name=>{
+    if(!name)return {id:Number(fvState.caseId),name:fvCase()?.name||''};
+    const target=(cases||[]).find(c=>String(c.name)===String(name));
+    if(!target)throw new Error('Requested smoke case is unavailable: '+name);
+    caseSel.value=String(target.id);
+    await fvHandleCaseChange();
+    if(Number(fvState.caseId)!==Number(target.id)||String(fvCase()?.name||'')!==String(target.name))
+      throw new Error('Field View case switch did not bind renderer to '+name);
+    return{id:Number(target.id),name:String(target.name)};
+  };
+  const initialCase=await selectSmokeCase(options.initialCase||'');
+  const switchedCase=options.switchCase?await selectSmokeCase(options.switchCase):initialCase;
   const regionSel=document.getElementById('fvRegion');
   if(options.region&&regionSel&&[...regionSel.options].some(o=>o.value===options.region)){
     regionSel.value=options.region;
@@ -618,7 +670,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   const gl=fvState.renderer?.gl||null;
   return{
     caseCount:cases.length,
+    readyCaseCount:(cases||[]).filter(fvCaseViewAvailable).length,
+    initialCaseId:Number(initialCase?.id),
+    initialCaseName:String(initialCase?.name||''),
+    switchedCaseId:Number(switchedCase?.id),
+    switchedCaseName:String(switchedCase?.name||''),
+    caseSwitchChanged:Number(initialCase?.id)!==Number(switchedCase?.id),
     caseName:fvCase()?.name||'',
+    rendererCaseId:Number(fvState.caseId),
     ready:!!fvCaseViewAvailable(fvCase()),
     region:fvState.region||'',
     field:fvState.fieldName||'',
