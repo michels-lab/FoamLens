@@ -116,5 +116,25 @@ test('each synchronized 3D viewport owns an independent scientific legend',()=>{
     'View 2 has no independent legend container.');
 });
 
+test('every synchronized 3D viewport can drive the shared camera',()=>{
+  for(const token of [
+    'fcDriveSharedCamera','dataset.fcSharedCamera',
+    "canvas.addEventListener('pointerdown'","canvas.addEventListener('pointermove'",
+    "canvas.addEventListener('wheel'","canvas.addEventListener('dblclick'",
+    'fvState.camera.yaw','fvState.camera.pitch','fvCameraPanPixels','fvCameraZoomFactor',
+    'fcDriveSharedCamera(compareCanvas)','fcDriveSharedCamera(extraCanvas)'
+  ])assert(source.includes(token),'Missing bidirectional synchronized-camera token: '+token);
+});
+
+test('each 3D viewport keeps its own Probe selection and statistics table',()=>{
+  for(const token of [
+    'probe:null','fcInstallViewProbe','fcPickView','fcProbeMarker',
+    'fcStatsGrid','fcStatsCard','fcStatsMarkup','fcUpdateStatsGrid',
+    "fcUi('Selected','Seleccionado')","fcState.probe=hit","state.probe=hit",
+    'window.FoamLensFieldProbe?.getLast?.()','ProbeMarker'
+  ])assert(source.includes(token),'Missing per-view Probe/statistics token: '+token);
+  assert(source.includes("document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled)"),'Legacy single-view statistics are not replaced by per-view tables during comparison.');
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
