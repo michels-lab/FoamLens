@@ -204,7 +204,7 @@ test('Windows artifacts preserve successful runtime evidence logs and rendered s
   for(const token of [
     'FoamLens-Portable-smoke.log','FoamLens-Installed-smoke.log',
     'FoamLens-Portable-smoke.png','FoamLens-Installed-smoke.png',
-    "Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'",
+    "Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|synchronized View 2 legend/Probe smoke passed|Windows smoke test passed'",
     "throw 'FoamLens portable smoke log was not created.'",
     "throw 'FoamLens installed smoke log was not created.'"
   ])assert(workflow.includes(token),'Missing packaged runtime evidence token '+token);
