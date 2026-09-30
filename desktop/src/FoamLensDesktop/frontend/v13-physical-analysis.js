@@ -129,7 +129,7 @@ function paCreateSpatialGradient(){
 function paEnergySources(){return ['paEnergyA','paEnergyB','paEnergyC'].map(id=>paFind(document.getElementById(id)?.value)).filter(Boolean)}
 function paRunEnergy(){
   const all=['paEnergyA','paEnergyB','paEnergyC'].map((id,i)=>({s:paFind(document.getElementById(id)?.value),c:Number(document.getElementById(['paCoeffA','paCoeffB','paCoeffC'][i])?.value)})).filter(x=>x.s&&Number.isFinite(x.c));
-  const out=document.getElementById('paEnergyStatus');if(all.length<2){out.textContent=flUi('Choose at least two temporal terms.','Elige al menos dos términos temporales.');return}
+  const out=document.getElementById('paEnergyStatus');if(all.length<2){flSetIssue(out,'selection-missing',{analysis:'Physical Balance',field:'at least two temporal terms'});return}flClearIssue(out)
   const units=paCompatibleKnownUnits(all.map(x=>x.s));if(!units.compatible){flSetIssue(out,'incompatible known units: '+units.known.join(' vs '),{analysis:'Physical Balance'});return}
   const knownDims=[...new Set(all.map(x=>String(x.s?.field?.dimensions||x.s?.dimensions||'').trim()).filter(Boolean))];if(knownDims.length>1){flSetIssue(out,'incompatible OpenFOAM dimensions: '+knownDims.join(' vs '),{analysis:'Physical Balance'});return}
   const aligned=taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear',maxPoints:2500});if(!aligned.valid){flSetIssue(out,'no shared physical-time interval',{analysis:'Physical Balance'});return}
@@ -141,7 +141,7 @@ function paRunEnergy(){
   out.textContent=diagEs()?`Se agregaron el balance neto y la integral temporal acumulada entre ${paFmt(aligned.range.start)}–${paFmt(aligned.range.end)} s. FoamLens no asumió qué signo es físicamente positivo; los coeficientes los definiste tú.${sourceKinds.length?` Tipos de fuente: ${sourceKinds.join(', ')}.`:''}`:`Added net balance and cumulative time integral over ${paFmt(aligned.range.start)}–${paFmt(aligned.range.end)} s. FoamLens did not assume which sign is physically positive; coefficients came from you.${sourceKinds.length?` Source types: ${sourceKinds.join(', ')}.`:''}`
 }
 function paRunCorrelation(){
-  const A=paFind(document.getElementById('paCorrA')?.value),B=paFind(document.getElementById('paCorrB')?.value),out=document.getElementById('paCorrStatus');if(!A||!B||A===B){out.textContent=flUi('Choose two different temporal series.','Elige dos series temporales distintas.');return}
+  const A=paFind(document.getElementById('paCorrA')?.value),B=paFind(document.getElementById('paCorrB')?.value),out=document.getElementById('paCorrStatus');if(!A||!B||A===B){flSetIssue(out,'selection-missing',{analysis:'Physical Correlation',field:'two different temporal series'});return}flClearIssue(out)
   const aligned=taAlignSeries([A,B],{mode:'common',method:'linear',maxPoints:1800});if(!aligned.valid){flSetIssue(out,'no common physical-time range',{analysis:'Physical Correlation'});return}
   const c=paCorrelation(aligned.series[0].y,aligned.series[1].y);out.textContent=diagEs()?`n = ${c.count} · Pearson = ${paFmt(c.pearson)} · Spearman = ${paFmt(c.spearman)}. La correlación es descriptiva y no se trata como causalidad.`:`n = ${c.count} · Pearson = ${paFmt(c.pearson)} · Spearman = ${paFmt(c.spearman)}. Correlation is descriptive and is not treated as causation.`;paDrawScatter(c.points,A,B)
 }
