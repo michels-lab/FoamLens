@@ -16,23 +16,47 @@ function fvAdvanceIndex(index,delta,length){
 function fvMeshDescriptor(file,rootPath){
   const path=fvNormPath(file?.webkitRelativePath||file?.path||file?.name||''),root=fvNormPath(rootPath);
   if(!root||!path.startsWith(root+'/'))return null;
-  const rel=path.slice(root.length+1).split('/').filter(Boolean);
-  if(rel[0]!=='constant')return null;
-  const pi=rel.findIndex(x=>x==='polyMesh');if(pi<1||pi!==rel.length-2)return null;
+  const rel=path.slice(root.length+1).split('/').filter(Boolean),pi=rel.findIndex(x=>x==='polyMesh');
+  if(pi<1||pi!==rel.length-2)return null;
   const name=rel.at(-1);if(!['points','faces','owner','neighbour','boundary'].includes(name))return null;
-  const region=rel.slice(1,pi).join('/');
-  return{region,name,sourcePath:path,size:Number(file?.size)||0,file}
+  let region='',time=null,source='';
+  if(rel[0]==='constant'){region=rel.slice(1,pi).join('/');source='constant'}
+  else if(/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(rel[0])){time=Number(rel[0]);if(!Number.isFinite(time))return null;region=rel.slice(1,pi).join('/');source='time'}
+  else return null;
+  return{region,name,time,timeLabel:time==null?'constant':rel[0],source,sourcePath:path,size:Number(file?.size)||0,file}
 }
 function fvBuildMeshInventory(files,rootPath){
-  const groups=new Map();
+  const groups=new Map(),required=['points','faces','owner','neighbour'];
   for(const file of files||[]){
     const d=fvMeshDescriptor(file,rootPath);if(!d)continue;
-    if(!groups.has(d.region))groups.set(d.region,{region:d.region,files:{},sourcePaths:{},complete:false});
-    const g=groups.get(d.region);g.files[d.name]=file;g.sourcePaths[d.name]=d.sourcePath
+    if(!groups.has(d.region))groups.set(d.region,{region:d.region,constant:{files:{},sourcePaths:{}},events:new Map()});
+    const g=groups.get(d.region);
+    if(d.source==='constant'){g.constant.files[d.name]=file;g.constant.sourcePaths[d.name]=d.sourcePath}
+    else{
+      if(!g.events.has(d.time))g.events.set(d.time,{time:d.time,timeLabel:d.timeLabel,files:{},sourcePaths:{}});
+      const e=g.events.get(d.time);e.files[d.name]=file;e.sourcePaths[d.name]=d.sourcePath
+    }
   }
   const out=[];
-  for(const g of groups.values()){g.complete=['points','faces','owner','neighbour'].every(k=>!!g.files[k]);out.push(g)}
+  for(const raw of groups.values()){
+    const baseFiles={...raw.constant.files},baseSourcePaths={...raw.constant.sourcePaths},baseComplete=required.every(k=>!!baseFiles[k]);
+    let stateFiles={...baseFiles},statePaths={...baseSourcePaths};const snapshots=[];
+    for(const e of [...raw.events.values()].sort((a,b)=>a.time-b.time)){
+      const changed=Object.keys(e.files);stateFiles={...stateFiles,...e.files};statePaths={...statePaths,...e.sourcePaths};
+      if(required.every(k=>!!stateFiles[k]))snapshots.push({region:raw.region,time:e.time,timeLabel:e.timeLabel,files:{...stateFiles},sourcePaths:{...statePaths},complete:true,dynamic:true,changed})
+    }
+    const reference=baseComplete?{region:raw.region,time:null,timeLabel:'constant',files:{...baseFiles},sourcePaths:{...baseSourcePaths},complete:true,dynamic:false,changed:[]}:snapshots[0]||null;
+    out.push({region:raw.region,files:reference?{...reference.files}:{...baseFiles},sourcePaths:reference?{...reference.sourcePaths}:{...baseSourcePaths},complete:!!reference,baseComplete,baseFiles,baseSourcePaths,snapshots,dynamic:snapshots.length>0,dynamicTimes:snapshots.map(x=>x.time)})
+  }
   return out.sort((a,b)=>a.region.localeCompare(b.region,undefined,{numeric:true,sensitivity:'base'}))
+}
+function fvMeshSnapshotForTime(group,target){
+  if(!group?.complete)return null;target=Number(target);
+  let chosen=group.baseComplete?{region:group.region,time:null,timeLabel:'constant',files:{...(group.baseFiles||{})},sourcePaths:{...(group.baseSourcePaths||{})},complete:true,dynamic:false,changed:[]}:null;
+  const snapshots=[...(group.snapshots||[])].sort((a,b)=>a.time-b.time);
+  if(!Number.isFinite(target))return chosen||snapshots[0]||null;
+  for(const snap of snapshots){if(snap.time<target||fvTimeEqual(snap.time,target))chosen=snap;else break}
+  return chosen
 }
 function fvStripComments(text){return String(text||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'')}
 function fvFoamFormat(text){const s=fvStripComments(text),m=s.match(/\bformat\s+([^;\s]+)\s*;/i);return m?m[1]:'ascii'}
