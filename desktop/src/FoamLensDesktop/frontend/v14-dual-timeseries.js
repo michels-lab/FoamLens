@@ -107,6 +107,7 @@ function tsdRefreshTimeSeriesControls(){
   const matching=timeSeriesOptionsBase().filter(tsdMatchesFilters),uniqueCases=new Set(matching.map(s=>s.caseId)).size;
   document.getElementById('timeSeriesFocusBadge').textContent=`${matching.length} ${tsdUi('curves','curvas')}`;
   const pf=vars.find(f=>f.canonical===vSel.value),sf=vars.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
+  const allButton=document.getElementById('timeSeriesShowAllVars');if(allButton){allButton.classList.toggle('primary',showAll);allButton.classList.toggle('soft',!showAll);allButton.textContent=showAll?tsdUi('Showing all variables','Mostrando todas'):tsdUi('Show all variables','Mostrar todas las variables')}
   const primaryText=showAll?tsdUi('all variables','todas las variables'):(pf?localizedFieldName(pf):''),secondaryText=!showAll&&sf?localizedFieldName(sf):'';
   const probeText=pSel.value!==''?`${tr('probe')} ${pSel.value}`:tsdUi('all probes','todas las sondas');
   const varsText=secondaryText?`${primaryText} [Y-L] + ${secondaryText} [${plan.separate?'Y-R':'Y-L'}]`:primaryText;
@@ -144,7 +145,7 @@ function tsdInstall(){
     secondary.dataset.tsdWired='1';secondary.addEventListener('change',()=>{if(primary)delete primary.dataset.showAll;stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()})
   }
   const reset=document.getElementById('timeSeriesResetFilters');if(reset&&!reset.dataset.tsdWired){reset.dataset.tsdWired='1';reset.addEventListener('click',()=>{if(primary)delete primary.dataset.showAll;if(secondary)secondary.value=''},true)}
-  const all=document.getElementById('timeSeriesShowAllVars');if(all&&!all.dataset.tsdWired){all.dataset.tsdWired='1';all.addEventListener('click',()=>{if(primary)primary.dataset.showAll='1';if(secondary)secondary.value=''},true)}
+  const all=document.getElementById('timeSeriesShowAllVars');if(all&&!all.dataset.tsdWired){all.dataset.tsdWired='1';all.addEventListener('click',()=>{if(primary){if(primary.dataset.showAll==='1')delete primary.dataset.showAll;else primary.dataset.showAll='1'}if(secondary)secondary.value=''},true)}
   document.addEventListener('foamlens-language-change',()=>{tsdUpdateLabels();refreshTimeSeriesControls()});
   refreshTimeSeriesControls();return true
 }
