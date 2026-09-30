@@ -1223,3 +1223,36 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installer build + installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077418978`, 135,226,247 bytes).
 - No GitHub Release was published from the candidate branch.
+
+
+## 2026-09-30 — pointField interior Slice / Iso reconstruction
+
+### Association semantics
+- Interior Slice and Iso-surface now support both:
+  - cell-centred `vol*Field` data; and
+  - point-associated `point*Field` data.
+- Point-associated reconstruction preserves the actual OpenFOAM point values at mesh vertices.
+- Each cell receives only an auxiliary centre value needed for the existing cell-centre tetrahedralization:
+  - primary method: 3D affine least-squares reconstruction from the cell's real point values;
+  - fallback: inverse-distance weighting only when the local point geometry is rank-deficient / cannot support the affine solve.
+- Face-associated `surface*Field` data remains excluded from Interior Slice / Iso; FoamLens does not silently reconstruct face data into a volumetric field.
+
+### Analytic regression
+- Added `desktop/tests/point-interior.test.cjs`.
+- Synthetic tetrahedron with exact linear point field `phi = x` verifies:
+  - reconstructed cell-centre value = 0.25;
+  - Slice at `x = 0.5` lies exactly on that plane and interpolates `phi = 0.5`;
+  - Slice cross-sectional area = 0.125;
+  - Iso-surface `phi = 0.5` reconstructs the same cross-section with area = 0.125.
+- Updated the older Field View association contract so Point is explicitly supported for interior reconstruction while Face remains distinct.
+
+### Validation
+- **GitHub Actions run #315: SUCCESS** at head `8326ccf3c45d4c0762e6ff9eaaec5b62e7ce9302`.
+- Point-interior regression: success.
+- Field View / dynamic mesh / slice / iso / probe / explicit boundary / strict 3D difference regressions: success.
+- Real QuickCup regression: success.
+- All scientific/UI regressions: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077801222`, 135,228,265 bytes).
+- No GitHub Release was published from the candidate branch.
