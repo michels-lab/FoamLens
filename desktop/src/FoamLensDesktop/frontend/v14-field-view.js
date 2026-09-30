@@ -40,10 +40,15 @@ function fvBuildMeshInventory(files,rootPath){
   const out=[];
   for(const raw of groups.values()){
     const baseFiles={...raw.constant.files},baseSourcePaths={...raw.constant.sourcePaths},baseComplete=required.every(k=>!!baseFiles[k]);
-    let stateFiles={...baseFiles},statePaths={...baseSourcePaths};const snapshots=[];
+    let stateFiles=baseComplete?{...baseFiles}:{},statePaths=baseComplete?{...baseSourcePaths}:{},hasBasis=baseComplete;const snapshots=[];
     for(const e of [...raw.events.values()].sort((a,b)=>a.time-b.time)){
-      const changed=Object.keys(e.files);stateFiles={...stateFiles,...e.files};statePaths={...statePaths,...e.sourcePaths};
-      if(required.every(k=>!!stateFiles[k]))snapshots.push({region:raw.region,time:e.time,timeLabel:e.timeLabel,files:{...stateFiles},sourcePaths:{...statePaths},complete:true,dynamic:true,changed})
+      const changed=Object.keys(e.files);
+      if(!hasBasis){
+        const candidateFiles={...e.files},candidatePaths={...e.sourcePaths};
+        if(!required.every(k=>!!candidateFiles[k]))continue;
+        stateFiles=candidateFiles;statePaths=candidatePaths;hasBasis=true
+      }else{stateFiles={...stateFiles,...e.files};statePaths={...statePaths,...e.sourcePaths}}
+      snapshots.push({region:raw.region,time:e.time,timeLabel:e.timeLabel,files:{...stateFiles},sourcePaths:{...statePaths},complete:true,dynamic:true,changed})
     }
     const reference=baseComplete?{region:raw.region,time:null,timeLabel:'constant',files:{...baseFiles},sourcePaths:{...baseSourcePaths},complete:true,dynamic:false,changed:[]}:snapshots[0]||null;
     out.push({region:raw.region,files:reference?{...reference.files}:{...baseFiles},sourcePaths:reference?{...reference.sourcePaths}:{...baseSourcePaths},complete:!!reference,baseComplete,baseFiles,baseSourcePaths,snapshots,dynamic:snapshots.length>0,dynamicTimes:snapshots.map(x=>x.time)})
@@ -251,7 +256,7 @@ function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
 }
 function fvCaseViewAvailable(caseObj){
   const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=caseObj?.discoveryModel?.fields||[];
-  return meshes.some(mesh=>fields.some(f=>String(f?.region||'')===String(mesh?.region||'')&&f?.storage==='volume'&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length))
+  return meshes.some(mesh=>fields.some(f=>String(f?.region||'')===String(mesh?.region||'')&&f?.storage==='volume'&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.some(t=>!!fvMeshSnapshotForTime(mesh,t))))
 }
 function fvAvailability(caseObj=null){
   const all=Array.isArray(cases)?cases:[],c=caseObj||all.find(fvCaseViewAvailable)||all[0]||null;
