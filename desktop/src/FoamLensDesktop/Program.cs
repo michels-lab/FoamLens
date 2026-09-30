@@ -533,33 +533,41 @@ internal sealed class FoamLensForm : Form
                     window.__foamLensSecondaryVisualSmokeResult=null;
                     (async()=>{
                       try{
+                        const api=window.FoamLensFieldCompare;
+                        if(typeof api?.fcRefreshFrame!=='function'||typeof api?.getProbeDescriptors!=='function'||typeof api?.getVideoDescriptors!=='function')
+                          throw new Error('Synchronized 3D comparison public runtime API is unavailable.');
+
                         const enabled=document.getElementById('fcEnabled');
                         if(!enabled)throw new Error('Synchronized View 2 control is unavailable.');
                         if(!enabled.checked){
                           enabled.checked=true;
                           enabled.dispatchEvent(new Event('change',{bubbles:true}));
                         }
-                        if(typeof fcRefreshSelectors!=='function'||typeof fcRefreshFrame!=='function')
-                          throw new Error('Synchronized 3D comparison runtime is unavailable.');
-                        fcRefreshSelectors(true);
+                        await api.fcRefreshFrame();
 
                         const caseSel=document.getElementById('fcCase');
-                        const primaryCaseId=String(fvState.caseId??'');
+                        const primaryCaseId=String(document.getElementById('fvCase')?.value||'');
                         const differentCase=[...(caseSel?.options||[])].find(o=>String(o.value)!==primaryCaseId);
-                        if(differentCase){
-                          caseSel.value=differentCase.value;
-                          fcRefreshSelectors(true);
-                        }
+                        if(!differentCase)throw new Error('No distinct View 2 case is available in the multi-case smoke fixture.');
+                        caseSel.value=differentCase.value;
+                        caseSel.dispatchEvent(new Event('change',{bubbles:true}));
+                        await api.fcRefreshFrame();
+
+                        const expectedCaseId=String(differentCase.value);
+                        const expectedCaseName=(differentCase.textContent||'').trim();
+                        let view2=(api.getVideoDescriptors()||[]).find(x=>x.key==='view2');
+                        const casePersisted=String(caseSel.value)===expectedCaseId&&
+                          String(view2?.caseName||'')===expectedCaseName;
 
                         const fieldSel=document.getElementById('fcField');
-                        const primaryField=String(fvState.fieldName||'');
+                        const primaryField=String(document.getElementById('fvField')?.value||'');
                         const differentField=[...(fieldSel?.options||[])].find(o=>String(o.value)!==primaryField);
                         if(differentField){
                           fieldSel.value=differentField.value;
-                          fcRefreshSelectors(true);
+                          fieldSel.dispatchEvent(new Event('change',{bubbles:true}));
+                          await api.fcRefreshFrame();
                         }
-
-                        await fcRefreshFrame();
+                        view2=(api.getVideoDescriptors()||[]).find(x=>x.key==='view2');
 
                         const legend=document.getElementById('fcLegend');
                         const legendStyle=legend?getComputedStyle(legend):null;
@@ -572,24 +580,18 @@ internal sealed class FoamLensForm : Form
                           legendText.length>0;
 
                         window.FoamLensFieldProbe?.fpSetEnabled?.(true);
-                        const mesh=fcState.mesh;
-                        if(!mesh)throw new Error('View 2 mesh is unavailable for Probe smoke.');
-                        const point=[
-                          (Number(mesh.boundsMin?.[0])+Number(mesh.boundsMax?.[0]))/2,
-                          (Number(mesh.boundsMin?.[1])+Number(mesh.boundsMax?.[1]))/2,
-                          (Number(mesh.boundsMin?.[2])+Number(mesh.boundsMax?.[2]))/2
-                        ];
-                        if(!point.every(Number.isFinite))throw new Error('View 2 Probe smoke point is invalid.');
-                        const sample=Number(fcState.fieldValues?.[0]);
-                        fcState.probe={
-                          point,
-                          value:Number.isFinite(sample)?sample:0,
-                          cell:0,
-                          face:null,
-                          kind:'runtime-smoke'
-                        };
-                        fcRender();
-                        fcUpdateStatsGrid();
+                        const canvas=document.getElementById('fcCanvas');
+                        if(!canvas)throw new Error('View 2 canvas is unavailable for Probe smoke.');
+                        const attempts=[[.50,.50],[.45,.50],[.55,.50],[.50,.45],[.50,.55],[.40,.40],[.60,.40],[.40,.60],[.60,.60],[.35,.50],[.65,.50]];
+                        let probeDescriptor=null;
+                        for(const [fx,fy] of attempts){
+                          const rect=canvas.getBoundingClientRect();
+                          const x=rect.left+rect.width*fx,y=rect.top+rect.height*fy;
+                          canvas.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:x,clientY:y,button:0}));
+                          await new Promise(resolve=>requestAnimationFrame(resolve));
+                          probeDescriptor=(api.getProbeDescriptors()||[]).find(p=>p.id==='view2')||null;
+                          if(probeDescriptor)break;
+                        }
                         await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 
                         const marker=document.getElementById('fcProbeMarker');
@@ -602,13 +604,18 @@ internal sealed class FoamLensForm : Form
 
                         window.__foamLensSecondaryVisualSmokeResult={
                           ok:true,
-                          view2Enabled:!!fcState.enabled,
-                          secondaryCase:fcCase()?.name||'',
-                          secondaryField:fcState.fieldName||'',
-                          secondaryComponent:fcState.component||'',
+                          view2Enabled:!!enabled.checked&&!!view2,
+                          casePersisted,
+                          expectedCase:expectedCaseName,
+                          secondaryCase:view2?.caseName||'',
+                          secondaryField:view2?.fieldName||'',
+                          secondaryComponent:view2?.component||'',
+                          usedDifferentField:!!differentField,
                           legendVisible,
                           legendText,
                           probeEnabled:!!window.FoamLensFieldProbe?.isEnabled?.(),
+                          probeDescriptorFound:!!probeDescriptor,
+                          probeValue:Number(probeDescriptor?.value),
                           markerVisible,
                           markerWidth:Number(markerRect?.width)||0,
                           markerHeight:Number(markerRect?.height)||0,
@@ -637,13 +644,20 @@ internal sealed class FoamLensForm : Form
                     var root = secondaryVisual.RootElement;
                     if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean() ||
                         !root.TryGetProperty("view2Enabled", out var view2Enabled) || !view2Enabled.GetBoolean() ||
+                        !root.TryGetProperty("casePersisted", out var casePersisted) || !casePersisted.GetBoolean() ||
+                        !root.TryGetProperty("secondaryCase", out var secondaryCase) ||
+                            string.IsNullOrWhiteSpace(secondaryCase.GetString()) ||
+                        !root.TryGetProperty("secondaryField", out var secondaryField) ||
+                            string.IsNullOrWhiteSpace(secondaryField.GetString()) ||
                         !root.TryGetProperty("legendVisible", out var legendVisible) || !legendVisible.GetBoolean() ||
                         !root.TryGetProperty("legendText", out var legendText) ||
                             string.IsNullOrWhiteSpace(legendText.GetString()) ||
                         !root.TryGetProperty("probeEnabled", out var probeEnabled) || !probeEnabled.GetBoolean() ||
+                        !root.TryGetProperty("probeDescriptorFound", out var probeDescriptorFound) ||
+                            !probeDescriptorFound.GetBoolean() ||
                         !root.TryGetProperty("markerVisible", out var markerVisible) || !markerVisible.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens View 2 legend/Probe runtime smoke failed: {secondaryVisualJson}");
+                            $"FoamLens View 2 case/legend/Probe runtime smoke failed: {secondaryVisualJson}");
                 }
                 Log($"FoamLens synchronized View 2 legend/Probe smoke passed: {secondaryVisualJson}");
                 await _web.CoreWebView2.ExecuteScriptAsync(
