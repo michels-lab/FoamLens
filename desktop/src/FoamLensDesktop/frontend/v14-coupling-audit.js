@@ -62,8 +62,10 @@ function caRunText(run){
 }
 function caRender(){
   const host=document.getElementById('caAuditBody');if(!host)return;
-  const id=diagCaseId(),root=diagRoot();if(id==null||!root){host.innerHTML='<div class="extInfo">—</div>';return}
+  const id=diagCaseId(),root=diagRoot();if(id==null||!root){flSetIssue(host,'no solver logs',{analysis:'Coupling Audit',expected:'case + initial-residual field'});return}
   const a=caAudit(id,root),l=a.linear,c=a.coupling,mapping=a.mapping;
+  if(!l.n&&!c.n){flSetIssue(host,'insufficient-samples',{analysis:'Coupling Audit',field:root,expected:'linear initial/final residual pairs or pressure-coupling rows'});return}
+  flClearIssue(host);
   host.innerHTML=`
     <div class="extNote">${caUi(
       'Cₚ = final residual / initial residual for the same linear solve. Rₚ,outer = last initial residual / first initial residual across the pressure-coupling cycle. These are reported separately.',
