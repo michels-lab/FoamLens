@@ -61,7 +61,8 @@ test('difference wiring exposes optional third 3D viewport and strict compatibil
     'Show 3D difference','Mostrar diferencia 3D','fcDifferenceCanvas','fcDifferenceViewport',
     'Primary − Comparison','fcMeshesEquivalent','point-geometry-mismatch',
     "fvSurfaceColors(primaryMesh,values,range.min,range.max,'coolwarm')",
-    '3D difference unavailable'
+    "flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable'",
+    "flSetIssue(status,'no-compatible-values'"
   ])assert(source.includes(token),'Missing 3D difference token: '+token);
 });
 
