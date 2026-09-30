@@ -2006,3 +2006,45 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 
 ### Candidate rule
 - Any product-code change after `71ce31ed83b50b0c76896b8a5ef7abe7b445f5b0` requires a new full candidate run before promotion.
+
+
+## 2026-09-30 — FoamLens Desktop v1.4.5 multi-view legend / Probe patch line
+
+### Why v1.4.5 exists
+- Public v1.4.4 was already tagged and published from commit `93b04a4c5cac5e591519eb0f49e1939ab85a437c`.
+- Subsequent real-user testing of that release exposed two visible multi-view defects:
+  - an added 3D viewport could render its field but show no local color scale/legend;
+  - Probe could be enabled while the added viewport gave insufficient visual feedback, making it look as if Probe did nothing.
+- The v1.4.4 tag/assets are not moved or replaced. These post-release fixes are promoted as v1.4.5.
+
+### Per-viewport scientific legend
+- View 2 and dynamically added Views 3/4 now own an independent `fcLegend` element inside their viewport.
+- Legend rendering uses the field/component actually selected for that viewport, its dimensions/unit and its active display range.
+- Non-uniform fields show min / midpoint / max plus Δ.
+- Numerically uniform fields are explicitly labelled uniform instead of drawing a misleading gradient.
+- Extra-view upload refreshes the local legend on every field/frame change.
+- Comparison View 2 refreshes its legend on synchronized frame loads and visual-range changes.
+- The legend is anchored to the viewport itself, so different variables/cases may display different scientifically meaningful scales simultaneously.
+
+### Probe in synchronized / added 3D views
+- Probe state is shared with the Field View Probe ON/OFF control, but every comparison viewport now installs its own click picking path.
+- View 2 and Views 3/4 perform picking against their own mesh, association and field values rather than reusing the primary view's data.
+- Each additional viewport owns a high-contrast `fcProbeMarker` overlay.
+- Clicking geometry while Probe is ON stores a viewport-specific probe result, redraws its marker and updates the per-view statistics grid.
+- Changing case / region / field / component clears the stale probe for that viewport.
+- Probe OFF prevents comparison-view picking and keeps probe markers from being presented as active selections.
+
+### Multi-view continuity retained from v1.4.4 development work
+- Field View remains a first-class top-level application mode.
+- 3D + Spatial Profile can remain mounted simultaneously.
+- `+ Add 3D View` remains visible in Field Workspace.
+- Up to four synchronized 3D viewports are supported with independent case / region / field / component.
+- Visible synchronized views remain included in the same video export.
+- Vector resolution / glyph size and streamline seed density remain independently adjustable.
+- Safe 3D case switching continues to invalidate stale case work before binding the renderer to the newly selected case.
+
+### Release discipline
+- v1.4.4 remains the immutable historical release containing the behavior seen in the user's screenshot.
+- v1.4.5 is the patch release line for the post-v1.4.4 multi-view legend / Probe fixes.
+- Public release before promotion: v1.4.4.
+- Development identity: v1.4.5 / frontend v51.
