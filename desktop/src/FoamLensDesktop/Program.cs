@@ -131,6 +131,7 @@ internal sealed class FoamLensForm : Form
     private async Task RunSmokeTestAsync()
     {
         RunBinaryMeshParserSelfTest();
+        await RunFoamLogParserSelfTestAsync();
 
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1952,13 +1953,60 @@ internal sealed class FoamLensForm : Form
             if (line.StartsWith('#')) continue;
             var split = FirstTwoTokens(line);
             if (split is null) continue;
-            if (double.TryParse(split.Value.First, NumberStyles.Float, CultureInfo.InvariantCulture, out var tx) &&
-                double.TryParse(split.Value.Second, NumberStyles.Float, CultureInfo.InvariantCulture, out var vy))
+            if (TryParseFoamLogNumber(split.Value.First, out var tx) &&
+                TryParseFoamLogNumber(split.Value.Second, out var vy))
             {
                 t.Add(tx); y.Add(vy);
             }
         }
         return new LogParseResult(index, t.ToArray(), y.ToArray(), null);
+    }
+
+    private static bool TryParseFoamLogNumber(string token, out double value)
+    {
+        value = double.NaN;
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        // OpenFOAM foamLog output can append unit text directly to a numeric
+        // token (for example "0.001s"). Match the same leading numeric grammar
+        // used by the JavaScript parser so Desktop and browser ingestion agree.
+        var match = Regex.Match(
+            token.Trim(),
+            @"^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?");
+        return match.Success &&
+            double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static async Task RunFoamLogParserSelfTestAsync()
+    {
+        var tempPath = Path.Combine(
+            Path.GetTempPath(),
+            $"foamlens-foamlog-smoke-{Guid.NewGuid():N}.dat");
+        try
+        {
+            // This mirrors the actual B13 foamLog format used by OpenFOAM:
+            // simulation time carries a trailing "s" suffix.
+            await File.WriteAllTextAsync(
+                tempPath,
+                "0.001s\t0.0062232\n0.002s\t0.0207126\n",
+                Encoding.UTF8);
+
+            var parsed = await ParseFoamLogAsync(tempPath, -1, CancellationToken.None);
+            if (parsed.T.Length != 2 || parsed.Y.Length != 2 ||
+                Math.Abs(parsed.T[0] - 0.001) > 1e-12 ||
+                Math.Abs(parsed.T[1] - 0.002) > 1e-12 ||
+                Math.Abs(parsed.Y[0] - 0.0062232) > 1e-12 ||
+                Math.Abs(parsed.Y[1] - 0.0207126) > 1e-12)
+            {
+                throw new InvalidOperationException(
+                    "Native foamLog self-test failed to parse OpenFOAM time tokens with unit suffixes.");
+            }
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); }
+            catch { /* Smoke-test cleanup must not hide parser failures. */ }
+        }
     }
 
     private static (string First, string Second)? FirstTwoTokens(string line)
