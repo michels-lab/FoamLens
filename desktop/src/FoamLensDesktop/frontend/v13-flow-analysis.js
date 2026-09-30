@@ -76,7 +76,7 @@ function faRun(){
   const ex=document.getElementById('faExport');if(ex)ex.disabled=false
 }
 function faExport(){
-  const p=window.FoamLensLastFlowAnalysis;if(!p)return;
+  const p=window.FoamLensLastFlowAnalysis;if(!p){flSetIssue('faStatus','analysis-result-missing',{analysis:'Flow Analysis'});return}
   downloadText('FoamLens_flow_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'flow-signal-statistics',...p},null,2),'application/json')
 }
 function faRefresh(){
