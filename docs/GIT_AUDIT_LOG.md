@@ -1399,3 +1399,28 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installed application smoke: **SUCCESS**.
 - Windows artifact upload: **SUCCESS**.
 - GitHub Release publication: **SKIPPED**. No release was created or replaced.
+
+
+## 2026-09-30 — FoamLens Desktop v1.4.2 development build validated
+
+### Version identity
+- Current published Desktop release remains **v1.4.1**.
+- Fix branch build identity advanced to **v1.4.2** without creating a release.
+- Desktop project, assembly/file versions, isolated runtime bundle path, Field View visible build identity, root README, Desktop README and version-consistency regression were aligned.
+- Version bump commit: `d10fa4485c1215d266c88e4f3c54e5209896fb73`.
+- Desktop README alignment: `2043bf78164db3fe60d00d932b0629b4253bd3f1`.
+- Version-test alignment: `3be75c9dc02760e1de77c9706491502425011626`.
+
+### Final validation
+- GitHub Actions run #346: **SUCCESS**.
+- Complete B13 real OpenFOAM integration regression: **SUCCESS**.
+- Native Solver Logs suffix parsing regression: **SUCCESS**.
+- 3D Field View + ready-region selection regression: **SUCCESS**.
+- Dual-variable Time-Series Focus regression: **SUCCESS**.
+- Sidebar/scrollbar regression: **SUCCESS**.
+- Portable Windows executable smoke: **SUCCESS**.
+- Installer build and installed-app smoke: **SUCCESS**.
+- Artifact upload: **SUCCESS**.
+- Artifact: `FoamLens-Windows-v1.4.2`.
+- Artifact id: `11084015589`.
+- GitHub Release publication: **SKIPPED**. No v1.4.2 release or tag was created.
