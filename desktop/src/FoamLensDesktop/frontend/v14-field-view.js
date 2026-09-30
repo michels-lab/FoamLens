@@ -276,7 +276,7 @@ function fvAvailability(caseObj=null){
 
 const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',fieldStorage:'volume',time:NaN,component:'value',
-  fieldValues:null,fieldParsed:null,vectorName:'',vectorValues:null,vectorTime:NaN,
+  fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
   lockedRange:null,frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
   drag:null,streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
@@ -291,7 +291,7 @@ function fvFieldGroups(c,region='',kind=null,storage='volume'){
 }
 function fvCurrentFieldGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvField')?.value||'';return fvFieldGroups(c,r,null,'any').find(g=>g.name===name)}
 function fvVectorGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvVector')?.value||'';return fvFieldGroups(c,r,'vector','volume').find(g=>g.name===name)}
-function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||''].join('|')}
+function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||'',g?.sourcePaths?.boundary||''].join('|')}
 function fvNormalizeNativeMesh(data){
   return{
     supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||''),
@@ -315,6 +315,7 @@ async function fvLoadMesh(c,g){
   }
   if(!mesh?.supported)throw new Error(flUi('Mesh could not be parsed: ','No se pudo interpretar la malla: ')+(mesh?.reason||'unknown'));
   mesh.meshTime=g.time==null?null:Number(g.time);mesh.meshTimeLabel=g.timeLabel||'constant';mesh.dynamicMesh=!!g.dynamic;mesh.changedMeshFiles=[...(g.changed||[])];
+  mesh.boundaryPatches=typeof fvLoadMeshBoundaryPatches==='function'&&files.boundary?await fvLoadMeshBoundaryPatches(files.boundary):[];
   fvState.meshCache.set(key,mesh);return mesh
 }
 async function fvEnsureMeshForTime(c,group,time,{resetCamera=false}={}){
@@ -342,7 +343,7 @@ function fvCreateRenderer(canvas){
   const gl=canvas.getContext('webgl2',{antialias:true,alpha:true,preserveDrawingBuffer:true})||canvas.getContext('webgl',{antialias:true,alpha:true,preserveDrawingBuffer:true});
   if(!gl)throw new Error(flUi('WebGL is unavailable on this system.','WebGL no está disponible en este sistema.'));
   const program=fvProgram(gl,'attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}','precision mediump float; varying vec3 vColor; uniform float uOpacity; void main(){gl_FragColor=vec4(vColor,uOpacity);}');
-  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,faceFieldPos:null,faceFieldColor:null,faceFieldCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,isoPos:null,isoColor:null,isoCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0,probePos:null,probeColor:null,probeCount:0}
+  return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,faceFieldPos:null,faceFieldColor:null,faceFieldCount:0,boundaryFieldPos:null,boundaryFieldColor:null,boundaryFieldCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,isoPos:null,isoColor:null,isoCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0,probePos:null,probeColor:null,probeCount:0}
 }
 function fvUploadBuffer(r,key,data,usage){const gl=r.gl;if(r[key])gl.deleteBuffer(r[key]);const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW);r[key]=b}
 function fvBuildSurfaceBuffers(mesh){
@@ -417,7 +418,7 @@ function fvRender(){
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,showSlice=!!document.getElementById('fvSlice')?.checked,showIso=!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
-  if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
+  if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);fvBindDraw(r,r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
   if(showSlice){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
   if(showIso){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
@@ -438,7 +439,8 @@ function fvUpdateSurfaceColors(values,range,storage=fvState.fieldStorage){
     fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(m,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
   }else if(storage==='surface'){
     fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);
-    const triFaces=m._internalTriangleFaces||[];fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(triFaces,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=triFaces.length*3
+    const triFaces=m._internalTriangleFaces||[];fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(triFaces,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=triFaces.length*3;
+    if(typeof fvUpdateExplicitBoundaryBuffers==='function')fvUpdateExplicitBoundaryBuffers(range,palette)
   }else{
     fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(m,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
   }
@@ -465,9 +467,10 @@ async function fvLoadFrame(index=null){
   if(!parsed)throw new Error(flUi('Field is decomposed across multiple processor partitions. Reconstruct the case before 3D visualization.','El campo está descompuesto en múltiples particiones processor. Reconstruye el caso antes de la visualización 3D.'));
   const storage=String(g.storage||'volume'),expected=fvAssociationCount(mesh,storage),component=document.getElementById('fvComponent')?.value||'value',vals=pmComponentValues(parsed,component,expected);
   if(!vals.ok||vals.values.length!==expected)throw new Error(`${flUi('Field/mesh association-count mismatch','No coincide el número de elementos de la asociación campo/malla')}: ${storage} · ${vals.values.length} vs ${expected}`);
-  const range=fvFiniteRange(vals.values);if(!range.valid)throw new Error(flUi('The selected field has no finite values.','El campo seleccionado no tiene valores finitos.'));
+  const surfaceBoundary=storage==='surface'&&typeof fvLoadSurfaceBoundaryValues==='function'?await fvLoadSurfaceBoundaryValues(g,time,parsed,component,mesh):null;if(seq!==fvState.frameSeq)return;
+  const rangeValues=surfaceBoundary?.values?.size?[...vals.values,...surfaceBoundary.values.values()]:vals.values,range=fvFiniteRange(rangeValues);if(!range.valid)throw new Error(flUi('The selected field has no finite values.','El campo seleccionado no tiene valores finitos.'));
   const lock=document.getElementById('fvLockRange')?.checked;if(lock&&!fvState.lockedRange)fvState.lockedRange={valid:true,min:range.min,max:range.max};if(!lock)fvState.lockedRange=null;
-  const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.fieldStorage=storage;fvSyncAssociationControls(storage);fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;const assoc=document.getElementById('fvAssociation');if(assoc)assoc.textContent=flUi('Association: ','Asociación: ')+fvAssociationLabel(storage)+(storage==='surface'?flUi(' · internal faces only; boundaryField is not fabricated',' · solo caras internas; boundaryField no se inventa'):'');
+  const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.fieldStorage=storage;fvSyncAssociationControls(storage);fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;fvState.surfaceBoundary=surfaceBoundary;const assoc=document.getElementById('fvAssociation');if(assoc){const coverage=storage==='surface'&&surfaceBoundary?(' · '+surfaceBoundary.explicitFaces.toLocaleString()+'/'+surfaceBoundary.totalFaces.toLocaleString()+' '+flUi('boundary faces with explicit values','caras de frontera con valor explícito')):'';assoc.textContent=flUi('Association: ','Asociación: ')+fvAssociationLabel(storage)+coverage}
   fvUpdateSurfaceColors(vals.values,displayRange,storage);fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   await fvUpdateStreamlines(time,seq);if(seq!==fvState.frameSeq)return;fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`)
 }
