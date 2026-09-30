@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -173,6 +173,39 @@ test('reconstructed field and mesh take precedence over processor copies',()=>{
   assert.equal(x.valid,true);assert.equal(x.mode,'reconstructed');
   assert.equal(x.record.sourcePath,'1/metal/T');
   assert.equal(x.meshGroup,reconstructed);
+});
+
+test('decomposed mesh composition keeps processor interfaces out of the physical surface',()=>{
+  const make=(partition,shift,patches)=>({
+    supported:true,points:[shift,0,0, shift+1,0,0, shift,1,0, shift,0,1],
+    faceOffsets:[0,3,6,9,12],facePoints:[0,2,1, 0,1,3, 1,2,3, 2,0,3],
+    owners:[0,0,0,0],neighbours:[],cellCenters:[shift+.25,.25,.25],
+    pointCount:4,faceCount:4,internalFaceCount:0,boundaryFaceCount:4,cellCount:1,
+    boundsMin:[shift,0,0],boundsMax:[shift+1,1,1],boundaryPatches:patches,sourceBytes:100
+  });
+  const p0=make('processor0',0,[{name:'wall0',type:'wall',startFace:0,nFaces:3},{name:'proc0to1',type:'processor',startFace:3,nFaces:1}]);
+  const p1=make('processor1',1,[{name:'proc1to0',type:'processor',startFace:0,nFaces:1},{name:'wall1',type:'wall',startFace:1,nFaces:3}]);
+  assert.equal(api.fvBoundaryPatchCoverage(p0).valid,true);
+  assert.equal(api.fvBoundaryPatchCoverage(p1).valid,true);
+  const m=api.fvCombinePartitionMeshes([{partition:'processor0',mesh:p0},{partition:'processor1',mesh:p1}]);
+  assert.equal(m.supported,true);
+  assert.equal(m.decomposed,true);
+  assert.equal(m.pointCount,8);assert.equal(m.cellCount,2);assert.equal(m.faceCount,8);
+  assert.deepEqual(m.partitions,['processor0','processor1']);
+  assert.deepEqual(m.partitionRanges.map(r=>[r.partition,r.cellStart,r.cellCount,r.pointStart,r.pointCount]),[
+    ['processor0',0,1,0,4],['processor1',1,1,4,4]
+  ]);
+  const processorFaces=new Set(m.boundaryPatches.filter(p=>p.processor).flatMap(p=>Array.from({length:p.nFaces},(_,i)=>p.startFace+i)));
+  assert.deepEqual([...processorFaces].sort((a,b)=>a-b),[3,4]);
+  assert.equal(m.surfaceOwners.length,6);
+  assert(m.surfaceTriangleFaces.every(fi=>!processorFaces.has(fi)),'processor interface leaked into physical surface');
+});
+
+test('decomposed composition refuses mesh partitions without complete patch topology',()=>{
+  const mesh={supported:true,points:[0,0,0],faceOffsets:[0,1],facePoints:[0],owners:[0],neighbours:[],cellCenters:[0,0,0],pointCount:1,faceCount:1,internalFaceCount:0,boundaryFaceCount:1,cellCount:1,boundaryPatches:[]};
+  const m=api.fvCombinePartitionMeshes([{partition:'processor0',mesh}]);
+  assert.equal(m.supported,false);
+  assert(/boundary-patches-missing/.test(m.reason));
 });
 
 test('time navigation uses physical values without index assumptions',()=>{
