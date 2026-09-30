@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -136,6 +136,23 @@ test('multi-region cases enable Field View when a meshed region has volume field
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'mold',storage:'volume',kind:'scalar',times:[0]}]}}),false);
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'point',kind:'scalar',times:[0],name:'pointT'}]}}),true);
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'surface',kind:'vector',times:[0],name:'phiFace'}]}}),true);
+});
+
+test('Field View excludes a mesh-only default region when named regions contain compatible fields',()=>{
+  const c={meshInventory:[
+    {region:'',complete:true,baseComplete:true,baseFiles:{},baseSourcePaths:{},snapshots:[]},
+    {region:'metal',complete:true,baseComplete:true,baseFiles:{},baseSourcePaths:{},snapshots:[]},
+    {region:'mold',complete:true,baseComplete:true,baseFiles:{},baseSourcePaths:{},snapshots:[]}
+  ],discoveryModel:{fields:[
+    {region:'metal',storage:'volume',kind:'scalar',times:[0,1],name:'T'},
+    {region:'metal',storage:'volume',kind:'vector',times:[0,1],name:'U'},
+    {region:'mold',storage:'volume',kind:'scalar',times:[0,1],name:'T'}
+  ]}};
+  assert.deepEqual(api.fvReadyRegions(c),['metal','mold']);
+  const a=api.fvAvailability(c);
+  assert.equal(a.ready,true);
+  assert.deepEqual(a.sharedRegions,['metal','mold']);
+  assert(!a.sharedRegions.includes(''));
 });
 
 test('field-to-mesh layout resolves processor partitions one-to-one',()=>{
