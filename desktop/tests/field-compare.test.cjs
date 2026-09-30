@@ -110,7 +110,7 @@ test('each synchronized 3D viewport owns an independent scientific legend',()=>{
     'fcLegendTitle','fcLegendBar','fcLegendTicks','fcLegendDelta',
     "fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared)"
   ])assert(source.includes(token),'Missing per-viewport legend token: '+token);
-  assert(source.includes("second.innerHTML='<canvas id="fcCanvas""),
+  assert(source.includes('second.innerHTML=\'<canvas id="fcCanvas"'),
     'View 2 canvas markup is missing.');
   assert(source.includes('id="fcLegend"'),
     'View 2 has no independent legend container.');
