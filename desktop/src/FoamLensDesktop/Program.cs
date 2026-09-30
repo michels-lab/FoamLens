@@ -744,13 +744,19 @@ internal sealed class FoamLensForm : Form
 
     private async Task HandleOpenFoamMeshAsync(JsonElement root, string requestId)
     {
-        var paths = new[]
-        {
-            ResolveToken(RequiredString(root, "pointsToken")),
-            ResolveToken(RequiredString(root, "facesToken")),
-            ResolveToken(RequiredString(root, "ownerToken")),
-            ResolveToken(RequiredString(root, "neighbourToken"))
-        };
+        var pointsPath = ResolveToken(RequiredString(root, "pointsToken"));
+        var facesPath = ResolveToken(RequiredString(root, "facesToken"));
+        var ownerPath = ResolveToken(RequiredString(root, "ownerToken"));
+        var neighbourPath = ResolveToken(RequiredString(root, "neighbourToken"));
+        string? boundaryPath = null;
+        if (root.TryGetProperty("boundaryToken", out var boundaryNode) &&
+            boundaryNode.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(boundaryNode.GetString()))
+            boundaryPath = ResolveToken(boundaryNode.GetString()!);
+
+        var paths = new List<string> { pointsPath, facesPath, ownerPath, neighbourPath };
+        if (boundaryPath is not null) paths.Add(boundaryPath);
+
         var operation = BeginOperation(requestId);
         var totalBytes = paths.Sum(path => new FileInfo(path).Length);
         long completedBytes = 0;
@@ -758,8 +764,8 @@ internal sealed class FoamLensForm : Form
 
         try
         {
-            var data = new byte[paths.Length][];
-            for (var i = 0; i < paths.Length; i++)
+            var data = new byte[paths.Count][];
+            for (var i = 0; i < paths.Count; i++)
             {
                 operation.Token.ThrowIfCancellationRequested();
                 data[i] = await File.ReadAllBytesAsync(paths[i], operation.Token);
@@ -767,8 +773,9 @@ internal sealed class FoamLensForm : Form
                 Post(new { type = "operationProgress", requestId, operation = "openFoamMesh", completedBytes, totalBytes });
             }
 
+            var boundaryData = boundaryPath is null ? null : data[^1];
             var result = await Task.Run(
-                () => ParseOpenFoamMeshBytes(data[0], data[1], data[2], data[3], totalBytes, operation.Token),
+                () => ParseOpenFoamMeshBytes(data[0], data[1], data[2], data[3], boundaryData, totalBytes, operation.Token),
                 operation.Token);
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamMesh", completedBytes = totalBytes, totalBytes });
@@ -789,7 +796,7 @@ internal sealed class FoamLensForm : Form
         bool ArchitectureAssumed, int HeaderEnd);
 
     private static OpenFoamMeshParseResult ParseOpenFoamMeshBytes(
-        byte[] pointsData, byte[] facesData, byte[] ownerData, byte[] neighbourData,
+        byte[] pointsData, byte[] facesData, byte[] ownerData, byte[] neighbourData, byte[]? boundaryData,
         long sourceBytes, CancellationToken ct)
     {
         var pointHeader = ParseFoamMeshFileHeader(pointsData, out var pointHeaderReason);
@@ -808,7 +815,7 @@ internal sealed class FoamLensForm : Form
             return ParseOpenFoamMeshTexts(
                 Encoding.UTF8.GetString(pointsData), Encoding.UTF8.GetString(facesData),
                 Encoding.UTF8.GetString(ownerData), Encoding.UTF8.GetString(neighbourData),
-                sourceBytes, ct);
+                boundaryData, sourceBytes, ct);
         }
 
         var pointList = ParseFoamMeshPointsBytes(pointsData, pointHeader, ct, out var pointReason);
@@ -822,11 +829,12 @@ internal sealed class FoamLensForm : Form
 
         var assumed = new[] { pointHeader, faceHeader, ownerHeader, neighbourHeader }.Any(h => h.ArchitectureAssumed);
         var format = assumed ? "binary-lsb-label32-scalar64-assumed" : "binary";
-        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, format, sourceBytes, ct);
+        var (boundaryPatches, boundaryStatus) = OpenFoamBoundarySupport.ParseMeshBoundary(boundaryData);
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, format, sourceBytes, ct, boundaryPatches, boundaryStatus);
     }
 
     private static OpenFoamMeshParseResult ParseOpenFoamMeshTexts(
-        string pointsText, string facesText, string ownerText, string neighbourText,
+        string pointsText, string facesText, string ownerText, string neighbourText, byte[]? boundaryData,
         long sourceBytes, CancellationToken ct)
     {
         var pointList = ParseFoamMeshPoints(pointsText, ct, out var pointFormat, out var pointReason);
@@ -845,12 +853,14 @@ internal sealed class FoamLensForm : Form
         if (neighbours is null)
             return OpenFoamMeshParseResult.Unsupported(neighbourReason, neighbourFormat, sourceBytes);
 
-        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, "ascii", sourceBytes, ct);
+        var (boundaryPatches, boundaryStatus) = OpenFoamBoundarySupport.ParseMeshBoundary(boundaryData);
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, "ascii", sourceBytes, ct, boundaryPatches, boundaryStatus);
     }
 
     private static OpenFoamMeshParseResult BuildOpenFoamMeshResult(
         double[] pointList, int[][] faces, int[] owners, int[] neighbours,
-        string meshFormat, long sourceBytes, CancellationToken ct)
+        string meshFormat, long sourceBytes, CancellationToken ct,
+        FoamBoundaryPatchInfo[]? boundaryPatches = null, string boundaryPatchStatus = "not-provided")
     {
         if (faces.Length != owners.Length)
             return OpenFoamMeshParseResult.Unsupported("owner-face-count-mismatch", meshFormat, sourceBytes);
@@ -895,6 +905,7 @@ internal sealed class FoamLensForm : Form
 
         var triangles = new List<int>();
         var triangleOwners = new List<int>();
+        var triangleFaces = new List<int>();
         var edgeSet = new HashSet<ulong>();
         var edges = new List<int>();
         var internalFaceCount = neighbours.Length;
@@ -923,6 +934,7 @@ internal sealed class FoamLensForm : Form
                 triangles.Add(face[j]);
                 triangles.Add(face[j + 1]);
                 triangleOwners.Add(owners[faceIndex]);
+                triangleFaces.Add(faceIndex);
             }
         }
 
@@ -935,12 +947,49 @@ internal sealed class FoamLensForm : Form
         }
         faceOffsets[faces.Length] = flattenedFacePoints.Count;
 
+        var patchList = boundaryPatches ?? Array.Empty<FoamBoundaryPatchInfo>();
+        if (patchList.Length > 0)
+        {
+            var used = new bool[Math.Max(0, faces.Length - internalFaceCount)];
+            foreach (var patch in patchList)
+            {
+                if (patch.StartFace < internalFaceCount || patch.NFaces < 0 || patch.StartFace + patch.NFaces > faces.Length)
+                {
+                    patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                    boundaryPatchStatus = "boundary-patch-face-range-invalid";
+                    break;
+                }
+                for (var face = patch.StartFace; face < patch.StartFace + patch.NFaces; face++)
+                {
+                    var local = face - internalFaceCount;
+                    if (local < 0 || local >= used.Length || used[local])
+                    {
+                        patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                        boundaryPatchStatus = "boundary-patch-overlap-invalid";
+                        break;
+                    }
+                    used[local] = true;
+                }
+                if (patchList.Length == 0) break;
+            }
+            if (patchList.Length > 0 && used.Any(v => !v))
+            {
+                patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                boundaryPatchStatus = "boundary-patch-coverage-incomplete";
+            }
+        }
+
         return new OpenFoamMeshParseResult(
             true, "", meshFormat,
             pointList, triangles.ToArray(), triangleOwners.ToArray(), edges.ToArray(), cellCenters,
             faceOffsets, flattenedFacePoints.ToArray(), owners, neighbours,
             pointCount, faces.Length, internalFaceCount, faces.Length - internalFaceCount, cellCount,
-            boundsMin, boundsMax, cellCenterMethod, sourceBytes);
+            boundsMin, boundsMax, cellCenterMethod, sourceBytes)
+        {
+            SurfaceTriangleFaces = triangleFaces.ToArray(),
+            BoundaryPatches = patchList,
+            BoundaryPatchStatus = boundaryPatchStatus
+        };
     }
 
     private static FoamMeshFileHeader? ParseFoamMeshFileHeader(byte[] data, out string reason)
@@ -1545,6 +1594,12 @@ internal sealed class FoamLensForm : Form
         try
         {
             var result = await ParseOpenFoamFieldAsync(path, requestId, operation.Token);
+            if (result.Supported && string.Equals(result.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+            {
+                var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
+                    path, result.Kind, operation.Token);
+                result = result with { BoundaryPatches = boundaryPatches };
+            }
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamField", completedBytes = result.BytesRead, totalBytes });
         }
@@ -1979,6 +2034,8 @@ internal sealed class FoamLensForm : Form
                 kind == "vector" ? value : null, null, null,
                 kind == "vector" ? null : value, null, value.Length,
                 null, null, sourceBytes, bytesRead, false);
+
+        public FoamBoundaryFieldPatchInfo[] BoundaryPatches { get; init; } = Array.Empty<FoamBoundaryFieldPatchInfo>();
     }
     private sealed record OpenFoamMeshParseResult(
         bool Supported, string Reason, string Format,
@@ -1993,6 +2050,10 @@ internal sealed class FoamLensForm : Form
                 Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(),
                 0, 0, 0, 0, 0,
                 Array.Empty<double>(), Array.Empty<double>(), "", sourceBytes);
+
+        public int[] SurfaceTriangleFaces { get; init; } = Array.Empty<int>();
+        public FoamBoundaryPatchInfo[] BoundaryPatches { get; init; } = Array.Empty<FoamBoundaryPatchInfo>();
+        public string BoundaryPatchStatus { get; init; } = "not-provided";
     }
 
     private sealed record LogBatchItem(string Token, int Index);
