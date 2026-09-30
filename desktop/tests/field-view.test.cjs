@@ -292,11 +292,17 @@ test('Field View uses intelligent color ranges with adaptive precision and expli
   assert(!source.includes('id="fvLockRange"'),'Obsolete Lock color range checkbox is still present.');
 });
 
-test('Field View caches and prefetches temporal fields instead of reparsing every navigation step',()=>{
+test('Field View prefetches temporal fields through one bounded shared LRU cache',()=>{
   for(const token of [
-    'fieldCache:new Map()','fieldInflight:new Map()','fvLoadFieldSetCached','fvSchedulePrefetch',
-    'index+1,index+2,index-1','fvCacheLimit','Frame cache','Prefetching'
-  ])assert(source.includes(token),'Missing frame-cache/prefetch token: '+token);
+    'fieldInflight:new Map()','fvLoadFieldSetCached','fvSchedulePrefetch',
+    'index+1,index+2,index-1','fvCacheLimit','fvSetCacheLimitMb','Prefetching'
+  ])assert(source.includes(token),'Missing Field View prefetch token: '+token);
+  for(const token of [
+    'let pmFieldCacheLimit=512*1024*1024','function pmFieldCacheGet','function pmFieldCachePut',
+    'function pmFieldCacheTrim','function pmSetFieldCacheLimit','function pmFieldCacheStats',
+    'function pmClearFieldCache(){pmFieldCache.clear();pmFieldCacheBytes=0}'
+  ])assert(index.includes(token),'Missing bounded shared field-cache token: '+token);
+  assert(!index.includes('function pmClearFieldCache(){pmClearFieldCache()'),'Shared field-cache clear became recursive.');
 });
 
 test('non-primary canvases are no longer globally forced absolute over the application',()=>{
