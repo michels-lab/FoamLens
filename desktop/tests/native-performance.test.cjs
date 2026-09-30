@@ -163,6 +163,16 @@ test('packaged Windows smoke imports a real OpenFOAM case into Field View when a
   assert(fixtureEnvUses>=2,'B13 runtime fixture must be supplied to portable and installed smoke tests.');
 });
 
+test('Windows artifacts preserve successful runtime evidence logs and rendered screenshots',()=>{
+  for(const token of [
+    'FoamLens-Portable-smoke.log','FoamLens-Installed-smoke.log',
+    'FoamLens-Portable-smoke.png','FoamLens-Installed-smoke.png',
+    "Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'",
+    "throw 'FoamLens portable smoke log was not created.'",
+    "throw 'FoamLens installed smoke log was not created.'"
+  ])assert(workflow.includes(token),'Missing packaged runtime evidence token '+token);
+});
+
 test('scientific scanner yields are independent of render frames',()=>{
   const index=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
   assert(index.includes('function backgroundWorkYield(delay=0)'));
