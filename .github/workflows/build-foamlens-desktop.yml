@@ -11,8 +11,7 @@ on:
   push:
     branches:
       - main
-      - development/v1.3.0-general-discovery
-      - development/v1.4.0-field-view
+      - 'development/**'
       - 'release/**'
       - 'fix/**'
     tags:
