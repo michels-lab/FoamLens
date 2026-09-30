@@ -48,7 +48,7 @@ function fpPickTriangles(origin,dir,positions,{values=null,constantValue=NaN,kin
 }
 /* FOAMLENS_FIELD_PROBE_CORE_END */
 
-const fpState={enabled:false,last:null,surfaceCache:new WeakMap(),faceCache:new WeakMap(),down:null};
+const fpState={enabled:false,last:null,markerSize:'medium',surfaceCache:new WeakMap(),faceCache:new WeakMap(),down:null};
 function fpUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fpFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fpCanvasRay(canvas,event){
@@ -100,14 +100,30 @@ function fpRenderedPick(ray){
   }
   return null
 }
+function fpMarkerScale(){
+  return fpState.markerSize==='small'?.012:fpState.markerSize==='large'?.038:.024
+}
 function fpMarkerBuffers(p){
-  const mesh=fvState.mesh,diag=mesh?Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2]):1,h=(diag||1)*.012,pos=[];
-  for(let a=0;a<3;a++){const q=[...p],r=[...p];q[a]-=h;r[a]+=h;pos.push(...q,...r)}
+  const mesh=fvState.mesh,diag=mesh?Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2]):1,h=(diag||1)*fpMarkerScale(),r=h*.58,pos=[];
+  for(let a=0;a<3;a++){const q=[...p],s=[...p];q[a]-=h;s[a]+=h;pos.push(...q,...s)}
+  const loops=[[0,1],[0,2],[1,2]];
+  for(const [a,b] of loops){const pts=[];for(const [sa,sb] of [[-1,-1],[1,-1],[1,1],[-1,1]]){const q=[...p];q[a]+=sa*r;q[b]+=sb*r;pts.push(q)}for(let i=0;i<4;i++)pos.push(...pts[i],...pts[(i+1)%4])}
   return new Float32Array(pos)
 }
+function fpEnsureOverlay(){
+  let o=document.getElementById('fvProbeMarkerOverlay');if(o)return o;const vp=document.getElementById('fvCanvas')?.closest('.fvViewport');if(!vp)return null;
+  o=document.createElement('div');o.id='fvProbeMarkerOverlay';o.className='fvProbeMarkerOverlay hidden';o.innerHTML='<span class="fpProbeDot"></span>';vp.appendChild(o);return o
+}
+function fpOverlaySizePx(){return fpState.markerSize==='small'?18:fpState.markerSize==='large'?38:28}
+function fpUpdateOverlayPosition(){
+  const o=fpEnsureOverlay(),canvas=document.getElementById('fvCanvas'),hit=fpState.last;if(!o||!canvas||!fpState.enabled||!hit?.point){o?.classList.add('hidden');return}
+  const clip=fpTransform4(fvMvp(canvas),[Number(hit.point[0]),Number(hit.point[1]),Number(hit.point[2]),1]),ndc=fpPerspectiveDivide(clip);if(!ndc||!ndc.every(Number.isFinite)||ndc[2]<-1||ndc[2]>1){o.classList.add('hidden');return}
+  const cr=canvas.getBoundingClientRect(),vr=o.parentElement.getBoundingClientRect(),x=cr.left-vr.left+(ndc[0]+1)*.5*cr.width,y=cr.top-vr.top+(1-ndc[1])*.5*cr.height,size=fpOverlaySizePx();
+  o.style.left=x+'px';o.style.top=y+'px';o.style.width=size+'px';o.style.height=size+'px';o.classList.remove('hidden')
+}
 function fpUpdateMarker(hit){
-  const r=fvState.renderer;if(!r)return;if(!hit){r.probeCount=0;fvRender();return}
-  const pos=fpMarkerBuffers(hit.point);fvUploadBuffer(r,'probePos',pos,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'probeColor',fvConstantColors(pos.length/3,[1,.72,.15]),r.gl.DYNAMIC_DRAW);r.probeCount=pos.length/3;fvRender()
+  const r=fvState.renderer;if(!r)return;if(!hit||!fpState.enabled){r.probeCount=0;fpUpdateOverlayPosition();fvRender();return}
+  const pos=fpMarkerBuffers(hit.point);fvUploadBuffer(r,'probePos',pos,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'probeColor',fvConstantColors(pos.length/3,[1,.72,.15]),r.gl.DYNAMIC_DRAW);r.probeCount=pos.length/3;fpUpdateOverlayPosition();fvRender()
 }
 function fpSourceLabel(kind){
   if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');if(kind==='internalFace')return fpUi('Internal mesh face','Cara interna de malla');if(kind==='boundaryFace')return fpUi('Boundary mesh face · explicit patch value','Cara de frontera · valor explícito de patch');if(kind==='pointSurface')return fpUi('Boundary surface · point interpolation','Superficie de frontera · interpolación de puntos');return fpUi('Boundary surface · owner cell','Superficie de frontera · celda owner')
@@ -129,7 +145,11 @@ function fpPickEvent(event){
   if(!hit)fvSetStatus(fpUi('No rendered triangle was found under the cursor.','No se encontró ningún triángulo renderizado bajo el cursor.'),false)
 }
 function fpSetEnabled(enabled){
-  fpState.enabled=!!enabled;const b=document.getElementById('fvProbeMode'),canvas=document.getElementById('fvCanvas');if(b){b.classList.toggle('primary',fpState.enabled);b.textContent=(fpState.enabled?'● ':'◎ ')+fpUi('Probe','Sonda')}if(canvas)canvas.style.cursor=fpState.enabled?'crosshair':'';
+  fpState.enabled=!!enabled;const b=document.getElementById('fvProbeMode'),canvas=document.getElementById('fvCanvas'),pill=document.getElementById('fvProbeStatePill');
+  if(b){b.classList.toggle('primary',fpState.enabled);b.textContent=(fpState.enabled?'● ':'◎ ')+fpUi(fpState.enabled?'Probe ON':'Probe OFF',fpState.enabled?'Sonda ACTIVA':'Sonda INACTIVA');b.setAttribute('aria-pressed',String(fpState.enabled))}
+  if(pill){pill.classList.toggle('on',fpState.enabled);pill.textContent=fpUi(fpState.enabled?'Probe ON · click geometry':'Probe OFF',fpState.enabled?'Sonda ACTIVA · haz clic en la geometría':'Sonda INACTIVA')}
+  if(canvas)canvas.style.cursor=fpState.enabled?'crosshair':'';
+  if(fpState.enabled&&fpState.last)fpUpdateMarker(fpState.last);else{const r=fvState.renderer;if(r)r.probeCount=0;fpUpdateOverlayPosition();fvRender()}
   const box=document.getElementById('fvProbeReadout');if(box&&!fpState.last)fpRenderReadout(null)
 }
 function fpClear(){
@@ -139,17 +159,21 @@ function fpInstallUi(){
   if(document.getElementById('fvProbeMode'))return true;const tools=document.querySelector('#fieldViewPanel .fvViewTools'),stats=document.getElementById('fvStats'),canvas=document.getElementById('fvCanvas');if(!tools||!stats||!canvas)return false;
   const mode=document.createElement('button');mode.className='btn tiny';mode.id='fvProbeMode';mode.type='button';mode.textContent='◎ '+fpUi('Probe','Sonda');mode.setAttribute('data-fl-en','◎ Probe');mode.setAttribute('data-fl-es','◎ Sonda');
   const clear=document.createElement('button');clear.className='btn tiny';clear.id='fvProbeClear';clear.type='button';clear.textContent=fpUi('Clear probe','Limpiar sonda');clear.setAttribute('data-fl-en','Clear probe');clear.setAttribute('data-fl-es','Limpiar sonda');
-  tools.appendChild(mode);tools.appendChild(clear);
+  const size=document.createElement('select');size.id='fvProbeSize';size.className='fpProbeSize';size.innerHTML='<option value="small">Probe S</option><option value="medium" selected>Probe M</option><option value="large">Probe L</option>';
+  const pill=document.createElement('span');pill.id='fvProbeStatePill';pill.className='fpProbeStatePill';pill.textContent=fpUi('Probe OFF','Sonda INACTIVA');
+  tools.appendChild(mode);tools.appendChild(clear);tools.appendChild(size);tools.appendChild(pill);
+  fpEnsureOverlay();
   const read=document.createElement('div');read.id='fvProbeReadout';read.className='fvProbeReadout smallnote';stats.insertAdjacentElement('afterend',read);fpRenderReadout(null);
-  if(!document.getElementById('fvProbeStyle')){const st=document.createElement('style');st.id='fvProbeStyle';st.textContent='.fvViewTools{display:flex;gap:6px;flex-wrap:wrap}.fvProbeReadout{margin-top:9px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fpGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.fpGrid>div{min-width:0}.fpGrid span{display:block;color:var(--muted);font-size:8px}.fpGrid b{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}@media(max-width:780px){.fpGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}';document.head.appendChild(st)}
-  mode.addEventListener('click',()=>fpSetEnabled(!fpState.enabled));clear.addEventListener('click',fpClear);
+  if(!document.getElementById('fvProbeStyle')){const st=document.createElement('style');st.id='fvProbeStyle';st.textContent='.fvViewTools{display:flex;gap:6px;flex-wrap:wrap}.fpProbeSize{width:auto;min-width:76px;padding:4px 6px;border-radius:8px}.fpProbeStatePill{display:inline-flex;align-items:center;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--muted);font-size:8px;font-weight:850}.fpProbeStatePill.on{color:#ffd66b;border-color:rgba(255,190,55,.5);background:rgba(255,190,55,.12)}.fvProbeMarkerOverlay{position:absolute;z-index:18;transform:translate(-50%,-50%);border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.55),0 0 16px 4px rgba(255,201,61,.55);pointer-events:none}.fvProbeMarkerOverlay:before,.fvProbeMarkerOverlay:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;box-shadow:0 0 3px #000;transform:translate(-50%,-50%)}.fvProbeMarkerOverlay:before{width:150%;height:2px}.fvProbeMarkerOverlay:after{width:2px;height:150%}.fpProbeDot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #111}.fvProbeMarkerOverlay.hidden{display:none}.fvProbeReadout{margin-top:9px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fpGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.fpGrid>div{min-width:0}.fpGrid span{display:block;color:var(--muted);font-size:8px}.fpGrid b{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}@media(max-width:780px){.fpGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}';document.head.appendChild(st)}
+  mode.addEventListener('click',()=>fpSetEnabled(!fpState.enabled));clear.addEventListener('click',fpClear);size.addEventListener('change',()=>{fpState.markerSize=size.value||'medium';if(fpState.enabled&&fpState.last)fpUpdateMarker(fpState.last);else fpUpdateOverlayPosition()});
   canvas.addEventListener('pointerdown',e=>{if(fpState.enabled)fpState.down={x:e.clientX,y:e.clientY}});
   canvas.addEventListener('click',e=>{if(!fpState.enabled)return;const d=fpState.down?Math.hypot(e.clientX-fpState.down.x,e.clientY-fpState.down.y):0;fpState.down=null;if(d<=5)fpPickEvent(e)});
   try{flApplyBilingualText(mode);flApplyBilingualText(clear)}catch{};return true
 }
 function fpInstall(){
   const mount=()=>fpInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
-  document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),c=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(c)c.textContent=fpUi('Clear probe','Limpiar sonda');fpRenderReadout(fpState.last)});
+  if(typeof fvRender==='function'&&!fvRender.__fpOverlayPatched){const previous=fvRender;fvRender=function(...args){const out=previous.apply(this,args);fpUpdateOverlayPosition();return out};fvRender.__fpOverlayPatched=true}
+  document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),cl=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(cl)cl.textContent=fpUi('Clear probe','Limpiar sonda');fpRenderReadout(fpState.last)});
 }
 fpInstall();
-window.FoamLensFieldProbe={fpMat4Invert,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpClear};
+window.FoamLensFieldProbe={fpMat4Invert,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpClear,fpSetEnabled,fpUpdateOverlayPosition};
