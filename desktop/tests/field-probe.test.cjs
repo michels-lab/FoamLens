@@ -49,6 +49,13 @@ test('nearest rendered triangle wins and preserves its source/cell metadata',()=
   assert(hit);assert.equal(hit.triangle,0);assert.equal(hit.kind,'surface');assert.equal(hit.cell,7);near(hit.point[2],0);near(hit.value,16);
 });
 
+
+test('face-associated picking preserves the exact internal-face identity',()=>{
+  const positions=new Float32Array([0,0,0,1,0,0,0,1,0]);
+  const hit=api.fpPickTriangles([.2,.2,1],[0,0,-1],positions,{kind:'internalFace',faceIds:[12]});
+  assert(hit);assert.equal(hit.face,12);assert.equal(hit.cell,null);assert.equal(hit.kind,'internalFace');
+});
+
 test('constant-value iso picking reports the iso value rather than interpolating colors',()=>{
   const positions=new Float32Array([0,0,0,1,0,0,0,1,0]);
   const hit=api.fpPickTriangles([.2,.2,1],[0,0,-1],positions,{constantValue:.5,kind:'iso'});
@@ -71,6 +78,12 @@ test('product wiring exposes probe controls, rendered-geometry picking and marke
     "fvState.isoGeometry",
     "fvState.sliceGeometry",
     "surfaceOwners",
+    "fpInternalFaceGeometry",
+    "fpBoundaryPointValues",
+    "internalFace",
+    "pointSurface",
+    "faceIds",
+    "fieldStorage",
     "pointerdown",
     "crosshair"
   ])assert(source.includes(token),'Missing Field Probe product token: '+token);
