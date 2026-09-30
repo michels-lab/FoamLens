@@ -340,6 +340,19 @@ test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{
     'Dead/invalid canvas move remains in the Field workspace.');
 });
 
+test('Field workspace Time Series can derive curves directly from selectable 3D OpenFOAM fields',()=>{
+  for(const token of [
+    'fwFieldTsControls','fwTsCase1','fwTsRegion1','fwTsField1','fwTsComponent1','fwTsStat1',
+    'fwTsEnable2','fwTsCase2','fwTsField2','fwBuildFieldTimeSeries','fwBuildOneFieldHistory',
+    'fvLoadFrameData(c,group,region,times[i],component',
+    "derivedKind:'field_history_workspace'",
+    "datasetType:'timeseries'",
+    '3D field history'
+  ])assert(workspaceSource.includes(token),'Missing 3D-derived Time Series token: '+token);
+  assert(workspaceSource.includes("stat==='delta'"),'3D field Time Series does not expose delta as a temporal statistic.');
+  assert(workspaceSource.includes('timeSeriesOptionsBase().length||fieldHistoryAvailable'),'Field workspace still treats Time Series as unavailable when only 3D fields exist.');
+});
+
 test('Field workspace exposes multi-case 3D controls instead of hiding comparison inside Analysis',()=>{
   for(const token of [
     'fwAdd3DView','+ Add 3D View','Configure 3D views','fcEnabled','fcExtraAdd',
