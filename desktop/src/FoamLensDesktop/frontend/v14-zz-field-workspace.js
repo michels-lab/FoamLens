@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.4.4 — top-level Field workspace with simultaneous 3D + 2D companion views. */
 
-const fwState={active:false,companion:'profile',layout:'split',syncTime:true,origins:new Map(),installed:false};
+const fwState={active:false,companion:'profile',layout:'split',syncTime:true,origins:new Map(),installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fwRemember(node){
   if(!node||fwState.origins.has(node.id))return;
@@ -80,7 +80,7 @@ function fwCreateSurface(){
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px;max-height:calc(100vh - 190px);overflow:auto;position:sticky;top:8px}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
-    .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}
+    .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}
     @media(max-width:1350px){.fwGrid,.fwGrid.layout-plot{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.fwControlsCard{grid-column:1/-1;position:static;max-height:none;grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwControlsCard{grid-template-columns:1fr}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
@@ -96,6 +96,121 @@ function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'split';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');setTimeout(()=>{try{fvRender()}catch{};try{draw()}catch{}},0)
 }
+
+function fwFieldTsReadyCases(){return (cases||[]).filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c))}
+function fwFieldTsCase(slot){return (cases||[]).find(c=>String(c.id)===String(document.getElementById('fwTsCase'+slot)?.value||''))}
+function fwFieldTsRegion(slot){return document.getElementById('fwTsRegion'+slot)?.value||''}
+function fwFieldTsGroup(slot){
+  const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),name=document.getElementById('fwTsField'+slot)?.value||'';
+  return c&&name?fvFieldGroups(c,region,null,'any').find(g=>g.name===name):null
+}
+function fwFieldTsMetric(range,stat){
+  if(!range?.valid)return NaN;
+  if(stat==='min')return Number(range.min);
+  if(stat==='max')return Number(range.max);
+  if(stat==='delta')return Number(range.max)-Number(range.min);
+  return Number(range.mean)
+}
+function fwFieldTsStatLabel(stat){
+  return stat==='min'?'Min':stat==='max'?'Max':stat==='delta'?'Δ':fwUi('Mean','Media')
+}
+function fwFieldTsCanonical(group,component,stat){
+  return 'field3d:'+String(group?.name||'field')+':'+String(component||'value')+':'+String(stat||'mean')
+}
+function fwFieldTsSourceKey(c,region,group,component,stat){
+  return ['field3d-history',c?.id,region||'',group?.name||'',component||'value',stat||'mean'].join('|')
+}
+function fwFieldTsField(group,component,stat,parsed){
+  const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',name=String(group?.name||'Field'),comp=component&&component!=='value'?' · '+component:'',metric=fwFieldTsStatLabel(stat);
+  return{canonical:fwFieldTsCanonical(group,component,stat),display:name+comp+' · '+metric,unit:unit||'-',quantity:'field3d_'+name+'_'+component+'_'+stat,dimensions:parsed?.dimensions||group?.dimensions||'',original:'OpenFOAM 3D field history'}
+}
+function fwEnsureFieldTsControls(){
+  let root=document.getElementById('fwFieldTsControls');if(root)return root;
+  root=document.createElement('div');root.id='fwFieldTsControls';root.className='fwFieldTsControls hidden';
+  const row=slot=>`
+    <div class="fwTsSeries" data-fw-ts-slot="${slot}">
+      <div class="fwTsSeriesHead"><strong>${fwUi('Series','Serie')} ${slot}</strong>${slot===2?'<label class="inlineCheck"><input id="fwTsEnable2" type="checkbox"> <span>'+fwUi('Enable','Activar')+'</span></label>':''}</div>
+      <div class="row2"><div class="field"><label>${fwUi('Case','Caso')}</label><select id="fwTsCase${slot}"></select></div><div class="field"><label>${fwUi('Region','Región')}</label><select id="fwTsRegion${slot}"></select></div></div>
+      <div class="row2"><div class="field"><label>${fwUi('Variable','Variable')}</label><select id="fwTsField${slot}"></select></div><div class="field"><label>${fwUi('Component','Componente')}</label><select id="fwTsComponent${slot}"></select></div></div>
+      <div class="field"><label>${fwUi('Temporal statistic','Estadístico temporal')}</label><select id="fwTsStat${slot}"><option value="mean">${fwUi('Mean','Media')}</option><option value="min">Min</option><option value="max">Max</option><option value="delta">Δ (Max − Min)</option></select></div>
+    </div>`;
+  root.innerHTML='<div class="analysisTitle"><strong>'+fwUi('3D field history','Historia temporal de campo 3D')+'</strong><span class="badge" id="fwTsStatusBadge">—</span></div><div class="smallnote">'+fwUi('Build time histories directly from OpenFOAM 3D fields even when no probe/postProcessing time series exists.','Construye historias temporales directamente desde campos 3D de OpenFOAM aunque no exista una serie de probe/postProcessing.')+'</div>'+row(1)+row(2)+'<div class="smallnote" id="fwTsStatus"></div>';
+  document.getElementById('fw2DControlsHost')?.prepend(root);
+  const schedule=()=>{clearTimeout(fwState.fieldTsTimer);fwState.fieldTsTimer=setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),220)};
+  for(const slot of [1,2]){
+    document.getElementById('fwTsCase'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,false,'case');schedule()});
+    document.getElementById('fwTsRegion'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,true,'region');schedule()});
+    document.getElementById('fwTsField'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,true,'field');schedule()});
+    document.getElementById('fwTsComponent'+slot)?.addEventListener('change',schedule);
+    document.getElementById('fwTsStat'+slot)?.addEventListener('change',schedule)
+  }
+  document.getElementById('fwTsEnable2')?.addEventListener('change',()=>{fwRefreshFieldTsSlot(2,true,'enable');schedule()});
+  return root
+}
+function fwFieldTsSetStatus(text,error=false){
+  const e=document.getElementById('fwTsStatus'),b=document.getElementById('fwTsStatusBadge');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}if(b)b.textContent=error?fwUi('error','error'):String(text||'—').slice(0,36)
+}
+function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
+  const cSel=document.getElementById('fwTsCase'+slot),rSel=document.getElementById('fwTsRegion'+slot),fSel=document.getElementById('fwTsField'+slot),compSel=document.getElementById('fwTsComponent'+slot);if(!cSel||!rSel||!fSel||!compSel)return;
+  const enabled=slot===1||!!document.getElementById('fwTsEnable2')?.checked;
+  for(const el of [cSel,rSel,fSel,compSel,document.getElementById('fwTsStat'+slot)])if(el)el.disabled=!enabled;
+  const ready=fwFieldTsReadyCases(),oldCase=preserve?cSel.value:'';
+  cSel.innerHTML=ready.map(c=>'<option value="'+fvEsc(c.id)+'">'+fvEsc(c.name)+'</option>').join('')||'<option value="">—</option>';
+  const preferredId=slot===1?(fvState.caseId??document.getElementById('fvCase')?.value):(typeof fcState!=='undefined'&&fcState.enabled?fcState.caseId:(fvState.caseId??document.getElementById('fvCase')?.value));
+  if(oldCase&&ready.some(c=>String(c.id)===String(oldCase)))cSel.value=oldCase;else if(ready.some(c=>String(c.id)===String(preferredId)))cSel.value=String(preferredId);
+  const selected=fwFieldTsCase(slot),regions=selected&&typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?rSel.value:'';
+  rSel.innerHTML=regions.map(r=>'<option value="'+fvEsc(r)+'">'+fvEsc(r||fwUi('Default','Predeterminada'))+'</option>').join('')||'<option value="">—</option>';
+  const preferredRegion=slot===1?(fvState.region||document.getElementById('fvRegion')?.value||''):(typeof fcState!=='undefined'&&fcState.enabled?fcState.region:(fvState.region||''));
+  if(regions.includes(oldRegion))rSel.value=oldRegion;else if(regions.includes(preferredRegion))rSel.value=preferredRegion;
+  const groups=selected?fvFieldGroups(selected,rSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length):[],oldField=preserve?fSel.value:'';
+  fSel.innerHTML=groups.map(g=>'<option value="'+fvEsc(g.name)+'">'+fvEsc(g.name)+' · '+fvEsc(g.kind)+' · '+fvEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>';
+  const preferredField=slot===1?(fvState.fieldName||document.getElementById('fvField')?.value||''):(typeof fcState!=='undefined'&&fcState.enabled?fcState.fieldName:(fvState.fieldName||''));
+  if(groups.some(g=>g.name===oldField))fSel.value=oldField;else if(groups.some(g=>g.name===preferredField))fSel.value=preferredField;
+  const group=groups.find(g=>g.name===fSel.value),components=group?fvFieldComponents(group):[],oldComp=preserve?compSel.value:'';
+  compSel.innerHTML=components.map(o=>'<option value="'+fvEsc(o.v)+'">'+fvEsc(o.t)+'</option>').join('')||'<option value="value">'+fwUi('Value','Valor')+'</option>';
+  const preferredComp=slot===1?(fvState.component||'value'):(typeof fcState!=='undefined'&&fcState.enabled?fcState.component:'value');
+  if(components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===preferredComp))compSel.value=preferredComp
+}
+function fwRefreshFieldTsControls(){
+  const root=fwEnsureFieldTsControls();root?.classList.toggle('hidden',fwState.companion!=='timeseries');
+  if(fwState.companion!=='timeseries')return;
+  fwRefreshFieldTsSlot(1,true);fwRefreshFieldTsSlot(2,true)
+}
+async function fwBuildOneFieldHistory(slot,seq){
+  if(slot===2&&!document.getElementById('fwTsEnable2')?.checked)return null;
+  const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),group=fwFieldTsGroup(slot),component=document.getElementById('fwTsComponent'+slot)?.value||'value',stat=document.getElementById('fwTsStat'+slot)?.value||'mean';
+  if(!c||!group)return null;
+  const times=(group.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),x=[],y=[];let parsed0=null;
+  for(let i=0;i<times.length;i++){
+    if(seq!==fwState.fieldTsSeq)return null;
+    const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;
+    parsed0=parsed0||data.parsed;const value=fwFieldTsMetric(data.range,stat);if(Number.isFinite(value)){x.push(times[i]);y.push(value)}
+    if(i%3===2)await new Promise(r=>setTimeout(r,0))
+  }
+  if(!x.length)throw new Error(fwUi('No finite 3D field-history values were produced.','No se produjeron valores finitos para la historia temporal 3D.'));
+  const key=fwFieldTsSourceKey(c,region,group,component,stat),field=fwFieldTsField(group,component,stat,parsed0);let s=(series||[]).find(s=>s.fieldHistoryKey===key);
+  if(!s){
+    s={id:nextId++,datasetType:'timeseries',caseId:c.id,caseName:c.name,fileName:'3D field history',sourcePath:'derived:'+key,field,probe:null,location:region||'',t:x,y,visible:true,color:null,width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field_history_workspace',fieldHistoryKey:key};
+    s.color=automaticSeriesColor(s);series.push(s)
+  }else{Object.assign(s,{caseId:c.id,caseName:c.name,field,t:x,y,visible:true,location:region||'',dash:c.dash||s.dash||'solid'})}
+  fwState.fieldTsKeys.add(key);return s
+}
+async function fwBuildFieldTimeSeries(){
+  if(!fwState.active||fwState.companion!=='timeseries')return;
+  const seq=++fwState.fieldTsSeq;fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
+  for(const s of series||[])if(s.derivedKind==='field_history_workspace')s.visible=false;
+  const built=[];for(const slot of [1,2]){const s=await fwBuildOneFieldHistory(slot,seq);if(seq!==fwState.fieldTsSeq)return;if(s)built.push(s)}
+  if(seq!==fwState.fieldTsSeq)return;if(!built.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  try{refreshDatasetControls()}catch{};try{refreshTimeSeriesControls()}catch{}
+  const p=document.getElementById('timeSeriesVariable'),s2=document.getElementById('timeSeriesVariable2'),probe=document.getElementById('timeSeriesProbe'),family=document.getElementById('timeSeriesFamily');
+  if(p){delete p.dataset.showAll;if([...p.options].some(o=>o.value===built[0].field.canonical))p.value=built[0].field.canonical}
+  if(s2){const second=built[1]?.field?.canonical||'';if(second&&second!==built[0].field.canonical&&[...s2.options].some(o=>o.value===second)){s2.disabled=false;s2.value=second}else s2.value=''}
+  if(probe)probe.value='';if(family)family.value='';
+  try{refreshTimeSeriesControls()}catch{};try{renderList();updateMeta();draw()}catch(e){console.error(e)}
+  fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D'));
+  const empty=document.getElementById('fwPlotEmpty');empty?.classList.add('hidden')
+}
+
 function fwCompanionControlIds(mode){
   if(mode==='profile')return['profileControls','playbackGlobal'];
   if(mode==='timeseries')return['timeSeriesControls'];
@@ -121,8 +236,11 @@ function fwSetCompanion(mode){
   if(currentDataView==='field3d')currentDataView='catalog';
   try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
   const chart=document.querySelector('#chartViewport .chartwrap')||document.querySelector('.chartwrap');if(chart){fwRemember(chart);document.getElementById('fw2DHost')?.appendChild(chart);chart.classList.remove('hidden')}
-  for(const id of fwCompanionControlIds(mode)){const n=fwMove(id,'fw2DControlsHost');n?.classList.remove('hidden')}
-  if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?timeSeriesOptionsBase().length:logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
+  for(const id of fwCompanionControlIds(mode)){const n=fwMove(id,'fw2DControlsHost');if(n&&mode!=='timeseries'||(n&&timeSeriesOptionsBase().length))n.classList.remove('hidden')}
+  fwRefreshFieldTsControls();
+  const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
+  if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
+  if(mode==='timeseries'&&fieldHistoryAvailable)setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),0);
   setTimeout(()=>{try{draw()}catch{};fwUpdateTimeBadge();try{fvRender()}catch{}},0)
 }
 function fwUpdateTimeBadge(){
@@ -183,6 +301,7 @@ function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
   fwRestoreCompanionNodes();fwRestore(document.getElementById('fieldViewPanel'));fwRestore(document.getElementById('fieldViewControls'));
   document.getElementById('fieldViewPanel')?.classList.remove('active');document.getElementById('fieldViewControls')?.classList.add('hidden');
+  document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{}
 }
 function fwInstall(){
