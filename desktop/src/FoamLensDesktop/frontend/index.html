@@ -4087,6 +4087,7 @@ async function pmParseNativeOpenFOAMField(file,sourcePath=''){
     return{
       supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||'ascii'),fieldClass:String(data?.fieldClass||''),object:String(data?.object||String(sourcePath).split('/').pop()||'field'),
       dimensions:String(data?.dimensions||''),kind,componentCount,uniform:!!data?.uniform,uniformValue,values,
+      boundaryPatches:(data?.boundaryPatches||[]).map(p=>({name:String(p?.name||''),type:String(p?.type||''),hasExplicitValue:!!p?.hasExplicitValue,uniform:!!p?.uniform,uniformScalar:p?.uniformScalar==null?null:Number(p.uniformScalar),uniformComponents:(p?.uniformComponents||[]).map(Number),scalarValues:(p?.scalarValues||[]).map(Number),componentValues:(p?.componentValues||[]).map(v=>(v||[]).map(Number)),count:p?.count==null?null:Number(p.count),declaredCount:p?.declaredCount==null?null:Number(p.declaredCount),reason:String(p?.reason||'')})),
       count:data?.count==null?null:Number(data.count),declaredCount:data?.declaredCount==null?null:Number(data.declaredCount),sourcePath,
       loadMeta:{incremental:true,nativeStreaming:true,sourceBytes:Number(data?.sourceBytes)||Number(file?.size)||0,bytesRead:Number(data?.bytesRead)||0,closed:!!data?.closed}
     }
