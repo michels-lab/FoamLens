@@ -163,6 +163,10 @@ function eaRun(){
   const eps=Math.max(0,Number(document.getElementById('eaEpsilon')?.value)||1e-12),groups=eaFindFluxGroups(c.id),flux=groups.map(g=>eaAnalyzeFluxGroup(g,eps)),inventory=eaInventoryRows(c.id);
   const result={caseId:c.id,caseName:c.name,epsilon:eps,flux,inventory,scientificBasis:'OpenFOAM energyFlux = energyAdvectiveFlux + heatFlux',noExtrapolation:true,noSignConventionInference:true};
   window.FoamLensLastEnergyAudit=result;eaRender(result);
+  if(!flux.length&&!inventory.length){flSetIssue(status,'energy-evidence-missing',{analysis:'Energy Audit'});return result}
+  const failed=flux.filter(x=>!x.ok);
+  if(failed.length&&failed.length===flux.length&&!inventory.length){flSetIssue(status,failed[0].reason||'energy-flux-set-incomplete',{analysis:'Energy Audit'});return result}
+  flClearIssue(status);
   if(status)status.textContent=eaUi(
     'Energy audit calculated from detected OpenFOAM reductions. No temporal extrapolation or inferred conservation sign convention was used.',
     'Auditoría de energía calculada a partir de reducciones OpenFOAM detectadas. No se usó extrapolación temporal ni se infirió una convención de signos de conservación.'
@@ -183,9 +187,7 @@ function eaCreateCurves(){
     first=first||residual||cum;created+=2
   }
   if(created){activeId=first?.id||activeId;refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
-  const status=document.getElementById('eaStatus');if(status)status.textContent=created
-    ? eaUi('Created '+created+' audit curve(s): closure residuals and cumulative total boundary energy.','Se crearon '+created+' curva(s) de auditoría: residuales de cierre y energía total acumulada de frontera.')
-    : eaUi('No complete advective/diffusive/total flux set was available for derived curves.','No había un conjunto completo de flujo advectivo/difusivo/total para crear curvas derivadas.');
+  const status=document.getElementById('eaStatus');if(created){flClearIssue(status);status.textContent=eaUi('Created '+created+' audit curve(s): closure residuals and cumulative total boundary energy.','Se crearon '+created+' curva(s) de auditoría: residuales de cierre y energía total acumulada de frontera.')}else flSetIssue(status,'energy-flux-set-incomplete',{analysis:'Energy Audit'});
 }
 function eaInstallUi(){
   const host=document.getElementById('paTools');if(!host)return false;if(document.getElementById('eaPanel')){eaRefreshSelectors();return true}
