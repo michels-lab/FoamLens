@@ -11,9 +11,13 @@ const source=fs.readFileSync(modulePath,'utf8');
 const program=fs.readFileSync(programPath,'utf8');
 const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
 const animationSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-animation-export.js'),'utf8');
+const compareSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-z-field-compare.js'),'utf8');
+const workspaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zz-field-workspace.js'),'utf8');
 
 new Function(source);
 new Function(animationSource);
+new Function(compareSource);
+new Function(workspaceSource);
 
 const begin='/* FOAMLENS_FIELD_VIEW_CORE_START */';
 const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
@@ -302,8 +306,43 @@ test('vector and streamline visualization expose independent real-resolution con
   ])assert(source.includes(token),'Missing flow-resolution control token: '+token);
   assert(!source.includes('fvBuildVectorGlyphBuffers(mesh,vectors,280)'),
     'Vector glyph density is still hard-coded to 280.');
-  assert(source.includes("option value="2400""),
+  assert(source.includes('option value="2400"'),
     'High-resolution 2400-glyph option is missing.');
+});
+
+test('Field View is promoted to a top-level application mode instead of remaining a Data sub-tab',()=>{
+  for(const token of [
+    "b.dataset.mode='field'","b.id='modeField'","analysis?nav.insertBefore(b,analysis)",
+    "body.appMode-field #fieldSurface{display:block}","#fieldViewTab{display:none!important}",
+    "setAppMode=function(mode){if(mode==='field')","setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
+  ])assert(workspaceSource.includes(token),'Missing top-level Field workspace token: '+token);
+});
+
+test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{
+  for(const token of [
+    'fw3DHost','fw2DHost','fwCompanion','Spatial Profile','fwSetCompanion',
+    "mode==='profile'?'profile'","document.getElementById('fw2DHost')?.appendChild(chart)",
+    "fwMove('fieldViewPanel','fw3DHost')","fwMove('fieldViewControls','fw3DControlsHost')",
+    'Follow 3D physical time','fwSyncCompanionTime','applyProfileTimeValue'
+  ])assert(workspaceSource.includes(token),'Missing simultaneous 3D + profile token: '+token);
+  assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
+    'Dead/invalid canvas move remains in the Field workspace.');
+});
+
+test('Field workspace exposes multi-case 3D controls instead of hiding comparison inside Analysis',()=>{
+  for(const token of [
+    'fwAdd3DView','+ Add 3D View','Configure 3D views','fcEnabled','fcExtraAdd',
+    'FC_MAX_TOTAL_VIEWS','fcExtraViews','fcCase','fcField','fcComponent',
+    'Each 3D view has its own case · region · field · component'
+  ])assert((workspaceSource+'\n'+compareSource).includes(token),'Missing visible multi-case 3D token: '+token);
+  assert(compareSource.includes('FC_MAX_TOTAL_VIEWS=4'),'3D comparison no longer supports four synchronized views.');
+});
+
+test('all visible synchronized 3D views remain eligible for the same exported animation',()=>{
+  for(const token of [
+    'vaDescriptorList','getVideoDescriptors','All synchronized 3D views are composited into the same video',
+    'Visible views are included in video export'
+  ])assert((animationSource+'\n'+workspaceSource).includes(token),'Missing multi-view video token: '+token);
 });
 
 test('Field View exposes explicit 3D navigation presets and an interactive XYZ gizmo',()=>{
