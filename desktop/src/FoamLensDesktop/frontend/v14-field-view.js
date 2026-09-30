@@ -93,6 +93,75 @@ function fvResolveFieldMeshLayout(caseObj,region,fieldGroup,time){
   }
   return{valid:true,mode:'decomposed',reason:'',records,parts}
 }
+function fvIsProcessorPatch(patch){
+  return /^processor/i.test(String(patch?.type||''))||/^processor/i.test(String(patch?.name||''))
+}
+function fvBoundaryPatchCoverage(mesh){
+  const start=Number(mesh?.internalFaceCount)||0,end=Number(mesh?.faceCount)||0,n=Math.max(0,end-start),seen=new Uint8Array(n),patches=mesh?.boundaryPatches||[];
+  if(n>0&&!patches.length)return{valid:false,reason:'boundary-patches-missing'};
+  for(const p of patches){const a=Number(p?.startFace),count=Number(p?.nFaces);if(!Number.isInteger(a)||!Number.isInteger(count)||count<0||a<start||a+count>end)return{valid:false,reason:'boundary-patch-range-invalid:'+String(p?.name||'')};
+    for(let fi=a;fi<a+count;fi++){const i=fi-start;if(seen[i])return{valid:false,reason:'boundary-patch-overlap:'+String(p?.name||'')};seen[i]=1}
+  }
+  for(let i=0;i<n;i++)if(!seen[i])return{valid:false,reason:'boundary-patch-coverage-incomplete'};
+  return{valid:true,reason:''}
+}
+function fvCombinePartitionMeshes(parts){
+  parts=(parts||[]).filter(x=>x?.mesh?.supported&&String(x?.partition||''));if(!parts.length)return{supported:false,reason:'no-valid-partition-meshes',format:'decomposed'};
+  const internal=[],boundary=[],points=[],centers=[],ranges=[],partitionMeshes=[],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let pointOffset=0,cellOffset=0,internalOffset=0;
+  for(const part of parts){
+    const m=part.mesh,coverage=fvBoundaryPatchCoverage(m);if(!coverage.valid)return{supported:false,reason:String(part.partition)+':'+coverage.reason,format:'decomposed'};
+    const localPoints=m.points||[],localCenters=m.cellCenters||[];points.push(...localPoints);centers.push(...localCenters);
+    for(let i=0;i<localPoints.length;i+=3)for(let a=0;a<3;a++){const v=Number(localPoints[i+a]);if(Number.isFinite(v)){min[a]=Math.min(min[a],v);max[a]=Math.max(max[a],v)}}
+    const range={partition:String(part.partition),pointStart:pointOffset,pointCount:Number(m.pointCount)||0,cellStart:cellOffset,cellCount:Number(m.cellCount)||0,internalFaceStart:internalOffset,internalFaceCount:Number(m.internalFaceCount)||0};
+    ranges.push(range);partitionMeshes.push({partition:String(part.partition),mesh:m,range});
+    for(let fi=0;fi<(m.internalFaceCount||0);fi++)internal.push({partition:String(part.partition),points:fvMeshFacePoints(m,fi).map(pi=>pi+pointOffset),owner:Number(m.owners?.[fi])+cellOffset,neighbour:Number(m.neighbours?.[fi])+cellOffset,localFace:fi});
+    const patches=[...(m.boundaryPatches||[])].sort((a,b)=>Number(a.startFace)-Number(b.startFace));
+    for(const patch of patches)for(let fi=Number(patch.startFace);fi<Number(patch.startFace)+Number(patch.nFaces);fi++)boundary.push({partition:String(part.partition),points:fvMeshFacePoints(m,fi).map(pi=>pi+pointOffset),owner:Number(m.owners?.[fi])+cellOffset,localFace:fi,patch});
+    pointOffset+=Number(m.pointCount)||0;cellOffset+=Number(m.cellCount)||0;internalOffset+=Number(m.internalFaceCount)||0
+  }
+  const faceOffsets=[0],facePoints=[],owners=[],neighbours=[],globalBoundaryPatches=[],surfaceTriangles=[],surfaceOwners=[],surfaceTriangleFaces=[],surfaceEdges=[],edgeSet=new Set(),facePartition=[],faceLocal=[];
+  const addFace=(rec,isInternal)=>{const fi=owners.length;facePoints.push(...rec.points);faceOffsets.push(facePoints.length);owners.push(rec.owner);if(isInternal)neighbours.push(rec.neighbour);facePartition.push(rec.partition);faceLocal.push(rec.localFace);return fi};
+  for(const rec of internal)addFace(rec,true);
+  let bi=0;
+  while(bi<boundary.length){
+    const first=boundary[bi],patch=first.patch,part=first.partition,startFace=owners.length;let count=0;
+    while(bi<boundary.length&&boundary[bi].partition===part&&boundary[bi].patch===patch){
+      const rec=boundary[bi++],globalFace=addFace(rec,false),face=rec.points;count++;
+      if(!fvIsProcessorPatch(patch)){
+        for(let j=1;j<face.length-1;j++){surfaceTriangles.push(face[0],face[j],face[j+1]);surfaceOwners.push(rec.owner);surfaceTriangleFaces.push(globalFace)}
+        for(let j=0;j<face.length;j++){const a=face[j],b=face[(j+1)%face.length],lo=Math.min(a,b),hi=Math.max(a,b),key=lo+':'+hi;if(!edgeSet.has(key)){edgeSet.add(key);surfaceEdges.push(lo,hi)}}
+      }
+    }
+    globalBoundaryPatches.push({name:String(part)+':'+String(patch?.name||''),sourceName:String(patch?.name||''),type:String(patch?.type||''),partition:part,startFace,nFaces:count,processor:fvIsProcessorPatch(patch)})
+  }
+  if(!min.every(Number.isFinite)||!max.every(Number.isFinite))return{supported:false,reason:'partition-bounds-invalid',format:'decomposed'};
+  return{
+    supported:true,reason:'',format:'decomposed',decomposed:true,partitions:ranges.map(r=>r.partition),partitionRanges:ranges,partitionMeshes,
+    points,surfaceTriangles,surfaceOwners,surfaceTriangleFaces,surfaceEdges,cellCenters:centers,faceOffsets,facePoints,owners,neighbours,
+    facePartition,faceLocal,boundaryPatches:globalBoundaryPatches,boundaryPatchStatus:'decomposed-explicit',
+    pointCount:pointOffset,faceCount:owners.length,internalFaceCount:internal.length,boundaryFaceCount:boundary.length,cellCount:cellOffset,
+    boundsMin:min,boundsMax:max,cellCenterMethod:'decomposed-partition-centroids',sourceBytes:parts.reduce((n,p)=>n+(Number(p.mesh?.sourceBytes)||0),0)
+  }
+}
+function fvCompositeSnapshotFromLayout(layout,region,time){
+  if(!layout?.valid||layout.mode!=='decomposed')return null;
+  return{decomposed:true,complete:true,region:String(region||''),time:Number(time),timeLabel:String(time),dynamic:layout.parts.some(p=>!!p.snapshot?.dynamic),changed:layout.parts.flatMap(p=>(p.snapshot?.changed||[]).map(x=>p.partition+':'+x)),parts:layout.parts.map(p=>({partition:p.partition,snapshot:p.snapshot}))}
+}
+function fvCombinePartitionFieldValues(mesh,set,component,storage){
+  if(!mesh?.decomposed)return{ok:false,reason:'mesh-not-decomposed',values:[]};if(storage==='surface')return{ok:false,reason:'decomposed-surface-field-not-supported',values:[]};
+  const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),out=[];let representative=null;
+  for(const range of mesh.partitionRanges||[]){const parsed=byPart.get(range.partition);if(!parsed)return{ok:false,reason:'field-partition-missing:'+range.partition,values:[]};
+    const expected=storage==='point'?range.pointCount:range.cellCount,v=pmComponentValues(parsed,component,expected);if(!v.ok||v.values.length!==expected)return{ok:false,reason:'partition-association-count-mismatch:'+range.partition,values:[]};
+    if(!representative)representative=parsed;out.push(...v.values)
+  }
+  if(byPart.size!==(mesh.partitionRanges||[]).length)return{ok:false,reason:'field-mesh-partition-set-mismatch',values:[]};
+  return{ok:true,reason:'',values:out,parsed:representative}
+}
+function fvCombinePartitionVectors(mesh,set){
+  if(!mesh?.decomposed)return null;const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),out=[];
+  for(const range of mesh.partitionRanges||[]){const parsed=byPart.get(range.partition);if(!parsed)return null;const vectors=fvVectorArray(parsed,range.cellCount);if(!vectors||vectors.length!==range.cellCount)return null;out.push(...vectors)}
+  return byPart.size===(mesh.partitionRanges||[]).length?out:null
+}
 function fvStripComments(text){return String(text||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'')}
 function fvFoamFormat(text){const s=fvStripComments(text),m=s.match(/\bformat\s+([^;\s]+)\s*;/i);return m?m[1]:'ascii'}
 function fvFindMatching(text,openIndex,open='(',close=')'){
@@ -352,7 +421,10 @@ function fvFieldGroups(c,region='',kind=null,storage='volume'){
 }
 function fvCurrentFieldGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvField')?.value||'';return fvFieldGroups(c,r,null,'any').find(g=>g.name===name)}
 function fvVectorGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvVector')?.value||'';return fvFieldGroups(c,r,'vector','volume').find(g=>g.name===name)}
-function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||'',g?.sourcePaths?.boundary||''].join('|')}
+function fvMeshCacheKey(c,g){
+  if(g?.decomposed)return[String(c?.id??''),g?.region||'','decomposed',g?.time??'constant',...(g.parts||[]).map(p=>String(p.partition)+':'+fvMeshCacheKey(c,p.snapshot))].join('|');
+  return[String(c?.id??''),g?.partition||'',g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||'',g?.sourcePaths?.boundary||''].join('|')
+}
 function fvNormalizeNativeMesh(data){
   return{
     supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||''),
@@ -365,6 +437,11 @@ function fvNormalizeNativeMesh(data){
 async function fvLoadMesh(c,g){
   if(!c||!g?.complete)throw new Error(flUi('No complete polyMesh state is available for this region/time.','No hay un estado polyMesh completo disponible para esta región/tiempo.'));
   const key=fvMeshCacheKey(c,g);if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
+  if(g.decomposed){
+    const loaded=[];for(const part of g.parts||[]){const mesh=await fvLoadMesh(c,part.snapshot);loaded.push({partition:part.partition,mesh})}
+    const composite=fvCombinePartitionMeshes(loaded);if(!composite.supported)throw new Error(flUi('Decomposed mesh composition failed: ','Falló la composición de la malla descompuesta: ')+composite.reason);
+    composite.meshTime=Number.isFinite(Number(g.time))?Number(g.time):null;composite.meshTimeLabel=g.timeLabel||String(g.time??'');composite.dynamicMesh=!!g.dynamic;composite.changedMeshFiles=[...(g.changed||[])];fvState.meshCache.set(key,composite);return composite
+  }
   let mesh;const files=g.files||{},native=FOAMLENS_NATIVE&&['points','faces','owner','neighbour'].every(k=>files[k]?._nativeToken);
   if(native){
     const op=foamLensNativeOperation('parseOpenFOAMMesh',{
@@ -384,6 +461,15 @@ async function fvEnsureMeshForTime(c,group,time,{resetCamera=false}={}){
   const key=fvMeshCacheKey(c,snap);if(fvState.mesh&&fvState.meshCacheKey===key){fvState.meshSnapshot=snap;return fvState.mesh}
   const mesh=await fvLoadMesh(c,snap);fvState.mesh=mesh;fvState.meshSnapshot=snap;fvState.meshCacheKey=key;fvUpdateMeshBuffers(mesh,resetCamera);
   return mesh
+}
+async function fvEnsureMeshFromLayout(c,layout,region,time,{resetCamera=false}={}){
+  if(!layout?.valid)throw new Error(flUi('Field/mesh layout is not valid: ','La correspondencia campo/malla no es válida: ')+(layout?.reason||'unknown'));
+  if(layout.mode==='reconstructed'){
+    const key=fvMeshCacheKey(c,layout.snapshot);if(fvState.mesh&&fvState.meshCacheKey===key){fvState.meshSnapshot=layout.snapshot;return fvState.mesh}
+    const mesh=await fvLoadMesh(c,layout.snapshot);fvState.mesh=mesh;fvState.meshSnapshot=layout.snapshot;fvState.meshCacheKey=key;fvUpdateMeshBuffers(mesh,resetCamera);return mesh
+  }
+  const snap=fvCompositeSnapshotFromLayout(layout,region,time),key=fvMeshCacheKey(c,snap);if(fvState.mesh&&fvState.meshCacheKey===key){fvState.meshSnapshot=snap;return fvState.mesh}
+  const mesh=await fvLoadMesh(c,snap);fvState.mesh=mesh;fvState.meshSnapshot=snap;fvState.meshCacheKey=key;fvUpdateMeshBuffers(mesh,resetCamera);return mesh
 }
 function fvMeshStateLabel(){
   const snap=fvState.meshSnapshot;if(!snap)return'';
