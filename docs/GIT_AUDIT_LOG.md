@@ -1424,3 +1424,104 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Artifact: `FoamLens-Windows-v1.4.2`.
 - Artifact id: `11084015589`.
 - GitHub Release publication: **SKIPPED**. No v1.4.2 release or tag was created.
+
+
+## 2026-09-30 — Global actionable diagnostics + full test-suite audit (v1.4.2 development)
+
+### User-facing diagnostic contract
+- FoamLens now treats error/incompatibility reporting as an application-wide contract rather than a per-panel convenience.
+- Interactive failures are routed through the shared `flIssueDescriptor / flSetIssue / flClearIssue` system where applicable.
+- Actionable diagnostics expose:
+  - **Problem** — what operation/input is invalid or unavailable.
+  - **Cause** — the detected technical reason/evidence.
+  - **Try / Qué cambiar** — the next concrete corrective action.
+  - Context when known: analysis/view, field, region, physical time, component, source path and expected input.
+- `flSetIssue` also exposes structured metadata on the rendered status element:
+  - `data-issue-code`
+  - `data-issue-problem`
+  - `data-issue-cause`
+  - `data-issue-action`
+  - corrective action in the element title.
+- The diagnostic regression now executes `flSetIssue` / `flClearIssue` against a DOM-like element instead of only checking source strings.
+
+### Analysis/capability visibility
+- Flow Analysis, Thermal Analysis, Solidification / Remelting and Physical Analysis no longer disappear merely because their required source data are missing.
+- They remain visible and report `analysis-source-missing` with the required input.
+- Existing global capability tools (Temporal Alignment, Numerical Performance, Generic Vector Fields) remain visible and diagnostic when unavailable.
+- This prevents “missing capability” from being mistaken for “feature does not exist”.
+
+### Silent user actions removed
+Previously silent/no-op paths were replaced with actionable diagnostics for:
+- Difference Plot selection / missing comparable pair / missing temporal or spatial overlap.
+- Smart Import with no selected cases.
+- Watch Run read/monitor failures.
+- Solver-log playback with insufficient times or sub-iterations.
+- Phase Front calculation/export without compatible profiles/results.
+- PNG, SVG and CSV export with no visible compatible data.
+- Missing Flow/Thermal/Solidification analysis result before export.
+- Coupling Audit without case/residual evidence or without enough samples.
+- Generic Vector Magnitude refresh failures.
+- Iso-surface invalid association, invalid numeric iso value and out-of-range iso value.
+
+### Real B13 Phase/Momentum regression
+- Reference fixture: `realmichelduarte/QuickCup-Solidification@foamlens-real-fixture-b13`.
+- Real file `B13_prghPressure_airGapOF14/0/metal/alphat` is an ASCII `volScalarField` with `internalField uniform 0;`.
+- The real-case regression now verifies:
+  - B13 `alphat` remains in the volume-field inventory.
+  - Its source-file reference is preserved.
+  - The parser accepts it as a supported uniform scalar.
+  - `Scalar value` resolves to a finite zero value instead of “No compatible values”.
+  - statistics remain finite and report min/max/mean/std = 0.
+- Uniform fields with no expanded mesh-cell count no longer pretend that the single stored uniform value means “one physical cell”; the UI explicitly reports that the mesh cell count was not expanded.
+
+### Native field-routing finding
+- Desktop now routes every native-backed OpenFOAM field through the native field parser first, regardless of file size; small fields are no longer excluded by the former >4 MB routing threshold.
+- Browser/JS fallback remains available when native parsing itself fails.
+
+### Binary field limitation corrected
+- **Binary OpenFOAM field payloads remain explicitly unsupported by the field-analysis parser at this stage.**
+- Binary `polyMesh` support does not imply binary field-value support.
+- An earlier diagnostic incorrectly suggested that using the Desktop/native reader would solve `binary-format`; this was corrected.
+- The actionable remedy now accurately tells the user to use/produce an ASCII field for that field/time (and reload it) until binary field-value decoding is implemented.
+- Regression prevents reintroducing the false “native routing failed” instruction.
+
+### Iso-surface / pointField diagnostic reconciliation
+- Face-associated surface fields remain intentionally excluded from volumetric iso-surface reconstruction.
+- Iso-surface now reports `iso-surface-association-incompatible` and directs the user to a volume/cell or point scalar field.
+- Invalid and out-of-range iso values receive dedicated corrective guidance.
+- pointField interior Slice/Iso reconstruction remains covered numerically.
+- Two regressions still expected the old explanatory sentence after the product moved to structured diagnostics; both tests were updated to assert the stronger actionable contract instead of restoring obsolete wording.
+
+### Coupling Audit / Vector Fields
+- Coupling Audit now explains when no case/root residual evidence exists and when the loaded evidence is insufficient.
+- Generic Vector Fields exposes missing X/Y/Z groups, invalid selection/alignment and post-creation refresh failures to the user instead of relying only on console warnings.
+
+### Test-suite audit findings
+- Current suite: **50 `desktop/tests/*.test.cjs` files**.
+- A new suite-manifest regression enumerates every test file and every workflow test command and requires:
+  - every test file to execute exactly once,
+  - no test file to be omitted,
+  - no duplicate workflow execution,
+  - no workflow reference to a nonexistent test.
+- This closes the previously observed duplicated Flow Analysis execution and guards against future hidden/unexecuted test files.
+- Audit found that several older UI/wiring tests relied heavily on `source.includes(...)`. Those checks remain useful for structural contracts, but critical runtime behavior is now additionally covered by:
+  - real B13 integration,
+  - executed parser/analysis functions,
+  - executed global diagnostic rendering,
+  - native portable smoke,
+  - installed-app smoke.
+- Intermediate CI failures during this audit exposed stale test expectations rather than product regressions; the stale expectations were reconciled only after verifying the newer behavior.
+
+### Final validation
+- Tested product head: `4046e498627b5e6d14cc4160f056ee35d6fa7515`.
+- GitHub Actions run **#385 — SUCCESS**.
+- Complete B13 real OpenFOAM regression: **SUCCESS**.
+- Real B13 `alphat` Phase/Momentum parsing/statistics regression: **SUCCESS**.
+- 3D Field View regression: **SUCCESS**.
+- pointField interior Slice/Iso regression: **SUCCESS**.
+- Global actionable diagnostics regression: **SUCCESS**.
+- CI suite manifest (50 tests, exactly once each): **SUCCESS**.
+- Portable Windows executable smoke: **SUCCESS**.
+- Installer build + installed-app smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**. No release/tag was created or replaced.
