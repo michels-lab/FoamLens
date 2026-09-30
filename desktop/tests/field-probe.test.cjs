@@ -118,6 +118,12 @@ test('Probe ON shows an armed reticle before a point is pinned',()=>{
     'Probe OFF does not hide the armed reticle.');
 });
 
+test('primary Probe selection refreshes synchronized per-view statistics',()=>{
+  assert(source.includes('window.FoamLensFieldCompare?.updateStats?.()'),'Primary Probe does not notify synchronized per-view statistics.');
+  assert(source.includes('getLast:()=>fpState.last'),'Synchronized views cannot read the primary Probe selection.');
+  assert(source.includes('isEnabled:()=>fpState.enabled'),'Synchronized views cannot share the Probe armed state.');
+});
+
 test('probe module stays generic and contains no thesis fixture names',()=>{
   for(const banned of ['QuickCup','B3_reference','B12_','C12_'])assert(!source.includes(banned),'Project-specific token leaked into probe module: '+banned);
 });
