@@ -216,6 +216,132 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException("FoamLens launch UI rendered insufficient visible content.");
             }
 
+            // Runtime 3D UI smoke: exercise mounted controls in WebView2 rather than
+            // relying only on source-text assertions.
+            var fieldViewRuntimeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  const required=[
+                    'fvCanvas','fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera','fvResetCamera',
+                    'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
+                    'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat'
+                  ];
+                  const missing=required.filter(id=>!document.getElementById(id));
+                  const primaryCanvas=document.getElementById('canvas');
+                  const fieldCanvas=document.getElementById('fvCanvas');
+                  const add=document.getElementById('fcAddView');
+                  if(add){add.click();add.click();}
+                  const extraViews=[3,4].map(id=>({
+                    id,
+                    viewport:!!document.getElementById('fcExtra'+id+'Viewport'),
+                    canvas:!!document.getElementById('fcExtra'+id+'Canvas'),
+                    controls:!!document.getElementById('fcExtra'+id+'Controls')
+                  }));
+                  const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);
+                  const duplicateIds=[...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))];
+                  document.querySelector('[data-fv-view="front"]')?.click();
+                  document.getElementById('fvPanMode')?.click();
+                  document.getElementById('fvOrbitMode')?.click();
+                  return {
+                    missing,
+                    extraViews,
+                    duplicateIds,
+                    primaryCanvasPosition:primaryCanvas?getComputedStyle(primaryCanvas).position:'',
+                    fieldCanvasPosition:fieldCanvas?getComputedStyle(fieldCanvas).position:'',
+                    animationApi:typeof window.FoamLensAnimationExport?.descriptorList==='function',
+                    compareApi:typeof window.FoamLensFieldCompare?.getVideoDescriptors==='function',
+                    fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
+                    rangeModes:[...document.querySelectorAll('#fvRangeMode option')].map(x=>x.value),
+                    cameraPresetCount:document.querySelectorAll('[data-fv-view]').length
+                  };
+                })()
+                """);
+            using (var fieldViewRuntime = JsonDocument.Parse(fieldViewRuntimeJson))
+            {
+                var root = fieldViewRuntime.RootElement;
+                if (root.TryGetProperty("missing", out var missing) &&
+                    missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
+                    throw new InvalidOperationException(
+                        $"FoamLens v1.4.3 3D runtime controls are missing: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("extraViews", out var extraViews) ||
+                    extraViews.ValueKind != JsonValueKind.Array || extraViews.GetArrayLength() != 2 ||
+                    extraViews.EnumerateArray().Any(v =>
+                        !v.TryGetProperty("viewport", out var viewport) || !viewport.GetBoolean() ||
+                        !v.TryGetProperty("canvas", out var canvas) || !canvas.GetBoolean() ||
+                        !v.TryGetProperty("controls", out var controls) || !controls.GetBoolean()))
+                    throw new InvalidOperationException(
+                        $"FoamLens synchronized View 3/4 runtime mount failed: {fieldViewRuntimeJson}");
+                if (root.TryGetProperty("duplicateIds", out var duplicateIdsAfterViews) &&
+                    duplicateIdsAfterViews.ValueKind == JsonValueKind.Array &&
+                    duplicateIdsAfterViews.GetArrayLength() > 0)
+                    throw new InvalidOperationException(
+                        $"FoamLens multi-view created duplicate DOM ids: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("primaryCanvasPosition", out var primaryPosition) ||
+                    !string.Equals(primaryPosition.GetString(), "absolute", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"FoamLens primary 2D canvas lost its scoped absolute layout: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("fieldCanvasPosition", out var fieldPosition) ||
+                    string.Equals(fieldPosition.GetString(), "absolute", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
+                foreach (var property in new[] { "animationApi", "compareApi", "fieldApi" })
+                    if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
+                    rangeModes.ValueKind != JsonValueKind.Array ||
+                    !new[] { "current", "global", "manual" }.All(expected =>
+                        rangeModes.EnumerateArray().Any(x =>
+                            string.Equals(x.GetString(), expected, StringComparison.OrdinalIgnoreCase))))
+                    throw new InvalidOperationException(
+                        $"FoamLens scientific color-range modes are incomplete: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("cameraPresetCount", out var presetCount) ||
+                    presetCount.GetInt32() < 7)
+                    throw new InvalidOperationException(
+                        $"FoamLens standard camera presets did not mount: {fieldViewRuntimeJson}");
+            }
+            Log($"FoamLens v1.4.3 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
+
+            // Exercise the actual WebView2 recording primitives used by FoamLens video export.
+            var videoRuntimeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (async()=>{
+                  if(typeof MediaRecorder==='undefined')return {ok:false,reason:'MediaRecorder unavailable'};
+                  if(typeof HTMLCanvasElement.prototype.captureStream!=='function')return {ok:false,reason:'captureStream unavailable'};
+                  const candidates=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+                  const mime=candidates.find(x=>{try{return MediaRecorder.isTypeSupported(x)}catch{return false}})||'';
+                  const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;
+                  const ctx=canvas.getContext('2d'),stream=canvas.captureStream(12),chunks=[];
+                  let recorder;
+                  try{recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream)}
+                  catch(e){stream.getTracks().forEach(t=>t.stop());return {ok:false,reason:String(e)}}
+                  const stopped=new Promise((resolve,reject)=>{
+                    recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+                    recorder.onstop=resolve;
+                    recorder.onerror=e=>reject(e.error||new Error('MediaRecorder runtime smoke error'));
+                  });
+                  recorder.start(50);
+                  for(let i=0;i<5;i++){
+                    ctx.clearRect(0,0,160,90);
+                    ctx.fillStyle='rgb('+(30+i*35)+','+(70+i*20)+','+(120+i*15)+')';
+                    ctx.fillRect(0,0,160,90);
+                    await new Promise(r=>setTimeout(r,90));
+                  }
+                  recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());
+                  const blob=new Blob(chunks,{type:recorder.mimeType||mime||'video/webm'});
+                  return {ok:blob.size>0,size:blob.size,mime:recorder.mimeType||mime||blob.type,chunks:chunks.length};
+                })()
+                """);
+            using (var videoRuntime = JsonDocument.Parse(videoRuntimeJson))
+            {
+                var root = videoRuntime.RootElement;
+                if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean() ||
+                    !root.TryGetProperty("size", out var size) || size.GetInt64() <= 0)
+                    throw new InvalidOperationException(
+                        $"FoamLens WebView2 video-encoding runtime smoke failed: {videoRuntimeJson}");
+            }
+            Log($"FoamLens WebView2 video runtime smoke passed: {videoRuntimeJson}");
+
             // Verify that JavaScript work continues while the native window is minimized.
             await _web.CoreWebView2.ExecuteScriptAsync(
                 "window.__foamLensBackgroundTicks=0;window.__foamLensBackgroundTimer=setInterval(()=>window.__foamLensBackgroundTicks++,50);");
