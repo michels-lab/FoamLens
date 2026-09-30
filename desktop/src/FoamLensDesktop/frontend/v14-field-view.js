@@ -295,10 +295,10 @@ function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'co
 function fvNormalizeNativeMesh(data){
   return{
     supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||''),
-    points:(data?.points||[]).map(Number),surfaceTriangles:(data?.surfaceTriangles||[]).map(Number),surfaceOwners:(data?.surfaceOwners||[]).map(Number),surfaceEdges:(data?.surfaceEdges||[]).map(Number),
+    points:(data?.points||[]).map(Number),surfaceTriangles:(data?.surfaceTriangles||[]).map(Number),surfaceOwners:(data?.surfaceOwners||[]).map(Number),surfaceEdges:(data?.surfaceEdges||[]).map(Number),surfaceTriangleFaces:(data?.surfaceTriangleFaces||[]).map(Number),
     cellCenters:(data?.cellCenters||[]).map(Number),faceOffsets:(data?.faceOffsets||[]).map(Number),facePoints:(data?.facePoints||[]).map(Number),owners:(data?.owners||[]).map(Number),neighbours:(data?.neighbours||[]).map(Number),
     pointCount:Number(data?.pointCount)||0,faceCount:Number(data?.faceCount)||0,internalFaceCount:Number(data?.internalFaceCount)||0,boundaryFaceCount:Number(data?.boundaryFaceCount)||0,
-    cellCount:Number(data?.cellCount)||0,boundsMin:(data?.boundsMin||[]).map(Number),boundsMax:(data?.boundsMax||[]).map(Number),cellCenterMethod:String(data?.cellCenterMethod||''),sourceBytes:Number(data?.sourceBytes)||0
+    cellCount:Number(data?.cellCount)||0,boundsMin:(data?.boundsMin||[]).map(Number),boundsMax:(data?.boundsMax||[]).map(Number),cellCenterMethod:String(data?.cellCenterMethod||''),sourceBytes:Number(data?.sourceBytes)||0,boundaryPatches:(data?.boundaryPatches||[]).map(p=>({name:String(p?.name||''),type:String(p?.type||''),startFace:Number(p?.startFace),nFaces:Number(p?.nFaces)})),boundaryPatchStatus:String(data?.boundaryPatchStatus||'not-provided')
   }
 }
 async function fvLoadMesh(c,g){
@@ -307,7 +307,7 @@ async function fvLoadMesh(c,g){
   let mesh;const files=g.files||{},native=FOAMLENS_NATIVE&&['points','faces','owner','neighbour'].every(k=>files[k]?._nativeToken);
   if(native){
     const op=foamLensNativeOperation('parseOpenFOAMMesh',{
-      pointsToken:files.points._nativeToken,facesToken:files.faces._nativeToken,ownerToken:files.owner._nativeToken,neighbourToken:files.neighbour._nativeToken
+      pointsToken:files.points._nativeToken,facesToken:files.faces._nativeToken,ownerToken:files.owner._nativeToken,neighbourToken:files.neighbour._nativeToken,boundaryToken:files.boundary?._nativeToken||null
     },m=>{const done=Number(m.completedBytes)||0,total=Number(m.totalBytes)||0;if(total>0)updateAppActivity(flUi('Reading OpenFOAM mesh','Leyendo malla OpenFOAM'),`${Math.min(100,100*done/total).toFixed(0)}% · ${done.toLocaleString()} / ${total.toLocaleString()} bytes`)});
     mesh=fvNormalizeNativeMesh(await op.promise)
   }else{
@@ -315,7 +315,7 @@ async function fvLoadMesh(c,g){
   }
   if(!mesh?.supported)throw new Error(flUi('Mesh could not be parsed: ','No se pudo interpretar la malla: ')+(mesh?.reason||'unknown'));
   mesh.meshTime=g.time==null?null:Number(g.time);mesh.meshTimeLabel=g.timeLabel||'constant';mesh.dynamicMesh=!!g.dynamic;mesh.changedMeshFiles=[...(g.changed||[])];
-  mesh.boundaryPatches=typeof fvLoadMeshBoundaryPatches==='function'&&files.boundary?await fvLoadMeshBoundaryPatches(files.boundary):[];
+  if(!mesh.boundaryPatches?.length)mesh.boundaryPatches=typeof fvLoadMeshBoundaryPatches==='function'&&files.boundary?await fvLoadMeshBoundaryPatches(files.boundary):[];
   fvState.meshCache.set(key,mesh);return mesh
 }
 async function fvEnsureMeshForTime(c,group,time,{resetCamera=false}={}){
