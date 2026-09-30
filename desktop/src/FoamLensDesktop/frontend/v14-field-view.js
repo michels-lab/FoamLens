@@ -409,7 +409,7 @@ function fvAvailability(caseObj=null){
 const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',fieldStorage:'volume',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
-  lockedRange:null,rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,videoRangeOverride:null,
+  rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,videoRangeOverride:null,
   fieldCache:new Map(),fieldCacheBytes:0,fieldCacheLimit:512*1024*1024,fieldInflight:new Map(),prefetchSeq:0,
   frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
   drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
@@ -627,7 +627,7 @@ function fvUpdateSlice(range=null){
   const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvSlice')?.checked;if(!r||!mesh){return}
   if(fvState.fieldStorage==='surface'){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Interior Slice is unavailable for face-associated surface fields because FoamLens does not silently reconstruct face data into a volume field.','El Corte interior no está disponible para campos de superficie asociados a caras porque FoamLens no reconstruye silenciosamente datos de cara como campo volumétrico.');fvRender();return}
   if(!enabled||!fvState.fieldValues){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Enable the slice to inspect the reconstructed interior field.','Activa el corte para inspeccionar el campo interior reconstruido.');fvRender();return}
-  const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis',pointAssoc=fvState.fieldStorage==='point',geom=pointAssoc?fvBuildPointSliceGeometry(mesh,fvState.fieldValues,axis,position):fvBuildSliceGeometry(mesh,fvState.fieldValues,axis,position);
+  const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,displayRange=range||fvDisplayRange(fvFiniteRange(fvState.fieldValues)),palette=document.getElementById('fvPalette')?.value||'viridis',pointAssoc=fvState.fieldStorage==='point',geom=pointAssoc?fvBuildPointSliceGeometry(mesh,fvState.fieldValues,axis,position):fvBuildSliceGeometry(mesh,fvState.fieldValues,axis,position);
   fvState.sliceGeometry=geom;fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,displayRange,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3;
   const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${pointAssoc?flUi('point-field reconstruction','reconstrucción de campo de puntos'):flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
   fvRender()
@@ -789,13 +789,13 @@ function fvRefreshSelectors(preserve=true){
   const availability=fvAvailability(c),status=document.getElementById('fvStatus');if(status&&!availability.ready){status.textContent=availability.reason;status.classList.add('error')}
 }
 async function fvLoadSelection(){
-  fvStopPlayback();fvState.lockedRange=null;fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
+  fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
   if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
   try{fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));fvState.caseId=c.id;fvState.region=region;fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';await fvLoadFrame(0,{resetCamera:true})}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
 }
 function fvSyncComponent(){
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),old=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===old))comp.value=old;
-  const s=document.getElementById('fvTimeSlider');s.max=String(Math.max(0,(g?.times?.length||1)-1));s.value='0';fvState.lockedRange=null;fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame(0).catch(e=>fvSetStatus(String(e?.message||e),true))
+  const s=document.getElementById('fvTimeSlider');s.max=String(Math.max(0,(g?.times?.length||1)-1));s.value='0';fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame(0).catch(e=>fvSetStatus(String(e?.message||e),true))
 }
 function fvUiHtml(){
   return`<div class="fieldViewControls hidden" id="fieldViewControls">
