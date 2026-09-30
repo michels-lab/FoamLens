@@ -61,6 +61,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout private B13 runtime fixture
+        if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: foamlens-real-fixture-b13
+          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-runtime-fixture
+          sparse-checkout: cases_controlled_buoyancy/B13_prghPressure_airGapOF14
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -349,10 +359,15 @@ jobs:
         run: |
           $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
+          if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_REGION='metal'
+            $env:FOAMLENS_SMOKE_FIELD='T'
+          }
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-          if (-not $process.WaitForExit(45000)) {
+          if (-not $process.WaitForExit(180000)) {
             try { $process.Kill($true) } catch {}
-            throw 'FoamLens executable smoke test timed out after 45 seconds.'
+            throw 'FoamLens executable smoke test timed out after 180 seconds.'
           }
           if ($process.ExitCode -ne 0) {
             $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
@@ -440,10 +455,15 @@ jobs:
           }
 
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
+          if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_REGION='metal'
+            $env:FOAMLENS_SMOKE_FIELD='T'
+          }
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
-          if (-not $app.WaitForExit(45000)) {
+          if (-not $app.WaitForExit(180000)) {
             try { $app.Kill($true) } catch {}
-            throw 'Installed FoamLens smoke test timed out after 45 seconds.'
+            throw 'Installed FoamLens smoke test timed out after 180 seconds.'
           }
           if ($app.ExitCode -ne 0) {
             $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
