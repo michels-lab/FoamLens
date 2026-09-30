@@ -119,14 +119,32 @@ function fsbFieldRecord(group,time,parsed){
   const matches=rows.filter(r=>fvTimeEqual(Number(r.time),Number(time))),preferred=matches.find(r=>!r.partition&&r.file);
   return preferred||(matches.length===1?matches[0]:null)
 }
+function fsbNativeFieldPatches(rows,kind){
+  const out={};for(const p of rows||[]){
+    const name=String(p?.name||'');if(!name)continue;
+    if(!p?.hasExplicitValue){out[name]={name,explicit:false,reason:String(p?.reason||'no-explicit-value')};continue}
+    if(p.uniform){
+      const value=kind==='scalar'?Number(p.uniformScalar):(p.uniformComponents||[]).map(Number);
+      const valid=kind==='scalar'?Number.isFinite(value):Array.isArray(value)&&value.length===3&&value.every(Number.isFinite);
+      out[name]=valid?{name,explicit:true,mode:'uniform',value}:{name,explicit:false,reason:'native-uniform-value-invalid'}
+    }else{
+      const values=kind==='scalar'?(p.scalarValues||[]).map(Number):(p.componentValues||[]).map(v=>(v||[]).map(Number));
+      const valid=kind==='scalar'?values.every(Number.isFinite):values.every(v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite));
+      out[name]=valid?{name,explicit:true,mode:'nonuniform',declared:Number(p.declaredCount),values}:{name,explicit:false,reason:'native-nonuniform-value-invalid'}
+    }
+  }return out
+}
 async function fvLoadSurfaceBoundaryValues(group,time,parsed,component,mesh){
   if(!mesh?.boundaryPatches?.length)return{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason:'mesh-boundary-metadata-unavailable'};
   const record=fsbFieldRecord(group,time,parsed),file=record?.file;if(!file)return{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason:'field-file-unavailable'};
   const key=['field',record.sourcePath||file.webkitRelativePath||file.name,file.lastModified||0,component].join('|');if(fsbCache.has(key))return fsbCache.get(key);
   try{
-    const text=await fsbReadTail(file,parsed?.loadMeta?.bytesRead||0),field=fsbParseBoundaryField(text,String(parsed?.kind||group?.kind||''));
-    const result=field.ok?fsbExpandBoundaryFaces(mesh.boundaryPatches,field.patches,String(parsed?.kind||group?.kind||''),component,mesh.faceCount):{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason:field.reason};
-    fsbCache.set(key,result);return result
+    const kind=String(parsed?.kind||group?.kind||''),nativeRows=Array.isArray(parsed?.boundaryPatches)?parsed.boundaryPatches:null;
+    let fieldPatches=null,reason='';
+    if(nativeRows?.length)fieldPatches=fsbNativeFieldPatches(nativeRows,kind);
+    else{const text=await fsbReadTail(file,parsed?.loadMeta?.bytesRead||0),field=fsbParseBoundaryField(text,kind);if(field.ok)fieldPatches=field.patches;else reason=field.reason}
+    const result=fieldPatches?fsbExpandBoundaryFaces(mesh.boundaryPatches,fieldPatches,kind,component,mesh.faceCount):{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason};
+    result.source=nativeRows?.length?'native-boundary-patches':'text-fallback';fsbCache.set(key,result);return result
   }catch(e){return{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason:String(e?.message||e)}}
 }
 function fvBuildExplicitBoundaryFaceBuffers(mesh,boundary){
