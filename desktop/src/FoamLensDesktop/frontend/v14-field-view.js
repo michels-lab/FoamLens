@@ -286,10 +286,10 @@ function fvFmt(v){v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.ab
 function fvCase(){return caseById(Number(document.getElementById('fvCase')?.value||fvState.caseId))}
 function fvMeshes(c){return (c?.meshInventory||[]).filter(g=>g.complete)}
 function fvMeshForRegion(c,region){return fvMeshes(c).find(g=>String(g.region||'')===String(region||''))}
-function fvFieldGroups(c,region='',kind=null,storage=null){
-  return (c?.discoveryModel?.fields||[]).filter(g=>String(g.region||'')===String(region||'')&&['volume','surface','point'].includes(String(g.storage||''))&&(!kind||g.kind===kind)&&(!storage||g.storage===storage)&&Array.isArray(g.times)&&g.times.length)
+function fvFieldGroups(c,region='',kind=null,storage='volume'){
+  return (c?.discoveryModel?.fields||[]).filter(g=>String(g.region||'')===String(region||'')&&['volume','surface','point'].includes(String(g.storage||''))&&(!kind||g.kind===kind)&&(storage==='any'||g.storage===storage)&&Array.isArray(g.times)&&g.times.length)
 }
-function fvCurrentFieldGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvField')?.value||'';return fvFieldGroups(c,r).find(g=>g.name===name)}
+function fvCurrentFieldGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvField')?.value||'';return fvFieldGroups(c,r,null,'any').find(g=>g.name===name)}
 function fvVectorGroup(){const c=fvCase(),r=document.getElementById('fvRegion')?.value||'',name=document.getElementById('fvVector')?.value||'';return fvFieldGroups(c,r,'vector','volume').find(g=>g.name===name)}
 function fvMeshCacheKey(c,g){return[String(c?.id??''),g?.region||'',g?.time??'constant',g?.sourcePaths?.points||'',g?.sourcePaths?.faces||'',g?.sourcePaths?.owner||'',g?.sourcePaths?.neighbour||''].join('|')}
 function fvNormalizeNativeMesh(data){
@@ -524,7 +524,7 @@ function fvRefreshSelectors(preserve=true){
   const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=fvMeshes(c).map(g=>String(g.region||''));
   regionSel.innerHTML=meshRegions.length?meshRegions.map(r=>`<option value="${fvEsc(r)}">${fvEsc(r||flUi('Default region','Región predeterminada'))}</option>`).join(''):'<option value="">—</option>';
   if(meshRegions.includes(oldRegion))regionSel.value=oldRegion;else if(activeContextRegion&&meshRegions.includes(activeContextRegion))regionSel.value=activeContextRegion;
-  const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?fieldSel.value:'',groups=fvFieldGroups(c,region).filter(g=>['scalar','vector'].includes(g.kind));
+  const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?fieldSel.value:'',groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
   fieldSel.innerHTML=groups.length?groups.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)} · ${fvEsc(g.kind)} · ${fvEsc(fvAssociationLabel(g.storage))}</option>`).join(''):'<option value="">—</option>';if(groups.some(g=>g.name===oldField))fieldSel.value=oldField;
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),oldComp=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===oldComp))comp.value=oldComp;
   const vectorSel=document.getElementById('fvVector'),oldVector=vectorSel.value,vg=fvFieldGroups(c,region,'vector','volume');vectorSel.innerHTML=vg.length?vg.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)}</option>`).join(''):'<option value="">—</option>';if(vg.some(g=>g.name===oldVector))vectorSel.value=oldVector;
