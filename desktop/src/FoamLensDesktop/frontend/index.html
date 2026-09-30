@@ -2400,7 +2400,7 @@ function pmFieldCachePut(key,parsed){
 }
 function pmSetFieldCacheLimit(bytes){bytes=Number(bytes);if(Number.isFinite(bytes)&&bytes>=64*1024*1024)pmFieldCacheLimit=bytes;pmFieldCacheTrim();return pmFieldCacheStats()}
 function pmFieldCacheStats(){return{entries:pmFieldCache.size,bytes:pmFieldCacheBytes,limit:pmFieldCacheLimit}}
-function pmClearFieldCache(){pmClearFieldCache();pmFieldCacheBytes=0}
+function pmClearFieldCache(){pmFieldCache.clear();pmFieldCacheBytes=0}
 const pmFieldMappings=new Map();
 let pmObservations=[];
 let pmLastScatter=null;
