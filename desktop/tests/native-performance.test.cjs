@@ -107,9 +107,9 @@ test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
   ]) assert(program.includes(token),'Missing runtime visual smoke token '+token);
 });
 
-test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside WebView2',()=>{
+test('runtime smoke exercises v1.4.4 3D multi-view and video primitives inside WebView2',()=>{
   for(const token of [
-    'FoamLens v1.4.3 3D runtime UI smoke passed',
+    'FoamLens v1.4.4 3D runtime UI smoke passed',
     "'fcExtra'+id+'Viewport'",
     "'fcExtra'+id+'Canvas'",
     "primaryCanvasPosition",
@@ -122,7 +122,7 @@ test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside W
     "videoSmokeDeadline.Elapsed < TimeSpan.FromSeconds(8)",
     "window.__foamLensVideoSmokeResult",
     "FoamLens WebView2 video runtime smoke passed"
-  ]) assert(program.includes(token),'Missing v1.4.3 runtime-smoke token '+token);
+  ]) assert(program.includes(token),'Missing v1.4.4 runtime-smoke token '+token);
 });
 
 test('packaged Windows smoke uses a real B13 fixture plus distinct complete case identities to exercise 3D case switching',()=>{
