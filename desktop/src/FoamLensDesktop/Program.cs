@@ -364,6 +364,90 @@ internal sealed class FoamLensForm : Form
                 "delete window.__foamLensVideoSmokeResult;");
             Log($"FoamLens WebView2 video runtime smoke passed: {videoRuntimeJson}");
 
+            var smokeCasePath = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_OPENFOAM_CASE");
+            if (!string.IsNullOrWhiteSpace(smokeCasePath))
+            {
+                var fullCasePath = Path.GetFullPath(smokeCasePath);
+                if (!Directory.Exists(fullCasePath))
+                    throw new InvalidOperationException(
+                        $"FoamLens real-case smoke folder does not exist: {fullCasePath}");
+
+                var smokeRefs = BuildSmokeNativeFileRefs(fullCasePath);
+                if (smokeRefs.Count < 4)
+                    throw new InvalidOperationException(
+                        $"FoamLens real-case smoke folder contained too few files: {smokeRefs.Count}");
+
+                var preferredRegion =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_REGION") ?? "";
+                var preferredField =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_FIELD") ?? "";
+                var refsJson = JsonSerializer.Serialize(smokeRefs, _json);
+                var optionsJson = JsonSerializer.Serialize(
+                    new { region = preferredRegion, field = preferredField }, _json);
+
+                await _web.CoreWebView2.ExecuteScriptAsync(
+                    "window.__foamLensRealCaseSmokeResult=null;");
+                var launchRealCaseScript =
+                    "(async()=>{try{" +
+                    "const helper=window.__foamLensSmokeImportNativeRefs;" +
+                    "if(typeof helper!=='function')throw new Error('Smoke import helper unavailable');" +
+                    $"const data=await helper({refsJson},{optionsJson});" +
+                    "window.__foamLensRealCaseSmokeResult={ok:true,data};" +
+                    "}catch(e){window.__foamLensRealCaseSmokeResult={ok:false,error:String(e?.stack||e)};}})();";
+                await _web.CoreWebView2.ExecuteScriptAsync(launchRealCaseScript);
+
+                string realCaseJson = "null";
+                var realCaseDeadline = Stopwatch.StartNew();
+                while (realCaseDeadline.Elapsed < TimeSpan.FromSeconds(120))
+                {
+                    await Task.Delay(150);
+                    realCaseJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                        "window.__foamLensRealCaseSmokeResult");
+                    if (!string.Equals(realCaseJson.Trim(), "null", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(realCaseJson.Trim(), "undefined", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(realCaseJson.Trim(), "{}", StringComparison.Ordinal))
+                        break;
+                }
+
+                using (var realCaseResult = JsonDocument.Parse(realCaseJson))
+                {
+                    var root = realCaseResult.RootElement;
+                    if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens real OpenFOAM runtime smoke failed: {realCaseJson}");
+                    if (!root.TryGetProperty("data", out var data))
+                        throw new InvalidOperationException(
+                            $"FoamLens real OpenFOAM runtime smoke returned no data: {realCaseJson}");
+                    if (!data.TryGetProperty("ready", out var ready) || !ready.GetBoolean() ||
+                        !data.TryGetProperty("cells", out var cells) || cells.GetInt32() <= 0 ||
+                        !data.TryGetProperty("values", out var values) || values.GetInt32() <= 0 ||
+                        !data.TryGetProperty("finiteRange", out var finiteRange) || !finiteRange.GetBoolean() ||
+                        !data.TryGetProperty("surfaceVertices", out var surfaceVertices) ||
+                            surfaceVertices.GetInt32() <= 0 ||
+                        !data.TryGetProperty("webgl", out var webgl) || !webgl.GetBoolean() ||
+                        !data.TryGetProperty("glError", out var glError) || glError.GetInt32() != 0)
+                        throw new InvalidOperationException(
+                            $"FoamLens real OpenFOAM 3D frame did not render safely: {realCaseJson}");
+
+                    if (!string.IsNullOrWhiteSpace(preferredRegion) &&
+                        (!data.TryGetProperty("region", out var regionNode) ||
+                         !string.Equals(regionNode.GetString(), preferredRegion,
+                             StringComparison.Ordinal)))
+                        throw new InvalidOperationException(
+                            $"FoamLens real-case smoke did not select requested region '{preferredRegion}': {realCaseJson}");
+                    if (!string.IsNullOrWhiteSpace(preferredField) &&
+                        (!data.TryGetProperty("field", out var fieldNode) ||
+                         !string.Equals(fieldNode.GetString(), preferredField,
+                             StringComparison.Ordinal)))
+                        throw new InvalidOperationException(
+                            $"FoamLens real-case smoke did not select requested field '{preferredField}': {realCaseJson}");
+                }
+
+                await _web.CoreWebView2.ExecuteScriptAsync(
+                    "delete window.__foamLensRealCaseSmokeResult;");
+                Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
+            }
+
             // Verify that JavaScript work continues while the native window is minimized.
             await _web.CoreWebView2.ExecuteScriptAsync(
                 "window.__foamLensBackgroundTicks=0;window.__foamLensBackgroundTimer=setInterval(()=>window.__foamLensBackgroundTicks++,50);");
@@ -454,6 +538,55 @@ internal sealed class FoamLensForm : Form
         // share the live case/series model without exporting private state.
         var extension = string.Join(Environment.NewLine,
             extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
+        if (_smokeTest)
+        {
+            extension += Environment.NewLine + """
+window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
+  const files=(refs||[]).map(ref=>new FoamLensNativeFile(ref));
+  if(!files.length)throw new Error('Smoke OpenFOAM folder contains no files.');
+  await runProjectScan(files);
+  if(!pendingScanCandidates.length)throw new Error('Smoke OpenFOAM scan detected no cases.');
+  openSmartImport(pendingScanCandidates);
+  await importSelectedAsCases();
+  setOverlayOpen('readyOverlay',false);
+  setOverlayOpen('scanOverlay',false);
+  try{setAppMode('data')}catch{}
+  setDataView('field3d');
+  fvRefreshSelectors(false);
+  const regionSel=document.getElementById('fvRegion');
+  if(options.region&&regionSel&&[...regionSel.options].some(o=>o.value===options.region)){
+    regionSel.value=options.region;
+    fvRefreshSelectors(true);
+  }
+  const fieldSel=document.getElementById('fvField');
+  if(options.field&&fieldSel&&[...fieldSel.options].some(o=>o.value===options.field))fieldSel.value=options.field;
+  await fvLoadSelection();
+  fvCameraPreset('iso');
+  fvRender();
+  const range=fvFiniteRange(fvState.fieldValues);
+  const gl=fvState.renderer?.gl||null;
+  return{
+    caseCount:cases.length,
+    caseName:fvCase()?.name||'',
+    ready:!!fvCaseViewAvailable(fvCase()),
+    region:fvState.region||'',
+    field:fvState.fieldName||'',
+    storage:fvState.fieldStorage||'',
+    time:Number(fvState.time),
+    cells:Number(fvState.mesh?.cellCount||0),
+    points:Number(fvState.mesh?.pointCount||0),
+    values:Number(fvState.fieldValues?.length||0),
+    finiteRange:!!range?.valid,
+    min:Number(range?.min),
+    max:Number(range?.max),
+    surfaceVertices:Number(fvState.renderer?.surfaceCount||0),
+    webgl:!!gl,
+    glError:gl?Number(gl.getError()):-1,
+    status:document.getElementById('fvStatus')?.textContent||''
+  };
+};
+""";
+        }
         html = html.Insert(insertionPoint, Environment.NewLine + extension + Environment.NewLine);
         File.WriteAllText(indexPath, html, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
@@ -503,6 +636,32 @@ internal sealed class FoamLensForm : Form
             Log(ex.ToString());
             if (!string.IsNullOrWhiteSpace(requestId)) Reply(requestId, false, null, ex.Message);
         }
+    }
+
+    private List<NativeFileRef> BuildSmokeNativeFileRefs(string rootPath)
+    {
+        var root = Path.GetFullPath(rootPath);
+        var rootName = new DirectoryInfo(root).Name;
+        _fileTokens.Clear();
+        Interlocked.Exchange(ref _tokenSequence, 0);
+        var refs = new List<NativeFileRef>();
+        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            var token = $"f{Interlocked.Increment(ref _tokenSequence):x}";
+            _fileTokens[token] = path;
+            var info = new FileInfo(path);
+            var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+            refs.Add(new NativeFileRef(
+                token,
+                info.Name,
+                $"{rootName}/{relative}",
+                info.Exists ? info.Length : 0,
+                info.Exists
+                    ? new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds()
+                    : 0));
+        }
+        return refs;
     }
 
     private async Task PickAndEnumerateFolderAsync(string requestId)
