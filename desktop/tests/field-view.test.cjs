@@ -365,7 +365,8 @@ test('Field View association wiring keeps face data distinct while point fields 
   const isoSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
   assert(isoSource.includes("String(fvState.fieldStorage||'volume')==='surface'"));
   assert(isoSource.includes('fvBuildPointIsoSurfaceGeometry'));
-  assert(isoSource.includes('does not silently reconstruct face data into a volume field'));
+  assert(isoSource.includes("flSetIssue(meta,'iso-surface-association-incompatible'"));
+  assert(!isoSource.includes('silently reinterpret face data as a volume field'));
 });
 
 test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
