@@ -310,13 +310,15 @@ test('vector and streamline visualization expose independent real-resolution con
     'High-resolution 2400-glyph option is missing.');
 });
 
-test('top-level Field View navigation has a single click owner',()=>{
+test('top-level Field View navigation has a single fallback click owner',()=>{
   assert(workspaceSource.includes('let createdModeButton=false'),
     'Field workspace does not track fallback navigation creation.');
-  assert(workspaceSource.includes("if(createdModeButton)document.getElementById('modeField')?.addEventListener"),
+  const guarded="if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));";
+  assert(workspaceSource.includes(guarded),
     'Fallback-only Field View click wiring is missing.');
-  assert(!workspaceSource.includes("document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));"),
-    'Field View can receive a duplicate click listener even when the base navigation already owns it.');
+  const listenerCount=(workspaceSource.match(/addEventListener\('click',\(\)=>setAppMode\('field'\)\)/g)||[]).length;
+  assert.equal(listenerCount,1,
+    'Field workspace contains more than one Field View fallback click listener.');
 });
 
 test('Field View is promoted to a top-level application mode instead of remaining a Data sub-tab',()=>{
