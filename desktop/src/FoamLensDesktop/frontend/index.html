@@ -5681,9 +5681,24 @@ function flIssueDescriptor(reason,context={}){
 function flIssueMessage(reason,context={}){return flIssueDescriptor(reason,context).text}
 function flSetIssue(target,reason,context={}){
   const el=typeof target==='string'?$(target):target;if(!el)return flIssueDescriptor(reason,context);
-  const issue=flIssueDescriptor(reason,context);el.textContent=issue.text;el.dataset.issueCode=issue.code;el.classList.add('error');return issue
+  const issue=flIssueDescriptor(reason,context);
+  el.textContent=issue.text;
+  el.dataset.issueCode=issue.code;
+  el.dataset.issueProblem=issue.problem;
+  el.dataset.issueCause=issue.cause;
+  el.dataset.issueAction=issue.action;
+  el.title=issue.action||issue.problem;
+  el.classList.add('error');
+  return issue
 }
-function flClearIssue(target){const el=typeof target==='string'?$(target):target;if(el){delete el.dataset.issueCode;el.classList.remove('error')}}
+function flClearIssue(target){
+  const el=typeof target==='string'?$(target):target;
+  if(el){
+    delete el.dataset.issueCode;delete el.dataset.issueProblem;delete el.dataset.issueCause;delete el.dataset.issueAction;
+    if(el.classList.contains('error'))el.title='';
+    el.classList.remove('error')
+  }
+}
 function flApplyBilingualText(root=document){for(const el of root.querySelectorAll?.('[data-fl-en][data-fl-es]')||[])el.textContent=diagEs()?el.dataset.flEs:el.dataset.flEn}
 function diagFmt(v){v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);if(a!==0&&(a<1e-4||a>=1e4))return v.toExponential(3);if(a>=100)return trimZeros(v.toFixed(3));if(a>=1)return trimZeros(v.toFixed(4));return trimZeros(v.toFixed(6))}
 function diagPct(v){return Number.isFinite(v)?`${(100*v).toFixed(2)}%`:'—'}
