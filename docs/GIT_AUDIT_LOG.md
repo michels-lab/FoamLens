@@ -967,3 +967,35 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Windows artifact upload: success.
 - No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Volume-weighted polyhedral cell centroids
+
+### Geometry precision
+- Replaced the previous mean-of-face-centres cell location approximation in both the native Desktop polyMesh parser and the JavaScript fallback.
+- Cell centres are now calculated as volume-weighted polyhedral centroids using signed tetrahedral integration.
+- OpenFOAM face orientation is respected:
+  - stored internal-face orientation is outward for the owner cell and reversed for the neighbour cell;
+  - boundary faces retain their stored outward orientation.
+- A local mean-face-centre reference is used only for numerical stability; it does not define the final centroid.
+- Degenerate cells fall back explicitly to the previous mean-face-centre reference rather than returning invalid coordinates.
+- `CellCenterMethod` now reports:
+  - `volume-weighted-polyhedral`; or
+  - `volume-weighted-polyhedral-with-mean-face-fallback:N` when a fallback was required.
+- This improves the geometric basis used by vector glyph placement, streamline interpolation, interior slices, iso-surfaces and 3D picking.
+
+### Regression
+- Added an asymmetric square-pyramid regression whose exact centroid is `(0, 0, 0.75)`.
+- The former mean-face-centres method would place the same cell at `z = 0.8`, so the test distinguishes the new method from the old approximation.
+- Unit-cube mesh parsing and all existing Field View regressions remain green.
+- **Run #273: SUCCESS** at head `ba28cdb7af0669dcfe97bda5ef03683676b1ab78`.
+  - Real QuickCup regression: success.
+  - 3D Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Strict 3D difference regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
