@@ -56,7 +56,7 @@ jobs:
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
-      - name: Prepare Windows-safe B13 runtime fixture
+      - name: Prepare Windows-safe V12/V13 runtime fixture
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         shell: bash
         run: |
@@ -64,12 +64,17 @@ jobs:
           from pathlib import Path
           import shutil, re
 
-          src = Path("quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14")
-          dst_root = Path("b13-runtime-windows")
-          dst = dst_root / src.name
+          source_root = Path("quickcup-fixture/cases_controlled_buoyancy")
+          case_names = [
+              "B12_topFixedValue_airGapOF14",
+              "B13_prghPressure_airGapOF14",
+              "C12_topFixedValue_airGapOF14",
+              "C13_prghPressure_airGapOF14",
+          ]
+          dst_root = Path("v12-v13-runtime-windows")
           if dst_root.exists():
               shutil.rmtree(dst_root)
-          dst.mkdir(parents=True)
+          dst_root.mkdir(parents=True)
 
           invalid = re.compile(r'[<>:"\\|?*]')
           reserved = {
@@ -77,56 +82,61 @@ jobs:
               *{f"COM{i}" for i in range(1,10)},
               *{f"LPT{i}" for i in range(1,10)}
           }
-          seen = {}
-          copied = skipped = 0
-          skipped_examples = []
+          total_copied = total_skipped = 0
 
-          for path in sorted(src.rglob("*")):
-              rel = path.relative_to(src)
-              parts = rel.parts
-              bad = False
-              for part in parts:
-                  stem = part.split(".", 1)[0].upper()
-                  if invalid.search(part) or part.rstrip(" .") != part or stem in reserved:
-                      bad = True
-                      break
-              win_key = str(rel).replace("\\", "/").casefold()
-              if win_key in seen and seen[win_key] != str(rel):
-                  raise SystemExit(f"Windows path collision: {seen[win_key]} vs {rel}")
-              seen[win_key] = str(rel)
-              if bad:
-                  skipped += 1
-                  if len(skipped_examples) < 12:
-                      skipped_examples.append(str(rel))
-                  continue
-              target = dst / rel
-              if path.is_dir():
-                  target.mkdir(parents=True, exist_ok=True)
-              elif path.is_file():
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  shutil.copy2(path, target)
-                  copied += 1
+          for case_name in case_names:
+              src = source_root / case_name
+              dst = dst_root / case_name
+              if not src.is_dir():
+                  raise SystemExit(f"Missing V12/V13 runtime case: {case_name}")
+              dst.mkdir(parents=True)
+              seen = {}
+              copied = skipped = 0
+              for path in sorted(src.rglob("*")):
+                  rel = path.relative_to(src)
+                  bad = False
+                  for part in rel.parts:
+                      stem = part.split(".", 1)[0].upper()
+                      if invalid.search(part) or part.rstrip(" .") != part or stem in reserved:
+                          bad = True
+                          break
+                  win_key = str(rel).replace("\\", "/").casefold()
+                  if win_key in seen and seen[win_key] != str(rel):
+                      raise SystemExit(f"Windows path collision in {case_name}: {seen[win_key]} vs {rel}")
+                  seen[win_key] = str(rel)
+                  if bad:
+                      skipped += 1
+                      continue
+                  target = dst / rel
+                  if path.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                  elif path.is_file():
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(path, target)
+                      copied += 1
 
-          required = [
-              dst / "constant" / "metal" / "polyMesh" / "points",
-              dst / "constant" / "metal" / "polyMesh" / "faces",
-              dst / "constant" / "metal" / "polyMesh" / "owner",
-              dst / "0" / "metal" / "T",
-          ]
-          missing = [str(p.relative_to(dst)) for p in required if not p.exists()]
-          if missing:
-              raise SystemExit("Windows-safe B13 fixture lost required 3D inputs: " + ", ".join(missing))
-          print(f"Windows-safe B13 fixture: {copied} files copied; {skipped} invalid Windows paths omitted.")
-          for item in skipped_examples:
-              print("  omitted:", item)
+              required = [
+                  dst / "constant" / "metal" / "polyMesh" / "points",
+                  dst / "constant" / "metal" / "polyMesh" / "faces",
+                  dst / "constant" / "metal" / "polyMesh" / "owner",
+                  dst / "0" / "metal" / "T",
+              ]
+              missing = [str(p.relative_to(dst)) for p in required if not p.exists()]
+              if missing:
+                  raise SystemExit(f"Windows-safe {case_name} fixture lost required 3D inputs: " + ", ".join(missing))
+              print(f"{case_name}: {copied} files copied; {skipped} invalid Windows paths omitted.")
+              total_copied += copied
+              total_skipped += skipped
+
+          print(f"Windows-safe V12/V13 fixture: {len(case_names)} cases; {total_copied} files copied; {total_skipped} invalid paths omitted.")
           PY
 
-      - name: Upload Windows-safe B13 runtime fixture
+      - name: Upload Windows-safe V12/V13 runtime fixture
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: QuickCup-B13-Windows-runtime
-          path: b13-runtime-windows/
+          name: QuickCup-V12-V13-Windows-runtime
+          path: v12-v13-runtime-windows/
           if-no-files-found: error
           retention-days: 1
 
@@ -136,11 +146,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Windows-safe B13 runtime fixture
+      - name: Download Windows-safe V12/V13 runtime fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          name: QuickCup-B13-Windows-runtime
+          name: QuickCup-V12-V13-Windows-runtime
           path: quickcup-runtime-fixture
 
       - uses: actions/setup-dotnet@v4
@@ -434,7 +444,10 @@ jobs:
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
-            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
+            $env:FOAMLENS_SMOKE_MIN_CASES='4'
+            $env:FOAMLENS_SMOKE_INITIAL_CASE='B12_topFixedValue_airGapOF14'
+            $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
@@ -542,7 +555,10 @@ jobs:
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
-            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
+            $env:FOAMLENS_SMOKE_MIN_CASES='4'
+            $env:FOAMLENS_SMOKE_INITIAL_CASE='B12_topFixedValue_airGapOF14'
+            $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
