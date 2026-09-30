@@ -5593,6 +5593,18 @@ function flIssueDescriptor(reason,context={}){
     problem=flUi('There are not enough mapped momentum mechanisms.','No hay suficientes mecanismos de momentum mapeados.');
     cause=flUi('This comparison needs at least two compatible acceleration/mechanism fields in the same region.','Esta comparación necesita al menos dos campos de aceleración/mecanismo compatibles en la misma región.');
     action=flUi('Open Field Mapping, map the available mechanism fields, and select a region/time where both exist.','Abre Field Mapping, mapea los mecanismos disponibles y selecciona una región/tiempo donde existan ambos.');
+  }else if(has('energy-evidence-missing')){
+    problem=flUi('No compatible energy evidence is available for this case.','No hay evidencia energética compatible disponible para este caso.');
+    cause=flUi('FoamLens did not detect compatible energy reductions or inventory terms for the selected case.','FoamLens no detectó reducciones de energía ni términos de inventario compatibles para el caso seleccionado.');
+    action=flUi('Load the case postProcessing energy outputs or configure/export energyFlux, energyAdvectiveFlux, heatFlux, sensible-energy or latent-power reductions.','Carga los outputs de energía de postProcessing o configura/exporta reducciones de energyFlux, energyAdvectiveFlux, heatFlux, energía sensible o potencia latente.');
+  }else if(has('energy-flux-set-incomplete')){
+    problem=flUi('The energy-flux decomposition is incomplete.','La descomposición de flujo de energía está incompleta.');
+    cause=flUi('A closure curve requires matching advective, diffusive and total energy-flux series over a common physical-time interval.','Una curva de cierre requiere series coincidentes de flujo advectivo, difusivo y total sobre un intervalo común de tiempo físico.');
+    action=flUi('Load or generate all three compatible flux terms for the same region/surface, then run the audit again.','Carga o genera los tres términos de flujo compatibles para la misma región/superficie y vuelve a ejecutar la auditoría.');
+  }else if(has('mechanism-times-insufficient')){
+    problem=flUi('The momentum mechanisms do not share enough physical times.','Los mecanismos de momentum no comparten suficientes tiempos físicos.');
+    cause=flUi('The selected mechanism pair needs at least two compatible common times to build an evolution curve.','El par de mecanismos seleccionado necesita al menos dos tiempos comunes compatibles para construir una curva de evolución.');
+    action=flUi('Choose mechanism fields with overlapping stored times, or load the missing time directories for the same region.','Elige campos de mecanismo con tiempos almacenados superpuestos o carga los directorios de tiempo faltantes para la misma región.');
   }else if(has('experimental-data-missing')){
     problem=flUi('Experimental data are missing.','Faltan datos experimentales.');
     cause=flUi('Validation needs an experimental time/temperature table.','La validación necesita una tabla experimental de tiempo/temperatura.');
