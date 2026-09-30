@@ -1554,3 +1554,139 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### Post-publication rule
 - The `v1.4.2` tag is immutable for this release and is not moved by later documentation-only commits.
 - Future product changes must advance to a new version rather than replacing the published v1.4.2 binary assets.
+
+
+## 2026-09-30 — FoamLens Desktop v1.4.3 Field View / performance development candidate
+
+### User-observed defects and requirements
+- Real v1.4.2 Field View testing exposed several usability and visualization issues:
+  - thin rectangular/vertical/horizontal lines could cross the application UI;
+  - 3D navigation lacked explicit orbit/pan/zoom and standard-view controls;
+  - no interactive XYZ orientation gizmo was available;
+  - the temperature legend could display visually indistinguishable values such as `1500 / 1500 / 1500` even when the underlying range was nonzero;
+  - changing physical time could make visual controls feel blocked while a native field was being parsed;
+  - temporal navigation needed cache/prefetch rather than repeated cold reads;
+  - synchronized 3D analysis needed independent case/region/field/component selections and more than two simultaneous views;
+  - the synchronized 3D layout needed video export.
+
+### Cross-application canvas overlay root cause
+- The base frontend applied `canvas{position:absolute;inset:0;width:100%;height:100%}` globally.
+- Any analysis or 3D canvas that did not explicitly override that rule could therefore be positioned against the wrong containing block and visually cross unrelated UI, including the sidebar.
+- The misleading `Physical time [s]` text seen in the overlay came from a 2D plot canvas, not from a Field View control.
+- Structural fix: absolute full-area positioning is now scoped only to the primary 2D chart canvas:
+  - `.chartwrap > canvas#canvas{position:absolute;inset:0;width:100%;height:100%}`
+- Product commit: `e42ddcf112be2409a4ea75a6ab3a152a7be939b6`.
+
+### Non-blocking native OpenFOAM field parsing
+- Async file reads alone did not keep Field View responsive because CPU-heavy parsing resumed on the WinForms/WebView UI synchronization context.
+- `HandleOpenFoamFieldAsync` now dispatches parsing and ASCII boundary decoding through a cancellable `Task.Run` worker and uses `ConfigureAwait(false)` inside that worker.
+- Camera, opacity and other visual controls can therefore continue receiving UI events while a new field timestep is parsed.
+- Regression explicitly requires the worker dispatch and cancellation token.
+- Product commit: `5e9a50325372b1223ad6d754fbde269e53323061`.
+
+### 3D navigation and orientation
+- Field View now exposes explicit:
+  - Orbit;
+  - Pan;
+  - Zoom;
+  - Fit;
+  - Reset;
+  - Front / Back / Left / Right / Top / Bottom / Isometric views.
+- An interactive XYZ gizmo is rendered inside the viewport, follows camera orientation and allows X/Y/Z click-to-view navigation.
+- Middle/right drag remains a pan fallback; wheel zoom and double-click Fit are supported.
+- Product commit: `be886d64c0bd4a2eb213f5651841660d2d160228`.
+- Navigation regression: `feb046533ab9e21f16bacf5ffc4a34e60b67813b`.
+
+### Intelligent scientific color ranges
+- The former single `Lock color range` control was replaced by explicit modes:
+  - Smart / current frame;
+  - Global / all physical times;
+  - Manual.
+- Legend/statistics now expose Min, Max, mean and Δ.
+- Numeric formatting increases precision automatically when a small field span sits on top of a large absolute value.
+- Numerically uniform fields are represented explicitly as a uniform field rather than a misleading full gradient.
+- Slice and iso-surface rendering use the same selected scientific range contract as the main surface.
+- Product commits:
+  - `b745377468b2fe97046dc8e248ae6924dc086036`
+  - `b4a33c1f2b21bcc1c4f1083be37e2389bab9390f`
+  - `bef20ee832df22311e8b8a87d974e8d3e4cb5292`.
+
+### One bounded field cache + temporal prefetch
+- Audit found that the base frontend already retained parsed fields in `pmFieldCache`, but that cache had no memory bound.
+- A second Field View-only retention cache would have made a visible 512 MB budget misleading, so the architecture was consolidated instead.
+- The shared OpenFOAM field cache is now bounded and LRU-evicted with:
+  - tracked retained bytes;
+  - configurable limit (256 MB / 512 MB / 1 GB / 2 GB from Field View);
+  - recency touch on reads;
+  - explicit trim/stat/clear helpers.
+- Field View keeps only in-flight request deduplication and prefetches neighboring frames in the order next, next+1, previous.
+- A transient implementation error that made the cache clear helper recursive was detected during the same audit and corrected before the final candidate.
+- Product commits:
+  - `ff367366ece31fff818c6568cdea56656d6e3e80`
+  - correction `aa3ad831d3de6e64bf4aa3720b58514a28bae15f`
+  - shared-cache Field View integration `684b18571b41693bc357df607bf54d260708058e`.
+
+### Independent and multi-view 3D analysis
+- Synchronized comparison no longer assumes “same field in a second case”.
+- View 2 can independently select case, region, field and component; the same case may be selected to compare two different variables.
+- Additional synchronized Views 3 and 4 can be added, for up to four simultaneous 3D viewports.
+- Physical time and camera orientation remain synchronized; each viewport may represent a different quantity.
+- Shared color ranges and strict signed 3D differences are only applied when the two relevant views represent the same field/component/association/dimensions.
+- View 2 now uses the same generic field loader as Field View so cell-, point- and internal-face-associated fields are handled according to their real association instead of exposing options that silently required a volume field.
+- Strict 3D difference remains deliberately limited to compatible cell-associated volume fields.
+- Product commits:
+  - independent View 2: `58efbe93db56bfbd571e74b4249f23a81c2d8145`
+  - Views 3/4: `0d4eecc16d32d8625a6dd726a68bbc0fcdb04c76`
+  - association-aware View 2: `18d476dec12dd41aea944c5640b1848ef358738e`.
+
+### Multi-view animation / video export
+- New module: `v14-animation-export.js`.
+- Export controls include:
+  - start/end physical time;
+  - frame step;
+  - 24/30/60 FPS;
+  - 720p / 1080p / 1440p / 4K;
+  - Auto (MP4 when supported), MP4 or WebM.
+- Export preloads the requested physical-time frames and calculates an independent global color range for every visible 3D viewport before recording.
+- Visible synchronized viewports are composited into one output video with view labels, physical time and range information.
+- Video export uses the browser/WebView `MediaRecorder` + canvas `captureStream` capability and falls back to a supported encoded MIME type.
+- Product commits:
+  - animation export: `84376d18dbf4f00113dde7f8fc954c2a460e73ad`
+  - fixed per-view video-range plumbing: `80d378d7b041b6833f1e19b59e2567ec0099fff8`
+  - comparison descriptors/ranges: `3fe4410506c0e2dbf632e2fe6fae4d6af6ff4e1f`.
+- Boundary: CI validates syntax/wiring and application packaging, but actual user-side codec availability still depends on the installed WebView2 runtime; the exporter reports when the requested encoding is unavailable.
+
+### v1.4.3 development identity / CI
+- Desktop project, assembly/file versions, runtime-bundle isolation, Field View identity, frontend export provenance and documentation were aligned to `v1.4.3`.
+- Public release remains `v1.4.2`; no `v1.4.3` tag or GitHub Release was created.
+- CI branch matching was generalized to `development/**` so current and future development branches receive the full Windows build without publishing.
+- Intermediate CI findings were corrected rather than ignored:
+  - run #387 exposed stale v1.4.2 version-test expectations;
+  - runs #393/#394 exposed the old Field View cache-test expectation after cache consolidation.
+- Those were stale regression expectations, not reasons to restore the obsolete implementation.
+
+### Final development-candidate validation
+- Tested product head: `f3afd81a31abf02544f334c1179acf5accf0573c`.
+- GitHub Actions run **#397 — SUCCESS**.
+- Real OpenFOAM QuickCup/B13 regression: **SUCCESS**.
+- Frontend JavaScript validation: **SUCCESS**.
+- Version consistency: **SUCCESS**.
+- Native OpenFOAM field streaming / off-UI-thread regression: **SUCCESS**.
+- 3D Field View regression: **SUCCESS**.
+- Decomposed Field View regression: **SUCCESS**.
+- Iso-surface and 3D probe regressions: **SUCCESS**.
+- Strict 3D difference / multi-view regression: **SUCCESS**.
+- CI suite manifest: **SUCCESS**.
+- Bilingual/overflow audits: **SUCCESS**.
+- Portable Windows executable build + smoke: **SUCCESS**.
+- Installer build + installed-application smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- Artifact: `FoamLens-Windows-v1.4.3`.
+- Artifact id: `11091020217`.
+- Artifact size: 135,282,594 bytes.
+- Artifact digest: `sha256:4e59fbed846d4ef38a367463b460e8a8d4cb67a9addc57ca25c93412ee41d1a6`.
+- GitHub Release publication: **SKIPPED**. v1.4.3 remains a development candidate for real user-side visual/video testing.
+
+### Candidate rule
+- The validated product head above must remain identifiable even if documentation-only commits follow it.
+- Any product-code change after `f3afd81a31abf02544f334c1179acf5accf0573c` requires a new full CI candidate before it is treated as the v1.4.3 test build.
