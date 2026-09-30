@@ -2380,6 +2380,27 @@ let diagnosticSelectedEvent=null;
 let diagHeatmapHit=null;
 let phaseFrontPrevious={};
 const pmFieldCache=new Map();
+let pmFieldCacheBytes=0;
+let pmFieldCacheLimit=512*1024*1024;
+function pmFieldCacheEstimate(parsed){
+  if(!parsed||typeof parsed!=='object')return 256;let numeric=0;
+  const countArray=a=>{if(!Array.isArray(a))return 0;if(a.length&&Array.isArray(a[0]))return a.reduce((n,v)=>n+(Array.isArray(v)?v.length:0),0);return a.length};
+  numeric+=countArray(parsed.values);numeric+=countArray(parsed.scalarValues);numeric+=countArray(parsed.vectorValues);numeric+=countArray(parsed.componentValues);
+  const src=Number(parsed?.record?.size||parsed?.sourceBytes)||0;return Math.max(256,Math.ceil(Math.max(src,numeric*8)*1.12))
+}
+function pmFieldCacheGet(key){
+  if(!pmFieldCache.has(key))return null;const entry=pmFieldCache.get(key);pmFieldCache.delete(key);pmFieldCache.set(key,entry);return entry.parsed
+}
+function pmFieldCacheTrim(){
+  while(pmFieldCacheBytes>pmFieldCacheLimit&&pmFieldCache.size>1){const key=pmFieldCache.keys().next().value,entry=pmFieldCache.get(key);pmFieldCache.delete(key);pmFieldCacheBytes=Math.max(0,pmFieldCacheBytes-(Number(entry?.bytes)||0))}
+}
+function pmFieldCachePut(key,parsed){
+  if(pmFieldCache.has(key)){const old=pmFieldCache.get(key);pmFieldCacheBytes=Math.max(0,pmFieldCacheBytes-(Number(old?.bytes)||0));pmFieldCache.delete(key)}
+  const bytes=pmFieldCacheEstimate(parsed);pmFieldCache.set(key,{parsed,bytes});pmFieldCacheBytes+=bytes;pmFieldCacheTrim();return parsed
+}
+function pmSetFieldCacheLimit(bytes){bytes=Number(bytes);if(Number.isFinite(bytes)&&bytes>=64*1024*1024)pmFieldCacheLimit=bytes;pmFieldCacheTrim();return pmFieldCacheStats()}
+function pmFieldCacheStats(){return{entries:pmFieldCache.size,bytes:pmFieldCacheBytes,limit:pmFieldCacheLimit}}
+function pmClearFieldCache(){pmClearFieldCache();pmFieldCacheBytes=0}
 const pmFieldMappings=new Map();
 let pmObservations=[];
 let pmLastScatter=null;
@@ -4334,7 +4355,7 @@ async function pmLoadDerivedRateSet(caseId,role,time,region=''){
 async function pmLoadRecord(record){
   if(!record?.file)return{supported:false,reason:'missing-file'};
   const key=[record.sourcePath,record.file.size||record.size||0,record.file.lastModified||0].join('|');
-  if(pmFieldCache.has(key))return pmFieldCache.get(key);
+  const cached=pmFieldCacheGet(key);if(cached)return cached;
   let parsed;
   try{
     const sourceSize=Number(record.file.size||record.size||0),nativeReadable=!!(FOAMLENS_NATIVE&&record.file?._nativeToken);
@@ -4349,7 +4370,7 @@ async function pmLoadRecord(record){
     else parsed=pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
   }catch(err){if(/cancel/i.test(String(err?.message||err)))throw err;parsed={supported:false,reason:String(err),sourcePath:record.sourcePath}}
   parsed={...parsed,record,partition:record.partition||'',region:record.region||'',time:record.time,sourcePath:record.sourcePath};
-  pmFieldCache.set(key,parsed);return parsed
+  return pmFieldCachePut(key,parsed)
 }
 async function pmLoadFieldSet(caseId,fieldName,time,region=''){
   const role=pmVirtualFieldRole(fieldName);
