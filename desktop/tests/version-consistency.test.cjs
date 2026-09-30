@@ -16,9 +16,9 @@ assert(index.includes("productVersion:'v51'"),'Workspace productVersion is not v
 assert(!index.includes('v51 development'),'Release UI still reports a frontend development build.');
 assert(!index.includes('release candidate build'),'Release UI still reports a release candidate.');
 assert(!index.includes("productVersion:'v51-development'"),'Workspace payload still reports a development version.');
-assert(/<Version>1.4.3<\/Version>/.test(project),'Desktop project version is not 1.4.2.');
-assert(/<AssemblyVersion>1.4.3\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.2.0.');
-assert(/<FileVersion>1.4.3\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.2.0.');
+assert(/<Version>1.4.3<\/Version>/.test(project),'Desktop project version is not 1.4.3.');
+assert(/<AssemblyVersion>1.4.3\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.3.0.');
+assert(/<FileVersion>1.4.3\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.3.0.');
 assert(readme.includes('The current public release is **FoamLens Desktop v1.4.2 with frontend v51**'),'Desktop README does not identify v1.4.2 as the current public release.');
 assert(readme.includes('# FoamLens Desktop v1.4.3 development build'),'Desktop README does not identify the v1.4.3 development build.');
 
