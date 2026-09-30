@@ -247,6 +247,38 @@ function fvSliceTetra(vertices,values,axis,coord,tol){
   hits.sort((a,b)=>Math.atan2(a.p[other[1]]-centroid[other[1]],a.p[other[0]]-centroid[other[0]])-Math.atan2(b.p[other[1]]-centroid[other[1]],b.p[other[0]]-centroid[other[0]]));
   const out=[];for(let i=1;i<hits.length-1;i++)out.push([hits[0],hits[i],hits[i+1]]);return out
 }
+function fvSolveAffine4(matrix,rhs){
+  const a=matrix.map((row,i)=>[...row,Number(rhs[i])]);for(let col=0;col<4;col++){let pivot=col;for(let r=col+1;r<4;r++)if(Math.abs(a[r][col])>Math.abs(a[pivot][col]))pivot=r;
+    if(!(Math.abs(a[pivot][col])>1e-14))return null;if(pivot!==col)[a[pivot],a[col]]=[a[col],a[pivot]];
+    const d=a[col][col];for(let j=col;j<=4;j++)a[col][j]/=d;for(let r=0;r<4;r++){if(r===col)continue;const q=a[r][col];if(q===0)continue;for(let j=col;j<=4;j++)a[r][j]-=q*a[col][j]}
+  }return a.map(row=>row[4])
+}
+function fvAffinePointValue(points,values,target){
+  if(!Array.isArray(points)||points.length<4||points.length!==values.length)return NaN;const m=Array.from({length:4},()=>[0,0,0,0]),b=[0,0,0,0];
+  for(let i=0;i<points.length;i++){const p=points[i],v=Number(values[i]);if(!Array.isArray(p)||p.length<3||!p.slice(0,3).every(Number.isFinite)||!Number.isFinite(v))continue;const q=[1,Number(p[0]),Number(p[1]),Number(p[2])];for(let r=0;r<4;r++){b[r]+=q[r]*v;for(let c=0;c<4;c++)m[r][c]+=q[r]*q[c]}}
+  const x=fvSolveAffine4(m,b);return x&&target?.length>=3?x[0]+x[1]*target[0]+x[2]*target[1]+x[3]*target[2]:NaN
+}
+function fvCellPointIds(mesh,cellIndex){
+  const set=new Set();for(const fi of fvCellFaces(mesh)[cellIndex]||[])for(const pi of fvMeshFacePoints(mesh,fi))set.add(Number(pi));return[...set].filter(Number.isInteger)
+}
+function fvPointFieldCellValues(mesh,pointValues){
+  const pts=mesh?.points||[],centers=mesh?.cellCenters||[],n=Number(mesh?.cellCount)||0,out=new Array(n).fill(NaN);
+  for(let c=0;c<n;c++){const ids=fvCellPointIds(mesh,c),target=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])],pp=[],vv=[];if(!target.every(Number.isFinite))continue;
+    for(const pi of ids){const v=Number(pointValues?.[pi]),p=[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])];if(Number.isFinite(v)&&p.every(Number.isFinite)){pp.push(p);vv.push(v)}}
+    let value=fvAffinePointValue(pp,vv,target);if(!Number.isFinite(value)){let sum=0,ws=0,exact=NaN;for(let i=0;i<pp.length;i++){const dx=pp[i][0]-target[0],dy=pp[i][1]-target[1],dz=pp[i][2]-target[2],d2=dx*dx+dy*dy+dz*dz;if(d2<=1e-30){exact=vv[i];break}const w=1/Math.sqrt(d2);sum+=w*vv[i];ws+=w}value=Number.isFinite(exact)?exact:(ws>0?sum/ws:NaN)}
+    out[c]=value
+  }return out
+}
+function fvBuildPointSliceGeometry(mesh,pointValues,axis='x',position=.5){
+  const ai={x:0,y:1,z:2}[axis]??0,min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],pos=fvClamp(Number(position),0,1),coord=Number(min[ai])+(Number(max[ai])-Number(min[ai]))*pos,diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
+  const centerValues=fvPointFieldCellValues(mesh,pointValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],values=[];
+  for(let c=0;c<cellFaces.length;c++){const cv=Number(centerValues[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite))continue;
+    for(const fi of cellFaces[c]){const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];for(let j=1;j<face.length-1;j++){const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>Number(pointValues?.[pi]))];
+      for(const tri of fvSliceTetra(vertices,vals,ai,coord,tol))for(const h of tri){positions.push(...h.p);values.push(h.value)}
+    }}
+  }
+  return{axis,axisIndex:ai,position:pos,coordinate:coord,positions:new Float32Array(positions),values:new Float64Array(values),triangleCount:positions.length/9,interpolation:'point-field vertices + affine cell-centre reconstruction + cell-centre tetrahedralization'}
+}
 function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
   const ai={x:0,y:1,z:2}[axis]??0,min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],pos=fvClamp(Number(position),0,1),coord=Number(min[ai])+(Number(max[ai])-Number(min[ai]))*pos,diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
   const pointValues=fvPointValuesFromCells(mesh,cellValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],values=[];
@@ -380,9 +412,9 @@ function fvAssociationCount(mesh,storage){
   return storage==='surface'?Number(mesh?.internalFaceCount)||0:storage==='point'?Number(mesh?.pointCount)||0:Number(mesh?.cellCount)||0
 }
 function fvSyncAssociationControls(storage){
-  const volume=String(storage||'volume')==='volume';
-  for(const id of ['fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvIsoMidrange']){const e=document.getElementById(id);if(e)e.disabled=!volume}
-  if(!volume){
+  const interior=String(storage||'volume')!=='surface';
+  for(const id of ['fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvIsoMidrange']){const e=document.getElementById(id);if(e)e.disabled=!interior}
+  if(!interior){
     const slice=document.getElementById('fvSlice');if(slice)slice.checked=false;
     const iso=document.getElementById('fvIso');if(iso)iso.checked=false;
     const r=fvState.renderer;if(r){r.sliceCount=0;r.isoCount=0}
@@ -407,11 +439,11 @@ function fvSliceColors(values,range,palette){
 }
 function fvUpdateSlice(range=null){
   const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvSlice')?.checked;if(!r||!mesh){return}
-  if(fvState.fieldStorage!=='volume'){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Interior Slice currently requires a cell-centred volume field; face/point values are not silently converted to cells.','El Corte interior requiere actualmente un campo volumétrico centrado en celdas; los valores de cara/punto no se convierten silenciosamente a celdas.');fvRender();return}
+  if(fvState.fieldStorage==='surface'){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Interior Slice is unavailable for face-associated surface fields because FoamLens does not silently reconstruct face data into a volume field.','El Corte interior no está disponible para campos de superficie asociados a caras porque FoamLens no reconstruye silenciosamente datos de cara como campo volumétrico.');fvRender();return}
   if(!enabled||!fvState.fieldValues){r.sliceCount=0;fvState.sliceGeometry=null;const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=flUi('Enable the slice to inspect the reconstructed interior field.','Activa el corte para inspeccionar el campo interior reconstruido.');fvRender();return}
-  const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis',geom=fvBuildSliceGeometry(mesh,fvState.fieldValues,axis,position);
+  const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis',pointAssoc=fvState.fieldStorage==='point',geom=pointAssoc?fvBuildPointSliceGeometry(mesh,fvState.fieldValues,axis,position):fvBuildSliceGeometry(mesh,fvState.fieldValues,axis,position);
   fvState.sliceGeometry=geom;fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,displayRange,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3;
-  const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
+  const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${pointAssoc?flUi('point-field reconstruction','reconstrucción de campo de puntos'):flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
   fvRender()
 }
 function fvRender(){
