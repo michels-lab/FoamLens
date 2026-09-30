@@ -628,3 +628,690 @@ When a new change is made, record the actual commit SHA and CI result after the 
   - `FoamLens-Portable-v1.4.0.exe.sha256` — 96 bytes.
   - `FoamLens-Setup-v1.4.0.exe` — 67,776,500 bytes.
 - v1.4.0 introduces the OpenFOAM Field View with transient mesh coloring, physical-time playback, vector glyphs, streamlines, multi-region support, and synchronized colormap legends.
+
+
+## 2026-09-29 — v1.4.1 post-release hotfix + thesis-analysis expansion
+
+Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
+
+### Field View hotfix
+- Fixed versioned frontend extension injection so v14 modules are inserted inside the main FoamLens frontend IIFE rather than an unrelated inner/later IIFE.
+- Field View remains discoverable even when no compatible 3D dataset is available and reports the missing requirement instead of disappearing.
+- Added Overview quick access to 3D Field View.
+- Added packaged-executable smoke validation for the actual mounted Field View UI.
+- Final Field View smoke path validated in the portable and installed Desktop build.
+
+### Sidebar UX
+- Added persistent collapsible/expandable sidebar sections.
+- Section state is stored locally and restored across sessions.
+- Case-management-heavy content is compactable so it no longer dominates the working sidebar.
+
+### Smart Import version grouping
+- Detected case/version groups are exposed in Smart Import.
+- Users can select/deselect a detected version group in one action while preserving per-case selection.
+
+### Dual-variable Time-Series Focus
+- Added optional second simultaneous variable for time-series comparison.
+- Supports independent left/right Y axes for quantities with different units (for example temperature and liquid fraction).
+- Existing single-variable workflow remains valid.
+
+### Formal convergence audit
+- Added explicit linear-solver and PIMPLE/nonlinear coupling evidence.
+- Keeps same-solve initial→final residual convergence separate from cross-outer coupling convergence.
+- Adds formal coupling-ratio metrics and regression coverage.
+
+### Automatic momentum mechanism audit
+- Detects mapped Darcy, buoyancy and pressure-gradient acceleration fields generically.
+- Calculates per-cell magnitude statistics and local mechanism ratios.
+- Reports median/P95/fraction > 1 and excluded near-zero denominators.
+- Can create physical-time evolution curves without temporal extrapolation.
+- Does not convert ratios into causal/mechanism verdicts.
+
+### postProcessing provenance correction
+- Multi-column OpenFOAM reductions now preserve per-column identity instead of assigning every column the field inferred from the filename.
+- `sum(energyFlux)`, `sum(heatFlux)`, `volIntegrate(h)`, etc. preserve operation + field metadata.
+- Parsed function-object metadata now includes `operation`, `weightField`, `patch`, `patches` and `cellZone`.
+
+### Automatic Energy Audit
+- Added automatic detection of OpenFOAM energy-flux decomposition.
+- Checks the OpenFOAM v14 identity `energyFlux = energyAdvectiveFlux + heatFlux` over common physical times.
+- Reports absolute and relative closure residuals plus integrated advective/diffusive/total/residual energies.
+- Detects sensible-energy inventory only when provenance supports a rho-weighted volume integral of specific energy.
+- Detects integrated latent-heat power when compatible volume-reduction provenance is present.
+- Does not impose an unverified conservation sign convention across boundary/sensible/latent terms.
+- Can create derived closure-residual and cumulative-boundary-energy curves.
+
+### Validation
+- Run #241: success after per-column postProcessing provenance regression.
+- Runs #236–#239: success for automatic momentum mechanism audit and CI wiring.
+- Runs #233–#235: success for formal convergence audit and CI wiring.
+- Runs #230–#232: success for dual-variable Time-Series Focus and CI wiring.
+- Runs #227–#229: success for Smart Import version grouping and CI wiring.
+- Runs #224–#226: success for persistent collapsible sidebar sections and CI wiring.
+- **Run #244: SUCCESS** at head `64a13fff1b018b986a0e0581b59c9692644d3e1b`.
+  - Real QuickCup regression: success.
+  - Automatic Energy Audit regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063691879`).
+- No GitHub Release was published from the hotfix branch; `main` remains the released v1.4.0 until the branch is intentionally promoted.
+
+
+## 2026-09-29 — Experimental validation workflow
+
+### Evidence boundary from the thesis project
+- The QuickCup project audit explicitly states that the repository **does not currently contain a numeric experimental Quick-Cup thermocouple time series** (CSV/XLSX/raw points).
+- Therefore FoamLens does not report experimental RMSE/MAE or event errors from repository data and no synthetic values are treated as thesis results.
+- The validation workflow is prepared for a future raw or digitized experimental curve.
+
+### Simulation vs experiment module
+- Added `v14-experimental-validation.js`.
+- Imports experimental `.csv`, `.txt`, `.dat` and `.tsv` time-temperature tables.
+- Supports comma, semicolon, tab and whitespace delimiters.
+- Semicolon-delimited files with decimal commas are parsed without confusing decimal commas for separators.
+- Time and temperature columns are auto-detected but remain explicitly selectable.
+- Experimental temperature units can be declared as K or °C.
+- Experimental time alignment uses an explicit user-defined time shift; no hidden automatic shift is applied.
+- Comparison is restricted to the shared physical-time interval and never extrapolates.
+- Reports:
+  - RMSE of T(t);
+  - MAE of T(t);
+  - mean bias (simulation − experiment);
+  - maximum absolute temperature difference;
+  - Tmin and its time;
+  - thermal-rebound candidate amplitude, peak time and maximum positive dT/dt.
+- An optional liquid-fraction series provides independent phase evidence:
+  - alphaL onset/completion threshold-crossing times;
+  - phase-defined solidification duration;
+  - liquid-fraction trend during the simulated thermal-rebound candidate.
+- A positive dT/dt interval is **not** automatically labelled recalescence. Phase evidence is displayed separately as solidifying, remelting, approximately stationary or unavailable.
+- Can add the aligned experimental temperature curve and ΔT(sim−exp) residual to the standard Time-Series plot.
+
+### Regression and packaging
+- Run #247 exposed an actual delimiter-detection bug: decimal commas in semicolon CSV files biased the first implementation toward comma separation.
+- Fixed delimiter detection to prefer a consistent tabular column count across sampled rows.
+- **Run #248: SUCCESS** at code head `5854f4dcc5cbcd3b32e600ef772aa3c773bc2dd2`.
+  - Simulation-vs-experiment regression: success.
+  - Real QuickCup regression: success.
+  - All previous Field View/sidebar/import/convergence/momentum/energy regressions: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063823771`).
+- No GitHub Release was published; this remains on the v1.4.1 hotfix/development branch.
+
+
+## 2026-09-29 — Field View interior slice reconstruction
+
+### Mesh topology
+- Extended the native OpenFOAM ASCII `polyMesh` result with full volumetric connectivity:
+  - flattened face-point indices;
+  - face offsets;
+  - owner labels;
+  - neighbour labels.
+- The browser fallback parser exposes the same connectivity, so native and web paths share the same slice algorithm.
+
+### Interior Slice
+- Added a real interior slice reconstruction to Field View rather than a near-plane cell-centre point filter.
+- Reconstructs point values from adjacent cell-centred values using inverse-distance weighting.
+- Decomposes each polyhedral cell into tetrahedra formed by the reconstructed cell centre and triangulated cell faces.
+- Intersects those tetrahedra with an arbitrary X/Y/Z plane and interpolates the selected scalar/vector-component values at the intersection vertices.
+- Controls added:
+  - Show slice;
+  - plane normal X/Y/Z;
+  - normalized plane position;
+  - slice opacity.
+- Slice updates with the physical-time playback, selected field/component and current colormap/range.
+- When a slice is active the boundary surface is rendered as translucent contextual geometry without depth-writing over the interior cut.
+- The UI explicitly states that the cell-to-point reconstruction/tetrahedralization is not claimed to be bit-identical to ParaView/VTK.
+
+### Validation
+- Synthetic unit-cube regression checks a plane at `x=0.37`:
+  - every slice vertex lies on the requested plane;
+  - a uniform cell value remains uniform on the slice;
+  - reconstructed cross-sectional area is 1.0.
+- Native parser regression verifies full face/owner/neighbour connectivity is exported.
+- Field View regression verifies slice controls and WebGL buffers remain wired.
+- **Run #253: SUCCESS** at code head `ef6506953af2bd9484542ffa99e71ec87bcdb5a4`.
+  - Field View/slice regression: success.
+  - Real QuickCup regression: success (QuickCup repository still does not track a polyMesh fixture, so the actual thesis mesh is not represented by this fixture).
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11063484823`).
+- No GitHub Release was published from this branch.
+
+
+## 2026-09-29 — Field View iso-surface / contour reconstruction
+
+### Iso-surface
+- Added a reconstructed 3D iso-surface / contour layer to Field View for the currently selected scalar or vector component.
+- Uses the same volumetric reconstruction basis as interior slices:
+  - cell-centred values;
+  - inverse-distance cell-to-point reconstruction;
+  - polyhedral cell tetrahedralization.
+- Extracts the constant-value surface with marching tetrahedra.
+- Removes duplicate reconstructed triangles by tolerance-based geometric keys and rejects degenerate triangles.
+- User controls:
+  - Show iso-surface;
+  - explicit iso value (default `0.5`);
+  - opacity;
+  - use-current-midrange helper.
+- For liquid fraction, `alphaL = 0.5` can be viewed directly as a mid-front contour; temperature can use an explicitly selected isotherm.
+- Iso-surfaces update with:
+  - physical-time playback;
+  - selected field/component;
+  - color map;
+  - locked/unlocked display range.
+- When an interior slice or iso-surface is active, the external boundary surface is rendered as translucent context rather than depth-occluding the interior geometry.
+- FoamLens explicitly describes the reconstruction as marching tetrahedra on reconstructed cell-centred data and does not claim bit-identical ParaView/VTK output.
+
+### Regression
+- Dedicated test: `desktop/tests/isosurface.test.cjs`.
+- Analytic tetrahedron regression verifies a linear scalar field produces the expected `phi = 0.5` plane and triangle area.
+- Four-edge tetrahedron intersections are triangulated into finite non-degenerate triangles.
+- Out-of-range iso values produce no geometry.
+- Product wiring regression verifies controls, WebGL iso buffers and physical-time update hooks.
+
+### Validation
+- **GitHub Actions run #260: SUCCESS**.
+- Validated head: `1b0acb91076a55bd7bca9dde2b450c83c5c51619`.
+- Real QuickCup regression: success.
+- Field View + iso-surface regression: success.
+- All previous sidebar/import/dual-series/convergence/momentum/energy/experimental-validation suites: success.
+- Portable EXE smoke: success.
+- Installer build: success.
+- Installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11068679330`).
+- No GitHub Release was published from the hotfix branch.
+
+
+## 2026-09-29 — 3D Field View probe / picking
+
+### Probe interaction
+- Added a dedicated 3D probe mode to Field View.
+- Clicking rendered geometry performs a true 3D ray cast against the triangles currently represented by FoamLens rather than selecting the nearest screen pixel.
+- Supported pick targets:
+  - boundary surface;
+  - interior slice;
+  - iso-surface.
+- Boundary-surface picks resolve the exact owner cell and report that cell-centred field value.
+- Slice picks use barycentric interpolation of the reconstructed slice vertex values.
+- Iso-surface picks report the selected constant iso value.
+- For reconstructed interior geometry, FoamLens also reports the nearest cell explicitly as an approximation; it is labelled as nearest rather than presented as an exact containing-cell lookup.
+- Probe readout reports:
+  - source geometry;
+  - selected field;
+  - value and inferred unit;
+  - physical time;
+  - X/Y/Z;
+  - cell / nearest-cell identity when available.
+- A 3-axis marker is rendered at the picked 3D location.
+- Pointer-drag motion is separated from clicking so orbiting the camera does not accidentally create a probe.
+- Probe state is cleared whenever the displayed physical-time frame/field changes so FoamLens never leaves a stale value from a previous timestep on screen.
+
+### Numerical implementation
+- Canvas coordinates are unprojected through the inverse current model-view-projection matrix.
+- Ray / triangle intersection uses Möller–Trumbore geometry.
+- Slice scalar values are interpolated with barycentric coordinates.
+- When several triangles lie along the ray, the nearest positive intersection is selected.
+
+### Regression
+- Dedicated test: `desktop/tests/field-probe.test.cjs`.
+- Validates:
+  - 4×4 matrix inversion on identity;
+  - a known ray/triangle intersection;
+  - barycentric interpolation;
+  - nearest-hit selection;
+  - iso constant-value picking;
+  - rejection of parallel/outside rays;
+  - UI controls and WebGL marker-buffer wiring;
+  - fixture-name neutrality.
+
+### Validation
+- **GitHub Actions run #264: SUCCESS**.
+- Validated head: `4d481d8a4c33a4783e2b677d4937ced121990472`.
+- Real QuickCup regression: success.
+- 3D Field View, slice, iso-surface and probe regressions: success.
+- All previous scientific/UI regressions: success.
+- Portable EXE smoke: success.
+- Installer build: success.
+- Installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11069760533`).
+- No GitHub Release was published from the hotfix branch.
+
+
+## 2026-09-30 — Field View iso-surfaces / contours
+
+### 3D iso-surface reconstruction
+- Added reconstructed constant-value surfaces to Field View through `v14-isosurface.js`.
+- Uses marching tetrahedra over the same volumetric reconstruction used by Interior Slice:
+  - cell-centred field values;
+  - adjacent-cell inverse-distance point reconstruction;
+  - cell-centre tetrahedralization;
+  - edge interpolation at the requested iso value.
+- Does not approximate an iso-surface by merely selecting nearby cell centres.
+- Controls added:
+  - Show iso-surface;
+  - numeric iso value;
+  - opacity;
+  - Use current midrange.
+- Typical thesis use:
+  - liquid fraction `alphaL = 0.5` to inspect a mid solidification front;
+  - an explicitly selected temperature to inspect an isotherm.
+- Iso-surfaces update during physical-time playback and use the current field, component, colormap and locked/display range.
+- Surface geometry becomes translucent when an interior slice or iso-surface is active so the interior visualization remains visible.
+- Implementation remains explicit that reconstruction is not claimed to be bit-identical to ParaView/VTK.
+
+### Regression
+- Added a marching-tetrahedra linear-field regression:
+  - tetrahedron vertices with scalar values `[0,1,1,1]`;
+  - requested iso `0.5`;
+  - reconstructed triangle lies exactly on `x+y+z=0.5`;
+  - expected triangle area is `sqrt(3)/8`.
+- Run #266 exposed a test-harness error only (`near` helper missing); the geometry implementation itself was not the failing assertion.
+- Fixed the regression helper without changing the iso algorithm.
+- **Run #267: SUCCESS** at head `3efeeb81617b42ba7bf7e8a47f4b9c0f3ead1f6c`.
+  - Real QuickCup regression: success.
+  - Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the development/hotfix branch.
+
+
+## 2026-09-30 — Strict 3D difference field comparison
+
+### Difference view
+- Extended synchronized side-by-side 3D case comparison with an optional third viewport for a signed difference field.
+- Difference definition is explicit: `Δ = Primary − Comparison`.
+- Difference visualization uses a symmetric cool–warm range around zero.
+- The same resolved physical-time synchronization used by side-by-side comparison is preserved.
+- FoamLens refuses to calculate a 3D difference unless meshes are topologically and geometrically equivalent.
+- Compatibility checks include:
+  - point count;
+  - face count;
+  - cell count;
+  - internal/boundary face count;
+  - point coordinates within a geometry-scaled tolerance;
+  - face offsets;
+  - face-point connectivity;
+  - owner labels;
+  - neighbour labels.
+- FoamLens does not subtract unrelated meshes merely because they happen to have the same number of cells.
+- If compatibility fails, the UI reports the mismatch reason rather than displaying a false difference.
+
+### Regression
+- Added `desktop/tests/field-compare.test.cjs`.
+- Regression checks:
+  - identical meshes accepted;
+  - moved geometry rejected;
+  - changed connectivity rejected;
+  - signed difference follows Primary − Comparison;
+  - absolute-difference helper remains numerically correct;
+  - color range remains symmetric around zero;
+  - third viewport and compatibility wiring remain present.
+- Added dedicated CI step: `Test strict 3D difference field comparison`.
+- **Run #270: SUCCESS** at head `efd8ca7669d819f689f0ca96b00950911a94ce61`.
+  - Real QuickCup regression: success.
+  - 3D Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Strict 3D difference regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Volume-weighted polyhedral cell centroids
+
+### Geometry precision
+- Replaced the previous mean-of-face-centres cell location approximation in both the native Desktop polyMesh parser and the JavaScript fallback.
+- Cell centres are now calculated as volume-weighted polyhedral centroids using signed tetrahedral integration.
+- OpenFOAM face orientation is respected:
+  - stored internal-face orientation is outward for the owner cell and reversed for the neighbour cell;
+  - boundary faces retain their stored outward orientation.
+- A local mean-face-centre reference is used only for numerical stability; it does not define the final centroid.
+- Degenerate cells fall back explicitly to the previous mean-face-centre reference rather than returning invalid coordinates.
+- `CellCenterMethod` now reports:
+  - `volume-weighted-polyhedral`; or
+  - `volume-weighted-polyhedral-with-mean-face-fallback:N` when a fallback was required.
+- This improves the geometric basis used by vector glyph placement, streamline interpolation, interior slices, iso-surfaces and 3D picking.
+
+### Regression
+- Added an asymmetric square-pyramid regression whose exact centroid is `(0, 0, 0.75)`.
+- The former mean-face-centres method would place the same cell at `z = 0.8`, so the test distinguishes the new method from the old approximation.
+- Unit-cube mesh parsing and all existing Field View regressions remain green.
+- **Run #273: SUCCESS** at head `ba28cdb7af0669dcfe97bda5ef03683676b1ab78`.
+  - Real QuickCup regression: success.
+  - 3D Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Strict 3D difference regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Native binary OpenFOAM polyMesh support
+
+### Binary mesh parser
+- Extended the Desktop-native `parseOpenFOAMMesh` path from ASCII-only text reads to byte-oriented mesh parsing.
+- ASCII and binary now converge into one common topology/geometry builder so validation, volume-weighted centroids, boundary triangulation and edge extraction cannot diverge by file format.
+- Supported native binary layouts:
+  - contiguous point/vector lists;
+  - contiguous `owner` / `neighbour` label lists;
+  - OpenFOAM `faceCompactList` binary faces represented by offsets + flattened labels.
+- Reads optional OpenFOAM `arch` metadata for:
+  - LSB / MSB endianness;
+  - 32/64-bit labels;
+  - 32/64-bit scalars.
+- A 64-bit label that cannot fit FoamLens' current in-memory integer indexing is rejected explicitly instead of truncating.
+- For binary headers without `arch`, FoamLens uses the common LSB / label32 / scalar64 ABI and reports the format as `binary-lsb-label32-scalar64-assumed` rather than hiding the assumption.
+- Unsupported/unknown binary face layouts are rejected with an explicit reason.
+- Browser/JavaScript fallback intentionally remains ASCII-only; binary support is a Desktop-native capability.
+
+### Native smoke regression
+- Added an in-process binary polyMesh self-test executed on every Desktop smoke run.
+- The fixture is a real byte-level one-cell cube using:
+  - `format binary`;
+  - `arch "LSB;label=32;scalar=64"`;
+  - `vectorField` points;
+  - `faceCompactList` faces;
+  - binary `labelList` owner/neighbour.
+- The production parser must recover 8 points, 6 faces, 1 cell and centroid `(0.5, 0.5, 0.5)`.
+- Because the self-test runs inside `--smoke-test`, it validates both the portable EXE and the installed EXE.
+- **Run #277: SUCCESS** at head `83e1146baba23eb3bdf4a29d0f57e9a9d58c435b`.
+  - Real QuickCup regression: success.
+  - Full Field View suite: success.
+  - Native binary mesh self-test in portable EXE: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Native binary mesh self-test in installed EXE: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Time-varying / dynamic OpenFOAM mesh playback
+
+### Dynamic mesh discovery
+- Extended Field View mesh discovery beyond `constant/[region/]polyMesh` to recognize `<time>/[region/]polyMesh` snapshots.
+- Supports the common moving-mesh case where a timestep writes only `points` while `faces`, `owner` and `neighbour` remain inherited from the previous valid topology.
+- Supports topology-changing snapshots when a later physical time writes replacement topology components.
+- Mesh state resolution is causal in physical time: FoamLens selects the most recent valid mesh state with `t_mesh <= t_field`; it never borrows a future mesh state.
+- If no complete `constant/polyMesh` exists, FoamLens requires a complete same-time dynamic snapshot before inheritance begins. Partial files from unrelated earlier times are not combined to fabricate a mesh basis.
+- Legacy v1.4.0 static mesh inventories remain compatible and are interpreted as static constant meshes.
+
+### Playback and geometry synchronization
+- Field playback now resolves mesh geometry before loading each transient field frame.
+- When the resolved mesh snapshot changes, FoamLens rebuilds:
+  - boundary surface geometry;
+  - mesh edges;
+  - volume-weighted cell centroids;
+  - spatial hash used by vector interpolation;
+  - slice / iso-surface geometry state;
+  - 3D probe state;
+  - streamline/vector geometry on the refreshed mesh.
+- User camera orientation/zoom is preserved across dynamic-mesh playback rather than reset on every geometry change.
+- The time readout/status explicitly reports the active mesh state (`constant` or mesh physical time).
+- Native ASCII/binary polyMesh parsing is reused for dynamic snapshots; browser fallback remains ASCII-only as documented.
+
+### Regression
+- Added `desktop/tests/dynamic-mesh.test.cjs`.
+- Coverage verifies:
+  - constant and time-directory polyMesh discovery;
+  - points-only moving meshes inheriting constant topology;
+  - topology replacement at the correct physical time;
+  - strict rejection of future mesh geometry;
+  - complete-basis requirement when constant mesh is absent;
+  - 3D readiness only when at least one field time has a valid mesh state;
+  - playback wiring preserves camera while geometry changes.
+- Run #284 exposed a backward-compatibility regression in the existing synthetic/static mesh inventory test.
+- Fixed legacy `complete:true` inventories to resolve as static constant meshes.
+
+### Validation
+- **GitHub Actions run #285: SUCCESS** at head `64257bb97da6faef29345ac6da548b5899d1725b`.
+- Real QuickCup regression: success.
+- Existing Field View regression: success.
+- Dynamic mesh regression: success.
+- Iso-surface / 3D probe / strict 3D difference regressions: success.
+- Sidebar/import/dual-series/convergence/momentum/energy/experimental-validation regressions: success.
+- Portable EXE build and smoke: success.
+- Installer build and installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075183630`).
+- No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — v1.4.1 candidate final reconciliation
+
+### Requested UX/features closed
+- Smart Import groups detected cases by version and supports group select/deselect while preserving per-case control.
+- Large case-management block is moved to the end of the sidebar at runtime and is collapsed by default.
+- Sidebar sections are individually collapsible/expandable with persistent state.
+- Time-Series Focus supports an optional second simultaneous variable with independent left/right Y axes.
+- Field View is always discoverable, has an Overview quick action and reports missing 3D prerequisites instead of disappearing.
+
+### Thesis/scientific-analysis gaps closed
+- Formal linear-solver vs PIMPLE/nonlinear convergence audit.
+- Automatic momentum-mechanism audit.
+- Automatic OpenFOAM energy audit with provenance and closure checks.
+- Simulation-vs-experiment validation with RMSE/MAE/bias and independent phase evidence.
+- Dual temperature/liquid-fraction plotting for coupled solidification inspection.
+- 3D slices, iso-surfaces, probe picking, synchronized case comparison and strict signed difference fields.
+- Volume-weighted polyhedral cell centroids.
+- Native ASCII/binary polyMesh support.
+- Time-varying/dynamic mesh playback synchronized causally in physical time.
+
+### Remaining explicit non-blocking boundaries
+- 3D Field View renders cell-, internal-face-, and point-associated scalar/vector fields with explicit association semantics. `surface*Field` boundary-patch values remain unrendered until explicit `polyMesh/boundary` patch topology and per-patch values are preserved; FoamLens does not fabricate them.
+- Browser fallback remains ASCII-only for polyMesh; native Desktop supports binary.
+- FoamLens streamline and reconstructed slice/iso algorithms are documented approximations and are not claimed bit-identical to ParaView/VTK.
+- The QuickCup repository does not version its actual polyMesh, so real thesis-mesh rendering cannot be CI-regressed from that repository; real QuickCup fields/postProcessing are still regression-tested.
+
+### Documentation reconciliation
+- Updated Field View specification from the obsolete first-v1.4 slice to the actual v1.4.1 candidate capability set.
+- Desktop README now distinguishes the public v1.4.0 release from the v1.4.1 candidate.
+- Root README corrected from stale Desktop v1.3.2 to public v1.4.0 and documents the validated v1.4.1 candidate features.
+
+### Final candidate validation
+- **GitHub Actions run #288: SUCCESS** at tested code head `7e478c3df54d1f97bbf41846374d6c94adccffcb`.
+- Real QuickCup regression: success.
+- All scientific/UI regressions: success.
+- Dynamic mesh regression: success.
+- Field View / slice / iso / probe / strict 3D difference regressions: success.
+- Version/release-label consistency regression: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075137890`).
+- Root README was updated afterward as documentation only; no product code changed after the tested head.
+- v1.4.1 has **not** been published as a GitHub Release yet.
+
+
+## 2026-09-30 — Field View point / internal-face field associations
+
+### Association-aware 3D rendering
+- Extended Field View beyond cell-centred `vol*Field` data without converting other associations into fake cell values.
+- The field selector now exposes the association explicitly:
+  - **Cell** for `vol*Field`;
+  - **Face (internalField)** for `surface*Field`;
+  - **Point** for `point*Field`.
+- `point*Field` values are rendered directly on the actual mesh vertices used by each boundary triangle.
+- `surface*Field internalField` values are rendered on the actual internal mesh faces. Internal polygonal faces are triangulated for WebGL while retaining the exact source face identity.
+- At run #297, the external boundary still remained neutral/translucent because explicit `boundaryField` patch values were not yet mapped. This limitation was subsequently closed and validated in run #310 (see the later surfaceField boundary-patch section); FoamLens never substituted owner-cell values or fabricated boundary-face data.
+- Association-specific size checks are enforced against:
+  - cell count for volume fields;
+  - internal-face count for surface fields;
+  - point count for point fields.
+- A mismatch produces an explicit field/mesh association-count error.
+
+### Interior analysis and vectors
+- Interior Slice and Iso-surface remain explicitly cell-centred-volume operations.
+- Selecting a Face or Point field disables/clears those controls rather than silently coercing the data to cells.
+- Iso-surface code contains its own independent volume-association guard so programmatic calls cannot bypass the UI restriction.
+- Vector glyphs and streamlines remain based on a `volVectorField`; Face/Point vector fields are available for direct coloring/components but are not silently used as cell-centred streamline input.
+
+### Association-aware 3D Probe
+- Volume-field boundary picks retain exact owner-cell semantics.
+- Point-field boundary picks interpolate the actual point values barycentrically on the hit triangle.
+- Surface-field picks ray-cast against the rendered internal-face triangles and return the exact internal face id/value.
+- Probe readout reports the field association and the appropriate element identity instead of always presenting every hit as a cell.
+
+### Regression and validation
+- Extended the existing Field View and 3D Probe regression suites rather than creating redundant parallel test harnesses.
+- Added checks for:
+  - direct point-vertex coloring;
+  - internal-face triangulation and preserved face identity;
+  - Cell / Face / Point selector wiring;
+  - association-specific element counts;
+  - exact internal-face probe ids;
+  - explicit prevention of Face/Point → Cell coercion.
+- Run #294 exposed only an overly strict test tolerance on `Float32Array` values (`0.10000000149` vs `0.1`); production rendering was not the failing logic.
+- Run #296 exposed only a stale test token from an intermediate helper signature; the final architecture intentionally preserves `fvFieldGroups(..., storage='volume')` as the default contract and requests `'any'` only where the main Field View selector needs all associations.
+- **GitHub Actions run #297: SUCCESS** at head `3eb42874d6d3e45c8101024c038e69db0f0bf617`.
+  - Real QuickCup regression: success.
+  - Field View association regression: success.
+  - Dynamic mesh regression: success.
+  - Iso-surface regression: success.
+  - Association-aware 3D Probe regression: success.
+  - Strict 3D difference regression: success.
+  - All existing scientific/UI suites: success.
+  - Portable EXE build + smoke: success.
+  - Installer build + installed-app smoke: success.
+  - Windows artifact upload: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077332065`, 135,204,904 bytes).
+- No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Explicit surfaceField boundary-patch rendering
+
+### Boundary topology and values
+- Added native and fallback parsing of `polyMesh/boundary` patch topology.
+- Mesh results now preserve patch name/type plus exact `startFace` / `nFaces` ranges and boundary-triangle face identities.
+- Native ASCII OpenFOAM field parsing now preserves explicit `boundaryField` patch values after parsing `internalField`.
+- Supported explicit patch payloads:
+  - uniform scalar/vector values;
+  - nonuniform scalar/vector lists with strict count validation.
+- Patches without an explicit numeric `value` remain unavailable; FoamLens does not substitute owner-cell values or invent patch data.
+
+### Field View
+- `surface*Field` now renders:
+  - real `internalField` values on internal faces; and
+  - explicit patch values on the exact boundary faces defined by `polyMesh/boundary`.
+- Missing/symbolic patch values remain neutral context.
+- Display range includes explicit boundary values when present.
+- Field association readout reports boundary coverage as explicit faces / total boundary faces.
+- 3D Probe can resolve an explicitly rendered boundary face and preserve its global face identity / patch association.
+- Native Desktop payloads are preferred; ASCII text parsing remains available as fallback.
+
+### Validation
+- Dedicated regression: `desktop/tests/surface-boundary.test.cjs`.
+- Tests cover exact patch ranges, uniform/nonuniform scalar/vector values, magnitude/components, strict list-count rejection, symbolic/missing values, native payload preservation, fallback parsing and probe/render wiring.
+- **GitHub Actions run #310: SUCCESS** at head `ecb5f124ad42071752b1e0bf767193cb89297248`.
+- Real QuickCup regression: success.
+- All Field View / dynamic mesh / slice / iso / probe / difference / association regressions: success.
+- All scientific/UI regressions: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077418978`, 135,226,247 bytes).
+- No GitHub Release was published from the candidate branch.
+
+
+## 2026-09-30 — pointField interior Slice / Iso reconstruction
+
+### Association semantics
+- Interior Slice and Iso-surface now support both:
+  - cell-centred `vol*Field` data; and
+  - point-associated `point*Field` data.
+- Point-associated reconstruction preserves the actual OpenFOAM point values at mesh vertices.
+- Each cell receives only an auxiliary centre value needed for the existing cell-centre tetrahedralization:
+  - primary method: 3D affine least-squares reconstruction from the cell's real point values;
+  - fallback: inverse-distance weighting only when the local point geometry is rank-deficient / cannot support the affine solve.
+- Face-associated `surface*Field` data remains excluded from Interior Slice / Iso; FoamLens does not silently reconstruct face data into a volumetric field.
+
+### Analytic regression
+- Added `desktop/tests/point-interior.test.cjs`.
+- Synthetic tetrahedron with exact linear point field `phi = x` verifies:
+  - reconstructed cell-centre value = 0.25;
+  - Slice at `x = 0.5` lies exactly on that plane and interpolates `phi = 0.5`;
+  - Slice cross-sectional area = 0.125;
+  - Iso-surface `phi = 0.5` reconstructs the same cross-section with area = 0.125.
+- Updated the older Field View association contract so Point is explicitly supported for interior reconstruction while Face remains distinct.
+
+### Validation
+- **GitHub Actions run #315: SUCCESS** at head `8326ccf3c45d4c0762e6ff9eaaec5b62e7ce9302`.
+- Point-interior regression: success.
+- Field View / dynamic mesh / slice / iso / probe / explicit boundary / strict 3D difference regressions: success.
+- Real QuickCup regression: success.
+- All scientific/UI regressions: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077801222`, 135,228,265 bytes).
+- No GitHub Release was published from the candidate branch.
+
+
+## 2026-09-30 — Decomposed surfaceField rendering
+
+- Extended decomposed Field View to surface*Field internal faces and explicit physical boundary patches.
+- Internal values are aligned by explicit processor internal-face ranges; missing/extra partitions and count mismatches remain rejected.
+- Processor-local physical boundary faces are translated to exact global composite face ids.
+- Artificial processor interface patches remain topology-only and are excluded from physical rendering/coverage.
+- Run #330 reached the new product checks but failed on a test-only source-file assertion.
+- The assertion was corrected without changing product logic.
+- **Run #331: SUCCESS** at head `0c86da6b5a7ef0ff125c0d14bcd13aabf720fb09`.
+- Real QuickCup regression, decomposed Field View, surface-boundary, dynamic mesh, Slice, Iso, 3D Probe, strict 3D difference, all scientific/UI suites, portable smoke, installer and installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (id `11079714552`, 135239220 bytes).
+- No GitHub Release was published from this branch.
+
+
+## 2026-09-30 — v1.4.1 candidate freeze after decomposed Field View completion
+
+### Requested workflow/UX closure
+- Smart Import groups detected cases by version and supports group select/deselect while preserving individual case selection.
+- The large case-management card is moved to the end of the sidebar at runtime and defaults collapsed.
+- Sidebar cards are individually collapsible/expandable with persistent state.
+- Time-Series Focus supports two simultaneous variables with independent left/right Y axes.
+- Field View remains discoverable even when 3D prerequisites are missing and is directly accessible from Overview.
+
+### Thesis/post-processing closure
+- Formal linear-solver vs PIMPLE/nonlinear convergence audit.
+- Automatic momentum-mechanism audit.
+- Automatic OpenFOAM energy audit with source provenance and closure checks.
+- Simulation-vs-experiment validation with RMSE/MAE/bias and separate phase evidence.
+- Association-aware Cell / Face / Point Field View.
+- Interior Slice and Iso reconstruction for volume and point fields.
+- Vector glyphs, streamlines, 3D probe/picking, synchronized comparison and strict signed difference fields.
+- ASCII + native binary polyMesh.
+- Dynamic/time-varying mesh playback.
+- Processor-decomposed volume, point and surface fields with explicit matching processor mesh states.
+- Physical surfaceField boundary patches are mapped to composite global faces; artificial processor-interface patches are excluded from physical rendering and coverage.
+
+### Final product-code validation
+- Latest product-code validation: **GitHub Actions run #331 — SUCCESS**.
+- Tested product-code head: `0c86da6b5a7ef0ff125c0d14bcd13aabf720fb09`.
+- Run #331 artifact: `FoamLens-Windows-v1.4.1`.
+- Artifact id: `11079714552`.
+- Artifact size: 135,239,220 bytes.
+- Real QuickCup regression: success.
+- Decomposed Field View + surface-boundary regression: success.
+- Dynamic mesh / Slice / Iso / 3D Probe / strict 3D difference regressions: success.
+- All scientific/UI regressions: success.
+- Portable EXE smoke: success.
+- Installer build + installed-app smoke: success.
+
+### Candidate state
+- Commits after the tested product-code head through the current documentation reconciliation are documentation-only.
+- No v1.4.1 GitHub Release has been published from this candidate branch.
+- Remaining boundaries are explicit/non-blocking rather than missing requested features:
+  - browser fallback polyMesh remains ASCII-only while Desktop native supports binary;
+  - streamlines and reconstructed Slice/Iso algorithms are documented FoamLens approximations and are not claimed bit-identical to ParaView/VTK;
+  - face-associated surfaceField data is not silently converted into a volumetric field for Slice/Iso;
+  - the QuickCup repository still does not version its actual thesis polyMesh, so the exact thesis mesh cannot be CI-regressed from that repository.

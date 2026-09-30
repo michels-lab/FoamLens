@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -36,7 +37,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.4.0", "app");
+        "FoamLens", "Desktop", "1.4.1", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -129,6 +130,8 @@ internal sealed class FoamLensForm : Form
 
     private async Task RunSmokeTestAsync()
     {
+        RunBinaryMeshParserSelfTest();
+
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -165,6 +168,29 @@ internal sealed class FoamLensForm : Form
                 "typeof window.chrome?.webview?.postMessage === 'function'");
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
+
+            // Extension integration smoke: v14 Field View must actually mount
+            // into the rendered Data View. Syntax-only validation cannot catch
+            // an extension injected into the wrong lexical IIFE.
+            var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,hiddenClass:!!tab?.classList.contains('hidden'),inlineDisplay:tab?.style?.display||'',text:tab?.innerText||''}})()");
+            using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
+            {
+                var root = fieldViewUi.RootElement;
+                var mounted =
+                    root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
+                    root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
+                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
+                var enabled =
+                    root.TryGetProperty("disabled", out var disabledNode) && !disabledNode.GetBoolean();
+                var locallyVisible =
+                    root.TryGetProperty("hiddenClass", out var hiddenNode) && !hiddenNode.GetBoolean() &&
+                    root.TryGetProperty("inlineDisplay", out var inlineDisplayNode) &&
+                    !string.Equals(inlineDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
+                if (!mounted || !enabled || !locallyVisible)
+                    throw new InvalidOperationException(
+                        $"FoamLens Field View extension did not mount enabled/discoverable: {fieldViewUiJson}");
+            }
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
@@ -256,14 +282,27 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
-        var insertionPoint = html.LastIndexOf(iifeClose, StringComparison.Ordinal);
-        if (insertionPoint < 0)
-            throw new InvalidOperationException("FoamLens frontend IIFE closing marker was not found.");
+        var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
+        if (mainMarker < 0)
+            throw new InvalidOperationException("FoamLens main frontend IIFE marker was not found.");
 
-        // Development modules are injected inside the existing frontend IIFE.
-        // They reuse the current series/case model without exposing scientific
-        // state globally or duplicating it in the native host.
+        // Scope the search to the script element that owns FOAMLENS_NATIVE.
+        // That script contains an inner helper IIFE as well as the main FoamLens
+        // IIFE, while later script elements contain independent UI such as About.
+        // The correct injection point is therefore the LAST IIFE close before
+        // this script element ends.
+        var scriptClose = html.IndexOf("</script>", mainMarker, StringComparison.OrdinalIgnoreCase);
+        if (scriptClose < 0)
+            throw new InvalidOperationException("FoamLens main frontend script closing tag was not found.");
+
+        var insertionPoint = html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal);
+        if (insertionPoint < mainMarker)
+            throw new InvalidOperationException("FoamLens main frontend IIFE closing marker was not found in its script.");
+
+        // Versioned modules are injected inside the main frontend IIFE so they
+        // share the live case/series model without exporting private state.
         var extension = string.Join(Environment.NewLine,
             extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
         html = html.Insert(insertionPoint, Environment.NewLine + extension + Environment.NewLine);
@@ -610,15 +649,114 @@ internal sealed class FoamLensForm : Form
 
     private const string FoamMeshNumberPattern = @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?";
 
+    private static void RunBinaryMeshParserSelfTest()
+    {
+        static byte[] Header(string className, string objectName)
+        {
+            var text =
+                "FoamFile\n{\n" +
+                "    version 2.0;\n" +
+                "    format binary;\n" +
+                "    class " + className + ";\n" +
+                "    arch \"LSB;label=32;scalar=64\";\n" +
+                "    object " + objectName + ";\n" +
+                "}\n";
+            return Encoding.ASCII.GetBytes(text);
+        }
+
+        static void WriteLabelList(MemoryStream ms, IReadOnlyList<int> values)
+        {
+            var prefix = Encoding.ASCII.GetBytes("\n" + values.Count.ToString(CultureInfo.InvariantCulture) + "\n");
+            ms.Write(prefix);
+            Span<byte> raw = stackalloc byte[4];
+            foreach (var value in values)
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(raw, value);
+                ms.Write(raw);
+            }
+        }
+
+        static byte[] LabelsFile(string className, string objectName, IReadOnlyList<int> values)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header(className, objectName));
+            WriteLabelList(ms, values);
+            return ms.ToArray();
+        }
+
+        static byte[] PointsFile(IReadOnlyList<double> values)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header("vectorField", "points"));
+            var prefix = Encoding.ASCII.GetBytes("\n" + (values.Count / 3).ToString(CultureInfo.InvariantCulture) + "\n");
+            ms.Write(prefix);
+            Span<byte> raw = stackalloc byte[8];
+            foreach (var value in values)
+            {
+                BinaryPrimitives.WriteInt64LittleEndian(raw, BitConverter.DoubleToInt64Bits(value));
+                ms.Write(raw);
+            }
+            return ms.ToArray();
+        }
+
+        static byte[] FacesFile(IReadOnlyList<int> offsets, IReadOnlyList<int> elements)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header("faceCompactList", "faces"));
+            WriteLabelList(ms, offsets);
+            WriteLabelList(ms, elements);
+            return ms.ToArray();
+        }
+
+        var points = PointsFile(new double[]
+        {
+            0,0,0, 1,0,0, 1,1,0, 0,1,0,
+            0,0,1, 1,0,1, 1,1,1, 0,1,1
+        });
+        var faceOffsets = new[] { 0,4,8,12,16,20,24 };
+        var facePoints = new[]
+        {
+            0,3,2,1, 4,5,6,7, 0,1,5,4,
+            1,2,6,5, 2,3,7,6, 3,0,4,7
+        };
+        var faces = FacesFile(faceOffsets, facePoints);
+        var owner = LabelsFile("labelList", "owner", new[] { 0,0,0,0,0,0 });
+        var neighbour = LabelsFile("labelList", "neighbour", Array.Empty<int>());
+        var totalBytes = (long)points.Length + faces.Length + owner.Length + neighbour.Length;
+
+        var result = ParseOpenFoamMeshBytes(
+            points, faces, owner, neighbour, null, totalBytes, CancellationToken.None);
+        if (!result.Supported)
+            throw new InvalidOperationException("Binary polyMesh self-test failed: " + result.Reason);
+        if (result.PointCount != 8 || result.FaceCount != 6 || result.CellCount != 1)
+            throw new InvalidOperationException(
+                $"Binary polyMesh self-test topology mismatch: points={result.PointCount}, faces={result.FaceCount}, cells={result.CellCount}");
+        if (result.CellCenters.Length != 3 ||
+            Math.Abs(result.CellCenters[0] - 0.5) > 1e-12 ||
+            Math.Abs(result.CellCenters[1] - 0.5) > 1e-12 ||
+            Math.Abs(result.CellCenters[2] - 0.5) > 1e-12)
+            throw new InvalidOperationException(
+                "Binary polyMesh self-test centroid mismatch: " +
+                string.Join(",", result.CellCenters.Select(v => v.ToString("G17", CultureInfo.InvariantCulture))));
+        if (!result.Format.StartsWith("binary", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Binary polyMesh self-test did not report binary format.");
+    }
+
     private async Task HandleOpenFoamMeshAsync(JsonElement root, string requestId)
     {
-        var paths = new[]
-        {
-            ResolveToken(RequiredString(root, "pointsToken")),
-            ResolveToken(RequiredString(root, "facesToken")),
-            ResolveToken(RequiredString(root, "ownerToken")),
-            ResolveToken(RequiredString(root, "neighbourToken"))
-        };
+        var pointsPath = ResolveToken(RequiredString(root, "pointsToken"));
+        var facesPath = ResolveToken(RequiredString(root, "facesToken"));
+        var ownerPath = ResolveToken(RequiredString(root, "ownerToken"));
+        var neighbourPath = ResolveToken(RequiredString(root, "neighbourToken"));
+        string? boundaryPath = null;
+        if (root.TryGetProperty("boundaryToken", out var boundaryNode) &&
+            boundaryNode.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(boundaryNode.GetString()))
+            boundaryPath = ResolveToken(boundaryNode.GetString()!);
+
+        var paths = new List<string> { pointsPath, facesPath, ownerPath, neighbourPath };
+        if (boundaryPath is not null) paths.Add(boundaryPath);
+
         var operation = BeginOperation(requestId);
         var totalBytes = paths.Sum(path => new FileInfo(path).Length);
         long completedBytes = 0;
@@ -626,17 +764,18 @@ internal sealed class FoamLensForm : Form
 
         try
         {
-            var texts = new string[paths.Length];
-            for (var i = 0; i < paths.Length; i++)
+            var data = new byte[paths.Count][];
+            for (var i = 0; i < paths.Count; i++)
             {
                 operation.Token.ThrowIfCancellationRequested();
-                texts[i] = await File.ReadAllTextAsync(paths[i], Encoding.UTF8, operation.Token);
-                completedBytes += new FileInfo(paths[i]).Length;
+                data[i] = await File.ReadAllBytesAsync(paths[i], operation.Token);
+                completedBytes += data[i].LongLength;
                 Post(new { type = "operationProgress", requestId, operation = "openFoamMesh", completedBytes, totalBytes });
             }
 
+            var boundaryData = boundaryPath is null ? null : data[^1];
             var result = await Task.Run(
-                () => ParseOpenFoamMeshTexts(texts[0], texts[1], texts[2], texts[3], totalBytes, operation.Token),
+                () => ParseOpenFoamMeshBytes(data[0], data[1], data[2], data[3], boundaryData, totalBytes, operation.Token),
                 operation.Token);
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamMesh", completedBytes = totalBytes, totalBytes });
@@ -652,8 +791,50 @@ internal sealed class FoamLensForm : Form
         }
     }
 
+    private sealed record FoamMeshFileHeader(
+        string Format, string ClassName, bool LittleEndian, int LabelBytes, int ScalarBytes,
+        bool ArchitectureAssumed, int HeaderEnd);
+
+    private static OpenFoamMeshParseResult ParseOpenFoamMeshBytes(
+        byte[] pointsData, byte[] facesData, byte[] ownerData, byte[] neighbourData, byte[]? boundaryData,
+        long sourceBytes, CancellationToken ct)
+    {
+        var pointHeader = ParseFoamMeshFileHeader(pointsData, out var pointHeaderReason);
+        if (pointHeader is null) return OpenFoamMeshParseResult.Unsupported(pointHeaderReason, "", sourceBytes);
+        var faceHeader = ParseFoamMeshFileHeader(facesData, out var faceHeaderReason);
+        if (faceHeader is null) return OpenFoamMeshParseResult.Unsupported(faceHeaderReason, "", sourceBytes);
+        var ownerHeader = ParseFoamMeshFileHeader(ownerData, out var ownerHeaderReason);
+        if (ownerHeader is null) return OpenFoamMeshParseResult.Unsupported(ownerHeaderReason, "", sourceBytes);
+        var neighbourHeader = ParseFoamMeshFileHeader(neighbourData, out var neighbourHeaderReason);
+        if (neighbourHeader is null) return OpenFoamMeshParseResult.Unsupported(neighbourHeaderReason, "", sourceBytes);
+
+        var allAscii = new[] { pointHeader, faceHeader, ownerHeader, neighbourHeader }
+            .All(h => string.Equals(h.Format, "ascii", StringComparison.OrdinalIgnoreCase));
+        if (allAscii)
+        {
+            return ParseOpenFoamMeshTexts(
+                Encoding.UTF8.GetString(pointsData), Encoding.UTF8.GetString(facesData),
+                Encoding.UTF8.GetString(ownerData), Encoding.UTF8.GetString(neighbourData),
+                boundaryData, sourceBytes, ct);
+        }
+
+        var pointList = ParseFoamMeshPointsBytes(pointsData, pointHeader, ct, out var pointReason);
+        if (pointList is null) return OpenFoamMeshParseResult.Unsupported(pointReason, pointHeader.Format, sourceBytes);
+        var faces = ParseFoamMeshFacesBytes(facesData, faceHeader, ct, out var faceReason);
+        if (faces is null) return OpenFoamMeshParseResult.Unsupported(faceReason, faceHeader.Format, sourceBytes);
+        var owners = ParseFoamMeshLabelsBytes(ownerData, ownerHeader, ct, out var ownerReason);
+        if (owners is null) return OpenFoamMeshParseResult.Unsupported(ownerReason, ownerHeader.Format, sourceBytes);
+        var neighbours = ParseFoamMeshLabelsBytes(neighbourData, neighbourHeader, ct, out var neighbourReason);
+        if (neighbours is null) return OpenFoamMeshParseResult.Unsupported(neighbourReason, neighbourHeader.Format, sourceBytes);
+
+        var assumed = new[] { pointHeader, faceHeader, ownerHeader, neighbourHeader }.Any(h => h.ArchitectureAssumed);
+        var format = assumed ? "binary-lsb-label32-scalar64-assumed" : "binary";
+        var (boundaryPatches, boundaryStatus) = OpenFoamBoundarySupport.ParseMeshBoundary(boundaryData);
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, format, sourceBytes, ct, boundaryPatches, boundaryStatus);
+    }
+
     private static OpenFoamMeshParseResult ParseOpenFoamMeshTexts(
-        string pointsText, string facesText, string ownerText, string neighbourText,
+        string pointsText, string facesText, string ownerText, string neighbourText, byte[]? boundaryData,
         long sourceBytes, CancellationToken ct)
     {
         var pointList = ParseFoamMeshPoints(pointsText, ct, out var pointFormat, out var pointReason);
@@ -672,20 +853,26 @@ internal sealed class FoamLensForm : Form
         if (neighbours is null)
             return OpenFoamMeshParseResult.Unsupported(neighbourReason, neighbourFormat, sourceBytes);
 
-        var formats = new[] { pointFormat, faceFormat, ownerFormat, neighbourFormat };
-        if (formats.Any(format => !string.Equals(format, "ascii", StringComparison.OrdinalIgnoreCase)))
-            return OpenFoamMeshParseResult.Unsupported("binary-format", string.Join(",", formats.Distinct()), sourceBytes);
+        var (boundaryPatches, boundaryStatus) = OpenFoamBoundarySupport.ParseMeshBoundary(boundaryData);
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, "ascii", sourceBytes, ct, boundaryPatches, boundaryStatus);
+    }
+
+    private static OpenFoamMeshParseResult BuildOpenFoamMeshResult(
+        double[] pointList, int[][] faces, int[] owners, int[] neighbours,
+        string meshFormat, long sourceBytes, CancellationToken ct,
+        FoamBoundaryPatchInfo[]? boundaryPatches = null, string boundaryPatchStatus = "not-provided")
+    {
         if (faces.Length != owners.Length)
-            return OpenFoamMeshParseResult.Unsupported("owner-face-count-mismatch", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("owner-face-count-mismatch", meshFormat, sourceBytes);
         if (neighbours.Length > faces.Length)
-            return OpenFoamMeshParseResult.Unsupported("neighbour-face-count-mismatch", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("neighbour-face-count-mismatch", meshFormat, sourceBytes);
 
         var maxCell = -1;
         foreach (var v in owners) maxCell = Math.Max(maxCell, v);
         foreach (var v in neighbours) maxCell = Math.Max(maxCell, v);
         var cellCount = maxCell + 1;
         if (cellCount <= 0)
-            return OpenFoamMeshParseResult.Unsupported("no-cells", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("no-cells", meshFormat, sourceBytes);
 
         var pointCount = pointList.Length / 3;
         var boundsMin = new[] { double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity };
@@ -701,43 +888,24 @@ internal sealed class FoamLensForm : Form
             }
         }
 
-        var sumX = new double[cellCount];
-        var sumY = new double[cellCount];
-        var sumZ = new double[cellCount];
-        var faceContrib = new int[cellCount];
         for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
         {
-            if ((faceIndex & 1023) == 0) ct.ThrowIfCancellationRequested();
-            var face = faces[faceIndex];
-            if (face.Length == 0) continue;
-            double cx = 0, cy = 0, cz = 0;
-            foreach (var pointIndex in face)
+            foreach (var pointIndex in faces[faceIndex])
             {
                 if (pointIndex < 0 || pointIndex >= pointCount)
-                    return OpenFoamMeshParseResult.Unsupported("face-point-index-out-of-range", "ascii", sourceBytes);
-                cx += pointList[3 * pointIndex];
-                cy += pointList[3 * pointIndex + 1];
-                cz += pointList[3 * pointIndex + 2];
+                    return OpenFoamMeshParseResult.Unsupported("face-point-index-out-of-range", meshFormat, sourceBytes);
             }
-            cx /= face.Length; cy /= face.Length; cz /= face.Length;
-            AddFaceCentre(owners[faceIndex], cx, cy, cz, sumX, sumY, sumZ, faceContrib);
-            if (faceIndex < neighbours.Length)
-                AddFaceCentre(neighbours[faceIndex], cx, cy, cz, sumX, sumY, sumZ, faceContrib);
         }
 
-        var cellCenters = new double[cellCount * 3];
-        for (var cell = 0; cell < cellCount; cell++)
-        {
-            if ((cell & 2047) == 0) ct.ThrowIfCancellationRequested();
-            var n = faceContrib[cell];
-            if (n <= 0) continue;
-            cellCenters[3 * cell] = sumX[cell] / n;
-            cellCenters[3 * cell + 1] = sumY[cell] / n;
-            cellCenters[3 * cell + 2] = sumZ[cell] / n;
-        }
+        var cellCenters = ComputePolyhedralCellCenters(
+            pointList, faces, owners, neighbours, cellCount, ct, out var centroidFallbackCount);
+        var cellCenterMethod = centroidFallbackCount == 0
+            ? "volume-weighted-polyhedral"
+            : $"volume-weighted-polyhedral-with-mean-face-fallback:{centroidFallbackCount}";
 
         var triangles = new List<int>();
         var triangleOwners = new List<int>();
+        var triangleFaces = new List<int>();
         var edgeSet = new HashSet<ulong>();
         var edges = new List<int>();
         var internalFaceCount = neighbours.Length;
@@ -766,22 +934,473 @@ internal sealed class FoamLensForm : Form
                 triangles.Add(face[j]);
                 triangles.Add(face[j + 1]);
                 triangleOwners.Add(owners[faceIndex]);
+                triangleFaces.Add(faceIndex);
+            }
+        }
+
+        var faceOffsets = new int[faces.Length + 1];
+        var flattenedFacePoints = new List<int>(faces.Sum(face => face.Length));
+        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        {
+            faceOffsets[faceIndex] = flattenedFacePoints.Count;
+            flattenedFacePoints.AddRange(faces[faceIndex]);
+        }
+        faceOffsets[faces.Length] = flattenedFacePoints.Count;
+
+        var patchList = boundaryPatches ?? Array.Empty<FoamBoundaryPatchInfo>();
+        if (patchList.Length > 0)
+        {
+            var used = new bool[Math.Max(0, faces.Length - internalFaceCount)];
+            foreach (var patch in patchList)
+            {
+                if (patch.StartFace < internalFaceCount || patch.NFaces < 0 || patch.StartFace + patch.NFaces > faces.Length)
+                {
+                    patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                    boundaryPatchStatus = "boundary-patch-face-range-invalid";
+                    break;
+                }
+                for (var face = patch.StartFace; face < patch.StartFace + patch.NFaces; face++)
+                {
+                    var local = face - internalFaceCount;
+                    if (local < 0 || local >= used.Length || used[local])
+                    {
+                        patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                        boundaryPatchStatus = "boundary-patch-overlap-invalid";
+                        break;
+                    }
+                    used[local] = true;
+                }
+                if (patchList.Length == 0) break;
+            }
+            if (patchList.Length > 0 && used.Any(v => !v))
+            {
+                patchList = Array.Empty<FoamBoundaryPatchInfo>();
+                boundaryPatchStatus = "boundary-patch-coverage-incomplete";
             }
         }
 
         return new OpenFoamMeshParseResult(
-            true, "", "ascii",
+            true, "", meshFormat,
             pointList, triangles.ToArray(), triangleOwners.ToArray(), edges.ToArray(), cellCenters,
+            faceOffsets, flattenedFacePoints.ToArray(), owners, neighbours,
             pointCount, faces.Length, internalFaceCount, faces.Length - internalFaceCount, cellCount,
-            boundsMin, boundsMax, "mean-face-centres", sourceBytes);
+            boundsMin, boundsMax, cellCenterMethod, sourceBytes)
+        {
+            SurfaceTriangleFaces = triangleFaces.ToArray(),
+            BoundaryPatches = patchList,
+            BoundaryPatchStatus = boundaryPatchStatus
+        };
     }
 
-    private static void AddFaceCentre(
-        int cell, double x, double y, double z,
-        double[] sumX, double[] sumY, double[] sumZ, int[] counts)
+    private static FoamMeshFileHeader? ParseFoamMeshFileHeader(byte[] data, out string reason)
     {
-        if (cell < 0 || cell >= counts.Length) return;
-        sumX[cell] += x; sumY[cell] += y; sumZ[cell] += z; counts[cell]++;
+        reason = "";
+        if (data.Length == 0) { reason = "empty-mesh-file"; return null; }
+        var prefixLength = Math.Min(data.Length, 256 * 1024);
+        var text = Encoding.Latin1.GetString(data, 0, prefixLength);
+        var foamIndex = text.IndexOf("FoamFile", StringComparison.OrdinalIgnoreCase);
+        if (foamIndex < 0) { reason = "foam-header-not-found"; return null; }
+        var open = text.IndexOf('{', foamIndex);
+        if (open < 0) { reason = "foam-header-open-not-found"; return null; }
+        var close = FindMatchingDelimiter(text, open, '{', '}');
+        if (close < 0) { reason = "foam-header-close-not-found"; return null; }
+        var header = text.Substring(foamIndex, close - foamIndex + 1);
+
+        static string HeaderEntry(string source, string key)
+        {
+            var m = Regex.Match(source, @"\b" + Regex.Escape(key) + @"\s+([^;\s]+)\s*;",
+                RegexOptions.IgnoreCase);
+            return m.Success ? m.Groups[1].Value.Trim().Trim('"') : "";
+        }
+
+        var format = HeaderEntry(header, "format");
+        if (string.IsNullOrWhiteSpace(format)) format = "ascii";
+        var className = HeaderEntry(header, "class");
+
+        var littleEndian = true;
+        var labelBytes = 4;
+        var scalarBytes = 8;
+        var assumed = false;
+        if (string.Equals(format, "binary", StringComparison.OrdinalIgnoreCase))
+        {
+            var quotedArch = Regex.Match(header, @"\barch\s+""([^""]+)""\s*;", RegexOptions.IgnoreCase);
+            var plainArch = quotedArch.Success
+                ? quotedArch.Groups[1].Value
+                : HeaderEntry(header, "arch");
+
+            if (string.IsNullOrWhiteSpace(plainArch))
+            {
+                // OpenFOAM Foundation files historically omit arch from many
+                // headers. The overwhelmingly common ABI is LSB,label=32,
+                // scalar=64; expose the assumption in the returned format.
+                assumed = true;
+            }
+            else
+            {
+                var parts = plainArch.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length > 0)
+                {
+                    if (parts[0].Equals("LSB", StringComparison.OrdinalIgnoreCase)) littleEndian = true;
+                    else if (parts[0].Equals("MSB", StringComparison.OrdinalIgnoreCase)) littleEndian = false;
+                    else { reason = "binary-arch-endianness-unsupported"; return null; }
+                }
+                foreach (var part in parts.Skip(1))
+                {
+                    var kv = part.Split('=', 2, StringSplitOptions.TrimEntries);
+                    if (kv.Length != 2 || !int.TryParse(kv[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bits))
+                        continue;
+                    if (kv[0].Equals("label", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (bits is not (32 or 64)) { reason = "binary-label-size-unsupported"; return null; }
+                        labelBytes = bits / 8;
+                    }
+                    else if (kv[0].Equals("scalar", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (bits is not (32 or 64)) { reason = "binary-scalar-size-unsupported"; return null; }
+                        scalarBytes = bits / 8;
+                    }
+                }
+            }
+        }
+
+        return new FoamMeshFileHeader(
+            format.ToLowerInvariant(), className, littleEndian, labelBytes, scalarBytes, assumed, close + 1);
+    }
+
+    private static void SkipFoamBinaryTrivia(byte[] data, ref int pos)
+    {
+        while (pos < data.Length)
+        {
+            var b = data[pos];
+            if (b is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n') { pos++; continue; }
+            if (b == (byte)'/' && pos + 1 < data.Length && data[pos + 1] == (byte)'/')
+            {
+                pos += 2;
+                while (pos < data.Length && data[pos] != (byte)'\n') pos++;
+                continue;
+            }
+            if (b == (byte)'/' && pos + 1 < data.Length && data[pos + 1] == (byte)'*')
+            {
+                pos += 2;
+                while (pos + 1 < data.Length && !(data[pos] == (byte)'*' && data[pos + 1] == (byte)'/')) pos++;
+                if (pos + 1 < data.Length) pos += 2;
+                continue;
+            }
+            break;
+        }
+    }
+
+    private static bool TryLocateBinaryList(
+        byte[] data, int start, out int count, out int payloadOffset, out string reason)
+    {
+        count = 0; payloadOffset = 0; reason = "";
+        var pos = Math.Clamp(start, 0, data.Length);
+        SkipFoamBinaryTrivia(data, ref pos);
+        var begin = pos;
+        while (pos < data.Length && data[pos] >= (byte)'0' && data[pos] <= (byte)'9') pos++;
+        if (pos == begin ||
+            !int.TryParse(Encoding.ASCII.GetString(data, begin, pos - begin),
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out count) || count < 0)
+        {
+            reason = "binary-list-count-not-found";
+            return false;
+        }
+        while (pos < data.Length && data[pos] is (byte)' ' or (byte)'\t') pos++;
+        if (pos < data.Length && data[pos] == (byte)'\r') pos++;
+        if (pos >= data.Length || data[pos] != (byte)'\n')
+        {
+            reason = "binary-list-line-end-not-found";
+            return false;
+        }
+        payloadOffset = pos + 1;
+        return true;
+    }
+
+    private static bool TryReadBinaryLabel(
+        ReadOnlySpan<byte> bytes, int labelBytes, bool littleEndian, out int value)
+    {
+        value = 0;
+        if (labelBytes == 4)
+        {
+            value = littleEndian
+                ? BinaryPrimitives.ReadInt32LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt32BigEndian(bytes);
+            return true;
+        }
+        if (labelBytes == 8)
+        {
+            var v = littleEndian
+                ? BinaryPrimitives.ReadInt64LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt64BigEndian(bytes);
+            if (v < int.MinValue || v > int.MaxValue) return false;
+            value = (int)v;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryReadBinaryScalar(
+        ReadOnlySpan<byte> bytes, int scalarBytes, bool littleEndian, out double value)
+    {
+        value = double.NaN;
+        if (scalarBytes == 4)
+        {
+            var bits = littleEndian
+                ? BinaryPrimitives.ReadInt32LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt32BigEndian(bytes);
+            value = BitConverter.Int32BitsToSingle(bits);
+            return double.IsFinite(value);
+        }
+        if (scalarBytes == 8)
+        {
+            var bits = littleEndian
+                ? BinaryPrimitives.ReadInt64LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt64BigEndian(bytes);
+            value = BitConverter.Int64BitsToDouble(bits);
+            return double.IsFinite(value);
+        }
+        return false;
+    }
+
+    private static double[]? ParseFoamMeshPointsBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshPoints(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var count, out var payload, out reason))
+            return null;
+        var itemBytes = checked(3 * header.ScalarBytes);
+        var needed = (long)count * itemBytes;
+        if (payload + needed > data.LongLength) { reason = "binary-points-truncated"; return null; }
+        var values = new double[count * 3];
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 2047) == 0) ct.ThrowIfCancellationRequested();
+            for (var axis = 0; axis < 3; axis++)
+            {
+                var at = payload + i * itemBytes + axis * header.ScalarBytes;
+                if (!TryReadBinaryScalar(
+                    data.AsSpan(at, header.ScalarBytes), header.ScalarBytes, header.LittleEndian,
+                    out values[3 * i + axis]))
+                {
+                    reason = "binary-point-value-invalid";
+                    return null;
+                }
+            }
+        }
+        return values;
+    }
+
+    private static int[]? ParseFoamMeshLabelsBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshLabels(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var count, out var payload, out reason))
+            return null;
+        var needed = (long)count * header.LabelBytes;
+        if (payload + needed > data.LongLength) { reason = "binary-label-list-truncated"; return null; }
+        var values = new int[count];
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
+            var at = payload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out values[i]))
+            {
+                reason = "binary-label-out-of-range";
+                return null;
+            }
+        }
+        return values;
+    }
+
+    private static int[][]? ParseFoamMeshFacesBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshFaces(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+        if (!header.ClassName.Equals("faceCompactList", StringComparison.OrdinalIgnoreCase))
+        {
+            reason = "binary-face-class-unsupported:" + (string.IsNullOrWhiteSpace(header.ClassName) ? "unknown" : header.ClassName);
+            return null;
+        }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var offsetCount, out var offsetPayload, out reason))
+            return null;
+        var offsetBytes = (long)offsetCount * header.LabelBytes;
+        if (offsetPayload + offsetBytes > data.LongLength) { reason = "binary-face-offsets-truncated"; return null; }
+        var offsets = new int[offsetCount];
+        for (var i = 0; i < offsetCount; i++)
+        {
+            if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
+            var at = offsetPayload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out offsets[i]))
+            {
+                reason = "binary-face-offset-out-of-range";
+                return null;
+            }
+        }
+
+        var secondStart = checked((int)(offsetPayload + offsetBytes));
+        if (!TryLocateBinaryList(data, secondStart, out var elemCount, out var elemPayload, out reason))
+            return null;
+        var elemBytes = (long)elemCount * header.LabelBytes;
+        if (elemPayload + elemBytes > data.LongLength) { reason = "binary-face-labels-truncated"; return null; }
+        var elems = new int[elemCount];
+        for (var i = 0; i < elemCount; i++)
+        {
+            if ((i & 8191) == 0) ct.ThrowIfCancellationRequested();
+            var at = elemPayload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out elems[i]))
+            {
+                reason = "binary-face-label-out-of-range";
+                return null;
+            }
+        }
+
+        if (offsets.Length == 0)
+        {
+            if (elems.Length != 0) { reason = "binary-face-empty-offsets-with-elements"; return null; }
+            return Array.Empty<int[]>();
+        }
+        if (offsets[0] != 0 || offsets[^1] != elems.Length)
+        {
+            reason = "binary-face-offset-range-mismatch";
+            return null;
+        }
+        var faces = new int[offsets.Length - 1][];
+        for (var i = 0; i < faces.Length; i++)
+        {
+            if (offsets[i] < 0 || offsets[i + 1] < offsets[i] || offsets[i + 1] > elems.Length)
+            {
+                reason = "binary-face-offset-order-invalid";
+                return null;
+            }
+            var n = offsets[i + 1] - offsets[i];
+            faces[i] = new int[n];
+            Array.Copy(elems, offsets[i], faces[i], 0, n);
+        }
+        return faces;
+    }
+
+    private static double[] ComputePolyhedralCellCenters(
+        double[] points, int[][] faces, int[] owners, int[] neighbours, int cellCount,
+        CancellationToken ct, out int fallbackCount)
+    {
+        var cellFaces = new List<int>[cellCount];
+        for (var cell = 0; cell < cellCount; cell++) cellFaces[cell] = new List<int>();
+        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        {
+            if ((faceIndex & 2047) == 0) ct.ThrowIfCancellationRequested();
+            var owner = owners[faceIndex];
+            if (owner >= 0 && owner < cellCount) cellFaces[owner].Add(faceIndex);
+            if (faceIndex < neighbours.Length)
+            {
+                var neighbour = neighbours[faceIndex];
+                if (neighbour >= 0 && neighbour < cellCount) cellFaces[neighbour].Add(faceIndex);
+            }
+        }
+
+        var centers = new double[cellCount * 3];
+        fallbackCount = 0;
+        for (var cell = 0; cell < cellCount; cell++)
+        {
+            if ((cell & 1023) == 0) ct.ThrowIfCancellationRequested();
+            var refs = cellFaces[cell];
+            if (refs.Count == 0) { fallbackCount++; continue; }
+
+            // Stable local origin: arithmetic mean of incident face centres.
+            double rx = 0, ry = 0, rz = 0;
+            var validFaces = 0;
+            foreach (var faceIndex in refs)
+            {
+                var face = faces[faceIndex];
+                if (face.Length == 0) continue;
+                double fx = 0, fy = 0, fz = 0;
+                foreach (var pointIndex in face)
+                {
+                    fx += points[3 * pointIndex];
+                    fy += points[3 * pointIndex + 1];
+                    fz += points[3 * pointIndex + 2];
+                }
+                rx += fx / face.Length;
+                ry += fy / face.Length;
+                rz += fz / face.Length;
+                validFaces++;
+            }
+            if (validFaces == 0) { fallbackCount++; continue; }
+            rx /= validFaces; ry /= validFaces; rz /= validFaces;
+
+            double volume6 = 0, absVolume6 = 0;
+            double wx = 0, wy = 0, wz = 0;
+            foreach (var faceIndex in refs)
+            {
+                var face = faces[faceIndex];
+                if (face.Length < 3) continue;
+
+                // Fan around the face centre. For neighbour cells the stored
+                // OpenFOAM face orientation is inward, so reverse each edge.
+                double fx = 0, fy = 0, fz = 0;
+                foreach (var pointIndex in face)
+                {
+                    fx += points[3 * pointIndex];
+                    fy += points[3 * pointIndex + 1];
+                    fz += points[3 * pointIndex + 2];
+                }
+                fx /= face.Length; fy /= face.Length; fz /= face.Length;
+                var ownerSide = owners[faceIndex] == cell;
+
+                for (var j = 0; j < face.Length; j++)
+                {
+                    var ia = face[j];
+                    var ib = face[(j + 1) % face.Length];
+                    if (!ownerSide) (ia, ib) = (ib, ia);
+
+                    var ax = fx - rx; var ay = fy - ry; var az = fz - rz;
+                    var bx = points[3 * ia] - rx; var by = points[3 * ia + 1] - ry; var bz = points[3 * ia + 2] - rz;
+                    var cx = points[3 * ib] - rx; var cy = points[3 * ib + 1] - ry; var cz = points[3 * ib + 2] - rz;
+                    var crossX = by * cz - bz * cy;
+                    var crossY = bz * cx - bx * cz;
+                    var crossZ = bx * cy - by * cx;
+                    var v6 = ax * crossX + ay * crossY + az * crossZ;
+                    if (!double.IsFinite(v6) || Math.Abs(v6) <= double.Epsilon) continue;
+
+                    var tcx = (rx + fx + points[3 * ia] + points[3 * ib]) * 0.25;
+                    var tcy = (ry + fy + points[3 * ia + 1] + points[3 * ib + 1]) * 0.25;
+                    var tcz = (rz + fz + points[3 * ia + 2] + points[3 * ib + 2]) * 0.25;
+                    volume6 += v6;
+                    absVolume6 += Math.Abs(v6);
+                    wx += v6 * tcx;
+                    wy += v6 * tcy;
+                    wz += v6 * tcz;
+                }
+            }
+
+            var usable = double.IsFinite(volume6) && double.IsFinite(absVolume6) &&
+                         absVolume6 > 0 && Math.Abs(volume6) > absVolume6 * 1e-12;
+            if (usable)
+            {
+                centers[3 * cell] = wx / volume6;
+                centers[3 * cell + 1] = wy / volume6;
+                centers[3 * cell + 2] = wz / volume6;
+            }
+            else
+            {
+                centers[3 * cell] = rx;
+                centers[3 * cell + 1] = ry;
+                centers[3 * cell + 2] = rz;
+                fallbackCount++;
+            }
+        }
+        return centers;
     }
 
     private static double[]? ParseFoamMeshPoints(
@@ -975,6 +1594,12 @@ internal sealed class FoamLensForm : Form
         try
         {
             var result = await ParseOpenFoamFieldAsync(path, requestId, operation.Token);
+            if (result.Supported && string.Equals(result.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+            {
+                var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
+                    path, result.Kind, operation.Token);
+                result = result with { BoundaryPatches = boundaryPatches };
+            }
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamField", completedBytes = result.BytesRead, totalBytes });
         }
@@ -1409,17 +2034,26 @@ internal sealed class FoamLensForm : Form
                 kind == "vector" ? value : null, null, null,
                 kind == "vector" ? null : value, null, value.Length,
                 null, null, sourceBytes, bytesRead, false);
+
+        public FoamBoundaryFieldPatchInfo[] BoundaryPatches { get; init; } = Array.Empty<FoamBoundaryFieldPatchInfo>();
     }
     private sealed record OpenFoamMeshParseResult(
         bool Supported, string Reason, string Format,
         double[] Points, int[] SurfaceTriangles, int[] SurfaceOwners, int[] SurfaceEdges, double[] CellCenters,
+        int[] FaceOffsets, int[] FacePoints, int[] Owners, int[] Neighbours,
         int PointCount, int FaceCount, int InternalFaceCount, int BoundaryFaceCount, int CellCount,
         double[] BoundsMin, double[] BoundsMax, string CellCenterMethod, long SourceBytes)
     {
         public static OpenFoamMeshParseResult Unsupported(string reason, string format, long sourceBytes) =>
             new(false, reason, format, Array.Empty<double>(), Array.Empty<int>(), Array.Empty<int>(),
-                Array.Empty<int>(), Array.Empty<double>(), 0, 0, 0, 0, 0,
+                Array.Empty<int>(), Array.Empty<double>(),
+                Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(),
+                0, 0, 0, 0, 0,
                 Array.Empty<double>(), Array.Empty<double>(), "", sourceBytes);
+
+        public int[] SurfaceTriangleFaces { get; init; } = Array.Empty<int>();
+        public FoamBoundaryPatchInfo[] BoundaryPatches { get; init; } = Array.Empty<FoamBoundaryPatchInfo>();
+        public string BoundaryPatchStatus { get; init; } = "not-provided";
     }
 
     private sealed record LogBatchItem(string Token, int Index);

@@ -2723,6 +2723,12 @@ const FL_TEMPORAL_CLASSIFY_HEAD=128*1024;
 function flTemporalParseState(){
   return{columns:[],probes:{},carry:'',head:'',lineCount:0,dataCount:0}
 }
+function flReductionColumnDescriptor(label){
+  const raw=String(label||'').trim();if(!raw)return{raw:'',operation:'',fieldName:''};
+  const m=raw.match(/^([A-Za-z][A-Za-z0-9_]*)\((.+)\)$/);
+  if(!m)return{raw,operation:'',fieldName:raw};
+  return{raw,operation:m[1],fieldName:String(m[2]||'').trim()}
+}
 function flParseTemporalLine(raw,state){
   const line=String(raw||'').trim();if(!line)return;
   state.lineCount++;
@@ -2803,12 +2809,19 @@ async function parseFile(file){
   const sourcePath=(file.webkitRelativePath||file.name),isPostProcessing=/(^|\/)postProcessing(\/|$)/i.test(String(sourcePath||'')),parsed=await flReadTemporalColumns(file),state=parsed.state;
   if(!state.dataCount||!state.columns.some(c=>c?.t?.length))throw Error('No probe time-series detected');
   const postProcessing=isPostProcessing?flClassifyPostProcessingSample(state.head,file.name):null;
-  const field=inferField(file.name),caseName=inferCase(file),out=[];
+  const fallbackField=inferField(file.name),caseName=inferCase(file),out=[];
   for(let j=0;j<state.columns.length;j++){
     const col=state.columns[j];if(!col?.t?.length)continue;
+    const columnLabel=postProcessing?.columns?.[j+1]||'',columnMeta=flReductionColumnDescriptor(columnLabel);
+    const field=columnMeta.fieldName?inferField(columnMeta.fieldName):fallbackField;
+    const pp=postProcessing?{
+      kind:postProcessing.kind||'',reduction:columnMeta.operation||postProcessing.reduction||'',
+      selection:{...(postProcessing.selection||{})},columns:[...(postProcessing.columns||[])],
+      column:columnLabel||'',fieldName:columnMeta.fieldName||'',operation:columnMeta.operation||''
+    }:null;
     out.push({
-      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:state.probes[j]||'',
-      postProcessing:postProcessing?{kind:postProcessing.kind||'',reduction:postProcessing.reduction||'',selection:{...(postProcessing.selection||{})},columns:[...(postProcessing.columns||[])]}:null,
+      id:nextId++,datasetType:'timeseries',caseName,fileName:file.name,sourcePath,field,probe:j,location:state.probes[j]||columnLabel||'',
+      postProcessing:pp,
       t:col.t,y:col.y,visible:true,color:null,width:1.8,dash:'solid',opacity:1,axis:'Auto',customLabel:'',
       loadMeta:{incremental:parsed.incremental,nativeStreaming:parsed.nativeStreaming===true,sourceBytes:Number(file?.size)||0}
     })
@@ -4074,6 +4087,7 @@ async function pmParseNativeOpenFOAMField(file,sourcePath=''){
     return{
       supported:!!data?.supported,reason:String(data?.reason||''),format:String(data?.format||'ascii'),fieldClass:String(data?.fieldClass||''),object:String(data?.object||String(sourcePath).split('/').pop()||'field'),
       dimensions:String(data?.dimensions||''),kind,componentCount,uniform:!!data?.uniform,uniformValue,values,
+      boundaryPatches:(data?.boundaryPatches||[]).map(p=>({name:String(p?.name||''),type:String(p?.type||''),hasExplicitValue:!!p?.hasExplicitValue,uniform:!!p?.uniform,uniformScalar:p?.uniformScalar==null?null:Number(p.uniformScalar),uniformComponents:(p?.uniformComponents||[]).map(Number),scalarValues:(p?.scalarValues||[]).map(Number),componentValues:(p?.componentValues||[]).map(v=>(v||[]).map(Number)),count:p?.count==null?null:Number(p.count),declaredCount:p?.declaredCount==null?null:Number(p.declaredCount),reason:String(p?.reason||'')})),
       count:data?.count==null?null:Number(data.count),declaredCount:data?.declaredCount==null?null:Number(data.declaredCount),sourcePath,
       loadMeta:{incremental:true,nativeStreaming:true,sourceBytes:Number(data?.sourceBytes)||Number(file?.size)||0,bytesRead:Number(data?.bytesRead)||0,closed:!!data?.closed}
     }
@@ -4550,9 +4564,13 @@ function parseFunctionObjectsText(text){
   const original=String(text||''),body=extractNamedFoamBlock(original,'functions')??stripFoamComments(original);
   const includes=[...original.matchAll(/^\s*#include\S*\s+["<]([^">]+)[">]/gm)].map(m=>m[1]);
   const objects=topLevelFoamDicts(body).map(d=>{
-    const fm=d.body.match(/\bfields\s*\(([^)]*)\)\s*;/is),f1=d.body.match(/\bfield\s+([^;\s]+)\s*;/i);
-    const fields=fm?(fm[1].match(/[A-Za-z0-9_.:+-]+/g)||[]):f1?[f1[1]]:[];
-    return{name:d.name,type:configWord(d.body,'type'),region:configWord(d.body,'region'),writeControl:configWord(d.body,'writeControl'),fields}
+    const fm=d.body.match(/\bfields\s*\(([^)]*)\)\s*;/is),f1=d.body.match(/\bfield\s+([^;\s]+)\s*;/i),pm=d.body.match(/\bpatches\s*\(([^)]*)\)\s*;/is);
+    const fields=fm?(fm[1].match(/[A-Za-z0-9_.:+-]+/g)||[]):f1?[f1[1]]:[],patches=pm?(pm[1].match(/[A-Za-z0-9_.:+-]+/g)||[]):[];
+    return{
+      name:d.name,type:configWord(d.body,'type'),region:configWord(d.body,'region'),writeControl:configWord(d.body,'writeControl'),fields,
+      operation:configWord(d.body,'operation'),weightField:configWord(d.body,'weightField'),
+      patch:configWord(d.body,'patch'),patches,cellZone:configWord(d.body,'cellZone')
+    }
   }).filter(x=>x.type||x.fields.length);
   return{objects,includes}
 }
