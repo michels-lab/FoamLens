@@ -379,7 +379,7 @@ test('native host injects extensions into the main FoamLens IIFE, not the last d
   assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
   assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
   assert(program.includes("document.getElementById('fieldViewTab')"));
-  assert(program.includes('FoamLens Field View extension did not mount enabled/discoverable'));
+  assert(program.includes('FoamLens Field View extension did not mount/discover correctly'));
 });
 
 
