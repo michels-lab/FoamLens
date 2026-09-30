@@ -29,7 +29,7 @@ body.dark{
 .sidebar{padding:18px;border-right:1px solid var(--line);background:linear-gradient(180deg,#fbfdff,#f4f8fd);overflow:auto;min-width:0;transition:opacity .16s ease,padding .16s ease}
 body.dark .sidebar{background:linear-gradient(180deg,#101923,#0b131c)}
 
-.brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.brand{display:flex;gap:12px;align-items:center;margin-bottom:16px;padding-right:44px}
 .logo{width:48px;height:48px;border-radius:16px;background:linear-gradient(145deg,#185fae,#65a9ff);box-shadow:0 12px 28px rgba(27,111,216,.24);position:relative;flex:0 0 auto}
 .logo:before{content:"";position:absolute;inset:13px 9px;border:2.5px solid rgba(255,255,255,.94);border-radius:50% / 58%;transform:rotate(-8deg)}
 .logo:after{content:"";position:absolute;width:9px;height:9px;left:19.5px;top:19.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.12)}
@@ -547,7 +547,7 @@ body.seriesPanelHidden .workspace .listcard{
 .sidebarResizeHandle{position:absolute;z-index:95;top:0;bottom:0;left:calc(var(--sidebar-w) - 5px);width:10px;cursor:col-resize;touch-action:none}
 .sidebarResizeHandle::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;background:transparent;transition:.15s}
 .sidebarResizeHandle:hover::after,.app.sidebarResizing .sidebarResizeHandle::after{background:var(--accent)}
-.sidebarToggle{position:absolute;z-index:360;top:82px;left:calc(var(--sidebar-w) - 17px);width:34px;height:42px;padding:0;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--text);box-shadow:0 8px 22px rgba(0,0,0,.16);font-size:22px;line-height:1;display:grid;place-items:center;transition:left .18s ease,background .15s,top .18s ease,transform .18s ease}
+.sidebarToggle{position:absolute;z-index:360;top:18px;left:calc(var(--sidebar-w) - 52px);width:34px;height:34px;padding:0;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--text);box-shadow:0 8px 22px rgba(0,0,0,.16);font-size:20px;line-height:1;display:grid;place-items:center;transition:left .18s ease,background .15s,top .18s ease,transform .18s ease}
 .sidebarToggle:hover{background:var(--accentSoft);border-color:var(--accent)}
 .app.sidebarCollapsed{grid-template-columns:0 minmax(0,1fr)}
 .app.sidebarCollapsed .sidebar{opacity:0;visibility:hidden;pointer-events:none;padding-left:0;padding-right:0;border-right:0}
@@ -570,7 +570,7 @@ body.layoutResizing *{cursor:col-resize!important}
 .caseQuickEye svg{width:18px;height:18px}.caseQuickEye .eyeClosed{display:none}.caseQuickEye.off .eyeOpen{display:none}.caseQuickEye.off .eyeClosed{display:block}
 .caseQuickName{font-size:11px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .caseQuickSub{font-size:9px;color:var(--muted);margin-top:2px}
-@media(max-width:760px){.app{--sidebar-w:min(86vw,340px)}.sidebarToggle{top:74px}.caseQuickPanel{position:fixed;right:12px;top:84px;width:min(330px,calc(100vw - 24px))}}
+@media(max-width:760px){.app{--sidebar-w:min(86vw,340px)}.sidebarToggle{top:16px;left:calc(var(--sidebar-w) - 50px)}.caseQuickPanel{position:fixed;right:12px;top:84px;width:min(330px,calc(100vw - 24px))}}
 
 
 
