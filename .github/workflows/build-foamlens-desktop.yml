@@ -430,6 +430,8 @@ jobs:
         shell: pwsh
         run: |
           $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
+          $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+          if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
@@ -450,7 +452,15 @@ jobs:
             }
             throw "FoamLens executable smoke test failed with exit code $($process.ExitCode)."
           }
-          Write-Host 'FoamLens executable started, loaded its embedded frontend, verified the native WebView2 bridge, and exited successfully.'
+          if (Test-Path $log) {
+            Copy-Item $log 'artifacts/FoamLens-Portable-smoke.log' -Force
+            Write-Host '---- FoamLens portable smoke evidence ----'
+            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'
+            Write-Host '------------------------------------------'
+          } else {
+            throw 'FoamLens portable smoke log was not created.'
+          }
+          Write-Host 'FoamLens executable started, loaded its embedded frontend, rendered the configured OpenFOAM runtime fixture, and exited successfully.'
 
       - name: Optional Authenticode signing for portable EXE
         if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
@@ -526,6 +536,8 @@ jobs:
             throw "FoamLens.exe was not installed to $installDir."
           }
 
+          $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+          if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
@@ -538,13 +550,20 @@ jobs:
             throw 'Installed FoamLens smoke test timed out after 180 seconds.'
           }
           if ($app.ExitCode -ne 0) {
-            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
             if (Test-Path $log) {
               Write-Host '---- FoamLens desktop log ----'
               Get-Content $log
               Write-Host '------------------------------'
             }
             throw "Installed FoamLens smoke test failed with exit code $($app.ExitCode)."
+          }
+          if (Test-Path $log) {
+            Copy-Item $log 'artifacts/FoamLens-Installed-smoke.log' -Force
+            Write-Host '---- FoamLens installed smoke evidence ----'
+            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'
+            Write-Host '-------------------------------------------'
+          } else {
+            throw 'FoamLens installed smoke log was not created.'
           }
 
           $uninstaller=Join-Path $installDir 'unins000.exe'
@@ -570,6 +589,8 @@ jobs:
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Portable-smoke.png
             artifacts/FoamLens-Installed-smoke.png
+            artifacts/FoamLens-Portable-smoke.log
+            artifacts/FoamLens-Installed-smoke.log
           if-no-files-found: error
 
       - name: Publish GitHub Release
