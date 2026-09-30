@@ -92,6 +92,27 @@ function fsbExpandBoundaryFaces(meshPatches,fieldPatches,kind,component='value',
   }
   return{values,coverage,explicitFaces,totalFaces,fraction:totalFaces?explicitFaces/totalFaces:0}
 }
+function fsbMergeDecomposedBoundaryValues(mesh,partitionResults){
+  const values=new Map(),coverage=[];let explicitFaces=0,totalFaces=0;
+  if(!mesh?.decomposed)return{values,coverage,explicitFaces,totalFaces,fraction:0,reason:'mesh-not-decomposed'};
+  const globalByLocal=new Map();
+  for(let fi=0;fi<(mesh.facePartition||[]).length;fi++)globalByLocal.set(String(mesh.facePartition[fi])+'|'+String(mesh.faceLocal?.[fi]),fi);
+  const partMeshes=new Map((mesh.partitionMeshes||[]).map(x=>[String(x.partition),x.mesh]));
+  for(const row of partitionResults||[]){
+    const partition=String(row?.partition||''),local=row?.result||{},localMesh=partMeshes.get(partition);
+    if(!partition||!localMesh)continue;
+    const physicalPatches=(localMesh.boundaryPatches||[]).filter(p=>!fvIsProcessorPatch(p)),physicalFaces=new Set();
+    for(const patch of physicalPatches)for(let i=0;i<(Number(patch.nFaces)||0);i++)physicalFaces.add(Number(patch.startFace)+i);
+    totalFaces+=physicalFaces.size;
+    for(const c of local.coverage||[])if(!fvIsProcessorPatch(c))coverage.push({...c,name:partition+':'+String(c.name||''),sourceName:String(c.name||''),partition});
+    for(const [localFace,raw] of local.values?.entries?.()||[]){
+      const lf=Number(localFace);if(!physicalFaces.has(lf))continue;
+      const globalFace=globalByLocal.get(partition+'|'+String(lf));if(!Number.isInteger(globalFace))continue;
+      const v=Number(raw);if(!Number.isFinite(v))continue;values.set(globalFace,v);explicitFaces++
+    }
+  }
+  return{values,coverage,explicitFaces,totalFaces,fraction:totalFaces?explicitFaces/totalFaces:0,reason:'',source:'decomposed-partition-boundary-patches'}
+}
 /* FOAMLENS_SURFACE_BOUNDARY_CORE_END */
 
 function fsbUi(en,es){try{return flUi(en,es)}catch{return en}}
@@ -147,6 +168,16 @@ async function fvLoadSurfaceBoundaryValues(group,time,parsed,component,mesh){
     result.source=nativeRows?.length?'native-boundary-patches':'text-fallback';fsbCache.set(key,result);return result
   }catch(e){return{values:new Map(),coverage:[],explicitFaces:0,totalFaces:Number(mesh?.boundaryFaceCount)||0,fraction:0,reason:String(e?.message||e)}}
 }
+async function fvLoadDecomposedSurfaceBoundaryValues(group,time,set,component,mesh){
+  if(!mesh?.decomposed)return{values:new Map(),coverage:[],explicitFaces:0,totalFaces:0,fraction:0,reason:'mesh-not-decomposed'};
+  const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),rows=[];
+  for(const part of mesh.partitionMeshes||[]){
+    const partition=String(part.partition||''),parsed=byPart.get(partition);
+    if(!parsed){rows.push({partition,result:{values:new Map(),coverage:[],explicitFaces:0,totalFaces:0,fraction:0,reason:'field-partition-missing'}});continue}
+    const result=await fvLoadSurfaceBoundaryValues(group,time,parsed,component,part.mesh);rows.push({partition,result})
+  }
+  return fsbMergeDecomposedBoundaryValues(mesh,rows)
+}
 function fvBuildExplicitBoundaryFaceBuffers(mesh,boundary){
   const pts=mesh?.points||[],positions=[],triangleFaces=[],values=[];
   if(!boundary?.values?.size)return{positions:new Float32Array(),triangleFaces,values:new Float64Array()};
@@ -164,4 +195,4 @@ function fvUpdateExplicitBoundaryBuffers(range,palette){
   for(let i=0;i<g.values.length;i++){const rgb=fvColorMap(g.values[i],range.min,range.max,palette);colors[3*i]=rgb[0];colors[3*i+1]=rgb[1];colors[3*i+2]=rgb[2]}
   fvUploadBuffer(r,'boundaryFieldColor',colors,r.gl.DYNAMIC_DRAW);r.boundaryFieldCount=g.positions.length/3
 }
-window.FoamLensSurfaceBoundary={fsbParseBoundaryMesh,fsbParseBoundaryField,fsbExpandBoundaryFaces,fsbComponentValue};
+window.FoamLensSurfaceBoundary={fsbParseBoundaryMesh,fsbParseBoundaryField,fsbExpandBoundaryFaces,fsbMergeDecomposedBoundaryValues,fsbComponentValue};
