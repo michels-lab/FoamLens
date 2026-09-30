@@ -922,3 +922,48 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Windows artifact upload: success.
 - No GitHub Release was published from the development/hotfix branch.
+
+
+## 2026-09-30 — Strict 3D difference field comparison
+
+### Difference view
+- Extended synchronized side-by-side 3D case comparison with an optional third viewport for a signed difference field.
+- Difference definition is explicit: `Δ = Primary − Comparison`.
+- Difference visualization uses a symmetric cool–warm range around zero.
+- The same resolved physical-time synchronization used by side-by-side comparison is preserved.
+- FoamLens refuses to calculate a 3D difference unless meshes are topologically and geometrically equivalent.
+- Compatibility checks include:
+  - point count;
+  - face count;
+  - cell count;
+  - internal/boundary face count;
+  - point coordinates within a geometry-scaled tolerance;
+  - face offsets;
+  - face-point connectivity;
+  - owner labels;
+  - neighbour labels.
+- FoamLens does not subtract unrelated meshes merely because they happen to have the same number of cells.
+- If compatibility fails, the UI reports the mismatch reason rather than displaying a false difference.
+
+### Regression
+- Added `desktop/tests/field-compare.test.cjs`.
+- Regression checks:
+  - identical meshes accepted;
+  - moved geometry rejected;
+  - changed connectivity rejected;
+  - signed difference follows Primary − Comparison;
+  - absolute-difference helper remains numerically correct;
+  - color range remains symmetric around zero;
+  - third viewport and compatibility wiring remain present.
+- Added dedicated CI step: `Test strict 3D difference field comparison`.
+- **Run #270: SUCCESS** at head `efd8ca7669d819f689f0ca96b00950911a94ce61`.
+  - Real QuickCup regression: success.
+  - 3D Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Strict 3D difference regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
