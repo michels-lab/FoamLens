@@ -74,7 +74,10 @@ test('dual Time-Series UI is wired into existing filters and axes',()=>{
     'stopAllPlayback()',
     "vSel.innerHTML=vars.map",
     "primary.dataset.showAll='1'",
-    "delete primary.dataset.showAll"
+    "delete primary.dataset.showAll",
+    "Showing all variables",
+    "Mostrando todas",
+    "allButton.classList.toggle('primary',showAll)"
   ])assert(source.includes(token),'Missing dual Time-Series wiring token: '+token);
   assert(!source.includes("vSel.innerHTML='<option value=\"\">'+tsdEsc(tsdUi('All variables'"),'All variables leaked back into the primary selector.');
 });
