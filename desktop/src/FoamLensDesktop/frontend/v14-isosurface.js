@@ -40,6 +40,24 @@ function fvIsoTetra(vertices,values,isoValue,tol=1e-12){
   for(let i=1;i<ordered.length-1;i++){const tri=[ordered[0].p,ordered[i].p,ordered[i+1].p];if(fvIsoTriangleArea(...tri)>tol*tol)out.push(tri)}
   return out
 }
+function fvBuildPointIsoSurfaceGeometry(mesh,pointValues,isoValue){
+  const iso=Number(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
+  if(!Number.isFinite(iso))return{isoValue:iso,positions:new Float32Array(),triangleCount:0,interpolation:'invalid iso value'};
+  const centerValues=fvPointFieldCellValues(mesh,pointValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],seen=new Set();
+  for(let c=0;c<cellFaces.length;c++){
+    const cv=Number(centerValues[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite))continue;
+    for(const fi of cellFaces[c]){
+      const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];
+      for(let j=1;j<face.length-1;j++){
+        const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>Number(pointValues?.[pi]))];
+        for(const tri of fvIsoTetra(vertices,vals,iso,tol)){
+          const key=tri.map(p=>fvIsoPointKey(p,tol)).sort().join('|');if(seen.has(key))continue;seen.add(key);positions.push(...tri[0],...tri[1],...tri[2])
+        }
+      }
+    }
+  }
+  return{isoValue:iso,positions:new Float32Array(positions),triangleCount:positions.length/9,interpolation:'point-field vertices + affine cell-centre reconstruction + marching tetrahedra'}
+}
 function fvBuildIsoSurfaceGeometry(mesh,cellValues,isoValue){
   const iso=Number(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
   if(!Number.isFinite(iso))return{isoValue:iso,positions:new Float32Array(),triangleCount:0,interpolation:'invalid iso value'};
@@ -70,13 +88,13 @@ function fvIsoColors(vertexCount,iso,range,palette){
 function fvUpdateIso(range=null){
   const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvIso')?.checked,meta=document.getElementById('fvIsoMeta');
   if(!r||!mesh)return;
-  if(String(fvState.fieldStorage||'volume')!=='volume'){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso-surface currently requires a cell-centred volume field; face/point values are not silently converted to cells.','La iso-superficie requiere actualmente un campo volumétrico centrado en celdas; los valores de cara/punto no se convierten silenciosamente a celdas.');fvRender();return}
+  if(String(fvState.fieldStorage||'volume')==='surface'){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso-surface is unavailable for face-associated surface fields because FoamLens does not silently reconstruct face data into a volume field.','La iso-superficie no está disponible para campos de superficie asociados a caras porque FoamLens no reconstruye silenciosamente datos de cara como campo volumétrico.');fvRender();return}
   if(!enabled||!fvState.fieldValues){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Enable the iso-surface to reconstruct a constant-value surface inside the mesh.','Activa la iso-superficie para reconstruir una superficie de valor constante dentro de la malla.');fvRender();return}
   const iso=Number(document.getElementById('fvIsoValue')?.value),displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis';
   if(!Number.isFinite(iso)){r.isoCount=0;if(meta)meta.textContent=fvIsoUi('Enter a finite iso value.','Introduce un valor iso finito.');fvRender();return}
   if(displayRange?.valid&&(iso<displayRange.min||iso>displayRange.max)){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso value is outside the current field range: ','El valor iso está fuera del rango actual del campo: ')+fvIsoFmt(displayRange.min)+' – '+fvIsoFmt(displayRange.max);fvRender();return}
-  const geom=fvBuildIsoSurfaceGeometry(mesh,fvState.fieldValues,iso);fvState.isoGeometry=geom;fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,displayRange,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3;
-  if(meta)meta.textContent='φ = '+fvIsoFmt(iso)+' · '+geom.triangleCount.toLocaleString()+' '+fvIsoUi('triangles','triángulos')+' · '+fvIsoUi('marching tetrahedra on reconstructed cell-centred data','marching tetrahedra sobre datos reconstruidos desde centros de celda');
+  const pointAssoc=String(fvState.fieldStorage||'volume')==='point',geom=pointAssoc?fvBuildPointIsoSurfaceGeometry(mesh,fvState.fieldValues,iso):fvBuildIsoSurfaceGeometry(mesh,fvState.fieldValues,iso);fvState.isoGeometry=geom;fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,displayRange,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3;
+  if(meta)meta.textContent='φ = '+fvIsoFmt(iso)+' · '+geom.triangleCount.toLocaleString()+' '+fvIsoUi('triangles','triángulos')+' · '+(pointAssoc?fvIsoUi('marching tetrahedra on point-field reconstruction','marching tetrahedra sobre reconstrucción de campo de puntos'):fvIsoUi('marching tetrahedra on reconstructed cell-centred data','marching tetrahedra sobre datos reconstruidos desde centros de celda'));
   fvRender()
 }
 function fvIsoSetMidrange(){
@@ -105,4 +123,4 @@ function fvInstallIso(){
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fvIsoPanel');if(p)try{flApplyBilingualText(p)}catch{};fvUpdateIso()});
 }
 fvInstallIso();
-window.FoamLensIsoSurface={fvIsoTetra,fvBuildIsoSurfaceGeometry,fvUpdateIso};
+window.FoamLensIsoSurface={fvIsoTetra,fvBuildIsoSurfaceGeometry,fvBuildPointIsoSurfaceGeometry,fvUpdateIso};
