@@ -1112,7 +1112,7 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Time-varying/dynamic mesh playback synchronized causally in physical time.
 
 ### Remaining explicit non-blocking boundaries
-- 3D Field View maps volume scalar/vector fields. Surface/point-associated fields remain discoverable in Data Catalog but are not rendered because FoamLens does not yet preserve enough boundary/face/point association to do so without inventing values.
+- 3D Field View renders cell-, internal-face-, and point-associated scalar/vector fields with explicit association semantics. `surface*Field` boundary-patch values remain unrendered until explicit `polyMesh/boundary` patch topology and per-patch values are preserved; FoamLens does not fabricate them.
 - Browser fallback remains ASCII-only for polyMesh; native Desktop supports binary.
 - FoamLens streamline and reconstructed slice/iso algorithms are documented approximations and are not claimed bit-identical to ParaView/VTK.
 - The QuickCup repository does not version its actual polyMesh, so real thesis-mesh rendering cannot be CI-regressed from that repository; real QuickCup fields/postProcessing are still regression-tested.
@@ -1134,3 +1134,58 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075137890`).
 - Root README was updated afterward as documentation only; no product code changed after the tested head.
 - v1.4.1 has **not** been published as a GitHub Release yet.
+
+
+## 2026-09-30 — Field View point / internal-face field associations
+
+### Association-aware 3D rendering
+- Extended Field View beyond cell-centred `vol*Field` data without converting other associations into fake cell values.
+- The field selector now exposes the association explicitly:
+  - **Cell** for `vol*Field`;
+  - **Face (internalField)** for `surface*Field`;
+  - **Point** for `point*Field`.
+- `point*Field` values are rendered directly on the actual mesh vertices used by each boundary triangle.
+- `surface*Field internalField` values are rendered on the actual internal mesh faces. Internal polygonal faces are triangulated for WebGL while retaining the exact source face identity.
+- The external boundary remains neutral/translucent context for a surface field because the current field parser does not yet map explicit `boundaryField` patch values onto boundary face indices. FoamLens does **not** substitute owner-cell values or otherwise fabricate boundary-face data.
+- Association-specific size checks are enforced against:
+  - cell count for volume fields;
+  - internal-face count for surface fields;
+  - point count for point fields.
+- A mismatch produces an explicit field/mesh association-count error.
+
+### Interior analysis and vectors
+- Interior Slice and Iso-surface remain explicitly cell-centred-volume operations.
+- Selecting a Face or Point field disables/clears those controls rather than silently coercing the data to cells.
+- Iso-surface code contains its own independent volume-association guard so programmatic calls cannot bypass the UI restriction.
+- Vector glyphs and streamlines remain based on a `volVectorField`; Face/Point vector fields are available for direct coloring/components but are not silently used as cell-centred streamline input.
+
+### Association-aware 3D Probe
+- Volume-field boundary picks retain exact owner-cell semantics.
+- Point-field boundary picks interpolate the actual point values barycentrically on the hit triangle.
+- Surface-field picks ray-cast against the rendered internal-face triangles and return the exact internal face id/value.
+- Probe readout reports the field association and the appropriate element identity instead of always presenting every hit as a cell.
+
+### Regression and validation
+- Extended the existing Field View and 3D Probe regression suites rather than creating redundant parallel test harnesses.
+- Added checks for:
+  - direct point-vertex coloring;
+  - internal-face triangulation and preserved face identity;
+  - Cell / Face / Point selector wiring;
+  - association-specific element counts;
+  - exact internal-face probe ids;
+  - explicit prevention of Face/Point → Cell coercion.
+- Run #294 exposed only an overly strict test tolerance on `Float32Array` values (`0.10000000149` vs `0.1`); production rendering was not the failing logic.
+- Run #296 exposed only a stale test token from an intermediate helper signature; the final architecture intentionally preserves `fvFieldGroups(..., storage='volume')` as the default contract and requests `'any'` only where the main Field View selector needs all associations.
+- **GitHub Actions run #297: SUCCESS** at head `3eb42874d6d3e45c8101024c038e69db0f0bf617`.
+  - Real QuickCup regression: success.
+  - Field View association regression: success.
+  - Dynamic mesh regression: success.
+  - Iso-surface regression: success.
+  - Association-aware 3D Probe regression: success.
+  - Strict 3D difference regression: success.
+  - All existing scientific/UI suites: success.
+  - Portable EXE build + smoke: success.
+  - Installer build + installed-app smoke: success.
+  - Windows artifact upload: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077332065`, 135,204,904 bytes).
+- No GitHub Release was published from the hotfix/development branch.
