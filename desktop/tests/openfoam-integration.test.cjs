@@ -40,6 +40,16 @@ const fv=new Function(
   '\nreturn {fvBuildMeshInventory,fvCaseViewAvailable,fvAvailability};'
 )();
 
+const pmBegin='/* FOAMLENS_PHASE_MOMENTUM_CORE_START */',pmEnd='/* FOAMLENS_PHASE_MOMENTUM_CORE_END */';
+const pmA=html.indexOf(pmBegin),pmB=html.indexOf(pmEnd,pmA);
+assert(pmA>=0&&pmB>pmA,'Phase Change / Momentum core markers missing.');
+const pmCore=html.slice(pmA,pmB+pmEnd.length);
+const pm=new Function(
+  "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}" +
+  pmCore +
+  '\nreturn {pmBuildVolumeInventory,pmParseOpenFOAMFieldText,pmComponentValues};'
+)();
+
 const foamNumStart=html.indexOf('function foamLogNumber(token){');
 const foamNumEnd=html.indexOf('function foamLogDescriptor',foamNumStart);
 assert(foamNumStart>=0&&foamNumEnd>foamNumStart,'foamLogNumber function missing.');
@@ -115,6 +125,20 @@ test('complete B13 is 3D-ready from its real OpenFOAM files',()=>{
 test('real arbitrary field inventory',()=>{
   assert(b3.model.fields.some(x=>x.name==='U'));assert(b3.model.fields.some(x=>x.name==='T'));
   assert(b3.model.fields.some(x=>x.name.includes('phaseChange')));
+});
+test('complete B13 Phase/Momentum accepts real uniform alphat at t=0',()=>{
+  const inventory=pm.pmBuildVolumeInventory(b13.files,'B13_prghPressure_airGapOF14');
+  const rec=inventory.find(x=>x.region==='metal'&&x.name==='alphat'&&Math.abs(Number(x.time))<1e-12);
+  assert(rec,'B13 metal/alphat at t=0 was not preserved in the volume-field inventory.');
+  assert(rec.file,'B13 alphat inventory row lost its source file reference.');
+  const parsed=pm.pmParseOpenFOAMFieldText(read(b13.root,'0/metal/alphat'),rec.sourcePath);
+  assert(parsed.supported,'B13 alphat was rejected: '+parsed.reason);
+  assert.strictEqual(parsed.kind,'scalar');
+  assert.strictEqual(parsed.uniform,true);
+  assert.strictEqual(parsed.uniformValue,0);
+  const values=pm.pmComponentValues(parsed,'value');
+  assert(values.ok,'B13 alphat Scalar value was rejected: '+values.reason);
+  assert.deepEqual(values.values,[0]);
 });
 test('real postProcessing discovery',()=>assert(b3.model.postProcessing.length>0));
 test('real logs discovery',()=>{
