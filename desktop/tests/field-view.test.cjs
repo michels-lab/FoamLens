@@ -394,14 +394,15 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
-test('Field View owns the plot header and blocks late 2D redraws while active',()=>{
+test('Field workspace gives 3D and companion plots independent hosts instead of exclusive header ownership',()=>{
   for(const token of [
-    'function fvApplyHeader()',
-    "currentDataView==='field3d'",
-    'fvApplyHeader();fvRender();return',
-    "3D OpenFOAM Field View",
-    "Mesh + transient fields"
-  ])assert(source.includes(token),'Missing Field View header-ownership token: '+token);
+    'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
+    "document.getElementById('fw2DHost')?.appendChild(chart)",
+    "fwMove('fieldViewPanel','fw3DHost')",
+    "fwMove('fieldViewControls','fw3DControlsHost')"
+  ])assert(workspaceSource.includes(token),'Missing independent Field workspace host token: '+token);
+  assert(workspaceSource.includes("mode==='profile'?'profile'"),
+    'Spatial Profile is not a first-class companion view.');
 });
 
 test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
@@ -418,7 +419,7 @@ test('native host injects extensions into the main FoamLens IIFE, not the last d
   assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
   assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
   assert(program.includes("document.getElementById('fieldViewTab')"));
-  assert(program.includes('FoamLens Field View extension did not mount/discover correctly'));
+  assert(program.includes('FoamLens Field View top-level mode did not mount correctly'));
 });
 
 
