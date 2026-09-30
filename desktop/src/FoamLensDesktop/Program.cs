@@ -381,9 +381,13 @@ internal sealed class FoamLensForm : Form
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_REGION") ?? "";
                 var preferredField =
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_FIELD") ?? "";
+                var preferredTime =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIME") ?? "";
+                var minimumFieldSpanText =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_MIN_FIELD_SPAN") ?? "";
                 var refsJson = JsonSerializer.Serialize(smokeRefs, _json);
                 var optionsJson = JsonSerializer.Serialize(
-                    new { region = preferredRegion, field = preferredField }, _json);
+                    new { region = preferredRegion, field = preferredField, time = preferredTime }, _json);
 
                 await _web.CoreWebView2.ExecuteScriptAsync(
                     "window.__foamLensRealCaseSmokeResult=null;");
@@ -452,6 +456,25 @@ internal sealed class FoamLensForm : Form
                              StringComparison.Ordinal)))
                         throw new InvalidOperationException(
                             $"FoamLens real-case smoke did not select requested field '{preferredField}': {realCaseJson}");
+                    if (!string.IsNullOrWhiteSpace(preferredTime) &&
+                        double.TryParse(preferredTime, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out var requestedTimeValue))
+                    {
+                        if (!data.TryGetProperty("time", out var timeNode) ||
+                            Math.Abs(timeNode.GetDouble() - requestedTimeValue) > 1e-9)
+                            throw new InvalidOperationException(
+                                $"FoamLens real-case smoke did not load requested physical time '{preferredTime}': {realCaseJson}");
+                    }
+                    if (!string.IsNullOrWhiteSpace(minimumFieldSpanText) &&
+                        double.TryParse(minimumFieldSpanText, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out var minimumFieldSpan))
+                    {
+                        if (!data.TryGetProperty("span", out var spanNode) ||
+                            !double.IsFinite(spanNode.GetDouble()) ||
+                            spanNode.GetDouble() < minimumFieldSpan)
+                            throw new InvalidOperationException(
+                                $"FoamLens real-case smoke field span is below the required {minimumFieldSpanText}: {realCaseJson}");
+                    }
                 }
 
                 await _web.CoreWebView2.ExecuteScriptAsync(
@@ -572,6 +595,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   const fieldSel=document.getElementById('fvField');
   if(options.field&&fieldSel&&[...fieldSel.options].some(o=>o.value===options.field))fieldSel.value=options.field;
   await fvLoadSelection();
+  const requestedTime=Number(options.time);
+  if(Number.isFinite(requestedTime)){
+    const group=fvCurrentFieldGroup(),times=(group?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(!times.length)throw new Error('Smoke field exposes no physical times.');
+    let bestIndex=0,bestDistance=Infinity;
+    for(let i=0;i<times.length;i++){const d=Math.abs(times[i]-requestedTime);if(d<bestDistance){bestDistance=d;bestIndex=i}}
+    await fvLoadFrame(bestIndex);
+  }
   fvCameraPreset('iso');
   fvRender();
   const range=fvFiniteRange(fvState.fieldValues);
@@ -590,6 +621,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     finiteRange:!!range?.valid,
     min:Number(range?.min),
     max:Number(range?.max),
+    span:Number(range?.max)-Number(range?.min),
+    legendText:document.getElementById('fvLegend')?.innerText||'',
     surfaceVertices:Number(fvState.renderer?.surfaceCount||0),
     webgl:!!gl,
     glError:gl?Number(gl.getError()):-1,
