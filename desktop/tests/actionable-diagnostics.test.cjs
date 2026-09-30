@@ -85,6 +85,18 @@ test('momentum evolution diagnostic explains insufficient common times',()=>{
   assert(x.text.includes('region=metal'));
 });
 
+test('missing analysis results and invalid experimental tables are actionable',()=>{
+  api.setEs(false);
+  const missing=api.issue('analysis-result-missing',{analysis:'Thermal Analysis'});
+  assert(/no analysis result/i.test(missing.problem));
+  assert(/run the analysis first/i.test(missing.action));
+  const table=api.issue('experimental-table-invalid',{sourcePath:'experiment.csv'});
+  assert(/experimental table/i.test(table.problem));
+  assert(/time column/i.test(table.action));
+  assert(/temperature column/i.test(table.action));
+  assert(table.text.includes('path=experiment.csv'));
+});
+
 test('unit/dimension mismatch gives a physical compatibility remedy',()=>{
   api.setEs(false);
   const x=api.issue('incompatible OpenFOAM dimensions: [0 0 0 1 0 0 0] vs [0 1 -1 0 0 0 0]');
