@@ -11,9 +11,12 @@ const end=index.indexOf('function flApplyBilingualText',start);
 assert(start>=0&&end>start,'Global actionable-diagnostics helpers are missing.');
 const core=index.slice(start,end);
 const api=new Function(
-  "let ES=false;function diagEs(){return ES}function flUi(en,es){return ES?es:en}function $(id){return null;}"+
+  "let ES=false;const elements=new Map();"+
+  "function diagEs(){return ES}function flUi(en,es){return ES?es:en}"+
+  "function fake(){const set=new Set();return{textContent:'',title:'',dataset:{},classList:{add:x=>set.add(x),remove:x=>set.delete(x),contains:x=>set.has(x)}}}"+
+  "function $(id){if(!elements.has(id))elements.set(id,fake());return elements.get(id)}"+
   core+
-  ";return {issue:flIssueDescriptor,message:flIssueMessage,setEs:v=>{ES=!!v}};"
+  ";return {issue:flIssueDescriptor,message:flIssueMessage,setIssue:flSetIssue,clearIssue:flClearIssue,element:id=>$(id),setEs:v=>{ES=!!v}};"
 )();
 
 const passed=[];
@@ -38,6 +41,27 @@ test('Spanish diagnostics always explain problema, causa y qué cambiar',()=>{
   assert(x.text.includes('Qué cambiar:'));
   assert(x.text.includes('campo=alphat'));
   assert(x.text.includes('región=metal'));
+});
+
+test('flSetIssue renders and exposes structured error metadata, flClearIssue removes it',()=>{
+  api.setEs(false);
+  const issue=api.setIssue('statusBox','no-compatible-values',{analysis:'Phase Change / Momentum',field:'alphat',region:'metal',time:0,component:'value'});
+  const el=api.element('statusBox');
+  assert.strictEqual(el.textContent,issue.text);
+  assert(el.classList.contains('error'));
+  assert.strictEqual(el.dataset.issueCode,issue.code);
+  assert.strictEqual(el.dataset.issueProblem,issue.problem);
+  assert.strictEqual(el.dataset.issueCause,issue.cause);
+  assert.strictEqual(el.dataset.issueAction,issue.action);
+  assert.strictEqual(el.title,issue.action);
+  assert(/Problem:/.test(el.textContent)&&/Cause:/.test(el.textContent)&&/Try:/.test(el.textContent));
+  api.clearIssue('statusBox');
+  assert(!el.classList.contains('error'));
+  assert.strictEqual(el.dataset.issueCode,undefined);
+  assert.strictEqual(el.dataset.issueProblem,undefined);
+  assert.strictEqual(el.dataset.issueCause,undefined);
+  assert.strictEqual(el.dataset.issueAction,undefined);
+  assert.strictEqual(el.title,'');
 });
 
 test('missing file points to reloading the complete case',()=>{
