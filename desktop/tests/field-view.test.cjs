@@ -153,6 +153,31 @@ test('native host injects extensions into the main FoamLens IIFE, not the last d
   assert(program.includes('FoamLens Field View extension did not mount enabled/discoverable'));
 });
 
+
+test('iso-surface marching tetrahedra reconstructs a linear phi=0.5 plane',()=>{
+  const isoSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
+  new Function(isoSource);
+  const b='/* FOAMLENS_ISOSURFACE_CORE_START */',e='/* FOAMLENS_ISOSURFACE_CORE_END */',i=isoSource.indexOf(b),j=isoSource.indexOf(e,i);
+  assert(i>=0&&j>i,'Iso-surface core markers missing.');
+  const coreIso=isoSource.slice(i,j+e.length);
+  const isoApi=new Function(coreIso+';return {fvIsoTetra,fvIsoTriangleArea};')();
+  const verts=[[0,0,0],[1,0,0],[0,1,0],[0,0,1]],vals=[0,1,1,1],tris=isoApi.fvIsoTetra(verts,vals,.5,1e-12);
+  assert.equal(tris.length,1);
+  const pts=tris[0];
+  for(const p of pts)near(p[0]+p[1]+p[2],.5,1e-10);
+  near(isoApi.fvIsoTriangleArea(...pts),Math.sqrt(3)/8,1e-10);
+});
+
+test('iso-surface product wiring is present in Field View',()=>{
+  const isoSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
+  for(const token of [
+    'Iso-surface / contour','Iso-superficie / contorno','fvIsoValue','fvIsoOpacity',
+    'fvBuildIsoSurfaceGeometry','marching tetrahedra','fvUpdateIso','fvIsoPanel'
+  ])assert(isoSource.includes(token),'Missing iso-surface token: '+token);
+  for(const token of ['isoPos:null','isoColor:null','isoCount:0',"if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange)"])
+    assert(source.includes(token),'Missing Field View iso rendering token: '+token);
+});
+
 test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
   assert(program.includes('case "parseOpenFOAMMesh":'));
   assert(program.includes('HandleOpenFoamMeshAsync(root, requestId)'));
