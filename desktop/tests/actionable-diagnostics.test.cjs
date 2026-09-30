@@ -123,6 +123,36 @@ test('missing analysis results and invalid experimental tables are actionable',(
   assert(table.text.includes('path=experiment.csv'));
 });
 
+test('export and difference diagnostics explain what input is missing',()=>{
+  api.setEs(false);
+  const empty=api.issue('no-visible-data',{view:'timeseries',analysis:'CSV export'});
+  assert(/no visible data/i.test(empty.problem));
+  assert(/Show or select at least one compatible series/i.test(empty.action));
+  assert(empty.text.includes('analysis=CSV export'));
+  const diff=api.issue('difference-pair-missing',{field:'T',view:'profile'});
+  assert(/No comparable data pair/i.test(diff.problem));
+  assert(/same variable/i.test(diff.action));
+  assert(/matching probe\/profile\/log context/i.test(diff.action));
+});
+
+test('user-triggered app actions do not silently return on missing data',()=>{
+  for(const token of [
+    "flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'PNG export'})",
+    "flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'SVG export'})",
+    "flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'CSV export'})",
+    "flSetIssue('differenceMetric','selection-missing'",
+    "flSetIssue('differenceMetric','difference-pair-missing'",
+    "flSetIssue('phaseFrontStatus','no spatial profiles'",
+    "flSetIssue('phaseFrontStatus','analysis-result-missing'",
+    "flSetIssue('logMeta','insufficient-samples'",
+    "flSetIssue('smartImportSummary','selection-missing'",
+    "flSetIssue('liveDetail',String(err?.message||err)"
+  ])assert(index.includes(token),'Missing actionable user-action diagnostic: '+token);
+  assert(!index.includes("function exportPNG(){\n  const vis=visibleCurrentSeries();\n  if(!vis.length)return;"));
+  assert(!index.includes("function exportCSV(){\n  const vis=visibleCurrentSeries();if(!vis.length)return;"));
+  assert(!index.includes("function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;"));
+});
+
 test('unit/dimension mismatch gives a physical compatibility remedy',()=>{
   api.setEs(false);
   const x=api.issue('incompatible OpenFOAM dimensions: [0 0 0 1 0 0 0] vs [0 1 -1 0 0 0 0]');
