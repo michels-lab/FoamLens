@@ -70,6 +70,7 @@ function fvIsoColors(vertexCount,iso,range,palette){
 function fvUpdateIso(range=null){
   const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvIso')?.checked,meta=document.getElementById('fvIsoMeta');
   if(!r||!mesh)return;
+  if(String(fvState.fieldStorage||'volume')!=='volume'){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso-surface currently requires a cell-centred volume field; face/point values are not silently converted to cells.','La iso-superficie requiere actualmente un campo volumétrico centrado en celdas; los valores de cara/punto no se convierten silenciosamente a celdas.');fvRender();return}
   if(!enabled||!fvState.fieldValues){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Enable the iso-surface to reconstruct a constant-value surface inside the mesh.','Activa la iso-superficie para reconstruir una superficie de valor constante dentro de la malla.');fvRender();return}
   const iso=Number(document.getElementById('fvIsoValue')?.value),displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis';
   if(!Number.isFinite(iso)){r.isoCount=0;if(meta)meta.textContent=fvIsoUi('Enter a finite iso value.','Introduce un valor iso finito.');fvRender();return}
