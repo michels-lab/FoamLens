@@ -170,29 +170,28 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
-            // Extension integration smoke: Field View must mount and remain
-            // discoverable. v1.4.4 promotes it from a Data sub-tab to a
-            // top-level application mode, so either the new top-level button or
-            // the legacy sub-tab may provide discoverability during migration.
+            // Extension integration smoke: Field View must mount as a first-class
+            // top-level mode. The launch screen intentionally hides #appShell
+            // before a case is loaded, so actual visual visibility is checked
+            // later after the real OpenFOAM fixture has been imported.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const tab=document.getElementById('fieldViewTab');const mode=document.getElementById('modeField');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');const visible=e=>!!e&&!e.classList.contains('hidden')&&e.style.display!=='none'&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden';return {tab:!!tab,mode:!!mode,controls:!!controls,panel:!!panel,tabDisabled:!!tab?.disabled,modeDisabled:!!mode?.disabled,tabVisible:visible(tab),modeVisible:visible(mode),tabText:tab?.innerText||'',modeText:mode?.innerText||''}})()");
+                "(()=>{const mode=document.getElementById('modeField');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {mode:!!mode,controls:!!controls,panel:!!panel,modeDisabled:!!mode?.disabled,modeText:mode?.textContent?.trim()||'',modeDisplay:mode?getComputedStyle(mode).display:''}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
                 var mounted =
                     root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
                     root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
-                var legacyDiscoverable =
-                    root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
-                    root.TryGetProperty("tabDisabled", out var tabDisabledNode) && !tabDisabledNode.GetBoolean() &&
-                    root.TryGetProperty("tabVisible", out var tabVisibleNode) && tabVisibleNode.GetBoolean();
-                var topLevelDiscoverable =
+                var topLevelMounted =
                     root.TryGetProperty("mode", out var modeNode) && modeNode.GetBoolean() &&
                     root.TryGetProperty("modeDisabled", out var modeDisabledNode) && !modeDisabledNode.GetBoolean() &&
-                    root.TryGetProperty("modeVisible", out var modeVisibleNode) && modeVisibleNode.GetBoolean();
-                if (!mounted || (!legacyDiscoverable && !topLevelDiscoverable))
+                    root.TryGetProperty("modeText", out var modeTextNode) &&
+                    !string.IsNullOrWhiteSpace(modeTextNode.GetString()) &&
+                    root.TryGetProperty("modeDisplay", out var modeDisplayNode) &&
+                    !string.Equals(modeDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
+                if (!mounted || !topLevelMounted)
                     throw new InvalidOperationException(
-                        $"FoamLens Field View extension did not mount/discover correctly: {fieldViewUiJson}");
+                        $"FoamLens Field View top-level mode did not mount correctly: {fieldViewUiJson}");
             }
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
@@ -445,6 +444,12 @@ internal sealed class FoamLensForm : Form
                             StringComparison.Ordinal))
                         throw new InvalidOperationException(
                             $"FoamLens Field View plot information was overwritten by a 2D renderer: {realCaseJson}");
+                    if (!data.TryGetProperty("fieldModeVisible", out var fieldModeVisibleNode) ||
+                        !fieldModeVisibleNode.GetBoolean() ||
+                        !data.TryGetProperty("fieldModeText", out var fieldModeTextNode) ||
+                        string.IsNullOrWhiteSpace(fieldModeTextNode.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens Field View top-level navigation is not visible after case import: {realCaseJson}");
 
                     if (!string.IsNullOrWhiteSpace(preferredRegion) &&
                         (!data.TryGetProperty("region", out var regionNode) ||
@@ -630,6 +635,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     glError:gl?Number(gl.getError()):-1,
     plotTitle:document.getElementById('plotTitle')?.textContent||'',
     plotInfo:document.getElementById('plotInfo')?.textContent||'',
+    fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
+    fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     status:document.getElementById('fvStatus')?.textContent||''
   };
 };
