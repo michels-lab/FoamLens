@@ -4336,15 +4336,16 @@ async function pmLoadRecord(record){
   if(pmFieldCache.has(key))return pmFieldCache.get(key);
   let parsed;
   try{
-    const nativeLarge=!!(FOAMLENS_NATIVE&&record.file?._nativeToken&&Number(record.file.size||record.size||0)>PM_FIELD_NATIVE_THRESHOLD&&typeof record.file?.slice==='function');
-    if(nativeLarge){
+    const sourceSize=Number(record.file.size||record.size||0),nativeReadable=!!(FOAMLENS_NATIVE&&record.file?._nativeToken);
+    if(nativeReadable){
       try{parsed=await pmParseNativeOpenFOAMField(record.file,record.sourcePath)}
       catch(err){
         if(/cancel/i.test(String(err?.message||err)))throw err;
-        console.warn('Native OpenFOAM field parser failed; falling back to chunked JavaScript parsing.',err);
-        parsed=await pmParseLargeOpenFOAMField(record.file,record.sourcePath)
+        console.warn('Native OpenFOAM field parser failed; falling back to JavaScript parsing.',err);
+        parsed=sourceSize>PM_FIELD_NATIVE_THRESHOLD&&typeof record.file?.slice==='function'?await pmParseLargeOpenFOAMField(record.file,record.sourcePath):pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath)
       }
-    }else parsed=pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
+    }else if(sourceSize>PM_FIELD_NATIVE_THRESHOLD&&typeof record.file?.slice==='function')parsed=await pmParseLargeOpenFOAMField(record.file,record.sourcePath);
+    else parsed=pmParseOpenFOAMFieldText(await record.file.text(),record.sourcePath);
   }catch(err){if(/cancel/i.test(String(err?.message||err)))throw err;parsed={supported:false,reason:String(err),sourcePath:record.sourcePath}}
   parsed={...parsed,record,partition:record.partition||'',region:record.region||'',time:record.time,sourcePath:record.sourcePath};
   pmFieldCache.set(key,parsed);return parsed
@@ -5507,9 +5508,9 @@ function restoreXRange(){
 }
 function setDataView(mode){
   if(mode==='profile'&&!profileOptionsBase().length&&lazyProfileCountForContext()>0){hydrateLazyProfilesForContext().then(ok=>{if(ok)setDataView('profile')});return}
-  if(mode==='profile'&&!series.some(s=>datasetTypeOf(s)==='profile'))return;
-  if(mode==='log'&&!series.some(s=>datasetTypeOf(s)==='log'))return;
-  if(mode==='catalog'&&!cases.some(c=>c.discoveryModel))return;
+  if(mode==='profile'&&!series.some(s=>datasetTypeOf(s)==='profile')){flSetIssue('status','no spatial profiles',{view:'Spatial Profiles'});return;}
+  if(mode==='log'&&!series.some(s=>datasetTypeOf(s)==='log')){flSetIssue('status','no solver logs',{view:'Solver Logs'});return;}
+  if(mode==='catalog'&&!cases.some(c=>c.discoveryModel)){flSetIssue('status','selection-missing',{view:'Data Catalog'});return;}
   stopAllPlayback();if(currentDataView!=='catalog')saveCurrentXRange();
   currentDataView=mode==='profile'?'profile':mode==='log'?'log':mode==='catalog'?'catalog':'timeseries';
   if(currentDataView!=='catalog')restoreXRange();
@@ -5523,6 +5524,119 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
+function flBuildIdentity(){return 'FoamLens v51 / Desktop v1.4.2'}
+function flIssueDescriptor(reason,context={}){
+  const raw=String(reason?.reason??reason??'').trim(),lower=raw.toLowerCase(),code=String(reason?.code||context?.code||raw||'unknown').trim().toLowerCase();
+  const has=(...tokens)=>tokens.some(t=>code.includes(String(t).toLowerCase())||lower.includes(String(t).toLowerCase()));
+  let problem='',cause='',action='';
+  if(has('selection-missing','no case selected')){
+    problem=flUi('A required selection is missing.','Falta una selección necesaria.');
+    cause=flUi('FoamLens cannot determine which case, field, region or time to analyze.','FoamLens no puede determinar qué caso, campo, región o tiempo analizar.');
+    action=flUi('Choose the required selectors and run the operation again.','Selecciona los controles necesarios y vuelve a ejecutar la operación.');
+  }else if(has('no-compatible-values','no compatible values','no compatible data')){
+    problem=flUi('The selected data produced no usable values.','Los datos seleccionados no produjeron valores utilizables.');
+    cause=flUi('The field was detected, but its selected component could not be converted into finite analysis values.','El campo fue detectado, pero el componente seleccionado no pudo convertirse en valores finitos para el análisis.');
+    action=flUi('Check the field/component, region and physical time; if the field is uniform, try again after confirming the source file is readable.','Revisa campo/componente, región y tiempo físico; si el campo es uniforme, confirma que el archivo fuente pueda leerse y vuelve a intentarlo.');
+  }else if(has('field is not available','field-time-unavailable','actual field unavailable','missing at the exact selected time')){
+    problem=flUi('The selected field is not available for this selection.','El campo seleccionado no está disponible para esta selección.');
+    cause=flUi('No matching field record exists at the selected region and physical time.','No existe un registro coincidente del campo en la región y tiempo físico seleccionados.');
+    action=flUi('Choose a time/region where the field exists, or reload the complete case folder.','Elige un tiempo/región donde exista el campo o vuelve a cargar la carpeta completa del caso.');
+  }else if(has('liquid fraction is not mapped','liquid fraction is missing')){
+    problem=flUi('A phase field is required but is not mapped or available.','Se necesita un campo de fase, pero no está mapeado o disponible.');
+    cause=flUi('Phase-conditioned analysis needs a liquid- or solid-fraction field aligned with the selected mesh.','El análisis condicionado por fase necesita un campo de fracción líquida o sólida alineado con la malla seleccionada.');
+    action=flUi('Open Field Mapping and map the detected liquid/solid fraction, then use a time where that field exists.','Abre Field Mapping, mapea la fracción líquida/sólida detectada y usa un tiempo donde exista ese campo.');
+  }else if(has('missing-file')){
+    problem=flUi('The source file cannot be read.','No se puede leer el archivo fuente.');
+    cause=flUi('Discovery found the record metadata, but the file reference is missing or no longer accessible.','Discovery encontró los metadatos del registro, pero falta la referencia al archivo o ya no es accesible.');
+    action=flUi('Reload the complete case folder and keep the source folder available while FoamLens is analyzing it.','Vuelve a cargar la carpeta completa del caso y mantenla disponible mientras FoamLens la analiza.');
+  }else if(has('binary-format')){
+    problem=flUi('The selected OpenFOAM field is binary and was not decoded by the active reader.','El campo OpenFOAM seleccionado es binario y el lector activo no lo decodificó.');
+    cause=flUi('The current parsing path cannot interpret this binary payload.','La ruta de lectura actual no puede interpretar este contenido binario.');
+    action=flUi('Use the Desktop build/native reader. If this appears in Desktop, report the field path because native routing failed.','Usa la build Desktop/lector nativo. Si aparece en Desktop, revisa la ruta del campo porque falló el enrutamiento al lector nativo.');
+  }else if(has('unsupported-field-class')){
+    problem=flUi('This OpenFOAM field class is not supported by this operation.','Esta clase de campo OpenFOAM no es compatible con esta operación.');
+    cause=flUi('The selected analysis cannot convert the field association/class into values it understands.','El análisis seleccionado no puede convertir la asociación/clase del campo en valores utilizables.');
+    action=flUi('Select a supported scalar/vector/tensor field for this analysis, or use Data Catalog to inspect the detected class.','Selecciona un campo escalar/vectorial/tensorial compatible o revisa la clase detectada en Data Catalog.');
+  }else if(has('component-incompatible','no-scalar-values','no-vector-values','no-component-values','invalid-uniform')){
+    problem=flUi('The selected component is incompatible with the field values.','El componente seleccionado no es compatible con los valores del campo.');
+    cause=flUi('FoamLens could not extract finite values from the selected field/component.','FoamLens no pudo extraer valores finitos del campo/componente seleccionado.');
+    action=flUi('For scalars choose Scalar value; for vectors choose magnitude or X/Y/Z. Also verify the source field is valid at this time.','Para escalares elige Valor escalar; para vectores usa magnitud o X/Y/Z. Verifica también que el campo sea válido en este tiempo.');
+  }else if(has('internalfield-not-readable','internalfield-header-not-found','internalfield-list-not-closed')){
+    problem=flUi('The OpenFOAM internalField could not be read completely.','No se pudo leer completamente el internalField de OpenFOAM.');
+    cause=flUi('The file is incomplete, malformed, truncated, or uses a representation the active parser cannot decode.','El archivo está incompleto, mal formado, truncado o usa una representación que el parser activo no puede decodificar.');
+    action=flUi('Inspect the source path in Data Catalog and reload a complete case/time directory.','Revisa la ruta fuente en Data Catalog y vuelve a cargar un directorio de caso/tiempo completo.');
+  }else if(has('cell-count mismatch','association-count-mismatch','no cell-aligned','no comparable cells','no compatible paired cells','matching partition')){
+    problem=flUi('The selected fields are not cell/mesh aligned.','Los campos seleccionados no están alineados por celdas/malla.');
+    cause=flUi('Their cell counts, partitions or mesh associations do not match for the requested comparison.','Sus conteos de celdas, particiones o asociaciones de malla no coinciden para la comparación solicitada.');
+    action=flUi('Use fields from the same case, region, mesh state and physical time, or reconstruct matching decomposed fields first.','Usa campos del mismo caso, región, estado de malla y tiempo físico, o reconstruye primero campos descompuestos coincidentes.');
+  }else if(has('no shared physical-time','no common physical-time','no common physical-time range','no-spatial-overlap','invalid-time-bracket')){
+    problem=flUi('The selected datasets do not overlap on the required physical domain.','Los conjuntos seleccionados no se superponen en el dominio físico requerido.');
+    cause=flUi('FoamLens will not extrapolate beyond available time/space data.','FoamLens no extrapola fuera de los datos de tiempo/espacio disponibles.');
+    action=flUi('Choose datasets with an overlapping range, change the reference/time shift, or select a common stored time.','Elige datos con rango superpuesto, cambia la referencia/corrimiento temporal o selecciona un tiempo almacenado común.');
+  }else if(has('incompatible known units','incompatible openfoam dimensions','dimension-mismatch','unit-mismatch')){
+    problem=flUi('The selected quantities do not have compatible physical units/dimensions.','Las magnitudes seleccionadas no tienen unidades/dimensiones físicas compatibles.');
+    cause=flUi('Combining them directly would mix different physical quantities.','Combinarlas directamente mezclaría magnitudes físicas distintas.');
+    action=flUi('Choose terms with matching OpenFOAM dimensions/units, or correct the field mapping/metadata before running the calculation.','Elige términos con las mismas dimensiones/unidades de OpenFOAM o corrige el mapeo/metadatos antes de ejecutar el cálculo.');
+  }else if(has('profile-axis-mismatch','coordinate-unit','axis-or-unit-mismatch','axis mismatch','unit mismatch')){
+    problem=flUi('The selected profiles use incompatible axes or coordinate units.','Los perfiles seleccionados usan ejes o unidades de coordenada incompatibles.');
+    cause=flUi('A point-by-point spatial comparison requires the same physical coordinate definition.','Una comparación espacial punto a punto necesita la misma definición de coordenada física.');
+    action=flUi('Choose profiles sampled along the same axis with the same coordinate unit, or correct their imported metadata.','Elige perfiles muestreados sobre el mismo eje y unidad de coordenada o corrige sus metadatos importados.');
+  }else if(has('axis-or-unit-mismatch')){
+    problem=flUi('The selected datasets use incompatible axes or units.','Los conjuntos seleccionados usan ejes o unidades incompatibles.');
+    cause=flUi('A direct comparison would mix different physical coordinates or units.','Una comparación directa mezclaría coordenadas físicas o unidades distintas.');
+    action=flUi('Choose profiles with the same axis/unit or correct the imported metadata before comparing them.','Elige perfiles con el mismo eje/unidad o corrige los metadatos importados antes de compararlos.');
+  }else if(has('no compatible case')){
+    problem=flUi('No case currently satisfies this analysis requirements.','Ningún caso actual cumple los requisitos de este análisis.');
+    cause=flUi('Required fields, metadata or compatible outputs are missing from the active case context.','Faltan campos, metadatos u outputs compatibles en el contexto de caso activo.');
+    action=flUi('Select another case or load the complete case folder, then review Data Catalog/Field Mapping for the missing inputs.','Selecciona otro caso o carga la carpeta completa; después revisa Data Catalog/Field Mapping para identificar los datos faltantes.');
+  }else if(has('at least two mapped momentum','no compatible mechanism pairs','no momentum acceleration mechanisms')){
+    problem=flUi('There are not enough mapped momentum mechanisms.','No hay suficientes mecanismos de momentum mapeados.');
+    cause=flUi('This comparison needs at least two compatible acceleration/mechanism fields in the same region.','Esta comparación necesita al menos dos campos de aceleración/mecanismo compatibles en la misma región.');
+    action=flUi('Open Field Mapping, map the available mechanism fields, and select a region/time where both exist.','Abre Field Mapping, mapea los mecanismos disponibles y selecciona una región/tiempo donde existan ambos.');
+  }else if(has('experimental-data-missing')){
+    problem=flUi('Experimental data are missing.','Faltan datos experimentales.');
+    cause=flUi('Validation needs an experimental time/temperature table.','La validación necesita una tabla experimental de tiempo/temperatura.');
+    action=flUi('Load the experimental table and confirm its time, temperature and unit columns.','Carga la tabla experimental y confirma las columnas de tiempo, temperatura y unidad.');
+  }else if(has('simulation-temperature-missing')){
+    problem=flUi('A simulation temperature series is not selected or available.','No hay una serie de temperatura de simulación seleccionada o disponible.');
+    cause=flUi('Experimental validation needs a temporal temperature series from the simulation.','La validación experimental necesita una serie temporal de temperatura de la simulación.');
+    action=flUi('Choose a detected temperature time series for the case, or load the corresponding probe/postProcessing output.','Elige una serie temporal de temperatura detectada o carga el output de sonda/postProcessing correspondiente.');
+  }else if(has('invalid-phase-thresholds')){
+    problem=flUi('The phase thresholds are invalid.','Los umbrales de fase no son válidos.');
+    cause=flUi('Solid/mushy must be less than or equal to mushy/liquid, and both must be within 0–1.','Sólido/pastoso debe ser menor o igual que pastoso/líquido y ambos deben estar entre 0 y 1.');
+    action=flUi('Set 0 ≤ solid/mushy ≤ mushy/liquid ≤ 1.','Configura 0 ≤ sólido/pastoso ≤ pastoso/líquido ≤ 1.');
+  }else if(has('mesh','topologically','geometrically equivalent')&&has('difference','mismatch','not equivalent','incompatible')){
+    problem=flUi('The selected meshes are not compatible for a strict 3D difference.','Las mallas seleccionadas no son compatibles para una diferencia 3D estricta.');
+    cause=flUi('Topology, geometry or association differs between the two mesh states.','La topología, geometría o asociación difiere entre los dos estados de malla.');
+    action=flUi('Choose equivalent reconstructed meshes/cases, or compare them with non-3D metrics instead of a cell-wise difference.','Elige mallas/casos reconstruidos equivalentes o compáralos con métricas no 3D en lugar de una diferencia celda a celda.');
+  }else if(has('no solver logs')){
+    problem=flUi('No solver-log series are available.','No hay series de solver logs disponibles.');
+    cause=flUi('No readable log.* or foamLog output was loaded for the active case.','No se cargó ningún log.* o output foamLog legible para el caso activo.');
+    action=flUi('Load the complete case including log.* / logs / postProcessing outputs.','Carga el caso completo incluyendo log.* / logs / outputs de postProcessing.');
+  }else if(has('no spatial profiles')){
+    problem=flUi('No spatial profiles are available.','No hay perfiles espaciales disponibles.');
+    cause=flUi('No compatible sampled-set/profile output is loaded for the active context.','No hay un output sampled-set/perfil compatible cargado en el contexto activo.');
+    action=flUi('Load the case postProcessing sampled-set/profile folders or choose a case that contains them.','Carga las carpetas sampled-set/perfiles de postProcessing o elige un caso que los contenga.');
+  }else{
+    problem=flUi('The operation could not use the current selection.','La operación no pudo usar la selección actual.');
+    cause=raw||flUi('FoamLens did not receive enough compatible data to complete the operation.','FoamLens no recibió suficientes datos compatibles para completar la operación.');
+    action=flUi('Review the selected case, field, region, time and component; then check Data Catalog for the detected source data.','Revisa caso, campo, región, tiempo y componente; después verifica en Data Catalog los datos fuente detectados.');
+  }
+  const detail=[];
+  if(context?.field)detail.push((diagEs()?'campo':'field')+'='+String(context.field));
+  if(context?.region!==undefined&&context?.region!==null&&String(context.region)!=='')detail.push((diagEs()?'región':'region')+'='+String(context.region));
+  if(Number.isFinite(Number(context?.time)))detail.push('t='+String(context.time)+' s');
+  if(context?.component)detail.push((diagEs()?'componente':'component')+'='+String(context.component));
+  if(context?.sourcePath)detail.push((diagEs()?'ruta':'path')+'='+String(context.sourcePath));
+  const text=(diagEs()?'Problema: ':'Problem: ')+problem+' · '+(diagEs()?'Causa: ':'Cause: ')+cause+' · '+(diagEs()?'Qué cambiar: ':'Try: ')+action+(detail.length?' · '+detail.join(' · '):'');
+  return{code:code||'unknown',problem,cause,action,raw,text,context:{...context}}
+}
+function flIssueMessage(reason,context={}){return flIssueDescriptor(reason,context).text}
+function flSetIssue(target,reason,context={}){
+  const el=typeof target==='string'?$(target):target;if(!el)return flIssueDescriptor(reason,context);
+  const issue=flIssueDescriptor(reason,context);el.textContent=issue.text;el.dataset.issueCode=issue.code;el.classList.add('error');return issue
+}
+function flClearIssue(target){const el=typeof target==='string'?$(target):target;if(el){delete el.dataset.issueCode;el.classList.remove('error')}}
 function flApplyBilingualText(root=document){for(const el of root.querySelectorAll?.('[data-fl-en][data-fl-es]')||[])el.textContent=diagEs()?el.dataset.flEs:el.dataset.flEn}
 function diagFmt(v){v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);if(a!==0&&(a<1e-4||a>=1e4))return v.toExponential(3);if(a>=100)return trimZeros(v.toFixed(3));if(a>=1)return trimZeros(v.toFixed(4));return trimZeros(v.toFixed(6))}
 function diagPct(v){return Number.isFinite(v)?`${(100*v).toFixed(2)}%`:'—'}
@@ -5612,7 +5726,7 @@ function heatColor(z,zmin,zmax){const q=zmax>zmin?Math.max(0,Math.min(1,(z-zmin)
 function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),tmin=Math.min(...ss.map(s=>s.t[0])),tmax=Math.max(...ss.map(s=>s.t.at(-1))),positive=[];for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v))positive.push(Math.log10(v));let zmin=positive.length?Math.max(-14,Math.min(...positive)):-12,zmax=positive.length?Math.max(...positive):0;if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
 function nearestValue(values,target){if(!values.length)return null;let best=values[0];for(const v of values)if(Math.abs(v-target)<Math.abs(best-target))best=v;return best}
 function syncAppToDiagnosticTime(time,{caseId=null,root=null,member=null}={}){time=Number(time);if(!Number.isFinite(time))return;const set=diagSettings();diagnosticFocusTime=time;diagnosticSelectedEvent={time,caseId,root,member};const cid=Number(caseId)||diagCaseId(),rr=root||diagRoot(),initial=caseLogSeries(cid,rr,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),fam=initial[0]?.logFamily;if(fam&&[...$('logFamily').options].some(o=>o.value===fam))$('logFamily').value=fam;refreshLogSelectors();if(Number.isFinite(Number(member))&&[...$('logMember').options].some(o=>Number(o.value)===Number(member)))$('logMember').value=String(Number(member));syncLogNavigator();const logTimes=logAvailableTimes(),lt=nearestValue(logTimes,time);if(lt!=null&&(set.syncMode!=='exact'||Math.abs(lt-time)<=set.syncTolerance))syncLogTimeNavigator(lt);logEvolutionActive=true;logEvolutionMemberLimit=Number.isFinite(Number(member))?Number(member):null;rebuildLogEvolutionSeries();const pTimes=profileAvailableTimes(),pt=nearestValue(pTimes,time);if(pt!=null&&(set.syncMode!=='exact'||Math.abs(pt-time)<=set.syncTolerance)){const op=[...$('profileTime').options].find(o=>profileTimeEqual(o.value,pt));if(op)$('profileTime').value=op.value;syncProfileTimeNavigator();updateProfileMeta()}renderList();renderDiagnosticCurrent();drawCouplingHeatmap();renderPhaseFront();draw();$('status').textContent=`${diagEs()?'Tiempo diagnóstico sincronizado':'Diagnostic time synchronized'}: ${diagFmt(time)} s`}
-function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:'FoamLens v51',settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
+function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:flBuildIdentity(),settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
 function downloadText(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportDiagnosticJson(){downloadText('FoamLens_coupling_diagnostics_v47.json',JSON.stringify(diagnosticPayload(),null,2),'application/json')}
 function exportDiagnosticCsv(){const p=diagnosticPayload(),rows=[['case','nOuterCorrectors','time_s','r_first','r_last','R_last_first','reduction_first_last','orders_reduced','max_initial','max_initial_subiteration']];for(const c of p.cases)for(const r of c.rows)rows.push([c.case,c.summary.mapping.nOuter??'',r.t,r.rFirst,r.rLast,r.R,r.reduction,r.orders,r.maxInitial,r.maxInitialMember]);downloadText('FoamLens_coupling_diagnostics_v47.csv',rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
@@ -6154,22 +6268,24 @@ async function pmCollectSubsetValues(caseId,fieldName,time,region,component,subs
   if(!total)return{ok:false,reason:aligned.issues.join(' · ')||'No cell-aligned data are available for phase classification.'};
   return{ok:true,values,total,selected:values.length,issues:aligned.issues,alphaName}
 }
-function pmStatsHtml(st){
-  const rows=[['Minimum',st.min],['Maximum',st.max],['Mean',st.mean],['Median',st.median],['Std. dev.',st.std],['P5',st.p5],['P25',st.p25],['P75',st.p75],['P95',st.p95],['Cell count',st.count],['Selected fraction',Number.isFinite(st.fraction)?100*st.fraction:NaN]];
-  return'<table class="pmTable"><tbody>'+rows.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(k==='Selected fraction'?(Number.isFinite(v)?pmFmt(v,3)+' %':'—'):pmFmt(v))+'</td></tr>').join('')+'</tbody></table>'
+function pmStatsHtml(st,meta={}){
+  const cellCount=meta?.countKnown===false?flUi('Uniform field — cell count not expanded','Campo uniforme — conteo de celdas no expandido'):st.count;
+  const rows=[['Minimum',st.min],['Maximum',st.max],['Mean',st.mean],['Median',st.median],['Std. dev.',st.std],['P5',st.p5],['P25',st.p25],['P75',st.p75],['P95',st.p95],['Cell count',cellCount],['Selected fraction',Number.isFinite(st.fraction)?100*st.fraction:NaN]];
+  return'<table class="pmTable"><tbody>'+rows.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(k==='Selected fraction'?(Number.isFinite(v)?pmFmt(v,3)+' %':'—'):(typeof v==='string'?v:pmFmt(v)))+'</td></tr>').join('')+'</tbody></table>'
 }
 function pmAddObservation(type,text,key=''){
   const k=key||type+'|'+text,idx=pmObservations.findIndex(x=>x.key===k),x={key:k,type,text,at:new Date().toISOString()};if(idx>=0)pmObservations[idx]=x;else pmObservations.unshift(x);pmObservations=pmObservations.slice(0,40);pmRenderSummary()
 }
 async function pmRunStatsAnalysis(){
   const x=pmContext(),field=$('pmStatsField').value,component=$('pmStatsComponent').value,subset=$('pmStatsSubset').value;
-  if(!x.c||!field||!Number.isFinite(x.time))return;
-  $('pmStatsStatus').textContent=diagEs()?'Calculando datos por celda…':'Calculating cell-wise data…';
+  if(!x.c||!field||!Number.isFinite(x.time)){flSetIssue('pmStatsStatus','selection-missing',{field,region:x.region,time:x.time,component});return}
+  if(!(x.low>=0&&x.high<=1&&x.low<=x.high)){flSetIssue('pmStatsStatus','invalid-phase-thresholds',{field,region:x.region,time:x.time,component});return}
+  flClearIssue('pmStatsStatus');$('pmStatsStatus').textContent=diagEs()?'Calculando datos por celda…':'Calculating cell-wise data…';
   const r=await pmCollectSubsetValues(x.caseId,field,x.time,x.region,component,subset,x.low,x.high);
-  if(!r.ok){$('pmStatsStatus').textContent=r.reason;$('pmStatsResult').innerHTML='';return}
+  if(!r.ok){flSetIssue('pmStatsStatus',r.reason,{field,region:x.region,time:x.time,component,code:r.code});$('pmStatsResult').innerHTML='';return}
   const st=pmStats(r.values,r.total),set=await pmLoadFieldSet(x.caseId,field,x.time,x.region),di=pmFieldDimensionInfo(set),derived=set.find(z=>z.derived)?.derived;
-  $('pmStatsResult').innerHTML=pmStatsHtml(st)+'<table class="pmTable"><tbody><tr><th>Dimensions</th><td>'+esc(di.dimensions||'—')+'</td></tr><tr><th>Recognized unit</th><td>'+esc(di.unit||'—')+'</td></tr>'+(derived?'<tr><th>Derived as</th><td>'+esc(derived.formula)+' · '+pmFmt(derived.t1)+' → '+pmFmt(derived.t2)+' s</td></tr>':'')+'</tbody></table>';
-  $('pmStatsStatus').textContent=(diagEs()?'Caso: ':'Case: ')+x.c.name+' · '+pmDisplayFieldName(field)+' · '+component+' · '+pmSubsetLabels()[subset]+' · t='+pmFmt(x.time)+' s'+(r.issues?.length?' · '+r.issues.join(' · '):'');
+  $('pmStatsResult').innerHTML=pmStatsHtml(st,r)+'<table class="pmTable"><tbody><tr><th>Dimensions</th><td>'+esc(di.dimensions||'—')+'</td></tr><tr><th>Recognized unit</th><td>'+esc(di.unit||'—')+'</td></tr>'+(derived?'<tr><th>Derived as</th><td>'+esc(derived.formula)+' · '+pmFmt(derived.t1)+' → '+pmFmt(derived.t2)+' s</td></tr>':'')+'</tbody></table>';
+  $('pmStatsStatus').textContent=(diagEs()?'Caso: ':'Case: ')+x.c.name+' · '+pmDisplayFieldName(field)+' · '+component+' · '+pmSubsetLabels()[subset]+' · t='+pmFmt(x.time)+' s'+(r.countKnown===false?' · '+flUi('Uniform field; mesh cell count was not expanded.','Campo uniforme; el conteo de celdas de la malla no fue expandido.'):'')+(r.issues?.length?' · '+r.issues.join(' · '):'');
   if(st.count&&st.min===0&&st.max===0)pmAddObservation('observation',(diagEs()?'El campo seleccionado es cero en todo el subconjunto muestreado. ':'The selected field is zero throughout the sampled subset. ')+field+' · '+pmSubsetLabels()[subset]+' · t='+pmFmt(x.time)+' s','zero|'+x.c.id+'|'+field+'|'+subset);
   if(subset!=='whole')pmAddObservation('derived metric',pmSubsetLabels()[subset]+' '+(diagEs()?'representa ':'represents ')+pmFmt(100*st.fraction,3)+'% '+(diagEs()?'de las celdas alineadas en el análisis seleccionado.':'of aligned cells in the selected analysis.'),'phasefraction|'+x.c.id+'|'+subset+'|'+x.time)
 }
@@ -6196,9 +6312,9 @@ async function pmRatioPairs(caseId,aName,aComp,bName,bComp,time,region,subset,lo
 }
 async function pmRunRatioAnalysis(){
   const x=pmContext(),a=$('pmRatioA').value,b=$('pmRatioB').value,ac=$('pmRatioAComponent').value,bc=$('pmRatioBComponent').value,subset=$('pmRatioSubset').value,eps=Number($('pmRatioEpsilon').value);
-  if(!x.c||!a||!b||!Number.isFinite(x.time))return;$('pmRatioStatus').textContent=diagEs()?'Calculando ratio local por celda…':'Calculating local cell-wise ratio…';
+  if(!x.c||!a||!b||!Number.isFinite(x.time)){flSetIssue('pmRatioStatus','selection-missing',{field:[a,b].filter(Boolean).join(' / '),region:x.region,time:x.time});return}if(!(x.low>=0&&x.high<=1&&x.low<=x.high)){flSetIssue('pmRatioStatus','invalid-phase-thresholds',{field:[a,b].join(' / '),region:x.region,time:x.time});return}flClearIssue('pmRatioStatus');$('pmRatioStatus').textContent=diagEs()?'Calculando ratio local por celda…':'Calculating local cell-wise ratio…';
   const r=await pmRatioPairs(x.caseId,a,ac,b,bc,x.time,x.region,subset,x.low,x.high,eps);
-  if(!r.ok){$('pmRatioStatus').textContent=r.reason;$('pmRatioResult').innerHTML='';return}
+  if(!r.ok){flSetIssue('pmRatioStatus',r.reason,{field:a+' / '+b,region:x.region,time:x.time});$('pmRatioResult').innerHTML='';return}
   const st=pmStats(r.ratios,r.total),invalidPct=r.total?100*r.invalid/r.total:NaN;
   $('pmRatioResult').innerHTML=pmStatsHtml(st)+'<table class="pmTable"><tbody><tr><th>'+flUi('Near-zero / undefined','Casi cero / indefinido')+'</th><td>'+r.invalid+' / '+r.total+' ('+pmFmt(invalidPct,3)+'%)</td></tr><tr><th>epsilon</th><td>'+pmFmt(eps)+'</td></tr></tbody></table>';
   const da=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,a,x.time,x.region)),db=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,b,x.time,x.region));
@@ -6224,8 +6340,8 @@ function pmDrawScatter(canvas,x,y){
 }
 async function pmRunScatterAnalysis(){
   const x=pmContext(),xn=$('pmScatterX').value,yn=$('pmScatterY').value,xc=$('pmScatterXComponent').value,yc=$('pmScatterYComponent').value,subset=$('pmScatterSubset').value;
-  if(!x.c||!xn||!yn||!Number.isFinite(x.time))return;$('pmScatterStatus').textContent=diagEs()?'Emparejando celdas…':'Pairing cells…';
-  const r=await pmPairedValues(x.caseId,xn,xc,yn,yc,x.time,x.region,subset,x.low,x.high);if(!r.ok){$('pmScatterStatus').textContent=r.reason;return}
+  if(!x.c||!xn||!yn||!Number.isFinite(x.time)){flSetIssue('pmScatterStatus','selection-missing',{field:[xn,yn].filter(Boolean).join(' / '),region:x.region,time:x.time});return}if(!(x.low>=0&&x.high<=1&&x.low<=x.high)){flSetIssue('pmScatterStatus','invalid-phase-thresholds',{field:xn+' / '+yn,region:x.region,time:x.time});return}flClearIssue('pmScatterStatus');$('pmScatterStatus').textContent=diagEs()?'Emparejando celdas…':'Pairing cells…';
+  const r=await pmPairedValues(x.caseId,xn,xc,yn,yc,x.time,x.region,subset,x.low,x.high);if(!r.ok){flSetIssue('pmScatterStatus',r.reason,{field:xn+' / '+yn,region:x.region,time:x.time});return}
   const pearson=pmPearson(r.x,r.y),spearman=pmSpearman(r.x,r.y);pmLastScatter={...r,pearson,spearman,xn,yn,subset};pmDrawScatter($('pmScatterCanvas'),r.x,r.y);
   const dx=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,xn,x.time,x.region)),dy=pmFieldDimensionInfo(await pmLoadFieldSet(x.caseId,yn,x.time,x.region));
   $('pmScatterStatus').textContent='N = '+r.x.length+' · Pearson r = '+pmFmt(pearson,4)+' · Spearman ρ = '+pmFmt(spearman,4)+' · X ['+(dx.unit||dx.dimensions||'?')+'] · Y ['+(dy.unit||dy.dimensions||'?')+'] · '+(diagEs()?'La correlación no implica causalidad.':'Correlation does not imply causation.')+(r.issues.length?' · '+r.issues.join(' · '):'');
@@ -6241,7 +6357,7 @@ function pmDrawLines(canvas,lines){
 function pmEvolutionCaseIds(){return[...document.querySelectorAll('#pmEvolutionCases input:checked')].map(x=>Number(x.value)).filter(Number.isFinite)}
 async function pmRunEvolutionAnalysis(){
   const src=pmContext(),sourceField=$('pmEvolutionField').value,component=$('pmEvolutionComponent').value,subset=$('pmEvolutionSubset').value,stat=$('pmEvolutionStatistic').value,ids=pmEvolutionCaseIds();
-  if(!src.c||!sourceField||!ids.length)return;$('pmEvolutionStatus').textContent=diagEs()?'Calculando evolución por tiempo físico…':'Calculating physical-time evolution…';
+  if(!src.c||!sourceField||!ids.length){flSetIssue('pmEvolutionStatus','selection-missing',{field:sourceField,region:src.region});return}if(!(src.low>=0&&src.high<=1&&src.low<=src.high)){flSetIssue('pmEvolutionStatus','invalid-phase-thresholds',{field:sourceField,region:src.region});return}flClearIssue('pmEvolutionStatus');$('pmEvolutionStatus').textContent=diagEs()?'Calculando evolución por tiempo físico…':'Calculating physical-time evolution…';
   const lines=[],skipped=[];
   for(const id of ids){
     const c=caseById(id);if(!c)continue;const field=pmResolveCrossCaseField(src.c,c,sourceField);if(!field){skipped.push(c.name+': field unavailable');continue}
@@ -6259,7 +6375,7 @@ async function pmRunEvolutionAnalysis(){
     else skipped.push(c.name+': no compatible times')
   }
   pmLastEvolution={lines,sourceField,component,subset,stat};if(lines.length)pmDrawLines($('pmEvolutionCanvas'),lines);
-  $('pmEvolutionStatus').textContent=lines.length?(lines.length+' '+(diagEs()?'caso(s) graficados':'case(s) plotted')+(skipped.length?' · '+skipped.join(' · '):'')):(skipped.join(' · ')||'No compatible data.')
+  if(lines.length){flClearIssue('pmEvolutionStatus');$('pmEvolutionStatus').textContent=lines.length+' '+(diagEs()?'caso(s) graficados':'case(s) plotted')+(skipped.length?' · '+skipped.join(' · '):'')}else flSetIssue('pmEvolutionStatus',skipped.join(' · ')||'no-compatible-values',{field:sourceField,region:src.region})
 }
 function pmRenderMetadata(){
   const c=caseById(Number($('pmCase')?.value));if(!c||!$('pmMetadataResult'))return;const q=String($('pmMetadataFilter')?.value||'').toLowerCase();
@@ -6272,8 +6388,8 @@ function pmFindMetadataBinding(c,name){
 }
 async function pmRunVerification(){
   const x=pmContext(),actualName=$('pmVerifyActual').value,expr=$('pmVerifyFormula').value.trim(),tol=Math.max(0,Number($('pmVerifyTolerance').value)||0),eps=Math.max(0,Number($('pmVerifyEpsilon').value)||0);
-  if(!x.c||!actualName||!expr||!Number.isFinite(x.time))return;
-  let ast;try{ast=pmParseFormula(expr)}catch(err){$('pmVerifyStatus').textContent=String(err);return}
+  if(!x.c||!actualName||!expr||!Number.isFinite(x.time)){flSetIssue('pmVerifyStatus','selection-missing',{field:actualName,region:x.region,time:x.time});return}flClearIssue('pmVerifyStatus');
+  let ast;try{ast=pmParseFormula(expr)}catch(err){flSetIssue('pmVerifyStatus',String(err),{field:actualName,region:x.region,time:x.time});return}
   const ids=[...pmFormulaIdentifiers(ast)],fieldNames=pmFieldNamesForRegion(x.c,x.region),bindings=new Map(),bindingText=[];
   for(const id of ids){
     const field=fieldNames.find(n=>n.toLowerCase()===id.toLowerCase());
@@ -6281,8 +6397,8 @@ async function pmRunVerification(){
     const md=pmFindMetadataBinding(x.c,id);bindings.set(id,md);bindingText.push(id+' → '+(md.type==='metadata'?(md.entry.path+' = '+pmFmt(md.value)):md.reason))
   }
   $('pmVerifyBindings').textContent=bindingText.join(' · ');
-  if([...bindings.values()].some(b=>b.type==='error'||(b.type==='field'&&!b.set.length))){$('pmVerifyStatus').textContent=diagEs()?'No se pudieron resolver todas las variables de la expresión sin ambigüedad.':'Not all expression variables could be resolved unambiguously.';return}
-  const actual=await pmLoadFieldSet(x.caseId,actualName,x.time,x.region);if(!actual.length){$('pmVerifyStatus').textContent=flUi('Actual field unavailable.','El campo real no está disponible.');return}
+  if([...bindings.values()].some(b=>b.type==='error'||(b.type==='field'&&!b.set.length))){flSetIssue('pmVerifyStatus',diagEs()?'No se pudieron resolver todas las variables de la expresión sin ambigüedad.':'Not all expression variables could be resolved unambiguously.',{field:actualName,region:x.region,time:x.time});return}
+  const actual=await pmLoadFieldSet(x.caseId,actualName,x.time,x.region);if(!actual.length){flSetIssue('pmVerifyStatus','field is not available at the selected physical time / region',{field:actualName,region:x.region,time:x.time});return}
   const actualMap=pmSetByPartition(actual),absDiff=[],relDiff=[];let compared=0,within=0,relUndefined=0,issues=[];
   for(const [part,a] of actualMap){
     const av=pmComponentValues(a,'value');if(!av.ok){issues.push(actualName+' must be scalar for verification.');continue}
@@ -6300,7 +6416,7 @@ async function pmRunVerification(){
       const actualV=actualVals[i];if(!Number.isFinite(expected)||!Number.isFinite(actualV))continue;const ad=Math.abs(actualV-expected);absDiff.push(ad);compared++;if(ad<=tol)within++;if(Math.abs(expected)>eps)relDiff.push(ad/Math.abs(expected));else relUndefined++
     }
   }
-  if(!compared){$('pmVerifyStatus').textContent=issues.join(' · ')||flUi('No comparable cells.','No hay celdas comparables.');$('pmVerifyResult').innerHTML='';return}
+  if(!compared){flSetIssue('pmVerifyStatus',issues.join(' · ')||'no comparable cells',{field:actualName,region:x.region,time:x.time});$('pmVerifyResult').innerHTML='';return}
   const abs=pmStats(absDiff,compared),rel=pmStats(relDiff,compared);
   $('pmVerifyResult').innerHTML='<table class="pmTable"><tbody><tr><th>'+flUi('Compared cells','Celdas comparadas')+'</th><td>'+compared+'</td></tr><tr><th>'+flUi('Within tolerance','Dentro de tolerancia')+'</th><td>'+pmFmt(100*within/compared,3)+'%</td></tr><tr><th>'+flUi('Mean absolute difference','Diferencia absoluta media')+'</th><td>'+pmFmt(abs.mean)+'</td></tr><tr><th>'+flUi('P95 absolute difference','Diferencia absoluta P95')+'</th><td>'+pmFmt(abs.p95)+'</td></tr><tr><th>'+flUi('Mean relative difference','Diferencia relativa media')+'</th><td>'+pmFmt(rel.mean)+'</td></tr><tr><th>'+flUi('Relative undefined near zero','Relativa indefinida cerca de cero')+'</th><td>'+relUndefined+'</td></tr><tr><th>'+flUi('Tolerance','Tolerancia')+'</th><td>'+pmFmt(tol)+'</td></tr></tbody></table>';
   $('pmVerifyStatus').textContent=(diagEs()?'Verificación descriptiva: expected vs actual. ':'Descriptive verification: expected vs actual. ')+(issues.length?issues.join(' · '):'');
@@ -6792,7 +6908,7 @@ function phaseFrontCaseId(){return Number($('phaseFrontCase')?.value)||cases.fin
 function phaseFrontSeriesAt(caseId,time){const set=$('profileSet')?.value||'',line=$('profileLine')?.value||'';return alphaProfileSeries().filter(s=>s.caseId===Number(caseId)&&(!set||(s.profileOutputPath||'')===set)&&(!line||s.profileLineKey===line)&&profileTimeEqual(s.profileTime,time))[0]||null}
 function phaseFrontRows(caseId){const ss=alphaProfileSeries().filter(s=>s.caseId===Number(caseId)),groups=new Map();for(const s of ss){const key=`${s.profileOutputPath}|${s.profileLineKey}|${s.profileTime}`;if(!groups.has(key))groups.set(key,s)}const thresholds=phaseFrontThresholds(),rows=[];for(const s of [...groups.values()].sort((a,b)=>a.profileTime-b.profileTime)){const row={time:s.profileTime,axis:s.profileAxis,unit:s.profileCoordUnit,line:s.profileLine};for(const th of thresholds){const xs=crossingPositions(s,th),key=`${caseId}|${s.profileOutputPath}|${s.profileLineKey}|${th}`;row[String(th)]={position:chooseCrossing(xs,key),count:xs.length,all:xs}}rows.push(row)}return rows}
 function refreshPhaseFrontCases(){const sel=$('phaseFrontCase');if(!sel)return;const old=sel.value,cs=cases.filter(c=>alphaProfileSeries().some(s=>s.caseId===c.id));sel.innerHTML=cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');if(cs.some(c=>String(c.id)===old))sel.value=old;else if(cs.length)sel.value=String(cs[0].id)}
-function renderPhaseFront(){refreshPhaseFrontCases();const id=phaseFrontCaseId(),es=diagEs(),time=Number($('profileTime')?.value),s=phaseFrontSeriesAt(id,time),ths=phaseFrontThresholds();if(!id||!s){$('phaseFrontStatus').textContent=es?'No hay perfiles α1 compatibles con la selección actual.':'No compatible α1 profiles for the current selection.';$('phaseFrontCurrent').innerHTML='';$('phaseFrontTrajectory').innerHTML='';return}const current=ths.map(th=>{const xs=crossingPositions(s,th),key=`${id}|${s.profileOutputPath}|${s.profileLineKey}|${th}`,p=chooseCrossing(xs,key);return{th,xs,p}});$('phaseFrontStatus').innerHTML=`<b>${esc(caseById(id)?.name||'')}</b> · ${esc(profileOrientationLabel(s.profileAxis))} · ${esc(s.profileLine)} · t=${diagFmt(time)} s`; $('phaseFrontCurrent').innerHTML=`<table class="extTable phaseFrontTable"><thead><tr><th>αₗ</th><th>${es?'Posición':'Position'} [${esc(s.profileCoordUnit)}]</th><th>${es?'Cruces':'Crossings'}</th><th>${es?'Ambigüedad':'Ambiguity'}</th></tr></thead><tbody>${current.map(r=>`<tr><td>${r.th}</td><td>${diagFmt(r.p)}</td><td>${r.xs.length}</td><td>${r.xs.length>1?(es?'múltiple':'multiple'):(r.xs.length===1?'—':(es?'sin cruce':'no crossing'))}</td></tr>`).join('')}</tbody></table>`;const rows=phaseFrontRows(id);$('phaseFrontTrajectory').innerHTML=rows.length?`<table class="extTable"><thead><tr><th>t [s]</th>${ths.map(th=>`<th>α=${th}</th><th>#</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${diagFmt(r.time)}</td>${ths.map(th=>`<td>${diagFmt(r[String(th)]?.position)}</td><td>${r[String(th)]?.count??0}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'—'}
+function renderPhaseFront(){refreshPhaseFrontCases();const id=phaseFrontCaseId(),es=diagEs(),time=Number($('profileTime')?.value),s=phaseFrontSeriesAt(id,time),ths=phaseFrontThresholds();if(!id||!s){flSetIssue('phaseFrontStatus','no spatial profiles',{field:'α1',time});$('phaseFrontCurrent').innerHTML='';$('phaseFrontTrajectory').innerHTML='';return}const current=ths.map(th=>{const xs=crossingPositions(s,th),key=`${id}|${s.profileOutputPath}|${s.profileLineKey}|${th}`,p=chooseCrossing(xs,key);return{th,xs,p}});$('phaseFrontStatus').innerHTML=`<b>${esc(caseById(id)?.name||'')}</b> · ${esc(profileOrientationLabel(s.profileAxis))} · ${esc(s.profileLine)} · t=${diagFmt(time)} s`; $('phaseFrontCurrent').innerHTML=`<table class="extTable phaseFrontTable"><thead><tr><th>αₗ</th><th>${es?'Posición':'Position'} [${esc(s.profileCoordUnit)}]</th><th>${es?'Cruces':'Crossings'}</th><th>${es?'Ambigüedad':'Ambiguity'}</th></tr></thead><tbody>${current.map(r=>`<tr><td>${r.th}</td><td>${diagFmt(r.p)}</td><td>${r.xs.length}</td><td>${r.xs.length>1?(es?'múltiple':'multiple'):(r.xs.length===1?'—':(es?'sin cruce':'no crossing'))}</td></tr>`).join('')}</tbody></table>`;const rows=phaseFrontRows(id);$('phaseFrontTrajectory').innerHTML=rows.length?`<table class="extTable"><thead><tr><th>t [s]</th>${ths.map(th=>`<th>α=${th}</th><th>#</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${diagFmt(r.time)}</td>${ths.map(th=>`<td>${diagFmt(r[String(th)]?.position)}</td><td>${r[String(th)]?.count??0}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'—'}
 function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;for(const th of ths){const t=[],y=[];for(const r of rows){const p=r[String(th)]?.position;if(Number.isFinite(p)){t.push(r.time);y.push(p)}}if(!t.length)continue;const field={canonical:`phase_front_${th}`,display:`Phase front α=${th}`,unit:rows[0].unit||'mm',quantity:'position',original:'derived from liquid fraction profile crossings'};const key=`phasefront|${id}|${th}|${$('profileSet')?.value||''}|${$('profileLine')?.value||''}`;series=series.filter(s=>s.phaseFrontKey!==key);series.push({id:nextId++,datasetType:'timeseries',caseId:id,caseName:c.name,fileName:'Derived phase-front trajectory',sourcePath:`derived:${key}`,field,probe:null,location:'',t,y,visible:true,color:variableColor(field),width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'phase_front',phaseFrontKey:key})}refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
 function exportPhaseFrontCsv(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;const out=[['case','time_s','profile_line','axis','coordinate_unit',...ths.flatMap(th=>[`alpha_${th}_position`,`alpha_${th}_crossing_count`])]];for(const r of rows)out.push([c.name,r.time,r.line,r.axis,r.unit,...ths.flatMap(th=>[r[String(th)]?.position??'',r[String(th)]?.count??0])]);downloadText('FoamLens_phase_front_tracking_v48.csv',out.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
 function profileSetDisplay(path,sample){

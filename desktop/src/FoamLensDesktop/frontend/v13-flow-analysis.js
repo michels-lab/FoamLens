@@ -61,7 +61,7 @@ function faInterpretation(){
   return document.getElementById('faInterpretation')?.value||'user-defined'
 }
 function faRun(){
-  const s=faSelected(),status=document.getElementById('faStatus'),out=document.getElementById('faResult');if(!s||!status||!out)return;
+  const s=faSelected(),status=document.getElementById('faStatus'),out=document.getElementById('faResult');if(!status||!out)return;if(!s){flSetIssue(status,'selection-missing',{analysis:'Flow Analysis'});return}flClearIssue(status);
   const stats=faWeightedStats(s.t,s.y),cross=faZeroCrossings(s.t,s.y),axis=faAxisInfo(s),unit=s?.field?.unit||s?.unit||'',interp=faInterpretation();
   const weighted=stats.span>0?(datasetTypeOf(s)==='profile'?flUi('coordinate-weighted','ponderadas por coordenada'):flUi('time-weighted','ponderadas por tiempo')):flUi('sample-based','basadas en muestras');
   status.textContent=diagEs()?`${stats.count} muestras · estadísticas ${weighted} · interpretación: ${interp}. No se infiere ningún rol de flujo a partir del nombre del caso.`:`${stats.count} samples · ${weighted} statistics · interpretation: ${interp}. No flow role is inferred from the case name.`;
@@ -77,7 +77,7 @@ function faRun(){
 }
 function faExport(){
   const p=window.FoamLensLastFlowAnalysis;if(!p)return;
-  downloadText('FoamLens_flow_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'flow-signal-statistics',...p},null,2),'application/json')
+  downloadText('FoamLens_flow_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'flow-signal-statistics',...p},null,2),'application/json')
 }
 function faRefresh(){
   const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;

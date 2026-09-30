@@ -308,6 +308,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/capability-ui.test.cjs
 
+      - name: Test actionable diagnostics across the app
+        shell: pwsh
+        run: node desktop/tests/actionable-diagnostics.test.cjs
+
       - name: Test Analysis UI organization
         shell: pwsh
         run: node desktop/tests/analysis-ui-organization.test.cjs

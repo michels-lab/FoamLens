@@ -93,7 +93,7 @@ function caRender(){
       'Una razón mayor que 1 significa que el residual reportado aumentó durante esa operación. FoamLens reporta esta evidencia de forma descriptiva; no convierte residuales del solver lineal en un veredicto de convergencia no lineal.'
     )}</div>
     <div class="extActions"><button class="btn tiny" type="button" id="caExport">${caUi('Export convergence audit JSON','Exportar auditoría de convergencia JSON')}</button></div>`;
-  document.getElementById('caExport')?.addEventListener('click',()=>downloadText('FoamLens_convergence_audit.json',JSON.stringify({generatedBy:'FoamLens Desktop v1.4.1',analysis:'linear-and-pimple-convergence-audit',...a},null,2),'application/json'))
+  document.getElementById('caExport')?.addEventListener('click',()=>downloadText('FoamLens_convergence_audit.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'linear-and-pimple-convergence-audit',...a},null,2),'application/json'))
 }
 function caInstallUi(){
   const parent=document.getElementById('couplingDiagnostics');if(!parent)return false;

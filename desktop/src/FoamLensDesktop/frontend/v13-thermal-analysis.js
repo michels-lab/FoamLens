@@ -71,7 +71,7 @@ function thAddRate(base,name,t,y,kind,formula){
   series.push(d);return d
 }
 function thRun(){
-  const s=thSelected(),role=thRole(),status=document.getElementById('thStatus'),out=document.getElementById('thResult');if(!s||!status||!out)return;
+  const s=thSelected(),role=thRole(),status=document.getElementById('thStatus'),out=document.getElementById('thResult');if(!status||!out)return;if(!s){flSetIssue(status,'selection-missing',{analysis:'Thermal Analysis'});return}flClearIssue(status);
   const dtype=datasetTypeOf(s),unit=String(s?.field?.unit||s?.unit||''),stats=thWeightedStats(s.t,s.y),statement=thRoleStatementUi(role),rows=[[flUi('Role','Rol'),role],[flUi('Min / Max','Mín. / Máx.'),thFmt(stats.min)+' / '+thFmt(stats.max)+' '+unit],[flUi('Weighted mean','Media ponderada'),thFmt(stats.mean)+' '+unit],[flUi('Weighted RMS','RMS ponderado'),thFmt(stats.rms)+' '+unit]];
   let temperature=null;
   if(role==='temperature'&&dtype==='timeseries'){
@@ -84,14 +84,14 @@ function thRun(){
   out.innerHTML='<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>'+rows.map(r=>'<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>').join('')+'</tbody></table></div>'
 }
 function thCreateRates(){
-  const s=thSelected();if(!s||thRole()!=='temperature'||datasetTypeOf(s)!=='timeseries')return;
+  const s=thSelected();if(!s){flSetIssue('thStatus','selection-missing',{analysis:'Thermal Analysis'});return}if(thRole()!=='temperature'||datasetTypeOf(s)!=='timeseries'){flSetIssue('thStatus','Cooling/heating rates require a temporal temperature signal.',{field:s?.field?.canonical||'',analysis:'Thermal Analysis'});return}flClearIssue('thStatus');
   const a=thAnalyzeTemperature(s.t,s.y,Math.max(0,Number(document.getElementById('thEpsilon')?.value)||0));series=series.filter(x=>x.thermalSourceId!==s.id);
   const c=thAddRate(s,flUi('Cooling Rate: ','Tasa de enfriamiento: ')+thLabel(s),a.t,a.coolingRate,'thermal-cooling-rate','max(−dT/dt,0)');c.thermalSourceId=s.id;
   const h=thAddRate(s,flUi('Heating Rate: ','Tasa de calentamiento: ')+thLabel(s),a.t,a.heatingRate,'thermal-heating-rate','max(dT/dt,0)');h.thermalSourceId=s.id;activeId=c.id;
   try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
 }
 function thExport(){
-  const p=window.FoamLensLastThermalAnalysis;if(!p)return;downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'thermal-signal-analysis',...p},null,2),'application/json')
+  const p=window.FoamLensLastThermalAnalysis;if(!p)return;downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
 }
 function thRefresh(){
   const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;const old=sel.value;

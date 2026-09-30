@@ -81,7 +81,7 @@ async function maAnalyzeCurrent(){
   if(!x.c||!Number.isFinite(x.time)){if(status)status.textContent=maUi('Choose a case and physical time.','Elige un caso y tiempo físico.');return null}
   const mechanisms=maMappedMechanisms(x.c,x.region),pairs=maMechanismPairs(mechanisms);
   if(mechanisms.length<2){
-    if(status)status.textContent=maUi('At least two mapped momentum-acceleration fields are required.','Se requieren al menos dos campos de aceleración de momentum mapeados.');
+    flSetIssue(status,'at least two mapped momentum-acceleration fields are required',{analysis:'Momentum Mechanisms',region:document.getElementById('maRegion')?.value||''});
     if(body)body.innerHTML='';return null
   }
   if(status)status.textContent=maUi('Calculating cell-wise mechanism evidence…','Calculando evidencia de mecanismos por celda…');
@@ -137,7 +137,7 @@ function maAddEvolutionSeries(baseCase,region,pair,subset,points){
 async function maCreateEvolution(){
   const x=maCurrentSettings(),status=document.getElementById('maStatus');if(!x.c)return;
   const mechanisms=maMappedMechanisms(x.c,x.region),pairs=maMechanismPairs(mechanisms);
-  if(!pairs.length){if(status)status.textContent=maUi('No compatible mechanism pairs are mapped.','No hay pares de mecanismos compatibles mapeados.');return}
+  if(!pairs.length){flSetIssue(status,'no compatible mechanism pairs',{analysis:'Momentum Mechanisms',region:document.getElementById('maRegion')?.value||''});return}
   if(status)status.textContent=maUi('Calculating mechanism-ratio evolution…','Calculando evolución de razones entre mecanismos…');
   const created=[],skipped=[];
   for(const pair of pairs){
@@ -161,7 +161,7 @@ function maRefreshAvailability(){
   const mechanisms=maMappedMechanisms(x.c,x.region),badge=document.getElementById('maBadge'),run=document.getElementById('maRun'),evo=document.getElementById('maEvolution');
   if(badge)badge.textContent=mechanisms.length+' / 3';
   const enabled=mechanisms.length>=2&&Number.isFinite(x.time);if(run)run.disabled=!enabled;if(evo)evo.disabled=mechanisms.length<2;
-  const map=document.getElementById('maMapping');if(map)map.textContent=mechanisms.length?mechanisms.map(m=>maRoleLabel(m.role)+' → '+m.field).join(' · '):maUi('No momentum acceleration mechanisms are mapped for this region.','No hay mecanismos de aceleración de momentum mapeados para esta región.')
+  const map=document.getElementById('maMapping');if(map){if(mechanisms.length){flClearIssue(map);map.textContent=mechanisms.map(m=>maRoleLabel(m.role)+' → '+m.field).join(' · ')}else flSetIssue(map,'no momentum acceleration mechanisms',{analysis:'Momentum Mechanisms',region:document.getElementById('maRegion')?.value||''})}
 }
 function maInstallUi(){
   const ratioPane=document.querySelector('[data-pm-pane-panel="ratio"]');if(!ratioPane)return false;

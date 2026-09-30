@@ -61,7 +61,7 @@ function saAddDerived(base,name,t,y,kind,formula){
   series.push(d);return d
 }
 function saRun(){
-  const s=saSelected(),status=document.getElementById('saStatus'),out=document.getElementById('saResult');if(!s||!status||!out)return;
+  const s=saSelected(),status=document.getElementById('saStatus'),out=document.getElementById('saResult');if(!status||!out)return;if(!s){flSetIssue(status,'selection-missing',{analysis:'Solidification / Remelting'});return}flClearIssue(status);
   const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps),roleLabel=role==='liquidFraction'?flUi('liquid fraction αL','fracción líquida αL'):flUi('solid fraction αS','fracción sólida αS');
   window.FoamLensLastSolidificationAnalysis={sourceId:s.id??null,source:saLabel(s),caseId:s.caseId??null,caseName:s.caseName||caseById(s.caseId)?.name||'',region:typeof seriesRegion==='function'?seriesRegion(s):'',role,epsilon:eps,analysis:a};
   status.textContent=diagEs()?`${a.t.length} muestras · interpretación explícita como ${roleLabel} · derivada respecto al tiempo físico. ${a.outOfRangeCount?a.outOfRangeCount+' muestra(s) fuera de [0,1]; se conservaron los valores originales.':'No hay muestras fuera de [0,1].'}`:`${a.t.length} samples · explicit ${roleLabel} interpretation · physical-time derivative. ${a.outOfRangeCount?a.outOfRangeCount+' sample(s) outside [0,1]; raw values were retained.':'No samples outside [0,1].'}`;
@@ -77,7 +77,7 @@ function saRun(){
   out.innerHTML='<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>'+rows.map(r=>'<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>').join('')+'</tbody></table></div>';
 }
 function saCreateRates(){
-  const s=saSelected();if(!s)return;const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps);
+  const s=saSelected();if(!s){flSetIssue('saStatus','selection-missing',{analysis:'Solidification / Remelting'});return}const role=document.getElementById('saRole')?.value||'liquidFraction',eps=Math.max(0,Number(document.getElementById('saEpsilon')?.value)||0),a=saAnalyzePhaseSignal(s.t,s.y,role,eps);
   series=series.filter(x=>x.solidificationSourceId!==s.id);
   const solid=saAddDerived(s,flUi('Solidification Rate: ','Tasa de solidificación: ')+saLabel(s),a.t,a.solidificationRate,'solidification-rate',role==='liquidFraction'?'max(−dαL/dt,0)':'max(dαS/dt,0)');
   solid.solidificationSourceId=s.id;
@@ -87,7 +87,7 @@ function saCreateRates(){
 }
 function saExport(){
   const p=window.FoamLensLastSolidificationAnalysis;if(!p)return;
-  downloadText('FoamLens_solidification_analysis.json',JSON.stringify({generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',analysis:'solidification-phase-signal',...p},null,2),'application/json')
+  downloadText('FoamLens_solidification_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'solidification-phase-signal',...p},null,2),'application/json')
 }
 function saRefresh(){
   const src=saSources(),box=document.getElementById('saTools'),sel=document.getElementById('saSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;

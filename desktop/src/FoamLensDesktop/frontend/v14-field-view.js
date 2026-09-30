@@ -597,7 +597,7 @@ function fvUpdateSurfaceColors(values,range,storage=fvState.fieldStorage){
   }
   fvRender()
 }
-function fvSetStatus(text,error=false){fvState.lastStatus=String(text||'');const e=document.getElementById('fvStatus');if(e){e.textContent=fvState.lastStatus;e.classList.toggle('error',!!error)}}
+function fvSetStatus(text,error=false){const el=document.getElementById('fvStatus');if(!el)return;if(error&&typeof flSetIssue==='function'){flSetIssue(el,text,{view:'Field View',field:document.getElementById('fvField')?.value||'',region:document.getElementById('fvRegion')?.value||'',time:Number(document.getElementById('fvTime')?.textContent)});return}if(typeof flClearIssue==='function')flClearIssue(el);el.textContent=String(text||'');el.classList.toggle('error',!!error)}
 function fvSetStats(mesh,range,parsed){
   const e=document.getElementById('fvStats');if(!e)return;const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'';
   e.innerHTML=`<div><span>${flUi('Cells','Celdas')}</span><b>${Number(mesh?.cellCount||0).toLocaleString()}</b></div><div><span>${flUi('Association','Asociación')}</span><b>${fvEsc(fvAssociationLabel(fvState.fieldStorage))}</b></div><div><span>Min</span><b>${fvFmt(range?.min)}${unit?' '+fvEsc(unit):''}</b></div><div><span>Max</span><b>${fvFmt(range?.max)}${unit?' '+fvEsc(unit):''}</b></div><div><span>${flUi('Mean','Media')}</span><b>${fvFmt(range?.mean)}${unit?' '+fvEsc(unit):''}</b></div>`
@@ -711,7 +711,7 @@ function fvRefreshSelectors(preserve=true){
 }
 async function fvLoadSelection(){
   fvStopPlayback();fvState.lockedRange=null;fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>';fvRender();return}
+  if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
   try{fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));fvState.caseId=c.id;fvState.region=region;fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';await fvLoadFrame(0,{resetCamera:true})}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
 }
 function fvSyncComponent(){

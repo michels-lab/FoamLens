@@ -25,4 +25,17 @@ assert(readme.includes('# FoamLens Desktop v1.4.2 development build'),'Desktop R
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("Desktop v1.4.2"),'Field View module does not expose the v1.4.2 build identity.');
 assert(program.includes('"FoamLens", "Desktop", "1.4.2", "app"'),'Desktop app bundle root is not isolated for v1.4.2.');
+assert(index.includes("function flBuildIdentity(){return 'FoamLens v51 / Desktop v1.4.2'}"),'Global export provenance identity is not v1.4.2.');
+
+const frontendDir=path.join(root,'src','FoamLensDesktop','frontend');
+let provenanceUses=0;
+for(const name of fs.readdirSync(frontendDir).filter(x=>/\.(?:js|html)$/i.test(x))){
+  const source=fs.readFileSync(path.join(frontendDir,name),'utf8');
+  for(const line of source.split(/\r?\n/).filter(x=>/generatedBy\s*:/.test(x))){
+    provenanceUses++;
+    assert(!/v51-development|Desktop v1\.3\.|Desktop v1\.4\.1/i.test(line),
+      'Stale generatedBy provenance in '+name+': '+line.trim());
+  }
+}
+assert(provenanceUses>=5,'Expected versioned export provenance was not found.');
 console.log('Version consistency passed: public Desktop v1.4.1; development Desktop v1.4.2 / frontend v51.');

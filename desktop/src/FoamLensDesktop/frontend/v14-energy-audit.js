@@ -106,7 +106,7 @@ function eaMergedRole(g,role){
 }
 function eaAnalyzeFluxGroup(g,epsilon=1e-12){
   const A=eaMergedRole(g,'advective'),D=eaMergedRole(g,'diffusive'),T=eaMergedRole(g,'total');
-  const aligned=taAlignSeries([A,D,T],{mode:'common',method:'linear',maxPoints:5000});if(!aligned.valid)return{ok:false,group:g,reason:eaUi('No shared physical-time interval.','No existe un intervalo común de tiempo físico.')};
+  const aligned=taAlignSeries([A,D,T],{mode:'common',method:'linear',maxPoints:5000});if(!aligned.valid)return{ok:false,group:g,reason:'no shared physical-time interval'};
   const a=aligned.series[0].y,d=aligned.series[1].y,t=aligned.series[2].y,m=eaClosureMetrics(a,d,t,epsilon),res=m.residual;
   return{
     ok:true,group:g,range:aligned.range,grid:aligned.grid,advective:a,diffusive:d,total:t,residual:res,metrics:m,
@@ -159,7 +159,7 @@ function eaRender(result){
     (!result.flux.length&&!result.inventory.length?'<div class="extNote">'+eaUi('No compatible energy reductions are loaded for this case.','No hay reducciones de energía compatibles cargadas para este caso.')+'</div>':'')
 }
 function eaRun(){
-  const c=eaCurrentCase(),status=document.getElementById('eaStatus');if(!c){if(status)status.textContent=eaUi('No compatible case is available.','No hay un caso compatible disponible.');return null}
+  const c=eaCurrentCase(),status=document.getElementById('eaStatus');if(!c){flSetIssue(status,'no compatible case',{analysis:'Energy Audit'});return null}flClearIssue(status)
   const eps=Math.max(0,Number(document.getElementById('eaEpsilon')?.value)||1e-12),groups=eaFindFluxGroups(c.id),flux=groups.map(g=>eaAnalyzeFluxGroup(g,eps)),inventory=eaInventoryRows(c.id);
   const result={caseId:c.id,caseName:c.name,epsilon:eps,flux,inventory,scientificBasis:'OpenFOAM energyFlux = energyAdvectiveFlux + heatFlux',noExtrapolation:true,noSignConventionInference:true};
   window.FoamLensLastEnergyAudit=result;eaRender(result);

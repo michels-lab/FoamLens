@@ -130,9 +130,9 @@ function paEnergySources(){return ['paEnergyA','paEnergyB','paEnergyC'].map(id=>
 function paRunEnergy(){
   const all=['paEnergyA','paEnergyB','paEnergyC'].map((id,i)=>({s:paFind(document.getElementById(id)?.value),c:Number(document.getElementById(['paCoeffA','paCoeffB','paCoeffC'][i])?.value)})).filter(x=>x.s&&Number.isFinite(x.c));
   const out=document.getElementById('paEnergyStatus');if(all.length<2){out.textContent=flUi('Choose at least two temporal terms.','Elige al menos dos términos temporales.');return}
-  const units=paCompatibleKnownUnits(all.map(x=>x.s));if(!units.compatible){out.textContent=flUi('Cannot build a physical balance from incompatible known units: ','No se puede construir un balance físico con unidades conocidas incompatibles: ')+units.known.join(' vs ')+'.';return}
-  const knownDims=[...new Set(all.map(x=>String(x.s?.field?.dimensions||x.s?.dimensions||'').trim()).filter(Boolean))];if(knownDims.length>1){out.textContent=flUi('Cannot build a physical balance from incompatible OpenFOAM dimensions.','No se puede construir un balance físico con dimensiones de OpenFOAM incompatibles.');return}
-  const aligned=taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear',maxPoints:2500});if(!aligned.valid){out.textContent=flUi('The selected terms have no shared physical-time interval; no extrapolation was performed.','Los términos seleccionados no comparten un intervalo de tiempo físico; no se realizó extrapolación.');return}
+  const units=paCompatibleKnownUnits(all.map(x=>x.s));if(!units.compatible){flSetIssue(out,'incompatible known units: '+units.known.join(' vs '),{analysis:'Physical Balance'});return}
+  const knownDims=[...new Set(all.map(x=>String(x.s?.field?.dimensions||x.s?.dimensions||'').trim()).filter(Boolean))];if(knownDims.length>1){flSetIssue(out,'incompatible OpenFOAM dimensions: '+knownDims.join(' vs '),{analysis:'Physical Balance'});return}
+  const aligned=taAlignSeries(all.map(x=>x.s),{mode:'common',method:'linear',maxPoints:2500});if(!aligned.valid){flSetIssue(out,'no shared physical-time interval',{analysis:'Physical Balance'});return}
   const net=paWeightedSum(aligned.series.map(x=>x.y),all.map(x=>x.c)),integ=paTrapezoidIntegral(aligned.grid,net,0),terms=all.map(x=>({source:paLabel(x.s),coefficient:x.c,unit:paUnitOf(x.s),dimensions:String(x.s?.field?.dimensions||x.s?.dimensions||''),provenance:paSourceProvenance(x.s)}));
   const base=all[0].s,n1=flUi('Net balance: ','Balance neto: ')+terms.map(x=>`${x.coefficient>=0?'+':''}${x.coefficient}×${x.source}`).join(' '),baseDim=String(base?.field?.dimensions||base?.dimensions||''),baseUnit=units.unit||paUnitOf(base);
   paAddSeries(base,n1,aligned.grid,net,{operation:'weighted-energy-power-balance',terms,alignment:{mode:'common',method:'linear',range:aligned.range,noExtrapolation:true},outputUnit:baseUnit,outputDimensions:baseDim});
@@ -142,7 +142,7 @@ function paRunEnergy(){
 }
 function paRunCorrelation(){
   const A=paFind(document.getElementById('paCorrA')?.value),B=paFind(document.getElementById('paCorrB')?.value),out=document.getElementById('paCorrStatus');if(!A||!B||A===B){out.textContent=flUi('Choose two different temporal series.','Elige dos series temporales distintas.');return}
-  const aligned=taAlignSeries([A,B],{mode:'common',method:'linear',maxPoints:1800});if(!aligned.valid){out.textContent=flUi('No common physical-time range.','No existe un rango común de tiempo físico.');return}
+  const aligned=taAlignSeries([A,B],{mode:'common',method:'linear',maxPoints:1800});if(!aligned.valid){flSetIssue(out,'no common physical-time range',{analysis:'Physical Correlation'});return}
   const c=paCorrelation(aligned.series[0].y,aligned.series[1].y);out.textContent=diagEs()?`n = ${c.count} · Pearson = ${paFmt(c.pearson)} · Spearman = ${paFmt(c.spearman)}. La correlación es descriptiva y no se trata como causalidad.`:`n = ${c.count} · Pearson = ${paFmt(c.pearson)} · Spearman = ${paFmt(c.spearman)}. Correlation is descriptive and is not treated as causation.`;paDrawScatter(c.points,A,B)
 }
 function paDrawScatter(points,A,B){

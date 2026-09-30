@@ -55,7 +55,7 @@ function rxPayload(s){
   return{
     format:'FoamLens Series Export',
     schemaVersion:1,
-    generatedBy:'FoamLens v51-development / Desktop v1.3.0 development',
+    generatedBy:flBuildIdentity(),
     dataset:{
       id:s.id??null,
       datasetType:dtype,
