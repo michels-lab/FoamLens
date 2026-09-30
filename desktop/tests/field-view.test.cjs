@@ -342,8 +342,9 @@ test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{
 
 test('Field workspace Time Series can derive curves directly from selectable 3D OpenFOAM fields',()=>{
   for(const token of [
-    'fwFieldTsControls','fwTsCase1','fwTsRegion1','fwTsField1','fwTsComponent1','fwTsStat1',
-    'fwTsEnable2','fwTsCase2','fwTsField2','fwBuildFieldTimeSeries','fwBuildOneFieldHistory',
+    'fwFieldTsControls','fwTsEnable2','fwTsSource${slot}','fwTsFieldSource${slot}',
+    'fwTsCase${slot}','fwTsRegion${slot}','fwTsField${slot}','fwTsComponent${slot}',
+    'fwTsStat${slot}','fwBuildFieldTimeSeries','fwBuildOneFieldHistory',
     'fvLoadFrameData(c,group,region,times[i],component',
     "derivedKind:'field_history_workspace'",
     "datasetType:'timeseries'",
