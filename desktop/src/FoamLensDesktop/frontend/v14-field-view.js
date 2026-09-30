@@ -16,21 +16,23 @@ function fvAdvanceIndex(index,delta,length){
 function fvMeshDescriptor(file,rootPath){
   const path=fvNormPath(file?.webkitRelativePath||file?.path||file?.name||''),root=fvNormPath(rootPath);
   if(!root||!path.startsWith(root+'/'))return null;
-  const rel=path.slice(root.length+1).split('/').filter(Boolean),pi=rel.findIndex(x=>x==='polyMesh');
-  if(pi<1||pi!==rel.length-2)return null;
+  const rel=path.slice(root.length+1).split('/').filter(Boolean);let partition='';
+  if(/^processor\d+$/i.test(rel[0]||''))partition=rel.shift();
+  const pi=rel.findIndex(x=>x==='polyMesh');if(pi<1||pi!==rel.length-2)return null;
   const name=rel.at(-1);if(!['points','faces','owner','neighbour','boundary'].includes(name))return null;
   let region='',time=null,source='';
   if(rel[0]==='constant'){region=rel.slice(1,pi).join('/');source='constant'}
   else if(/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(rel[0])){time=Number(rel[0]);if(!Number.isFinite(time))return null;region=rel.slice(1,pi).join('/');source='time'}
   else return null;
-  return{region,name,time,timeLabel:time==null?'constant':rel[0],source,sourcePath:path,size:Number(file?.size)||0,file}
+  return{partition,region,name,time,timeLabel:time==null?'constant':rel[0],source,sourcePath:path,size:Number(file?.size)||0,file}
 }
 function fvBuildMeshInventory(files,rootPath){
   const groups=new Map(),required=['points','faces','owner','neighbour'];
   for(const file of files||[]){
     const d=fvMeshDescriptor(file,rootPath);if(!d)continue;
-    if(!groups.has(d.region))groups.set(d.region,{region:d.region,constant:{files:{},sourcePaths:{}},events:new Map()});
-    const g=groups.get(d.region);
+    const groupKey=(d.partition||'')+'|'+d.region;
+    if(!groups.has(groupKey))groups.set(groupKey,{partition:d.partition||'',region:d.region,constant:{files:{},sourcePaths:{}},events:new Map()});
+    const g=groups.get(groupKey);
     if(d.source==='constant'){g.constant.files[d.name]=file;g.constant.sourcePaths[d.name]=d.sourcePath}
     else{
       if(!g.events.has(d.time))g.events.set(d.time,{time:d.time,timeLabel:d.timeLabel,files:{},sourcePaths:{}});
@@ -48,19 +50,19 @@ function fvBuildMeshInventory(files,rootPath){
         if(!required.every(k=>!!candidateFiles[k]))continue;
         stateFiles=candidateFiles;statePaths=candidatePaths;hasBasis=true
       }else{stateFiles={...stateFiles,...e.files};statePaths={...statePaths,...e.sourcePaths}}
-      snapshots.push({region:raw.region,time:e.time,timeLabel:e.timeLabel,files:{...stateFiles},sourcePaths:{...statePaths},complete:true,dynamic:true,changed})
+      snapshots.push({partition:raw.partition||'',region:raw.region,time:e.time,timeLabel:e.timeLabel,files:{...stateFiles},sourcePaths:{...statePaths},complete:true,dynamic:true,changed})
     }
-    const reference=baseComplete?{region:raw.region,time:null,timeLabel:'constant',files:{...baseFiles},sourcePaths:{...baseSourcePaths},complete:true,dynamic:false,changed:[]}:snapshots[0]||null;
-    out.push({region:raw.region,files:reference?{...reference.files}:{...baseFiles},sourcePaths:reference?{...reference.sourcePaths}:{...baseSourcePaths},complete:!!reference,baseComplete,baseFiles,baseSourcePaths,snapshots,dynamic:snapshots.length>0,dynamicTimes:snapshots.map(x=>x.time)})
+    const reference=baseComplete?{partition:raw.partition||'',region:raw.region,time:null,timeLabel:'constant',files:{...baseFiles},sourcePaths:{...baseSourcePaths},complete:true,dynamic:false,changed:[]}:snapshots[0]||null;
+    out.push({partition:raw.partition||'',region:raw.region,files:reference?{...reference.files}:{...baseFiles},sourcePaths:reference?{...reference.sourcePaths}:{...baseSourcePaths},complete:!!reference,baseComplete,baseFiles,baseSourcePaths,snapshots,dynamic:snapshots.length>0,dynamicTimes:snapshots.map(x=>x.time)})
   }
-  return out.sort((a,b)=>a.region.localeCompare(b.region,undefined,{numeric:true,sensitivity:'base'}))
+  return out.sort((a,b)=>a.region.localeCompare(b.region,undefined,{numeric:true,sensitivity:'base'})||Number(!!a.partition)-Number(!!b.partition)||String(a.partition||'').localeCompare(String(b.partition||''),undefined,{numeric:true,sensitivity:'base'}))
 }
 function fvMeshSnapshotForTime(group,target){
   if(!group?.complete)return null;
   const timelineAware=Object.prototype.hasOwnProperty.call(group,'baseComplete')||Array.isArray(group.snapshots);
   if(!timelineAware)return{...group,time:null,timeLabel:'constant',dynamic:false,changed:[]};
   target=Number(target);
-  let chosen=group.baseComplete?{region:group.region,time:null,timeLabel:'constant',files:{...(group.baseFiles||{})},sourcePaths:{...(group.baseSourcePaths||{})},complete:true,dynamic:false,changed:[]}:null;
+  let chosen=group.baseComplete?{partition:group.partition||'',region:group.region,time:null,timeLabel:'constant',files:{...(group.baseFiles||{})},sourcePaths:{...(group.baseSourcePaths||{})},complete:true,dynamic:false,changed:[]}:null;
   const snapshots=[...(group.snapshots||[])].sort((a,b)=>a.time-b.time);
   if(!Number.isFinite(target))return chosen||snapshots[0]||null;
   for(const snap of snapshots){if(snap.time<target||fvTimeEqual(snap.time,target))chosen=snap;else break}
