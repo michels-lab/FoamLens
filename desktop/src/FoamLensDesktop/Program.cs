@@ -434,16 +434,18 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens real OpenFOAM 3D frame did not render safely: {realCaseJson}");
 
-                    if (!data.TryGetProperty("plotTitle", out var plotTitleNode) ||
-                        !string.Equals(plotTitleNode.GetString(), "3D OpenFOAM Field View",
-                            StringComparison.Ordinal))
+                    if (!data.TryGetProperty("fieldWorkspaceActive", out var workspaceActiveNode) ||
+                        !workspaceActiveNode.GetBoolean() ||
+                        !data.TryGetProperty("field3DHostMounted", out var field3DHostNode) ||
+                        !field3DHostNode.GetBoolean() ||
+                        !data.TryGetProperty("companionChartMounted", out var companionChartNode) ||
+                        !companionChartNode.GetBoolean() ||
+                        !data.TryGetProperty("companionMode", out var companionModeNode) ||
+                        !string.Equals(companionModeNode.GetString(), "profile", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("add3DViewVisible", out var add3DViewNode) ||
+                        !add3DViewNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens Field View lost ownership of the active plot header: {realCaseJson}");
-                    if (!data.TryGetProperty("plotInfo", out var plotInfoNode) ||
-                        !string.Equals(plotInfoNode.GetString(), "Mesh + transient fields",
-                            StringComparison.Ordinal))
-                        throw new InvalidOperationException(
-                            $"FoamLens Field View plot information was overwritten by a 2D renderer: {realCaseJson}");
+                            $"FoamLens Field workspace did not keep 3D + Spatial Profile mounted together: {realCaseJson}");
                     if (!data.TryGetProperty("fieldModeVisible", out var fieldModeVisibleNode) ||
                         !fieldModeVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldModeText", out var fieldModeTextNode) ||
@@ -633,8 +635,13 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     surfaceVertices:Number(fvState.renderer?.surfaceCount||0),
     webgl:!!gl,
     glError:gl?Number(gl.getError()):-1,
-    plotTitle:document.getElementById('plotTitle')?.textContent||'',
-    plotInfo:document.getElementById('plotInfo')?.textContent||'',
+    fieldWorkspaceActive:document.body.classList.contains('appMode-field'),
+    fieldWorkspaceTitle:document.getElementById('fwTitle')?.textContent?.trim()||'',
+    field3DHostMounted:document.getElementById('fieldViewPanel')?.parentElement?.id==='fw3DHost',
+    companionMode:document.getElementById('fwCompanion')?.value||'',
+    companionTitle:document.getElementById('fwPlotTitle')?.textContent?.trim()||'',
+    companionChartMounted:!!document.querySelector('#fw2DHost .chartwrap'),
+    add3DViewVisible:(()=>{const e=document.getElementById('fwAdd3DView');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
     fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     status:document.getElementById('fvStatus')?.textContent||''
