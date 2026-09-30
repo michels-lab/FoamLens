@@ -206,13 +206,25 @@ test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
   assert(program.includes('FacePoints'));
   assert(program.includes('Owners'));
   assert(program.includes('Neighbours'));
-  assert(program.includes('"binary-format"'));
+  assert(program.includes('ParseOpenFoamMeshBytes('));
+  assert(program.includes('faceCompactList'));
+  assert(program.includes('TryReadBinaryScalar('));
+  assert(program.includes('TryReadBinaryLabel('));
+  assert(program.includes('RunBinaryMeshParserSelfTest();'));
+  assert(program.includes('binary-lsb-label32-scalar64-assumed'));
   const start=program.indexOf('private async Task HandleOpenFoamMeshAsync');
   const finish=program.indexOf('private async Task HandleOpenFoamFieldAsync',start);
   const body=program.slice(start,finish);
   assert(body.includes('CancellationToken'));
-  assert(body.includes('File.ReadAllTextAsync'));
+  assert(body.includes('File.ReadAllBytesAsync'));
   assert(!/FileAccess\.Write|WriteAll|Delete\(|Move\(/.test(body));
+});
+
+test('browser fallback stays explicit about binary mesh limitation',()=>{
+  const binaryHeader='FoamFile\\n{\\n format binary;\\n class vectorField;\\n object points;\\n}\\n';
+  const r=api.fvBuildMeshFromTexts(binaryHeader,binaryHeader,binaryHeader,binaryHeader);
+  assert.equal(r.supported,false);
+  assert.equal(r.reason,'binary-format');
 });
 
 test('versioned frontend extensions are loaded generically',()=>{
