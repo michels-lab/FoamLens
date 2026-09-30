@@ -91,7 +91,7 @@ function thCreateRates(){
   try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
 }
 function thExport(){
-  const p=window.FoamLensLastThermalAnalysis;if(!p)return;downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
+  const p=window.FoamLensLastThermalAnalysis;if(!p){flSetIssue('thStatus','analysis-result-missing',{analysis:'Thermal Analysis'});return}downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
 }
 function thRefresh(){
   const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;const old=sel.value;
