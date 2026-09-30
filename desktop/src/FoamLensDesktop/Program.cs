@@ -37,7 +37,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.4.2", "app");
+        "FoamLens", "Desktop", "1.4.3", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
