@@ -125,6 +125,22 @@ test('runtime smoke exercises v1.4.4 3D multi-view and video primitives inside W
   ]) assert(program.includes(token),'Missing v1.4.4 runtime-smoke token '+token);
 });
 
+test('packaged runtime requires an independent View 2 legend and visible secondary Probe marker',()=>{
+  for(const token of [
+    'window.__foamLensSecondaryVisualSmokeResult=null',
+    "document.getElementById('fcLegend')",
+    'legendVisible',
+    'legendText',
+    'window.FoamLensFieldProbe?.fpSetEnabled?.(true)',
+    "document.getElementById('fcProbeMarker')",
+    'markerVisible',
+    'probeEnabled',
+    'secondaryField',
+    'FoamLens View 2 legend/Probe runtime smoke failed',
+    'FoamLens synchronized View 2 legend/Probe smoke passed'
+  ])assert(program.includes(token),'Missing View 2 legend/Probe runtime-smoke token '+token);
+});
+
 test('packaged Windows smoke uses a real B13 fixture plus distinct complete case identities to exercise 3D case switching',()=>{
   for(const token of [
     'window.__foamLensSmokeImportNativeRefs=async function(refs,options={})',
