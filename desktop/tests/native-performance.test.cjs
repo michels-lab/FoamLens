@@ -125,7 +125,7 @@ test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside W
   ]) assert(program.includes(token),'Missing v1.4.3 runtime-smoke token '+token);
 });
 
-test('packaged Windows smoke imports four real V12/V13 cases and switches the rendered 3D case',()=>{
+test('packaged Windows smoke uses a real B13 fixture plus distinct complete case identities to exercise 3D case switching',()=>{
   for(const token of [
     'window.__foamLensSmokeImportNativeRefs=async function(refs,options={})',
     'await runProjectScan(files)',
@@ -158,20 +158,19 @@ test('packaged Windows smoke imports four real V12/V13 cases and switches the re
   ])assert(program.includes(token),'Missing real multi-case packaged runtime token '+token);
   assert(program.includes('if (_smokeTest)'),'Real-case import helper is not smoke-gated.');
   for(const token of [
-    'Prepare Windows-safe V12/V13 runtime fixture',
-    'Upload Windows-safe V12/V13 runtime fixture',
-    'QuickCup-V12-V13-Windows-runtime',
-    'Download Windows-safe V12/V13 runtime fixture',
-    'v12-v13-runtime-windows',
-    'B12_topFixedValue_airGapOF14',
+    'Prepare Windows-safe multi-case 3D runtime fixture',
+    'Upload Windows-safe multi-case 3D runtime fixture',
+    'QuickCup-MultiCase-Windows-runtime',
+    'Download Windows-safe multi-case 3D runtime fixture',
+    'multi-case-runtime-windows',
+    'SmokeCase_A',
+    'SmokeCase_B',
+    'SmokeCase_C',
     'B13_prghPressure_airGapOF14',
-    'C12_topFixedValue_airGapOF14',
-    'C13_prghPressure_airGapOF14',
+    'case identities backed by complete B13',
     'invalid = re.compile',
-    'Windows path collision',
-    'Windows-safe V12/V13 fixture',
     "$env:FOAMLENS_SMOKE_MIN_CASES='4'",
-    "$env:FOAMLENS_SMOKE_INITIAL_CASE='B12_topFixedValue_airGapOF14'",
+    "$env:FOAMLENS_SMOKE_INITIAL_CASE='SmokeCase_A'",
     "$env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'",
     "$env:FOAMLENS_SMOKE_REGION='metal'",
     "$env:FOAMLENS_SMOKE_FIELD='T'",
