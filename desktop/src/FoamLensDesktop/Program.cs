@@ -725,7 +725,7 @@ internal sealed class FoamLensForm : Form
         var totalBytes = (long)points.Length + faces.Length + owner.Length + neighbour.Length;
 
         var result = ParseOpenFoamMeshBytes(
-            points, faces, owner, neighbour, totalBytes, CancellationToken.None);
+            points, faces, owner, neighbour, null, totalBytes, CancellationToken.None);
         if (!result.Supported)
             throw new InvalidOperationException("Binary polyMesh self-test failed: " + result.Reason);
         if (result.PointCount != 8 || result.FaceCount != 6 || result.CellCount != 1)
