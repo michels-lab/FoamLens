@@ -208,7 +208,7 @@ test('point-associated fields color actual mesh vertices without cell conversion
   )();
   const mesh={surfaceTriangles:[0,1,2],points:[0,0,0,1,0,0,0,1,0],pointCount:3,internalFaceCount:0,cellCount:1,faceOffsets:[0],facePoints:[]};
   const colors=assoc.fvPointSurfaceColors(mesh,[.1,.5,.9],0,1,'viridis');
-  near(colors[0],.1);near(colors[3],.5);near(colors[6],.9);
+  near(colors[0],.1,1e-6);near(colors[3],.5,1e-6);near(colors[6],.9,1e-6);
   assert.equal(assoc.fvAssociationCount(mesh,'point'),3);
 });
 
@@ -226,7 +226,7 @@ test('surface-associated fields triangulate real internal faces and preserve fac
   assert.equal(g.positions.length,18);
   assert.deepEqual(g.triangleFaces,[0,0]);
   const colors=assoc.fvInternalFaceColors(g.triangleFaces,[.75],0,1,'viridis');
-  assert.equal(colors.length,18);for(let i=0;i<colors.length;i+=3)near(colors[i],.75);
+  assert.equal(colors.length,18);for(let i=0;i<colors.length;i+=3)near(colors[i],.75,1e-6);
   assert.equal(assoc.fvAssociationCount(mesh,'surface'),1);
 });
 
