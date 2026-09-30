@@ -56,7 +56,10 @@ function fvBuildMeshInventory(files,rootPath){
   return out.sort((a,b)=>a.region.localeCompare(b.region,undefined,{numeric:true,sensitivity:'base'}))
 }
 function fvMeshSnapshotForTime(group,target){
-  if(!group?.complete)return null;target=Number(target);
+  if(!group?.complete)return null;
+  const timelineAware=Object.prototype.hasOwnProperty.call(group,'baseComplete')||Array.isArray(group.snapshots);
+  if(!timelineAware)return{...group,time:null,timeLabel:'constant',dynamic:false,changed:[]};
+  target=Number(target);
   let chosen=group.baseComplete?{region:group.region,time:null,timeLabel:'constant',files:{...(group.baseFiles||{})},sourcePaths:{...(group.baseSourcePaths||{})},complete:true,dynamic:false,changed:[]}:null;
   const snapshots=[...(group.snapshots||[])].sort((a,b)=>a.time-b.time);
   if(!Number.isFinite(target))return chosen||snapshots[0]||null;
