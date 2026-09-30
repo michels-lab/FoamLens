@@ -88,12 +88,13 @@ function fvIsoColors(vertexCount,iso,range,palette){
 function fvUpdateIso(range=null){
   const r=fvState.renderer,mesh=fvState.mesh,enabled=!!document.getElementById('fvIso')?.checked,meta=document.getElementById('fvIsoMeta');
   if(!r||!mesh)return;
-  if(String(fvState.fieldStorage||'volume')==='surface'){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso-surface is unavailable for face-associated surface fields because FoamLens does not silently reconstruct face data into a volume field.','La iso-superficie no está disponible para campos de superficie asociados a caras porque FoamLens no reconstruye silenciosamente datos de cara como campo volumétrico.');fvRender();return}
+  if(String(fvState.fieldStorage||'volume')==='surface'){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-surface-association-incompatible',{analysis:'Iso-surface',field:fvState.fieldName||'',association:'surface',expected:'volume or point scalar field'});fvRender();return}
   if(!enabled||!fvState.fieldValues){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Enable the iso-surface to reconstruct a constant-value surface inside the mesh.','Activa la iso-superficie para reconstruir una superficie de valor constante dentro de la malla.');fvRender();return}
   const iso=Number(document.getElementById('fvIsoValue')?.value),displayRange=range||fvState.lockedRange||fvFiniteRange(fvState.fieldValues),palette=document.getElementById('fvPalette')?.value||'viridis';
-  if(!Number.isFinite(iso)){r.isoCount=0;if(meta)meta.textContent=fvIsoUi('Enter a finite iso value.','Introduce un valor iso finito.');fvRender();return}
-  if(displayRange?.valid&&(iso<displayRange.min||iso>displayRange.max)){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Iso value is outside the current field range: ','El valor iso está fuera del rango actual del campo: ')+fvIsoFmt(displayRange.min)+' – '+fvIsoFmt(displayRange.max);fvRender();return}
+  if(!Number.isFinite(iso)){r.isoCount=0;flSetIssue(meta,'iso-value-invalid',{analysis:'Iso-surface',field:fvState.fieldName||''});fvRender();return}
+  if(displayRange?.valid&&(iso<displayRange.min||iso>displayRange.max)){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-value-out-of-range',{analysis:'Iso-surface',field:fvState.fieldName||'',expected:fvIsoFmt(displayRange.min)+' – '+fvIsoFmt(displayRange.max)});fvRender();return}
   const pointAssoc=String(fvState.fieldStorage||'volume')==='point',geom=pointAssoc?fvBuildPointIsoSurfaceGeometry(mesh,fvState.fieldValues,iso):fvBuildIsoSurfaceGeometry(mesh,fvState.fieldValues,iso);fvState.isoGeometry=geom;fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,displayRange,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3;
+  flClearIssue(meta);
   if(meta)meta.textContent='φ = '+fvIsoFmt(iso)+' · '+geom.triangleCount.toLocaleString()+' '+fvIsoUi('triangles','triángulos')+' · '+(pointAssoc?fvIsoUi('marching tetrahedra on point-field reconstruction','marching tetrahedra sobre reconstrucción de campo de puntos'):fvIsoUi('marching tetrahedra on reconstructed cell-centred data','marching tetrahedra sobre datos reconstruidos desde centros de celda'));
   fvRender()
 }
