@@ -1898,3 +1898,111 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 
 ### Candidate rule
 - Any product-code change after `dd3348ce268db23ad330573b34aa62e06a035d40` requires a new full candidate run before promotion.
+
+
+## 2026-09-30 — FoamLens Desktop v1.4.4 Field Workspace candidate
+
+### Scope closed in this candidate
+- Field View is promoted from the Data sub-tabs to a first-class top-level application mode alongside Overview, Data, Analysis, Review and Live.
+- The legacy Data `Field View` tab remains hidden in the new workflow; existing routes to `field3d` redirect into the top-level Field workspace.
+- Field Workspace supports simultaneous 3D + 2D diagnostics instead of forcing the user to choose one or the other.
+- Companion plot options include Spatial Profile, Time Series, Solver Logs or None.
+- Spatial Profile can follow the 3D physical time while the 3D renderer remains mounted.
+- `+ Add 3D View` is visible in the Field Workspace header.
+- Up to four synchronized 3D viewports remain supported.
+- Each 3D viewport retains independent case / region / field / component selectors.
+- Visible synchronized 3D views remain eligible for the same animation/video export.
+
+### Real 3D Case selector defect
+- User testing showed the Case selector could visually change while the renderer stayed bound to the previous case.
+- Root cause: the Case `onchange` path called `fvRefreshSelectors(false)`, which discarded the explicit user selection and reselected the active context case.
+- The Case selector now routes through `fvHandleCaseChange()`.
+- Case switching now invalidates stale frame, prefetch, global-range, mesh, field, vector, streamline, slice and Probe state before rebuilding the selected case.
+- The handler preserves the explicitly selected case and verifies that both `fvState.caseId` and `fvCase().id` remain bound to it after loading.
+
+### End-to-end multi-case selector smoke
+- The QuickCup fixture branch contains one complete transient 3D runtime fixture (B13); the sibling V12/V13 directories do not contain the full generated 3D payload.
+- CI therefore creates distinct smoke case identities backed by the same complete B13 payload. This tests selector/state mechanics without pretending that the incomplete sibling fixtures are complete CFD results.
+- Portable and installed runtime smoke both import four 3D-ready case identities.
+- The smoke changes the real `#fvCase` select value and dispatches a real bubbling `change` event.
+- It waits for `fvState.caseId` and `fvCase().name` to change before continuing.
+- Validated transition: `SmokeCase_A -> B13_prghPressure_airGapOF14`.
+- Runtime evidence confirms:
+  - `caseCount = 4`;
+  - `readyCaseCount = 4`;
+  - `caseSwitchChanged = true`;
+  - switched case ID differs from initial case ID;
+  - renderer case ID equals switched case ID;
+  - final rendered case is `B13_prghPressure_airGapOF14`.
+
+### Field Workspace runtime evidence
+- Portable and installed smoke both confirm:
+  - top-level `Field View` navigation is visible;
+  - `Field Workspace` is the active application mode;
+  - the 3D panel is mounted under `fw3DHost`;
+  - Spatial Profile is mounted simultaneously under `fw2DHost`;
+  - companion mode is `profile`;
+  - `+ Add 3D View` is visible;
+  - View 3 and View 4 can mount without duplicate DOM IDs;
+  - the main 3D canvas is not affected by the old global absolute-canvas defect.
+- Final smoke screenshot visually confirms the split workspace with 3D and Spatial Profile shown at the same time.
+
+### Probe visibility
+- Probe now exposes explicit ON/OFF state.
+- Disabling Probe clears the WebGL marker rather than only changing the control label/cursor.
+- A high-contrast overlay marker/reticle follows the picked point.
+- Probe marker size is configurable: S / M / L.
+- Runtime rendering updates the overlay position after camera redraws.
+
+### Vector and streamline resolution
+- Vectors and Streamlines now have independent collapsible control blocks beneath their ON/OFF toggles.
+- Vector resolution options:
+  - Adaptive;
+  - 150;
+  - 300;
+  - 600;
+  - 1200;
+  - 2400 glyphs.
+- Glyph size is independently adjustable.
+- Vector sampling no longer relies only on a raw every-N-cells stride; it uses the spatial hash to distribute glyph samples across the domain and reports the actual glyph count.
+- Synchronized View 2 uses the same vector-resolution and glyph-size controls instead of a hard-coded 280 glyphs.
+- Streamline seed density can be raised up to 400 seeds and is independent from vector glyph density.
+- Streamline controls remain separated from vector controls.
+
+### Navigation cleanup
+- Field View is now part of the base navigation model (`workspace/data/field/analysis/review/live`).
+- The Workspace fallback only creates a Field navigation button if the base button is absent.
+- Fallback click wiring is added only when that fallback button was actually created, preventing duplicate Field navigation listeners.
+
+### Scientific regression retained
+- B13 `metal/T` at `t = 9.8 s` remains the late-time thermal runtime reference.
+- Portable and installed smoke both report:
+  - 6400 cell values;
+  - 13122 mesh points;
+  - min `1417.57 K`;
+  - max `1481.90 K`;
+  - span `64.33 K`;
+  - legend `1,418 / 1,450 / 1,482 · current · Δ 64`;
+  - WebGL error `0`.
+- The video primitive smoke again produced a non-empty MP4/H.264-compatible blob in WebView2.
+
+### Final v1.4.4 candidate validation
+- Tested head: `71ce31ed83b50b0c76896b8a5ef7abe7b445f5b0`.
+- GitHub Actions run **#452 — SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full Windows regression suite: **SUCCESS**.
+- Field View regression: **SUCCESS**.
+- Probe regression: **SUCCESS**.
+- 3D comparison/multi-view regression: **SUCCESS**.
+- Portable packaged runtime smoke: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Artifact upload: **SUCCESS**.
+- Artifact: `FoamLens-Windows-v1.4.4`.
+- Artifact id: `11122496658`.
+- Artifact size: `135,161,390 bytes`.
+- Artifact digest: `sha256:ea4c7a2d0f8453b0e94b6c931c8f90fd7bd893f49a85599897d71a8a1f631654`.
+- GitHub Release publication remains **not performed** for v1.4.4 in this development branch.
+
+### Candidate rule
+- Any product-code change after `71ce31ed83b50b0c76896b8a5ef7abe7b445f5b0` requires a new full candidate run before promotion.
