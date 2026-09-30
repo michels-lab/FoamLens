@@ -44,13 +44,17 @@ test('uniform primitive fields and binary formats have explicit paths',()=>{
   assert(program.includes('"unsupported-field-class"'));
 });
 
-test('frontend prefers native streaming for large fields and retains JS fallback',()=>{
+test('Desktop routes every native-backed field through the native parser before JS fallback',()=>{
   const start=index.indexOf('async function pmLoadRecord(record){');
   const end=index.indexOf('async function pmLoadFieldSet',start);
   const body=index.slice(start,end);
+  assert(body.includes("nativeReadable=!!(FOAMLENS_NATIVE&&record.file?._nativeToken)"));
+  assert(body.includes('if(nativeReadable){'));
   assert(body.includes('await pmParseNativeOpenFOAMField(record.file,record.sourcePath)'));
+  assert(body.includes('sourceSize>PM_FIELD_NATIVE_THRESHOLD'));
   assert(body.includes('await pmParseLargeOpenFOAMField(record.file,record.sourcePath)'));
   assert(body.includes('Native OpenFOAM field parser failed; falling back'));
+  assert(!/nativeReadable=.*PM_FIELD_NATIVE_THRESHOLD/.test(body),'Native routing regressed to a size-gated parser.');
 });
 
 test('native field payload maps to existing JS parsed-field model',()=>{
