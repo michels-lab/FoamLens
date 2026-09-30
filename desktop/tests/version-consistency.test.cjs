@@ -19,8 +19,8 @@ assert(!index.includes("productVersion:'v51-development'"),'Workspace payload st
 assert(/<Version>1\.4\.2<\/Version>/.test(project),'Desktop project version is not 1.4.2.');
 assert(/<AssemblyVersion>1\.4\.2\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.2.0.');
 assert(/<FileVersion>1\.4\.2\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.2.0.');
-assert(readme.includes('**FoamLens Desktop v1.4.1** for Windows (current public release)'),'README does not identify v1.4.1 as the current public release.');
-assert(readme.includes('**Desktop v1.4.2 development build** is under validation'),'README does not identify the v1.4.2 development build.');
+assert(readme.includes('The current public release is **FoamLens Desktop v1.4.1 with frontend v51**'),'Desktop README does not identify v1.4.1 as the current public release.');
+assert(readme.includes('# FoamLens Desktop v1.4.2 development build'),'Desktop README does not identify the v1.4.2 development build.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("Desktop v1.4.2"),'Field View module does not expose the v1.4.2 build identity.');
