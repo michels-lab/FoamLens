@@ -136,7 +136,7 @@ function evPopulateColumns(){
   const meta=document.getElementById('evFileMeta');if(meta)meta.textContent=evState.fileName+' · '+table.rows.length.toLocaleString()+' '+evUi('rows','filas')+' · '+evUi('delimiter','delimitador')+' '+(table.delimiter==='\t'?'TAB':table.delimiter)
 }
 async function evImportFile(file){
-  if(!file)return;const text=await file.text(),table=evParseTable(text);if(table.headers.length<2||table.rows.length<2){document.getElementById('evStatus').textContent=evUi('The file needs at least two numeric columns and two data rows.','El archivo necesita al menos dos columnas numéricas y dos filas de datos.');return}
+  if(!file)return;const text=await file.text(),table=evParseTable(text);if(table.headers.length<2||table.rows.length<2){flSetIssue('evStatus','experimental-table-invalid',{analysis:'Experimental Validation',sourcePath:file.name});return}
   evState.table=table;evState.fileName=file.name;evPopulateColumns();document.getElementById('evStatus').textContent=evUi('Experimental table loaded. Confirm time, temperature and unit before running validation.','Tabla experimental cargada. Confirma tiempo, temperatura y unidad antes de ejecutar la validación.')
 }
 function evRunValidation(){
