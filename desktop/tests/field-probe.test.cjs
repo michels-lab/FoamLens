@@ -107,6 +107,17 @@ test('Probe ON/OFF changes the rendered marker and exposes a visible size contro
   assert(source.includes("r.probeCount=0"),'Disabling Probe does not clear the rendered WebGL marker.');
 });
 
+test('Probe ON shows an armed reticle before a point is pinned',()=>{
+  for(const token of [
+    'fvProbeAimOverlay','fpEnsureAimOverlay','fpMoveAimOverlay','fpHideAimOverlay',
+    "canvas.addEventListener('pointermove'","canvas.addEventListener('pointerenter'",
+    "canvas.addEventListener('pointerleave'","Probe ON · move pointer · click to pin",
+    'fvProbeMarkerOverlay'
+  ])assert(source.includes(token),'Missing armed Probe reticle token: '+token);
+  assert(source.includes("if(!fpState.enabled)fpHideAimOverlay()"),
+    'Probe OFF does not hide the armed reticle.');
+});
+
 test('probe module stays generic and contains no thesis fixture names',()=>{
   for(const banned of ['QuickCup','B3_reference','B12_','C12_'])assert(!source.includes(banned),'Project-specific token leaked into probe module: '+banned);
 });
