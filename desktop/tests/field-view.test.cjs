@@ -310,6 +310,15 @@ test('vector and streamline visualization expose independent real-resolution con
     'High-resolution 2400-glyph option is missing.');
 });
 
+test('top-level Field View navigation has a single click owner',()=>{
+  assert(workspaceSource.includes('let createdModeButton=false'),
+    'Field workspace does not track fallback navigation creation.');
+  assert(workspaceSource.includes("if(createdModeButton)document.getElementById('modeField')?.addEventListener"),
+    'Fallback-only Field View click wiring is missing.');
+  assert(!workspaceSource.includes("document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));"),
+    'Field View can receive a duplicate click listener even when the base navigation already owns it.');
+});
+
 test('Field View is promoted to a top-level application mode instead of remaining a Data sub-tab',()=>{
   for(const token of [
     "b.dataset.mode='field'","b.id='modeField'","analysis?nav.insertBefore(b,analysis)",
