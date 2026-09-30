@@ -252,6 +252,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
 
+      - name: Test time-varying OpenFOAM dynamic mesh
+        shell: pwsh
+        run: node desktop/tests/dynamic-mesh.test.cjs
+
       - name: Test Field View iso-surfaces
         shell: pwsh
         run: node desktop/tests/isosurface.test.cjs
