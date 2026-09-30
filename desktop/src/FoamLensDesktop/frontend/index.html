@@ -1712,6 +1712,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
   <div class="modeNav" role="navigation" aria-label="FoamLens analysis workspace">
     <button class="modeNavBtn active" data-mode="workspace" id="modeWorkspace">Overview</button>
     <button class="modeNavBtn" data-mode="data" id="modeData">Data</button>
+    <button class="modeNavBtn" data-mode="field" id="modeField" data-fl-en="Field View" data-fl-es="Vista 3D">Field View</button>
     <button class="modeNavBtn" data-mode="analysis" id="modeAnalysis">Analysis</button>
     <button class="modeNavBtn" data-mode="review" id="modeReview">Review</button>
     <button class="modeNavBtn" data-mode="live" id="modeLive">Live</button>
@@ -6680,15 +6681,15 @@ function setReviewPane(pane){
   if(activeReviewPane==='relationships')renderRelationships()
 }
 function updateContextTrail(){
-  const modeNames={workspace:diagEs()?'Resumen':'Overview',data:diagEs()?'Datos':'Data',analysis:diagEs()?'Análisis':'Analysis',review:diagEs()?'Revisión':'Review',live:diagEs()?'En vivo':'Live'};
+  const modeNames={workspace:diagEs()?'Resumen':'Overview',data:diagEs()?'Datos':'Data',field:diagEs()?'Vista 3D':'Field View',analysis:diagEs()?'Análisis':'Analysis',review:diagEs()?'Revisión':'Review',live:diagEs()?'En vivo':'Live'};
   const mode=modeNames[activeAppMode]||activeAppMode,c=caseById(Number($('auditCase')?.value))||caseById(Number($('diagCase')?.value));
   $('contextTrail').textContent=[mode,c?.name].filter(Boolean).join(' → ')
 }
 function setAppMode(mode){
-  activeAppMode=['workspace','data','analysis','review','live'].includes(mode)?mode:'workspace';
-  for(const m of ['workspace','data','analysis','review','live'])document.body.classList.toggle(`appMode-${m}`,m===activeAppMode);
+  activeAppMode=['workspace','data','field','analysis','review','live'].includes(mode)?mode:'workspace';
+  for(const m of ['workspace','data','field','analysis','review','live'])document.body.classList.toggle(`appMode-${m}`,m===activeAppMode);
   document.querySelectorAll('.modeNavBtn').forEach(b=>b.classList.toggle('active',b.dataset.mode===activeAppMode));
-  const titles={workspace:diagEs()?'Resumen':'Overview',data:diagEs()?'Datos':'Data',analysis:diagEs()?'Análisis':'Analysis',review:diagEs()?'Revisión y auditoría':'Review & audit',live:diagEs()?'Monitorear ejecución':'Watch Run'};
+  const titles={workspace:diagEs()?'Resumen':'Overview',data:diagEs()?'Datos':'Data',field:diagEs()?'Workspace de campos':'Field Workspace',analysis:diagEs()?'Análisis':'Analysis',review:diagEs()?'Revisión y auditoría':'Review & audit',live:diagEs()?'Monitorear ejecución':'Watch Run'};
   document.querySelector('.top h2').textContent=titles[activeAppMode]||'FoamLens';
   if(activeAppMode==='workspace'||activeAppMode==='review')refreshWorkspaceReview();
   if(activeAppMode==='live')refreshLiveCapability();
