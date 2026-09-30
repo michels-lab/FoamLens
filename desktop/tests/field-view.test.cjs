@@ -17,7 +17,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -136,6 +136,43 @@ test('multi-region cases enable Field View when a meshed region has volume field
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'mold',storage:'volume',kind:'scalar',times:[0]}]}}),false);
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'point',kind:'scalar',times:[0],name:'pointT'}]}}),true);
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'surface',kind:'vector',times:[0],name:'phiFace'}]}}),true);
+});
+
+test('field-to-mesh layout resolves processor partitions one-to-one',()=>{
+  const c={meshInventory:[
+    {partition:'processor0',region:'metal',complete:true},
+    {partition:'processor1',region:'metal',complete:true}
+  ]};
+  const g={records:[
+    {partition:'processor0',time:1,sourcePath:'processor0/1/metal/T'},
+    {partition:'processor1',time:1,sourcePath:'processor1/1/metal/T'}
+  ]};
+  const x=api.fvResolveFieldMeshLayout(c,'metal',g,1);
+  assert.equal(x.valid,true);assert.equal(x.mode,'decomposed');
+  assert.deepEqual(x.parts.map(p=>p.partition),['processor0','processor1']);
+  assert.equal(x.parts[0].record.sourcePath,'processor0/1/metal/T');
+  assert.equal(x.parts[1].record.sourcePath,'processor1/1/metal/T');
+});
+
+test('field-to-mesh layout rejects a missing processor mesh instead of borrowing another topology',()=>{
+  const c={meshInventory:[{partition:'processor0',region:'metal',complete:true}]};
+  const g={records:[
+    {partition:'processor0',time:1},
+    {partition:'processor1',time:1}
+  ]};
+  const x=api.fvResolveFieldMeshLayout(c,'metal',g,1);
+  assert.equal(x.valid,false);assert.equal(x.mode,'invalid');
+  assert.equal(x.reason,'mesh-partition-missing:processor1');
+});
+
+test('reconstructed field and mesh take precedence over processor copies',()=>{
+  const reconstructed={partition:'',region:'metal',complete:true};
+  const c={meshInventory:[reconstructed,{partition:'processor0',region:'metal',complete:true}]};
+  const g={records:[{partition:'',time:1,sourcePath:'1/metal/T'},{partition:'processor0',time:1,sourcePath:'processor0/1/metal/T'}]};
+  const x=api.fvResolveFieldMeshLayout(c,'metal',g,1);
+  assert.equal(x.valid,true);assert.equal(x.mode,'reconstructed');
+  assert.equal(x.record.sourcePath,'1/metal/T');
+  assert.equal(x.meshGroup,reconstructed);
 });
 
 test('time navigation uses physical values without index assumptions',()=>{
