@@ -100,7 +100,7 @@ test('Field View readiness requires a mesh state at or before at least one field
 
 test('playback wiring resolves geometry by physical time and preserves camera during mesh updates',()=>{
   for(const token of [
-    'fvMeshSnapshotForTime(meshGroup,time)',
+    'fvMeshSnapshotForTime(group,time)',
     'fvEnsureMeshForTime(c,meshGroup,time,{resetCamera:false})',
     'function fvUpdateMeshBuffers(mesh,resetCamera=true)',
     "if(resetCamera)fvCameraReset();else fvRender()",
