@@ -36,19 +36,19 @@ function fpTriangleValue(hit,values,offset){
   if(!hit||!values)return NaN;const a=Number(values[offset]),b=Number(values[offset+1]),c=Number(values[offset+2]);
   return[a,b,c].every(Number.isFinite)?hit.w*a+hit.u*b+hit.v*c:NaN
 }
-function fpPickTriangles(origin,dir,positions,{values=null,constantValue=NaN,kind='',cellIds=null}={}){
+function fpPickTriangles(origin,dir,positions,{values=null,constantValue=NaN,kind='',cellIds=null,faceIds=null}={}){
   let best=null;const n=Math.floor((positions?.length||0)/9);
   for(let ti=0;ti<n;ti++){
     const o=ti*9,a=[positions[o],positions[o+1],positions[o+2]],b=[positions[o+3],positions[o+4],positions[o+5]],c=[positions[o+6],positions[o+7],positions[o+8]];
     if(![...a,...b,...c].every(Number.isFinite))continue;const hit=fpRayTriangle(origin,dir,a,b,c);if(!hit||best&&hit.t>=best.t)continue;
-    const value=Number.isFinite(Number(constantValue))?Number(constantValue):fpTriangleValue(hit,values,ti*3),cell=cellIds&&Number.isFinite(Number(cellIds[ti]))?Number(cellIds[ti]):null;
-    best={...hit,triangle:ti,value,kind,cell}
+    const value=Number.isFinite(Number(constantValue))?Number(constantValue):fpTriangleValue(hit,values,ti*3),cell=cellIds&&Number.isFinite(Number(cellIds[ti]))?Number(cellIds[ti]):null,face=faceIds&&Number.isFinite(Number(faceIds[ti]))?Number(faceIds[ti]):null;
+    best={...hit,triangle:ti,value,kind,cell,face}
   }
   return best
 }
 /* FOAMLENS_FIELD_PROBE_CORE_END */
 
-const fpState={enabled:false,last:null,surfaceCache:new WeakMap(),down:null};
+const fpState={enabled:false,last:null,surfaceCache:new WeakMap(),faceCache:new WeakMap(),down:null};
 function fpUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fpFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fpCanvasRay(canvas,event){
@@ -70,17 +70,31 @@ function fpSurfacePositions(mesh){
   if(!mesh)return null;if(fpState.surfaceCache.has(mesh))return fpState.surfaceCache.get(mesh);
   const p=fvBuildSurfaceBuffers(mesh).surfacePositions;fpState.surfaceCache.set(mesh,p);return p
 }
+function fpInternalFaceGeometry(mesh){
+  if(!mesh)return null;if(fpState.faceCache.has(mesh))return fpState.faceCache.get(mesh);
+  const g=fvBuildInternalFaceBuffers(mesh);fpState.faceCache.set(mesh,g);return g
+}
+function fpBoundaryPointValues(mesh,values){
+  return (mesh?.surfaceTriangles||[]).map(pi=>Number(values?.[pi]))
+}
 function fpRenderedPick(ray){
-  const mesh=fvState.mesh;if(!mesh||!fvState.fieldValues)return null;const interior=[];
-  if(document.getElementById('fvIso')?.checked&&fvState.isoGeometry?.positions?.length){
+  const mesh=fvState.mesh;if(!mesh||!fvState.fieldValues)return null;const storage=String(fvState.fieldStorage||'volume'),interior=[];
+  if(storage==='volume'&&document.getElementById('fvIso')?.checked&&fvState.isoGeometry?.positions?.length){
     const iso=Number(fvState.isoGeometry.isoValue);interior.push(fpPickTriangles(ray.origin,ray.dir,fvState.isoGeometry.positions,{constantValue:iso,kind:'iso'}))
   }
-  if(document.getElementById('fvSlice')?.checked&&fvState.sliceGeometry?.positions?.length){
+  if(storage==='volume'&&document.getElementById('fvSlice')?.checked&&fvState.sliceGeometry?.positions?.length){
     interior.push(fpPickTriangles(ray.origin,ray.dir,fvState.sliceGeometry.positions,{values:fvState.sliceGeometry.values,kind:'slice'}))
   }
   const bestInterior=interior.filter(Boolean).sort((a,b)=>a.t-b.t)[0];if(bestInterior)return bestInterior;
   if(document.getElementById('fvSurface')?.checked!==false){
-    const positions=fpSurfacePositions(mesh),owners=mesh.surfaceOwners||[],cellIds=owners.map(Number),hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'surface',cellIds});
+    if(storage==='surface'){
+      const g=fpInternalFaceGeometry(mesh);if(!g?.positions?.length)return null;
+      const hit=fpPickTriangles(ray.origin,ray.dir,g.positions,{kind:'internalFace',faceIds:g.triangleFaces});
+      if(hit&&hit.face!=null)hit.value=Number(fvState.fieldValues[hit.face]);return hit
+    }
+    const positions=fpSurfacePositions(mesh);
+    if(storage==='point')return fpPickTriangles(ray.origin,ray.dir,positions,{kind:'pointSurface',values:fpBoundaryPointValues(mesh,fvState.fieldValues)});
+    const owners=mesh.surfaceOwners||[],cellIds=owners.map(Number),hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'surface',cellIds});
     if(hit&&hit.cell!=null)hit.value=Number(fvState.fieldValues[hit.cell]);return hit
   }
   return null
@@ -95,18 +109,19 @@ function fpUpdateMarker(hit){
   const pos=fpMarkerBuffers(hit.point);fvUploadBuffer(r,'probePos',pos,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'probeColor',fvConstantColors(pos.length/3,[1,.72,.15]),r.gl.DYNAMIC_DRAW);r.probeCount=pos.length/3;fvRender()
 }
 function fpSourceLabel(kind){
-  if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');return fpUi('Boundary surface','Superficie de frontera')
+  if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');if(kind==='internalFace')return fpUi('Internal mesh face','Cara interna de malla');if(kind==='pointSurface')return fpUi('Boundary surface · point interpolation','Superficie de frontera · interpolación de puntos');return fpUi('Boundary surface · owner cell','Superficie de frontera · celda owner')
 }
 function fpRenderReadout(hit){
   const box=document.getElementById('fvProbeReadout');if(!box)return;if(!hit){box.innerHTML='<span>'+fpUi('Click rendered geometry to inspect a value.','Haz clic en la geometría renderizada para inspeccionar un valor.')+'</span>';return}
-  const nearest=hit.cell!=null?{index:hit.cell,distance:0}:fpNearestCell(hit.point),unit=fvState.fieldParsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(fvState.fieldParsed.dimensions):'',cellText=nearest?String(nearest.index):'—',approx=hit.cell==null&&nearest?' '+fpUi('(nearest)','(más cercana)'):'';
+  const storage=String(fvState.fieldStorage||'volume'),nearest=hit.cell!=null?{index:hit.cell,distance:0}:fpNearestCell(hit.point),unit=fvState.fieldParsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(fvState.fieldParsed.dimensions):'',elementLabel=hit.face!=null?fpUi('Face','Cara'):hit.cell!=null?fpUi('Cell','Celda'):storage==='point'?fpUi('Point data','Datos de punto'):fpUi('Nearest cell','Celda más cercana'),elementText=hit.face!=null?String(hit.face):hit.cell!=null?String(hit.cell):storage==='point'?fpUi('triangle interpolation','interpolación triangular'):(nearest?String(nearest.index):'—');
   box.innerHTML='<div class="fpGrid">'+
     '<div><span>'+fpUi('Source','Fuente')+'</span><b>'+fvEsc(fpSourceLabel(hit.kind))+'</b></div>'+
     '<div><span>'+fpUi('Field','Campo')+'</span><b>'+fvEsc(fvState.fieldName||'—')+'</b></div>'+
+    '<div><span>'+fpUi('Association','Asociación')+'</span><b>'+fvEsc(typeof fvAssociationLabel==='function'?fvAssociationLabel(storage):storage)+'</b></div>'+
     '<div><span>'+fpUi('Value','Valor')+'</span><b>'+fvEsc(fpFmt(hit.value)+(unit?' '+unit:''))+'</b></div>'+
     '<div><span>'+fpUi('Time','Tiempo')+'</span><b>'+fvEsc(fpFmt(fvState.time))+' s</b></div>'+
     '<div><span>X</span><b>'+fvEsc(fpFmt(hit.point[0]))+'</b></div><div><span>Y</span><b>'+fvEsc(fpFmt(hit.point[1]))+'</b></div><div><span>Z</span><b>'+fvEsc(fpFmt(hit.point[2]))+'</b></div>'+
-    '<div><span>'+fpUi('Cell','Celda')+'</span><b>'+fvEsc(cellText+approx)+'</b></div></div>'
+    '<div><span>'+fvEsc(elementLabel)+'</span><b>'+fvEsc(elementText)+'</b></div></div>'
 }
 function fpPickEvent(event){
   if(!fpState.enabled)return;const canvas=document.getElementById('fvCanvas'),ray=canvas?fpCanvasRay(canvas,event):null;if(!ray)return;const hit=fpRenderedPick(ray);fpState.last=hit;fpUpdateMarker(hit);fpRenderReadout(hit);
