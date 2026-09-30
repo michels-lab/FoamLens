@@ -525,6 +525,130 @@ internal sealed class FoamLensForm : Form
                     }
                 }
 
+                // Validate the exact multi-view defects reported by the user:
+                // View 2 must render its own scientific legend, and Probe must
+                // produce a visible marker inside the secondary viewport.
+                await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    window.__foamLensSecondaryVisualSmokeResult=null;
+                    (async()=>{
+                      try{
+                        const enabled=document.getElementById('fcEnabled');
+                        if(!enabled)throw new Error('Synchronized View 2 control is unavailable.');
+                        if(!enabled.checked){
+                          enabled.checked=true;
+                          enabled.dispatchEvent(new Event('change',{bubbles:true}));
+                        }
+                        if(typeof fcRefreshSelectors!=='function'||typeof fcRefreshFrame!=='function')
+                          throw new Error('Synchronized 3D comparison runtime is unavailable.');
+                        fcRefreshSelectors(true);
+
+                        const caseSel=document.getElementById('fcCase');
+                        const primaryCaseId=String(fvState.caseId??'');
+                        const differentCase=[...(caseSel?.options||[])].find(o=>String(o.value)!==primaryCaseId);
+                        if(differentCase){
+                          caseSel.value=differentCase.value;
+                          fcRefreshSelectors(true);
+                        }
+
+                        const fieldSel=document.getElementById('fcField');
+                        const primaryField=String(fvState.fieldName||'');
+                        const differentField=[...(fieldSel?.options||[])].find(o=>String(o.value)!==primaryField);
+                        if(differentField){
+                          fieldSel.value=differentField.value;
+                          fcRefreshSelectors(true);
+                        }
+
+                        await fcRefreshFrame();
+
+                        const legend=document.getElementById('fcLegend');
+                        const legendStyle=legend?getComputedStyle(legend):null;
+                        const legendRect=legend?.getBoundingClientRect();
+                        const legendText=legend?.innerText?.trim()||'';
+                        const legendVisible=!!legend&&
+                          !legend.classList.contains('hidden')&&
+                          legendStyle?.display!=='none'&&legendStyle?.visibility!=='hidden'&&
+                          Number(legendRect?.width)>0&&Number(legendRect?.height)>0&&
+                          legendText.length>0;
+
+                        window.FoamLensFieldProbe?.fpSetEnabled?.(true);
+                        const mesh=fcState.mesh;
+                        if(!mesh)throw new Error('View 2 mesh is unavailable for Probe smoke.');
+                        const point=[
+                          (Number(mesh.boundsMin?.[0])+Number(mesh.boundsMax?.[0]))/2,
+                          (Number(mesh.boundsMin?.[1])+Number(mesh.boundsMax?.[1]))/2,
+                          (Number(mesh.boundsMin?.[2])+Number(mesh.boundsMax?.[2]))/2
+                        ];
+                        if(!point.every(Number.isFinite))throw new Error('View 2 Probe smoke point is invalid.');
+                        const sample=Number(fcState.fieldValues?.[0]);
+                        fcState.probe={
+                          point,
+                          value:Number.isFinite(sample)?sample:0,
+                          cell:0,
+                          face:null,
+                          kind:'runtime-smoke'
+                        };
+                        fcRender();
+                        fcUpdateStatsGrid();
+                        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
+                        const marker=document.getElementById('fcProbeMarker');
+                        const markerStyle=marker?getComputedStyle(marker):null;
+                        const markerRect=marker?.getBoundingClientRect();
+                        const markerVisible=!!marker&&
+                          !marker.classList.contains('hidden')&&
+                          markerStyle?.display!=='none'&&markerStyle?.visibility!=='hidden'&&
+                          Number(markerRect?.width)>0&&Number(markerRect?.height)>0;
+
+                        window.__foamLensSecondaryVisualSmokeResult={
+                          ok:true,
+                          view2Enabled:!!fcState.enabled,
+                          secondaryCase:fcCase()?.name||'',
+                          secondaryField:fcState.fieldName||'',
+                          secondaryComponent:fcState.component||'',
+                          legendVisible,
+                          legendText,
+                          probeEnabled:!!window.FoamLensFieldProbe?.isEnabled?.(),
+                          markerVisible,
+                          markerWidth:Number(markerRect?.width)||0,
+                          markerHeight:Number(markerRect?.height)||0,
+                          selectedStats:document.getElementById('fcStatsGrid')?.innerText?.trim()||''
+                        };
+                      }catch(e){
+                        window.__foamLensSecondaryVisualSmokeResult={ok:false,error:String(e?.stack||e)};
+                      }
+                    })();
+                    """);
+
+                string secondaryVisualJson = "null";
+                var secondaryVisualDeadline = Stopwatch.StartNew();
+                while (secondaryVisualDeadline.Elapsed < TimeSpan.FromSeconds(15))
+                {
+                    await Task.Delay(120);
+                    secondaryVisualJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                        "window.__foamLensSecondaryVisualSmokeResult");
+                    if (!string.Equals(secondaryVisualJson.Trim(), "null", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(secondaryVisualJson.Trim(), "undefined", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(secondaryVisualJson.Trim(), "{}", StringComparison.Ordinal))
+                        break;
+                }
+                using (var secondaryVisual = JsonDocument.Parse(secondaryVisualJson))
+                {
+                    var root = secondaryVisual.RootElement;
+                    if (!root.TryGetProperty("ok", out var ok) || !ok.GetBoolean() ||
+                        !root.TryGetProperty("view2Enabled", out var view2Enabled) || !view2Enabled.GetBoolean() ||
+                        !root.TryGetProperty("legendVisible", out var legendVisible) || !legendVisible.GetBoolean() ||
+                        !root.TryGetProperty("legendText", out var legendText) ||
+                            string.IsNullOrWhiteSpace(legendText.GetString()) ||
+                        !root.TryGetProperty("probeEnabled", out var probeEnabled) || !probeEnabled.GetBoolean() ||
+                        !root.TryGetProperty("markerVisible", out var markerVisible) || !markerVisible.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens View 2 legend/Probe runtime smoke failed: {secondaryVisualJson}");
+                }
+                Log($"FoamLens synchronized View 2 legend/Probe smoke passed: {secondaryVisualJson}");
+                await _web.CoreWebView2.ExecuteScriptAsync(
+                    "delete window.__foamLensSecondaryVisualSmokeResult;");
+
                 await _web.CoreWebView2.ExecuteScriptAsync(
                     "delete window.__foamLensRealCaseSmokeResult;");
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
