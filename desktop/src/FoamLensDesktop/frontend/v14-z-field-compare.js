@@ -59,7 +59,7 @@ function fcSymmetricDifferenceRange(values){
 /* FOAMLENS_FIELD_COMPARE_CORE_END */
 
 const fcState={
-  enabled:false,caseId:null,region:'',fieldName:'',component:'value',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,
+  enabled:false,caseId:null,region:'',fieldName:'',component:'value',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
   spatialHash:null,vectorValues:null,streamlines:[],differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:''
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
@@ -121,7 +121,7 @@ function fcUploadMesh(mesh){
   fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;fcState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount)
 }
 function fcUpdateDerived(range){
-  const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues;if(!r||!mesh||!values||!range?.valid)return;const palette=document.getElementById('fvPalette')?.value||'viridis';
+  range=fcState.videoRangeOverride?.valid?fcState.videoRangeOverride:range;const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues;if(!r||!mesh||!values||!range?.valid)return;const palette=document.getElementById('fvPalette')?.value||'viridis';
   fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
   if(document.getElementById('fvSlice')?.checked){
     const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,geom=fvBuildSliceGeometry(mesh,values,axis,position);
@@ -214,7 +214,7 @@ function fcExtraRender(state){
   if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))
 }
 function fcExtraUpload(state,data){
-  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=data.range,palette=document.getElementById('fvPalette')?.value||'viridis';
+  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=document.getElementById('fvPalette')?.value||'viridis';
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
   state.storage=data.storage;
   if(data.storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
@@ -246,11 +246,20 @@ function fcExtraRemove(id){
   const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout()
 }
 function fcExtraAdd(){
-  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume'};fcExtraViews.push(state);
+  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume'};fcExtraViews.push(state);
   const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');if(!controls||!grid)return;const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcViewLabel" id="fcExtra'+id+'Label"></div>';grid.appendChild(viewport);
   fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{fcExtraRefreshSelectors(state,suffix!=='Case');fcExtraRefreshFrame(state)});
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state);fcUpdateLayout()
+}
+function fcVideoDescriptors(){
+  const out=[];if(fcState.enabled&&fcState.mesh&&fcState.fieldValues)out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
+  for(const s of fcExtraViews)if(fcState.enabled&&s.mesh&&s.fieldValues)out.push({key:'view'+s.id,canvasId:'fcExtra'+s.id+'Canvas',labelId:'fcExtra'+s.id+'Label',caseName:fcExtraCase(s)?.name||'',fieldName:s.fieldName||fcExtraField(s),component:s.component||fcExtraComponent(s),time:s.time,range:fvFiniteRange(s.fieldValues),dimensions:s.fieldParsed?.dimensions||''});
+  if(fcState.enabled&&document.getElementById('fcDifference')?.checked&&fcState.differenceValues)out.push({key:'difference',canvasId:'fcDifferenceCanvas',labelId:'',caseName:'Δ',fieldName:(fvState.fieldName||'')+' − '+(fcState.fieldName||''),component:'signed difference',time:fvState.time,range:fcState.differenceRange,dimensions:fvState.fieldParsed?.dimensions||''});return out
+}
+function fcSetVideoRanges(ranges){
+  fcState.videoRangeOverride=ranges?.view2?.valid?ranges.view2:null;for(const s of fcExtraViews)s.videoRangeOverride=ranges?.['view'+s.id]?.valid?ranges['view'+s.id]:null;
+  if(fcState.enabled&&fcState.fieldValues){const r=fcState.videoRangeOverride||fcState.range;fcUpdateDerived(r);for(const s of fcExtraViews)if(s.mesh&&s.fieldValues){const data={mesh:s.mesh,storage:s.storage,fieldValues:s.fieldValues,parsed:s.fieldParsed,range:s.range};fcExtraUpload(s,data)}}
 }
 function fcUpdateLayout(){
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);fcUpdateLabels();setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)
@@ -289,4 +298,4 @@ function fcInstall(){
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels()});
 }
 fcInstall();
-window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame};
+window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras};
