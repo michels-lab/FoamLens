@@ -142,12 +142,20 @@ test('packaged Windows smoke imports a real OpenFOAM case into Field View when a
   ])assert(program.includes(token),'Missing real-case packaged runtime token '+token);
   assert(program.includes('if (_smokeTest)'),'Real-case import helper is not smoke-gated.');
   for(const token of [
-    'Checkout private B13 runtime fixture',
-    'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14',
+    'Prepare Windows-safe B13 runtime fixture',
+    'Upload Windows-safe B13 runtime fixture',
+    'QuickCup-B13-Windows-runtime',
+    'Download Windows-safe B13 runtime fixture',
+    'b13-runtime-windows',
+    'invalid = re.compile',
+    'Windows path collision',
+    'Windows-safe B13 fixture lost required 3D inputs',
+    'quickcup-runtime-fixture/B13_prghPressure_airGapOF14',
     "$env:FOAMLENS_SMOKE_REGION='metal'",
     "$env:FOAMLENS_SMOKE_FIELD='T'",
     'WaitForExit(180000)'
   ])assert(workflow.includes(token),'Missing Windows B13 smoke workflow token '+token);
+  assert(!workflow.includes('Checkout private B13 runtime fixture'),'Windows must not git-checkout QuickCup paths that are invalid on NTFS.');
   const fixtureEnvUses=(workflow.match(/FOAMLENS_SMOKE_OPENFOAM_CASE/g)||[]).length;
   assert(fixtureEnvUses>=2,'B13 runtime fixture must be supplied to portable and installed smoke tests.');
 });
