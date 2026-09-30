@@ -5550,9 +5550,9 @@ function flIssueDescriptor(reason,context={}){
     cause=flUi('Discovery found the record metadata, but the file reference is missing or no longer accessible.','Discovery encontró los metadatos del registro, pero falta la referencia al archivo o ya no es accesible.');
     action=flUi('Reload the complete case folder and keep the source folder available while FoamLens is analyzing it.','Vuelve a cargar la carpeta completa del caso y mantenla disponible mientras FoamLens la analiza.');
   }else if(has('binary-format')){
-    problem=flUi('The selected OpenFOAM field is binary and was not decoded by the active reader.','El campo OpenFOAM seleccionado es binario y el lector activo no lo decodificó.');
-    cause=flUi('The current parsing path cannot interpret this binary payload.','La ruta de lectura actual no puede interpretar este contenido binario.');
-    action=flUi('Use the Desktop build/native reader. If this appears in Desktop, report the field path because native routing failed.','Usa la build Desktop/lector nativo. Si aparece en Desktop, revisa la ruta del campo porque falló el enrutamiento al lector nativo.');
+    problem=flUi('This analysis cannot decode the selected binary OpenFOAM field.','Este análisis no puede decodificar el campo OpenFOAM binario seleccionado.');
+    cause=flUi('The current field-analysis readers support ASCII internalField payloads; binary field payload decoding is not implemented yet.','Los lectores actuales de análisis de campos admiten internalField ASCII; la decodificación de campos binarios todavía no está implementada.');
+    action=flUi('Use an ASCII result for this field/time (or convert/write the OpenFOAM field as ASCII), then reload the case. Data Catalog shows the exact source path.','Usa un resultado ASCII para este campo/tiempo (o convierte/escribe el campo OpenFOAM como ASCII) y vuelve a cargar el caso. Data Catalog muestra la ruta fuente exacta.');
   }else if(has('unsupported-field-class')){
     problem=flUi('This OpenFOAM field class is not supported by this operation.','Esta clase de campo OpenFOAM no es compatible con esta operación.');
     cause=flUi('The selected analysis cannot convert the field association/class into values it understands.','El análisis seleccionado no puede convertir la asociación/clase del campo en valores utilizables.');
