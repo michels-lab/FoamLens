@@ -6,6 +6,7 @@ const assert=require('assert');
 
 const program=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8');
 const ui=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','v13-performance-controls.js'),'utf8');
+const workflow=fs.readFileSync(path.join(__dirname,'..','..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
 
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
@@ -122,6 +123,33 @@ test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside W
     "window.__foamLensVideoSmokeResult",
     "FoamLens WebView2 video runtime smoke passed"
   ]) assert(program.includes(token),'Missing v1.4.3 runtime-smoke token '+token);
+});
+
+test('packaged Windows smoke imports a real OpenFOAM case into Field View when a fixture is supplied',()=>{
+  for(const token of [
+    'window.__foamLensSmokeImportNativeRefs=async function(refs,options={})',
+    'await runProjectScan(files)',
+    'await importSelectedAsCases()',
+    "setDataView('field3d')",
+    'await fvLoadSelection()',
+    'BuildSmokeNativeFileRefs',
+    'FOAMLENS_SMOKE_OPENFOAM_CASE',
+    'FOAMLENS_SMOKE_REGION',
+    'FOAMLENS_SMOKE_FIELD',
+    'surfaceVertices',
+    'glError',
+    'FoamLens real OpenFOAM packaged runtime smoke passed'
+  ])assert(program.includes(token),'Missing real-case packaged runtime token '+token);
+  assert(program.includes('if (_smokeTest)'),'Real-case import helper is not smoke-gated.');
+  for(const token of [
+    'Checkout private B13 runtime fixture',
+    'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14',
+    "$env:FOAMLENS_SMOKE_REGION='metal'",
+    "$env:FOAMLENS_SMOKE_FIELD='T'",
+    'WaitForExit(180000)'
+  ])assert(workflow.includes(token),'Missing Windows B13 smoke workflow token '+token);
+  const fixtureEnvUses=(workflow.match(/FOAMLENS_SMOKE_OPENFOAM_CASE/g)||[]).length;
+  assert(fixtureEnvUses>=2,'B13 runtime fixture must be supplied to portable and installed smoke tests.');
 });
 
 test('scientific scanner yields are independent of render frames',()=>{
