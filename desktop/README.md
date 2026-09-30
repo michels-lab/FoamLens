@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.4.3 development build
+# FoamLens Desktop v1.4.4 development build
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The current public release is **FoamLens Desktop v1.4.2 with frontend v51**. This branch builds the **v1.4.3 development build**, which has not been published.
+The current public release is **FoamLens Desktop v1.4.3 with frontend v51**. This branch builds the **v1.4.4 development build**, which has not been published.
 
 ## Architecture
 
@@ -17,6 +17,7 @@ The current public release is **FoamLens Desktop v1.4.2 with frontend v51**. Thi
 - **General discovery model:** indexes scalar/vector/tensor field classes, dimensions, representative boundary patches, physical time directories, region evidence, logs, dictionaries, probes, sampled sets, volume/surface reductions, and arbitrary tabular `postProcessing` outputs by structure/content rather than project names.
 - **Data Catalog:** exposes discovered provenance and metadata without adding all detected fields to the active plot.
 - **Phase Change / Momentum:** analysis is enabled from detected capabilities and explicit field mapping, with cell-wise statistics, phase subsets, mechanism ratios, correlations, temporal evolution, derived-rate calculations and formula verification.
+- **Field Workspace:** Field View is a first-class top-level mode. It can keep 3D rendering visible beside a Spatial Profile, Time Series or Solver Log companion panel, with synchronized physical time where applicable. Multi-view controls expose up to four synchronized 3D viewports with independent case/region/field/component selections, and all visible views remain eligible for one video export.
 - **3D Field View:** transient OpenFOAM volume scalar/vector fields can be rendered on ASCII or native Desktop binary `polyMesh`, including time-varying/dynamic mesh snapshots. Field View supports physical-time playback, slices, iso-surfaces, 3D picking, vectors and streamlines; explicit orbit/pan/zoom controls, standard camera views and an interactive XYZ orientation gizmo; intelligent current/global/manual color ranges; cached/prefetched temporal fields; synchronized multi-view analysis with independent case/region/field/component selections; strict signed difference fields for geometrically/topologically equivalent meshes; and synchronized multi-view animation/video export. The entry remains discoverable when required data are missing and reports what is unavailable.
 - **Read-only safety:** analyses read files on demand and persist only FoamLens mappings/settings; OpenFOAM case files are never modified.
 
