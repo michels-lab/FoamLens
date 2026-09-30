@@ -7,6 +7,7 @@ const assert=require('assert');
 const root=path.join(__dirname,'..');
 const modulePath=path.join(root,'src','FoamLensDesktop','frontend','v14-sidebar-sections.js');
 const source=fs.readFileSync(modulePath,'utf8');
+const indexSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
 new Function(source);
 
 const begin='/* FOAMLENS_SIDEBAR_SECTIONS_CORE_START */';
@@ -53,6 +54,13 @@ test('sidebar product wiring preserves header and persists per-section state',()
     "document.addEventListener('foamlens-language-change'"
   ])assert(source.includes(token),'Missing sidebar wiring token: '+token);
   assert(source.includes(".sidebar > .card.flSidebarSectionCollapsed > :not(.cardhead){display:none!important}"));
+});
+
+test('global sidebar toggle stays clear of the scrollbar and resize rail',()=>{
+  assert(indexSource.includes('.sidebarToggle{position:absolute;z-index:360;top:18px;left:calc(var(--sidebar-w) - 52px);width:34px;height:34px'));
+  assert(indexSource.includes('.brand{display:flex;gap:12px;align-items:center;margin-bottom:16px;padding-right:44px}'));
+  assert(!indexSource.includes('left:calc(var(--sidebar-w) - 17px)'),'Global sidebar toggle regressed onto the scrollbar/divider.');
+  assert(indexSource.includes('.app.sidebarCollapsed .sidebarToggle{position:fixed;left:10px;top:50%'),'Collapsed-sidebar reopen control is no longer reachable.');
 });
 
 console.log('FoamLens collapsible sidebar regression suite passed: '+passed.length+' checks.');
