@@ -641,7 +641,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const target=(cases||[]).find(c=>String(c.name)===String(name));
     if(!target)throw new Error('Requested smoke case is unavailable: '+name);
     caseSel.value=String(target.id);
-    await fvHandleCaseChange();
+    caseSel.dispatchEvent(new Event('change',{bubbles:true}));
+    const started=performance.now();
+    while(performance.now()-started<30000){
+      if(Number(fvState.caseId)===Number(target.id)&&String(fvCase()?.name||'')===String(target.name))break;
+      await new Promise(r=>setTimeout(r,40));
+    }
     if(Number(fvState.caseId)!==Number(target.id)||String(fvCase()?.name||'')!==String(target.name))
       throw new Error('Field View case switch did not bind renderer to '+name);
     return{id:Number(target.id),name:String(target.name)};
