@@ -303,35 +303,55 @@ internal sealed class FoamLensForm : Form
             Log($"FoamLens v1.4.3 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
 
             // Exercise the actual WebView2 recording primitives used by FoamLens video export.
-            var videoRuntimeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+            // ExecuteScriptAsync serializes an unresolved JavaScript Promise as {}, so the
+            // async encoder writes its final result to a global slot that C# polls explicitly.
+            await _web.CoreWebView2.ExecuteScriptAsync(
                 """
+                window.__foamLensVideoSmokeResult=null;
                 (async()=>{
-                  if(typeof MediaRecorder==='undefined')return {ok:false,reason:'MediaRecorder unavailable'};
-                  if(typeof HTMLCanvasElement.prototype.captureStream!=='function')return {ok:false,reason:'captureStream unavailable'};
-                  const candidates=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
-                  const mime=candidates.find(x=>{try{return MediaRecorder.isTypeSupported(x)}catch{return false}})||'';
-                  const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;
-                  const ctx=canvas.getContext('2d'),stream=canvas.captureStream(12),chunks=[];
-                  let recorder;
-                  try{recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream)}
-                  catch(e){stream.getTracks().forEach(t=>t.stop());return {ok:false,reason:String(e)}}
-                  const stopped=new Promise((resolve,reject)=>{
-                    recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
-                    recorder.onstop=resolve;
-                    recorder.onerror=e=>reject(e.error||new Error('MediaRecorder runtime smoke error'));
-                  });
-                  recorder.start(50);
-                  for(let i=0;i<5;i++){
-                    ctx.clearRect(0,0,160,90);
-                    ctx.fillStyle='rgb('+(30+i*35)+','+(70+i*20)+','+(120+i*15)+')';
-                    ctx.fillRect(0,0,160,90);
-                    await new Promise(r=>setTimeout(r,90));
+                  try{
+                    if(typeof MediaRecorder==='undefined'){window.__foamLensVideoSmokeResult={ok:false,reason:'MediaRecorder unavailable'};return}
+                    if(typeof HTMLCanvasElement.prototype.captureStream!=='function'){window.__foamLensVideoSmokeResult={ok:false,reason:'captureStream unavailable'};return}
+                    const candidates=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+                    const mime=candidates.find(x=>{try{return MediaRecorder.isTypeSupported(x)}catch{return false}})||'';
+                    const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;
+                    const ctx=canvas.getContext('2d'),stream=canvas.captureStream(12),chunks=[];
+                    let recorder;
+                    try{recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream)}
+                    catch(e){stream.getTracks().forEach(t=>t.stop());window.__foamLensVideoSmokeResult={ok:false,reason:String(e)};return}
+                    const stopped=new Promise((resolve,reject)=>{
+                      recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+                      recorder.onstop=resolve;
+                      recorder.onerror=e=>reject(e.error||new Error('MediaRecorder runtime smoke error'));
+                    });
+                    recorder.start(50);
+                    for(let i=0;i<5;i++){
+                      ctx.clearRect(0,0,160,90);
+                      ctx.fillStyle='rgb('+(30+i*35)+','+(70+i*20)+','+(120+i*15)+')';
+                      ctx.fillRect(0,0,160,90);
+                      await new Promise(r=>setTimeout(r,90));
+                    }
+                    recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());
+                    const blob=new Blob(chunks,{type:recorder.mimeType||mime||'video/webm'});
+                    window.__foamLensVideoSmokeResult={ok:blob.size>0,size:blob.size,mime:recorder.mimeType||mime||blob.type,chunks:chunks.length};
+                  }catch(e){
+                    window.__foamLensVideoSmokeResult={ok:false,reason:String(e?.stack||e)};
                   }
-                  recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());
-                  const blob=new Blob(chunks,{type:recorder.mimeType||mime||'video/webm'});
-                  return {ok:blob.size>0,size:blob.size,mime:recorder.mimeType||mime||blob.type,chunks:chunks.length};
-                })()
+                })();
                 """);
+
+            string videoRuntimeJson = "null";
+            var videoSmokeDeadline = Stopwatch.StartNew();
+            while (videoSmokeDeadline.Elapsed < TimeSpan.FromSeconds(8))
+            {
+                await Task.Delay(100);
+                videoRuntimeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "window.__foamLensVideoSmokeResult");
+                if (!string.Equals(videoRuntimeJson.Trim(), "null", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(videoRuntimeJson.Trim(), "undefined", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(videoRuntimeJson.Trim(), "{}", StringComparison.Ordinal))
+                    break;
+            }
             using (var videoRuntime = JsonDocument.Parse(videoRuntimeJson))
             {
                 var root = videoRuntime.RootElement;
@@ -340,6 +360,8 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens WebView2 video-encoding runtime smoke failed: {videoRuntimeJson}");
             }
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "delete window.__foamLensVideoSmokeResult;");
             Log($"FoamLens WebView2 video runtime smoke passed: {videoRuntimeJson}");
 
             // Verify that JavaScript work continues while the native window is minimized.
