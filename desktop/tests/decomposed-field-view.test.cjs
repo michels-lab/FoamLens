@@ -95,11 +95,18 @@ test('missing or extra field partitions are rejected rather than reindexed',()=>
   assert.equal(r.ok,false);assert.equal(r.reason,'field-mesh-partition-set-mismatch');
 });
 
-test('decomposed surfaceField remains explicitly unsupported until patch-local face mapping is completed',()=>{
-  const mesh=api.fvCombinePartitionMeshes([{partition:'processor0',mesh:m0},{partition:'processor1',mesh:m1}]);
-  const r=api.fvCombinePartitionFieldValues(mesh,[],'value','surface');
-  assert.equal(r.ok,false);
-  assert.equal(r.reason,'decomposed-surface-field-not-supported');
+test('decomposed surfaceField internalField values concatenate by explicit internal-face ranges',()=>{
+  const mesh={decomposed:true,partitionRanges:[
+    {partition:'processor0',cellCount:2,pointCount:5,internalFaceCount:2},
+    {partition:'processor1',cellCount:2,pointCount:5,internalFaceCount:1}
+  ]};
+  const set=[
+    {partition:'processor1',uniform:false,values:[30]},
+    {partition:'processor0',uniform:false,values:[10,20]}
+  ];
+  const r=api.fvCombinePartitionFieldValues(mesh,set,'value','surface');
+  assert.equal(r.ok,true);
+  assert.deepEqual(r.values,[10,20,30]);
 });
 
 test('layout and composite snapshot preserve partition-specific mesh states',()=>{
@@ -122,6 +129,8 @@ test('product wiring uses strict layout before rendering decomposed fields',()=>
     'fvCombinePartitionFieldValues',
     "layout.mode==='decomposed'",
     'fvCombinePartitionVectors',
+    "storage==='surface'?range.internalFaceCount",
+    'fvLoadDecomposedSurfaceBoundaryValues',
     'processor meshes',
     'processor partitions'
   ])assert(source.includes(token),'Missing decomposed Field View wiring token: '+token);
