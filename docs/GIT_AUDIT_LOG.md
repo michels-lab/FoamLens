@@ -999,3 +999,43 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Windows artifact upload: success.
 - No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Native binary OpenFOAM polyMesh support
+
+### Binary mesh parser
+- Extended the Desktop-native `parseOpenFOAMMesh` path from ASCII-only text reads to byte-oriented mesh parsing.
+- ASCII and binary now converge into one common topology/geometry builder so validation, volume-weighted centroids, boundary triangulation and edge extraction cannot diverge by file format.
+- Supported native binary layouts:
+  - contiguous point/vector lists;
+  - contiguous `owner` / `neighbour` label lists;
+  - OpenFOAM `faceCompactList` binary faces represented by offsets + flattened labels.
+- Reads optional OpenFOAM `arch` metadata for:
+  - LSB / MSB endianness;
+  - 32/64-bit labels;
+  - 32/64-bit scalars.
+- A 64-bit label that cannot fit FoamLens' current in-memory integer indexing is rejected explicitly instead of truncating.
+- For binary headers without `arch`, FoamLens uses the common LSB / label32 / scalar64 ABI and reports the format as `binary-lsb-label32-scalar64-assumed` rather than hiding the assumption.
+- Unsupported/unknown binary face layouts are rejected with an explicit reason.
+- Browser/JavaScript fallback intentionally remains ASCII-only; binary support is a Desktop-native capability.
+
+### Native smoke regression
+- Added an in-process binary polyMesh self-test executed on every Desktop smoke run.
+- The fixture is a real byte-level one-cell cube using:
+  - `format binary`;
+  - `arch "LSB;label=32;scalar=64"`;
+  - `vectorField` points;
+  - `faceCompactList` faces;
+  - binary `labelList` owner/neighbour.
+- The production parser must recover 8 points, 6 faces, 1 cell and centroid `(0.5, 0.5, 0.5)`.
+- Because the self-test runs inside `--smoke-test`, it validates both the portable EXE and the installed EXE.
+- **Run #277: SUCCESS** at head `83e1146baba23eb3bdf4a29d0f57e9a9d58c435b`.
+  - Real QuickCup regression: success.
+  - Full Field View suite: success.
+  - Native binary mesh self-test in portable EXE: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Native binary mesh self-test in installed EXE: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the hotfix/development branch.
