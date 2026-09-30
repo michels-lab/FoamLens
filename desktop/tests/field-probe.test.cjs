@@ -96,6 +96,17 @@ test('product wiring exposes probe controls, rendered-geometry picking and marke
   ])assert(fieldSource.includes(token),'Missing Field View probe renderer hook: '+token);
 });
 
+test('Probe ON/OFF changes the rendered marker and exposes a visible size control',()=>{
+  for(const token of [
+    "markerSize:'medium'","fvProbeSize","Probe S","Probe M","Probe L",
+    "fvProbeStatePill","Probe ON","Probe OFF","fvProbeMarkerOverlay",
+    "if(!hit||!fpState.enabled){r.probeCount=0",
+    "if(fpState.enabled&&fpState.last)fpUpdateMarker(fpState.last)",
+    "o?.classList.add('hidden')","fpOverlaySizePx"
+  ])assert(source.includes(token),'Missing visible Probe state token: '+token);
+  assert(source.includes("r.probeCount=0"),'Disabling Probe does not clear the rendered WebGL marker.');
+});
+
 test('probe module stays generic and contains no thesis fixture names',()=>{
   for(const banned of ['QuickCup','B3_reference','B12_','C12_'])assert(!source.includes(banned),'Project-specific token leaked into probe module: '+banned);
 });
