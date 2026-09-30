@@ -152,7 +152,7 @@ function fpRenderReadout(hit){
     '<div><span>'+fvEsc(elementLabel)+'</span><b>'+fvEsc(elementText)+'</b></div></div>'
 }
 function fpPickEvent(event){
-  if(!fpState.enabled)return;const canvas=document.getElementById('fvCanvas'),ray=canvas?fpCanvasRay(canvas,event):null;if(!ray)return;const hit=fpRenderedPick(ray);fpState.last=hit;fpUpdateMarker(hit);fpRenderReadout(hit);
+  if(!fpState.enabled)return;const canvas=document.getElementById('fvCanvas'),ray=canvas?fpCanvasRay(canvas,event):null;if(!ray)return;const hit=fpRenderedPick(ray);fpState.last=hit;fpUpdateMarker(hit);fpRenderReadout(hit);window.FoamLensFieldCompare?.updateStats?.();
   if(!hit)fvSetStatus(fpUi('No rendered triangle was found under the cursor.','No se encontró ningún triángulo renderizado bajo el cursor.'),false)
 }
 function fpSetEnabled(enabled){
@@ -165,7 +165,7 @@ function fpSetEnabled(enabled){
   const box=document.getElementById('fvProbeReadout');if(box&&!fpState.last)fpRenderReadout(null)
 }
 function fpClear(){
-  fpState.last=null;const r=fvState.renderer;if(r)r.probeCount=0;fpRenderReadout(null);fvRender()
+  fpState.last=null;const r=fvState.renderer;if(r)r.probeCount=0;fpRenderReadout(null);fvRender();window.FoamLensFieldCompare?.updateStats?.()
 }
 function fpInstallUi(){
   if(document.getElementById('fvProbeMode'))return true;const tools=document.querySelector('#fieldViewPanel .fvViewTools'),stats=document.getElementById('fvStats'),canvas=document.getElementById('fvCanvas');if(!tools||!stats||!canvas)return false;
