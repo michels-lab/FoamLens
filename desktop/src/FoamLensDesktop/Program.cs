@@ -848,6 +848,305 @@ internal sealed class FoamLensForm : Form
             boundsMin, boundsMax, cellCenterMethod, sourceBytes);
     }
 
+    private static FoamMeshFileHeader? ParseFoamMeshFileHeader(byte[] data, out string reason)
+    {
+        reason = "";
+        if (data.Length == 0) { reason = "empty-mesh-file"; return null; }
+        var prefixLength = Math.Min(data.Length, 256 * 1024);
+        var text = Encoding.Latin1.GetString(data, 0, prefixLength);
+        var foamIndex = text.IndexOf("FoamFile", StringComparison.OrdinalIgnoreCase);
+        if (foamIndex < 0) { reason = "foam-header-not-found"; return null; }
+        var open = text.IndexOf('{', foamIndex);
+        if (open < 0) { reason = "foam-header-open-not-found"; return null; }
+        var close = FindMatchingDelimiter(text, open, '{', '}');
+        if (close < 0) { reason = "foam-header-close-not-found"; return null; }
+        var header = text.Substring(foamIndex, close - foamIndex + 1);
+
+        static string HeaderEntry(string source, string key)
+        {
+            var m = Regex.Match(source, @"\b" + Regex.Escape(key) + @"\s+([^;\s]+)\s*;",
+                RegexOptions.IgnoreCase);
+            return m.Success ? m.Groups[1].Value.Trim().Trim('"') : "";
+        }
+
+        var format = HeaderEntry(header, "format");
+        if (string.IsNullOrWhiteSpace(format)) format = "ascii";
+        var className = HeaderEntry(header, "class");
+
+        var littleEndian = true;
+        var labelBytes = 4;
+        var scalarBytes = 8;
+        var assumed = false;
+        if (string.Equals(format, "binary", StringComparison.OrdinalIgnoreCase))
+        {
+            var quotedArch = Regex.Match(header, @"\barch\s+""([^""]+)""\s*;", RegexOptions.IgnoreCase);
+            var plainArch = quotedArch.Success
+                ? quotedArch.Groups[1].Value
+                : HeaderEntry(header, "arch");
+
+            if (string.IsNullOrWhiteSpace(plainArch))
+            {
+                // OpenFOAM Foundation files historically omit arch from many
+                // headers. The overwhelmingly common ABI is LSB,label=32,
+                // scalar=64; expose the assumption in the returned format.
+                assumed = true;
+            }
+            else
+            {
+                var parts = plainArch.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length > 0)
+                {
+                    if (parts[0].Equals("LSB", StringComparison.OrdinalIgnoreCase)) littleEndian = true;
+                    else if (parts[0].Equals("MSB", StringComparison.OrdinalIgnoreCase)) littleEndian = false;
+                    else { reason = "binary-arch-endianness-unsupported"; return null; }
+                }
+                foreach (var part in parts.Skip(1))
+                {
+                    var kv = part.Split('=', 2, StringSplitOptions.TrimEntries);
+                    if (kv.Length != 2 || !int.TryParse(kv[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bits))
+                        continue;
+                    if (kv[0].Equals("label", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (bits is not (32 or 64)) { reason = "binary-label-size-unsupported"; return null; }
+                        labelBytes = bits / 8;
+                    }
+                    else if (kv[0].Equals("scalar", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (bits is not (32 or 64)) { reason = "binary-scalar-size-unsupported"; return null; }
+                        scalarBytes = bits / 8;
+                    }
+                }
+            }
+        }
+
+        return new FoamMeshFileHeader(
+            format.ToLowerInvariant(), className, littleEndian, labelBytes, scalarBytes, assumed, close + 1);
+    }
+
+    private static void SkipFoamBinaryTrivia(byte[] data, ref int pos)
+    {
+        while (pos < data.Length)
+        {
+            var b = data[pos];
+            if (b is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n') { pos++; continue; }
+            if (b == (byte)'/' && pos + 1 < data.Length && data[pos + 1] == (byte)'/')
+            {
+                pos += 2;
+                while (pos < data.Length && data[pos] != (byte)'\n') pos++;
+                continue;
+            }
+            if (b == (byte)'/' && pos + 1 < data.Length && data[pos + 1] == (byte)'*')
+            {
+                pos += 2;
+                while (pos + 1 < data.Length && !(data[pos] == (byte)'*' && data[pos + 1] == (byte)'/')) pos++;
+                if (pos + 1 < data.Length) pos += 2;
+                continue;
+            }
+            break;
+        }
+    }
+
+    private static bool TryLocateBinaryList(
+        byte[] data, int start, out int count, out int payloadOffset, out string reason)
+    {
+        count = 0; payloadOffset = 0; reason = "";
+        var pos = Math.Clamp(start, 0, data.Length);
+        SkipFoamBinaryTrivia(data, ref pos);
+        var begin = pos;
+        while (pos < data.Length && data[pos] >= (byte)'0' && data[pos] <= (byte)'9') pos++;
+        if (pos == begin ||
+            !int.TryParse(Encoding.ASCII.GetString(data, begin, pos - begin),
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out count) || count < 0)
+        {
+            reason = "binary-list-count-not-found";
+            return false;
+        }
+        while (pos < data.Length && data[pos] is (byte)' ' or (byte)'\t') pos++;
+        if (pos < data.Length && data[pos] == (byte)'\r') pos++;
+        if (pos >= data.Length || data[pos] != (byte)'\n')
+        {
+            reason = "binary-list-line-end-not-found";
+            return false;
+        }
+        payloadOffset = pos + 1;
+        return true;
+    }
+
+    private static bool TryReadBinaryLabel(
+        ReadOnlySpan<byte> bytes, int labelBytes, bool littleEndian, out int value)
+    {
+        value = 0;
+        if (labelBytes == 4)
+        {
+            value = littleEndian
+                ? BinaryPrimitives.ReadInt32LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt32BigEndian(bytes);
+            return true;
+        }
+        if (labelBytes == 8)
+        {
+            var v = littleEndian
+                ? BinaryPrimitives.ReadInt64LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt64BigEndian(bytes);
+            if (v < int.MinValue || v > int.MaxValue) return false;
+            value = (int)v;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryReadBinaryScalar(
+        ReadOnlySpan<byte> bytes, int scalarBytes, bool littleEndian, out double value)
+    {
+        value = double.NaN;
+        if (scalarBytes == 4)
+        {
+            var bits = littleEndian
+                ? BinaryPrimitives.ReadInt32LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt32BigEndian(bytes);
+            value = BitConverter.Int32BitsToSingle(bits);
+            return double.IsFinite(value);
+        }
+        if (scalarBytes == 8)
+        {
+            var bits = littleEndian
+                ? BinaryPrimitives.ReadInt64LittleEndian(bytes)
+                : BinaryPrimitives.ReadInt64BigEndian(bytes);
+            value = BitConverter.Int64BitsToDouble(bits);
+            return double.IsFinite(value);
+        }
+        return false;
+    }
+
+    private static double[]? ParseFoamMeshPointsBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshPoints(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var count, out var payload, out reason))
+            return null;
+        var itemBytes = checked(3 * header.ScalarBytes);
+        var needed = (long)count * itemBytes;
+        if (payload + needed > data.LongLength) { reason = "binary-points-truncated"; return null; }
+        var values = new double[count * 3];
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 2047) == 0) ct.ThrowIfCancellationRequested();
+            for (var axis = 0; axis < 3; axis++)
+            {
+                var at = payload + i * itemBytes + axis * header.ScalarBytes;
+                if (!TryReadBinaryScalar(
+                    data.AsSpan(at, header.ScalarBytes), header.ScalarBytes, header.LittleEndian,
+                    out values[3 * i + axis]))
+                {
+                    reason = "binary-point-value-invalid";
+                    return null;
+                }
+            }
+        }
+        return values;
+    }
+
+    private static int[]? ParseFoamMeshLabelsBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshLabels(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var count, out var payload, out reason))
+            return null;
+        var needed = (long)count * header.LabelBytes;
+        if (payload + needed > data.LongLength) { reason = "binary-label-list-truncated"; return null; }
+        var values = new int[count];
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
+            var at = payload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out values[i]))
+            {
+                reason = "binary-label-out-of-range";
+                return null;
+            }
+        }
+        return values;
+    }
+
+    private static int[][]? ParseFoamMeshFacesBytes(
+        byte[] data, FoamMeshFileHeader header, CancellationToken ct, out string reason)
+    {
+        reason = "";
+        if (header.Format == "ascii")
+            return ParseFoamMeshFaces(Encoding.UTF8.GetString(data), ct, out _, out reason);
+        if (header.Format != "binary") { reason = "mesh-format-unsupported"; return null; }
+        if (!header.ClassName.Equals("faceCompactList", StringComparison.OrdinalIgnoreCase))
+        {
+            reason = "binary-face-class-unsupported:" + (string.IsNullOrWhiteSpace(header.ClassName) ? "unknown" : header.ClassName);
+            return null;
+        }
+
+        if (!TryLocateBinaryList(data, header.HeaderEnd, out var offsetCount, out var offsetPayload, out reason))
+            return null;
+        var offsetBytes = (long)offsetCount * header.LabelBytes;
+        if (offsetPayload + offsetBytes > data.LongLength) { reason = "binary-face-offsets-truncated"; return null; }
+        var offsets = new int[offsetCount];
+        for (var i = 0; i < offsetCount; i++)
+        {
+            if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
+            var at = offsetPayload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out offsets[i]))
+            {
+                reason = "binary-face-offset-out-of-range";
+                return null;
+            }
+        }
+
+        var secondStart = checked((int)(offsetPayload + offsetBytes));
+        if (!TryLocateBinaryList(data, secondStart, out var elemCount, out var elemPayload, out reason))
+            return null;
+        var elemBytes = (long)elemCount * header.LabelBytes;
+        if (elemPayload + elemBytes > data.LongLength) { reason = "binary-face-labels-truncated"; return null; }
+        var elems = new int[elemCount];
+        for (var i = 0; i < elemCount; i++)
+        {
+            if ((i & 8191) == 0) ct.ThrowIfCancellationRequested();
+            var at = elemPayload + i * header.LabelBytes;
+            if (!TryReadBinaryLabel(data.AsSpan(at, header.LabelBytes), header.LabelBytes, header.LittleEndian, out elems[i]))
+            {
+                reason = "binary-face-label-out-of-range";
+                return null;
+            }
+        }
+
+        if (offsets.Length == 0)
+        {
+            if (elems.Length != 0) { reason = "binary-face-empty-offsets-with-elements"; return null; }
+            return Array.Empty<int[]>();
+        }
+        if (offsets[0] != 0 || offsets[^1] != elems.Length)
+        {
+            reason = "binary-face-offset-range-mismatch";
+            return null;
+        }
+        var faces = new int[offsets.Length - 1][];
+        for (var i = 0; i < faces.Length; i++)
+        {
+            if (offsets[i] < 0 || offsets[i + 1] < offsets[i] || offsets[i + 1] > elems.Length)
+            {
+                reason = "binary-face-offset-order-invalid";
+                return null;
+            }
+            var n = offsets[i + 1] - offsets[i];
+            faces[i] = new int[n];
+            Array.Copy(elems, offsets[i], faces[i], 0, n);
+        }
+        return faces;
+    }
+
     private static double[] ComputePolyhedralCellCenters(
         double[] points, int[][] faces, int[] owners, int[] neighbours, int cellCount,
         CancellationToken ct, out int fallbackCount)
