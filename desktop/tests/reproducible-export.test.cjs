@@ -53,7 +53,7 @@ test('derived provenance is explicit',()=>{
 test('JSON payload records case region field units and dimensions',()=>{
   for(const token of [
     "format:'FoamLens Series Export'",
-    "generatedBy:'FoamLens v51-development / Desktop v1.3.0 development'",
+    "generatedBy:flBuildIdentity()",
     'caseRoot:',
     'caseTags:[...(c?.tags||[])]',
     'region:rxRegion(s)',
