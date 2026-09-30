@@ -5601,6 +5601,30 @@ function flIssueDescriptor(reason,context={}){
     problem=flUi('A simulation temperature series is not selected or available.','No hay una serie de temperatura de simulación seleccionada o disponible.');
     cause=flUi('Experimental validation needs a temporal temperature series from the simulation.','La validación experimental necesita una serie temporal de temperatura de la simulación.');
     action=flUi('Choose a detected temperature time series for the case, or load the corresponding probe/postProcessing output.','Elige una serie temporal de temperatura detectada o carga el output de sonda/postProcessing correspondiente.');
+  }else if(has('analysis-source-missing','no analysis source','no compatible source')){
+    problem=flUi('This analysis has no compatible input source.','Este análisis no tiene una fuente de entrada compatible.');
+    cause=flUi('The active case/view does not currently provide the data type this analysis requires.','El caso/vista activa no proporciona actualmente el tipo de dato que requiere este análisis.');
+    action=flUi('Load or select the required source data, then check Data Catalog/Field Mapping to confirm it was detected.','Carga o selecciona los datos fuente requeridos y revisa Data Catalog/Field Mapping para confirmar que fueron detectados.');
+  }else if(has('insufficient-samples','not enough finite samples','insufficient-points')){
+    problem=flUi('There are not enough finite samples to run this operation.','No hay suficientes muestras finitas para ejecutar esta operación.');
+    cause=flUi('The selected dataset does not contain enough usable physical points for the requested calculation.','El conjunto seleccionado no contiene suficientes puntos físicos utilizables para el cálculo solicitado.');
+    action=flUi('Choose a dataset with more valid samples or reload the complete output that contains the missing points.','Elige un conjunto con más muestras válidas o vuelve a cargar el output completo que contiene los puntos faltantes.');
+  }else if(has('at least two temporal series','at least two spatial profiles','two different temporal series')){
+    problem=flUi('This comparison requires two distinct compatible datasets.','Esta comparación requiere dos conjuntos compatibles distintos.');
+    cause=flUi('Only one usable source is available or the same source is selected twice.','Solo hay una fuente utilizable o se seleccionó dos veces la misma fuente.');
+    action=flUi('Load/select two different compatible datasets before running the comparison.','Carga/selecciona dos conjuntos compatibles distintos antes de ejecutar la comparación.');
+  }else if(has('no-compatible-vector-group','no complete x/y/z vector group','vector component overlap')){
+    problem=flUi('A complete compatible vector group is not available.','No hay un grupo vectorial completo y compatible disponible.');
+    cause=flUi('FoamLens needs matching X/Y/Z components with a shared physical coordinate or time range.','FoamLens necesita componentes X/Y/Z coincidentes con un rango común de coordenada física o tiempo.');
+    action=flUi('Load/select matching X, Y and Z components from the same case/region and overlapping physical domain.','Carga/selecciona componentes X, Y y Z del mismo caso/región y con dominio físico superpuesto.');
+  }else if(has('analysis-not-run','export-source-missing','no result to export','run analysis first')){
+    problem=flUi('There is no calculated result available for this action.','No hay un resultado calculado disponible para esta acción.');
+    cause=flUi('The analysis/export source has not been selected or the calculation has not been run yet.','No se ha seleccionado la fuente de análisis/exportación o todavía no se ha ejecutado el cálculo.');
+    action=flUi('Select the required source, run the analysis, and then repeat this action.','Selecciona la fuente requerida, ejecuta el análisis y después repite esta acción.');
+  }else if(has('field-mapping-incomplete','not enough compatible roles')){
+    problem=flUi('Field Mapping is incomplete for this region.','El Field Mapping está incompleto para esta región.');
+    cause=flUi('One or more physical roles required by the analysis are not mapped to detected OpenFOAM fields.','Uno o más roles físicos requeridos por el análisis no están mapeados a campos OpenFOAM detectados.');
+    action=flUi('Map the required detected fields for this region, then rerun the dependent analysis.','Mapea los campos detectados requeridos para esta región y vuelve a ejecutar el análisis dependiente.');
   }else if(has('invalid-phase-thresholds')){
     problem=flUi('The phase thresholds are invalid.','Los umbrales de fase no son válidos.');
     cause=flUi('Solid/mushy must be less than or equal to mushy/liquid, and both must be within 0–1.','Sólido/pastoso debe ser menor o igual que pastoso/líquido y ambos deben estar entre 0 y 1.');
@@ -5623,6 +5647,9 @@ function flIssueDescriptor(reason,context={}){
     action=flUi('Review the selected case, field, region, time and component; then check Data Catalog for the detected source data.','Revisa caso, campo, región, tiempo y componente; después verifica en Data Catalog los datos fuente detectados.');
   }
   const detail=[];
+  if(context?.analysis)detail.push((diagEs()?'análisis':'analysis')+'='+String(context.analysis));
+  if(context?.view)detail.push((diagEs()?'vista':'view')+'='+String(context.view));
+  if(context?.expected)detail.push((diagEs()?'requisito':'expected')+'='+String(context.expected));
   if(context?.field)detail.push((diagEs()?'campo':'field')+'='+String(context.field));
   if(context?.region!==undefined&&context?.region!==null&&String(context.region)!=='')detail.push((diagEs()?'región':'region')+'='+String(context.region));
   if(Number.isFinite(Number(context?.time)))detail.push('t='+String(context.time)+' s');

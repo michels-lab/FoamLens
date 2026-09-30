@@ -137,7 +137,7 @@ try{
 }catch{}
 try{
   pmRenderMapping=function(){
-    const c=caseById(Number($('pmMappingCase')?.value))||pmCaseWithFields()[0],wrap=$('pmMappingRows');if(!c||!wrap)return;
+    const c=caseById(Number($('pmMappingCase')?.value))||pmCaseWithFields()[0],wrap=$('pmMappingRows');if(!wrap)return;if(!c){flSetIssue('pmMappingStatus','selection-missing',{analysis:'Field Mapping',expected:'Select a detected OpenFOAM case'});return}
     const region=fmRefreshMappingRegion(c),descriptors=fmDescriptorsForCase(c,region),names=[...new Set(descriptors.map(d=>d.name))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})),m=fmMappingForRegion(c,region);
     const cap=pmCapabilitiesFromMapping(m,names);
     const capRows=[
@@ -152,8 +152,9 @@ try{
       return'<div class="pmMappingRow"><div class="pmMappingRole">'+esc(pmRoleLabel(role))+'</div><select data-pm-role="'+esc(role.key)+'">'+opts+'</select></div>'
     }).join('');
     $('pmUserRoleName').value=m.userDefinedLabel||'';
-    const regionText=region|| (diagEs()?'Región por defecto':'Default region');
-    $('pmMappingStatus').textContent=(diagEs()?'Mapping de FoamLens para ':'FoamLens mapping for ')+c.name+' · '+regionText+' · '+(cap.enabled?(diagEs()?'Phase/Momentum disponible.':'Phase/Momentum available.'):(diagEs()?'Aún no hay campos suficientes mapeados para esta región.':'Not enough compatible roles are mapped for this region yet.'));
+    const regionText=region|| (diagEs()?'Región por defecto':'Default region'),status=$('pmMappingStatus');
+    if(cap.enabled){flClearIssue(status);if(status)status.textContent=(diagEs()?'Mapping de FoamLens para ':'FoamLens mapping for ')+c.name+' · '+regionText+' · '+(diagEs()?'Phase/Momentum disponible.':'Phase/Momentum available.')}
+    else flSetIssue(status,'field-mapping-incomplete',{analysis:'Field Mapping',region,expected:'Map the physical roles required by the dependent analysis'});
     pmRefreshCapabilityVisibility()
   }
 }catch{}

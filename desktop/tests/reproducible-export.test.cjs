@@ -81,8 +81,12 @@ test('CSV embeds case tags, provenance and statistics metadata',()=>{
   assert(js.includes("'# statistics='+JSON.stringify"));
 });
 
-test('export controls are contextual to selected series',()=>{
-  assert(js.includes("wrap.style.display=s&&rxFinitePoints(s).length?'':'none'"));
+test('export controls stay visible and explain missing source data',()=>{
+  assert(js.includes("wrap.style.display=''"));
+  assert(js.includes("j.disabled=!ready"));
+  assert(js.includes("c.disabled=!ready"));
+  assert(js.includes("flSetIssue(note,'export-source-missing'"));
+  assert(js.includes("flSetIssue('rxExportNote','export-source-missing'"));
   assert(js.includes("anchor.insertAdjacentElement('afterend',wrap)"));
 });
 

@@ -136,19 +136,20 @@ function taBuildUi(){
 }
 function taClearResult(){taLastResult=null;for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv']){const el=document.getElementById(id);if(el)el.disabled=true}}
 function taRefreshSources(){
-  const src=taSources(),box=document.getElementById('taTools'),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(box)box.style.display=src.length>=2?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!a||!b)return;
+  const src=taSources(),box=document.getElementById('taTools'),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}if(!a||!b)return;
   const oldA=a.value,oldB=b.value,opts=src.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${taSeriesLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
-  a.innerHTML=opts;b.innerHTML=opts;if([...a.options].some(o=>o.value===oldA))a.value=oldA;if([...b.options].some(o=>o.value===oldB))b.value=oldB;
+  a.innerHTML=opts||'<option value="">—</option>';b.innerHTML=opts||'<option value="">—</option>';if([...a.options].some(o=>o.value===oldA))a.value=oldA;if([...b.options].some(o=>o.value===oldB))b.value=oldB;
   if(!oldB&&b.options.length>1)b.selectedIndex=1;
-  const st=document.getElementById('taStatus');if(st)st.textContent=src.length>=2?flUi('Ready for physical-time alignment.','Listo para alineación por tiempo físico.'):flUi('Load at least two temporal series.','Carga al menos dos series temporales.');
+  const st=document.getElementById('taStatus');if(src.length<2){flSetIssue(st,'at least two temporal series are required',{analysis:'Temporal Alignment',expected:'Two distinct temporal series'});return}
+  flClearIssue(st);if(st)st.textContent=flUi('Ready for physical-time alignment.','Listo para alineación por tiempo físico.')
 }
 function taSelected(sel){const src=taSources(),v=document.getElementById(sel)?.value;return src.find((s,i)=>String(s.id??i)===String(v))}
 function taRunComparison(){
   const A=taSelected('taSourceA'),B=taSelected('taSourceB'),status=document.getElementById('taStatus'),result=document.getElementById('taResult');
-  if(!A||!B||A===B){if(status)status.textContent=flUi('Choose two different temporal series.','Elige dos series temporales distintas.');return}
+  if(!A||!B||A===B){flSetIssue(status,'at least two temporal series are required',{analysis:'Temporal Alignment',expected:'Choose two different temporal series'});return}flClearIssue(status)
   const mode=document.getElementById('taMode')?.value||'common',method=document.getElementById('taMethod')?.value||'linear',referenceIndex=Number(document.getElementById('taReference')?.value)||0,epsilon=Number(document.getElementById('taEpsilon')?.value)||1e-12;
   const aligned=taAlignSeries([A,B],{mode,method,referenceIndex,maxPoints:2500});
-  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;if(status)status.textContent=flUi('No common physical-time interval exists. Nothing was extrapolated.','No existe un intervalo común de tiempo físico. No se extrapoló nada.');if(result)result.innerHTML='';return}
+  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;flSetIssue(status,'no shared physical-time interval',{analysis:'Temporal Alignment'});if(result)result.innerHTML='';return}
   if(mode==='native'){taLastResult={A,B,aligned,epsilon};if(status)status.textContent=diagEs()?`El modo nativo conserva la malla temporal de cada fuente. Rango compartido: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Elige Malla temporal común o Malla del caso de referencia para diferencias cuantitativas.`:`Native mode preserves each source time grid. Shared range: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Choose Common Time Grid or Reference Case Grid for quantitative differences.`;if(result)result.innerHTML='';return}
   const m=taPairMetrics(aligned.grid,aligned.series[0].y,aligned.series[1].y,epsilon);
   taLastResult={A,B,aligned,metrics:m,epsilon};
@@ -172,7 +173,7 @@ function taExportPayload(){
   return{generatedBy:flBuildIdentity(),analysis:'temporal-alignment-difference',sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
 }
 function taExportComparison(format){
-  const p=taExportPayload();if(!p)return;
+  const p=taExportPayload();if(!p){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run a non-native aligned comparison first'});return}
   if(format==='json'){taDownload('FoamLens_temporal_comparison.json',JSON.stringify(p,null,2),'application/json');return}
   const escCsv=v=>'"'+String(v??'').replaceAll('"','""')+'"',rows=[['time_s','A','B','A_minus_B','absolute_difference','relative_difference','percent_difference','A_status','B_status']];
   for(const q of p.points)rows.push([q.time,q.A,q.B,q.difference,q.absoluteDifference,q.relativeDifference,q.percentDifference,q.provenanceA?.status||'',q.provenanceB?.status||'']);
@@ -180,7 +181,7 @@ function taExportComparison(format){
   taDownload('FoamLens_temporal_comparison.csv',meta.join('\n')+'\n'+rows.map(r=>r.map(escCsv).join(',')).join('\n'),'text/csv')
 }
 function taAddDerived(kind){
-  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return;
+  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native'){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run Common Time Grid or Reference Case Grid first'});return}
   const y=taDifferenceValues(r.aligned.series[0].y,r.aligned.series[1].y,kind,r.epsilon),A=r.A,B=r.B;
   const base=String(kind)==='percent'?flUi('% difference','% diferencia'):'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
   const diffField={...(A.field||{}),canonical:(kind==='percent'?'percentDifference:':'difference:')+taSeriesVariable(A),raw:name,name,displayName:name};

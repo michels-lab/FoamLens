@@ -115,26 +115,24 @@ function rxFileStem(s){
   return raw.replace(/[^A-Za-z0-9_.-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'FoamLens_series'
 }
 function rxDownload(format){
-  const s=rxSelectedSeries(),p=rxPayload(s);if(!p)return;
+  const s=rxSelectedSeries(),p=rxPayload(s);if(!p||!rxFinitePoints(s).length){flSetIssue('rxExportNote','export-source-missing',{view:'Series Export',expected:'Select a series with finite data points'});return}flClearIssue('rxExportNote');
   const stem=rxFileStem(s);
   if(format==='csv')downloadText(stem+'.csv',rxCsv(p),'text/csv');
   else downloadText(stem+'.json',JSON.stringify(p,null,2),'application/json')
 }
 function rxRefresh(){
-  const s=rxSelectedSeries(),wrap=document.getElementById('rxExportWrap');if(!wrap)return;
-  wrap.style.display=s&&rxFinitePoints(s).length?'':'none';
-  const note=document.getElementById('rxExportNote');
-  if(note&&s)note.textContent=(typeof diagEs==='function'&&diagEs())
-    ?'Incluye datos, unidades, estadísticas, caso/región y procedencia de la transformación.'
-    :'Includes data, units, statistics, case/region, and transformation provenance.';
-  const j=document.getElementById('rxExportJson'),c=document.getElementById('rxExportCsv');
+  const s=rxSelectedSeries(),wrap=document.getElementById('rxExportWrap');if(!wrap)return;wrap.style.display='';
+  const points=s?rxFinitePoints(s):[],ready=!!(s&&points.length),note=document.getElementById('rxExportNote');
+  const j=document.getElementById('rxExportJson'),c=document.getElementById('rxExportCsv');if(j)j.disabled=!ready;if(c)c.disabled=!ready;
+  if(!ready){flSetIssue(note,'export-source-missing',{view:'Series Export',expected:'Select a series with finite data points'});}
+  else{flClearIssue(note);if(note)note.textContent=(typeof diagEs==='function'&&diagEs())?'Incluye datos, unidades, estadísticas, caso/región y procedencia de la transformación.':'Includes data, units, statistics, case/region, and transformation provenance.'}
   if(j)j.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadatos (JSON)':'Export series + metadata (JSON)';
   if(c)c.textContent=(typeof diagEs==='function'&&diagEs())?'Exportar serie + metadatos (CSV)':'Export series + metadata (CSV)'
 }
 function rxBuildUi(){
   if(document.getElementById('rxExportWrap'))return;
   const anchor=document.getElementById('applyStyle');if(!anchor)return;
-  const wrap=document.createElement('div');wrap.id='rxExportWrap';wrap.style.cssText='display:none;margin-top:8px';
+  const wrap=document.createElement('div');wrap.id='rxExportWrap';wrap.style.cssText='margin-top:8px';
   wrap.innerHTML='<div class="row2"><button class="btn" id="rxExportJson" type="button">Export series + metadata (JSON)</button><button class="btn" id="rxExportCsv" type="button">Export series + metadata (CSV)</button></div><div class="smallnote" id="rxExportNote" style="margin-top:5px"></div>';
   anchor.insertAdjacentElement('afterend',wrap);
   document.getElementById('rxExportJson').onclick=()=>rxDownload('json');

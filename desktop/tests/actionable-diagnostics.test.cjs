@@ -96,7 +96,12 @@ test('major analysis modules use global actionable diagnostics',()=>{
     'v13-solidification-analysis.js',
     'v13-thermal-analysis.js',
     'v13-physical-analysis.js',
+    'v13-numerical-performance.js',
+    'v13-vector-fields.js',
+    'v13-temporal-alignment.js',
     'v13-spatial-differences.js',
+    'v13-reproducible-export.js',
+    'v13-field-mapping.js',
     'v14-energy-audit.js',
     'v14-momentum-mechanisms.js',
     'v14-experimental-validation.js',
@@ -107,6 +112,28 @@ test('major analysis modules use global actionable diagnostics',()=>{
     const source=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend',name),'utf8');
     assert(source.includes('flSetIssue'),name+' is not wired to the global actionable-diagnostics system.');
   }
+});
+
+test('remaining app diagnostics have specific remediation categories',()=>{
+  api.setEs(false);
+  const samples=[
+    ['insufficient-samples',/enough finite samples/i,/more valid samples/i],
+    ['at least two temporal series are required',/two distinct compatible datasets/i,/two different compatible datasets/i],
+    ['no-compatible-vector-group',/vector group/i,/X, Y and Z/i],
+    ['analysis-not-run',/no calculated result/i,/run the analysis/i],
+    ['field-mapping-incomplete',/Field Mapping is incomplete/i,/Map the required detected fields/i]
+  ];
+  for(const [reason,problem,action] of samples){const x=api.issue(reason,{analysis:'Audit',expected:'required input'});assert(problem.test(x.problem),reason);assert(action.test(x.action),reason);assert(x.text.includes('analysis=Audit'));assert(x.text.includes('expected=required input'))}
+});
+
+test('capability gaps stay visible instead of silently hiding their tools',()=>{
+  const read=name=>fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend',name),'utf8');
+  const numerical=read('v13-numerical-performance.js'),vector=read('v13-vector-fields.js'),temporal=read('v13-temporal-alignment.js'),spatial=read('v13-spatial-differences.js'),exp=read('v13-reproducible-export.js');
+  assert(!numerical.includes("box.style.display=ids.length?'':'none'"));
+  assert(!vector.includes("box.style.display=groups.length?'':'none'"));
+  assert(!temporal.includes("box.style.display=src.length>=2?'':'none'"));
+  assert(!spatial.includes("box.style.display=src.length>=2?'':'none'"));
+  assert(!exp.includes("wrap.style.display=s&&rxFinitePoints(s).length?'':'none'"));
 });
 
 test('Field View unavailable state exposes the actual issue instead of only a generic legend',()=>{

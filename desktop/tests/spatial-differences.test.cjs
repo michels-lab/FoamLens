@@ -42,9 +42,16 @@ test('export records spatial and temporal provenance',()=>{
   for(const token of ['noIndexAlignment:true','noExtrapolation:true','sharedRange','physicalTime','playbackMeta','FoamLens_spatial_comparison.json'])assert(js.includes(token),'Missing '+token);
 });
 
-test('panel is capability gated to profile comparisons',()=>{
-  assert(js.includes("box.style.display=src.length>=2?'':'none'"));
+test('panel stays visible and explains missing comparison inputs',()=>{
+  assert(js.includes("if(box)box.style.display=''"));
+  assert(js.includes("flSetIssue(st,'at least two spatial profiles are required'"));
+  assert(js.includes("expected:'Two compatible rendered spatial profiles'"));
   assert(js.includes("currentDataView!=='profile'"));
+});
+
+test('export without a completed comparison is actionable',()=>{
+  assert(js.includes("flSetIssue('sdStatus','analysis-not-run'"));
+  assert(js.includes("expected:'Run the spatial comparison first'"));
 });
 
 test('core is project agnostic',()=>{

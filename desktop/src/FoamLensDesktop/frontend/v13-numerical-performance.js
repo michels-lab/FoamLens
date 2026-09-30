@@ -151,9 +151,11 @@ function npBuildUi(){
   host.appendChild(box);flApplyBilingualText(box);document.getElementById('npCase').addEventListener('change',()=>{npRefreshMetricOptions();npRender()});document.getElementById('npRefresh').addEventListener('click',()=>{npRender();npDrawMetric()});document.getElementById('npMetric').addEventListener('change',npDrawMetric);document.getElementById('npXAxis').addEventListener('change',npDrawMetric);npRefreshCases()
 }
 function npRefreshCases(){
-  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display=ids.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}
-  sel.innerHTML=ids.map(id=>`<option value="${String(id).replace(/"/g,'&quot;')}">${String(npCaseLabel(id)).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
-  if([...sel.options].some(o=>o.value===old))sel.value=old;npRefreshMetricOptions();npRender()
+  const sel=document.getElementById('npCase');if(!sel)return;const old=sel.value,ids=[...new Set(npLogSeries().map(s=>s.caseId).filter(x=>x!=null))],box=document.getElementById('npTools');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}
+  sel.innerHTML=ids.length?ids.map(id=>`<option value="${String(id).replace(/"/g,'&quot;')}">${String(npCaseLabel(id)).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join(''):'<option value="">—</option>';
+  if([...sel.options].some(o=>o.value===old))sel.value=old;
+  if(!ids.length){flSetIssue('npStatus','no solver logs',{analysis:'Numerical Performance'});flSetIssue('npChartStatus','no solver logs',{analysis:'Numerical Performance'});const out=document.getElementById('npResult');if(out)out.innerHTML='';return}
+  flClearIssue('npStatus');npRefreshMetricOptions();npRender()
 }
 function npMetricLabel(s){return String(s?.field?.display||s?.field?.canonical||s?.name||s?.logFamily||'Metric')+(Number.isFinite(Number(s?.logSubIter))?' · #'+s.logSubIter:'')}
 function npRefreshMetricOptions(){
@@ -161,8 +163,11 @@ function npRefreshMetricOptions(){
 }
 function npSelectedMetric(){const id=document.getElementById('npMetric')?.value,ss=npSeriesForCase(document.getElementById('npCase')?.value);return ss.find((s,i)=>String(s.id??i)===String(id))}
 function npDrawMetric(){
-  const s=npSelectedMetric(),cv=document.getElementById('npChart'),st=document.getElementById('npChartStatus');if(!cv||!st)return;if(!s){st.textContent=flUi('No numerical metric selected.','No hay una métrica numérica seleccionada.');return}
-  const mode=document.getElementById('npXAxis')?.value||'physicalTime',d=npAxisData(s,mode);if(d.x.length<2){st.textContent=flUi('Not enough finite samples for this metric.','No hay suficientes muestras finitas para esta métrica.');return}
+  const s=npSelectedMetric(),cv=document.getElementById('npChart'),st=document.getElementById('npChartStatus');if(!cv||!st)return;
+  if(!s){flSetIssue(st,'selection-missing',{analysis:'Numerical Performance',expected:'Choose a detected solver-log metric'});return}
+  const mode=document.getElementById('npXAxis')?.value||'physicalTime',d=npAxisData(s,mode);
+  if(d.x.length<2){flSetIssue(st,'insufficient-samples',{analysis:'Numerical Performance',field:npMetricLabel(s)});return}
+  flClearIssue(st);
   const rect=cv.getBoundingClientRect(),W=Math.max(260,Math.round(rect.width||360)),H=210,dpr=Math.max(1,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   let xmin=Math.min(...d.x),xmax=Math.max(...d.x),ymin=Math.min(...d.y),ymax=Math.max(...d.y);if(xmax===xmin){xmin-=.5;xmax+=.5}if(ymax===ymin){ymin-=.5;ymax+=.5}
   const L=45,R=10,T=12,B=30,pw=W-L-R,ph=H-T-B,dark=document.body.classList.contains('dark'),fg=dark?'#b9c7d4':'#46586a',grid=dark?'#263442':'#dce4eb';ctx.strokeStyle=grid;ctx.strokeRect(L,T,pw,ph);ctx.strokeStyle=fg;ctx.beginPath();
@@ -171,8 +176,8 @@ function npDrawMetric(){
 }
 function npRender(){
   const id=document.getElementById('npCase')?.value,status=document.getElementById('npStatus'),out=document.getElementById('npResult');if(!out)return;
-  if(id==null||id===''){out.innerHTML='';if(status)status.textContent=flUi('Load solver logs to analyze numerical performance.','Carga logs del solver para analizar el rendimiento numérico.');return}
-  const s=npSummaryFromImportedSeries(id);if(status)status.textContent=diagEs()?`${s.series} series de log · ${s.timesteps} muestras de tiempo físico. Las métricas ausentes permanecen no disponibles; FoamLens no inventa valores.`:`${s.series} log series · ${s.timesteps} physical-time samples. Missing metrics remain unavailable; FoamLens does not invent values.`;
+  if(id==null||id===''){out.innerHTML='';flSetIssue(status,'no solver logs',{analysis:'Numerical Performance'});return}
+  flClearIssue(status);const s=npSummaryFromImportedSeries(id);if(status)status.textContent=diagEs()?`${s.series} series de log · ${s.timesteps} muestras de tiempo físico. Las métricas ausentes permanecen no disponibles; FoamLens no inventa valores.`:`${s.series} log series · ${s.timesteps} physical-time samples. Missing metrics remain unavailable; FoamLens does not invent values.`;
   out.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
   <tr><th>${flUi('Physical time','Tiempo físico')}</th><td>${npFmt(s.timeStart)}–${npFmt(s.timeEnd)} s</td><th>${flUi('Samples','Muestras')}</th><td>${s.timesteps}</td></tr>
   <tr><th>${flUi('Δt mean / range','Δt media / rango')}</th><td>${npFmt(s.deltaT.mean)} / ${npFmt(s.deltaT.min)}–${npFmt(s.deltaT.max)}</td><th>${flUi('Max Courant','Courant máximo')}</th><td>${npFmt(s.courantMax.max)}</td></tr>
