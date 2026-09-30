@@ -5547,7 +5547,7 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
-function flBuildIdentity(){return 'FoamLens v51 / Desktop v1.4.4'}
+function flBuildIdentity(){return 'FoamLens v51 / Desktop v1.4.5'}
 function flIssueDescriptor(reason,context={}){
   const raw=String(reason?.reason??reason??'').trim(),lower=raw.toLowerCase(),code=String(reason?.code||context?.code||raw||'unknown').trim().toLowerCase();
   const has=(...tokens)=>tokens.some(t=>code.includes(String(t).toLowerCase())||lower.includes(String(t).toLowerCase()));
