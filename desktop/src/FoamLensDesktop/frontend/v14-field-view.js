@@ -378,6 +378,16 @@ function fvAssociationLabel(storage){
 function fvAssociationCount(mesh,storage){
   return storage==='surface'?Number(mesh?.internalFaceCount)||0:storage==='point'?Number(mesh?.pointCount)||0:Number(mesh?.cellCount)||0
 }
+function fvSyncAssociationControls(storage){
+  const volume=String(storage||'volume')==='volume';
+  for(const id of ['fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvIsoMidrange']){const e=document.getElementById(id);if(e)e.disabled=!volume}
+  if(!volume){
+    const slice=document.getElementById('fvSlice');if(slice)slice.checked=false;
+    const iso=document.getElementById('fvIso');if(iso)iso.checked=false;
+    const r=fvState.renderer;if(r){r.sliceCount=0;r.isoCount=0}
+    fvState.sliceGeometry=null;fvState.isoGeometry=null
+  }
+}
 function fvConstantColors(vertexCount,rgb){const out=new Float32Array(vertexCount*3);for(let i=0;i<vertexCount;i++){out[3*i]=rgb[0];out[3*i+1]=rgb[1];out[3*i+2]=rgb[2]}return out}
 function fvCameraReset(){
   const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(v+max[i])/2),diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1;
@@ -457,7 +467,7 @@ async function fvLoadFrame(index=null){
   if(!vals.ok||vals.values.length!==expected)throw new Error(`${flUi('Field/mesh association-count mismatch','No coincide el número de elementos de la asociación campo/malla')}: ${storage} · ${vals.values.length} vs ${expected}`);
   const range=fvFiniteRange(vals.values);if(!range.valid)throw new Error(flUi('The selected field has no finite values.','El campo seleccionado no tiene valores finitos.'));
   const lock=document.getElementById('fvLockRange')?.checked;if(lock&&!fvState.lockedRange)fvState.lockedRange={valid:true,min:range.min,max:range.max};if(!lock)fvState.lockedRange=null;
-  const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.fieldStorage=storage;fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;const assoc=document.getElementById('fvAssociation');if(assoc)assoc.textContent=flUi('Association: ','Asociación: ')+fvAssociationLabel(storage)+(storage==='surface'?flUi(' · internal faces only; boundaryField is not fabricated',' · solo caras internas; boundaryField no se inventa'):'');
+  const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.fieldStorage=storage;fvSyncAssociationControls(storage);fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;const assoc=document.getElementById('fvAssociation');if(assoc)assoc.textContent=flUi('Association: ','Asociación: ')+fvAssociationLabel(storage)+(storage==='surface'?flUi(' · internal faces only; boundaryField is not fabricated',' · solo caras internas; boundaryField no se inventa'):'');
   fvUpdateSurfaceColors(vals.values,displayRange,storage);fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   await fvUpdateStreamlines(time,seq);if(seq!==fvState.frameSeq)return;fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`)
 }
