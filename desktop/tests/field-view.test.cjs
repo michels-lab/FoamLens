@@ -230,7 +230,7 @@ test('surface-associated fields triangulate real internal faces and preserve fac
   assert.equal(assoc.fvAssociationCount(mesh,'surface'),1);
 });
 
-test('Field View association wiring stays explicit and does not coerce face/point fields to cells',()=>{
+test('Field View association wiring keeps face data distinct while point fields support explicit interior reconstruction',()=>{
   for(const token of [
     "fvFieldGroups(c,r,null,'any')",
     "fvAssociationLabel",
@@ -243,11 +243,14 @@ test('Field View association wiring stays explicit and does not coerce face/poin
     "boundary faces with explicit values",
     "Field/mesh association-count mismatch",
     "fvFieldGroups(c,r,'vector','volume')",
-    "face/point values are not silently converted to cells"
+    "fvBuildPointSliceGeometry",
+    "const interior=String(storage||'volume')!=='surface'",
+    "does not silently reconstruct face data into a volume field"
   ])assert(source.includes(token),'Missing field-association wiring token: '+token);
   const isoSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
-  assert(isoSource.includes("String(fvState.fieldStorage||'volume')!=='volume'"));
-  assert(isoSource.includes('face/point values are not silently converted to cells'));
+  assert(isoSource.includes("String(fvState.fieldStorage||'volume')==='surface'"));
+  assert(isoSource.includes('fvBuildPointIsoSurfaceGeometry'));
+  assert(isoSource.includes('does not silently reconstruct face data into a volume field'));
 });
 
 test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
