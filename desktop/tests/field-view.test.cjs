@@ -405,11 +405,12 @@ test('Field workspace gives 3D and companion plots independent hosts instead of 
     'Spatial Profile is not a first-class companion view.');
 });
 
-test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
+test('Field View stays discoverable as a top-level mode even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
   assert.equal(a.ready,false);
   assert(/Load an OpenFOAM case/i.test(a.reason));
-  assert(source.includes("tab.disabled=false"),'Field View tab is still disabled when unavailable.');
+  assert(index.includes('data-mode="field" id="modeField"'),'Top-level Field View mode is missing from the base navigation.');
+  assert(workspaceSource.includes('#fieldViewTab{display:none!important}'),'Legacy Data sub-tab is not retired in the Field workspace architecture.');
   assert(source.includes("workspaceGoFieldView"),'Overview quick action for Field View is missing.');
   assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
 });
@@ -418,7 +419,7 @@ test('native host injects extensions into the main FoamLens IIFE, not the last d
   assert(program.includes('const string mainIifeMarker = "const FOAMLENS_NATIVE=";'));
   assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
   assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
-  assert(program.includes("document.getElementById('fieldViewTab')"));
+  assert(program.includes("document.getElementById('modeField')"));
   assert(program.includes('FoamLens Field View top-level mode did not mount correctly'));
 });
 
