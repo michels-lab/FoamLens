@@ -66,5 +66,25 @@ test('difference wiring exposes optional third 3D viewport and strict compatibil
   ])assert(source.includes(token),'Missing 3D difference token: '+token);
 });
 
+test('3D comparison supports same or different cases with independent fields and components',()=>{
+  for(const token of [
+    'fcField','fcComponent','View 2 field','Each viewport may use its own case, field and component',
+    'fcSameQuantity','different field/component/dimensions; difference unavailable',
+    "const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c))"
+  ])assert(source.includes(token),'Missing independent-view token: '+token);
+});
+
+test('3D comparison can add synchronized views three and four',()=>{
+  for(const token of [
+    'FC_MAX_TOTAL_VIEWS=4','fcExtraViews','fcExtraAdd','+ Add 3D view',
+    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(auto-fit,minmax(340px,1fr))'
+  ])assert(source.includes(token),'Missing multi-view token: '+token);
+});
+
+test('multi-view comparison exposes descriptors and independent fixed ranges for video',()=>{
+  for(const token of ['fcVideoDescriptors','fcSetVideoRanges','getVideoDescriptors:fcVideoDescriptors','setVideoRanges:fcSetVideoRanges','videoRangeOverride'])
+    assert(source.includes(token),'Missing multi-view video token: '+token);
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
