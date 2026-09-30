@@ -14,7 +14,7 @@ const end='/* FOAMLENS_DUAL_TIMESERIES_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Dual Time-Series core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdMatchesVariable,tsdAxisPlan};')();
+const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -24,6 +24,14 @@ test('single-variable mode preserves the original focus semantics',()=>{
   assert.equal(api.tsdMatchesVariable('T','T',''),true);
   assert.equal(api.tsdMatchesVariable('alphaL','T',''),false);
   assert.equal(api.tsdMatchesVariable('anything','',''),true);
+});
+
+test('primary selector always resolves to a real available variable',()=>{
+  const vars=[{canonical:'T'},{canonical:'alphaL'},{canonical:'p'}];
+  assert.equal(api.tsdPrimaryChoice(vars,'T'),'T');
+  assert.equal(api.tsdPrimaryChoice(vars,''),'T');
+  assert.equal(api.tsdPrimaryChoice(vars,'missing'),'T');
+  assert.equal(api.tsdPrimaryChoice([],''),'');
 });
 
 test('two selected variables are both accepted without selecting unrelated fields',()=>{
@@ -63,8 +71,12 @@ test('dual Time-Series UI is wired into existing filters and axes',()=>{
     'assignments=function(vis)',
     "currentDataView!=='timeseries'",
     "item.axis==='Left'||item.axis==='Right'",
-    'stopAllPlayback()'
+    'stopAllPlayback()',
+    "vSel.innerHTML=vars.map",
+    "primary.dataset.showAll='1'",
+    "delete primary.dataset.showAll"
   ])assert(source.includes(token),'Missing dual Time-Series wiring token: '+token);
+  assert(!source.includes("vSel.innerHTML='<option value=\"\">'+tsdEsc(tsdUi('All variables'"),'All variables leaked back into the primary selector.');
 });
 
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
