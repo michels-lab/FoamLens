@@ -30,6 +30,16 @@ assert(npA>=0&&npB>npA,'Numerical performance core markers missing.');
 const npCore=npFile.slice(npA,npB+npEnd.length);
 const np=new Function(npCore+'\nreturn {npParseRunLog};')();
 
+const fvFile=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
+const fvBegin='/* FOAMLENS_FIELD_VIEW_CORE_START */',fvEnd='/* FOAMLENS_FIELD_VIEW_CORE_END */';
+const fvA=fvFile.indexOf(fvBegin),fvB=fvFile.indexOf(fvEnd,fvA);
+assert(fvA>=0&&fvB>fvA,'Field View core markers missing.');
+const fvCore=fvFile.slice(fvA,fvB+fvEnd.length);
+const fv=new Function(
+  'const cases=[]; const flUi=(en,es)=>en;'+fvCore+
+  '\nreturn {fvBuildMeshInventory,fvCaseViewAvailable,fvAvailability};'
+)();
+
 const foamNumStart=html.indexOf('function foamLogNumber(token){');
 const foamNumEnd=html.indexOf('function foamLogDescriptor',foamNumStart);
 assert(foamNumStart>=0&&foamNumEnd>foamNumStart,'foamLogNumber function missing.');
@@ -67,6 +77,7 @@ function nonuniform(a){
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
 const b3=modelFor('B3_reference');
+const b13=modelFor('B13_prghPressure_airGapOF14');
 const c3=modelFor('C3_reference');
 const b6=modelFor('B6_adaptiveDt');
 const c6=modelFor('C6_adaptiveDt');
@@ -79,6 +90,27 @@ function b3RunLog(){
 test('real multi-region discovery',()=>{
   assert(b3.model.regions.includes('metal'));assert(b3.model.regions.includes('mold'));
   assert(!b3.model.regions.includes('metal/materials'));assert(!b3.model.regions.includes('mold/materials'));
+});
+test('complete B13 is 3D-ready from its real OpenFOAM files',()=>{
+  for(const group of b13.model.fields){
+    const record=[...group.records].sort((a,b)=>(a.size||0)-(b.size||0)||a.time-b.time)[0];
+    const rel=record.sourcePath.replace(/^B13_prghPressure_airGapOF14\//,'');
+    Object.assign(group,api.flParseFoamFieldHeader(read(b13.root,rel),record.sourcePath));
+  }
+  const meshes=fv.fvBuildMeshInventory(b13.files,'B13_prghPressure_airGapOF14');
+  const metal=meshes.find(x=>x.region==='metal'&&!x.partition);
+  const mold=meshes.find(x=>x.region==='mold'&&!x.partition);
+  assert(metal&&metal.complete,'B13 metal polyMesh was not recognized as complete.');
+  assert(mold&&mold.complete,'B13 mold polyMesh was not recognized as complete.');
+  assert(b13.model.fields.some(x=>x.region==='metal'&&x.name==='T'&&x.storage==='volume'&&x.kind==='scalar'));
+  assert(b13.model.fields.some(x=>x.region==='metal'&&x.name==='U'&&x.storage==='volume'&&x.kind==='vector'));
+  assert(b13.model.fields.some(x=>x.region==='mold'&&x.name==='T'&&x.storage==='volume'&&x.kind==='scalar'));
+  const caseObj={id:13,name:'B13_prghPressure_airGapOF14',meshInventory:meshes,discoveryModel:b13.model};
+  assert.strictEqual(fv.fvCaseViewAvailable(caseObj),true,'Field View rejected complete B13 despite compatible mesh/fields.');
+  const availability=fv.fvAvailability(caseObj);
+  assert.strictEqual(availability.ready,true,'B13 availability is not ready: '+availability.reason);
+  assert(availability.sharedRegions.includes('metal'));
+  assert(availability.sharedRegions.includes('mold'));
 });
 test('real arbitrary field inventory',()=>{
   assert(b3.model.fields.some(x=>x.name==='U'));assert(b3.model.fields.some(x=>x.name==='T'));
