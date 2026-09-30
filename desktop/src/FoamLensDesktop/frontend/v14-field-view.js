@@ -66,6 +66,40 @@ function fvParseLabelsText(text){
   const l=fvExtractList(text);if(!l.ok)return l;const labels=(l.body.match(/[-+]?\d+/g)||[]).map(Number);
   return labels.length===l.declared?{ok:true,format:l.format,labels,count:l.declared}:{ok:false,reason:'label-count-mismatch',format:l.format}
 }
+function fvPolyhedralCellCenters(points,faces,owners,neighbours,cellCount){
+  const cellFaces=Array.from({length:cellCount},()=>[]);
+  for(let fi=0;fi<faces.length;fi++){
+    const o=Number(owners[fi]);if(o>=0&&o<cellCount)cellFaces[o].push(fi);
+    if(fi<neighbours.length){const n=Number(neighbours[fi]);if(n>=0&&n<cellCount)cellFaces[n].push(fi)}
+  }
+  const centers=new Array(cellCount*3).fill(0);let fallbackCount=0;
+  for(let cell=0;cell<cellCount;cell++){
+    const refs=cellFaces[cell];if(!refs.length){fallbackCount++;continue}
+    let rx=0,ry=0,rz=0,validFaces=0;
+    for(const fi of refs){
+      const face=faces[fi];if(!face.length)continue;let fx=0,fy=0,fz=0;
+      for(const pi of face){fx+=Number(points[3*pi]);fy+=Number(points[3*pi+1]);fz+=Number(points[3*pi+2])}
+      rx+=fx/face.length;ry+=fy/face.length;rz+=fz/face.length;validFaces++
+    }
+    if(!validFaces){fallbackCount++;continue}rx/=validFaces;ry/=validFaces;rz/=validFaces;
+    let volume6=0,absVolume6=0,wx=0,wy=0,wz=0;
+    for(const fi of refs){
+      const face=faces[fi];if(face.length<3)continue;let fx=0,fy=0,fz=0;
+      for(const pi of face){fx+=Number(points[3*pi]);fy+=Number(points[3*pi+1]);fz+=Number(points[3*pi+2])}
+      fx/=face.length;fy/=face.length;fz/=face.length;const ownerSide=Number(owners[fi])===cell;
+      for(let j=0;j<face.length;j++){
+        let ia=face[j],ib=face[(j+1)%face.length];if(!ownerSide)[ia,ib]=[ib,ia];
+        const ax=fx-rx,ay=fy-ry,az=fz-rz,bx=Number(points[3*ia])-rx,by=Number(points[3*ia+1])-ry,bz=Number(points[3*ia+2])-rz,cx=Number(points[3*ib])-rx,cy=Number(points[3*ib+1])-ry,cz=Number(points[3*ib+2])-rz;
+        const crossX=by*cz-bz*cy,crossY=bz*cx-bx*cz,crossZ=bx*cy-by*cx,v6=ax*crossX+ay*crossY+az*crossZ;if(!Number.isFinite(v6)||Math.abs(v6)<=Number.EPSILON)continue;
+        const tcx=(rx+fx+Number(points[3*ia])+Number(points[3*ib]))*.25,tcy=(ry+fy+Number(points[3*ia+1])+Number(points[3*ib+1]))*.25,tcz=(rz+fz+Number(points[3*ia+2])+Number(points[3*ib+2]))*.25;
+        volume6+=v6;absVolume6+=Math.abs(v6);wx+=v6*tcx;wy+=v6*tcy;wz+=v6*tcz
+      }
+    }
+    if(Number.isFinite(volume6)&&Number.isFinite(absVolume6)&&absVolume6>0&&Math.abs(volume6)>absVolume6*1e-12){centers[3*cell]=wx/volume6;centers[3*cell+1]=wy/volume6;centers[3*cell+2]=wz/volume6}
+    else{centers[3*cell]=rx;centers[3*cell+1]=ry;centers[3*cell+2]=rz;fallbackCount++}
+  }
+  return{centers,fallbackCount}
+}
 function fvBuildMeshFromTexts(pointsText,facesText,ownerText,neighbourText){
   const P=fvParsePointsText(pointsText),F=fvParseFacesText(facesText),O=fvParseLabelsText(ownerText),N=fvParseLabelsText(neighbourText);
   for(const x of [P,F,O,N])if(!x.ok)return{supported:false,reason:x.reason||'parse-failed',format:x.format||''};
@@ -76,14 +110,8 @@ function fvBuildMeshFromTexts(pointsText,facesText,ownerText,neighbourText){
   const cellCount=maxCell+1;if(cellCount<=0)return{supported:false,reason:'no-cells',format:'ascii'};
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
   for(let i=0;i<pointCount;i++)for(let a=0;a<3;a++){const v=P.points[3*i+a];min[a]=Math.min(min[a],v);max[a]=Math.max(max[a],v)}
-  const sx=new Float64Array(cellCount),sy=new Float64Array(cellCount),sz=new Float64Array(cellCount),cnt=new Uint32Array(cellCount);
-  for(let fi=0;fi<faces.length;fi++){
-    const face=faces[fi];let x=0,y=0,z=0;
-    for(const pi of face){if(pi<0||pi>=pointCount)return{supported:false,reason:'face-point-index-out-of-range',format:'ascii'};x+=P.points[3*pi];y+=P.points[3*pi+1];z+=P.points[3*pi+2]}
-    if(!face.length)continue;x/=face.length;y/=face.length;z/=face.length;
-    for(const cell of [owners[fi],fi<neighbours.length?neighbours[fi]:-1])if(cell>=0&&cell<cellCount){sx[cell]+=x;sy[cell]+=y;sz[cell]+=z;cnt[cell]++}
-  }
-  const centers=new Array(cellCount*3).fill(0);for(let c=0;c<cellCount;c++)if(cnt[c]){centers[3*c]=sx[c]/cnt[c];centers[3*c+1]=sy[c]/cnt[c];centers[3*c+2]=sz[c]/cnt[c]}
+  const centroid=fvPolyhedralCellCenters(P.points,faces,owners,neighbours,cellCount);
+  const centers=centroid.centers;
   const triangles=[],surfaceOwners=[],edges=[],edgeSet=new Set(),internalFaceCount=neighbours.length;
   for(let fi=internalFaceCount;fi<faces.length;fi++){
     const face=faces[fi];
@@ -91,7 +119,7 @@ function fvBuildMeshFromTexts(pointsText,facesText,ownerText,neighbourText){
     for(let j=1;j<face.length-1;j++){triangles.push(face[0],face[j],face[j+1]);surfaceOwners.push(owners[fi])}
   }
   const faceOffsets=[0],facePoints=[];for(const face of faces){facePoints.push(...face);faceOffsets.push(facePoints.length)}
-  return{supported:true,reason:'',format:'ascii',points:P.points,surfaceTriangles:triangles,surfaceOwners,surfaceEdges:edges,cellCenters:centers,faceOffsets,facePoints,owners:[...owners],neighbours:[...neighbours],pointCount,faceCount:faces.length,internalFaceCount,boundaryFaceCount:faces.length-internalFaceCount,cellCount,boundsMin:min,boundsMax:max,cellCenterMethod:'mean-face-centres'}
+  return{supported:true,reason:'',format:'ascii',points:P.points,surfaceTriangles:triangles,surfaceOwners,surfaceEdges:edges,cellCenters:centers,faceOffsets,facePoints,owners:[...owners],neighbours:[...neighbours],pointCount,faceCount:faces.length,internalFaceCount,boundaryFaceCount:faces.length-internalFaceCount,cellCount,boundsMin:min,boundsMax:max,cellCenterMethod:centroid.fallbackCount?'volume-weighted-polyhedral-with-mean-face-fallback:'+centroid.fallbackCount:'volume-weighted-polyhedral'}
 }
 function fvPaletteStops(name){
   if(name==='coolwarm')return[[0,[0.231,0.298,0.753]],[.5,[.865,.865,.865]],[1,[.706,.016,.15]]];
