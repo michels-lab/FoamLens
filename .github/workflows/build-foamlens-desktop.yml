@@ -437,6 +437,8 @@ jobs:
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
+            $env:FOAMLENS_SMOKE_TIME='9.8'
+            $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
           if (-not $process.WaitForExit(180000)) {
@@ -543,6 +545,8 @@ jobs:
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
+            $env:FOAMLENS_SMOKE_TIME='9.8'
+            $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
           if (-not $app.WaitForExit(180000)) {
