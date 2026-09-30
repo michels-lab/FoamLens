@@ -112,12 +112,12 @@ function paRateConfig(){
   return{sign:1,label:flUi('Time derivative','Derivada temporal'),formula:'dφ/dt',interpretation:flUi('Generic physical-time derivative','Derivada genérica respecto al tiempo físico')}
 }
 function paCreateRate(){
-  const s=paFind(document.getElementById('paRateSource')?.value);if(!s)return;const cfg=paRateConfig(),d=paDerivative(s.t,s.y,cfg.sign),name=`${cfg.label}: ${paLabel(s)}`;
+  const s=paFind(document.getElementById('paRateSource')?.value);if(!s){flSetIssue('paRateStatus','selection-missing',{analysis:'Physical Rate'});return}flClearIssue('paRateStatus');const cfg=paRateConfig(),d=paDerivative(s.t,s.y,cfg.sign),name=`${cfg.label}: ${paLabel(s)}`;
   paAddSeries(s,name,d.t,d.y,{operation:'physical-time-derivative',formula:cfg.formula,source:paLabel(s),explicitUserRole:true,noMechanismInference:true,outputUnit:paDerivativeUnit(paUnitOf(s)),outputDimensions:paDimensionsShiftTime(s?.field?.dimensions||s?.dimensions||'',-1)});
   document.getElementById('paRateStatus').textContent=diagEs()?`Se agregó ${name}. La derivada usa tiempo físico, incluyendo timesteps no uniformes.`:`Added ${name}. Derivative uses physical time, including nonuniform timesteps.`
 }
 function paCreateSpatialGradient(){
-  const s=paProfileFind(document.getElementById('paGradientSource')?.value),out=document.getElementById('paGradientStatus');if(!s||!out)return;
+  const s=paProfileFind(document.getElementById('paGradientSource')?.value),out=document.getElementById('paGradientStatus');if(!out)return;if(!s){flSetIssue(out,'selection-missing',{analysis:'Spatial Gradient'});return}flClearIssue(out);
   const coordUnit=String(s.profileCoordUnit||''),scale=paCoordinateScaleToMetres(coordUnit),si=Number.isFinite(scale),usedScale=si?scale:1;
   const d=paSpatialDerivative(s.t,s.y,usedScale),axis=String(s.profileAxis||'s'),name=`${flUi('Spatial Gradient','Gradiente espacial')} dφ/d${axis}: ${paLabel(s)}`;
   const baseDim=String(s?.field?.dimensions||s?.dimensions||''),baseUnit=paUnitOf(s),outputUnit=paSpatialDerivativeUnit(baseUnit,coordUnit,si);
