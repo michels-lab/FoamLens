@@ -432,7 +432,7 @@ jobs:
           $exe=(Resolve-Path 'artifacts/publish/FoamLens.exe').Path
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
-            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
           }
@@ -528,7 +528,7 @@ jobs:
 
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
-            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14').Path
+            $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14').Path
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_FIELD='T'
           }
