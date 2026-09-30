@@ -25,9 +25,9 @@ function fwUpdateNavText(){
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
-  const nav=document.querySelector('.modeNav'),analysis=document.getElementById('modeAnalysis');
+  const nav=document.querySelector('.modeNav'),analysis=document.getElementById('modeAnalysis');let createdModeButton=false;
   if(nav&&!document.getElementById('modeField')){
-    const b=document.createElement('button');b.className='modeNavBtn';b.dataset.mode='field';b.id='modeField';b.type='button';b.textContent='Field View';analysis?nav.insertBefore(b,analysis):nav.appendChild(b)
+    const b=document.createElement('button');b.className='modeNavBtn';b.dataset.mode='field';b.id='modeField';b.type='button';b.textContent='Field View';analysis?nav.insertBefore(b,analysis):nav.appendChild(b);createdModeButton=true
   }
   const surface=document.createElement('section');surface.className='modeSurface fieldWorkspaceSurface';surface.id='fieldSurface';
   surface.innerHTML=`
@@ -84,7 +84,7 @@ function fwCreateSurface(){
     @media(max-width:1350px){.fwGrid,.fwGrid.layout-plot{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.fwControlsCard{grid-column:1/-1;position:static;max-height:none;grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwControlsCard{grid-template-columns:1fr}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
-  document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));
+  if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));
   document.getElementById('fwCompanion')?.addEventListener('change',e=>fwSetCompanion(e.target.value));
   document.getElementById('fwLayout')?.addEventListener('change',e=>fwSetLayout(e.target.value));
   document.getElementById('fwSyncTime')?.addEventListener('change',e=>fwState.syncTime=!!e.target.checked);
