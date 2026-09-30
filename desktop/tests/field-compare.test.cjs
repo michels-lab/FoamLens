@@ -95,5 +95,13 @@ test('multi-view comparison exposes descriptors and independent fixed ranges for
     assert(source.includes(token),'Missing multi-view video token: '+token);
 });
 
+test('synchronized View 2 follows the shared vector resolution and glyph-size controls',()=>{
+  for(const token of [
+    "fvVectorGlyphTarget(mesh)","fvVectorGlyphScale()","fvVectorResolution","fvVectorScale"
+  ])assert(source.includes(token),'Missing synchronized vector-resolution token: '+token);
+  assert(!source.includes('fvBuildVectorGlyphBuffers(mesh,vectors,280)'),
+    'Synchronized View 2 still hard-codes 280 glyphs.');
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
