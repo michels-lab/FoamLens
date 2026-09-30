@@ -344,7 +344,9 @@ function fvEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function fvFmt(v){v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);return a!==0&&(a<1e-4||a>=1e5)?v.toExponential(4):v.toLocaleString(undefined,{maximumSignificantDigits:7})}
 function fvCase(){return caseById(Number(document.getElementById('fvCase')?.value||fvState.caseId))}
 function fvMeshes(c){return (c?.meshInventory||[]).filter(g=>g.complete)}
-function fvMeshForRegion(c,region){return fvMeshes(c).find(g=>String(g.region||'')===String(region||''))}
+function fvMeshForRegion(c,region){
+  const groups=fvMeshes(c).filter(g=>String(g.region||'')===String(region||''));return groups.find(g=>!String(g.partition||''))||groups[0]
+}
 function fvFieldGroups(c,region='',kind=null,storage='volume'){
   return (c?.discoveryModel?.fields||[]).filter(g=>String(g.region||'')===String(region||'')&&['volume','surface','point'].includes(String(g.storage||''))&&(!kind||g.kind===kind)&&(storage==='any'||g.storage===storage)&&Array.isArray(g.times)&&g.times.length)
 }
@@ -593,7 +595,7 @@ function fvRefreshSelectors(preserve=true){
   if(oldCase&&allCases.some(c=>String(c.id)===oldCase))caseSel.value=oldCase;
   else if(activeContextCaseId!=null&&allCases.some(c=>Number(c.id)===Number(activeContextCaseId)))caseSel.value=String(activeContextCaseId);
   else{const firstReady=allCases.find(fvCaseViewAvailable);if(firstReady)caseSel.value=String(firstReady.id)}
-  const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=fvMeshes(c).map(g=>String(g.region||''));
+  const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=[...new Set(fvMeshes(c).map(g=>String(g.region||'')))];
   regionSel.innerHTML=meshRegions.length?meshRegions.map(r=>`<option value="${fvEsc(r)}">${fvEsc(r||flUi('Default region','Región predeterminada'))}</option>`).join(''):'<option value="">—</option>';
   if(meshRegions.includes(oldRegion))regionSel.value=oldRegion;else if(activeContextRegion&&meshRegions.includes(activeContextRegion))regionSel.value=activeContextRegion;
   const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?fieldSel.value:'',groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
