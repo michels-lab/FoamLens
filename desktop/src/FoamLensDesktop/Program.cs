@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -662,17 +663,17 @@ internal sealed class FoamLensForm : Form
 
         try
         {
-            var texts = new string[paths.Length];
+            var data = new byte[paths.Length][];
             for (var i = 0; i < paths.Length; i++)
             {
                 operation.Token.ThrowIfCancellationRequested();
-                texts[i] = await File.ReadAllTextAsync(paths[i], Encoding.UTF8, operation.Token);
-                completedBytes += new FileInfo(paths[i]).Length;
+                data[i] = await File.ReadAllBytesAsync(paths[i], operation.Token);
+                completedBytes += data[i].LongLength;
                 Post(new { type = "operationProgress", requestId, operation = "openFoamMesh", completedBytes, totalBytes });
             }
 
             var result = await Task.Run(
-                () => ParseOpenFoamMeshTexts(texts[0], texts[1], texts[2], texts[3], totalBytes, operation.Token),
+                () => ParseOpenFoamMeshBytes(data[0], data[1], data[2], data[3], totalBytes, operation.Token),
                 operation.Token);
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamMesh", completedBytes = totalBytes, totalBytes });
@@ -686,6 +687,47 @@ internal sealed class FoamLensForm : Form
         {
             EndOperation(requestId, operation);
         }
+    }
+
+    private sealed record FoamMeshFileHeader(
+        string Format, string ClassName, bool LittleEndian, int LabelBytes, int ScalarBytes,
+        bool ArchitectureAssumed, int HeaderEnd);
+
+    private static OpenFoamMeshParseResult ParseOpenFoamMeshBytes(
+        byte[] pointsData, byte[] facesData, byte[] ownerData, byte[] neighbourData,
+        long sourceBytes, CancellationToken ct)
+    {
+        var pointHeader = ParseFoamMeshFileHeader(pointsData, out var pointHeaderReason);
+        if (pointHeader is null) return OpenFoamMeshParseResult.Unsupported(pointHeaderReason, "", sourceBytes);
+        var faceHeader = ParseFoamMeshFileHeader(facesData, out var faceHeaderReason);
+        if (faceHeader is null) return OpenFoamMeshParseResult.Unsupported(faceHeaderReason, "", sourceBytes);
+        var ownerHeader = ParseFoamMeshFileHeader(ownerData, out var ownerHeaderReason);
+        if (ownerHeader is null) return OpenFoamMeshParseResult.Unsupported(ownerHeaderReason, "", sourceBytes);
+        var neighbourHeader = ParseFoamMeshFileHeader(neighbourData, out var neighbourHeaderReason);
+        if (neighbourHeader is null) return OpenFoamMeshParseResult.Unsupported(neighbourHeaderReason, "", sourceBytes);
+
+        var allAscii = new[] { pointHeader, faceHeader, ownerHeader, neighbourHeader }
+            .All(h => string.Equals(h.Format, "ascii", StringComparison.OrdinalIgnoreCase));
+        if (allAscii)
+        {
+            return ParseOpenFoamMeshTexts(
+                Encoding.UTF8.GetString(pointsData), Encoding.UTF8.GetString(facesData),
+                Encoding.UTF8.GetString(ownerData), Encoding.UTF8.GetString(neighbourData),
+                sourceBytes, ct);
+        }
+
+        var pointList = ParseFoamMeshPointsBytes(pointsData, pointHeader, ct, out var pointReason);
+        if (pointList is null) return OpenFoamMeshParseResult.Unsupported(pointReason, pointHeader.Format, sourceBytes);
+        var faces = ParseFoamMeshFacesBytes(facesData, faceHeader, ct, out var faceReason);
+        if (faces is null) return OpenFoamMeshParseResult.Unsupported(faceReason, faceHeader.Format, sourceBytes);
+        var owners = ParseFoamMeshLabelsBytes(ownerData, ownerHeader, ct, out var ownerReason);
+        if (owners is null) return OpenFoamMeshParseResult.Unsupported(ownerReason, ownerHeader.Format, sourceBytes);
+        var neighbours = ParseFoamMeshLabelsBytes(neighbourData, neighbourHeader, ct, out var neighbourReason);
+        if (neighbours is null) return OpenFoamMeshParseResult.Unsupported(neighbourReason, neighbourHeader.Format, sourceBytes);
+
+        var assumed = new[] { pointHeader, faceHeader, ownerHeader, neighbourHeader }.Any(h => h.ArchitectureAssumed);
+        var format = assumed ? "binary-lsb-label32-scalar64-assumed" : "binary";
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, format, sourceBytes, ct);
     }
 
     private static OpenFoamMeshParseResult ParseOpenFoamMeshTexts(
@@ -708,20 +750,24 @@ internal sealed class FoamLensForm : Form
         if (neighbours is null)
             return OpenFoamMeshParseResult.Unsupported(neighbourReason, neighbourFormat, sourceBytes);
 
-        var formats = new[] { pointFormat, faceFormat, ownerFormat, neighbourFormat };
-        if (formats.Any(format => !string.Equals(format, "ascii", StringComparison.OrdinalIgnoreCase)))
-            return OpenFoamMeshParseResult.Unsupported("binary-format", string.Join(",", formats.Distinct()), sourceBytes);
+        return BuildOpenFoamMeshResult(pointList, faces, owners, neighbours, "ascii", sourceBytes, ct);
+    }
+
+    private static OpenFoamMeshParseResult BuildOpenFoamMeshResult(
+        double[] pointList, int[][] faces, int[] owners, int[] neighbours,
+        string meshFormat, long sourceBytes, CancellationToken ct)
+    {
         if (faces.Length != owners.Length)
-            return OpenFoamMeshParseResult.Unsupported("owner-face-count-mismatch", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("owner-face-count-mismatch", meshFormat, sourceBytes);
         if (neighbours.Length > faces.Length)
-            return OpenFoamMeshParseResult.Unsupported("neighbour-face-count-mismatch", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("neighbour-face-count-mismatch", meshFormat, sourceBytes);
 
         var maxCell = -1;
         foreach (var v in owners) maxCell = Math.Max(maxCell, v);
         foreach (var v in neighbours) maxCell = Math.Max(maxCell, v);
         var cellCount = maxCell + 1;
         if (cellCount <= 0)
-            return OpenFoamMeshParseResult.Unsupported("no-cells", "ascii", sourceBytes);
+            return OpenFoamMeshParseResult.Unsupported("no-cells", meshFormat, sourceBytes);
 
         var pointCount = pointList.Length / 3;
         var boundsMin = new[] { double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity };
@@ -737,12 +783,15 @@ internal sealed class FoamLensForm : Form
             }
         }
 
-        // OpenFOAM stores internal-face point ordering with the face normal
-        // pointing from owner to neighbour; boundary-face normals point out of
-        // the domain. Use that orientation to integrate each closed polyhedral
-        // cell into signed tetrahedra and obtain a volume-weighted centroid.
-        // A mean-face-centre reference is used only as a numerically stable
-        // local origin and as an explicit fallback for degenerate cells.
+        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        {
+            foreach (var pointIndex in faces[faceIndex])
+            {
+                if (pointIndex < 0 || pointIndex >= pointCount)
+                    return OpenFoamMeshParseResult.Unsupported("face-point-index-out-of-range", meshFormat, sourceBytes);
+            }
+        }
+
         var cellCenters = ComputePolyhedralCellCenters(
             pointList, faces, owners, neighbours, cellCount, ct, out var centroidFallbackCount);
         var cellCenterMethod = centroidFallbackCount == 0
@@ -792,7 +841,7 @@ internal sealed class FoamLensForm : Form
         faceOffsets[faces.Length] = flattenedFacePoints.Count;
 
         return new OpenFoamMeshParseResult(
-            true, "", "ascii",
+            true, "", meshFormat,
             pointList, triangles.ToArray(), triangleOwners.ToArray(), edges.ToArray(), cellCenters,
             faceOffsets, flattenedFacePoints.ToArray(), owners, neighbours,
             pointCount, faces.Length, internalFaceCount, faces.Length - internalFaceCount, cellCount,
