@@ -1315,3 +1315,32 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - streamlines and reconstructed Slice/Iso algorithms are documented FoamLens approximations and are not claimed bit-identical to ParaView/VTK;
   - face-associated surfaceField data is not silently converted into a volumetric field for Slice/Iso;
   - the QuickCup repository still does not version its actual thesis polyMesh, so the exact thesis mesh cannot be CI-regressed from that repository.
+
+
+## 2026-09-30 — Real B13 Solver Logs ingestion defect isolated and fixed
+
+### Real-case evidence
+- Full reference case branch: `realmichelduarte/QuickCup-Solidification@foamlens-real-fixture-b13`.
+- B13 contains 89 log-like files, including `log.foamMultiRun` and native `foamLog` members such as `logs/p_rgh_0`, `logs/h_0`, and `logs/CourantMax_0`.
+- Real `foamLog` time tokens are written with a unit suffix, for example `0.001s` and `0.002s`.
+
+### Root cause
+- The JavaScript parser already accepted a leading numeric prefix from tokens such as `0.001s`.
+- The Windows native batch parser used `double.TryParse(...)` on the complete token, so `0.001s` was rejected.
+- Native parsing therefore returned empty time/value arrays; `solverLogSeriesFromParsed` correctly refused to create zero-length series, leaving the Solver Logs UI at 0 despite the files being present.
+
+### Structural fix
+- Branch: `fix/v1.4.2-real-case-ingestion`.
+- Commit: `46de7e60b27c410e6c49b9f411fdce5e95b1d049`.
+- Native `ParseFoamLogAsync` now uses the same leading-number grammar as the browser parser.
+- Added a native executable smoke regression that parses a temporary real-format sample:
+  - `0.001s\t0.0062232`
+  - `0.002s\t0.0207126`
+- The regression validates both parsed time and value arrays and fails the Windows smoke test if suffix handling regresses.
+
+### Validation
+- GitHub Actions run #333: **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Portable Windows executable smoke: **SUCCESS**.
+- Installer build and installed-app smoke: **SUCCESS**.
+- GitHub Release publication: **SKIPPED** on the fix branch; no release was duplicated.
