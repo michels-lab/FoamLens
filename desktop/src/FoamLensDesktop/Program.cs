@@ -737,40 +737,17 @@ internal sealed class FoamLensForm : Form
             }
         }
 
-        var sumX = new double[cellCount];
-        var sumY = new double[cellCount];
-        var sumZ = new double[cellCount];
-        var faceContrib = new int[cellCount];
-        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
-        {
-            if ((faceIndex & 1023) == 0) ct.ThrowIfCancellationRequested();
-            var face = faces[faceIndex];
-            if (face.Length == 0) continue;
-            double cx = 0, cy = 0, cz = 0;
-            foreach (var pointIndex in face)
-            {
-                if (pointIndex < 0 || pointIndex >= pointCount)
-                    return OpenFoamMeshParseResult.Unsupported("face-point-index-out-of-range", "ascii", sourceBytes);
-                cx += pointList[3 * pointIndex];
-                cy += pointList[3 * pointIndex + 1];
-                cz += pointList[3 * pointIndex + 2];
-            }
-            cx /= face.Length; cy /= face.Length; cz /= face.Length;
-            AddFaceCentre(owners[faceIndex], cx, cy, cz, sumX, sumY, sumZ, faceContrib);
-            if (faceIndex < neighbours.Length)
-                AddFaceCentre(neighbours[faceIndex], cx, cy, cz, sumX, sumY, sumZ, faceContrib);
-        }
-
-        var cellCenters = new double[cellCount * 3];
-        for (var cell = 0; cell < cellCount; cell++)
-        {
-            if ((cell & 2047) == 0) ct.ThrowIfCancellationRequested();
-            var n = faceContrib[cell];
-            if (n <= 0) continue;
-            cellCenters[3 * cell] = sumX[cell] / n;
-            cellCenters[3 * cell + 1] = sumY[cell] / n;
-            cellCenters[3 * cell + 2] = sumZ[cell] / n;
-        }
+        // OpenFOAM stores internal-face point ordering with the face normal
+        // pointing from owner to neighbour; boundary-face normals point out of
+        // the domain. Use that orientation to integrate each closed polyhedral
+        // cell into signed tetrahedra and obtain a volume-weighted centroid.
+        // A mean-face-centre reference is used only as a numerically stable
+        // local origin and as an explicit fallback for degenerate cells.
+        var cellCenters = ComputePolyhedralCellCenters(
+            pointList, faces, owners, neighbours, cellCount, ct, out var centroidFallbackCount);
+        var cellCenterMethod = centroidFallbackCount == 0
+            ? "volume-weighted-polyhedral"
+            : $"volume-weighted-polyhedral-with-mean-face-fallback:{centroidFallbackCount}";
 
         var triangles = new List<int>();
         var triangleOwners = new List<int>();
@@ -819,15 +796,119 @@ internal sealed class FoamLensForm : Form
             pointList, triangles.ToArray(), triangleOwners.ToArray(), edges.ToArray(), cellCenters,
             faceOffsets, flattenedFacePoints.ToArray(), owners, neighbours,
             pointCount, faces.Length, internalFaceCount, faces.Length - internalFaceCount, cellCount,
-            boundsMin, boundsMax, "mean-face-centres", sourceBytes);
+            boundsMin, boundsMax, cellCenterMethod, sourceBytes);
     }
 
-    private static void AddFaceCentre(
-        int cell, double x, double y, double z,
-        double[] sumX, double[] sumY, double[] sumZ, int[] counts)
+    private static double[] ComputePolyhedralCellCenters(
+        double[] points, int[][] faces, int[] owners, int[] neighbours, int cellCount,
+        CancellationToken ct, out int fallbackCount)
     {
-        if (cell < 0 || cell >= counts.Length) return;
-        sumX[cell] += x; sumY[cell] += y; sumZ[cell] += z; counts[cell]++;
+        var cellFaces = new List<int>[cellCount];
+        for (var cell = 0; cell < cellCount; cell++) cellFaces[cell] = new List<int>();
+        for (var faceIndex = 0; faceIndex < faces.Length; faceIndex++)
+        {
+            if ((faceIndex & 2047) == 0) ct.ThrowIfCancellationRequested();
+            var owner = owners[faceIndex];
+            if (owner >= 0 && owner < cellCount) cellFaces[owner].Add(faceIndex);
+            if (faceIndex < neighbours.Length)
+            {
+                var neighbour = neighbours[faceIndex];
+                if (neighbour >= 0 && neighbour < cellCount) cellFaces[neighbour].Add(faceIndex);
+            }
+        }
+
+        var centers = new double[cellCount * 3];
+        fallbackCount = 0;
+        for (var cell = 0; cell < cellCount; cell++)
+        {
+            if ((cell & 1023) == 0) ct.ThrowIfCancellationRequested();
+            var refs = cellFaces[cell];
+            if (refs.Count == 0) { fallbackCount++; continue; }
+
+            // Stable local origin: arithmetic mean of incident face centres.
+            double rx = 0, ry = 0, rz = 0;
+            var validFaces = 0;
+            foreach (var faceIndex in refs)
+            {
+                var face = faces[faceIndex];
+                if (face.Length == 0) continue;
+                double fx = 0, fy = 0, fz = 0;
+                foreach (var pointIndex in face)
+                {
+                    fx += points[3 * pointIndex];
+                    fy += points[3 * pointIndex + 1];
+                    fz += points[3 * pointIndex + 2];
+                }
+                rx += fx / face.Length;
+                ry += fy / face.Length;
+                rz += fz / face.Length;
+                validFaces++;
+            }
+            if (validFaces == 0) { fallbackCount++; continue; }
+            rx /= validFaces; ry /= validFaces; rz /= validFaces;
+
+            double volume6 = 0, absVolume6 = 0;
+            double wx = 0, wy = 0, wz = 0;
+            foreach (var faceIndex in refs)
+            {
+                var face = faces[faceIndex];
+                if (face.Length < 3) continue;
+
+                // Fan around the face centre. For neighbour cells the stored
+                // OpenFOAM face orientation is inward, so reverse each edge.
+                double fx = 0, fy = 0, fz = 0;
+                foreach (var pointIndex in face)
+                {
+                    fx += points[3 * pointIndex];
+                    fy += points[3 * pointIndex + 1];
+                    fz += points[3 * pointIndex + 2];
+                }
+                fx /= face.Length; fy /= face.Length; fz /= face.Length;
+                var ownerSide = owners[faceIndex] == cell;
+
+                for (var j = 0; j < face.Length; j++)
+                {
+                    var ia = face[j];
+                    var ib = face[(j + 1) % face.Length];
+                    if (!ownerSide) (ia, ib) = (ib, ia);
+
+                    var ax = fx - rx; var ay = fy - ry; var az = fz - rz;
+                    var bx = points[3 * ia] - rx; var by = points[3 * ia + 1] - ry; var bz = points[3 * ia + 2] - rz;
+                    var cx = points[3 * ib] - rx; var cy = points[3 * ib + 1] - ry; var cz = points[3 * ib + 2] - rz;
+                    var crossX = by * cz - bz * cy;
+                    var crossY = bz * cx - bx * cz;
+                    var crossZ = bx * cy - by * cx;
+                    var v6 = ax * crossX + ay * crossY + az * crossZ;
+                    if (!double.IsFinite(v6) || Math.Abs(v6) <= double.Epsilon) continue;
+
+                    var tcx = (rx + fx + points[3 * ia] + points[3 * ib]) * 0.25;
+                    var tcy = (ry + fy + points[3 * ia + 1] + points[3 * ib + 1]) * 0.25;
+                    var tcz = (rz + fz + points[3 * ia + 2] + points[3 * ib + 2]) * 0.25;
+                    volume6 += v6;
+                    absVolume6 += Math.Abs(v6);
+                    wx += v6 * tcx;
+                    wy += v6 * tcy;
+                    wz += v6 * tcz;
+                }
+            }
+
+            var usable = double.IsFinite(volume6) && double.IsFinite(absVolume6) &&
+                         absVolume6 > 0 && Math.Abs(volume6) > absVolume6 * 1e-12;
+            if (usable)
+            {
+                centers[3 * cell] = wx / volume6;
+                centers[3 * cell + 1] = wy / volume6;
+                centers[3 * cell + 2] = wz / volume6;
+            }
+            else
+            {
+                centers[3 * cell] = rx;
+                centers[3 * cell + 1] = ry;
+                centers[3 * cell + 2] = rz;
+                fallbackCount++;
+            }
+        }
+        return centers;
     }
 
     private static double[]? ParseFoamMeshPoints(
