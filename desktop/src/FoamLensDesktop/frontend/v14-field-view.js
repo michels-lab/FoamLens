@@ -385,11 +385,11 @@ function fvRender(){
   if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
   if(r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
 }
-function fvUpdateMeshBuffers(mesh){
+function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;
   fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.4,.55,.7]));r.sliceCount=0;r.isoCount=0;r.probeCount=0;fvState.sliceGeometry=null;fvState.isoGeometry=null;if(typeof fpClear==='function')fpClear();
-  fvState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);fvCameraReset()
+  fvState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);if(resetCamera)fvCameraReset();else fvRender()
 }
 function fvUpdateSurfaceColors(values,range){
   const r=fvState.renderer,m=fvState.mesh;if(!r||!m||!range?.valid&&!(Number.isFinite(range?.min)&&Number.isFinite(range?.max)))return;const palette=document.getElementById('fvPalette')?.value||'viridis';
@@ -407,10 +407,11 @@ function fvLegend(range,parsed){
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
 async function fvLoadFrame(index=null){
-  const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup(),mesh=fvState.mesh;if(!c||!g||!mesh)return;
+  const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup(),meshGroup=fvMeshForRegion(c,region);if(!c||!g||!meshGroup)return;
   if(typeof fpClear==='function')fpClear();
   const times=(g.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
   const time=times[i],seq=++fvState.frameSeq;fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  const mesh=await fvEnsureMeshForTime(c,meshGroup,time,{resetCamera:false});if(seq!==fvState.frameSeq)return;
   const set=await pmLoadFieldSet(c.id,g.name,time,region);if(seq!==fvState.frameSeq)return;const parsed=fvPickFieldPart(set);
   if(!parsed)throw new Error(flUi('Field is decomposed across multiple processor partitions. Reconstruct the case before 3D visualization.','El campo está descompuesto en múltiples particiones processor. Reconstruye el caso antes de la visualización 3D.'));
   const component=document.getElementById('fvComponent')?.value||'value',vals=pmComponentValues(parsed,component,mesh.cellCount);
@@ -418,8 +419,8 @@ async function fvLoadFrame(index=null){
   const range=fvFiniteRange(vals.values);if(!range.valid)throw new Error(flUi('The selected field has no finite values.','El campo seleccionado no tiene valores finitos.'));
   const lock=document.getElementById('fvLockRange')?.checked;if(lock&&!fvState.lockedRange)fvState.lockedRange={valid:true,min:range.min,max:range.max};if(!lock)fvState.lockedRange=null;
   const displayRange=fvState.lockedRange||range;fvState.fieldName=g.name;fvState.time=time;fvState.component=component;fvState.fieldValues=vals.values;fvState.fieldParsed=parsed;
-  fvUpdateSurfaceColors(vals.values,displayRange);fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}`;
-  await fvUpdateStreamlines(time,seq);if(seq!==fvState.frameSeq)return;fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · t=${fvFmt(time)} s`)
+  fvUpdateSurfaceColors(vals.values,displayRange);fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
+  await fvUpdateStreamlines(time,seq);if(seq!==fvState.frameSeq)return;fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · t=${fvFmt(time)} s${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`)
 }
 function fvVectorArray(parsed,count){
   if(!parsed?.supported||parsed.kind!=='vector')return null;if(parsed.uniform){const v=(parsed.uniformValue||[]).map(Number);return v.length===3?Array.from({length:count},()=>v.slice()):null}
@@ -493,9 +494,9 @@ function fvRefreshSelectors(preserve=true){
   const availability=fvAvailability(c),status=document.getElementById('fvStatus');if(status&&!availability.ready){status.textContent=availability.reason;status.classList.add('error')}
 }
 async function fvLoadSelection(){
-  fvStopPlayback();fvState.lockedRange=null;fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',g=fvMeshForRegion(c,region);
-  if(!availability.ready||!c||!g){fvState.mesh=null;fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>';fvRender();return}
-  try{fvSetStatus(flUi('Loading mesh…','Cargando malla…'));const mesh=await fvLoadMesh(c,g);fvState.mesh=mesh;fvState.caseId=c.id;fvState.region=region;fvUpdateMeshBuffers(mesh);await fvLoadFrame(0)}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
+  fvStopPlayback();fvState.lockedRange=null;fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',g=fvMeshForRegion(c,region),fg=fvCurrentFieldGroup();
+  if(!availability.ready||!c||!g||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>';fvRender();return}
+  try{const firstTime=(fg.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)[0];fvSetStatus(flUi('Loading mesh…','Cargando malla…'));fvState.caseId=c.id;fvState.region=region;await fvEnsureMeshForTime(c,g,firstTime,{resetCamera:true});await fvLoadFrame(0)}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
 }
 function fvSyncComponent(){
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),old=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===old))comp.value=old;
