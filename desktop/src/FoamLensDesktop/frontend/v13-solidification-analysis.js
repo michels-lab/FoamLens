@@ -90,8 +90,10 @@ function saExport(){
   downloadText('FoamLens_solidification_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'solidification-phase-signal',...p},null,2),'application/json')
 }
 function saRefresh(){
-  const src=saSources(),box=document.getElementById('saTools'),sel=document.getElementById('saSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
-  const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${saId(s,i).replace(/"/g,'&quot;')}">${saLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
+  const src=saSources(),box=document.getElementById('saTools'),sel=document.getElementById('saSource');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
+  const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${saId(s,i).replace(/"/g,'&quot;')}">${saLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')||'<option value="">—</option>';if([...sel.options].some(o=>o.value===old))sel.value=old;
+  if(!src.length)flSetIssue('saStatus','analysis-source-missing',{analysis:'Solidification / Remelting',expected:'Compatible liquid- or solid-fraction temporal series'});
+  else flClearIssue('saStatus')
 }
 function saBuildUi(){
   if(document.getElementById('saTools'))return;

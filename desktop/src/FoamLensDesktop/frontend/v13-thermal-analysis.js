@@ -94,8 +94,10 @@ function thExport(){
   const p=window.FoamLensLastThermalAnalysis;if(!p){flSetIssue('thStatus','analysis-result-missing',{analysis:'Thermal Analysis'});return}downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
 }
 function thRefresh(){
-  const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;const old=sel.value;
-  sel.innerHTML=src.map((s,i)=>`<option value="${thId(s,i).replace(/"/g,'&quot;')}">${thLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
+  const src=thSources(),box=document.getElementById('thTools'),sel=document.getElementById('thSource');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;const old=sel.value;
+  sel.innerHTML=src.map((s,i)=>`<option value="${thId(s,i).replace(/"/g,'&quot;')}">${thLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')||'<option value="">—</option>';if([...sel.options].some(o=>o.value===old))sel.value=old;
+  if(!src.length)flSetIssue('thStatus','analysis-source-missing',{analysis:'Thermal Analysis',expected:'Compatible thermal temporal or spatial signal'});
+  else flClearIssue('thStatus')
 }
 function thBuildUi(){
   if(document.getElementById('thTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';

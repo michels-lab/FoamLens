@@ -21,13 +21,11 @@ for(const [name,token] of alwaysVisible){
   assert(files[name].includes('flSetIssue'),name+' must explain missing/incompatible capability instead of silently hiding.');
 }
 
-const contextual=[
-  ['physical',"box.style.display=(sources.length||profiles.length)?'':'none'"],
-  ['flow',"box.style.display=src.length?'':'none'"],
-  ['solidification',"box.style.display=src.length?'':'none'"],
-  ['thermal',"box.style.display=src.length?'':'none'"]
-];
-for(const [name,token] of contextual)assert(files[name].includes(token),name+' contextual module gating changed unexpectedly.');
+for(const name of ['physical','flow','solidification','thermal']){
+  assert(files[name].includes("box.style.display=''"),name+' domain analysis panel should remain visible.');
+  assert(files[name].includes('flSetIssue'),name+' must explain missing source data instead of silently hiding.');
+}
+assert(files.physical.includes("gb.style.display=''"),'Physical Analysis spatial-gradient block must remain visible.');
 
 assert(!files.vector.includes("document.getElementById('paTools')||document.getElementById('differenceTools')"),'Vector tools must not be nested inside Physical Analysis.');
-console.log('Capability-driven UI regression suite passed: always-visible capability tools diagnose gaps; contextual domain modules gate only when irrelevant.');
+console.log('Capability-driven UI regression suite passed: all seven analysis modules remain visible and diagnose missing capabilities/inputs.');

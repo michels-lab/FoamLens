@@ -80,9 +80,11 @@ function faExport(){
   downloadText('FoamLens_flow_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'flow-signal-statistics',...p},null,2),'application/json')
 }
 function faRefresh(){
-  const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display=src.length?'':'none';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
+  const src=faSources(),box=document.getElementById('faTools'),sel=document.getElementById('faSource');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}if(!sel)return;
   window.FoamLensLastFlowAnalysis=null;const ex=document.getElementById('faExport');if(ex)ex.disabled=true;
-  const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${faId(s,i).replace(/"/g,'&quot;')}">${faLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');if([...sel.options].some(o=>o.value===old))sel.value=old
+  const old=sel.value;sel.innerHTML=src.map((s,i)=>`<option value="${faId(s,i).replace(/"/g,'&quot;')}">${faLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')||'<option value="">—</option>';if([...sel.options].some(o=>o.value===old))sel.value=old;
+  if(!src.length)flSetIssue('faStatus','analysis-source-missing',{analysis:'Flow Analysis',expected:'Temporal or spatial flow signal with at least two finite samples'});
+  else flClearIssue('faStatus')
 }
 function faBuildUi(){
   if(document.getElementById('faTools'))return;

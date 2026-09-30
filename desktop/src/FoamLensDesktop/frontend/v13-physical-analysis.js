@@ -179,10 +179,17 @@ function paBuildUi(){
   host.appendChild(box);flApplyBilingualText(box);document.getElementById('paCreateRate').onclick=paCreateRate;document.getElementById('paCreateGradient').onclick=paCreateSpatialGradient;document.getElementById('paRunEnergy').onclick=paRunEnergy;document.getElementById('paRunCorrelation').onclick=paRunCorrelation;paRefreshSources()
 }
 function paRefreshSources(){
-  const sources=paSources(),profiles=paProfileSources(),box=document.getElementById('paTools');if(box)box.style.display=(sources.length||profiles.length)?'':'none';try{refreshGeneralAnalysisHost()}catch{}const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
+  const sources=paSources(),profiles=paProfileSources(),box=document.getElementById('paTools');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}const opts=paOpts();for(const id of ['paRateSource','paEnergyA','paEnergyB','paCorrA','paCorrB']){const el=document.getElementById(id);if(!el)continue;const old=el.value;el.innerHTML=opts;if([...el.options].some(o=>o.value===old))el.value=old}
   const c=document.getElementById('paEnergyC');if(c){const old=c.value;c.innerHTML='<option value="">'+flUi('None','Ninguno')+'</option>'+opts;if([...c.options].some(o=>o.value===old))c.value=old}
   const b=document.getElementById('paEnergyB'),cy=document.getElementById('paCorrB');if(b&&b.options.length>1&&!b.value)b.selectedIndex=1;if(cy&&cy.options.length>1&&!cy.value)cy.selectedIndex=1;
-  const gs=document.getElementById('paGradientSource'),gb=document.getElementById('paGradientBlock');if(gb)gb.style.display=profiles.length?'':'none';if(gs){const old=gs.value;gs.innerHTML=paProfileOpts();if([...gs.options].some(o=>o.value===old))gs.value=old}
+  const gs=document.getElementById('paGradientSource'),gb=document.getElementById('paGradientBlock');if(gb)gb.style.display='';if(gs){const old=gs.value;gs.innerHTML=paProfileOpts()||'<option value="">—</option>';if([...gs.options].some(o=>o.value===old))gs.value=old}
+  if(!sources.length){
+    for(const id of ['paRateStatus','paEnergyStatus','paCorrStatus'])flSetIssue(id,'analysis-source-missing',{analysis:'Physical Analysis',expected:'At least one compatible temporal series'});
+  }else{
+    for(const id of ['paRateStatus','paEnergyStatus','paCorrStatus'])flClearIssue(id);
+  }
+  if(!profiles.length)flSetIssue('paGradientStatus','analysis-source-missing',{analysis:'Spatial Gradient',expected:'At least one compatible spatial profile'});
+  else flClearIssue('paGradientStatus')
 }
 function paInit(){
   paBuildUi();

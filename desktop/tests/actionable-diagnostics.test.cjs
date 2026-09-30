@@ -163,12 +163,17 @@ test('remaining app diagnostics have specific remediation categories',()=>{
 
 test('capability gaps stay visible instead of silently hiding their tools',()=>{
   const read=name=>fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend',name),'utf8');
-  const numerical=read('v13-numerical-performance.js'),vector=read('v13-vector-fields.js'),temporal=read('v13-temporal-alignment.js'),spatial=read('v13-spatial-differences.js'),exp=read('v13-reproducible-export.js');
+  const numerical=read('v13-numerical-performance.js'),vector=read('v13-vector-fields.js'),temporal=read('v13-temporal-alignment.js'),spatial=read('v13-spatial-differences.js'),exp=read('v13-reproducible-export.js'),physical=read('v13-physical-analysis.js'),flow=read('v13-flow-analysis.js'),solidification=read('v13-solidification-analysis.js'),thermal=read('v13-thermal-analysis.js');
   assert(!numerical.includes("box.style.display=ids.length?'':'none'"));
   assert(!vector.includes("box.style.display=groups.length?'':'none'"));
   assert(!temporal.includes("box.style.display=src.length>=2?'':'none'"));
   assert(!spatial.includes("box.style.display=src.length>=2?'':'none'"));
   assert(!exp.includes("wrap.style.display=s&&rxFinitePoints(s).length?'':'none'"));
+  assert(!physical.includes("box.style.display=(sources.length||profiles.length)?'':'none'"));
+  assert(!flow.includes("box.style.display=src.length?'':'none'"));
+  assert(!solidification.includes("box.style.display=src.length?'':'none'"));
+  assert(!thermal.includes("box.style.display=src.length?'':'none'"));
+  for(const source of [physical,flow,solidification,thermal])assert(source.includes("'analysis-source-missing'"));
 });
 
 test('Field View unavailable state exposes the actual issue instead of only a generic legend',()=>{
