@@ -78,7 +78,7 @@ function maMechanismStat(values,total){
 }
 async function maAnalyzeCurrent(){
   const x=maCurrentSettings(),status=document.getElementById('maStatus'),body=document.getElementById('maResult');
-  if(!x.c||!Number.isFinite(x.time)){if(status)status.textContent=maUi('Choose a case and physical time.','Elige un caso y tiempo físico.');return null}
+  if(!x.c||!Number.isFinite(x.time)){flSetIssue(status,'selection-missing',{analysis:'Momentum Mechanisms',region:x.region,time:x.time});return null}flClearIssue(status)
   const mechanisms=maMappedMechanisms(x.c,x.region),pairs=maMechanismPairs(mechanisms);
   if(mechanisms.length<2){
     flSetIssue(status,'at least two mapped momentum-acceleration fields are required',{analysis:'Momentum Mechanisms',region:document.getElementById('maRegion')?.value||''});
@@ -150,10 +150,7 @@ async function maCreateEvolution(){
     if(points.length>=2)created.push(maAddEvolutionSeries(x.c,x.region,pair,x.subset,points));else skipped.push(pair.key)
   }
   if(created.length){activeId=created[0].id;refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
-  if(status)status.textContent=created.length?maUi(
-    'Created '+created.length+' median local-ratio evolution curve(s). No temporal extrapolation was used.',
-    'Se crearon '+created.length+' curva(s) de evolución de la mediana de la razón local. No se usó extrapolación temporal.'
-  ):maUi('No pair had enough common physical times to create an evolution curve.','Ningún par tuvo suficientes tiempos físicos comunes para crear una curva de evolución.');
+  if(status){if(created.length){flClearIssue(status);status.textContent=maUi('Created '+created.length+' median local-ratio evolution curve(s). No temporal extrapolation was used.','Se crearon '+created.length+' curva(s) de evolución de la mediana de la razón local. No se usó extrapolación temporal.')}else flSetIssue(status,'mechanism-times-insufficient',{analysis:'Momentum Mechanisms',region:x.region})}
   return{created,skipped}
 }
 function maRefreshAvailability(){
