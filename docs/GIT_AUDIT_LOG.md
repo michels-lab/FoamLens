@@ -1189,3 +1189,37 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Windows artifact upload: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077332065`, 135,204,904 bytes).
 - No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Explicit surfaceField boundary-patch rendering
+
+### Boundary topology and values
+- Added native and fallback parsing of `polyMesh/boundary` patch topology.
+- Mesh results now preserve patch name/type plus exact `startFace` / `nFaces` ranges and boundary-triangle face identities.
+- Native ASCII OpenFOAM field parsing now preserves explicit `boundaryField` patch values after parsing `internalField`.
+- Supported explicit patch payloads:
+  - uniform scalar/vector values;
+  - nonuniform scalar/vector lists with strict count validation.
+- Patches without an explicit numeric `value` remain unavailable; FoamLens does not substitute owner-cell values or invent patch data.
+
+### Field View
+- `surface*Field` now renders:
+  - real `internalField` values on internal faces; and
+  - explicit patch values on the exact boundary faces defined by `polyMesh/boundary`.
+- Missing/symbolic patch values remain neutral context.
+- Display range includes explicit boundary values when present.
+- Field association readout reports boundary coverage as explicit faces / total boundary faces.
+- 3D Probe can resolve an explicitly rendered boundary face and preserve its global face identity / patch association.
+- Native Desktop payloads are preferred; ASCII text parsing remains available as fallback.
+
+### Validation
+- Dedicated regression: `desktop/tests/surface-boundary.test.cjs`.
+- Tests cover exact patch ranges, uniform/nonuniform scalar/vector values, magnitude/components, strict list-count rejection, symbolic/missing values, native payload preservation, fallback parsing and probe/render wiring.
+- **GitHub Actions run #310: SUCCESS** at head `ecb5f124ad42071752b1e0bf767193cb89297248`.
+- Real QuickCup regression: success.
+- All Field View / dynamic mesh / slice / iso / probe / difference / association regressions: success.
+- All scientific/UI regressions: success.
+- Portable EXE build + smoke: success.
+- Installer build + installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077418978`, 135,226,247 bytes).
+- No GitHub Release was published from the candidate branch.
