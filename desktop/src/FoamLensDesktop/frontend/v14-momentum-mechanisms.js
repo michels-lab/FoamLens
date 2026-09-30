@@ -135,7 +135,7 @@ function maAddEvolutionSeries(baseCase,region,pair,subset,points){
   series.push(d);return d
 }
 async function maCreateEvolution(){
-  const x=maCurrentSettings(),status=document.getElementById('maStatus');if(!x.c)return;
+  const x=maCurrentSettings(),status=document.getElementById('maStatus');if(!x.c){flSetIssue(status,'selection-missing',{analysis:'Momentum Mechanisms'});return}flClearIssue(status);
   const mechanisms=maMappedMechanisms(x.c,x.region),pairs=maMechanismPairs(mechanisms);
   if(!pairs.length){flSetIssue(status,'no compatible mechanism pairs',{analysis:'Momentum Mechanisms',region:document.getElementById('maRegion')?.value||''});return}
   if(status)status.textContent=maUi('Calculating mechanism-ratio evolution…','Calculando evolución de razones entre mecanismos…');
