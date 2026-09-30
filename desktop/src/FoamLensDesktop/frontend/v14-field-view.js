@@ -715,19 +715,57 @@ function fvBuildLineBuffers(lines,range){
   const positions=[],colors=[],palette='turbo';for(const line of lines||[])for(let i=1;i<line.length;i++){for(const q of [line[i-1],line[i]]){positions.push(...q.p);const rgb=fvColorMap(q.speed,range.min,range.max,palette);colors.push(...rgb)}}
   return{positions:new Float32Array(positions),colors:new Float32Array(colors)}
 }
-function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260){
+function fvAdaptiveVectorGlyphTarget(mesh){
+  const n=Math.max(1,Number(mesh?.cellCount)||Math.floor((mesh?.cellCenters?.length||0)/3));
+  return fvClamp(Math.round(Math.sqrt(n)*6),180,1200)
+}
+function fvVectorGlyphTarget(mesh){
+  const raw=document.getElementById('fvVectorResolution')?.value||'adaptive';
+  if(raw==='adaptive')return fvAdaptiveVectorGlyphTarget(mesh);
+  return fvClamp(Math.round(Number(raw)||300),25,5000)
+}
+function fvVectorGlyphScale(){
+  return fvClamp(Number(document.getElementById('fvVectorScale')?.value)||1,.35,3)
+}
+function fvSelectVectorGlyphCells(mesh,vectors,target){
+  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),limit=Math.max(1,Math.min(count,Math.round(target)||1));
+  if(limit>=count)return Array.from({length:count},(_,i)=>i);
+  const hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,count),picked=[],used=new Set();
+  if(hash?.buckets?.size){
+    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+    const bucketCells=[];
+    for(const [,indices] of entries){
+      if(!indices?.length)continue;
+      let best=-1,bestMag=-Infinity;
+      for(const ci of indices){const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
+      if(best>=0)bucketCells.push(best)
+    }
+    if(bucketCells.length){
+      const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;
+      for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}
+    }
+  }
+  if(picked.length<limit){
+    const step=count/Math.max(1,limit-picked.length);
+    for(let k=0;picked.length<limit&&k<count*2;k++){const ci=Math.min(count-1,Math.floor((k+.5)*step)%count);if(!used.has(ci)){used.add(ci);picked.push(ci)}}
+  }
+  return picked.slice(0,limit)
+}
+function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1){
   const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
   const mags=new Array(count);for(let i=0;i<count;i++){const v=vectors[i]||[];mags[i]=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))}
-  const range=fvFiniteRange(mags),stride=Math.max(1,Math.ceil(count/Math.max(1,maxGlyphs))),positions=[],colors=[];
-  for(let ci=0;ci<count;ci+=stride){
+  const range=fvFiniteRange(mags),positions=[],colors=[],cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs),scale=fvClamp(Number(glyphScale)||1,.35,3);
+  let glyphCount=0;
+  for(const ci of cells){
     const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
-    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1));
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1))*scale;
     const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
     const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
     const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
     for(const seg of [[p,q],[q,left],[q,right]])for(const point of seg){positions.push(...point);colors.push(...rgb)}
+    glyphCount++
   }
-  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range}
+  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(count,Math.round(maxGlyphs))}
 }
 async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
   const showStreamlines=!!document.getElementById('fvStreamlines')?.checked,showVectors=!!document.getElementById('fvVectors')?.checked,mesh=fvState.mesh,r=fvState.renderer;if(!r||!mesh)return;
@@ -739,8 +777,9 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
   if(!vectors||vectors.length!==mesh.cellCount)throw new Error(flUi('The selected vector field does not match the mesh cell count.','El campo vectorial seleccionado no coincide con el número de celdas de la malla.'));
   fvState.vectorValues=vectors;fvState.vectorName=g.name;fvState.vectorTime=vt;
 
+  let glyphs=null;
   if(showVectors){
-    const glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,280);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
+    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale();glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
   }else r.vectorCount=0;
 
   let lines=[];
@@ -749,7 +788,9 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
     for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax);if(line.length>2)lines.push(line)}
     const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
   }else r.lineCount=0;
-  fvState.streamlines=lines;fvRender();const meta=document.getElementById('fvStreamMeta');if(meta){const parts=[];if(showVectors)parts.push(Math.round(r.vectorCount/6)+' '+flUi('vector glyphs','glyphs vectoriales'));if(showStreamlines)parts.push(lines.length+' '+flUi('streamlines','líneas de corriente'));meta.textContent=parts.join(' · ')+' · '+g.name+' @ '+fvFmt(vt)+' s'}
+  fvState.streamlines=lines;fvRender();
+  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('target','objetivo')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
+  const streamMeta=document.getElementById('fvStreamMeta');if(streamMeta)streamMeta.textContent=showStreamlines?(lines.length.toLocaleString()+' '+flUi('streamlines','líneas de corriente')+' · '+g.name+' @ '+fvFmt(vt)+' s'):''
 }
 function fvStopPlayback(){fvState.playing=false;if(fvState.timer){clearTimeout(fvState.timer);fvState.timer=null}const b=document.getElementById('fvPlay');if(b)b.textContent='▶ '+flUi('Play','Reproducir')}
 function fvSchedulePlayback(){
@@ -829,11 +870,18 @@ function fvUiHtml(){
       <div class="smallnote" id="fvSliceMeta" data-fl-en="Values are reconstructed from cell-centred fields using adjacent-cell interpolation and cell tetrahedralization; results are not claimed to be bit-identical to ParaView/VTK." data-fl-es="Los valores se reconstruyen desde campos centrados en celdas mediante interpolación de celdas adyacentes y tetraedrización; no se afirma equivalencia bit a bit con ParaView/VTK.">Values are reconstructed from cell-centred fields using adjacent-cell interpolation and cell tetrahedralization; results are not claimed to be bit-identical to ParaView/VTK.</div>
     </div></details>
     <details class="analysisExt" open><summary class="analysisExtHead"><strong data-fl-en="Vector field visualization" data-fl-es="Visualización de campo vectorial">Vector field visualization</strong><span class="badge">U(x,t)</span></summary><div class="extSectionBody">
-      <div class="fvChecks"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <span data-fl-en="Vectors" data-fl-es="Vectores">Vectors</span></label><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <span data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</span></label></div>
       <div class="field"><label data-fl-en="Vector field" data-fl-es="Campo vectorial">Vector field</label><select id="fvVector"></select></div>
-      <div class="row2"><div class="field"><label data-fl-en="Seed plane normal" data-fl-es="Normal del plano de semillas">Seed plane normal</label><select id="fvSeedAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></div><div class="field"><label data-fl-en="Seeds" data-fl-es="Semillas">Seeds</label><input id="fvSeedCount" type="number" min="1" max="64" step="1" value="16"></div></div>
-      <div class="field"><label data-fl-en="Seed plane position" data-fl-es="Posición del plano de semillas">Seed plane position</label><input id="fvSeedPosition" type="range" min="0" max="1" step=".02" value=".5"></div>
-      <div class="smallnote" id="fvStreamMeta" data-fl-en="Streamlines are integrated from the instantaneous cell-centered vector field." data-fl-es="Las líneas de corriente se integran a partir del campo vectorial instantáneo centrado en celdas.">Streamlines are integrated from the instantaneous cell-centered vector field.</div>
+      <div class="fvVizToggle"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <strong data-fl-en="Vectors" data-fl-es="Vectores">Vectors</strong></label></div>
+      <div class="fvVizSubpanel hidden" id="fvVectorControls">
+        <div class="row2"><div class="field"><label data-fl-en="Vector resolution" data-fl-es="Resolución de vectores">Vector resolution</label><select id="fvVectorResolution"><option value="adaptive" data-fl-en="Adaptive" data-fl-es="Adaptativa">Adaptive</option><option value="150">150 glyphs</option><option value="300">300 glyphs</option><option value="600">600 glyphs</option><option value="1200">1,200 glyphs</option><option value="2400">2,400 glyphs</option></select></div><div class="field"><label data-fl-en="Glyph size" data-fl-es="Tamaño de flecha">Glyph size</label><input id="fvVectorScale" type="range" min=".35" max="3" step=".05" value="1"></div></div>
+        <div class="smallnote" id="fvVectorMeta" data-fl-en="Vectors are sampled spatially across the cell-centred vector field." data-fl-es="Los vectores se muestrean espacialmente a través del campo vectorial centrado en celdas.">Vectors are sampled spatially across the cell-centred vector field.</div>
+      </div>
+      <div class="fvVizToggle"><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <strong data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</strong></label></div>
+      <div class="fvVizSubpanel hidden" id="fvStreamlineControls">
+        <div class="row2"><div class="field"><label data-fl-en="Seed plane normal" data-fl-es="Normal del plano de semillas">Seed plane normal</label><select id="fvSeedAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></div><div class="field"><label data-fl-en="Seed density" data-fl-es="Densidad de semillas">Seed density</label><input id="fvSeedCount" type="number" min="1" max="400" step="1" value="100"></div></div>
+        <div class="field"><label data-fl-en="Seed plane position" data-fl-es="Posición del plano de semillas">Seed plane position</label><input id="fvSeedPosition" type="range" min="0" max="1" step=".01" value=".5"></div>
+        <div class="smallnote" id="fvStreamMeta" data-fl-en="Streamlines are integrated from the instantaneous cell-centered vector field." data-fl-es="Las líneas de corriente se integran a partir del campo vectorial instantáneo centrado en celdas.">Streamlines are integrated from the instantaneous cell-centered vector field.</div>
+      </div>
     </div></details>
     <div class="extStatus" id="fvStatus"></div>
   </div>`
@@ -857,7 +905,7 @@ function fvPanelHtml(){
   </div>`
 }
 function fvCss(){
-  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 118px)}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
+  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 118px)}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewTab'))return true;const tabs=document.querySelector('.datasetTabs'),catalog=document.getElementById('catalogTab');if(!tabs||!catalog)return false;
@@ -883,7 +931,9 @@ function fvInstallUi(){
   document.getElementById('fvSliceAxis').onchange=()=>fvUpdateSlice();
   document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
   document.getElementById('fvSliceOpacity').oninput=fvRender;
-  for(const id of ['fvVectors','fvStreamlines','fvVector','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id).addEventListener(id==='fvSeedPosition'?'input':'change',()=>fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true)));
+  const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked)};
+  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
+  syncVectorPanels();
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'));
   const goData=document.getElementById('workspaceGoData'),actions=goData?.parentElement;if(actions&&!document.getElementById('workspaceGoFieldView')){const q=document.createElement('button');q.className='btn';q.id='workspaceGoFieldView';q.type='button';q.setAttribute('data-fl-en','Open 3D Field View');q.setAttribute('data-fl-es','Abrir Vista 3D');q.textContent=flUi('Open 3D Field View','Abrir Vista 3D');q.onclick=()=>{try{setAppMode('data')}catch{}setDataView('field3d')};goData.insertAdjacentElement('afterend',q);flApplyBilingualText(q)}
   return true
