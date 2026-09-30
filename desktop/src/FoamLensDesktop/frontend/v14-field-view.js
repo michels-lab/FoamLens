@@ -410,7 +410,7 @@ const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',fieldStorage:'volume',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
   lockedRange:null,frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
-  drag:null,streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
+  drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
 
 function fvEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -541,13 +541,39 @@ function fvSyncAssociationControls(storage){
   }
 }
 function fvConstantColors(vertexCount,rgb){const out=new Float32Array(vertexCount*3);for(let i=0;i<vertexCount;i++){out[3*i]=rgb[0];out[3*i+1]=rgb[1];out[3*i+2]=rgb[2]}return out}
-function fvCameraReset(){
-  const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(v+max[i])/2),diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1;
-  fvState.camera={yaw:.72,pitch:.42,distance:diag*1.65,target:center};fvRender()
+function fvCameraFitCurrent(){
+  const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1;
+  fvState.camera.target=center;fvState.camera.distance=diag*1.65;fvRender()
+}
+function fvCameraPreset(name){
+  const presets={
+    front:[0,0],back:[Math.PI,0],right:[Math.PI/2,0],left:[-Math.PI/2,0],
+    top:[0,Math.PI/2-1e-4],bottom:[0,-Math.PI/2+1e-4],iso:[.72,.42]
+  },p=presets[String(name||'').toLowerCase()];if(!p)return;
+  fvState.camera.yaw=p[0];fvState.camera.pitch=p[1];fvCameraFitCurrent()
+}
+function fvCameraReset(){fvCameraPreset('iso')}
+function fvCameraBasis(camera=fvState.camera){
+  const c=camera||fvState.camera,cp=Math.cos(c.pitch),z=[cp*Math.sin(c.yaw),Math.sin(c.pitch),cp*Math.cos(c.yaw)];
+  const upRef=Math.abs(z[1])>.995?[0,0,z[1]>0?-1:1]:[0,1,0];
+  let right=[upRef[1]*z[2]-upRef[2]*z[1],upRef[2]*z[0]-upRef[0]*z[2],upRef[0]*z[1]-upRef[1]*z[0]],rl=Math.hypot(...right)||1;right=right.map(v=>v/rl);
+  let up=[z[1]*right[2]-z[2]*right[1],z[2]*right[0]-z[0]*right[2],z[0]*right[1]-z[1]*right[0]],ul=Math.hypot(...up)||1;up=up.map(v=>v/ul);
+  return{z,right,up,upRef}
+}
+function fvCameraPanPixels(dx,dy,canvas){
+  const c=fvState.camera,b=fvCameraBasis(c),scale=Math.max(1e-12,c.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);
+  for(let a=0;a<3;a++)c.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale;fvRender()
+}
+function fvCameraZoomFactor(factor){
+  factor=Number(factor);if(!(factor>0))return;fvState.camera.distance=Math.max(1e-10,fvState.camera.distance*factor);fvRender()
+}
+function fvUpdateAxisGizmo(){
+  const root=document.getElementById('fvAxisGizmo');if(!root)return;const b=fvCameraBasis(),axes={x:[1,0,0],y:[0,1,0],z:[0,0,1]},cx=40,cy=40,s=27;
+  for(const [key,a] of Object.entries(axes)){const sx=a[0]*b.right[0]+a[1]*b.right[1]+a[2]*b.right[2],sy=-(a[0]*b.up[0]+a[1]*b.up[1]+a[2]*b.up[2]),x=cx+s*sx,y=cy+s*sy,line=root.querySelector('[data-axis-line="'+key+'"]'),btn=root.querySelector('[data-axis-button="'+key+'"]');if(line){line.setAttribute('x2',x.toFixed(2));line.setAttribute('y2',y.toFixed(2))}if(btn){btn.style.left=(x-12)+'px';btn.style.top=(y-12)+'px';btn.style.zIndex=String(10+Math.round((a[0]*b.z[0]+a[1]*b.z[1]+a[2]*b.z[2])*4))}}
 }
 function fvMvp(canvas){
-  const c=fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)];
-  const near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,[0,1,0]);return fvMat4Mul(proj,view)
+  const c=fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],basis=fvCameraBasis(c);
+  const near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,basis.upRef);return fvMat4Mul(proj,view)
 }
 function fvBindDraw(r,posBuffer,colorBuffer,count,mode,opacity){
   if(!posBuffer||!colorBuffer||!count)return;const gl=r.gl;gl.bindBuffer(gl.ARRAY_BUFFER,posBuffer);gl.enableVertexAttribArray(r.pos);gl.vertexAttribPointer(r.pos,3,gl.FLOAT,false,0,0);
@@ -576,6 +602,7 @@ function fvRender(){
   if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
   if(r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
+  fvUpdateAxisGizmo()
 }
 function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);mesh._internalTriangleFaces=fb.triangleFaces;
@@ -685,10 +712,11 @@ function fvSchedulePlayback(){
 }
 function fvInstallCamera(){
   const canvas=document.getElementById('fvCanvas');if(!canvas||canvas.dataset.fvCamera)return;canvas.dataset.fvCamera='1';
-  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);fvState.drag={x:e.clientX,y:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch}});
-  canvas.addEventListener('pointermove',e=>{if(!fvState.drag)return;fvState.camera.yaw=fvState.drag.yaw+(e.clientX-fvState.drag.x)*.008;fvState.camera.pitch=fvClamp(fvState.drag.pitch+(e.clientY-fvState.drag.y)*.008,-1.48,1.48);fvRender()});
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);const mode=e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit';fvState.drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch,distance:fvState.camera.distance,mode}});
+  canvas.addEventListener('pointermove',e=>{const d=fvState.drag;if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;if(d.mode==='orbit'){fvState.camera.yaw=d.yaw+dx*.008;fvState.camera.pitch=fvClamp(d.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4);fvRender()}else if(d.mode==='pan'){fvCameraPanPixels(e.clientX-d.lastX,e.clientY-d.lastY,canvas);d.lastX=e.clientX;d.lastY=e.clientY}else if(d.mode==='zoom'){fvState.camera.distance=Math.max(1e-10,d.distance*Math.exp(dy*.01));fvRender()}});
   const end=()=>{fvState.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
-  canvas.addEventListener('wheel',e=>{e.preventDefault();fvState.camera.distance*=Math.exp(e.deltaY*.001);fvState.camera.distance=Math.max(1e-10,fvState.camera.distance);fvRender()},{passive:false});canvas.addEventListener('dblclick',fvCameraReset)
+  canvas.addEventListener('wheel',e=>{e.preventDefault();fvCameraZoomFactor(Math.exp(e.deltaY*.001))},{passive:false});canvas.addEventListener('dblclick',fvCameraFitCurrent)
 }
 function fvRefreshSelectors(preserve=true){
   const caseSel=document.getElementById('fvCase');if(!caseSel)return;const allCases=Array.isArray(cases)?cases:[],oldCase=preserve?caseSel.value:'';
@@ -746,13 +774,24 @@ function fvUiHtml(){
 }
 function fvPanelHtml(){
   return`<div class="fieldViewPanel" id="fieldViewPanel">
-    <div class="fvViewport"><canvas id="fvCanvas" aria-label="3D OpenFOAM field visualization"></canvas><div class="fvLegend" id="fvLegend"></div><div class="fvViewTools"><button class="btn tiny" id="fvResetCamera" type="button" data-fl-en="Reset camera" data-fl-es="Restablecer cámara">Reset camera</button></div></div>
+    <div class="fvViewport">
+      <canvas id="fvCanvas" aria-label="3D OpenFOAM field visualization"></canvas>
+      <div class="fvLegend" id="fvLegend"></div>
+      <div class="fvViewTools" aria-label="3D navigation controls">
+        <div class="fvToolRow"><button class="btn tiny active" id="fvOrbitMode" type="button" data-fl-en="Orbit" data-fl-es="Orbitar">Orbit</button><button class="btn tiny" id="fvPanMode" type="button" data-fl-en="Pan" data-fl-es="Desplazar">Pan</button><button class="btn tiny" id="fvZoomMode" type="button">Zoom</button><button class="btn tiny" id="fvFitCamera" type="button">Fit</button><button class="btn tiny" id="fvResetCamera" type="button" data-fl-en="Reset" data-fl-es="Restablecer">Reset</button></div>
+        <div class="fvToolRow fvPresetRow"><button class="btn tiny" data-fv-view="front" type="button" data-fl-en="Front" data-fl-es="Frontal">Front</button><button class="btn tiny" data-fv-view="back" type="button" data-fl-en="Back" data-fl-es="Posterior">Back</button><button class="btn tiny" data-fv-view="left" type="button" data-fl-en="Left" data-fl-es="Izquierda">Left</button><button class="btn tiny" data-fv-view="right" type="button" data-fl-en="Right" data-fl-es="Derecha">Right</button><button class="btn tiny" data-fv-view="top" type="button" data-fl-en="Top" data-fl-es="Superior">Top</button><button class="btn tiny" data-fv-view="bottom" type="button" data-fl-en="Bottom" data-fl-es="Inferior">Bottom</button><button class="btn tiny" data-fv-view="iso" type="button" data-fl-en="Isometric" data-fl-es="Isométrica">Isometric</button></div>
+      </div>
+      <div class="fvAxisGizmo" id="fvAxisGizmo" aria-label="Interactive XYZ orientation gizmo">
+        <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="3" class="fvGizmoOrigin"/><line x1="40" y1="40" x2="67" y2="40" data-axis-line="x" class="fvAxisLine fvAxisX"/><line x1="40" y1="40" x2="40" y2="13" data-axis-line="y" class="fvAxisLine fvAxisY"/><line x1="40" y1="40" x2="40" y2="67" data-axis-line="z" class="fvAxisLine fvAxisZ"/></svg>
+        <button type="button" data-axis-button="x" data-fv-view="right" aria-label="View along positive X">X</button><button type="button" data-axis-button="y" data-fv-view="top" aria-label="View along positive Y">Y</button><button type="button" data-axis-button="z" data-fv-view="front" aria-label="View along positive Z">Z</button>
+      </div>
+    </div>
     <div class="fvStats" id="fvStats"></div>
-    <div class="smallnote fvHelp" data-fl-en="Drag to orbit · mouse wheel to zoom · double-click to reset camera." data-fl-es="Arrastra para orbitar · rueda del mouse para zoom · doble clic para restablecer cámara.">Drag to orbit · mouse wheel to zoom · double-click to reset camera.</div>
+    <div class="smallnote fvHelp" data-fl-en="Orbit, pan and zoom remain interactive while frames load. Use the view presets or click X/Y/Z in the orientation gizmo." data-fl-es="Orbitar, desplazar y zoom permanecen interactivos mientras cargan los frames. Usa las vistas predefinidas o haz clic en X/Y/Z del eje de orientación.">Orbit, pan and zoom remain interactive while frames load. Use the view presets or click X/Y/Z in the orientation gizmo.</div>
   </div>`
 }
 function fvCss(){
-  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:absolute;left:12px;top:12px}.fvStats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
+  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 118px)}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvStats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewTab'))return true;const tabs=document.querySelector('.datasetTabs'),catalog=document.getElementById('catalogTab');if(!tabs||!catalog)return false;
@@ -767,7 +806,10 @@ function fvInstallUi(){
   document.getElementById('fvTimeSlider').oninput=e=>{fvStopPlayback();fvLoadFrame(Number(e.target.value)).catch(err=>fvSetStatus(String(err?.message||err),true))};
   document.getElementById('fvPrev').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,-1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvNext').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
-  document.getElementById('fvPlay').onclick=()=>fvState.playing?fvStopPlayback():fvSchedulePlayback();document.getElementById('fvResetCamera').onclick=fvCameraReset;
+  document.getElementById('fvPlay').onclick=()=>fvState.playing?fvStopPlayback():fvSchedulePlayback();document.getElementById('fvResetCamera').onclick=fvCameraReset;document.getElementById('fvFitCamera').onclick=fvCameraFitCurrent;
+  const setMode=mode=>{fvState.interactionMode=mode;for(const [id,value] of [['fvOrbitMode','orbit'],['fvPanMode','pan'],['fvZoomMode','zoom']])document.getElementById(id)?.classList.toggle('active',value===mode)};
+  document.getElementById('fvOrbitMode').onclick=()=>setMode('orbit');document.getElementById('fvPanMode').onclick=()=>setMode('pan');document.getElementById('fvZoomMode').onclick=()=>setMode('zoom');
+  document.querySelectorAll('[data-fv-view]').forEach(b=>b.addEventListener('click',()=>fvCameraPreset(b.dataset.fvView)));
   document.getElementById('fvSlice').onchange=()=>fvUpdateSlice();
   document.getElementById('fvSliceAxis').onchange=()=>fvUpdateSlice();
   document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
