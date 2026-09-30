@@ -7,7 +7,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Published version
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.3.2** for Windows
+- **FoamLens Desktop v1.4.0** for Windows (current public release)\n- **Desktop v1.4.1 candidate** is under validated hotfix/development before publication
 
 ## Features
 
@@ -16,6 +16,11 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - Capability-driven **OpenFOAM discovery model** that inventories regions, physical-time directories, native fields, field classes, dimensions, boundary patches, dictionaries, logs, and recursively discovered `postProcessing` outputs without a project-specific field allowlist.
 - **Data Catalog** view for explicit inspection of what FoamLens detected: case, region, data kind, scalar/vector/tensor class, dimensions, physical-time range, sample count, provenance, and source path. Catalog discovery never auto-plots every variable.
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
+- **3D Field View** for OpenFOAM volume scalar/vector fields with ASCII/native-binary `polyMesh`, physical-time playback, moving/dynamic meshes, slices, iso-surfaces, 3D probes, vector glyphs and streamlines.
+- **Synchronized 3D case comparison** plus strict signed difference fields for topologically/geometrically equivalent meshes.
+- Optional **dual-variable Time-Series Focus** with independent left/right Y axes for combinations such as temperature + liquid fraction.
+- Automatic **linear/PIMPLE convergence audit**, **momentum-mechanism audit**, and **OpenFOAM energy audit** with explicit provenance and no hidden causal/sign assumptions.
+- **Simulation vs experiment validation** for imported time-temperature tables with RMSE/MAE/bias, phase-event evidence and no temporal extrapolation.
 - Detect horizontal/vertical spatial profiles from file structure and contents.
 - Friendly OpenFOAM variable labels while retaining original field names in metadata/tooltips.
 - Automatic derived velocity fields such as `Velocity magnitude |U|` and `Velocity XY`.
@@ -53,7 +58,7 @@ GitHub Actions builds:
 
 Tagged or explicitly published builds can also be attached directly to a GitHub Release.
 
-The Windows build is gated by synthetic regression suites for playback, phase/momentum analysis, and general OpenFOAM discovery. A private real-project integration suite can also run against an external OpenFOAM fixture checkout when its read-only repository token is configured; fixture data are not copied into this public repository.
+The Windows build is gated by the full scientific/UI regression suite, including Field View geometry, dynamic mesh playback, phase/momentum analysis, convergence, energy, experimental validation, import, bilingual UI, portable smoke and installed-app smoke. A private real-project integration suite can also run against an external OpenFOAM fixture checkout when its read-only repository token is configured; fixture data are not copied into this public repository.
 
 ## Web edition
 
