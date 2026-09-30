@@ -98,6 +98,34 @@ test('mesh inventory recognizes default and named-region polyMesh groups',()=>{
   assert.deepEqual(inv.map(x=>x.region),['','fluid']);
 });
 
+test('mesh inventory keeps reconstructed and processor-local polyMesh states separate',()=>{
+  const files=[];
+  for(const prefix of ['case/constant/metal/polyMesh','case/processor0/constant/metal/polyMesh','case/processor1/constant/metal/polyMesh'])
+    for(const name of ['points','faces','owner','neighbour','boundary'])
+      files.push({name,webkitRelativePath:prefix+'/'+name,size:10});
+  const inv=api.fvBuildMeshInventory(files,'case');
+  assert.equal(inv.length,3);
+  assert.deepEqual(inv.map(x=>x.partition),['','processor0','processor1']);
+  assert(inv.every(x=>x.region==='metal'&&x.complete));
+  assert(inv[0].sourcePaths.points.includes('/constant/metal/polyMesh/points'));
+  assert(inv[1].sourcePaths.points.includes('/processor0/constant/metal/polyMesh/points'));
+  assert(inv[2].sourcePaths.points.includes('/processor1/constant/metal/polyMesh/points'));
+});
+
+test('processor dynamic mesh snapshots inherit only within their own partition',()=>{
+  const files=[];
+  for(const p of ['processor0','processor1'])for(const name of ['points','faces','owner','neighbour'])
+    files.push({name,webkitRelativePath:'case/'+p+'/constant/polyMesh/'+name,size:10});
+  files.push({name:'points',webkitRelativePath:'case/processor0/1/polyMesh/points',size:10});
+  const inv=api.fvBuildMeshInventory(files,'case');
+  const p0=inv.find(x=>x.partition==='processor0'),p1=inv.find(x=>x.partition==='processor1');
+  assert.equal(p0.dynamic,true);assert.deepEqual(p0.dynamicTimes,[1]);
+  assert.equal(p1.dynamic,false);assert.deepEqual(p1.dynamicTimes,[]);
+  assert(p0.snapshots[0].sourcePaths.points.includes('/processor0/1/polyMesh/points'));
+  assert(p0.snapshots[0].sourcePaths.faces.includes('/processor0/constant/polyMesh/faces'));
+  assert(p1.sourcePaths.points.includes('/processor1/constant/polyMesh/points'));
+});
+
 test('multi-region cases enable Field View when a meshed region has volume fields',()=>{
   const c={meshInventory:[{region:'metal',complete:true},{region:'mold',complete:true}],discoveryModel:{fields:[
     {region:'metal',storage:'volume',kind:'scalar',times:[0,1],name:'T'},
