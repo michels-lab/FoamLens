@@ -98,10 +98,11 @@ test('Field View readiness requires a mesh state at or before at least one field
   assert.equal(api.fvCaseViewAvailable(valid),true);
 });
 
-test('playback wiring resolves geometry by physical time and preserves camera during mesh updates',()=>{
+test('playback wiring resolves geometry by physical time and preserves camera during reconstructed/decomposed mesh updates',()=>{
   for(const token of [
     'fvMeshSnapshotForTime(group,time)',
-    'fvEnsureMeshForTime(c,meshGroup,time,{resetCamera:false})',
+    'fvResolveFieldMeshLayout(c,region,g,time)',
+    'fvEnsureMeshFromLayout(c,layout,region,time',
     'function fvUpdateMeshBuffers(mesh,resetCamera=true)',
     "if(resetCamera)fvCameraReset();else fvRender()",
     "mesh: constant",
