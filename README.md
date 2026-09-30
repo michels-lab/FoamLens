@@ -8,6 +8,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 
 - **FoamLens Web v51**
 - **FoamLens Desktop v1.4.2** for Windows (current public release)
+- **FoamLens Desktop v1.4.3** is the current development line; it is not yet a public release.
 
 ## Features
 
@@ -17,7 +18,8 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - **Data Catalog** view for explicit inspection of what FoamLens detected: case, region, data kind, scalar/vector/tensor class, dimensions, physical-time range, sample count, provenance, and source path. Catalog discovery never auto-plots every variable.
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
 - **3D Field View** for OpenFOAM cell-, internal-face-, and point-associated scalar/vector fields with ASCII/native-binary `polyMesh`, physical-time playback, moving/dynamic meshes, cell- and point-field slices/iso-surfaces, association-aware 3D probes, vector glyphs and streamlines. `surface*Field` explicit numeric patch values are mapped to their exact boundary faces; patches without explicit numeric values remain neutral and are never fabricated.
-- **Synchronized 3D case comparison** plus strict signed difference fields for topologically/geometrically equivalent meshes.
+- **Synchronized multi-view 3D analysis** for up to four viewports. Each view can use its own case, region, field and component while sharing physical time and camera orientation. Compatible quantities can use shared color ranges and strict signed difference fields for topologically/geometrically equivalent meshes.
+- **3D animation/video export** composites the visible synchronized views into one video after preloading frames and fixing an independent global color range for each viewport.
 - Optional **dual-variable Time-Series Focus** with independent left/right Y axes for combinations such as temperature + liquid fraction.
 - Automatic **linear/PIMPLE convergence audit**, **momentum-mechanism audit**, and **OpenFOAM energy audit** with explicit provenance and no hidden causal/sign assumptions.
 - **Simulation vs experiment validation** for imported time-temperature tables with RMSE/MAE/bias, phase-event evidence and no temporal extrapolation.
