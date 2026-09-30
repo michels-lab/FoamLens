@@ -136,6 +136,10 @@ test('packaged Windows smoke imports a real OpenFOAM case into Field View when a
     'FOAMLENS_SMOKE_OPENFOAM_CASE',
     'FOAMLENS_SMOKE_REGION',
     'FOAMLENS_SMOKE_FIELD',
+    'FOAMLENS_SMOKE_TIME',
+    'FOAMLENS_SMOKE_MIN_FIELD_SPAN',
+    'span:Number(range?.max)-Number(range?.min)',
+    "legendText:document.getElementById('fvLegend')?.innerText||''",
     'surfaceVertices',
     'glError',
     'plotTitle',
@@ -156,6 +160,8 @@ test('packaged Windows smoke imports a real OpenFOAM case into Field View when a
     'quickcup-runtime-fixture/B13_prghPressure_airGapOF14',
     "$env:FOAMLENS_SMOKE_REGION='metal'",
     "$env:FOAMLENS_SMOKE_FIELD='T'",
+    "$env:FOAMLENS_SMOKE_TIME='9.8'",
+    "$env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'",
     'WaitForExit(180000)'
   ])assert(workflow.includes(token),'Missing Windows B13 smoke workflow token '+token);
   assert(!workflow.includes('Checkout private B13 runtime fixture'),'Windows must not git-checkout QuickCup paths that are invalid on NTFS.');
