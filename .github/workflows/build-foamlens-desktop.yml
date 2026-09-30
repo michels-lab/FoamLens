@@ -56,20 +56,92 @@ jobs:
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
+      - name: Prepare Windows-safe B13 runtime fixture
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil, re
+
+          src = Path("quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14")
+          dst_root = Path("b13-runtime-windows")
+          dst = dst_root / src.name
+          if dst_root.exists():
+              shutil.rmtree(dst_root)
+          dst.mkdir(parents=True)
+
+          invalid = re.compile(r'[<>:"\\|?*]')
+          reserved = {
+              "CON","PRN","AUX","NUL",
+              *{f"COM{i}" for i in range(1,10)},
+              *{f"LPT{i}" for i in range(1,10)}
+          }
+          seen = {}
+          copied = skipped = 0
+          skipped_examples = []
+
+          for path in sorted(src.rglob("*")):
+              rel = path.relative_to(src)
+              parts = rel.parts
+              bad = False
+              for part in parts:
+                  stem = part.split(".", 1)[0].upper()
+                  if invalid.search(part) or part.rstrip(" .") != part or stem in reserved:
+                      bad = True
+                      break
+              win_key = str(rel).replace("\\", "/").casefold()
+              if win_key in seen and seen[win_key] != str(rel):
+                  raise SystemExit(f"Windows path collision: {seen[win_key]} vs {rel}")
+              seen[win_key] = str(rel)
+              if bad:
+                  skipped += 1
+                  if len(skipped_examples) < 12:
+                      skipped_examples.append(str(rel))
+                  continue
+              target = dst / rel
+              if path.is_dir():
+                  target.mkdir(parents=True, exist_ok=True)
+              elif path.is_file():
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(path, target)
+                  copied += 1
+
+          required = [
+              dst / "constant" / "metal" / "polyMesh" / "points",
+              dst / "constant" / "metal" / "polyMesh" / "faces",
+              dst / "constant" / "metal" / "polyMesh" / "owner",
+              dst / "0" / "metal" / "T",
+          ]
+          missing = [str(p.relative_to(dst)) for p in required if not p.exists()]
+          if missing:
+              raise SystemExit("Windows-safe B13 fixture lost required 3D inputs: " + ", ".join(missing))
+          print(f"Windows-safe B13 fixture: {copied} files copied; {skipped} invalid Windows paths omitted.")
+          for item in skipped_examples:
+              print("  omitted:", item)
+          PY
+
+      - name: Upload Windows-safe B13 runtime fixture
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickCup-B13-Windows-runtime
+          path: b13-runtime-windows/
+          if-no-files-found: error
+          retention-days: 1
+
   build:
+    needs: quickcup-regression
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout private B13 runtime fixture
+      - name: Download Windows-safe B13 runtime fixture
         if: ${{ env.HAS_QUICKCUP_FIXTURE == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/download-artifact@v4
         with:
-          repository: realmichelduarte/QuickCup-Solidification
-          ref: foamlens-real-fixture-b13
-          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          name: QuickCup-B13-Windows-runtime
           path: quickcup-runtime-fixture
-          sparse-checkout: cases_controlled_buoyancy/B13_prghPressure_airGapOF14
 
       - uses: actions/setup-dotnet@v4
         with:
