@@ -148,10 +148,10 @@ function fvCompositeSnapshotFromLayout(layout,region,time){
   return{decomposed:true,complete:true,region:String(region||''),time:Number(time),timeLabel:String(time),dynamic:layout.parts.some(p=>!!p.snapshot?.dynamic),changed:layout.parts.flatMap(p=>(p.snapshot?.changed||[]).map(x=>p.partition+':'+x)),parts:layout.parts.map(p=>({partition:p.partition,snapshot:p.snapshot}))}
 }
 function fvCombinePartitionFieldValues(mesh,set,component,storage){
-  if(!mesh?.decomposed)return{ok:false,reason:'mesh-not-decomposed',values:[]};if(storage==='surface')return{ok:false,reason:'decomposed-surface-field-not-supported',values:[]};
+  if(!mesh?.decomposed)return{ok:false,reason:'mesh-not-decomposed',values:[]};
   const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),out=[];let representative=null;
   for(const range of mesh.partitionRanges||[]){const parsed=byPart.get(range.partition);if(!parsed)return{ok:false,reason:'field-partition-missing:'+range.partition,values:[]};
-    const expected=storage==='point'?range.pointCount:range.cellCount,v=pmComponentValues(parsed,component,expected);if(!v.ok||v.values.length!==expected)return{ok:false,reason:'partition-association-count-mismatch:'+range.partition,values:[]};
+    const expected=storage==='point'?range.pointCount:storage==='surface'?range.internalFaceCount:range.cellCount,v=pmComponentValues(parsed,component,expected);if(!v.ok||v.values.length!==expected)return{ok:false,reason:'partition-association-count-mismatch:'+range.partition,values:[]};
     if(!representative)representative=parsed;out.push(...v.values)
   }
   if(byPart.size!==(mesh.partitionRanges||[]).length)return{ok:false,reason:'field-mesh-partition-set-mismatch',values:[]};
@@ -615,7 +615,8 @@ async function fvLoadFrame(index=null,options={}){
   const storage=String(g.storage||'volume'),component=document.getElementById('fvComponent')?.value||'value';let parsed,fieldValues,surfaceBoundary=null;
   if(layout.mode==='decomposed'){
     const combined=fvCombinePartitionFieldValues(mesh,set,component,storage);if(!combined.ok)throw new Error(flUi('Decomposed field could not be aligned to its processor meshes: ','El campo descompuesto no pudo alinearse con sus mallas processor: ')+combined.reason);
-    parsed=combined.parsed;fieldValues=combined.values
+    parsed=combined.parsed;fieldValues=combined.values;
+    surfaceBoundary=storage==='surface'&&typeof fvLoadDecomposedSurfaceBoundaryValues==='function'?await fvLoadDecomposedSurfaceBoundaryValues(g,time,set,component,mesh):null;if(seq!==fvState.frameSeq)return
   }else{
     parsed=fvPickFieldPart(set);if(!parsed)throw new Error(flUi('A unique reconstructed field could not be selected.','No se pudo seleccionar un campo reconstruido único.'));
     const expected=fvAssociationCount(mesh,storage),vals=pmComponentValues(parsed,component,expected);if(!vals.ok||vals.values.length!==expected)throw new Error(`${flUi('Field/mesh association-count mismatch','No coincide el número de elementos de la asociación campo/malla')}: ${storage} · ${vals.values.length} vs ${expected}`);
