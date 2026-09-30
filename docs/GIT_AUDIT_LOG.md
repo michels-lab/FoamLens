@@ -880,3 +880,45 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11069760533`).
 - No GitHub Release was published from the hotfix branch.
+
+
+## 2026-09-30 — Field View iso-surfaces / contours
+
+### 3D iso-surface reconstruction
+- Added reconstructed constant-value surfaces to Field View through `v14-isosurface.js`.
+- Uses marching tetrahedra over the same volumetric reconstruction used by Interior Slice:
+  - cell-centred field values;
+  - adjacent-cell inverse-distance point reconstruction;
+  - cell-centre tetrahedralization;
+  - edge interpolation at the requested iso value.
+- Does not approximate an iso-surface by merely selecting nearby cell centres.
+- Controls added:
+  - Show iso-surface;
+  - numeric iso value;
+  - opacity;
+  - Use current midrange.
+- Typical thesis use:
+  - liquid fraction `alphaL = 0.5` to inspect a mid solidification front;
+  - an explicitly selected temperature to inspect an isotherm.
+- Iso-surfaces update during physical-time playback and use the current field, component, colormap and locked/display range.
+- Surface geometry becomes translucent when an interior slice or iso-surface is active so the interior visualization remains visible.
+- Implementation remains explicit that reconstruction is not claimed to be bit-identical to ParaView/VTK.
+
+### Regression
+- Added a marching-tetrahedra linear-field regression:
+  - tetrahedron vertices with scalar values `[0,1,1,1]`;
+  - requested iso `0.5`;
+  - reconstructed triangle lies exactly on `x+y+z=0.5`;
+  - expected triangle area is `sqrt(3)/8`.
+- Run #266 exposed a test-harness error only (`near` helper missing); the geometry implementation itself was not the failing assertion.
+- Fixed the regression helper without changing the iso algorithm.
+- **Run #267: SUCCESS** at head `3efeeb81617b42ba7bf7e8a47f4b9c0f3ead1f6c`.
+  - Real QuickCup regression: success.
+  - Field View regression: success.
+  - Iso-surface regression: success.
+  - 3D probe-picking regression: success.
+  - Portable EXE smoke: success.
+  - Installer build: success.
+  - Installed-app smoke: success.
+  - Windows artifact upload: success.
+- No GitHub Release was published from the development/hotfix branch.
