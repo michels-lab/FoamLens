@@ -3560,18 +3560,19 @@ function refreshDifferenceControls(){
 }
 function createDifferenceCurves(){
   const aId=Number($('differenceCaseA').value),bId=Number($('differenceCaseB').value),canonical=$('differenceVariable').value;
-  if(!(aId&&bId)||!canonical||(currentDataView!=='log'&&aId===bId)){$('differenceMetric').textContent=tr('noDifference');return}
+  if(!(aId&&bId)||!canonical||(currentDataView!=='log'&&aId===bId)){flSetIssue('differenceMetric','selection-missing',{analysis:'Difference Plot',field:canonical,view:currentDataView});return}
+  flClearIssue('differenceMetric');
   const A=caseById(aId),B=caseById(bId);let aa=differenceScopeSeries(aId,canonical),bb=differenceScopeSeries(bId,canonical);
   if(currentDataView==='log'){
     const ma=Number($('differenceLogMemberA').value),mb=Number($('differenceLogMemberB').value);
     aa=aa.filter(s=>Number(s.logSubIter)===ma);bb=bb.filter(s=>Number(s.logSubIter)===mb)
   }
-  if(!aa.length||!bb.length){$('differenceMetric').textContent=tr('noDifference');return}
+  if(!aa.length||!bb.length){flSetIssue('differenceMetric','difference-pair-missing',{analysis:'Difference Plot',field:canonical,view:currentDataView});return}
   const pairs=[];
   if(currentDataView==='profile'){
     for(const sa of aa){const sb=bb.find(s=>s.profileLineKey===sa.profileLineKey);if(sb)pairs.push([sa,sb])}
   }else{pairs.push([aa[0],bb[0]])}
-  if(!pairs.length){$('differenceMetric').textContent=tr('noDifference');return}
+  if(!pairs.length){flSetIssue('differenceMetric','difference-pair-missing',{analysis:'Difference Plot',field:canonical,view:currentDataView});return}
   let globalMax=-Infinity,globalX=NaN,created=0;
   for(const [sa,sb] of pairs){
     const x=[],y=[];for(const xx of sa.t){const vb=interpolateAt(sb,xx),va=interpolateAt(sa,xx);if(Number.isFinite(va)&&Number.isFinite(vb)){x.push(xx);y.push(va-vb)}}if(!x.length)continue;
@@ -3582,7 +3583,7 @@ function createDifferenceCurves(){
     const ds={...sa,id:nextId++,caseId:null,caseName:`Δ ${A.name}${currentDataView==='log'?` #${sa.logSubIter}`:''} − ${B.name}${currentDataView==='log'?` #${sb.logSubIter}`:''}`,field,t:x,y,visible:true,color:variableColor(field),width:2.2,dash:'solid',opacity:1,axis:'Right',customLabel:'',derivedKind:'difference',differenceKey:key,differenceMetrics:{maxAbs,x:x[im]},sourcePath:`derived:${key}`,fileName:'Difference curve'};series.push(ds);created++
   }
   refreshDatasetControls();renderList();updateMeta();draw();
-  $('differenceMetric').innerHTML=created?`<b>${esc(tr('maxDifference'))}</b>: ${esc(formatValue(globalMax,pairs[0][0].field))} · ${esc(tr('atPosition'))} = ${esc(trimZeros(Number(globalX).toFixed(5)))} ${currentDataView==='profile'?(pairs[0][0].profileCoordUnit||'mm'):'s'}`:tr('noDifference')
+  if(created){flClearIssue('differenceMetric');$('differenceMetric').innerHTML=`<b>${esc(tr('maxDifference'))}</b>: ${esc(formatValue(globalMax,pairs[0][0].field))} · ${esc(tr('atPosition'))} = ${esc(trimZeros(Number(globalX).toFixed(5)))} ${currentDataView==='profile'?(pairs[0][0].profileCoordUnit||'mm'):'s'}`}else flSetIssue('differenceMetric',currentDataView==='profile'?'no-spatial-overlap':'no shared physical-time interval',{analysis:'Difference Plot',field:canonical,view:currentDataView})
 }
 async function loadFiles(files,caseId=null,onProgress=null,options={}){
   invalidateHealthAnalysisIndex();
@@ -4910,7 +4911,7 @@ function openSmartImport(candidates){
 }
 
 async function importSelectedAsCases(){
-  const selected=selectedSmartEntries();if(!selected.length)return;
+  const selected=selectedSmartEntries();if(!selected.length){flSetIssue('smartImportSummary','selection-missing',{view:'Smart Import',expected:'at least one detected case'});return}flClearIssue('smartImportSummary');
   pushAppActivity(diagEs()?'Importando casos seleccionados':'Importing selected cases',`${selected.length} ${diagEs()?'caso(s) seleccionados':'selected case(s)'}`);
   const loadedPaths=loadedSourcePaths();removeInitialEmptyCaseIfNeeded();
 
@@ -4960,7 +4961,7 @@ async function importSelectedAsCases(){
   await new Promise(r=>setTimeout(r,100));setOverlayOpen('scanOverlay',false);restoreScanStepLabels();if(hasRealWorkspaceEvidence())openReadyOverlay();popAppActivity(diagEs()?'Importación rápida completada':'Fast import complete')
 }
 async function importSelectedRaw(){
-  const selected=selectedSmartEntries();if(!selected.length)return;
+  const selected=selectedSmartEntries();if(!selected.length){flSetIssue('smartImportSummary','selection-missing',{view:'Smart Import',expected:'at least one detected case'});return}flClearIssue('smartImportSummary');
   pushAppActivity(diagEs()?'Importando archivos seleccionados':'Importing selected files',`${selected.length} ${diagEs()?'selección(es)':'selection(s)'}`);
   const loaded=loadedSourcePaths(),files=[];
   for(const {candidate} of selected)for(const f of candidate.files){const k=f.webkitRelativePath||f.name;if(!loaded.has(k)){loaded.add(k);files.push(f)}}
@@ -5613,6 +5614,14 @@ function flIssueDescriptor(reason,context={}){
     problem=flUi('The experimental table is not usable.','La tabla experimental no es utilizable.');
     cause=flUi('FoamLens could not identify at least two usable columns and two data rows for time/temperature validation.','FoamLens no pudo identificar al menos dos columnas utilizables y dos filas de datos para validar tiempo/temperatura.');
     action=flUi('Use a CSV/TXT/DAT/TSV with a time column and a temperature column containing numeric data, then import it again.','Usa un CSV/TXT/DAT/TSV con una columna de tiempo y una columna de temperatura con datos numéricos y vuelve a importarlo.');
+  }else if(has('no-visible-data')){
+    problem=flUi('There are no visible data to use for this action.','No hay datos visibles para usar en esta acción.');
+    cause=flUi('The current Data view has no visible compatible series after the active case/variable filters.','La vista de Datos actual no tiene series compatibles visibles después de los filtros activos de caso/variable.');
+    action=flUi('Show or select at least one compatible series in the current Data view, then repeat the export/action.','Muestra o selecciona al menos una serie compatible en la vista de Datos actual y repite la exportación/acción.');
+  }else if(has('difference-pair-missing')){
+    problem=flUi('No comparable data pair is available for the Difference Plot.','No hay un par de datos comparable para el gráfico de diferencias.');
+    cause=flUi('The selected cases/variable do not provide matching datasets in the current view, or their profile lines do not correspond.','Los casos/variable seleccionados no tienen datasets coincidentes en la vista actual o sus líneas de perfil no corresponden.');
+    action=flUi('Choose two cases with the same variable and matching probe/profile/log context; for profiles, select a line available in both cases.','Elige dos casos con la misma variable y contexto de sonda/perfil/log; para perfiles, selecciona una línea disponible en ambos casos.');
   }else if(has('experimental-data-missing')){
     problem=flUi('Experimental data are missing.','Faltan datos experimentales.');
     cause=flUi('Validation needs an experimental time/temperature table.','La validación necesita una tabla experimental de tiempo/temperatura.');
@@ -6777,7 +6786,7 @@ async function inspectLiveDirectory(){
     if($('liveRefreshNow'))$('liveRefreshNow').disabled=false;if($('liveStop'))$('liveStop').disabled=false
   }catch(err){
     const dot=$('liveStatus')?.querySelector('.liveDot');if(dot){dot.classList.remove('on');dot.classList.add('warn')}
-    if($('liveDetail'))$('liveDetail').textContent=String(err)
+    if($('liveDetail'))flSetIssue('liveDetail',String(err?.message||err),{view:'Watch Run',sourcePath:liveDirectoryHandle?.name||''})
   }
 }
 function stopLiveWatch(){
@@ -6793,7 +6802,7 @@ async function chooseLiveFolder(){
     liveDirectoryHandle=await window.showDirectoryPicker({mode:'read'});
     if($('liveStatus'))$('liveStatus').innerHTML='<span class="liveDot on" id="liveDot"></span>'+(diagEs()?'Monitoreo activo. Puedes minimizar FoamLens; el caso permanece en modo solo lectura.':'Monitoring active. You can minimize FoamLens; the case remains read-only.');
     if(liveWatchTimer)clearInterval(liveWatchTimer);await inspectLiveDirectory();liveWatchTimer=setInterval(inspectLiveDirectory,5000)
-  }catch(err){if(err?.name!=='AbortError'&&$('liveDetail'))$('liveDetail').textContent=String(err)}
+  }catch(err){if(err?.name!=='AbortError'&&$('liveDetail'))flSetIssue('liveDetail',String(err?.message||err),{view:'Watch Run',sourcePath:liveDirectoryHandle?.name||''})}
 }
 function openLiveNumericalPerformance(){
   setAppMode('analysis');refreshGeneralAnalysisHost();
@@ -6955,9 +6964,9 @@ function startLogPlayback(mode){
   if(logAnimationPlaying&&logAnimationMode===mode){stopLogAnimation();return}
   stopLogAnimation();stopProfileAnimation();logAnimationMode=mode;logEvolutionActive=true;
   if(mode==='time'){
-    if(logAvailableTimes().length<2)return;logEvolutionMemberLimit=null;syncLogTimeNavigator();rebuildLogEvolutionSeries();$('logPlayTime').textContent=`❚❚ ${tr('pause')}`
+    if(logAvailableTimes().length<2){flSetIssue('logMeta','insufficient-samples',{view:'Solver Logs',expected:'at least two common physical times'});return}flClearIssue('logMeta');logEvolutionMemberLimit=null;syncLogTimeNavigator();rebuildLogEvolutionSeries();$('logPlayTime').textContent=`❚❚ ${tr('pause')}`
   }else{
-    const members=logAvailableMembers();if(members.length<2)return;syncLogTimeNavigator();let i=members.findIndex(v=>String(v)===String($('logMember').value));if(i<0)i=0;logEvolutionMemberLimit=members[i];rebuildLogEvolutionSeries();$('logPlaySubIter').textContent=`❚❚ ${tr('pause')}`
+    const members=logAvailableMembers();if(members.length<2){flSetIssue('logMeta','insufficient-samples',{view:'Solver Logs',expected:'at least two common sub-iterations'});return}flClearIssue('logMeta');syncLogTimeNavigator();let i=members.findIndex(v=>String(v)===String($('logMember').value));if(i<0)i=0;logEvolutionMemberLimit=members[i];rebuildLogEvolutionSeries();$('logPlaySubIter').textContent=`❚❚ ${tr('pause')}`
   }
   logAnimationPlaying=true;activeId=null;pinnedPoints=[];renderList();updateMeta();renderDiagnosticCurrent();draw();startLogAnimationTimer()
 }
@@ -6971,8 +6980,8 @@ function phaseFrontSeriesAt(caseId,time){const set=$('profileSet')?.value||'',li
 function phaseFrontRows(caseId){const ss=alphaProfileSeries().filter(s=>s.caseId===Number(caseId)),groups=new Map();for(const s of ss){const key=`${s.profileOutputPath}|${s.profileLineKey}|${s.profileTime}`;if(!groups.has(key))groups.set(key,s)}const thresholds=phaseFrontThresholds(),rows=[];for(const s of [...groups.values()].sort((a,b)=>a.profileTime-b.profileTime)){const row={time:s.profileTime,axis:s.profileAxis,unit:s.profileCoordUnit,line:s.profileLine};for(const th of thresholds){const xs=crossingPositions(s,th),key=`${caseId}|${s.profileOutputPath}|${s.profileLineKey}|${th}`;row[String(th)]={position:chooseCrossing(xs,key),count:xs.length,all:xs}}rows.push(row)}return rows}
 function refreshPhaseFrontCases(){const sel=$('phaseFrontCase');if(!sel)return;const old=sel.value,cs=cases.filter(c=>alphaProfileSeries().some(s=>s.caseId===c.id));sel.innerHTML=cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');if(cs.some(c=>String(c.id)===old))sel.value=old;else if(cs.length)sel.value=String(cs[0].id)}
 function renderPhaseFront(){refreshPhaseFrontCases();const id=phaseFrontCaseId(),es=diagEs(),time=Number($('profileTime')?.value),s=phaseFrontSeriesAt(id,time),ths=phaseFrontThresholds();if(!id||!s){flSetIssue('phaseFrontStatus','no spatial profiles',{field:'α1',time});$('phaseFrontCurrent').innerHTML='';$('phaseFrontTrajectory').innerHTML='';return}const current=ths.map(th=>{const xs=crossingPositions(s,th),key=`${id}|${s.profileOutputPath}|${s.profileLineKey}|${th}`,p=chooseCrossing(xs,key);return{th,xs,p}});$('phaseFrontStatus').innerHTML=`<b>${esc(caseById(id)?.name||'')}</b> · ${esc(profileOrientationLabel(s.profileAxis))} · ${esc(s.profileLine)} · t=${diagFmt(time)} s`; $('phaseFrontCurrent').innerHTML=`<table class="extTable phaseFrontTable"><thead><tr><th>αₗ</th><th>${es?'Posición':'Position'} [${esc(s.profileCoordUnit)}]</th><th>${es?'Cruces':'Crossings'}</th><th>${es?'Ambigüedad':'Ambiguity'}</th></tr></thead><tbody>${current.map(r=>`<tr><td>${r.th}</td><td>${diagFmt(r.p)}</td><td>${r.xs.length}</td><td>${r.xs.length>1?(es?'múltiple':'multiple'):(r.xs.length===1?'—':(es?'sin cruce':'no crossing'))}</td></tr>`).join('')}</tbody></table>`;const rows=phaseFrontRows(id);$('phaseFrontTrajectory').innerHTML=rows.length?`<table class="extTable"><thead><tr><th>t [s]</th>${ths.map(th=>`<th>α=${th}</th><th>#</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${diagFmt(r.time)}</td>${ths.map(th=>`<td>${diagFmt(r[String(th)]?.position)}</td><td>${r[String(th)]?.count??0}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'—'}
-function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;for(const th of ths){const t=[],y=[];for(const r of rows){const p=r[String(th)]?.position;if(Number.isFinite(p)){t.push(r.time);y.push(p)}}if(!t.length)continue;const field={canonical:`phase_front_${th}`,display:`Phase front α=${th}`,unit:rows[0].unit||'mm',quantity:'position',original:'derived from liquid fraction profile crossings'};const key=`phasefront|${id}|${th}|${$('profileSet')?.value||''}|${$('profileLine')?.value||''}`;series=series.filter(s=>s.phaseFrontKey!==key);series.push({id:nextId++,datasetType:'timeseries',caseId:id,caseName:c.name,fileName:'Derived phase-front trajectory',sourcePath:`derived:${key}`,field,probe:null,location:'',t,y,visible:true,color:variableColor(field),width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'phase_front',phaseFrontKey:key})}refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
-function exportPhaseFrontCsv(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;const out=[['case','time_s','profile_line','axis','coordinate_unit',...ths.flatMap(th=>[`alpha_${th}_position`,`alpha_${th}_crossing_count`])]];for(const r of rows)out.push([c.name,r.time,r.line,r.axis,r.unit,...ths.flatMap(th=>[r[String(th)]?.position??'',r[String(th)]?.count??0])]);downloadText('FoamLens_phase_front_tracking_v48.csv',out.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
+function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length){flSetIssue('phaseFrontStatus','no spatial profiles',{analysis:'Phase Front',field:'α1'});return}flClearIssue('phaseFrontStatus');for(const th of ths){const t=[],y=[];for(const r of rows){const p=r[String(th)]?.position;if(Number.isFinite(p)){t.push(r.time);y.push(p)}}if(!t.length)continue;const field={canonical:`phase_front_${th}`,display:`Phase front α=${th}`,unit:rows[0].unit||'mm',quantity:'position',original:'derived from liquid fraction profile crossings'};const key=`phasefront|${id}|${th}|${$('profileSet')?.value||''}|${$('profileLine')?.value||''}`;series=series.filter(s=>s.phaseFrontKey!==key);series.push({id:nextId++,datasetType:'timeseries',caseId:id,caseName:c.name,fileName:'Derived phase-front trajectory',sourcePath:`derived:${key}`,field,probe:null,location:'',t,y,visible:true,color:variableColor(field),width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'phase_front',phaseFrontKey:key})}refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
+function exportPhaseFrontCsv(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length){flSetIssue('phaseFrontStatus','analysis-result-missing',{analysis:'Phase Front export',field:'α1'});return}flClearIssue('phaseFrontStatus');const out=[['case','time_s','profile_line','axis','coordinate_unit',...ths.flatMap(th=>[`alpha_${th}_position`,`alpha_${th}_crossing_count`])]];for(const r of rows)out.push([c.name,r.time,r.line,r.axis,r.unit,...ths.flatMap(th=>[r[String(th)]?.position??'',r[String(th)]?.count??0])]);downloadText('FoamLens_phase_front_tracking_v48.csv',out.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
 function profileSetDisplay(path,sample){
   const tail=(path||'profile').split('/').filter(Boolean).at(-1)||'profile';
   return `${profileOrientationLabel(sample?.profileAxis)} · ${tail}`
@@ -7959,7 +7968,7 @@ function draw(){
 
 function exportPNG(){
   const vis=visibleCurrentSeries();
-  if(!vis.length)return;
+  if(!vis.length){flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'PNG export'});return}flClearIssue('status');
 
   const [W,H]=presetSize();
   const c=document.createElement('canvas');
@@ -7980,7 +7989,7 @@ function svgEscape(s){
 
 function exportSVG(){
   const vis=visibleCurrentSeries();
-  if(!vis.length)return;
+  if(!vis.length){flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'SVG export'});return}flClearIssue('status');
   const[W,H]=presetSize();
   const bg=$('exportBg').value==='white'?`<rect width="100%" height="100%" fill="white"/>`:'';
 
@@ -8114,7 +8123,7 @@ function exportSVG(){
 }
 
 function exportCSV(){
-  const vis=visibleCurrentSeries();if(!vis.length)return;
+  const vis=visibleCurrentSeries();if(!vis.length){flSetIssue('status','no-visible-data',{view:currentDataView,analysis:'CSV export'});return}flClearIssue('status');
   let rows;
   if(currentDataView==='profile'){
     rows=[['case','profile_type','profile_line','profile_time_s','field','display_unit','spatial_axis','coordinate_unit','coordinate','display_value','raw_value','source']];
