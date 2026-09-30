@@ -130,6 +130,8 @@ internal sealed class FoamLensForm : Form
 
     private async Task RunSmokeTestAsync()
     {
+        RunBinaryMeshParserSelfTest();
+
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -646,6 +648,99 @@ internal sealed class FoamLensForm : Form
     }
 
     private const string FoamMeshNumberPattern = @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?";
+
+    private static void RunBinaryMeshParserSelfTest()
+    {
+        static byte[] Header(string className, string objectName)
+        {
+            var text =
+                "FoamFile\n{\n" +
+                "    version 2.0;\n" +
+                "    format binary;\n" +
+                "    class " + className + ";\n" +
+                "    arch \"LSB;label=32;scalar=64\";\n" +
+                "    object " + objectName + ";\n" +
+                "}\n";
+            return Encoding.ASCII.GetBytes(text);
+        }
+
+        static void WriteLabelList(MemoryStream ms, IReadOnlyList<int> values)
+        {
+            var prefix = Encoding.ASCII.GetBytes("\n" + values.Count.ToString(CultureInfo.InvariantCulture) + "\n");
+            ms.Write(prefix);
+            Span<byte> raw = stackalloc byte[4];
+            foreach (var value in values)
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(raw, value);
+                ms.Write(raw);
+            }
+        }
+
+        static byte[] LabelsFile(string className, string objectName, IReadOnlyList<int> values)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header(className, objectName));
+            WriteLabelList(ms, values);
+            return ms.ToArray();
+        }
+
+        static byte[] PointsFile(IReadOnlyList<double> values)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header("vectorField", "points"));
+            var prefix = Encoding.ASCII.GetBytes("\n" + (values.Count / 3).ToString(CultureInfo.InvariantCulture) + "\n");
+            ms.Write(prefix);
+            Span<byte> raw = stackalloc byte[8];
+            foreach (var value in values)
+            {
+                BinaryPrimitives.WriteInt64LittleEndian(raw, BitConverter.DoubleToInt64Bits(value));
+                ms.Write(raw);
+            }
+            return ms.ToArray();
+        }
+
+        static byte[] FacesFile(IReadOnlyList<int> offsets, IReadOnlyList<int> elements)
+        {
+            using var ms = new MemoryStream();
+            ms.Write(Header("faceCompactList", "faces"));
+            WriteLabelList(ms, offsets);
+            WriteLabelList(ms, elements);
+            return ms.ToArray();
+        }
+
+        var points = PointsFile(new double[]
+        {
+            0,0,0, 1,0,0, 1,1,0, 0,1,0,
+            0,0,1, 1,0,1, 1,1,1, 0,1,1
+        });
+        var faceOffsets = new[] { 0,4,8,12,16,20,24 };
+        var facePoints = new[]
+        {
+            0,3,2,1, 4,5,6,7, 0,1,5,4,
+            1,2,6,5, 2,3,7,6, 3,0,4,7
+        };
+        var faces = FacesFile(faceOffsets, facePoints);
+        var owner = LabelsFile("labelList", "owner", new[] { 0,0,0,0,0,0 });
+        var neighbour = LabelsFile("labelList", "neighbour", Array.Empty<int>());
+        var totalBytes = (long)points.Length + faces.Length + owner.Length + neighbour.Length;
+
+        var result = ParseOpenFoamMeshBytes(
+            points, faces, owner, neighbour, totalBytes, CancellationToken.None);
+        if (!result.Supported)
+            throw new InvalidOperationException("Binary polyMesh self-test failed: " + result.Reason);
+        if (result.PointCount != 8 || result.FaceCount != 6 || result.CellCount != 1)
+            throw new InvalidOperationException(
+                $"Binary polyMesh self-test topology mismatch: points={result.PointCount}, faces={result.FaceCount}, cells={result.CellCount}");
+        if (result.CellCenters.Length != 3 ||
+            Math.Abs(result.CellCenters[0] - 0.5) > 1e-12 ||
+            Math.Abs(result.CellCenters[1] - 0.5) > 1e-12 ||
+            Math.Abs(result.CellCenters[2] - 0.5) > 1e-12)
+            throw new InvalidOperationException(
+                "Binary polyMesh self-test centroid mismatch: " +
+                string.Join(",", result.CellCenters.Select(v => v.ToString("G17", CultureInfo.InvariantCulture))));
+        if (!result.Format.StartsWith("binary", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Binary polyMesh self-test did not report binary format.");
+    }
 
     private async Task HandleOpenFoamMeshAsync(JsonElement root, string requestId)
     {
