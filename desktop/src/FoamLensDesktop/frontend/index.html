@@ -5605,6 +5605,14 @@ function flIssueDescriptor(reason,context={}){
     problem=flUi('The momentum mechanisms do not share enough physical times.','Los mecanismos de momentum no comparten suficientes tiempos físicos.');
     cause=flUi('The selected mechanism pair needs at least two compatible common times to build an evolution curve.','El par de mecanismos seleccionado necesita al menos dos tiempos comunes compatibles para construir una curva de evolución.');
     action=flUi('Choose mechanism fields with overlapping stored times, or load the missing time directories for the same region.','Elige campos de mecanismo con tiempos almacenados superpuestos o carga los directorios de tiempo faltantes para la misma región.');
+  }else if(has('analysis-result-missing')){
+    problem=flUi('There is no analysis result to use yet.','Todavía no hay un resultado de análisis para usar.');
+    cause=flUi('The requested export/action depends on a calculation that has not been run successfully in the current context.','La exportación/acción solicitada depende de un cálculo que todavía no se ha ejecutado correctamente en el contexto actual.');
+    action=flUi('Run the analysis first with a valid source selection, then repeat the export/action.','Ejecuta primero el análisis con una fuente válida y después repite la exportación/acción.');
+  }else if(has('experimental-table-invalid')){
+    problem=flUi('The experimental table is not usable.','La tabla experimental no es utilizable.');
+    cause=flUi('FoamLens could not identify at least two usable columns and two data rows for time/temperature validation.','FoamLens no pudo identificar al menos dos columnas utilizables y dos filas de datos para validar tiempo/temperatura.');
+    action=flUi('Use a CSV/TXT/DAT/TSV with a time column and a temperature column containing numeric data, then import it again.','Usa un CSV/TXT/DAT/TSV con una columna de tiempo y una columna de temperatura con datos numéricos y vuelve a importarlo.');
   }else if(has('experimental-data-missing')){
     problem=flUi('Experimental data are missing.','Faltan datos experimentales.');
     cause=flUi('Validation needs an experimental time/temperature table.','La validación necesita una tabla experimental de tiempo/temperatura.');
