@@ -191,4 +191,4 @@ function fpInstall(){
   document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),cl=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(cl)cl.textContent=fpUi('Clear probe','Limpiar sonda');fpRenderReadout(fpState.last)});
 }
 fpInstall();
-window.FoamLensFieldProbe={fpMat4Invert,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay};
+window.FoamLensFieldProbe={fpMat4Invert,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay,isEnabled:()=>fpState.enabled,getLast:()=>fpState.last};
