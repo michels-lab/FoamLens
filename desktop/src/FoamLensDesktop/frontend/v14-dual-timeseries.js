@@ -10,6 +10,10 @@ function tsdVariableSet(primary,secondary){
   if(!primary)return[];
   return secondary&&secondary!==primary?[primary,secondary]:[primary]
 }
+function tsdPrimaryChoice(vars,current=''){
+  const values=(vars||[]).map(f=>String(f?.canonical||'')).filter(Boolean),wanted=String(current||'');
+  return values.includes(wanted)?wanted:(values[0]||'')
+}
 function tsdMatchesVariable(canonical,primary,secondary){
   canonical=String(canonical||'');const selected=tsdVariableSet(primary,secondary);
   return !selected.length||selected.includes(canonical)
@@ -63,9 +67,9 @@ function tsdPopulateSecondary(vars,primary,preferred=''){
 }
 function tsdMatchesFilters(s){
   if(datasetTypeOf(s)!=='timeseries')return false;
-  const primary=document.getElementById('timeSeriesVariable')?.value||'',secondary=document.getElementById('timeSeriesVariable2')?.value||'';
+  const primaryEl=document.getElementById('timeSeriesVariable'),primary=primaryEl?.value||'',secondary=document.getElementById('timeSeriesVariable2')?.value||'',showAll=primaryEl?.dataset.showAll==='1';
   const probe=document.getElementById('timeSeriesProbe')?.value||'',caseFilter=document.getElementById('timeSeriesFamily')?.value||'';
-  if(!tsdMatchesVariable(s?.field?.canonical,primary,secondary))return false;
+  if(!showAll&&!tsdMatchesVariable(s?.field?.canonical,primary,secondary))return false;
   if(probe!==''&&String(s.probe)!==String(probe))return false;
   if(caseFilter&&caseFilter.startsWith('case:')&&String(s.caseId)!==caseFilter.slice(5))return false;
   return true
@@ -81,12 +85,13 @@ function tsdRefreshTimeSeriesControls(){
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;return
   }
   panel.classList.remove('hidden');
-  const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts);
-  vSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All variables','Todas las variables'))+'</option>'+vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
-  if(vars.some(f=>f.canonical===oldV))vSel.value=oldV;
-  else if(!vSel.dataset.autoinit&&vars.length){vSel.value=vars[0].canonical;vSel.dataset.autoinit='1'}
-  else vSel.value='';
-  const secondary=tsdPopulateSecondary(vars,vSel.value,oldV2),selected=tsdVariableSet(vSel.value,secondary);
+  const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
+  vSel.innerHTML=vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
+  vSel.value=tsdPrimaryChoice(vars,oldV);
+  vSel.dataset.autoinit='1';
+  let secondary=tsdPopulateSecondary(vars,vSel.value,showAll?'':oldV2);
+  if(showAll){v2Sel.value='';v2Sel.disabled=true;secondary=''}
+  const selected=showAll?[]:tsdVariableSet(vSel.value,secondary);
   const byVars=selected.length?ts.filter(s=>selected.includes(s.field.canonical)):ts;
   const probeEntries=[...new Set(byVars.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
   pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
@@ -102,7 +107,7 @@ function tsdRefreshTimeSeriesControls(){
   const matching=timeSeriesOptionsBase().filter(tsdMatchesFilters),uniqueCases=new Set(matching.map(s=>s.caseId)).size;
   document.getElementById('timeSeriesFocusBadge').textContent=`${matching.length} ${tsdUi('curves','curvas')}`;
   const pf=vars.find(f=>f.canonical===vSel.value),sf=vars.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
-  const primaryText=pf?localizedFieldName(pf):tsdUi('all variables','todas las variables'),secondaryText=sf?localizedFieldName(sf):'';
+  const primaryText=showAll?tsdUi('all variables','todas las variables'):(pf?localizedFieldName(pf):''),secondaryText=!showAll&&sf?localizedFieldName(sf):'';
   const probeText=pSel.value!==''?`${tr('probe')} ${pSel.value}`:tsdUi('all probes','todas las sondas');
   const varsText=secondaryText?`${primaryText} [Y-L] + ${secondaryText} [${plan.separate?'Y-R':'Y-L'}]`:primaryText;
   document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
@@ -131,14 +136,17 @@ function tsdInstall(){
   timeSeriesMatchesSelection=tsdMatchesFilters;
   refreshTimeSeriesControls=tsdRefreshTimeSeriesControls;
   tsdPatchAssignments();
-  const secondary=document.getElementById('timeSeriesVariable2');
-  if(secondary&&!secondary.dataset.tsdWired){
-    secondary.dataset.tsdWired='1';secondary.addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()})
+  const primary=document.getElementById('timeSeriesVariable'),secondary=document.getElementById('timeSeriesVariable2');
+  if(primary&&!primary.dataset.tsdModeWired){
+    primary.dataset.tsdModeWired='1';primary.addEventListener('change',()=>{delete primary.dataset.showAll},true)
   }
-  const reset=document.getElementById('timeSeriesResetFilters');if(reset&&!reset.dataset.tsdWired){reset.dataset.tsdWired='1';reset.addEventListener('click',()=>{const x=document.getElementById('timeSeriesVariable2');if(x)x.value='';refreshTimeSeriesControls();draw()})}
-  const all=document.getElementById('timeSeriesShowAllVars');if(all&&!all.dataset.tsdWired){all.dataset.tsdWired='1';all.addEventListener('click',()=>{const x=document.getElementById('timeSeriesVariable2');if(x)x.value='';refreshTimeSeriesControls();draw()})}
+  if(secondary&&!secondary.dataset.tsdWired){
+    secondary.dataset.tsdWired='1';secondary.addEventListener('change',()=>{if(primary)delete primary.dataset.showAll;stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()})
+  }
+  const reset=document.getElementById('timeSeriesResetFilters');if(reset&&!reset.dataset.tsdWired){reset.dataset.tsdWired='1';reset.addEventListener('click',()=>{if(primary)delete primary.dataset.showAll;if(secondary)secondary.value=''},true)}
+  const all=document.getElementById('timeSeriesShowAllVars');if(all&&!all.dataset.tsdWired){all.dataset.tsdWired='1';all.addEventListener('click',()=>{if(primary)primary.dataset.showAll='1';if(secondary)secondary.value=''},true)}
   document.addEventListener('foamlens-language-change',()=>{tsdUpdateLabels();refreshTimeSeriesControls()});
   refreshTimeSeriesControls();return true
 }
 tsdInstall();
-window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdMatchesVariable,tsdAxisPlan,tsdRefreshTimeSeriesControls};
+window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdRefreshTimeSeriesControls};
