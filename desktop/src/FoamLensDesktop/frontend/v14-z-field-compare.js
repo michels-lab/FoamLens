@@ -377,4 +377,11 @@ function fcInstall(){
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels()});
 }
 fcInstall();
-window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras,updateStats:fcUpdateStatsGrid};
+function fcProbeDescriptors(){
+  const out=[],primary=window.FoamLensFieldProbe?.getLast?.();
+  if(primary?.point?.length===3)out.push({id:'view1',view:1,caseId:Number(fvState.caseId),caseName:fvCase()?.name||'',region:fvState.region||'',field:fvState.fieldName||'',component:fvState.component||'value',point:primary.point.map(Number),cell:primary.cell??null,face:primary.face??null,value:Number(primary.value)});
+  if(fcState.enabled&&fcState.probe?.point?.length===3)out.push({id:'view2',view:2,caseId:Number(fcState.caseId),caseName:fcCase()?.name||'',region:fcState.region||'',field:fcState.fieldName||'',component:fcState.component||'value',point:fcState.probe.point.map(Number),cell:fcState.probe.cell??null,face:fcState.probe.face??null,value:Number(fcState.probe.value)});
+  for(const s of fcExtraViews)if(s.probe?.point?.length===3)out.push({id:'view'+s.id,view:Number(s.id),caseId:Number(s.caseId),caseName:fcExtraCase(s)?.name||'',region:s.region||'',field:s.fieldName||'',component:s.component||'value',point:s.probe.point.map(Number),cell:s.probe.cell??null,face:s.probe.face??null,value:Number(s.probe.value)});
+  return out
+}
+window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras,updateStats:fcUpdateStatsGrid,getProbeDescriptors:fcProbeDescriptors};
