@@ -2048,3 +2048,45 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - v1.4.5 is the patch release line for the post-v1.4.4 multi-view legend / Probe fixes.
 - Public release before promotion: v1.4.4.
 - Development identity: v1.4.5 / frontend v51.
+
+
+### Final v1.4.5 candidate validation
+- Tested product head: `6bd6ed194ea5da284a9b14f39a5a67ce112415ee`.
+- GitHub Actions run **#485 — SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Windows-safe multi-case runtime fixture preparation/upload/download: **SUCCESS**.
+- Full Windows scientific/UI regression suite: **SUCCESS**.
+- Field View regression: **SUCCESS**.
+- 3D Probe regression: **SUCCESS**.
+- 3D comparison / multi-view regression: **SUCCESS**.
+- Portable EXE build: **SUCCESS**.
+- Portable packaged-runtime smoke: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- Development-branch Release publication: **SKIPPED**, as expected.
+
+### Packaged-runtime evidence for the reported v1.4.4 defects
+- The packaged WebView2 smoke enables synchronized View 2 through the public UI/runtime API.
+- It selects a distinct comparison case and verifies that the selection persists in the actual rendered View 2 descriptor.
+- It optionally switches View 2 to a field distinct from the primary viewport.
+- It requires the secondary viewport's `#fcLegend` to:
+  - be present;
+  - not carry the hidden class;
+  - have nonzero rendered width/height;
+  - contain non-empty scientific legend text.
+- It enables the shared Probe control, clicks multiple real positions in the View 2 canvas and requires:
+  - a View 2 probe descriptor;
+  - a finite selected value;
+  - a visible `#fcProbeMarker` with nonzero dimensions;
+  - updated selected-value statistics.
+- A failure in either the local View 2 legend or the secondary Probe marker makes the packaged smoke fail.
+
+### Candidate artifact
+- Artifact: `FoamLens-Windows-v1.4.5`.
+- Artifact id: `11130930049`.
+- Artifact size: `135,195,504 bytes`.
+- Artifact digest: `sha256:8b427192f8e21b9b1118b698880daf8cc54077dd6eeaaae9413a97ff51348ccc`.
+- Multi-case runtime fixture artifact: `QuickCup-MultiCase-Windows-runtime`.
+- Runtime fixture artifact id: `11129997074`.
+- v1.4.4 remains unchanged and historical; promotion target is v1.4.5.
