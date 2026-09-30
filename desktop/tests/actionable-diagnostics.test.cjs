@@ -153,6 +153,34 @@ test('user-triggered app actions do not silently return on missing data',()=>{
   assert(!index.includes("function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length)return;"));
 });
 
+test('iso-surface diagnostics explain association and scalar-range failures',()=>{
+  api.setEs(false);
+  const assoc=api.issue('iso-surface-association-incompatible',{field:'phi',association:'surface'});
+  assert(/Iso-surface cannot be reconstructed/i.test(assoc.problem));
+  assert(/face-associated/i.test(assoc.cause));
+  assert(/volume\/cell or point scalar field/i.test(assoc.action));
+  const invalid=api.issue('iso-value-invalid');
+  assert(/not a finite number/i.test(invalid.problem));
+  assert(/midrange/i.test(invalid.action));
+  const range=api.issue('iso-value-out-of-range',{expected:'0 – 1'});
+  assert(/outside/i.test(range.problem));
+  assert(/0 – 1/.test(range.text));
+});
+
+test('coupling, iso-surface and vector failures stay user-visible',()=>{
+  const coupling=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-coupling-audit.js'),'utf8');
+  const iso=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
+  const vector=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v13-vector-fields.js'),'utf8');
+  assert(coupling.includes("flSetIssue(host,'no solver logs'"));
+  assert(coupling.includes("flSetIssue(host,'insufficient-samples'"));
+  assert(!coupling.includes("host.innerHTML='<div class=\"extInfo\">—</div>'"));
+  assert(iso.includes("flSetIssue(meta,'iso-surface-association-incompatible'"));
+  assert(iso.includes("flSetIssue(meta,'iso-value-invalid'"));
+  assert(iso.includes("flSetIssue(meta,'iso-value-out-of-range'"));
+  assert(vector.includes("flSetIssue(st,String(e?.message||e),{analysis:'Vector Magnitude'"));
+  assert(!vector.includes("catch(e){console.warn('Vector magnitude refresh failed',e)}st.textContent"));
+});
+
 test('unit/dimension mismatch gives a physical compatibility remedy',()=>{
   api.setEs(false);
   const x=api.issue('incompatible OpenFOAM dimensions: [0 0 0 1 0 0 0] vs [0 1 -1 0 0 0 0]');
