@@ -1344,3 +1344,58 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Portable Windows executable smoke: **SUCCESS**.
 - Installer build and installed-app smoke: **SUCCESS**.
 - GitHub Release publication: **SKIPPED** on the fix branch; no release was duplicated.
+
+
+## 2026-09-30 — Complete B13 real-case ingestion and UX closure
+
+### Real B13 3D Field View
+- Full fixture: `realmichelduarte/QuickCup-Solidification@foamlens-real-fixture-b13`.
+- B13 exposes a default/root `constant/polyMesh` plus complete named-region meshes for `metal` and `mold`.
+- Its transient scalar/vector fields are associated with named regions, especially `metal` and `mold`.
+- Root cause of `3D data unavailable`: Field View previously populated the region selector from every complete mesh and selected the first one. The empty/default mesh region sorted before `metal`/`mold`, so Field View selected a mesh-only region even though the case was globally 3D-capable.
+- Structural fix: `fvReadyRegions(caseObj)` is now the shared source of truth for 3D-ready regions. Region selection prefers regions with a complete mesh and compatible scalar/vector field association at a valid mesh time.
+- B13 therefore exposes `metal` and `mold` as ready regions instead of opening on the mesh-only default region.
+- Product commit: `7062d783a1908bf6c5d274df7d1a1ebc93a033c7`.
+- Regression commit: `d815ca59288522e7b3e283103f8908fc6fb082ad`.
+
+### Complete B13 regression fixture
+- CI QuickCup fixture checkout now uses branch `foamlens-real-fixture-b13` instead of the older repository `main` fixture state.
+- The real integration test explicitly validates complete `metal`/`mold` meshes, `metal/T`, `metal/U`, `mold/T`, and Field View readiness.
+- CI fixture commit: `68714a15646346592288507ec122b75d194fa0fe`.
+- Real B13 regression passed in runs #335 and #343.
+
+### Time-Series Focus variable-selection regression
+- Root cause: the dual-variable extension inserted an empty `All variables` option into Variable 1 and reused the original autoinit/empty-state semantics. Refresh/reset/show-all actions could therefore leave the primary selector empty and disable Variable 2.
+- Structural fix:
+  - Variable 1 now contains only real detected variables.
+  - `tsdPrimaryChoice` preserves an available selection or selects the first real variable.
+  - Variable 2 remains optional and excludes the selected primary variable.
+  - `Show all variables` is now an explicit button mode rather than an empty primary selection.
+  - The button visibly reports the show-all state, and selecting a real primary/secondary variable exits that mode.
+- Product commits:
+  - `c506df4d45dc25f3f5425f5fd4c3ddf7b004f5f3`
+  - `a5e6e3c13146a2aebb6182d65d84ba3dea81f862`
+- Regression commits:
+  - `b8a66722858f3ff90e8cbeea45e424fe61262a74`
+  - `a404e45f4cc427ea7c125cab20dedad16a8082e7`
+
+### Global sidebar toggle / scrollbar collision
+- Root cause: the expanded-state toggle was centered directly on the sidebar boundary with `left: calc(var(--sidebar-w) - 17px)`, overlapping the scroll/resize rail.
+- Structural fix:
+  - Expanded toggle moved into the sidebar header area with a fixed gap from the right boundary.
+  - Brand area reserves space for the control.
+  - Collapsed-state fixed reopen control remains reachable at the left edge.
+- Product commit: `13b02bb1ad7d467bece21e4b8b1204af13a7a8d0`.
+- Regression commit: `d4595d92da7f835e9e1369eef95faa06ead21d31`.
+
+### Final validation
+- GitHub Actions run #343: **SUCCESS**.
+- Complete B13 real OpenFOAM integration regression: **SUCCESS**.
+- 3D Field View regression: **SUCCESS**.
+- Collapsible/global sidebar regression: **SUCCESS**.
+- Dual-variable Time-Series Focus regression: **SUCCESS**.
+- Portable Windows executable smoke: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed application smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**. No release was created or replaced.
