@@ -1270,3 +1270,48 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Real QuickCup regression, decomposed Field View, surface-boundary, dynamic mesh, Slice, Iso, 3D Probe, strict 3D difference, all scientific/UI suites, portable smoke, installer and installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (id `11079714552`, 135239220 bytes).
 - No GitHub Release was published from this branch.
+
+
+## 2026-09-30 — v1.4.1 candidate freeze after decomposed Field View completion
+
+### Requested workflow/UX closure
+- Smart Import groups detected cases by version and supports group select/deselect while preserving individual case selection.
+- The large case-management card is moved to the end of the sidebar at runtime and defaults collapsed.
+- Sidebar cards are individually collapsible/expandable with persistent state.
+- Time-Series Focus supports two simultaneous variables with independent left/right Y axes.
+- Field View remains discoverable even when 3D prerequisites are missing and is directly accessible from Overview.
+
+### Thesis/post-processing closure
+- Formal linear-solver vs PIMPLE/nonlinear convergence audit.
+- Automatic momentum-mechanism audit.
+- Automatic OpenFOAM energy audit with source provenance and closure checks.
+- Simulation-vs-experiment validation with RMSE/MAE/bias and separate phase evidence.
+- Association-aware Cell / Face / Point Field View.
+- Interior Slice and Iso reconstruction for volume and point fields.
+- Vector glyphs, streamlines, 3D probe/picking, synchronized comparison and strict signed difference fields.
+- ASCII + native binary polyMesh.
+- Dynamic/time-varying mesh playback.
+- Processor-decomposed volume, point and surface fields with explicit matching processor mesh states.
+- Physical surfaceField boundary patches are mapped to composite global faces; artificial processor-interface patches are excluded from physical rendering and coverage.
+
+### Final product-code validation
+- Latest product-code validation: **GitHub Actions run #331 — SUCCESS**.
+- Tested product-code head: `0c86da6b5a7ef0ff125c0d14bcd13aabf720fb09`.
+- Run #331 artifact: `FoamLens-Windows-v1.4.1`.
+- Artifact id: `11079714552`.
+- Artifact size: 135,239,220 bytes.
+- Real QuickCup regression: success.
+- Decomposed Field View + surface-boundary regression: success.
+- Dynamic mesh / Slice / Iso / 3D Probe / strict 3D difference regressions: success.
+- All scientific/UI regressions: success.
+- Portable EXE smoke: success.
+- Installer build + installed-app smoke: success.
+
+### Candidate state
+- Commits after the tested product-code head through the current documentation reconciliation are documentation-only.
+- No v1.4.1 GitHub Release has been published from this candidate branch.
+- Remaining boundaries are explicit/non-blocking rather than missing requested features:
+  - browser fallback polyMesh remains ASCII-only while Desktop native supports binary;
+  - streamlines and reconstructed Slice/Iso algorithms are documented FoamLens approximations and are not claimed bit-identical to ParaView/VTK;
+  - face-associated surfaceField data is not silently converted into a volumetric field for Slice/Iso;
+  - the QuickCup repository still does not version its actual thesis polyMesh, so the exact thesis mesh cannot be CI-regressed from that repository.
