@@ -783,6 +783,25 @@ function fvRefreshSelectors(preserve=true){
   const readyCases=allCases.filter(fvCaseViewAvailable),tab=document.getElementById('fieldViewTab'),count=document.getElementById('fieldViewCount');if(tab){tab.disabled=false;tab.title=readyCases.length?flUi('Open 3D Field View','Abrir Vista 3D de campos'):flUi('Open Field View to see what data is missing','Abre Vista de campos para ver qué datos faltan')}if(count)count.textContent=String(readyCases.length);
   const availability=fvAvailability(c),status=document.getElementById('fvStatus');if(status&&!availability.ready){status.textContent=availability.reason;status.classList.add('error')}
 }
+async function fvHandleCaseChange(){
+  const caseSel=document.getElementById('fvCase'),selectedId=Number(caseSel?.value);if(!Number.isFinite(selectedId))return;
+  fvStopPlayback();
+  // Invalidate any frame/vector/global-range work belonging to the previous case.
+  ++fvState.frameSeq;++fvState.prefetchSeq;++fvState.globalRangeSeq;
+  fvState.caseId=selectedId;fvState.region='';fvState.fieldName='';fvState.fieldStorage='volume';fvState.time=NaN;
+  fvState.fieldValues=null;fvState.fieldParsed=null;fvState.surfaceBoundary=null;fvState.surfaceBoundaryGeometry=null;
+  fvState.vectorName='';fvState.vectorValues=null;fvState.vectorTime=NaN;fvState.streamlines=[];fvState.spatialHash=null;fvState.sliceGeometry=null;
+  fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';fvState.globalRange=null;fvState.globalRangeKey='';fvState.videoRangeOverride=null;
+  if(typeof fpClear==='function')fpClear();
+  // Preserve the case the user explicitly selected, while rebuilding region/field/component choices for that case.
+  fvRefreshSelectors(true);
+  const region=document.getElementById('fvRegion')?.value||'',field=document.getElementById('fvField')?.value||'';
+  fvSetStatus(flUi('Switching 3D case…','Cambiando caso 3D…')+' '+(fvCase()?.name||selectedId));
+  await fvLoadSelection();
+  if(Number(fvState.caseId)!==selectedId)throw new Error(flUi('3D case switch did not persist.','El cambio de caso 3D no persistió.'));
+  const loadedCase=fvCase();
+  if(!loadedCase||Number(loadedCase.id)!==selectedId)throw new Error(flUi('3D renderer is not bound to the selected case.','El renderer 3D no está vinculado al caso seleccionado.'));
+}
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
   if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
@@ -845,7 +864,7 @@ function fvInstallUi(){
   const tab=document.createElement('button');tab.className='datasetTab';tab.id='fieldViewTab';tab.type='button';tab.disabled=false;tab.innerHTML='<span id="fieldViewTabLabel" data-fl-en="Field View" data-fl-es="Vista de campos">Field View</span><span class="datasetTabCount" id="fieldViewCount">0</span>';catalog.insertAdjacentElement('afterend',tab);
   document.getElementById('catalogControls')?.insertAdjacentHTML('afterend',fvUiHtml());document.getElementById('chartViewport')?.insertAdjacentHTML('beforeend',fvPanelHtml());
   const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);tab.onclick=()=>setDataView('field3d');fvInstallCamera();
-  document.getElementById('fvCase').onchange=()=>{fvRefreshSelectors(false);fvLoadSelection()};document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
+  document.getElementById('fvCase').onchange=()=>fvHandleCaseChange().catch(e=>{console.error(e);fvSetStatus(String(e?.message||e),true)});document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};
   const refreshRange=()=>{if(!fvState.fieldValues)return;const current=fvFiniteRange(fvState.surfaceBoundary?.values?.size?[...fvState.fieldValues,...fvState.surfaceBoundary.values.values()]:fvState.fieldValues),range=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,range);fvUpdateSlice(range);if(typeof fvUpdateIso==='function')fvUpdateIso(range);fvLegend(range,fvState.fieldParsed)};
   document.getElementById('fvPalette').onchange=refreshRange;
