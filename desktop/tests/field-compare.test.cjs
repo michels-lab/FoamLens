@@ -74,6 +74,17 @@ test('3D comparison supports same or different cases with independent fields and
   ])assert(source.includes(token),'Missing independent-view token: '+token);
 });
 
+test('secondary and extra 3D case selectors preserve the case explicitly chosen by the user',()=>{
+  assert(source.includes("document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(true)"),
+    'View 2 case change still discards the selected comparison case.');
+  assert(!source.includes("document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(false)"),
+    'View 2 still resets its Case selector to the primary case.');
+  assert(source.includes("fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state)"),
+    'Views 3/4 do not preserve their selected case while rebuilding dependent selectors.');
+  assert(!source.includes("fcExtraRefreshSelectors(state,suffix!=='Case')"),
+    'Views 3/4 still reset case selection on Case change.');
+});
+
 test('secondary 3D viewport loads cell point or face associations through the generic frame loader',()=>{
   for(const token of [
     "fvFieldGroups(c,region,null,'any')",'fvLoadFrameData(selected,group,region,sync.time,component',
