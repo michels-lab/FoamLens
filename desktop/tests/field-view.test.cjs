@@ -271,6 +271,26 @@ test('Field View product module is wired to native mesh, transient fields and We
 });
 
 
+test('3D case switching preserves the explicit user selection and invalidates stale case work',()=>{
+  for(const token of [
+    'async function fvHandleCaseChange()',
+    'fvState.caseId=selectedId',
+    '++fvState.frameSeq',
+    '++fvState.prefetchSeq',
+    '++fvState.globalRangeSeq',
+    'fvState.mesh=null',
+    'fvState.globalRange=null',
+    'fvRefreshSelectors(true)',
+    "await fvLoadSelection()",
+    "3D case switch did not persist",
+    "3D renderer is not bound to the selected case"
+  ])assert(source.includes(token),'Missing safe 3D case-switch token: '+token);
+  assert(!source.includes("document.getElementById('fvCase').onchange=()=>{fvRefreshSelectors(false);fvLoadSelection()}"),
+    '3D Case onchange still discards the case selected by the user.');
+  assert(source.includes("document.getElementById('fvCase').onchange=()=>fvHandleCaseChange()"),
+    '3D Case selector is not wired through the safe case-switch handler.');
+});
+
 test('Field View exposes explicit 3D navigation presets and an interactive XYZ gizmo',()=>{
   for(const token of [
     'fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera',
