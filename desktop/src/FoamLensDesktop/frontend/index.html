@@ -4117,7 +4117,8 @@ async function pmParseLargeOpenFOAMField(file,sourcePath=''){
 
 function pmComponentValues(parsed,component='value',countHint=null){
   if(!parsed?.supported)return{ok:false,reason:parsed?.reason||'unsupported'};
-  const nHint=Number.isFinite(Number(countHint))?Math.max(0,Math.floor(Number(countHint))):null;
+  const hasCountHint=countHint!==null&&countHint!==undefined&&countHint!=='';
+  const nHint=hasCountHint&&Number.isFinite(Number(countHint))?Math.max(0,Math.floor(Number(countHint))):null;
   const transform=v=>{
     const kind=String(parsed.kind||'');
     if(kind==='scalar')return component==='value'||component==='magnitude'?Number(v):NaN;
@@ -6141,9 +6142,9 @@ function pmContext(){
 async function pmCollectSubsetValues(caseId,fieldName,time,region,component,subset,low,high){
   const target=await pmLoadFieldSet(caseId,fieldName,time,region);if(!target.length)return{ok:false,reason:'Field is not available at the selected physical time / region.'};
   if(subset==='whole'){
-    const aligned=pmAlignedComponents(target,component),values=aligned.chunks.flatMap(x=>x.a);
-    if(!values.length)return{ok:false,reason:aligned.issues.join(' · ')||'No compatible values.'};
-    return{ok:true,values,total:values.length,selected:values.length,issues:aligned.issues}
+    const aligned=pmAlignedComponents(target,component),values=aligned.chunks.flatMap(x=>x.a),countKnown=aligned.chunks.every(x=>x.countKnown!==false),uniformOnly=target.length>0&&target.every(x=>x?.uniform);
+    if(!values.length)return{ok:false,reason:aligned.issues.join(' · ')||'No compatible values.',code:'no-compatible-values'};
+    return{ok:true,values,total:countKnown?values.length:null,selected:values.length,issues:aligned.issues,countKnown,uniformOnly}
   }
   const c=caseById(Number(caseId)),alphaName=pmMappingForCase(c).liquidFraction;
   if(!alphaName)return{ok:false,reason:'Liquid Fraction is not mapped for this case.'};

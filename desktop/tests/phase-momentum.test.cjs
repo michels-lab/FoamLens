@@ -135,6 +135,14 @@ test('uniform field expansion', () => {
   assert(p.supported && p.uniform && v.values.length === 4 && v.values.every(x => x === 7000));
 });
 
+test('null count hint preserves a uniform scalar instead of expanding it to zero cells', () => {
+  const p = api.pmParseOpenFOAMFieldText('FoamFile{format ascii; class volScalarField; object alphat;} internalField uniform 0;','0/metal/alphat');
+  const v = api.pmComponentValues(p,'value');
+  assert(p.supported && p.uniform);
+  assert(v.ok && v.countKnown === false);
+  assert.deepEqual(v.values,[0]);
+});
+
 test('binary field rejected rather than guessed', () => {
   const p = api.pmParseOpenFOAMFieldText('FoamFile{format binary; class volScalarField; object T;} internalField nonuniform List<scalar> 3(','5/T');
   assert(!p.supported && p.reason === 'binary-format');
