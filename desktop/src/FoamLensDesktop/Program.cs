@@ -170,27 +170,29 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
-            // Extension integration smoke: v14 Field View must actually mount
-            // into the rendered Data View. Syntax-only validation cannot catch
-            // an extension injected into the wrong lexical IIFE.
+            // Extension integration smoke: Field View must mount and remain
+            // discoverable. v1.4.4 promotes it from a Data sub-tab to a
+            // top-level application mode, so either the new top-level button or
+            // the legacy sub-tab may provide discoverability during migration.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const tab=document.getElementById('fieldViewTab');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {tab:!!tab,controls:!!controls,panel:!!panel,disabled:!!tab?.disabled,hiddenClass:!!tab?.classList.contains('hidden'),inlineDisplay:tab?.style?.display||'',text:tab?.innerText||''}})()");
+                "(()=>{const tab=document.getElementById('fieldViewTab');const mode=document.getElementById('modeField');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');const visible=e=>!!e&&!e.classList.contains('hidden')&&e.style.display!=='none'&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden';return {tab:!!tab,mode:!!mode,controls:!!controls,panel:!!panel,tabDisabled:!!tab?.disabled,modeDisabled:!!mode?.disabled,tabVisible:visible(tab),modeVisible:visible(mode),tabText:tab?.innerText||'',modeText:mode?.innerText||''}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
                 var mounted =
-                    root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
                     root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
                     root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
-                var enabled =
-                    root.TryGetProperty("disabled", out var disabledNode) && !disabledNode.GetBoolean();
-                var locallyVisible =
-                    root.TryGetProperty("hiddenClass", out var hiddenNode) && !hiddenNode.GetBoolean() &&
-                    root.TryGetProperty("inlineDisplay", out var inlineDisplayNode) &&
-                    !string.Equals(inlineDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
-                if (!mounted || !enabled || !locallyVisible)
+                var legacyDiscoverable =
+                    root.TryGetProperty("tab", out var tabNode) && tabNode.GetBoolean() &&
+                    root.TryGetProperty("tabDisabled", out var tabDisabledNode) && !tabDisabledNode.GetBoolean() &&
+                    root.TryGetProperty("tabVisible", out var tabVisibleNode) && tabVisibleNode.GetBoolean();
+                var topLevelDiscoverable =
+                    root.TryGetProperty("mode", out var modeNode) && modeNode.GetBoolean() &&
+                    root.TryGetProperty("modeDisabled", out var modeDisabledNode) && !modeDisabledNode.GetBoolean() &&
+                    root.TryGetProperty("modeVisible", out var modeVisibleNode) && modeVisibleNode.GetBoolean();
+                if (!mounted || (!legacyDiscoverable && !topLevelDiscoverable))
                     throw new InvalidOperationException(
-                        $"FoamLens Field View extension did not mount enabled/discoverable: {fieldViewUiJson}");
+                        $"FoamLens Field View extension did not mount/discover correctly: {fieldViewUiJson}");
             }
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
