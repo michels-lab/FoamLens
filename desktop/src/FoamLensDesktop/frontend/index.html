@@ -5622,6 +5622,18 @@ function flIssueDescriptor(reason,context={}){
     problem=flUi('No comparable data pair is available for the Difference Plot.','No hay un par de datos comparable para el gráfico de diferencias.');
     cause=flUi('The selected cases/variable do not provide matching datasets in the current view, or their profile lines do not correspond.','Los casos/variable seleccionados no tienen datasets coincidentes en la vista actual o sus líneas de perfil no corresponden.');
     action=flUi('Choose two cases with the same variable and matching probe/profile/log context; for profiles, select a line available in both cases.','Elige dos casos con la misma variable y contexto de sonda/perfil/log; para perfiles, selecciona una línea disponible en ambos casos.');
+  }else if(has('iso-surface-association-incompatible')){
+    problem=flUi('Iso-surface cannot be reconstructed from the selected field association.','La iso-superficie no puede reconstruirse con la asociación del campo seleccionado.');
+    cause=flUi('The selected field is face-associated surface data; FoamLens does not silently reinterpret face values as a volumetric scalar field.','El campo seleccionado contiene datos de superficie asociados a caras; FoamLens no reinterpreta silenciosamente valores de cara como campo escalar volumétrico.');
+    action=flUi('Select a compatible volume/cell or point scalar field, such as temperature or liquid fraction, then enable the iso-surface again.','Selecciona un campo escalar compatible de volumen/celda o puntos, como temperatura o fracción líquida, y vuelve a activar la iso-superficie.');
+  }else if(has('iso-value-invalid')){
+    problem=flUi('The iso value is not a finite number.','El valor iso no es un número finito.');
+    cause=flUi('A constant-value surface requires one numeric scalar value.','Una superficie de valor constante requiere un único valor escalar numérico.');
+    action=flUi('Enter a finite numeric iso value or use “Use current midrange”.','Introduce un valor iso numérico finito o usa “Use current midrange”.');
+  }else if(has('iso-value-out-of-range')){
+    problem=flUi('The iso value is outside the selected field range.','El valor iso está fuera del rango del campo seleccionado.');
+    cause=flUi('No cells/points cross that scalar value in the current field frame, so no iso-surface can be reconstructed.','Ninguna celda/punto cruza ese valor escalar en el frame actual, por lo que no puede reconstruirse una iso-superficie.');
+    action=flUi('Choose a value inside the detected field range shown in the context, or use the current midrange.','Elige un valor dentro del rango detectado mostrado en el contexto o usa el punto medio actual.');
   }else if(has('experimental-data-missing')){
     problem=flUi('Experimental data are missing.','Faltan datos experimentales.');
     cause=flUi('Validation needs an experimental time/temperature table.','La validación necesita una tabla experimental de tiempo/temperatura.');
