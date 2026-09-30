@@ -1690,3 +1690,57 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### Candidate rule
 - The validated product head above must remain identifiable even if documentation-only commits follow it.
 - Any product-code change after `f3afd81a31abf02544f334c1179acf5accf0573c` requires a new full CI candidate before it is treated as the v1.4.3 test build.
+
+
+## 2026-09-30 — v1.4.3 packaged-runtime smoke strengthened
+
+### Why the runtime smoke was expanded
+- The earlier v1.4.3 candidate (#397) proved product regressions, B13 integration, packaging and installer startup, but the Windows smoke only verified that Field View mounted.
+- New runtime checks now execute inside the packaged WebView2 application rather than only inspecting source strings.
+
+### Runtime 3D UI checks
+- The packaged EXE now verifies at runtime that these controls/APIs actually mount:
+  - Orbit / Pan / Zoom / Fit / Reset;
+  - XYZ orientation gizmo;
+  - Current / Global / Manual color-range modes;
+  - comparison controls;
+  - animation/video panel.
+- The smoke programmatically presses `+ Add 3D view` twice and verifies synchronized Views 3 and 4 create their viewport, canvas and controls without duplicate DOM IDs.
+- It verifies the original 2D chart canvas remains `position:absolute`, while the Field View canvas is not globally forced absolute. This directly guards the cross-application canvas-overlay defect.
+- It invokes standard camera/pan/orbit UI controls inside the real WebView2 runtime.
+- Run #399 confirmed this complete 3D runtime UI block passed in the packaged EXE.
+
+### Real WebView2 video primitive smoke
+- Initial run #399 failed after the 3D checks because the test harness returned an unresolved JavaScript Promise directly through `ExecuteScriptAsync`; WebView2 serialized the Promise object as `{}`.
+- This was a smoke-harness defect, not evidence that video encoding failed.
+- The harness was corrected to:
+  - launch the async recorder inside WebView2;
+  - store the resolved result in `window.__foamLensVideoSmokeResult`;
+  - have C# poll that result with an explicit 8-second deadline;
+  - require a non-empty encoded Blob.
+- The smoke exercises the same browser primitives used by FoamLens export: `HTMLCanvasElement.captureStream` + `MediaRecorder`, with MP4/WebM capability negotiation.
+- Product behavior was not weakened to make the test pass.
+
+### New validated candidate
+- Tested head: `c56e5e951f512b696f5a73cd8920be742bca33f4`.
+- GitHub Actions run **#401 — SUCCESS**.
+- Real QuickCup/B13 regression job: **SUCCESS**.
+- Full Windows regression suite: **SUCCESS**.
+- Packaged portable EXE runtime smoke: **SUCCESS**, including:
+  - v1.4.3 3D controls/APIs;
+  - View 3 + View 4 runtime creation;
+  - canvas layout isolation;
+  - scientific color-range modes;
+  - actual WebView2 canvas-video encoding producing a non-empty Blob.
+- Installer build: **SUCCESS**.
+- Installed-app runtime smoke: **SUCCESS**.
+- Artifact upload: **SUCCESS**.
+- Artifact: `FoamLens-Windows-v1.4.3`.
+- Artifact id: `11091436790`.
+- Artifact size: 135,289,646 bytes.
+- Artifact digest: `sha256:dc64e7ae95b975f651f5efac2df062b56d16cfd36a4d00696f4cfe7300d95582`.
+- GitHub Release publication remains **SKIPPED**; v1.4.2 is still the public stable release.
+
+### Important limitation still being closed
+- B13 is currently validated through the dedicated real OpenFOAM integration job, while the packaged Windows smoke uses mounted UI plus a synthetic recording canvas.
+- The next CI hardening target is loading the private B13 fixture into the packaged WebView2 application during smoke, if this can be done through a smoke-only bridge without introducing fixture-specific behavior into the product UI or scientific logic.
