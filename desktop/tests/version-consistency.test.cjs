@@ -16,11 +16,11 @@ assert(index.includes("productVersion:'v51'"),'Workspace productVersion is not v
 assert(!index.includes('v51 development'),'Release UI still reports a frontend development build.');
 assert(!index.includes('release candidate build'),'Release UI still reports a release candidate.');
 assert(!index.includes("productVersion:'v51-development'"),'Workspace payload still reports a development version.');
-assert(/<Version>1\.4\.2<\/Version>/.test(project),'Desktop project version is not 1.4.2.');
-assert(/<AssemblyVersion>1\.4\.2\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.2.0.');
-assert(/<FileVersion>1\.4\.2\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.2.0.');
-assert(readme.includes('The current public release is **FoamLens Desktop v1.4.1 with frontend v51**'),'Desktop README does not identify v1.4.1 as the current public release.');
-assert(readme.includes('# FoamLens Desktop v1.4.2 development build'),'Desktop README does not identify the v1.4.2 development build.');
+assert(/<Version>1.4.3<\/Version>/.test(project),'Desktop project version is not 1.4.2.');
+assert(/<AssemblyVersion>1.4.3\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.2.0.');
+assert(/<FileVersion>1.4.3\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.2.0.');
+assert(readme.includes('The current public release is **FoamLens Desktop v1.4.2 with frontend v51**'),'Desktop README does not identify v1.4.1 as the current public release.');
+assert(readme.includes('# FoamLens Desktop v1.4.3 development build'),'Desktop README does not identify the v1.4.2 development build.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("Desktop v1.4.2"),'Field View module does not expose the v1.4.2 build identity.');
@@ -38,4 +38,4 @@ for(const name of fs.readdirSync(frontendDir).filter(x=>/\.(?:js|html)$/i.test(x
   }
 }
 assert(provenanceUses>=5,'Expected versioned export provenance was not found.');
-console.log('Version consistency passed: public Desktop v1.4.1; development Desktop v1.4.2 / frontend v51.');
+console.log('Version consistency passed: public Desktop v1.4.2; development Desktop v1.4.3 / frontend v51.');
