@@ -86,7 +86,7 @@ function saCreateRates(){
   try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
 }
 function saExport(){
-  const p=window.FoamLensLastSolidificationAnalysis;if(!p)return;
+  const p=window.FoamLensLastSolidificationAnalysis;if(!p){flSetIssue('saStatus','analysis-result-missing',{analysis:'Solidification / Remelting'});return}
   downloadText('FoamLens_solidification_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'solidification-phase-signal',...p},null,2),'application/json')
 }
 function saRefresh(){
