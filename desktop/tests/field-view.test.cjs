@@ -239,7 +239,8 @@ test('Field View association wiring stays explicit and does not coerce face/poin
     "faceFieldPos:null",
     "faceFieldColor:null",
     "faceFieldCount:0",
-    "internal faces only; boundaryField is not fabricated",
+    "fvLoadSurfaceBoundaryValues",
+    "boundary faces with explicit values",
     "Field/mesh association-count mismatch",
     "fvFieldGroups(c,r,'vector','volume')",
     "face/point values are not silently converted to cells"
