@@ -385,20 +385,24 @@ function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
   }
   return{axis,axisIndex:ai,position:pos,coordinate:coord,positions:new Float32Array(positions),values:new Float64Array(values),triangleCount:positions.length/9,interpolation:'cell-to-point inverse-distance + cell-centre tetrahedralization'}
 }
+function fvReadyRegions(caseObj){
+  const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=(caseObj?.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
+  const regions=[...new Set(meshes.map(g=>String(g.region||'')))];
+  return regions.filter(region=>meshes.filter(m=>String(m.region||'')===region).some(mesh=>fields.some(f=>String(f?.region||'')===region&&f.times.some(t=>!!fvMeshSnapshotForTime(mesh,t)))))
+}
 function fvCaseViewAvailable(caseObj){
-  const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=caseObj?.discoveryModel?.fields||[];
-  return meshes.some(mesh=>fields.some(f=>String(f?.region||'')===String(mesh?.region||'')&&['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.some(t=>!!fvMeshSnapshotForTime(mesh,t))))
+  return fvReadyRegions(caseObj).length>0
 }
 function fvAvailability(caseObj=null){
   const all=Array.isArray(cases)?cases:[],c=caseObj||all.find(fvCaseViewAvailable)||all[0]||null;
-  if(!c)return{ready:false,caseObj:null,reason:flUi('Load an OpenFOAM case to use 3D Field View.','Carga un caso OpenFOAM para usar la Vista 3D de campos.'),meshRegions:[],fieldRegions:[]};
+  if(!c)return{ready:false,caseObj:null,reason:flUi('Load an OpenFOAM case to use 3D Field View.','Carga un caso OpenFOAM para usar la Vista 3D de campos.'),meshRegions:[],fieldRegions:[],sharedRegions:[]};
   const meshes=(c.meshInventory||[]).filter(g=>g?.complete),fields=(c.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
-  const meshRegions=[...new Set(meshes.map(g=>String(g.region||'')))],fieldRegions=[...new Set(fields.map(g=>String(g.region||'')))],shared=meshRegions.filter(r=>fieldRegions.includes(r));
+  const meshRegions=[...new Set(meshes.map(g=>String(g.region||'')))],fieldRegions=[...new Set(fields.map(g=>String(g.region||'')))],shared=fvReadyRegions(c);
   if(shared.length)return{ready:true,caseObj:c,reason:flUi('3D mesh and compatible transient fields are ready.','La malla 3D y los campos transitorios compatibles están listos.'),meshRegions,fieldRegions,sharedRegions:shared};
-  if(!meshes.length&&fields.length)return{ready:false,caseObj:c,reason:flUi('No complete constant/polyMesh was detected (points, faces, owner, neighbour).','No se detectó un constant/polyMesh completo (points, faces, owner, neighbour).'),meshRegions,fieldRegions};
-  if(meshes.length&&!fields.length)return{ready:false,caseObj:c,reason:flUi('A mesh was detected, but no compatible transient cell/face/point scalar/vector fields are available for it.','Se detectó una malla, pero no hay campos transitorios escalares/vectoriales compatibles de celda/cara/punto disponibles para ella.'),meshRegions,fieldRegions};
-  if(meshes.length&&fields.length)return{ready:false,caseObj:c,reason:flUi('Mesh and compatible fields were detected, but not in the same region.','Se detectaron malla y campos compatibles, pero no en la misma región.'),meshRegions,fieldRegions};
-  return{ready:false,caseObj:c,reason:flUi('No complete polyMesh or compatible transient cell/face/point fields were detected.','No se detectó un polyMesh completo ni campos transitorios compatibles de celda/cara/punto.'),meshRegions,fieldRegions};
+  if(!meshes.length&&fields.length)return{ready:false,caseObj:c,reason:flUi('No complete constant/polyMesh was detected (points, faces, owner, neighbour).','No se detectó un constant/polyMesh completo (points, faces, owner, neighbour).'),meshRegions,fieldRegions,sharedRegions:[]};
+  if(meshes.length&&!fields.length)return{ready:false,caseObj:c,reason:flUi('A mesh was detected, but no compatible transient cell/face/point scalar/vector fields are available for it.','Se detectó una malla, pero no hay campos transitorios escalares/vectoriales compatibles de celda/cara/punto disponibles para ella.'),meshRegions,fieldRegions,sharedRegions:[]};
+  if(meshes.length&&fields.length)return{ready:false,caseObj:c,reason:flUi('Mesh and compatible fields were detected, but not in the same region/time.','Se detectaron malla y campos compatibles, pero no en la misma región/tiempo.'),meshRegions,fieldRegions,sharedRegions:[]};
+  return{ready:false,caseObj:c,reason:flUi('No complete polyMesh or compatible transient cell/face/point fields were detected.','No se detectó un polyMesh completo ni campos transitorios compatibles de celda/cara/punto.'),meshRegions,fieldRegions,sharedRegions:[]};
 }
 /* FOAMLENS_FIELD_VIEW_CORE_END */
 
@@ -692,9 +696,11 @@ function fvRefreshSelectors(preserve=true){
   if(oldCase&&allCases.some(c=>String(c.id)===oldCase))caseSel.value=oldCase;
   else if(activeContextCaseId!=null&&allCases.some(c=>Number(c.id)===Number(activeContextCaseId)))caseSel.value=String(activeContextCaseId);
   else{const firstReady=allCases.find(fvCaseViewAvailable);if(firstReady)caseSel.value=String(firstReady.id)}
-  const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=[...new Set(fvMeshes(c).map(g=>String(g.region||'')))];
-  regionSel.innerHTML=meshRegions.length?meshRegions.map(r=>`<option value="${fvEsc(r)}">${fvEsc(r||flUi('Default region','Región predeterminada'))}</option>`).join(''):'<option value="">—</option>';
-  if(meshRegions.includes(oldRegion))regionSel.value=oldRegion;else if(activeContextRegion&&meshRegions.includes(activeContextRegion))regionSel.value=activeContextRegion;
+  const c=fvCase(),regionSel=document.getElementById('fvRegion'),oldRegion=preserve?regionSel.value:'',meshRegions=[...new Set(fvMeshes(c).map(g=>String(g.region||'')))],readyRegions=fvReadyRegions(c),regionOptions=readyRegions.length?readyRegions:meshRegions;
+  regionSel.innerHTML=regionOptions.length?regionOptions.map(r=>`<option value="${fvEsc(r)}">${fvEsc(r||flUi('Default region','Región predeterminada'))}</option>`).join(''):'<option value="">—</option>';
+  if(regionOptions.includes(oldRegion)&&(!readyRegions.length||readyRegions.includes(oldRegion)))regionSel.value=oldRegion;
+  else if(activeContextRegion&&regionOptions.includes(activeContextRegion))regionSel.value=activeContextRegion;
+  else if(regionOptions.length)regionSel.value=regionOptions[0];
   const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?fieldSel.value:'',groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
   fieldSel.innerHTML=groups.length?groups.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)} · ${fvEsc(g.kind)} · ${fvEsc(fvAssociationLabel(g.storage))}</option>`).join(''):'<option value="">—</option>';if(groups.some(g=>g.name===oldField))fieldSel.value=oldField;
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),oldComp=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===oldComp))comp.value=oldComp;
@@ -797,6 +803,6 @@ function fvInstallIntegration(){
   const prevSet=setDataView;setDataView=function(mode){if(mode==='field3d'){fvShow();return}if(currentDataView==='field3d'){fvHide();currentDataView='catalog'}return prevSet.apply(this,arguments)};
   try{const prevRefresh=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prevRefresh.apply(this,args);setTimeout(()=>{mount();fvRefreshSelectors(true)},0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const c=document.getElementById('fieldViewControls'),p=document.getElementById('fieldViewPanel'),q=document.getElementById('workspaceGoFieldView');if(c)flApplyBilingualText(c);if(p)flApplyBilingualText(p);if(q)flApplyBilingualText(q);if(currentDataView==='field3d')fvRefreshSelectors(true)});
-  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvIntegrateStreamline,fvCaseViewAvailable,fvAvailability}
+  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvIntegrateStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability}
 }
 fvInstallIntegration();
