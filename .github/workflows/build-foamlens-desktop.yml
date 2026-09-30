@@ -463,7 +463,7 @@ jobs:
           if (Test-Path $log) {
             Copy-Item $log 'artifacts/FoamLens-Portable-smoke.log' -Force
             Write-Host '---- FoamLens portable smoke evidence ----'
-            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'
+            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|synchronized View 2 legend/Probe smoke passed|Windows smoke test passed'
             Write-Host '------------------------------------------'
           } else {
             throw 'FoamLens portable smoke log was not created.'
@@ -573,7 +573,7 @@ jobs:
           if (Test-Path $log) {
             Copy-Item $log 'artifacts/FoamLens-Installed-smoke.log' -Force
             Write-Host '---- FoamLens installed smoke evidence ----'
-            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|Windows smoke test passed'
+            Get-Content $log | Select-String -Pattern '3D runtime UI smoke passed|video runtime smoke passed|real OpenFOAM packaged runtime smoke passed|synchronized View 2 legend/Probe smoke passed|Windows smoke test passed'
             Write-Host '-------------------------------------------'
           } else {
             throw 'FoamLens installed smoke log was not created.'
