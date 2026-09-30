@@ -170,10 +170,6 @@ jobs:
         shell: pwsh
         run: node desktop/tests/flow-analysis.test.cjs
 
-      - name: Test general flow-signal analysis
-        shell: pwsh
-        run: node desktop/tests/flow-analysis.test.cjs
-
       - name: Test solidification and remelting analysis
         shell: pwsh
         run: node desktop/tests/solidification-analysis.test.cjs
