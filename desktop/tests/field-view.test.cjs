@@ -9,8 +9,11 @@ const modulePath=path.join(root,'src','FoamLensDesktop','frontend','v14-field-vi
 const programPath=path.join(root,'src','FoamLensDesktop','Program.cs');
 const source=fs.readFileSync(modulePath,'utf8');
 const program=fs.readFileSync(programPath,'utf8');
+const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
+const animationSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-animation-export.js'),'utf8');
 
 new Function(source);
+new Function(animationSource);
 
 const begin='/* FOAMLENS_FIELD_VIEW_CORE_START */';
 const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
@@ -280,6 +283,36 @@ test('Field View exposes explicit 3D navigation presets and an interactive XYZ g
   assert(source.includes("canvas.addEventListener('dblclick',fvCameraFitCurrent)"),'Double-click fit behavior is missing.');
 });
 
+
+test('Field View uses intelligent color ranges with adaptive precision and explicit delta',()=>{
+  for(const token of [
+    'Smart · current frame','Global · all times','fvRangeMode','fvRangeMin','fvRangeMax',
+    'fvFmtRange','fvRangeUniform','Uniform field','<span>Δ</span>','fvComputeGlobalRange'
+  ])assert(source.includes(token),'Missing intelligent range token: '+token);
+  assert(!source.includes('id="fvLockRange"'),'Obsolete Lock color range checkbox is still present.');
+});
+
+test('Field View caches and prefetches temporal fields instead of reparsing every navigation step',()=>{
+  for(const token of [
+    'fieldCache:new Map()','fieldInflight:new Map()','fvLoadFieldSetCached','fvSchedulePrefetch',
+    'index+1,index+2,index-1','fvCacheLimit','Frame cache','Prefetching'
+  ])assert(source.includes(token),'Missing frame-cache/prefetch token: '+token);
+});
+
+test('non-primary canvases are no longer globally forced absolute over the application',()=>{
+  assert(index.includes('.chartwrap > canvas#canvas{position:absolute;inset:0;width:100%;height:100%}'),
+    'Primary 2D canvas does not have a scoped layout rule.');
+  assert(!index.includes('\ncanvas{position:absolute;inset:0;width:100%;height:100%}'),
+    'A global absolute canvas rule can overlay unrelated 3D/analysis canvases.');
+});
+
+test('Field View exports synchronized multi-view animation with fixed scientific ranges',()=>{
+  for(const token of [
+    'Animation / Video','fvVideoStart','fvVideoEnd','fvVideoFps','fvVideoResolution','fvVideoFormat',
+    'captureStream','MediaRecorder','vaPreload','vaAccumulateRanges','vaApplyRanges',
+    'All synchronized 3D views are composited into the same video'
+  ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
+});
 
 test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
