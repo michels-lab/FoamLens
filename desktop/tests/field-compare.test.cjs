@@ -103,5 +103,18 @@ test('synchronized View 2 follows the shared vector resolution and glyph-size co
     'Synchronized View 2 still hard-codes 280 glyphs.');
 });
 
+test('each synchronized 3D viewport owns an independent scientific legend',()=>{
+  for(const token of [
+    'fcLegendMarkup','fcUpdateViewportLegend','fcLegend',
+    "'fcExtra'+id+'Legend'","fcExtra'+state.id+'Legend",
+    'fcLegendTitle','fcLegendBar','fcLegendTicks','fcLegendDelta',
+    "fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared)"
+  ])assert(source.includes(token),'Missing per-viewport legend token: '+token);
+  assert(source.includes("second.innerHTML='<canvas id="fcCanvas""),
+    'View 2 canvas markup is missing.');
+  assert(source.includes('id="fcLegend"'),
+    'View 2 has no independent legend container.');
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
