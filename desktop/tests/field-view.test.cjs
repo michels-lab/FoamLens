@@ -291,6 +291,21 @@ test('3D case switching preserves the explicit user selection and invalidates st
     '3D Case selector is not wired through the safe case-switch handler.');
 });
 
+test('vector and streamline visualization expose independent real-resolution controls',()=>{
+  for(const token of [
+    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
+    'Vector resolution','Seed density','max="400"','value="100"',
+    'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
+    'fvSelectVectorGlyphCells','glyphCount','requested',
+    "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
+    "document.getElementById('fvStreamlineControls')?.classList.toggle('hidden'"
+  ])assert(source.includes(token),'Missing flow-resolution control token: '+token);
+  assert(!source.includes('fvBuildVectorGlyphBuffers(mesh,vectors,280)'),
+    'Vector glyph density is still hard-coded to 280.');
+  assert(source.includes("option value="2400""),
+    'High-resolution 2400-glyph option is missing.');
+});
+
 test('Field View exposes explicit 3D navigation presets and an interactive XYZ gizmo',()=>{
   for(const token of [
     'fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera',
