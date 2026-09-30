@@ -1594,13 +1594,20 @@ internal sealed class FoamLensForm : Form
 
         try
         {
-            var result = await ParseOpenFoamFieldAsync(path, requestId, operation.Token);
-            if (result.Supported && string.Equals(result.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+            // Field parsing can be CPU-heavy even when file reads themselves are asynchronous.
+            // Keep parsing and boundary decoding off the WinForms/WebView UI thread so camera,
+            // opacity and other visual controls remain responsive while a new timestep loads.
+            var result = await Task.Run(async () =>
             {
-                var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
-                    path, result.Kind, operation.Token);
-                result = result with { BoundaryPatches = boundaryPatches };
-            }
+                var parsed = await ParseOpenFoamFieldAsync(path, requestId, operation.Token).ConfigureAwait(false);
+                if (parsed.Supported && string.Equals(parsed.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+                {
+                    var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
+                        path, parsed.Kind, operation.Token).ConfigureAwait(false);
+                    parsed = parsed with { BoundaryPatches = boundaryPatches };
+                }
+                return parsed;
+            }, operation.Token);
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamField", completedBytes = result.BytesRead, totalBytes });
         }
