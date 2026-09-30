@@ -268,6 +268,19 @@ test('Field View product module is wired to native mesh, transient fields and We
 });
 
 
+test('Field View exposes explicit 3D navigation presets and an interactive XYZ gizmo',()=>{
+  for(const token of [
+    'fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera',
+    'data-fv-view="front"','data-fv-view="back"','data-fv-view="left"','data-fv-view="right"',
+    'data-fv-view="top"','data-fv-view="bottom"','data-fv-view="iso"',
+    'fvAxisGizmo','data-axis-button="x"','data-axis-button="y"','data-axis-button="z"',
+    'fvCameraPreset','fvCameraPanPixels','fvCameraZoomFactor','fvUpdateAxisGizmo'
+  ])assert(source.includes(token),'Missing 3D navigation token: '+token);
+  assert(source.includes("e.button===1||e.button===2?'pan'"),'Middle/right-drag pan fallback is missing.');
+  assert(source.includes("canvas.addEventListener('dblclick',fvCameraFitCurrent)"),'Double-click fit behavior is missing.');
+});
+
+
 test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
   assert.equal(a.ready,false);
