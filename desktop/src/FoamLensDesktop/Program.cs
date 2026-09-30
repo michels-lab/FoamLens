@@ -429,6 +429,17 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens real OpenFOAM 3D frame did not render safely: {realCaseJson}");
 
+                    if (!data.TryGetProperty("plotTitle", out var plotTitleNode) ||
+                        !string.Equals(plotTitleNode.GetString(), "3D OpenFOAM Field View",
+                            StringComparison.Ordinal))
+                        throw new InvalidOperationException(
+                            $"FoamLens Field View lost ownership of the active plot header: {realCaseJson}");
+                    if (!data.TryGetProperty("plotInfo", out var plotInfoNode) ||
+                        !string.Equals(plotInfoNode.GetString(), "Mesh + transient fields",
+                            StringComparison.Ordinal))
+                        throw new InvalidOperationException(
+                            $"FoamLens Field View plot information was overwritten by a 2D renderer: {realCaseJson}");
+
                     if (!string.IsNullOrWhiteSpace(preferredRegion) &&
                         (!data.TryGetProperty("region", out var regionNode) ||
                          !string.Equals(regionNode.GetString(), preferredRegion,
@@ -582,6 +593,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     surfaceVertices:Number(fvState.renderer?.surfaceCount||0),
     webgl:!!gl,
     glError:gl?Number(gl.getError()):-1,
+    plotTitle:document.getElementById('plotTitle')?.textContent||'',
+    plotInfo:document.getElementById('plotInfo')?.textContent||'',
     status:document.getElementById('fvStatus')?.textContent||''
   };
 };
