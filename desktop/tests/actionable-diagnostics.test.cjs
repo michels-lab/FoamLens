@@ -64,6 +64,27 @@ test('phase thresholds state the valid numeric ordering',()=>{
   assert(x.action.includes('≤ 1'));
 });
 
+test('energy audit diagnostics explain missing evidence and incomplete flux decomposition',()=>{
+  api.setEs(false);
+  const missing=api.issue('energy-evidence-missing');
+  assert(/energy evidence/i.test(missing.problem));
+  assert(/postProcessing|energyFlux/i.test(missing.action));
+  const incomplete=api.issue('energy-flux-set-incomplete');
+  assert(/incomplete/i.test(incomplete.problem));
+  assert(/advective/i.test(incomplete.cause));
+  assert(/diffusive/i.test(incomplete.cause));
+  assert(/total/i.test(incomplete.cause));
+});
+
+test('momentum evolution diagnostic explains insufficient common times',()=>{
+  api.setEs(false);
+  const x=api.issue('mechanism-times-insufficient',{region:'metal'});
+  assert(/physical times/i.test(x.problem));
+  assert(/at least two/i.test(x.cause));
+  assert(/overlapping stored times/i.test(x.action));
+  assert(x.text.includes('region=metal'));
+});
+
 test('unit/dimension mismatch gives a physical compatibility remedy',()=>{
   api.setEs(false);
   const x=api.issue('incompatible OpenFOAM dimensions: [0 0 0 1 0 0 0] vs [0 1 -1 0 0 0 0]');
