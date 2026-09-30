@@ -60,7 +60,7 @@ function fcSymmetricDifferenceRange(values){
 
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
-  spatialHash:null,vectorValues:null,streamlines:[],differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:''
+  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:''
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
@@ -77,6 +77,67 @@ function fcLegendMarkup(field,component,parsed,range,palette='viridis'){
 function fcUpdateViewportLegend(id,field,component,parsed,range){
   const e=document.getElementById(id);if(!e)return;const palette=document.getElementById('fvPalette')?.value||'viridis';e.innerHTML=fcLegendMarkup(field,component,parsed,range,palette);e.classList.toggle('hidden',!range?.valid)
 }
+function fcProbeEnabled(){try{return !!window.FoamLensFieldProbe?.isEnabled?.()}catch{return false}}
+function fcProbeCore(){return window.FoamLensFieldProbe||{}}
+function fcCanvasRay(canvas,event,mvp){
+  const core=fcProbeCore(),invert=core.fpMat4Invert;if(!invert||!canvas||!mvp)return null;
+  const rect=canvas.getBoundingClientRect(),x=2*(event.clientX-rect.left)/Math.max(rect.width,1)-1,y=1-2*(event.clientY-rect.top)/Math.max(rect.height,1),inv=invert(mvp);if(!inv)return null;
+  const tx=(m,v)=>[m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3],m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3],m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3],m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]],pd=v=>Math.abs(Number(v[3]))>1e-30?[v[0]/v[3],v[1]/v[3],v[2]/v[3]]:null,near=pd(tx(inv,[x,y,-1,1])),far=pd(tx(inv,[x,y,1,1]));if(!near||!far)return null;
+  const d=[far[0]-near[0],far[1]-near[1],far[2]-near[2]],l=Math.hypot(...d)||1;return{origin:near,dir:d.map(v=>v/l)}
+}
+function fcPickView(mesh,fieldValues,storage,canvas,event,mvp){
+  const core=fcProbeCore(),pick=core.fpPickTriangles;if(!pick||!mesh||!fieldValues)return null;const ray=fcCanvasRay(canvas,event,mvp);if(!ray)return null;
+  if(String(storage)==='surface'){
+    const g=fvBuildInternalFaceBuffers(mesh),hit=pick(ray.origin,ray.dir,g.positions,{kind:'internalFace',faceIds:g.triangleFaces});
+    if(hit&&hit.face!=null)hit.value=Number(fieldValues[hit.face]);return hit
+  }
+  const b=fvBuildSurfaceBuffers(mesh),tri=mesh.surfaceTriangles||[];
+  if(String(storage)==='point')return pick(ray.origin,ray.dir,b.surfacePositions,{kind:'pointSurface',values:tri.map(i=>Number(fieldValues[i]))});
+  const hit=pick(ray.origin,ray.dir,b.surfacePositions,{kind:'surface',cellIds:(mesh.surfaceOwners||[]).map(Number)});if(hit&&hit.cell!=null)hit.value=Number(fieldValues[hit.cell]);return hit
+}
+function fcEnsureProbeOverlay(viewport,id){
+  if(!viewport)return null;let e=document.getElementById(id);if(e)return e;e=document.createElement('div');e.id=id;e.className='fcProbeMarker hidden';e.innerHTML='<span></span>';viewport.appendChild(e);return e
+}
+function fcUpdateProbeOverlay(viewport,canvas,id,probe,mvp){
+  const e=fcEnsureProbeOverlay(viewport,id);if(!e||!canvas||!probe?.point||!mvp){e?.classList.add('hidden');return}
+  const p=probe.point,v=[Number(p[0]),Number(p[1]),Number(p[2]),1],clip=[mvp[0]*v[0]+mvp[4]*v[1]+mvp[8]*v[2]+mvp[12],mvp[1]*v[0]+mvp[5]*v[1]+mvp[9]*v[2]+mvp[13],mvp[2]*v[0]+mvp[6]*v[1]+mvp[10]*v[2]+mvp[14],mvp[3]*v[0]+mvp[7]*v[1]+mvp[11]*v[2]+mvp[15]];if(Math.abs(clip[3])<1e-30){e.classList.add('hidden');return}
+  const x=clip[0]/clip[3],y=clip[1]/clip[3],z=clip[2]/clip[3];if(![x,y,z].every(Number.isFinite)||z<-1||z>1){e.classList.add('hidden');return}
+  const cr=canvas.getBoundingClientRect(),vr=viewport.getBoundingClientRect();e.style.left=(cr.left-vr.left+(x+1)*.5*cr.width)+'px';e.style.top=(cr.top-vr.top+(1-y)*.5*cr.height)+'px';e.classList.remove('hidden')
+}
+function fcStatsMarkup(label,mesh,range,parsed,storage,probe){
+  if(!mesh||!range?.valid)return'<div class="fcStatsTitle">'+fcEsc(label)+'</div><div class="smallnote">—</div>';
+  const unit=fcUnit(parsed),suffix=unit?' '+fcEsc(unit):'',delta=Number(range.max)-Number(range.min),selected=probe&&Number.isFinite(Number(probe.value))?(probe.cell!=null?fcUi('Cell','Celda')+' #'+Number(probe.cell).toLocaleString():probe.face!=null?fcUi('Face','Cara')+' #'+Number(probe.face).toLocaleString():fcUi('Selected','Seleccionado'))+' · '+fcFmt(probe.value)+suffix:'—';
+  return'<div class="fcStatsTitle">'+fcEsc(label)+'</div><div class="fcStatsCells">'+
+    '<div><span>'+fcUi('Cells','Celdas')+'</span><b>'+Number(mesh.cellCount||0).toLocaleString()+'</b></div>'+
+    '<div><span>'+fcUi('Association','Asociación')+'</span><b>'+fcEsc(fvAssociationLabel(storage))+'</b></div>'+
+    '<div><span>Min</span><b>'+fcFmt(range.min)+suffix+'</b></div>'+
+    '<div><span>Max</span><b>'+fcFmt(range.max)+suffix+'</b></div>'+
+    '<div><span>Δ</span><b>'+fcFmt(delta)+suffix+'</b></div>'+
+    '<div><span>'+fcUi('Mean','Media')+'</span><b>'+fcFmt(range.mean)+suffix+'</b></div>'+
+    '<div class="fcSelectedStat"><span>'+fcUi('Selected','Seleccionado')+'</span><b>'+fcEsc(selected)+'</b></div></div>'
+}
+function fcUpdateStatsGrid(){
+  const root=document.getElementById('fcStatsGrid');if(!root)return;root.classList.toggle('hidden',!fcState.enabled);if(!fcState.enabled)return;
+  const cards=[],primaryRange=fvFiniteRange(fvState.fieldValues||[]),primaryProbe=window.FoamLensFieldProbe?.getLast?.()||null;
+  cards.push('<div class="fcStatsCard">'+fcStatsMarkup((fvCase()?.name||fcUi('View','Vista')+' 1')+' · '+(fvState.fieldName||'—'),fvState.mesh,primaryRange,fvState.fieldParsed,fvState.fieldStorage,primaryProbe)+'</div>');
+  if(fcState.mesh&&fcState.fieldValues)cards.push('<div class="fcStatsCard">'+fcStatsMarkup((fcCase()?.name||fcUi('View','Vista')+' 2')+' · '+(fcState.fieldName||'—'),fcState.mesh,fcState.range,fcState.fieldParsed,fcState.fieldStorage,fcState.probe)+'</div>');
+  for(const s of fcExtraViews)if(s.mesh&&s.fieldValues)cards.push('<div class="fcStatsCard">'+fcStatsMarkup((fcExtraCase(s)?.name||fcUi('View','Vista')+' '+s.id)+' · '+(s.fieldName||'—'),s.mesh,s.range,s.fieldParsed,s.storage,s.probe)+'</div>');
+  root.innerHTML=cards.join('')
+}
+function fcDriveSharedCamera(canvas){
+  if(!canvas||canvas.dataset.fcSharedCamera)return;canvas.dataset.fcSharedCamera='1';let drag=null;
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch,distance:fvState.camera.distance,mode:e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit'}});
+  canvas.addEventListener('pointermove',e=>{canvas.style.cursor=fcProbeEnabled()?'crosshair':'';if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.mode==='orbit'){fvState.camera.yaw=drag.yaw+dx*.008;fvState.camera.pitch=fvClamp(drag.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4);fvRender()}else if(drag.mode==='pan'){fvCameraPanPixels(e.clientX-drag.lastX,e.clientY-drag.lastY,canvas);drag.lastX=e.clientX;drag.lastY=e.clientY}else if(drag.mode==='zoom'){fvState.camera.distance=Math.max(1e-10,drag.distance*Math.exp(dy*.01));fvRender()}});
+  const end=()=>{drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
+  canvas.addEventListener('wheel',e=>{e.preventDefault();fvCameraZoomFactor(Math.exp(e.deltaY*.001))},{passive:false});canvas.addEventListener('dblclick',fvCameraFitCurrent)
+}
+function fcInstallViewProbe(canvas,getContext){
+  if(!canvas||canvas.dataset.fcProbe)return;canvas.dataset.fcProbe='1';let down=null;
+  canvas.addEventListener('pointerdown',e=>{if(fcProbeEnabled())down={x:e.clientX,y:e.clientY}});
+  canvas.addEventListener('click',e=>{if(!fcProbeEnabled())return;const d=down?Math.hypot(e.clientX-down.x,e.clientY-down.y):0;down=null;if(d>5)return;const ctx=getContext(),hit=fcPickView(ctx.mesh,ctx.values,ctx.storage,canvas,e,ctx.mvp());ctx.setProbe(hit);fcUpdateStatsGrid();ctx.render()})
+}
+
 function fcCase(){return cases.find(c=>String(c.id)===String(document.getElementById('fcCase')?.value))}
 function fcRegion(){return document.getElementById('fcRegion')?.value||''}
 function fcMode(){return document.getElementById('fcSync')?.value||'nearest'}
@@ -86,7 +147,7 @@ function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===S
 function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
-  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcRender()
+  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
   fcState.lastError=error?String(text||''):'';const e=document.getElementById('fcStatus');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}
@@ -125,7 +186,8 @@ function fcRender(){
   if(showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
-  if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
+  if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas))
 }
 function fcUploadMesh(mesh){
   const canvas=document.getElementById('fcCanvas');if(!canvas)return;if(!fcState.renderer)fcState.renderer=fvCreateRenderer(canvas);const r=fcState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);
@@ -200,7 +262,7 @@ async function fcRefreshFrame(){
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const data=await fvLoadFrameData(selected,group,region,sync.time,component,{includeBoundary:false});if(seq!==fcState.seq)return;
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.range=data.range;
-    const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared);fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
+    const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared);fcUpdateStatsGrid();fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
     const timing=sync.exact?fcUi('exact physical time','tiempo físico exacto'):fcUi('nearest physical time','tiempo físico más cercano');fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+timing+(sync.exact?'':' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s'))
   }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
 }
@@ -224,7 +286,8 @@ function fcExtraRender(state){
   const opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),showEdges=document.getElementById('fvEdges')?.checked!==false;
   if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}
   else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
-  if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))
+  if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
   const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=document.getElementById('fvPalette')?.value||'viridis';
@@ -234,7 +297,7 @@ function fcExtraUpload(state,data){
   else if(data.storage==='surface'){
     fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const fb=fvBuildInternalFaceBuffers(mesh);fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(fb.triangleFaces,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=fb.positions.length/3
   }else fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
-  state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range);fcExtraRender(state)
+  state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range);fcExtraRender(state);fcUpdateStatsGrid()
 }
 function fcExtraUpdateLabel(state){
   const e=fcExtraDom(state.id,'Label'),c=fcExtraCase(state);if(!e)return;e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'')+(Number.isFinite(state.delta)&&Math.abs(state.delta)>1e-12?' · Δt='+(state.delta>=0?'+':'')+fcFmt(state.delta)+' s':'')
@@ -259,10 +322,11 @@ function fcExtraRemove(id){
   const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout()
 }
 function fcExtraAdd(){
-  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume'};fcExtraViews.push(state);
+  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null};fcExtraViews.push(state);
   const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');if(!controls||!grid)return;const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);
   fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{fcExtraRefreshSelectors(state,suffix!=='Case');fcExtraRefreshFrame(state)});
+  const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas);fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state);fcUpdateLayout()
 }
 function fcVideoDescriptors(){
@@ -275,7 +339,7 @@ function fcSetVideoRanges(ranges){
   if(fcState.enabled&&fcState.fieldValues){const r=fcState.videoRangeOverride||fcState.range;fcUpdateDerived(r);for(const s of fcExtraViews)if(s.mesh&&s.fieldValues){const data={mesh:s.mesh,storage:s.storage,fieldValues:s.fieldValues,parsed:s.fieldParsed,range:s.range};fcExtraUpload(s,data)}}
 }
 function fcUpdateLayout(){
-  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);fcUpdateLabels();setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)
+  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
@@ -291,7 +355,8 @@ function fcInstallUi(){
   const primaryLabel=document.createElement('div');primaryLabel.id='fcPrimaryLabel';primaryLabel.className='fcViewLabel';primary.appendChild(primaryLabel);
   const second=document.createElement('div');second.id='fcViewport';second.className='fvViewport fcViewport hidden';second.innerHTML='<canvas id="fcCanvas" aria-label="Synchronized comparison 3D OpenFOAM field visualization"></canvas><div class="fcViewLabel" id="fcCompareLabel"></div><div class="fcLegend hidden" id="fcLegend"></div>';grid.appendChild(second);
   const diff=document.createElement('div');diff.id='fcDifferenceViewport';diff.className='fvViewport fcViewport hidden';diff.innerHTML='<canvas id="fcDifferenceCanvas" aria-label="3D OpenFOAM signed difference field visualization"></canvas><div class="fcViewLabel">Δ field · Primary − Comparison</div><div class="extStatus fcDifferenceStatus" id="fcDifferenceStatus"></div>';grid.appendChild(diff);
-  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}.fcViewport.hidden{display:none}.fcViewport #fcCanvas,.fcViewport #fcDifferenceCanvas{display:block;width:100%;height:500px;touch-action:none}.fcViewLabel{position:absolute;left:12px;bottom:12px;max-width:65%;padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 88%,transparent);font-size:9px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(8px)}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:flex;justify-content:space-between;gap:5px;font-size:8px;color:var(--muted)}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcViewport #fcCanvas,.fcViewport #fcDifferenceCanvas{height:420px}}';document.head.appendChild(style);
+  const statsGrid=document.createElement('div');statsGrid.id='fcStatsGrid';statsGrid.className='fcStatsGrid hidden';grid.insertAdjacentElement('afterend',statsGrid);
+  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}.fcViewport.hidden{display:none}.fcViewport #fcCanvas,.fcViewport #fcDifferenceCanvas{display:block;width:100%;height:500px;touch-action:none}.fcViewLabel{position:absolute;left:12px;bottom:12px;max-width:65%;padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 88%,transparent);font-size:9px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(8px)}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:flex;justify-content:space-between;gap:5px;font-size:8px;color:var(--muted)}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:9px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:9px;font-weight:850;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcStatsCells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.fcStatsCells>div{padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fcSelectedStat{grid-column:span 2}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcViewport #fcCanvas,.fcViewport #fcDifferenceCanvas{height:420px}}';document.head.appendChild(style);
   try{flApplyBilingualText(box)}catch{}
   document.getElementById('fcEnabled').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
   document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(false);fcState.lockedRange=null;fcRefreshFrame()});
@@ -299,6 +364,7 @@ function fcInstallUi(){
   document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcComponent').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcSync').addEventListener('change',()=>fcRefreshFrame());
+  const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas);fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>fcRender()).observe(second);new ResizeObserver(()=>fcRenderDifference()).observe(diff);}
   fcRefreshSelectors(false);fcUpdateLayout();return true
 }
@@ -311,4 +377,4 @@ function fcInstall(){
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels()});
 }
 fcInstall();
-window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras};
+window.FoamLensFieldCompare={fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras,updateStats:fcUpdateStatsGrid};
