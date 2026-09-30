@@ -409,7 +409,7 @@ function fvAvailability(caseObj=null){
 const fvState={
   meshCache:new Map(),mesh:null,caseId:null,region:'',fieldName:'',fieldStorage:'volume',time:NaN,component:'value',
   fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
-  lockedRange:null,rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,
+  lockedRange:null,rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,videoRangeOverride:null,
   fieldCache:new Map(),fieldCacheBytes:0,fieldCacheLimit:512*1024*1024,fieldInflight:new Map(),prefetchSeq:0,
   frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
   drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
@@ -449,7 +449,7 @@ function fvReadManualRange(){
 }
 function fvRangeKey(c,g,region,component){return[String(c?.id??''),String(region||''),String(g?.name||''),String(component||'value')].join('|')}
 function fvDisplayRange(current){
-  const mode=fvCurrentRangeMode();if(mode==='manual')return fvReadManualRange()||current;if(mode==='global'&&fvState.globalRange?.valid)return fvState.globalRange;return current
+  if(fvState.videoRangeOverride?.valid)return fvState.videoRangeOverride;const mode=fvCurrentRangeMode();if(mode==='manual')return fvReadManualRange()||current;if(mode==='global'&&fvState.globalRange?.valid)return fvState.globalRange;return current
 }
 function fvCase(){return caseById(Number(document.getElementById('fvCase')?.value||fvState.caseId))}
 function fvMeshes(c){return (c?.meshInventory||[]).filter(g=>g.complete)}
@@ -900,6 +900,6 @@ function fvInstallIntegration(){
   const prevSet=setDataView;setDataView=function(mode){if(mode==='field3d'){fvShow();return}if(currentDataView==='field3d'){fvHide();currentDataView='catalog'}return prevSet.apply(this,arguments)};
   try{const prevRefresh=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prevRefresh.apply(this,args);setTimeout(()=>{mount();fvRefreshSelectors(true)},0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const c=document.getElementById('fieldViewControls'),p=document.getElementById('fieldViewPanel'),q=document.getElementById('workspaceGoFieldView');if(c)flApplyBilingualText(c);if(p)flApplyBilingualText(p);if(q)flApplyBilingualText(q);if(currentDataView==='field3d')fvRefreshSelectors(true)});
-  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvIntegrateStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability}
+  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvIntegrateStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,setVideoRangeOverride(range){fvState.videoRangeOverride=range?.valid?{valid:true,min:Number(range.min),max:Number(range.max)}:null;if(fvState.fieldValues){const current=fvFiniteRange(fvState.fieldValues),display=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,display);fvUpdateSlice(display);if(typeof fvUpdateIso==='function')fvUpdateIso(display);fvLegend(display,fvState.fieldParsed)}},getVideoDescriptor(){const range=fvFiniteRange(fvState.fieldValues);return{key:'primary',canvasId:'fvCanvas',labelId:'fcPrimaryLabel',caseName:fvCase()?.name||'',fieldName:fvState.fieldName||'',component:fvState.component||'',time:fvState.time,range,dimensions:fvState.fieldParsed?.dimensions||''}}}
 }
 fvInstallIntegration();
