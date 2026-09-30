@@ -48,12 +48,14 @@ test('missing file points to reloading the complete case',()=>{
   assert(x.text.includes('path=B13/0/metal/T'));
 });
 
-test('binary parsing points to the Desktop native reader',()=>{
+test('binary field limitation states the real supported remedy',()=>{
   api.setEs(false);
-  const x=api.issue('binary-format',{field:'T'});
+  const x=api.issue('binary-format',{field:'T',sourcePath:'1/metal/T'});
   assert(/binary/i.test(x.problem));
-  assert(/Desktop/i.test(x.action));
-  assert(/native/i.test(x.action));
+  assert(/ASCII/i.test(x.action));
+  assert(/reload the case/i.test(x.action));
+  assert(!/native routing failed/i.test(x.action));
+  assert(x.text.includes('path=1/metal/T'));
 });
 
 test('phase thresholds state the valid numeric ordering',()=>{
