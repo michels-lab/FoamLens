@@ -1744,3 +1744,83 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### Important limitation still being closed
 - B13 is currently validated through the dedicated real OpenFOAM integration job, while the packaged Windows smoke uses mounted UI plus a synthetic recording canvas.
 - The next CI hardening target is loading the private B13 fixture into the packaged WebView2 application during smoke, if this can be done through a smoke-only bridge without introducing fixture-specific behavior into the product UI or scientific logic.
+
+
+## 2026-09-30 — B13 rendered inside packaged Windows FoamLens
+
+### Why a second real-case path was needed
+- The existing QuickCup integration job already validated the real B13 files on Linux, but it did not prove that the packaged Windows application could traverse the same Smart Import -> case metadata -> Field View -> native field/mesh bridge -> WebGL path.
+- A smoke-only, fixture-agnostic runtime helper was therefore injected only when the executable starts with `--smoke-test`.
+- Normal FoamLens runs do not expose this helper and contain no B13-specific scientific logic.
+
+### Smoke-only packaged real-case path
+- The runtime helper receives native file references for any OpenFOAM case and uses the real FoamLens functions:
+  - `runProjectScan(files)`;
+  - Smart Import candidate creation;
+  - `importSelectedAsCases()`;
+  - Data / Field View navigation;
+  - normal region/field selectors;
+  - `fvLoadSelection()`;
+  - normal native mesh/field parsing and WebGL rendering.
+- C# then requires the rendered frame to report:
+  - a 3D-ready case;
+  - nonzero mesh cells;
+  - nonzero field values;
+  - a finite field range;
+  - nonzero rendered surface vertices;
+  - an active WebGL context;
+  - `gl.getError() == 0`;
+  - the requested region/field when the smoke environment specifies them.
+- CI requests `region=metal` and `field=T`; those names exist only in workflow fixture configuration, not in FoamLens product selection logic.
+- Product/runtime-helper commit: `b60948f8bdae626bb77cca38c2e6c9d11189c880`.
+
+### Windows path incompatibility discovered
+- A direct Windows checkout of QuickCup failed before FoamLens could start because OpenFOAM output contains filenames legal on Linux but impossible on NTFS, notably `phaseChangeSource:alpha1`.
+- This is not confined to an unrelated case: B13 itself contains `phaseChangeSource:alpha1` at many physical times.
+- QuickCup/thesis files were not renamed or modified.
+
+### Windows-safe real fixture staging
+- The Linux real-fixture job now creates a temporary Windows-safe B13 runtime copy.
+- It omits only path components that Windows cannot represent (invalid NTFS characters, trailing dot/space, reserved device names) and rejects case-insensitive path collisions.
+- Required inputs are asserted after staging, including:
+  - `constant/metal/polyMesh/points`;
+  - `constant/metal/polyMesh/faces`;
+  - `constant/metal/polyMesh/owner`;
+  - `0/metal/T`.
+- Run #407 staging result:
+  - **4,584 files copied byte-for-byte**;
+  - **101 NTFS-impossible paths omitted**;
+  - omitted examples are the `phaseChangeSource:alpha1` field at successive physical times.
+- The staged B13 artifact is uploaded from Linux and downloaded by Windows; Windows no longer git-checks out the private QuickCup repository.
+- CI staging commit: `487395afecceeea6962afcd5a1cf329d242f1b0b`.
+- Final extracted-path correction for portable and installed smoke: `a407131baa9a8b837a55fccb0c1fec8bfb434f52`.
+
+### Fully validated v1.4.3 candidate
+- Tested product/CI head: `a407131baa9a8b837a55fccb0c1fec8bfb434f52`.
+- GitHub Actions run **#407 — SUCCESS**.
+- Linux real QuickCup/B13 integration: **SUCCESS**.
+- Windows-safe B13 fixture preparation/upload/download: **SUCCESS**.
+- Full Windows scientific/UI regression suite: **SUCCESS**.
+- Portable EXE build: **SUCCESS**.
+- Portable packaged-runtime smoke: **SUCCESS**, including:
+  - runtime multi-view controls;
+  - View 3/4 creation;
+  - canvas isolation;
+  - WebView2 video encoding;
+  - real Smart Import of staged B13;
+  - real `metal/T` Field View load;
+  - nonzero mesh/field/render geometry;
+  - finite field range;
+  - WebGL context with zero GL error.
+- Installer build: **SUCCESS**.
+- Installed-app smoke: **SUCCESS**, repeating the same real B13 packaged-runtime path.
+- Final Windows artifact: `FoamLens-Windows-v1.4.3`.
+- Artifact id: `11092386284`.
+- Artifact size: 135,252,937 bytes.
+- Artifact digest: `sha256:92463f2d32b49db87d36a6f1d86e1cf71dadf118db70646edcbb6b3ceafa72f8`.
+- Temporary staged fixture artifact: `QuickCup-B13-Windows-runtime`, artifact id `11091897433`, one-day retention.
+- GitHub Release publication remains **SKIPPED**. Public stable remains v1.4.2.
+
+### Candidate rule
+- `a407131baa9a8b837a55fccb0c1fec8bfb434f52` is now the strongest validated v1.4.3 product candidate.
+- Any product-code or workflow behavior change after that head requires a new full validation run before replacing it as the candidate.
