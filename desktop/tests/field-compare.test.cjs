@@ -69,9 +69,18 @@ test('difference wiring exposes optional third 3D viewport and strict compatibil
 test('3D comparison supports same or different cases with independent fields and components',()=>{
   for(const token of [
     'fcField','fcComponent','View 2 field','Each viewport may use its own case, field and component',
-    'fcSameQuantity','different field/component/dimensions; difference unavailable',
+    'fcSameQuantity','different field/component/association/dimensions; difference unavailable',
     "const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c))"
   ])assert(source.includes(token),'Missing independent-view token: '+token);
+});
+
+test('secondary 3D viewport loads cell point or face associations through the generic frame loader',()=>{
+  for(const token of [
+    "fvFieldGroups(c,region,null,'any')",'fvLoadFrameData(selected,group,region,sync.time,component',
+    "fcState.fieldStorage=data.storage","storage==='point'","storage==='surface'",
+    'fvPointSurfaceColors','fvInternalFaceColors','fvBuildPointSliceGeometry','fvBuildPointIsoSurfaceGeometry',
+    '3D difference currently requires cell-associated volume fields'
+  ])assert(source.includes(token),'Missing generic association-aware comparison token: '+token);
 });
 
 test('3D comparison can add synchronized views three and four',()=>{
