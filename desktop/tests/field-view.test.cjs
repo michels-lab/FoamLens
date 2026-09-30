@@ -106,6 +106,8 @@ test('multi-region cases enable Field View when a meshed region has volume field
   ]}};
   assert.equal(api.fvCaseViewAvailable(c),true);
   assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'mold',storage:'volume',kind:'scalar',times:[0]}]}}),false);
+  assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'point',kind:'scalar',times:[0],name:'pointT'}]}}),true);
+  assert.equal(api.fvCaseViewAvailable({meshInventory:[{region:'metal',complete:true}],discoveryModel:{fields:[{region:'metal',storage:'surface',kind:'vector',times:[0],name:'phiFace'}]}}),true);
 });
 
 test('time navigation uses physical values without index assumptions',()=>{
@@ -191,6 +193,60 @@ test('iso-surface product wiring is present in Field View',()=>{
   ])assert(isoSource.includes(token),'Missing iso-surface token: '+token);
   for(const token of ['isoPos:null','isoColor:null','isoCount:0',"if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange)"])
     assert(source.includes(token),'Missing Field View iso rendering token: '+token);
+});
+
+
+test('point-associated fields color actual mesh vertices without cell conversion',()=>{
+  const start=source.indexOf('function fvPointSurfaceColors'),end=source.indexOf('function fvConstantColors',start);
+  assert(start>=0&&end>start,'Field-association helper block missing.');
+  const assocSource=source.slice(start,end);
+  const assoc=new Function(
+    "const flUi=(en)=>en;"+
+    "const fvColorMap=(v)=>[Number(v),0,0];"+
+    "const fvMeshFacePoints=(mesh,fi)=>{const a=mesh.faceOffsets[fi],b=mesh.faceOffsets[fi+1];return mesh.facePoints.slice(a,b)};"+
+    assocSource+";return {fvPointSurfaceColors,fvBuildInternalFaceBuffers,fvInternalFaceColors,fvAssociationCount};"
+  )();
+  const mesh={surfaceTriangles:[0,1,2],points:[0,0,0,1,0,0,0,1,0],pointCount:3,internalFaceCount:0,cellCount:1,faceOffsets:[0],facePoints:[]};
+  const colors=assoc.fvPointSurfaceColors(mesh,[.1,.5,.9],0,1,'viridis');
+  near(colors[0],.1);near(colors[3],.5);near(colors[6],.9);
+  assert.equal(assoc.fvAssociationCount(mesh,'point'),3);
+});
+
+test('surface-associated fields triangulate real internal faces and preserve face identity',()=>{
+  const start=source.indexOf('function fvPointSurfaceColors'),end=source.indexOf('function fvConstantColors',start);
+  const assocSource=source.slice(start,end);
+  const assoc=new Function(
+    "const flUi=(en)=>en;"+
+    "const fvColorMap=(v)=>[Number(v),0,0];"+
+    "const fvMeshFacePoints=(mesh,fi)=>{const a=mesh.faceOffsets[fi],b=mesh.faceOffsets[fi+1];return mesh.facePoints.slice(a,b)};"+
+    assocSource+";return {fvBuildInternalFaceBuffers,fvInternalFaceColors,fvAssociationCount};"
+  )();
+  const mesh={points:[0,0,0,1,0,0,1,1,0,0,1,0],faceOffsets:[0,4],facePoints:[0,1,2,3],internalFaceCount:1,pointCount:4,cellCount:2};
+  const g=assoc.fvBuildInternalFaceBuffers(mesh);
+  assert.equal(g.positions.length,18);
+  assert.deepEqual(g.triangleFaces,[0,0]);
+  const colors=assoc.fvInternalFaceColors(g.triangleFaces,[.75],0,1,'viridis');
+  assert.equal(colors.length,18);for(let i=0;i<colors.length;i+=3)near(colors[i],.75);
+  assert.equal(assoc.fvAssociationCount(mesh,'surface'),1);
+});
+
+test('Field View association wiring stays explicit and does not coerce face/point fields to cells',()=>{
+  for(const token of [
+    "storage='any'",
+    "fvAssociationLabel",
+    "fvSyncAssociationControls",
+    "fieldStorage:'volume'",
+    "faceFieldPos:null",
+    "faceFieldColor:null",
+    "faceFieldCount:0",
+    "internal faces only; boundaryField is not fabricated",
+    "Field/mesh association-count mismatch",
+    "fvFieldGroups(c,r,'vector','volume')",
+    "face/point values are not silently converted to cells"
+  ])assert(source.includes(token),'Missing field-association wiring token: '+token);
+  const isoSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-isosurface.js'),'utf8');
+  assert(isoSource.includes("String(fvState.fieldStorage||'volume')!=='volume'"));
+  assert(isoSource.includes('face/point values are not silently converted to cells'));
 });
 
 test('native host exposes cancellable read-only OpenFOAM mesh parsing',()=>{
