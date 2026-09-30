@@ -21,6 +21,7 @@ const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBu
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
+function near(a,b,e=1e-12){assert(Math.abs(Number(a)-Number(b))<=e,`${a} != ${b}`)}
 
 function foamFile(cls,obj,body){
   return 'FoamFile\n{\n format ascii;\n class '+cls+';\n object '+obj+';\n}\n'+body+'\n';
