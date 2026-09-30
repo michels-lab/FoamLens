@@ -1039,3 +1039,53 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - Installed-app smoke: success.
   - Windows artifact upload: success.
 - No GitHub Release was published from the hotfix/development branch.
+
+
+## 2026-09-30 — Time-varying / dynamic OpenFOAM mesh playback
+
+### Dynamic mesh discovery
+- Extended Field View mesh discovery beyond `constant/[region/]polyMesh` to recognize `<time>/[region/]polyMesh` snapshots.
+- Supports the common moving-mesh case where a timestep writes only `points` while `faces`, `owner` and `neighbour` remain inherited from the previous valid topology.
+- Supports topology-changing snapshots when a later physical time writes replacement topology components.
+- Mesh state resolution is causal in physical time: FoamLens selects the most recent valid mesh state with `t_mesh <= t_field`; it never borrows a future mesh state.
+- If no complete `constant/polyMesh` exists, FoamLens requires a complete same-time dynamic snapshot before inheritance begins. Partial files from unrelated earlier times are not combined to fabricate a mesh basis.
+- Legacy v1.4.0 static mesh inventories remain compatible and are interpreted as static constant meshes.
+
+### Playback and geometry synchronization
+- Field playback now resolves mesh geometry before loading each transient field frame.
+- When the resolved mesh snapshot changes, FoamLens rebuilds:
+  - boundary surface geometry;
+  - mesh edges;
+  - volume-weighted cell centroids;
+  - spatial hash used by vector interpolation;
+  - slice / iso-surface geometry state;
+  - 3D probe state;
+  - streamline/vector geometry on the refreshed mesh.
+- User camera orientation/zoom is preserved across dynamic-mesh playback rather than reset on every geometry change.
+- The time readout/status explicitly reports the active mesh state (`constant` or mesh physical time).
+- Native ASCII/binary polyMesh parsing is reused for dynamic snapshots; browser fallback remains ASCII-only as documented.
+
+### Regression
+- Added `desktop/tests/dynamic-mesh.test.cjs`.
+- Coverage verifies:
+  - constant and time-directory polyMesh discovery;
+  - points-only moving meshes inheriting constant topology;
+  - topology replacement at the correct physical time;
+  - strict rejection of future mesh geometry;
+  - complete-basis requirement when constant mesh is absent;
+  - 3D readiness only when at least one field time has a valid mesh state;
+  - playback wiring preserves camera while geometry changes.
+- Run #284 exposed a backward-compatibility regression in the existing synthetic/static mesh inventory test.
+- Fixed legacy `complete:true` inventories to resolve as static constant meshes.
+
+### Validation
+- **GitHub Actions run #285: SUCCESS** at head `64257bb97da6faef29345ac6da548b5899d1725b`.
+- Real QuickCup regression: success.
+- Existing Field View regression: success.
+- Dynamic mesh regression: success.
+- Iso-surface / 3D probe / strict 3D difference regressions: success.
+- Sidebar/import/dual-series/convergence/momentum/energy/experimental-validation regressions: success.
+- Portable EXE build and smoke: success.
+- Installer build and installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11075183630`).
+- No GitHub Release was published from the hotfix/development branch.
