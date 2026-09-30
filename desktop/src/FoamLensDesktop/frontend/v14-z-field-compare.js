@@ -59,7 +59,7 @@ function fcSymmetricDifferenceRange(values){
 /* FOAMLENS_FIELD_COMPARE_CORE_END */
 
 const fcState={
-  enabled:false,caseId:null,region:'',fieldName:'',component:'value',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
+  enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
   spatialHash:null,vectorValues:null,streamlines:[],differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:''
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
@@ -71,7 +71,7 @@ function fcMode(){return document.getElementById('fcSync')?.value||'nearest'}
 function fcCurrentFieldName(){return document.getElementById('fcField')?.value||fvState.fieldName||document.getElementById('fvField')?.value||''}
 function fcCurrentComponent(){return document.getElementById('fcComponent')?.value||fvState.component||document.getElementById('fvComponent')?.value||'value'}
 function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===String(region||'')&&g.complete)}
-function fcFieldFor(c,region,name){return fvFieldGroups(c,region).find(g=>g.name===name)}
+function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
   const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcRender()
@@ -108,27 +108,31 @@ function fcRender(){
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,showSlice=!!document.getElementById('fvSlice')?.checked,showIso=!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
-  if(showSurface){gl.depthMask(!interiorActive);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,interiorActive?Math.min(opacity,.28):opacity);gl.depthMask(true)}
-  if(showSlice){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
-  if(showIso){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
+  if(showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
+  if(showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
+  if(showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
 }
 function fcUploadMesh(mesh){
-  const canvas=document.getElementById('fcCanvas');if(!canvas)return;if(!fcState.renderer)fcState.renderer=fvCreateRenderer(canvas);const r=fcState.renderer,b=fvBuildSurfaceBuffers(mesh);
-  fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;
+  const canvas=document.getElementById('fcCanvas');if(!canvas)return;if(!fcState.renderer)fcState.renderer=fvCreateRenderer(canvas);const r=fcState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);
+  fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'faceFieldPos',fb.positions);r.faceFieldCount=0;mesh._fcInternalTriangleFaces=fb.triangleFaces;
   fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;fcState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount)
 }
 function fcUpdateDerived(range){
-  range=fcState.videoRangeOverride?.valid?fcState.videoRangeOverride:range;const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues;if(!r||!mesh||!values||!range?.valid)return;const palette=document.getElementById('fvPalette')?.value||'viridis';
-  fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
-  if(document.getElementById('fvSlice')?.checked){
-    const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,geom=fvBuildSliceGeometry(mesh,values,axis,position);
+  range=fcState.videoRangeOverride?.valid?fcState.videoRangeOverride:range;const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues,storage=String(fcState.fieldStorage||'volume');if(!r||!mesh||!values||!range?.valid)return;const palette=document.getElementById('fvPalette')?.value||'viridis';r.faceFieldCount=0;
+  if(storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
+  else if(storage==='surface'){
+    fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const triFaces=mesh._fcInternalTriangleFaces||[],colors=fvInternalFaceColors(triFaces,values,range.min,range.max,palette);fvUploadBuffer(r,'faceFieldColor',colors,r.gl.DYNAMIC_DRAW);r.faceFieldCount=triFaces.length*3
+  }else fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
+  const interior=storage!=='surface';
+  if(interior&&document.getElementById('fvSlice')?.checked){
+    const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,geom=storage==='point'?fvBuildPointSliceGeometry(mesh,values,axis,position):fvBuildSliceGeometry(mesh,values,axis,position);
     fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,range,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3
   }else r.sliceCount=0;
-  if(document.getElementById('fvIso')?.checked&&typeof fvBuildIsoSurfaceGeometry==='function'){
-    const iso=Number(document.getElementById('fvIsoValue')?.value),geom=fvBuildIsoSurfaceGeometry(mesh,values,iso);fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,range,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3
+  if(interior&&document.getElementById('fvIso')?.checked&&typeof fvBuildIsoSurfaceGeometry==='function'){
+    const iso=Number(document.getElementById('fvIsoValue')?.value),geom=storage==='point'&&typeof fvBuildPointIsoSurfaceGeometry==='function'?fvBuildPointIsoSurfaceGeometry(mesh,values,iso):fvBuildIsoSurfaceGeometry(mesh,values,iso);fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,range,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3
   }else r.isoCount=0;
   fcRender()
 }
@@ -145,7 +149,8 @@ function fcRenderDifference(){
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
   viewport?.classList.toggle('hidden',!enabled);if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
-  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
   const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
   const values=fcDifferenceValues(primaryValues,compareValues,'signed'),range=fcSymmetricDifferenceRange(values);if(!range.valid){flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});return}
   const canvas=document.getElementById('fcDifferenceCanvas');if(!fcState.differenceRenderer)fcState.differenceRenderer=fvCreateRenderer(canvas);const r=fcState.differenceRenderer,b=fvBuildSurfaceBuffers(primaryMesh);
@@ -167,7 +172,7 @@ async function fcUpdateVectors(targetTime,seq){
   }else r.lineCount=0;fcRender()
 }
 function fcSameQuantity(){
-  return String(fvState.fieldName||document.getElementById('fvField')?.value||'')===String(fcState.fieldName||fcCurrentFieldName()||'')&&String(fvState.component||document.getElementById('fvComponent')?.value||'value')===String(fcState.component||fcCurrentComponent()||'value')&&String(fvState.fieldParsed?.dimensions||'')===String(fcState.fieldParsed?.dimensions||'')
+  return String(fvState.fieldName||document.getElementById('fvField')?.value||'')===String(fcState.fieldName||fcCurrentFieldName()||'')&&String(fvState.component||document.getElementById('fvComponent')?.value||'value')===String(fcState.component||fcCurrentComponent()||'value')&&String(fvState.fieldStorage||'volume')===String(fcState.fieldStorage||'volume')&&String(fvState.fieldParsed?.dimensions||'')===String(fcState.fieldParsed?.dimensions||'')
 }
 function fcApplySharedRange(compareRange){
   const primary=fvFiniteRange(fvState.fieldValues);if(!primary.valid)return compareRange;
@@ -176,19 +181,15 @@ function fcApplySharedRange(compareRange){
 }
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
-  const c=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=Number(fvState.time),status=document.getElementById('fcStatus');if(!c||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a comparison case after loading the primary frame.','Elige un caso comparado después de cargar el frame principal.'),true);return}
-  const meshGroup=fcMeshFor(c,region),group=fcFieldFor(c,region,field);if(!meshGroup||!group){fcClearRenderer();fcSetStatus(fcUi('The comparison case does not have the same meshed region and volume field.','El caso comparado no tiene la misma región mallada y campo volumétrico.'),true);return}
+  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=Number(fvState.time);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a synchronized 3D view after loading the primary frame.','Elige una vista 3D sincronizada después de cargar el frame principal.'),true);return}
+  const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const sync=fcResolveTime(group.times,target,fcMode());if(!sync.ok){fcClearRenderer();fcSetStatus(fcUi('No exact comparison frame exists at t = ','No existe un frame exacto del caso comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;try{
-    fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const mesh=await fvLoadMesh(c,meshGroup);if(seq!==fcState.seq)return;
-    if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
-    const set=typeof fvLoadFieldSetCached==='function'?await fvLoadFieldSetCached(c.id,field,sync.time,region):await pmLoadFieldSet(c.id,field,sync.time,region);if(seq!==fcState.seq)return;const parsed=fvPickFieldPart(set);if(!parsed)throw new Error(fcUi('Comparison field is decomposed; reconstruct the case first.','El campo comparado está descompuesto; reconstruye primero el caso.'));
-    const vals=pmComponentValues(parsed,component,mesh.cellCount);if(!vals.ok||vals.values.length!==mesh.cellCount)throw new Error(fcUi('Comparison field does not match the comparison mesh cell count.','El campo comparado no coincide con el número de celdas de su malla.'));
-    const cr=fvFiniteRange(vals.values);if(!cr.valid)throw new Error(fcUi('Comparison field has no finite values.','El campo comparado no tiene valores finitos.'));
-    fcState.caseId=c.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldValues=vals.values;fcState.fieldParsed=parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.range=cr;
-    const shared=fcApplySharedRange(cr);fcUpdateDerived(shared);fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,vals.values);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
-    const timing=sync.exact?fcUi('exact physical time','tiempo físico exacto'):fcUi('nearest physical time','tiempo físico más cercano');
-    fcSetStatus(c.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+timing+(sync.exact?'':' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s'))
+    fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const data=await fvLoadFrameData(selected,group,region,sync.time,component,{includeBoundary:false});if(seq!==fcState.seq)return;
+    const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
+    fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.range=data.range;
+    const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
+    const timing=sync.exact?fcUi('exact physical time','tiempo físico exacto'):fcUi('nearest physical time','tiempo físico más cercano');fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+timing+(sync.exact?'':' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s'))
   }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
 }
 function fcRefreshVisuals(){
