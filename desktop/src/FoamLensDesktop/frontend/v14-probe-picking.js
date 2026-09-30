@@ -88,9 +88,10 @@ function fpRenderedPick(ray){
   const bestInterior=interior.filter(Boolean).sort((a,b)=>a.t-b.t)[0];if(bestInterior)return bestInterior;
   if(document.getElementById('fvSurface')?.checked!==false){
     if(storage==='surface'){
-      const g=fpInternalFaceGeometry(mesh);if(!g?.positions?.length)return null;
-      const hit=fpPickTriangles(ray.origin,ray.dir,g.positions,{kind:'internalFace',faceIds:g.triangleFaces});
-      if(hit&&hit.face!=null)hit.value=Number(fvState.fieldValues[hit.face]);return hit
+      const hits=[],g=fpInternalFaceGeometry(mesh);
+      if(g?.positions?.length){const hit=fpPickTriangles(ray.origin,ray.dir,g.positions,{kind:'internalFace',faceIds:g.triangleFaces});if(hit&&hit.face!=null){hit.value=Number(fvState.fieldValues[hit.face]);hits.push(hit)}}
+      const bg=fvState.surfaceBoundaryGeometry;if(bg?.positions?.length){const hit=fpPickTriangles(ray.origin,ray.dir,bg.positions,{kind:'boundaryFace',faceIds:bg.triangleFaces,values:bg.values});if(hit)hits.push(hit)}
+      return hits.filter(Boolean).sort((a,b)=>a.t-b.t)[0]||null
     }
     const positions=fpSurfacePositions(mesh);
     if(storage==='point')return fpPickTriangles(ray.origin,ray.dir,positions,{kind:'pointSurface',values:fpBoundaryPointValues(mesh,fvState.fieldValues)});
@@ -109,7 +110,7 @@ function fpUpdateMarker(hit){
   const pos=fpMarkerBuffers(hit.point);fvUploadBuffer(r,'probePos',pos,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'probeColor',fvConstantColors(pos.length/3,[1,.72,.15]),r.gl.DYNAMIC_DRAW);r.probeCount=pos.length/3;fvRender()
 }
 function fpSourceLabel(kind){
-  if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');if(kind==='internalFace')return fpUi('Internal mesh face','Cara interna de malla');if(kind==='pointSurface')return fpUi('Boundary surface · point interpolation','Superficie de frontera · interpolación de puntos');return fpUi('Boundary surface · owner cell','Superficie de frontera · celda owner')
+  if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');if(kind==='internalFace')return fpUi('Internal mesh face','Cara interna de malla');if(kind==='boundaryFace')return fpUi('Boundary mesh face · explicit patch value','Cara de frontera · valor explícito de patch');if(kind==='pointSurface')return fpUi('Boundary surface · point interpolation','Superficie de frontera · interpolación de puntos');return fpUi('Boundary surface · owner cell','Superficie de frontera · celda owner')
 }
 function fpRenderReadout(hit){
   const box=document.getElementById('fvProbeReadout');if(!box)return;if(!hit){box.innerHTML='<span>'+fpUi('Click rendered geometry to inspect a value.','Haz clic en la geometría renderizada para inspeccionar un valor.')+'</span>';return}
