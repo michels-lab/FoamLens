@@ -68,6 +68,31 @@ function fvMeshSnapshotForTime(group,target){
   for(const snap of snapshots){if(snap.time<target||fvTimeEqual(snap.time,target))chosen=snap;else break}
   return chosen
 }
+function fvFieldRecordsAtTime(group,time){
+  return (group?.records||[]).filter(r=>fvTimeEqual(Number(r?.time),Number(time)))
+}
+function fvResolveFieldMeshLayout(caseObj,region,fieldGroup,time){
+  const records=fvFieldRecordsAtTime(fieldGroup,time),meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete&&String(g.region||'')===String(region||''));
+  const reconstructedRecords=records.filter(r=>!String(r?.partition||'')),reconstructedMeshes=meshes.filter(g=>!String(g?.partition||''));
+  if(reconstructedRecords.length){
+    if(reconstructedRecords.length!==1)return{valid:false,mode:'invalid',reason:'duplicate-reconstructed-field',records,parts:[]};
+    if(reconstructedMeshes.length!==1)return{valid:false,mode:'invalid',reason:reconstructedMeshes.length?'duplicate-reconstructed-mesh':'reconstructed-mesh-missing',records,parts:[]};
+    const snapshot=fvMeshSnapshotForTime(reconstructedMeshes[0],time);if(!snapshot)return{valid:false,mode:'invalid',reason:'reconstructed-mesh-time-missing',records,parts:[]};
+    return{valid:true,mode:'reconstructed',reason:'',record:reconstructedRecords[0],meshGroup:reconstructedMeshes[0],snapshot,parts:[]}
+  }
+  const partitionRecords=records.filter(r=>String(r?.partition||'')),byPartition=new Map();
+  for(const r of partitionRecords){const p=String(r.partition);if(byPartition.has(p))return{valid:false,mode:'invalid',reason:'duplicate-field-partition:'+p,records,parts:[]};byPartition.set(p,r)}
+  if(!byPartition.size)return{valid:false,mode:'invalid',reason:'field-time-unavailable',records,parts:[]};
+  const meshByPartition=new Map();
+  for(const g of meshes.filter(g=>String(g?.partition||''))){const p=String(g.partition);if(meshByPartition.has(p))return{valid:false,mode:'invalid',reason:'duplicate-mesh-partition:'+p,records,parts:[]};meshByPartition.set(p,g)}
+  const parts=[];
+  for(const p of [...byPartition.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}))){
+    const meshGroup=meshByPartition.get(p);if(!meshGroup)return{valid:false,mode:'invalid',reason:'mesh-partition-missing:'+p,records,parts:[]};
+    const snapshot=fvMeshSnapshotForTime(meshGroup,time);if(!snapshot)return{valid:false,mode:'invalid',reason:'mesh-partition-time-missing:'+p,records,parts:[]};
+    parts.push({partition:p,record:byPartition.get(p),meshGroup,snapshot})
+  }
+  return{valid:true,mode:'decomposed',reason:'',records,parts}
+}
 function fvStripComments(text){return String(text||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'')}
 function fvFoamFormat(text){const s=fvStripComments(text),m=s.match(/\bformat\s+([^;\s]+)\s*;/i);return m?m[1]:'ascii'}
 function fvFindMatching(text,openIndex,open='(',close=')'){
