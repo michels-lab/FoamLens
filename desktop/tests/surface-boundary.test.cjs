@@ -14,7 +14,7 @@ const end='/* FOAMLENS_SURFACE_BOUNDARY_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Surface boundary core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fsbParseBoundaryMesh,fsbParseBoundaryField,fsbExpandBoundaryFaces,fsbComponentValue};')();
+const api=new Function("function fvIsProcessorPatch(p){return /^processor/i.test(String(p?.type||''))||/^processor/i.test(String(p?.name||''))}"+core+';return {fsbParseBoundaryMesh,fsbParseBoundaryField,fsbExpandBoundaryFaces,fsbMergeDecomposedBoundaryValues,fsbComponentValue};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -82,6 +82,43 @@ test('symbolic or missing boundary values are never converted into numeric data'
   }
 });
 
+
+test('decomposed boundary mapping preserves only physical patch faces and global face identity',()=>{
+  const mesh={
+    decomposed:true,
+    facePartition:['processor0','processor0','processor0','processor1','processor1','processor1'],
+    faceLocal:[0,1,2,0,1,2],
+    partitionMeshes:[
+      {partition:'processor0',mesh:{boundaryPatches:[
+        {name:'wall0',type:'wall',startFace:1,nFaces:1},
+        {name:'processor0to1',type:'processor',startFace:2,nFaces:1}
+      ]}},
+      {partition:'processor1',mesh:{boundaryPatches:[
+        {name:'wall1',type:'wall',startFace:1,nFaces:1},
+        {name:'processor1to0',type:'processor',startFace:2,nFaces:1}
+      ]}}
+    ]
+  };
+  const merged=api.fsbMergeDecomposedBoundaryValues(mesh,[
+    {partition:'processor0',result:{values:new Map([[1,10],[2,999]]),coverage:[
+      {name:'wall0',type:'wall',startFace:1,nFaces:1,explicit:true},
+      {name:'processor0to1',type:'processor',startFace:2,nFaces:1,explicit:true}
+    ]}},
+    {partition:'processor1',result:{values:new Map([[1,20],[2,888]]),coverage:[
+      {name:'wall1',type:'wall',startFace:1,nFaces:1,explicit:true},
+      {name:'processor1to0',type:'processor',startFace:2,nFaces:1,explicit:true}
+    ]}}
+  ]);
+  assert.equal(merged.values.get(1),10);
+  assert.equal(merged.values.get(4),20);
+  assert.equal(merged.values.has(2),false);
+  assert.equal(merged.values.has(5),false);
+  assert.equal(merged.explicitFaces,2);
+  assert.equal(merged.totalFaces,2);
+  assert.equal(merged.fraction,1);
+  assert.deepEqual(merged.coverage.map(r=>r.name),['processor0:wall0','processor1:wall1']);
+});
+
 test('surface boundary product wiring uses chunked native reads and explicit patch overlays',()=>{
   const fv=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
   const probe=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-probe-picking.js'),'utf8');
@@ -90,6 +127,8 @@ test('surface boundary product wiring uses chunked native reads and explicit pat
     'mesh.boundaryPatches',
     'sourcePaths?.boundary',
     'fvLoadSurfaceBoundaryValues',
+    'fvLoadDecomposedSurfaceBoundaryValues',
+    'fsbMergeDecomposedBoundaryValues',
     'surfaceBoundary',
     'boundaryFieldPos:null',
     'boundaryFieldColor:null',
