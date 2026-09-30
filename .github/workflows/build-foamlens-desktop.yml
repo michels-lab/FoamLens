@@ -256,6 +256,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/point-interior.test.cjs
 
+      - name: Test decomposed processor Field View
+        shell: pwsh
+        run: node desktop/tests/decomposed-field-view.test.cjs
+
       - name: Test time-varying OpenFOAM dynamic mesh
         shell: pwsh
         run: node desktop/tests/dynamic-mesh.test.cjs
