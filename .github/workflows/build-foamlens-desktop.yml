@@ -264,6 +264,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-probe.test.cjs
 
+      - name: Test explicit surface-field boundary patches
+        shell: pwsh
+        run: node desktop/tests/surface-boundary.test.cjs
+
       - name: Test strict 3D difference field comparison
         shell: pwsh
         run: node desktop/tests/field-compare.test.cjs
