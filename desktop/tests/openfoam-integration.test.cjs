@@ -47,7 +47,7 @@ const pmCore=html.slice(pmA,pmB+pmEnd.length);
 const pm=new Function(
   "function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}" +
   pmCore +
-  '\nreturn {pmBuildVolumeInventory,pmParseOpenFOAMFieldText,pmComponentValues};'
+  '\nreturn {pmBuildVolumeInventory,pmParseOpenFOAMFieldText,pmComponentValues,pmStats};'
 )();
 
 const foamNumStart=html.indexOf('function foamLogNumber(token){');
@@ -139,6 +139,12 @@ test('complete B13 Phase/Momentum accepts real uniform alphat at t=0',()=>{
   const values=pm.pmComponentValues(parsed,'value');
   assert(values.ok,'B13 alphat Scalar value was rejected: '+values.reason);
   assert.deepEqual(values.values,[0]);
+  const stats=pm.pmStats(values.values,null);
+  assert.strictEqual(stats.count,1);
+  assert.strictEqual(stats.min,0);
+  assert.strictEqual(stats.max,0);
+  assert.strictEqual(stats.mean,0);
+  assert(Number.isFinite(stats.std)&&stats.std===0,'B13 alphat statistics are not finite/zero as expected.');
 });
 test('real postProcessing discovery',()=>assert(b3.model.postProcessing.length>0));
 test('real logs discovery',()=>{
