@@ -19,6 +19,17 @@ test('native bridge exposes cancellable OpenFOAM field parser',()=>{
   assert(program.includes('ReadLineAsync(ct)'));
 });
 
+test('native field parsing runs off the WinForms UI thread',()=>{
+  const start=program.indexOf('private async Task HandleOpenFoamFieldAsync');
+  const end=program.indexOf('private async Task HandleOpenFoamMeshAsync',start)>start
+    ? program.indexOf('private async Task HandleOpenFoamMeshAsync',start)
+    : program.indexOf('private async Task<OpenFoamFieldParseResult> ParseOpenFoamFieldAsync',start);
+  const body=program.slice(start,end>start?end:start+12000);
+  assert(body.includes('await Task.Run(async () =>'),'OpenFOAM field parse is not dispatched to a worker.');
+  assert(body.includes('ConfigureAwait(false)'),'Worker-side field parsing does not avoid UI-context continuation.');
+  assert(body.includes('operation.Token'),'Worker parse lost cancellation.');
+});
+
 test('native field parser streams instead of ReadAllText',()=>{
   const start=program.indexOf('private async Task<OpenFoamFieldParseResult> ParseOpenFoamFieldAsync');
   const end=program.indexOf('private static string? FoamHeaderValue',start);
