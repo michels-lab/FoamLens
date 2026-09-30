@@ -117,6 +117,9 @@ test('runtime smoke exercises v1.4.3 3D multi-view and video primitives inside W
     "cameraPresetCount",
     "MediaRecorder",
     "captureStream",
+    "window.__foamLensVideoSmokeResult=null",
+    "videoSmokeDeadline.Elapsed < TimeSpan.FromSeconds(8)",
+    "window.__foamLensVideoSmokeResult",
     "FoamLens WebView2 video runtime smoke passed"
   ]) assert(program.includes(token),'Missing v1.4.3 runtime-smoke token '+token);
 });
