@@ -1256,3 +1256,17 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
 - Installer build + installed-app smoke: success.
 - Artifact: `FoamLens-Windows-v1.4.1` (artifact id `11077801222`, 135,228,265 bytes).
 - No GitHub Release was published from the candidate branch.
+
+
+## 2026-09-30 — Decomposed surfaceField rendering
+
+- Extended decomposed Field View to surface*Field internal faces and explicit physical boundary patches.
+- Internal values are aligned by explicit processor internal-face ranges; missing/extra partitions and count mismatches remain rejected.
+- Processor-local physical boundary faces are translated to exact global composite face ids.
+- Artificial processor interface patches remain topology-only and are excluded from physical rendering/coverage.
+- Run #330 reached the new product checks but failed on a test-only source-file assertion.
+- The assertion was corrected without changing product logic.
+- **Run #331: SUCCESS** at head `0c86da6b5a7ef0ff125c0d14bcd13aabf720fb09`.
+- Real QuickCup regression, decomposed Field View, surface-boundary, dynamic mesh, Slice, Iso, 3D Probe, strict 3D difference, all scientific/UI suites, portable smoke, installer and installed-app smoke: success.
+- Artifact: `FoamLens-Windows-v1.4.1` (id `11079714552`, 135239220 bytes).
+- No GitHub Release was published from this branch.
