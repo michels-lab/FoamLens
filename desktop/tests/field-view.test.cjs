@@ -320,6 +320,16 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
+test('Field View owns the plot header and blocks late 2D redraws while active',()=>{
+  for(const token of [
+    'function fvApplyHeader()',
+    "currentDataView==='field3d'",
+    'fvApplyHeader();fvRender();return',
+    "3D OpenFOAM Field View",
+    "Mesh + transient fields"
+  ])assert(source.includes(token),'Missing Field View header-ownership token: '+token);
+});
+
 test('Field View stays discoverable even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
   assert.equal(a.ready,false);
