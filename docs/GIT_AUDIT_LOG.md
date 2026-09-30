@@ -1146,7 +1146,7 @@ Branch: `fix/v1.4.1-field-view-discovery` (created from released `main` v1.4.0).
   - **Point** for `point*Field`.
 - `point*Field` values are rendered directly on the actual mesh vertices used by each boundary triangle.
 - `surface*Field internalField` values are rendered on the actual internal mesh faces. Internal polygonal faces are triangulated for WebGL while retaining the exact source face identity.
-- The external boundary remains neutral/translucent context for a surface field because the current field parser does not yet map explicit `boundaryField` patch values onto boundary face indices. FoamLens does **not** substitute owner-cell values or otherwise fabricate boundary-face data.
+- At run #297, the external boundary still remained neutral/translucent because explicit `boundaryField` patch values were not yet mapped. This limitation was subsequently closed and validated in run #310 (see the later surfaceField boundary-patch section); FoamLens never substituted owner-cell values or fabricated boundary-face data.
 - Association-specific size checks are enforced against:
   - cell count for volume fields;
   - internal-face count for surface fields;
