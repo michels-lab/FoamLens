@@ -2,7 +2,7 @@
 
 > Living engineering log for the FoamLens repository.  
 > Repository: `realmichelduarte/FoamLens`  
-> Primary development branch: `development/v1.3.0-general-discovery`  
+> Primary branch: `main` · current public release: `v1.4.2`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
 ## Maintenance rule
@@ -13,14 +13,12 @@ This file is the durable project bitácora. After any meaningful Git operation�
 
 | Item | State |
 |---|---|
-| Active release branch | `release/v1.3.2` — merged into `main` |
-| Release branch head | `f5e6ab835da5f2767df657b40d1f85a816b8e27b` — Record v1.3.2 release validation |
-| `main` HEAD | `368655e5b4f9aaddb4f528d530318612f7cb6b19` — Merge FoamLens Desktop v1.3.2 |
-| Pull requests | #1 merged for v1.3.1; #2 merged for v1.3.2 |
-| Latest release | `v1.3.2` — FoamLens v1.3.2 |
+| Current public release | `v1.4.2` — FoamLens v1.4.2, normal release |
+| Release-time `main` / tag head | `7d4a14c1b4238d0c87dd4276219357d9bff6ebdc` — docs: record global diagnostics and test-suite audit |
+| Validated product head | `4046e498627b5e6d14cc4160f056ee35d6fa7515` — GitHub Actions run #385 SUCCESS |
+| Release assets | `FoamLens-Portable-v1.4.2.exe`, SHA-256, `FoamLens-Setup-v1.4.2.exe` |
+| Real regression fixture | `realmichelduarte/QuickCup-Solidification@foamlens-real-fixture-b13` |
 | Latest prerelease | `v1.3.0-rc.1` — legacy prerelease retained for history |
-| Commits represented below | 205 in the baseline table + subsequent changes section |
-| GitHub Actions runs represented below | 189 in the baseline table + runs #190–#194 below |
 
 ## Important project milestones
 
@@ -48,6 +46,9 @@ This file is the durable project bitácora. After any meaningful Git operation�
 | 2026-09-28 18:18:03 UTC | `v1.3.0-rc.1` | FoamLens Desktop v1.3.0-rc.1 | Pre-release | `development/v1.3.0-general-discovery` | `FoamLens-Portable-v1.3.0-rc.1.exe`, `FoamLens-Portable-v1.3.0-rc.1.exe.sha256`, `FoamLens-Setup-v1.3.0-rc.1.exe` |
 | 2026-09-28 20:04:27 UTC | `v1.3.1` | FoamLens v1.3.1 | Release | `main` | `FoamLens-Portable-v1.3.1.exe`, `FoamLens-Portable-v1.3.1.exe.sha256`, `FoamLens-Setup-v1.3.1.exe` |
 | 2026-09-29 17:28:32 UTC | `v1.3.2` | FoamLens v1.3.2 | Release | `main` | `FoamLens-Portable-v1.3.2.exe`, `FoamLens-Portable-v1.3.2.exe.sha256`, `FoamLens-Setup-v1.3.2.exe` |
+| 2026-09-29 19:59:43 UTC | `v1.4.0` | FoamLens v1.4.0 | Release | `main` | Windows portable, SHA-256 and installer assets |
+| 2026-09-30 06:42:45 UTC | `v1.4.1` | FoamLens v1.4.1 | Release | `main` | Windows portable, SHA-256 and installer assets |
+| 2026-09-30 09:25:48 UTC | `v1.4.2` | FoamLens v1.4.2 | Release | `main` | `FoamLens-Portable-v1.4.2.exe`, `FoamLens-Portable-v1.4.2.exe.sha256`, `FoamLens-Setup-v1.4.2.exe` |
 
 ## Pull requests
 
@@ -1525,3 +1526,31 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - Installer build + installed-app smoke: **SUCCESS**.
 - Windows artifact upload: **SUCCESS**.
 - GitHub Release publication: **SKIPPED**. No release/tag was created or replaced.
+
+
+## 2026-09-30 — FoamLens Desktop v1.4.2 published
+
+### Publication
+- GitHub Release: **FoamLens v1.4.2**.
+- Tag: `v1.4.2`.
+- Type: **normal release** (not draft, not prerelease).
+- Published: **2026-09-30 09:25:48 UTC**.
+- Release/tag commit: `7d4a14c1b4238d0c87dd4276219357d9bff6ebdc`.
+- The release commit's parent is the fully tested product head `4046e498627b5e6d14cc4160f056ee35d6fa7515`; the child commit is documentation-only.
+
+### Published Windows assets
+- `FoamLens-Portable-v1.4.2.exe` — 72,975,495 bytes.
+- `FoamLens-Portable-v1.4.2.exe.sha256` — 96 bytes.
+- `FoamLens-Setup-v1.4.2.exe` — 67,864,788 bytes.
+
+### Release validation basis
+- GitHub Actions run **#385 — SUCCESS** on the tested product head.
+- Complete real B13 OpenFOAM regression: **SUCCESS**.
+- Real B13 `alphat` Phase/Momentum parsing/statistics: **SUCCESS**.
+- Global actionable diagnostics contract: **SUCCESS**.
+- 50-test CI manifest, each test exactly once: **SUCCESS**.
+- 3D Field View, pointField Slice/Iso, Solver Logs, portable EXE smoke, installer build and installed-app smoke: **SUCCESS**.
+
+### Post-publication rule
+- The `v1.4.2` tag is immutable for this release and is not moved by later documentation-only commits.
+- Future product changes must advance to a new version rather than replacing the published v1.4.2 binary assets.
