@@ -97,7 +97,8 @@ test('point interior wiring is explicit while surface fields remain excluded',()
     'point-field reconstruction'
   ])assert(isoSource.includes(token),'Missing pointField iso token: '+token);
   assert(/does not silently reconstruct face data into a volume field/.test(fieldSource));
-  assert(/does not silently reconstruct face data into a volume field/.test(isoSource));
+  assert(isoSource.includes("flSetIssue(meta,'iso-surface-association-incompatible'"));
+  assert(!isoSource.includes('silently reinterpret face data as a volume field'));
 });
 
 test('point interior implementation stays fixture neutral',()=>{
