@@ -232,7 +232,7 @@ test('surface-associated fields triangulate real internal faces and preserve fac
 
 test('Field View association wiring stays explicit and does not coerce face/point fields to cells',()=>{
   for(const token of [
-    "storage='any'",
+    "fvFieldGroups(c,r,null,'any')",
     "fvAssociationLabel",
     "fvSyncAssociationControls",
     "fieldStorage:'volume'",
