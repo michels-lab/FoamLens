@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.4.5 development build
+# FoamLens Desktop v1.4.6 development build
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The current public release is **FoamLens Desktop v1.4.4 with frontend v51**. This branch builds the **v1.4.5 development build**, which has not been published.
+The current public release is **FoamLens Desktop v1.4.5 with frontend v51**. This branch builds the **v1.4.6 development build**, which has not been published.
 
 ## Architecture
 
