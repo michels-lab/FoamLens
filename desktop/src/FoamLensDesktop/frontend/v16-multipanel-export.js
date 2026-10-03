@@ -90,7 +90,9 @@ function meExport(){
 }
 function meExportPanels(){
   const sources=meSelectedSources();if(!sources.length){meStatus(meUi('No panels selected.','No hay paneles seleccionados.'),true);return}
-  sources.forEach((source,i)=>{let c;if(source.type==='plot')c=meRenderPlotCanvas(1800,1200);else{const src=document.getElementById(source.canvasId);if(!src)return;c=document.createElement('canvas');c.width=Math.max(1,src.width);c.height=Math.max(1,src.height);c.getContext('2d').drawImage(src,0,0)}meDownloadCanvas(c,'FoamLens_panel_'+String(i+1)+'_'+String(source.key).replace(/\W+/g,'_')+'.png')});meStatus(meUi('Selected panels exported separately.','Paneles seleccionados exportados por separado.'))
+  const base=mePreset(),panelPreset={...base,w:Math.max(1800,Math.round(base.w*.75)),h:Math.max(1200,Math.round(base.h*.75)),key:base.key+'-panel'};
+  sources.forEach((source,i)=>{const result=meCompose([source],{preset:panelPreset,layout:{cols:1,rows:1}});meDownloadCanvas(result.canvas,'FoamLens_panel_'+String(i+1)+'_'+String(source.key).replace(/\W+/g,'_')+'.png')});
+  meStatus(meUi('Selected panels exported separately with scientific labels and ranges.','Paneles seleccionados exportados por separado con etiquetas y rangos científicos.'))
 }
 function meStatus(text,error=false){const e=document.getElementById('meStatus');if(!e)return;e.textContent=String(text||'');e.classList.toggle('error',!!error)}
 function meRefreshSources(){
