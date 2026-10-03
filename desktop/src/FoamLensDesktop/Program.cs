@@ -194,6 +194,63 @@ internal sealed class FoamLensForm : Form
                         $"FoamLens Field View top-level mode did not mount correctly: {fieldViewUiJson}");
             }
 
+            var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  const tabs=['home','data','field','plots','analysis','compare','export','view'];
+                  const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
+                  const requiredActions=['flRaOpenFolder','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme'];
+                  const missingActions=requiredActions.filter(id=>!document.getElementById(id));
+                  const ribbon=document.getElementById('flRibbon');
+                  const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
+                  const icons=[...document.querySelectorAll('#flRibbon .flRibbonIcon')];
+                  document.getElementById('flRibbonTab-field')?.click();
+                  const fieldTabActive=document.getElementById('flRibbonTab-field')?.classList.contains('active')===true;
+                  const fieldPanelActive=document.getElementById('flRibbonPanel-field')?.classList.contains('active')===true;
+                  const fieldMode=document.body.classList.contains('appMode-field');
+                  document.getElementById('flRibbonTab-home')?.click();
+                  return {
+                    ribbon:!!ribbon,
+                    api:typeof window.FoamLensRibbon?.selectTab==='function',
+                    missingTabs,
+                    missingActions,
+                    tabCount:document.querySelectorAll('#flRibbon .flRibbonTab').length,
+                    labelCount:labels.length,
+                    iconCount:icons.length,
+                    fieldTabActive,
+                    fieldPanelActive,
+                    fieldMode,
+                    legacyNavHidden:document.getElementById('modeNavBar')?getComputedStyle(document.getElementById('modeNavBar')).display==='none':false,
+                    legacyToolsHidden:document.querySelector('.top .tools')?getComputedStyle(document.querySelector('.top .tools')).display==='none':false,
+                    contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost'
+                  };
+                })()
+                """);
+            using (var ribbonUi = JsonDocument.Parse(ribbonUiJson))
+            {
+                var root = ribbonUi.RootElement;
+                if (!root.TryGetProperty("ribbon", out var ribbonNode) || !ribbonNode.GetBoolean() ||
+                    !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens ribbon did not mount: {ribbonUiJson}");
+                foreach (var property in new[] { "missingTabs", "missingActions" })
+                    if (root.TryGetProperty(property, out var missing) &&
+                        missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
+                        throw new InvalidOperationException(
+                            $"FoamLens ribbon is incomplete ({property}): {ribbonUiJson}");
+                if (!root.TryGetProperty("tabCount", out var tabCount) || tabCount.GetInt32() != 8 ||
+                    !root.TryGetProperty("labelCount", out var labelCount) || labelCount.GetInt32() < 35 ||
+                    !root.TryGetProperty("iconCount", out var iconCount) || iconCount.GetInt32() < 43)
+                    throw new InvalidOperationException(
+                        $"FoamLens ribbon icon/label hierarchy is incomplete: {ribbonUiJson}");
+                foreach (var property in new[] { "fieldTabActive", "fieldPanelActive", "fieldMode",
+                                                  "legacyNavHidden", "legacyToolsHidden", "contextPreserved" })
+                    if (!root.TryGetProperty(property, out var ok) || !ok.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens ribbon runtime behavior failed ({property}): {ribbonUiJson}");
+            }
+            Log($"FoamLens ribbon runtime UI smoke passed: {ribbonUiJson}");
+
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
             using (var duplicateIds = JsonDocument.Parse(duplicateIdsJson))
