@@ -24,7 +24,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvIntegrateStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -268,6 +268,40 @@ test('streamline integrator follows a uniform cell-centred velocity field',()=>{
   assert(line.every(q=>Number.isFinite(q.speed)));
 });
 
+test('streamline seed density is real up to the advertised 400 seeds',()=>{
+  const min=[0,0,0],max=[1,2,3];
+  assert.equal(api.fvSeedPlane(min,max,'x',100,.5).length,100);
+  assert.equal(api.fvSeedPlane(min,max,'y',400,.25).length,400);
+  assert.equal(api.fvSeedLine(min,max,'z',73,.5).length,73);
+  assert.equal(api.fvSeedBox(min,max,125).length,125);
+});
+
+test('boundary-patch seeding uses actual patch faces and nudges seeds inward',()=>{
+  const mesh={
+    points:[0,0,0, 1,0,0, 1,1,0, 0,1,0],
+    faceOffsets:[0,4],facePoints:[0,1,2,3],owners:[0],
+    cellCenters:[.5,.5,.5],boundsMin:[0,0,0],boundsMax:[1,1,1],
+    boundaryPatches:[{name:'wall',sourceName:'wall',type:'wall',startFace:0,nFaces:1}]
+  };
+  const seeds=api.fvSeedPatch(mesh,'wall',4);
+  assert.equal(seeds.length,4);
+  assert(seeds.every(p=>p[2]>0&&p[2]<1e-3),'patch seeds were not nudged into the owner cell');
+});
+
+test('streamline direction and physical path-length controls are enforced',()=>{
+  const centers=[],vectors=[];
+  for(let i=0;i<24;i++){centers.push(.125+i*.25,.5,.5);vectors.push([1,0,0])}
+  const min=[0,0,0],max=[6,1,1],hash=api.fvBuildSpatialHash(centers,min,max,vectors.length),seed=[3,.5,.5];
+  const forward=api.fvCombineStreamline(seed,hash,centers,vectors,min,max,{direction:'forward',step:.1,maxSteps:100,maxLength:.35});
+  const backward=api.fvCombineStreamline(seed,hash,centers,vectors,min,max,{direction:'backward',step:.1,maxSteps:100,maxLength:.35});
+  const both=api.fvCombineStreamline(seed,hash,centers,vectors,min,max,{direction:'both',step:.1,maxSteps:100,maxLength:.7});
+  assert(forward.at(-1).p[0]>forward[0].p[0]);
+  assert(backward.at(-1).p[0]<backward[0].p[0]);
+  assert(forward.at(-1).distance<=.35+1e-9);
+  assert(backward.at(-1).distance<=.35+1e-9);
+  assert(both.length>forward.length);
+});
+
 test('Field View product module is wired to native mesh, transient fields and WebGL',()=>{
   for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','field3d','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
     assert(source.includes(token),'Missing Field View wiring token: '+token);
@@ -299,6 +333,8 @@ test('vector and streamline visualization expose independent real-resolution con
   for(const token of [
     'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
     'Vector resolution','Seed density','max="400"','value="100"',
+    'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
+    'Boundary patch','Box / Volume','Forward','Backward','integration points',
     'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
     'fvSelectVectorGlyphCells','glyphCount','requested',
     "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
@@ -327,6 +363,27 @@ test('Field View is promoted to a top-level application mode instead of remainin
     "body.appMode-field #fieldSurface{display:block}","#fieldViewTab{display:none!important}",
     "setAppMode=function(mode){if(mode==='field')","setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
   ])assert(workspaceSource.includes(token),'Missing top-level Field workspace token: '+token);
+});
+
+
+test('multi-view workspace supports linked or independent cameras and visual settings',()=>{
+  for(const token of [
+    'fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals',
+    'fcCloneCamera','fcCameraFor','fcCamerasLinked','fcFitAllCameras','fcResyncCameras',
+    'fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso',
+    'fcView2Vectors','fcView2Streamlines','fcVisualsSynced','fcVisualFor',
+    "if(!fcVisualsSynced())","camera:null,visual:null"
+  ])assert(compareSource.includes(token),'Missing independent multi-view token: '+token);
+});
+
+test('Field workspace can define a native Spatial Profile by picking A and B in 3D',()=>{
+  for(const token of [
+    'fwDraw3DProfile','fw3DProfileSamples','fwClear3DProfile','fw3DProfileOverlay',
+    'fwHandle3DProfileClick','fpPickAtEvent','fwSampleFieldAtPoint','fwBuild3DLineProfile',
+    "datasetType:'profile'","derivedKind:'field3d_line_profile'",
+    "profileAxis:'s'","profilePointA","profilePointB","profileSampleCount",
+    'toggle3DProfile','build3DProfile','get3DProfile'
+  ])assert((workspaceSource+'\n'+source).includes(token),'Missing 3D-defined Spatial Profile token: '+token);
 });
 
 test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{

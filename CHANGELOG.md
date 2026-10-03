@@ -1,5 +1,18 @@
 # Changelog
 
+## Desktop v1.4.9 — 2026-10-03
+
+- Added the compact Word-style ribbon with contextual scientific controls.
+- Added advanced streamline seeding/integration controls and corrected the 64-seed cap.
+- Added linked/independent multi-view cameras and visual settings.
+- Added 3D-defined Spatial Profiles.
+- Added Exact / Nearest / Interpolated physical-time synchronization with per-view timing badges.
+- Added signed, absolute and percent 3D differences, plus Swap A/B and Copy A→B workflows.
+- Added thesis/paper multi-panel figure export with 1-up, 2-up, 2×2 and 3D + Profile layouts.
+- Added progressive field presentation, adaptive prefetch, viewport-aware loading and performance/cache telemetry.
+- Validated against the real B13-derived OpenFOAM multi-case runtime fixture in both portable and installed Windows builds.
+
+
 ## v29
 
 - Added a dedicated **Solver logs** data view, separate from probes and spatial profiles.

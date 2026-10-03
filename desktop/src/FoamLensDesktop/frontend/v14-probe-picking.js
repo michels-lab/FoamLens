@@ -56,6 +56,9 @@ function fpCanvasRay(canvas,event){
   const near4=fpTransform4(inv,[x,y,-1,1]),far4=fpTransform4(inv,[x,y,1,1]),near=fpPerspectiveDivide(near4),far=fpPerspectiveDivide(far4);if(!near||!far)return null;
   return{origin:near,dir:fpVecNormalize(fpVecSub(far,near))}
 }
+function fpPickAtEvent(event){
+  const canvas=document.getElementById('fvCanvas');if(!canvas||!event)return null;const ray=fpCanvasRay(canvas,event);return ray?fpRenderedPick(ray):null
+}
 function fpNearestCell(p){
   const mesh=fvState.mesh,hash=fvState.spatialHash,centers=mesh?.cellCenters||[];if(!mesh||!hash||!p)return null;
   const c=[hash.coord(p,0),hash.coord(p,1),hash.coord(p,2)],cand=[];
@@ -191,4 +194,4 @@ function fpInstall(){
   document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),cl=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(cl)cl.textContent=fpUi('Clear probe','Limpiar sonda');fpRenderReadout(fpState.last)});
 }
 fpInstall();
-window.FoamLensFieldProbe={fpMat4Invert,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay,isEnabled:()=>fpState.enabled,getLast:()=>fpState.last};
+window.FoamLensFieldProbe={fpMat4Invert,fpTransform4,fpPerspectiveDivide,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpCanvasRay,fpPickAtEvent,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay,isEnabled:()=>fpState.enabled,getLast:()=>fpState.last};
