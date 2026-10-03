@@ -670,12 +670,14 @@ internal sealed class FoamLensForm : Form
                         linkCameras.checked=false;
                         linkCameras.dispatchEvent(new Event('change',{bubbles:true}));
                         await new Promise(resolve=>requestAnimationFrame(resolve));
-                        const cameraBefore=(api.getViewStates()||[]).find(v=>v.id==='view2')?.camera;
-                        const primaryDistanceBefore=Number(fvState.camera?.distance);
+                        const stateBefore=api.getViewStates()||[];
+                        const cameraBefore=stateBefore.find(v=>v.id==='view2')?.camera;
+                        const primaryDistanceBefore=Number(stateBefore.find(v=>v.id==='view1')?.camera?.distance);
                         canvas.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:140}));
                         await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-                        const cameraAfter=(api.getViewStates()||[]).find(v=>v.id==='view2')?.camera;
-                        const primaryDistanceAfter=Number(fvState.camera?.distance);
+                        const stateAfter=api.getViewStates()||[];
+                        const cameraAfter=stateAfter.find(v=>v.id==='view2')?.camera;
+                        const primaryDistanceAfter=Number(stateAfter.find(v=>v.id==='view1')?.camera?.distance);
                         const independentCameraChanged=Number.isFinite(Number(cameraBefore?.distance))&&Number.isFinite(Number(cameraAfter?.distance))&&Math.abs(Number(cameraAfter.distance)-Number(cameraBefore.distance))>1e-12;
                         const primaryCameraUnaffected=Number.isFinite(primaryDistanceBefore)&&Number.isFinite(primaryDistanceAfter)&&Math.abs(primaryDistanceAfter-primaryDistanceBefore)<=Math.max(1,Math.abs(primaryDistanceBefore))*1e-12;
 
