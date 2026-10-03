@@ -2210,3 +2210,428 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - No public release created.
 - Public release remains **v1.4.5**.
 - Ribbon branch is validated and ready for user review / later promotion.
+
+## 2026-10-03 — v1.4.8 scientific workspace: advanced streamlines, independent views and 3D-defined profiles
+
+- Development branch: `development/v1.4.8-scientific-workspace`.
+- Validated product head: `aee2581127c3771b93b4c7fda3177009dd25c652`.
+- Base executable/version identity remains FoamLens Desktop v1.4.6 / frontend v51 on this development branch; no release-version promotion was performed.
+- This line implements the next three prioritized scientific-workspace improvements after the ribbon validation.
+
+### 1. Advanced streamline controls
+
+#### Density bug resolved
+- The UI had advertised up to 400 streamline seeds, but `fvSeedPlane()` internally clamped the request to 64.
+- The seed-count contract is now 1–400 and the requested Plane/Line/Box count is honored exactly.
+- Regression evidence:
+  - Plane request 100 -> 100 seeds;
+  - Plane request 400 -> 400 seeds;
+  - Line request 73 -> 73 seeds;
+  - Box request 125 -> 125 seeds.
+- The packaged real-case smoke also reports `streamlineSeed400 = 400`.
+
+#### New seeding modes
+- Plane.
+- Line.
+- Box / Volume.
+- Boundary patch.
+- Boundary-patch mode seeds from actual OpenFOAM boundary faces, ignores processor patches and nudges the seed toward the owner-cell center to avoid immediate integration outside the domain.
+
+#### Integration controls
+- Forward / Backward / Both direction.
+- Integration step expressed as a percentage of domain diagonal.
+- Maximum integration steps per direction.
+- Maximum physical path length expressed as a percentage of domain diagonal.
+- Streamline metadata now reports actual seed count, generated streamline count and integration-point count.
+
+#### Integration regression
+- Uniform-field regression verifies forward and backward propagation.
+- Maximum path length is enforced from accumulated geometric distance.
+- Both-direction integration produces the combined two-sided path rather than silently behaving as a forward-only trace.
+- Synchronized View 2 now uses the same advanced streamline settings rather than the previous Plane-only defaults.
+
+### 2. Independent multi-view cameras and visual settings
+
+#### Camera control
+- Added `Link cameras` ON/OFF.
+- Added `Re-sync`.
+- Added `Fit all`.
+- When cameras are linked, View 2 / additional views continue to derive camera orientation and relative distance from the primary view.
+- When cameras are unlinked, each comparison viewport owns its own camera state and supports independent orbit, pan, wheel zoom and fit.
+
+#### Visual synchronization
+- Added `Sync visual settings` ON/OFF.
+- With sync enabled, comparison views retain the shared visual behavior.
+- With sync disabled, View 2 can independently control:
+  - colormap;
+  - opacity;
+  - surface visibility;
+  - mesh edges;
+  - Slice;
+  - Iso;
+  - Vectors;
+  - Streamlines.
+- Views 3/4 can independently control:
+  - colormap;
+  - opacity;
+  - surface visibility;
+  - mesh edges;
+  - Slice;
+  - Iso.
+- Independent visual mode also prevents the comparison view from forcing a shared display range onto the primary viewport.
+
+#### Runtime evidence
+- The packaged WebView2 smoke disables camera linking, zooms View 2 and verifies:
+  - `independentCameraChanged = true`;
+  - `primaryCameraUnaffected = true`.
+- The same smoke disables visual synchronization, applies View 2 opacity independently and verifies:
+  - `independentVisualApplied = true`;
+  - `linkedCameras = false`;
+  - `syncedVisuals = false`.
+- Existing View 2 local legend and Probe-marker runtime checks continue to pass.
+
+### 3. Spatial Profile defined directly from the 3D geometry
+
+#### Interactive workflow
+- Added `Draw profile` to Field Workspace and the 3D/Field ribbon.
+- The user selects point A and point B directly on rendered 3D geometry.
+- Picking reuses the same rendered-geometry ray-casting path as the existing Probe tool rather than estimating coordinates from screen position.
+- A high-contrast A→B overlay is rendered on the 3D viewport and follows camera redraws.
+- Line sampling is configurable from 20 to 500 samples; default is 160.
+- Added `Clear line`.
+
+#### Native Spatial Profile integration
+- The A→B result is inserted into FoamLens as a normal Spatial Profile series rather than a separate ad-hoc plot.
+- Generated series metadata includes:
+  - `datasetType = profile`;
+  - `profileAxis = s`;
+  - `profileLine = 3D A→B`;
+  - `profileCoordUnit = m`;
+  - `derivedKind = field3d_line_profile`;
+  - saved point A / point B / sample count.
+- Sampling reuses `fwSampleFieldAtPoint()` and the currently loaded 3D field.
+- The same derived profile is refreshed when the active 3D frame changes.
+
+#### Real QuickCup runtime evidence
+- B13 real-case smoke at the established late-time reference generated:
+  - 160 requested profile samples;
+  - 160 finite samples;
+  - `profile3DDerivedKind = field3d_line_profile`;
+  - `profile3DError = ""`;
+  - A→B length = `0.05586143571373727 m`.
+- The companion remains the normal Spatial Profile workflow.
+
+### Ribbon integration
+- 3D / Field ribbon now exposes:
+  - Profile line;
+  - Link cameras;
+  - Re-sync;
+  - Visual sync;
+  - Fit all.
+- Active state is reflected for Profile line, Link cameras and Visual sync.
+
+### Regression history
+- Run #507 validated the advanced-streamline implementation independently: **SUCCESS**.
+- Runs #508–#513 exposed stale exact-source assertions in the historical comparison test after camera/legend signatures changed; real QuickCup regression continued to pass. Those tests were updated to validate linked-or-independent camera behavior and palette-aware per-viewport legends.
+- Run #514 then completed the full scientific/UI suite, portable smoke, installer smoke and artifact upload successfully.
+- Run #518 intentionally strengthened the packaged smoke for independent camera/visual behavior and initially failed because the smoke attempted to access encapsulated `fvState` from global WebView2 scope. Product behavior was not the failing condition.
+- The comparison runtime API now exposes primary and comparison view state through `getViewStates()`, and the smoke validates through that public API instead of breaking module encapsulation.
+
+### Final validation
+- GitHub Actions run **#520** (`37108477817`): **SUCCESS**.
+- Tested product head: `aee2581127c3771b93b4c7fda3177009dd25c652`.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full scientific/UI regression suite: **SUCCESS**.
+- 3D Difference regression after independent-view changes: **SUCCESS**.
+- Field View / pointField / decomposed mesh / dynamic mesh / iso-surface / Probe / surface-field regressions: **SUCCESS**.
+- Advanced streamline regression: **SUCCESS**.
+- A→B Spatial Profile regression: **SUCCESS**.
+- Ribbon / bilingual / overflow regressions: **SUCCESS**.
+- Portable Windows build: **SUCCESS**.
+- Packaged portable runtime smoke: **SUCCESS**.
+- Portable checksum: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Run #520 packaged evidence
+- Real B13 reference remained:
+  - 6400 cells;
+  - 13122 points;
+  - `T` at `t = 9.8 s`;
+  - min `1417.57 K`;
+  - max `1481.90 K`;
+  - span `64.33 K`;
+  - WebGL error `0`.
+- Advanced streamline controls mounted: true.
+- 400 requested Plane seeds -> 400 actual seeds.
+- 3D A→B profile: 160 points / 160 finite values / `0.05586143571373727 m`.
+- Independent View 2 camera changed while primary camera remained unchanged.
+- Independent View 2 visual settings applied successfully.
+- View 2 local legend remained visible and Probe marker remained functional.
+
+### Candidate artifacts
+- Windows build artifact: `FoamLens-Windows-v1.4.6`.
+- Artifact id: `11268294037`.
+- Size: `135,247,453 bytes`.
+- Digest: `sha256:6680f3d074c517faf2d05fff304c4afda69f22bd3cebb4aab2aef5e6cb1dba22`.
+- Multi-case runtime fixture: `QuickCup-MultiCase-Windows-runtime`.
+- Fixture artifact id: `11269275359`.
+- Size: `326,073,834 bytes`.
+- Digest: `sha256:24f48cfa5abb90851ba7b9bc3c241fb025a988d6d3078e4cbf7dcd31bda2e442`.
+
+### Scientific validation boundary
+- The streamline implementation is covered by analytical/unit regressions, full application regressions and real QuickCup packaged-runtime smoke.
+- Direct path-by-path comparison of representative FoamLens streamlines against ParaView/VTK has **not yet been performed**.
+- Therefore this work should not yet be described as ParaView-validated or thesis-grade streamline equivalence until that cross-tool validation is completed.
+
+### Promotion state
+- No merge to `main`.
+- No public release created.
+- Public release remains **v1.4.5**.
+- The `development/v1.4.8-scientific-workspace` product head is validated and ready for user review / later promotion.
+
+## 2026-10-03 — v1.4.9 scientific compare, thesis export and progressive performance validated
+
+- Development branch: \`development/v1.4.9-compare-export-performance\`.
+- Validated product head: \`dd20752a957bf196728dce0922921b37f48655e8\`.
+- Base executable/version identity remains FoamLens Desktop v1.4.6 / frontend v51 on this development branch; no public version bump or release promotion was performed.
+- This line implements the next three prioritized blocks after the v1.4.8 scientific workspace: advanced 3D comparison, thesis/paper multi-panel export, and progressive performance/cache behavior.
+
+### 1. Scientific 3D comparison
+
+#### Physical-time synchronization
+- View 2 / comparison views now support:
+  - \`Exact\`;
+  - \`Nearest\`;
+  - \`Interpolated\`.
+- Added \`fcTimeBracket()\`, \`fcResolveTime()\`, \`fcInterpolateValues()\` and synchronized scalar/vector loaders.
+- Interpolated frames retain the requested physical target time and report the two source times plus interpolation weight.
+- Per-viewport time badges are now visible for:
+  - A / primary;
+  - B / View 2;
+  - C / View 3;
+  - D / View 4;
+  - Difference.
+- Nearest mode displays \`Δt\`; Interpolated mode displays its lower↔upper source times.
+
+#### Interpolation safety
+- FoamLens refuses temporal interpolation instead of fabricating a result when the two bracketing frames are not scientifically compatible.
+- Interpolation is rejected if:
+  - field association/storage changes;
+  - field dimensions change;
+  - field array sizes differ;
+  - meshes are not equivalent under the existing strict mesh-equivalence check.
+- Vector fields use the same synchronization model. Bracketing vector frames are loaded against compatible meshes and each vector component is interpolated independently.
+- Decomposed OpenFOAM vector fields continue to use the existing partition reconstruction path before interpolation.
+
+#### Generalized 3D Difference
+- Added Difference modes:
+  - Signed: \`A − B\`;
+  - Absolute: \`|A − B|\`;
+  - Percent of primary A: \`100·(A − B)/max(|A|, ε)\`.
+- Added configurable percent epsilon \`ε\` to protect near-zero denominators.
+- Signed and Percent use a symmetric difference range; Absolute uses a nonnegative range.
+- Difference labels now explicitly identify Signed / Absolute / Percent instead of always describing the viewport as signed.
+- Difference colormap is mode-aware:
+  - Signed / Percent: diverging cool-warm;
+  - Absolute: sequential Turbo.
+
+#### Comparison workflow
+- Added \`Swap A/B\`.
+- Added \`Copy A → B settings\`.
+- Copy A→B transfers compatible region / field / component selections and, when visual sync is disabled, primary visual settings into View 2.
+- Swap A/B preserves the physical-time reference, changes the primary and comparison cases deterministically, and avoids the former asynchronous component-selection race.
+- Ribbon Compare now exposes both workflows directly.
+
+#### Runtime evidence
+- WebView2 startup smoke verified:
+  - \`syncModes = ["nearest","exact","interpolate"]\`;
+  - \`differenceModes = ["signed","absolute","percent"]\`;
+  - interpolation smoke at target \`0.25\` between times \`0\` and \`1\` returned \`weight = 0.25\`, \`interpolated = true\`, \`Δt = 0\`;
+  - percent-difference smoke for A=10 / B=8 returned \`20\`;
+  - View 3 / View 4 time badges mounted.
+- Real multi-case packaged smoke executed the public comparison workflows and verified:
+  - \`copySettingsApplied = true\`;
+  - \`swapApplied = true\`;
+  - \`swapRestored = true\`.
+- Existing independent-camera, independent-visual, local-legend and Probe-marker smokes continue to pass.
+
+### 2. Thesis / paper multi-panel export
+
+- Added \`desktop/src/FoamLensDesktop/frontend/v16-multipanel-export.js\`.
+- Public runtime API: \`window.FoamLensMultiPanelExport\`.
+- Automatically discovers available scientific panels from:
+  - primary 3D Field View;
+  - View 2 / View 3 / View 4;
+  - 3D Difference;
+  - current 2D plot / Spatial Profile.
+- Supports up to four panels in one composition.
+- Layout presets:
+  - Auto;
+  - 1-up;
+  - 2-up;
+  - 2×2;
+  - 3D + Profile.
+- Output presets:
+  - Thesis \`2400×1600\`;
+  - Thesis Hi-Res \`3200×2000\`;
+  - Paper \`2400×1800\`;
+  - Presentation \`1920×1080\`.
+- Multi-panel figures include:
+  - A/B/C/D panel labels;
+  - case / field / component / time annotations;
+  - per-panel scientific range bar and min/max where applicable;
+  - optional custom figure title.
+- The current plot / Spatial Profile reuses the existing high-resolution export-composition path when available.
+- Separate-panel export now uses the same annotated scientific-composition path rather than exporting an unlabeled raw canvas.
+- Export is available from the Ribbon \`Export → Multi-panel\`.
+
+#### Runtime evidence
+- Packaged and installed WebView2 smoke composed a real two-panel figure from Primary + View 2.
+- Verified:
+  - \`multiPanelSourceCount = 2\`;
+  - width \`2400\`;
+  - height \`1600\`;
+  - total \`3,840,000\` output pixels.
+
+#### Export boundary
+- The final composition canvas is high-resolution.
+- 2D plots can be re-rendered through FoamLens's high-resolution plot export path.
+- 3D panels are currently sampled from the viewport's existing WebGL canvas. This work does **not** yet provide an arbitrary-resolution offscreen 3D rerender, so the source raster resolution of each 3D panel remains bounded by its rendered viewport.
+
+### 3. Progressive performance, cache telemetry and viewport-aware loading
+
+#### Progressive frame presentation
+- Field View now presents the main surface, statistics, legend and time/status first.
+- FoamLens then yields through \`requestAnimationFrame\` so the browser can paint before constructing heavier derived geometry.
+- Slice / Iso are built after that paint opportunity.
+- Streamlines and prefetch continue after the main frame presentation.
+- The existing frame sequence guard is re-checked after the yield, so stale frame work is still cancelled.
+
+#### Adaptive prefetch
+- Added \`desktop/src/FoamLensDesktop/frontend/v16-progressive-performance.js\`.
+- Prefetch detects navigation direction instead of always loading a fixed neighboring pattern.
+- Prefetch depth adapts to observed frame latency:
+  - slower frame history → more frames ahead;
+  - faster frame history → smaller look-ahead.
+- One frame behind the current navigation direction remains eligible for quick reversal.
+- Prefetch uses the existing field cache (\`fvLoadFieldSetCached\`) rather than maintaining a duplicate cache.
+- Idle scheduling uses \`requestIdleCallback\` where available, with a non-blocking fallback.
+- Prefetch is cancelled when Field Workspace is hidden or when the document becomes hidden.
+
+#### Viewport-aware loading
+- Visible additional 3D comparison viewports are refreshed concurrently.
+- Off-screen additional views are deferred to idle work.
+- Video export deliberately bypasses that optimization and uses the exhaustive original refresh path so exported frames are complete.
+
+#### Telemetry
+- Added a \`Performance / cache\` panel and Ribbon \`View → Performance\`.
+- Telemetry includes:
+  - last frame time;
+  - average frame time;
+  - prefetch hit rate;
+  - mesh reuse / mesh build counts;
+  - field-cache entries / memory;
+  - deferred viewport count.
+- Existing GPU/mesh buffers continue to be reused when the mesh remains unchanged; the new work exposes and measures that reuse rather than claiming a separate GPU architecture.
+
+#### Real-case runtime evidence
+- Run #539 packaged smoke on the B13-derived runtime fixture reported:
+  - \`performancePanelMounted = true\`;
+  - \`performanceLoads = 6\`;
+  - \`performanceCacheEntries = 4\`;
+  - portable \`performanceLastMs ≈ 507.7 ms\`;
+  - portable \`performanceAvgMs ≈ 2085.35 ms\`.
+- Installed smoke reported approximately:
+  - \`performanceLoads = 6\`;
+  - \`performanceCacheEntries = 4\`;
+  - \`performanceLastMs ≈ 520.9 ms\`;
+  - \`performanceAvgMs ≈ 2017.45 ms\`.
+- These numbers are runtime telemetry from the smoke sequence, **not** a controlled before/after benchmark and must not be presented as a measured percentage speedup.
+
+### Ribbon integration
+- Compare:
+  - Swap A/B;
+  - Copy A→B.
+- Export:
+  - Multi-panel.
+- View:
+  - Performance.
+
+### Automated coverage
+- Updated \`desktop/tests/field-compare.test.cjs\` to cover:
+  - exact / nearest / interpolated physical-time resolution;
+  - interpolation bracketing and weights;
+  - rejection outside the available time range;
+  - safe scalar and vector interpolation guards;
+  - signed / absolute / percent differences;
+  - epsilon protection;
+  - mode-specific ranges / palettes;
+  - per-viewport time badges;
+  - Swap A/B and Copy A→B workflow exposure.
+- Added \`desktop/tests/multipanel-performance.test.cjs\` covering:
+  - multipanel source discovery and composition;
+  - Thesis / Paper / Presentation presets;
+  - 1-up / 2-up / 2×2 / 3D+Profile layouts;
+  - scientific labels / ranges;
+  - annotated individual-panel export;
+  - progressive rendering yield ordering;
+  - stale-frame cancellation;
+  - direction-aware adaptive prefetch;
+  - cache telemetry;
+  - viewport-aware loading;
+  - exhaustive video-export exception;
+  - ribbon discoverability.
+- Workflow now runs **60** scientific/UI regression steps before packaging.
+
+### Regression / validation history
+- Early runs #522–#529 were development checkpoints while implementation and exact-source tests were changing.
+- Run #529 reached the strict 3D Difference test; the remaining failure was a stale assertion requiring \`coolwarm\` for every Difference mode. The product had intentionally become mode-aware, using Turbo for Absolute and cool-warm for Signed/Percent.
+- The regression was updated to require the mode-aware behavior rather than the obsolete fixed palette.
+- Run #532 then completed the full 60-test suite, portable smoke, installer smoke and artifact upload successfully with interpolation, multipanel and performance runtime checks.
+- Run #538 completed successfully after final comparison-label and annotated-export refinements.
+- Run #539 strengthened the packaged runtime smoke again by actually executing Copy A→B, Swap A/B, and Swap back to the original state. All three operations passed in the portable and installed application.
+
+### Final validation
+- GitHub Actions run **#539** (\`37110806229\`): **SUCCESS**.
+- Validated product head: \`dd20752a957bf196728dce0922921b37f48655e8\`.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full 60-test scientific/UI suite: **SUCCESS**.
+- Strict 3D Difference: **SUCCESS**.
+- Interpolation / percent-difference runtime math: **SUCCESS**.
+- Multi-panel composition runtime smoke: **SUCCESS**.
+- Progressive-performance telemetry runtime smoke: **SUCCESS**.
+- Copy A→B runtime smoke: **SUCCESS**.
+- Swap A/B + restore runtime smoke: **SUCCESS**.
+- Existing Field View / Probe / multi-view / streamlines / 3D-profile regressions: **SUCCESS**.
+- Portable Windows executable build: **SUCCESS**.
+- Packaged portable runtime smoke: **SUCCESS**.
+- Portable checksum: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Candidate artifacts
+- Windows build artifact: \`FoamLens-Windows-v1.4.6\`.
+- Artifact id: \`11270101823\`.
+- Size: \`135,272,548 bytes\`.
+- Digest: \`sha256:7d6d7ef5d793a335f805f53939251fe3a4a2c88cc5d425b9785a72e04ec490ef\`.
+- Multi-case runtime fixture: \`QuickCup-MultiCase-Windows-runtime\`.
+- Fixture artifact id: \`11269927034\`.
+- Size: \`326,073,834 bytes\`.
+- Digest: \`sha256:b1cc5153349936ba6fb65d9a189637d7f1dc1ab1e8bd73e1cc1ca61a53ea22ed\`.
+
+### Remaining scientific / performance boundaries
+- Streamline path-by-path comparison against ParaView/VTK remains pending; the streamline module should not yet be described as ParaView-equivalent.
+- Progressive-performance mechanisms are active and instrumented, but no controlled before/after benchmark has been run, so no quantitative speedup claim is warranted.
+- High-resolution multipanel composition does not yet rerender WebGL 3D scenes offscreen at arbitrary export resolution.
+
+### Promotion state
+- No merge to \`main\`.
+- No public release created.
+- Public release remains **v1.4.5**.
+- \`development/v1.4.9-compare-export-performance\` is validated and ready for user review / later promotion.
+
