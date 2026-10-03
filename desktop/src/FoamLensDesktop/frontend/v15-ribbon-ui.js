@@ -273,7 +273,13 @@ function flRibbonInstall(){
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
-  document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>flRibbonSelectTab(b.dataset.ribbonTab||'home')));
+  document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
+    const key=b.dataset.ribbonTab||'home';flRibbonSelectTab(key);
+    if(key==='home')try{setAppMode('workspace')}catch{}
+    else if(key==='data'||key==='plots')try{setAppMode('data')}catch{}
+    else if(key==='field'||key==='compare')try{setAppMode('field')}catch{}
+    else if(key==='analysis')try{setAppMode('analysis')}catch{}
+  }));
 
   flRibbonBind('flRaOpenFiles',()=>flRibbonClick('addFiles'));
   flRibbonBind('flRaOpenFolder',()=>flRibbonClick('addFolder'));
