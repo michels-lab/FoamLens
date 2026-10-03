@@ -294,7 +294,9 @@ internal sealed class FoamLensForm : Form
                   const required=[
                     'fvCanvas','fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera','fvResetCamera',
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
-                    'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat'
+                    'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
+                    'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
+                    'meDialog','ppPanel'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -321,6 +323,14 @@ internal sealed class FoamLensForm : Form
                     animationApi:typeof window.FoamLensAnimationExport?.descriptorList==='function',
                     compareApi:typeof window.FoamLensFieldCompare?.getVideoDescriptors==='function',
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
+                    multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
+                    performanceApi:typeof window.FoamLensPerformance?.stats==='function',
+                    advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
+                    interpolationSmoke:window.FoamLensFieldCompare?.fcResolveTime?.([0,1],.25,'interpolate')||null,
+                    percentDifferenceSmoke:Number(window.FoamLensFieldCompare?.fcDifferenceValues?.([10],[8],'percent')?.[0]),
+                    syncModes:[...document.querySelectorAll('#fcSync option')].map(x=>x.value),
+                    differenceModes:[...document.querySelectorAll('#fcDifferenceMode option')].map(x=>x.value),
+                    extraTimeBadges:[3,4].map(id=>!!document.getElementById('fcExtra'+id+'TimeBadge')),
                     rangeModes:[...document.querySelectorAll('#fvRangeMode option')].map(x=>x.value),
                     cameraPresetCount:document.querySelectorAll('[data-fv-view]').length
                   };
@@ -354,7 +364,8 @@ internal sealed class FoamLensForm : Form
                     string.Equals(fieldPosition.GetString(), "absolute", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
-                foreach (var property in new[] { "animationApi", "compareApi", "fieldApi" })
+                foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
+                                                  "multipanelApi", "performanceApi", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
@@ -365,6 +376,37 @@ internal sealed class FoamLensForm : Form
                             string.Equals(x.GetString(), expected, StringComparison.OrdinalIgnoreCase))))
                     throw new InvalidOperationException(
                         $"FoamLens scientific color-range modes are incomplete: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("syncModes", out var syncModes) ||
+                    syncModes.ValueKind != JsonValueKind.Array ||
+                    !new[] { "exact", "nearest", "interpolate" }.All(expected =>
+                        syncModes.EnumerateArray().Any(x =>
+                            string.Equals(x.GetString(), expected, StringComparison.OrdinalIgnoreCase))))
+                    throw new InvalidOperationException(
+                        $"FoamLens physical-time sync modes are incomplete: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("differenceModes", out var differenceModes) ||
+                    differenceModes.ValueKind != JsonValueKind.Array ||
+                    !new[] { "signed", "absolute", "percent" }.All(expected =>
+                        differenceModes.EnumerateArray().Any(x =>
+                            string.Equals(x.GetString(), expected, StringComparison.OrdinalIgnoreCase))))
+                    throw new InvalidOperationException(
+                        $"FoamLens 3D difference modes are incomplete: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("interpolationSmoke", out var interpolationSmoke) ||
+                    !interpolationSmoke.TryGetProperty("ok", out var interpolationOk) ||
+                    !interpolationOk.GetBoolean() ||
+                    !interpolationSmoke.TryGetProperty("interpolated", out var interpolatedNode) ||
+                    !interpolatedNode.GetBoolean() ||
+                    !interpolationSmoke.TryGetProperty("weight", out var interpolationWeight) ||
+                    Math.Abs(interpolationWeight.GetDouble() - 0.25) > 1e-12 ||
+                    !root.TryGetProperty("percentDifferenceSmoke", out var percentDifferenceSmoke) ||
+                    Math.Abs(percentDifferenceSmoke.GetDouble() - 20.0) > 1e-12)
+                    throw new InvalidOperationException(
+                        $"FoamLens interpolation/difference runtime math failed: {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("extraTimeBadges", out var extraTimeBadges) ||
+                    extraTimeBadges.ValueKind != JsonValueKind.Array ||
+                    extraTimeBadges.GetArrayLength() != 2 ||
+                    extraTimeBadges.EnumerateArray().Any(x => !x.GetBoolean()))
+                    throw new InvalidOperationException(
+                        $"FoamLens per-viewport time badges did not mount: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("cameraPresetCount", out var presetCount) ||
                     presetCount.GetInt32() < 7)
                     throw new InvalidOperationException(
@@ -546,6 +588,18 @@ internal sealed class FoamLensForm : Form
                         !multiViewControlSetNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens linked/independent multi-view controls are incomplete: {realCaseJson}");
+                    if (!data.TryGetProperty("performancePanelMounted", out var performancePanelMounted) ||
+                        !performancePanelMounted.GetBoolean() ||
+                        !data.TryGetProperty("performanceLoads", out var performanceLoads) ||
+                        performanceLoads.GetInt32() < 1 ||
+                        !data.TryGetProperty("performanceLastMs", out var performanceLastMs) ||
+                        !double.IsFinite(performanceLastMs.GetDouble()) ||
+                        performanceLastMs.GetDouble() < 0 ||
+                        !data.TryGetProperty("performanceAvgMs", out var performanceAvgMs) ||
+                        !double.IsFinite(performanceAvgMs.GetDouble()) ||
+                        performanceAvgMs.GetDouble() < 0)
+                        throw new InvalidOperationException(
+                            $"FoamLens progressive-performance telemetry runtime smoke failed: {realCaseJson}");
                     if (!data.TryGetProperty("profile3DPoints", out var profile3DPointsNode) ||
                         profile3DPointsNode.GetInt32() < 20 ||
                         !data.TryGetProperty("profile3DFinite", out var profile3DFiniteNode) ||
@@ -662,6 +716,16 @@ internal sealed class FoamLensForm : Form
                         }
                         view2=(api.getVideoDescriptors()||[]).find(x=>x.key==='view2');
 
+                        const multiApi=window.FoamLensMultiPanelExport;
+                        if(typeof multiApi?.compose!=='function'||typeof multiApi?.getSources!=='function')
+                          throw new Error('Multi-panel export runtime API is unavailable.');
+                        const multiSources=multiApi.getSources();
+                        const multiResult=multiApi.compose(multiSources.filter(x=>x.key==='primary'||x.key==='view2').slice(0,2));
+                        const multiPanelSourceCount=multiResult?.sources?.length||0;
+                        const multiPanelWidth=Number(multiResult?.canvas?.width||0);
+                        const multiPanelHeight=Number(multiResult?.canvas?.height||0);
+                        const multiPanelPixels=multiPanelWidth*multiPanelHeight;
+
                         const canvas=document.getElementById('fcCanvas');
                         if(!canvas)throw new Error('View 2 canvas is unavailable.');
                         const linkCameras=document.getElementById('fcLinkCameras');
@@ -733,6 +797,10 @@ internal sealed class FoamLensForm : Form
                           secondaryField:view2?.fieldName||'',
                           secondaryComponent:view2?.component||'',
                           usedDifferentField:!!differentField,
+                          multiPanelSourceCount,
+                          multiPanelWidth,
+                          multiPanelHeight,
+                          multiPanelPixels,
                           independentCameraChanged,
                           primaryCameraUnaffected,
                           independentVisualApplied,
@@ -776,6 +844,10 @@ internal sealed class FoamLensForm : Form
                             string.IsNullOrWhiteSpace(secondaryCase.GetString()) ||
                         !root.TryGetProperty("secondaryField", out var secondaryField) ||
                             string.IsNullOrWhiteSpace(secondaryField.GetString()) ||
+                        !root.TryGetProperty("multiPanelSourceCount", out var multiPanelSourceCount) || multiPanelSourceCount.GetInt32() < 2 ||
+                        !root.TryGetProperty("multiPanelWidth", out var multiPanelWidth) || multiPanelWidth.GetInt32() != 2400 ||
+                        !root.TryGetProperty("multiPanelHeight", out var multiPanelHeight) || multiPanelHeight.GetInt32() != 1600 ||
+                        !root.TryGetProperty("multiPanelPixels", out var multiPanelPixels) || multiPanelPixels.GetInt64() != 3_840_000 ||
                         !root.TryGetProperty("independentCameraChanged", out var independentCameraChanged) || !independentCameraChanged.GetBoolean() ||
                         !root.TryGetProperty("primaryCameraUnaffected", out var primaryCameraUnaffected) || !primaryCameraUnaffected.GetBoolean() ||
                         !root.TryGetProperty("independentVisualApplied", out var independentVisualApplied) || !independentVisualApplied.GetBoolean() ||
@@ -951,8 +1023,13 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     }
   }catch(e){runtimeProfileError=String(e?.stack||e)}
   const range=fvFiniteRange(fvState.fieldValues);
-  const gl=fvState.renderer?.gl||null;
+  const gl=fvState.renderer?.gl||null,performanceStats=window.FoamLensPerformance?.stats?.()||null;
   return{
+    performanceLoads:Number(performanceStats?.loads||0),
+    performanceLastMs:Number(performanceStats?.lastMs||0),
+    performanceAvgMs:Number(performanceStats?.avgMs||0),
+    performanceCacheEntries:Number(performanceStats?.cache?.entries||0),
+    performancePanelMounted:!!document.getElementById('ppPanel'),
     streamlineSeed400,
     advancedStreamlineControls,
     multiViewControlSet,
