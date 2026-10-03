@@ -130,6 +130,7 @@ test('comparison UI exposes time badges on every viewport, generalized differenc
     'fcPrimaryTimeBadge','fcCompareTimeBadge',"fcExtra'+id+'TimeBadge",'fcTimeBadge',
     'Interpolated between frames','fcDifferenceMode','Signed A − B','Absolute |A − B|','Percent of A',
     'fcPercentEpsilon','fcSwapCases','fcSwapPrimaryCompare','swapPrimaryCompare:fcSwapPrimaryCompare',
+    'fcCopyAToB','fcCopyPrimarySettingsToCompare','copyPrimarySettingsToCompare:fcCopyPrimarySettingsToCompare',
     "mode==='percent'","mode==='absolute'"
   ])assert(source.includes(token),'Missing advanced comparison UI token: '+token);
 });
