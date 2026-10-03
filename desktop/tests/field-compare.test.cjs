@@ -14,7 +14,7 @@ const end='/* FOAMLENS_FIELD_COMPARE_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field compare core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fcCloseTime,fcNearestTime,fcResolveTime,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcArrayEqualNumeric,fcMeshesEquivalent,fcDifferenceValues,fcSymmetricDifferenceRange};')();
+const api=new Function(core+';return {fcCloseTime,fcNearestTime,fcTimeBracket,fcResolveTime,fcInterpolateValues,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcArrayEqualNumeric,fcMeshesEquivalent,fcDifferenceValues,fcDifferenceRange,fcSymmetricDifferenceRange};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -49,6 +49,27 @@ test('strict mesh equivalence rejects connectivity changes',()=>{
 test('signed 3D difference is primary minus comparison',()=>{
   assert.deepEqual(api.fcDifferenceValues([10,5,-1],[7,8,-4]),[3,-3,3]);
   assert.deepEqual(api.fcDifferenceValues([10,5,-1],[7,8,-4],'absolute'),[3,3,3]);
+});
+
+test('physical-time synchronization supports exact nearest and bounded interpolation',()=>{
+  const times=[0,1,2,4];
+  const b=api.fcTimeBracket(times,.25);assert.equal(b.ok,true);near(b.lower,0);near(b.upper,1);near(b.weight,.25);
+  const exact=api.fcResolveTime(times,1,'exact');assert.equal(exact.ok,true);assert.equal(exact.exact,true);
+  const missing=api.fcResolveTime(times,.25,'exact');assert.equal(missing.ok,false);
+  const nearest=api.fcResolveTime(times,.6,'nearest');assert.equal(nearest.ok,true);near(nearest.time,1);near(nearest.delta,.4);
+  const interp=api.fcResolveTime(times,.25,'interpolate');assert.equal(interp.ok,true);assert.equal(interp.interpolated,true);near(interp.time,.25);near(interp.delta,0);near(interp.weight,.25);
+  const outside=api.fcResolveTime(times,5,'interpolate');assert.equal(outside.ok,false);
+  assert.deepEqual(api.fcInterpolateValues([0,10],[10,30],.5),[5,20]);
+});
+
+test('3D difference supports signed absolute and percent-of-primary modes',()=>{
+  assert.deepEqual(api.fcDifferenceValues([10,5],[8,8],'signed'),[2,-3]);
+  assert.deepEqual(api.fcDifferenceValues([10,5],[8,8],'absolute'),[2,3]);
+  const percent=api.fcDifferenceValues([10,5],[8,8],'percent');
+  near(percent[0],20);near(percent[1],-60);
+  assert(Number.isFinite(api.fcDifferenceValues([0],[2],'percent',1e-6)[0]));
+  const absRange=api.fcDifferenceRange([2,3,1],'absolute');near(absRange.min,0);near(absRange.max,3);
+  const pctRange=api.fcDifferenceRange([20,-60],'percent');near(pctRange.min,-60);near(pctRange.max,60);
 });
 
 test('difference color range is symmetric around zero',()=>{
@@ -87,11 +108,30 @@ test('secondary and extra 3D case selectors preserve the case explicitly chosen 
 
 test('secondary 3D viewport loads cell point or face associations through the generic frame loader',()=>{
   for(const token of [
-    "fvFieldGroups(c,region,null,'any')",'fvLoadFrameData(selected,group,region,sync.time,component',
+    "fvFieldGroups(c,region,null,'any')",'fcLoadSynchronizedData',
     "fcState.fieldStorage=data.storage","storage==='point'","storage==='surface'",
     'fvPointSurfaceColors','fvInternalFaceColors','fvBuildPointSliceGeometry','fvBuildPointIsoSurfaceGeometry',
     '3D difference currently requires cell-associated volume fields'
   ])assert(source.includes(token),'Missing generic association-aware comparison token: '+token);
+});
+
+test('interpolated comparison rejects unsafe mesh or association changes instead of fabricating a frame',()=>{
+  for(const token of [
+    'fcLoadSynchronizedData','fcTimeBracket','fcInterpolateValues',
+    'Interpolation unavailable: field association changes between bracketing frames.',
+    'Interpolation unavailable because the mesh changes between bracketing frames:',
+    'fcMeshesEquivalent(a.mesh,b.mesh)','field sizes differ between bracketing frames',
+    'fcLoadSynchronizedVectors','vector-mesh-','vector-bracket-size-mismatch'
+  ])assert(source.includes(token),'Missing safe interpolation token: '+token);
+});
+
+test('comparison UI exposes time badges on every viewport, generalized differences and A/B swapping',()=>{
+  for(const token of [
+    'fcPrimaryTimeBadge','fcCompareTimeBadge',"fcExtra'+id+'TimeBadge",'fcTimeBadge',
+    'Interpolated between frames','fcDifferenceMode','Signed A − B','Absolute |A − B|','Percent of A',
+    'fcPercentEpsilon','fcSwapCases','fcSwapPrimaryCompare','swapPrimaryCompare:fcSwapPrimaryCompare',
+    "mode==='percent'","mode==='absolute'"
+  ])assert(source.includes(token),'Missing advanced comparison UI token: '+token);
 });
 
 test('3D comparison can add synchronized views three and four',()=>{
