@@ -367,6 +367,10 @@ function fwBuild3DLineProfile({select=true}={}){
   }catch(e){console.warn('3D line profile UI refresh:',e)}
   return item
 }
+function fwSet3DProfileLine(a,b,{select=true}={}){
+  const clean=p=>Array.isArray(p)&&p.length===3?p.map(Number):null,aa=clean(a),bb=clean(b);if(!aa||!bb||!aa.every(Number.isFinite)||!bb.every(Number.isFinite))throw new Error(fwUi('A and B must be finite XYZ points.','A y B deben ser puntos XYZ finitos.'));
+  fwLineProfileState.enabled=false;fwLineProfileState.a=aa;fwLineProfileState.b=bb;fwUpdateNavText();fwUpdate3DProfileOverlay();return fwBuild3DLineProfile({select})
+}
 function fwHandle3DProfileClick(event){
   if(!fwLineProfileState.enabled)return;event.preventDefault();event.stopImmediatePropagation();const pick=window.FoamLensFieldProbe?.fpPickAtEvent?.(event);if(!pick?.point){fw3DProfileStatus(fwUi('Click visible rendered geometry for point ','Haz clic en geometría renderizada visible para el punto ')+(fwLineProfileState.a?'B.':'A.'),true);return}
   if(!fwLineProfileState.a){fwLineProfileState.a=pick.point.map(Number);fwLineProfileState.b=null;fw3DProfileStatus(fwUi('Point A selected. Click point B.','Punto A seleccionado. Haz clic en el punto B.'));fwUpdate3DProfileOverlay();return}
@@ -484,4 +488,4 @@ function fwInstall(){
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,syncTime:fwSyncCompanionTime,toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
+window.FoamLensFieldWorkspace={enter:fwEnter,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,syncTime:fwSyncCompanionTime,toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
