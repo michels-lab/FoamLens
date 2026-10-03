@@ -396,6 +396,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/actionable-diagnostics.test.cjs
 
+      - name: Test compact ribbon navigation
+        shell: pwsh
+        run: node desktop/tests/ribbon-ui.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
