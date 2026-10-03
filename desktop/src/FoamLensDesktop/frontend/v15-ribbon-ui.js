@@ -142,7 +142,8 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaCompare3D','compare','Compare 3D','Comparar 3D'),
       flRibbonActionHtml('flRaCompareAddView','add','Add view','Añadir vista'),
       flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar'),
-      flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B')
+      flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B'),
+      flRibbonActionHtml('flRaCopyAToB','sliders','Copy A→B','Copiar A→B')
     ]),
     flRibbonGroup('Differences','Diferencias',[
       flRibbonActionHtml('flRaCompareDifference','delta','Difference','Diferencia'),
@@ -345,6 +346,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'compare'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>flRibbonClick('fwConfigureViews'),'compare'));
   flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'compare'));
+  flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'compare'));
   flRibbonBind('flRaCompareDifference',()=>flRibbonAnalysis('difference','compare'));
   flRibbonBind('flRaCreateDifference',()=>{flRibbonAnalysis('difference','compare');requestAnimationFrame(()=>flRibbonClick('createDifference'))});
 
