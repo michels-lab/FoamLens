@@ -2112,3 +2112,101 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - Artifact: `FoamLens-Windows-v1.4.6`, id `11267431426`, size `135,196,674 bytes`, digest `sha256:63089cb91f640ca78ea7cb7c19217947bb2500251d1c97b547c84a8ed652d015`.
 - Multi-case runtime fixture artifact: `QuickCup-MultiCase-Windows-runtime`, id `11267780761`, size `326,073,834 bytes`, digest `sha256:32d37d99429fa308cdfc410d08866d6419fbe5f6ccbe152a84039d6fabffdaa7`.
 - Public release remains **v1.4.5**; v1.4.6 is validated and ready for promotion when explicitly requested.
+
+
+## 2026-10-03 — Compact Word-style ribbon navigation validated
+
+- Development branch: \`development/v1.4.7-ribbon-navigation\`.
+- Validated product head: \`36bc401b0a130776cc8629ae5e479406992b5893\`.
+- Base product identity remains FoamLens Desktop v1.4.6 / frontend v51 on this development branch; no release-version promotion was performed.
+
+### UI organization
+- Added \`desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js\`.
+- Replaced the visible legacy top mode bar/tool cluster with a compact Word-style ribbon only after the ribbon mounts successfully.
+- Ribbon tabs:
+  - Home;
+  - Data;
+  - 3D / Field;
+  - Plots;
+  - Analysis;
+  - Compare;
+  - Export;
+  - View.
+- Major actions are icon-first with small text labels beneath the icons rather than text-heavy buttons.
+- The implementation exposes 54 ribbon actions while preserving the existing scientific/runtime handlers instead of duplicating their logic.
+- Project / Case / Region context and workspace save/open controls remain visible in the ribbon context strip.
+- Ribbon tabs navigate directly to their corresponding workspace where appropriate.
+- Legacy \`modeNavBar\` and the old top tool row are hidden only after successful ribbon installation.
+
+### Existing controls reused rather than replaced
+- Data import: Add files / Add folder.
+- Data views: Time Series / Spatial Profiles / Solver Logs / Catalog.
+- Field Workspace: Add 3D View / Configure views / Split / 3D focus / Plot focus.
+- Scientific inspection: Probe / Slice / Vectors / Streamlines.
+- Camera: Fit / Reset.
+- Analysis: General / Coupling / Front tracking / Difference / Field Mapping / Phase Change-Momentum.
+- 3D comparison: Compare 3D / Add view / Configure / Difference.
+- Export: PNG / SVG / CSV / Thesis Figure / Video.
+- View: sidebar / fit / theme / language.
+
+### Cases menu integration
+- The existing Case visibility panel is re-homed under the ribbon instead of being left inside the now-hidden legacy toolbar.
+- Ribbon action click propagation is contained so the legacy document-level outside-click handler does not immediately close the Case menu.
+- Packaged runtime smoke verified:
+  - \`casePanelOpen = true\`;
+  - \`casePanelParent = flRibbon\`.
+
+### Regression / smoke issues found during validation
+- Run #499 exposed a stale source-audit assumption: the test searched for fully materialized ribbon tab IDs even though the module generates them dynamically. The test was corrected to audit the stable tab definitions / ID builders.
+- Run #501 reached packaged runtime and proved the ribbon runtime smoke itself passed, but a historical Field View smoke still required the legacy \`modeField\` navigation button to be visible.
+- Runs #504/#505 confirmed:
+  - ribbon runtime smoke passed;
+  - Cases menu mounted/opened correctly;
+  - \`fieldRibbonVisible = true\`;
+  - the remaining failure was only the historical legacy-navigation assertion.
+- The final smoke now validates the visible ribbon Field tab and checks the hidden state on the legacy navigation container (\`modeNavBar\`) instead of querying the hidden child button's own computed \`display\`.
+
+### Automated coverage
+- Added \`desktop/tests/ribbon-ui.test.cjs\`.
+- Added the ribbon audit to \`.github/workflows/build-foamlens-desktop.yml\`.
+- Source audit result: 8 ribbon tabs / 54 actions, with all required existing-control targets present.
+- WebView2 startup smoke verifies:
+  - ribbon mounted;
+  - all expected tabs/actions exist;
+  - icon / small-label hierarchy exists;
+  - Field tab activates the Field workspace;
+  - legacy top navigation/tool row is hidden;
+  - Project / Case / Region context is preserved;
+  - Cases menu is re-homed and opens from the ribbon.
+
+### Final validation
+- GitHub Actions run **#506** (\`37106117480\`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full scientific/UI regression suite: **SUCCESS**.
+- 3D Field View, pointField reconstruction, decomposed meshes, dynamic mesh, iso-surfaces, Probe, explicit surface fields and strict 3D difference: **SUCCESS**.
+- Ribbon source audit: **SUCCESS**.
+- Bilingual / overflow audits: **SUCCESS**.
+- Portable Windows executable build: **SUCCESS**.
+- Packaged portable runtime smoke: **SUCCESS**.
+- The packaged smoke reports the new \`3D / Field\` ribbon navigation visible while Field Workspace, B13 multi-case switching, local legends and synchronized View 2 Probe remain functional.
+- Portable checksum creation: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Candidate artifacts
+- Windows build artifact: \`FoamLens-Windows-v1.4.6\`.
+- Artifact id: \`11267549547\`.
+- Size: \`135,241,030 bytes\`.
+- Digest: \`sha256:3bfda8cfaebe01e6808861cbf675b5d8f069cf8f2fde81e5bf514154d505d975\`.
+- Multi-case runtime fixture: \`QuickCup-MultiCase-Windows-runtime\`.
+- Fixture artifact id: \`11268047374\`.
+- Size: \`326,073,834 bytes\`.
+- Digest: \`sha256:b7e56eb16b0c5138894c9ae12ec02055be4be02d0ebaaa2bfcffe2389ba5bc6c\`.
+
+### Promotion state
+- No merge to \`main\`.
+- No public release created.
+- Public release remains **v1.4.5**.
+- Ribbon branch is validated and ready for user review / later promotion.
