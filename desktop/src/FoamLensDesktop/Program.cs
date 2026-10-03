@@ -706,8 +706,18 @@ internal sealed class FoamLensForm : Form
                         const casePersisted=String(caseSel.value)===expectedCaseId&&
                           String(view2?.caseName||'')===expectedCaseName;
 
-                        const fieldSel=document.getElementById('fcField');
+                        if(typeof api?.copyPrimarySettingsToCompare!=='function'||typeof api?.swapPrimaryCompare!=='function')
+                          throw new Error('Copy/Swap comparison runtime API is unavailable.');
+                        const primaryRegion=String(document.getElementById('fvRegion')?.value||'');
                         const primaryField=String(document.getElementById('fvField')?.value||'');
+                        const primaryComponent=String(document.getElementById('fvComponent')?.value||'value');
+                        await api.copyPrimarySettingsToCompare();
+                        const copySettingsApplied=
+                          String(document.getElementById('fcRegion')?.value||'')===primaryRegion&&
+                          String(document.getElementById('fcField')?.value||'')===primaryField&&
+                          String(document.getElementById('fcComponent')?.value||'value')===primaryComponent;
+
+                        const fieldSel=document.getElementById('fcField');
                         const differentField=[...(fieldSel?.options||[])].find(o=>String(o.value)!==primaryField);
                         if(differentField){
                           fieldSel.value=differentField.value;
@@ -787,11 +797,26 @@ internal sealed class FoamLensForm : Form
                           !marker.classList.contains('hidden')&&
                           markerStyle?.display!=='none'&&markerStyle?.visibility!=='hidden'&&
                           Number(markerRect?.width)>0&&Number(markerRect?.height)>0;
+                        const selectedStats=document.getElementById('fcStatsGrid')?.innerText?.trim()||'';
+
+                        const primaryCaseBeforeSwap=String(document.getElementById('fvCase')?.value||'');
+                        const comparisonCaseBeforeSwap=String(document.getElementById('fcCase')?.value||'');
+                        const firstSwap=await api.swapPrimaryCompare();
+                        const swapApplied=firstSwap===true&&
+                          String(document.getElementById('fvCase')?.value||'')===comparisonCaseBeforeSwap&&
+                          String(document.getElementById('fcCase')?.value||'')===primaryCaseBeforeSwap;
+                        const secondSwap=await api.swapPrimaryCompare();
+                        const swapRestored=secondSwap===true&&
+                          String(document.getElementById('fvCase')?.value||'')===primaryCaseBeforeSwap&&
+                          String(document.getElementById('fcCase')?.value||'')===comparisonCaseBeforeSwap;
 
                         window.__foamLensSecondaryVisualSmokeResult={
                           ok:true,
                           view2Enabled:!!enabled.checked&&!!view2,
                           casePersisted,
+                          copySettingsApplied,
+                          swapApplied,
+                          swapRestored,
                           expectedCase:expectedCaseName,
                           secondaryCase:view2?.caseName||'',
                           secondaryField:view2?.fieldName||'',
@@ -814,7 +839,7 @@ internal sealed class FoamLensForm : Form
                           markerVisible,
                           markerWidth:Number(markerRect?.width)||0,
                           markerHeight:Number(markerRect?.height)||0,
-                          selectedStats:document.getElementById('fcStatsGrid')?.innerText?.trim()||''
+                          selectedStats
                         };
                       }catch(e){
                         window.__foamLensSecondaryVisualSmokeResult={ok:false,error:String(e?.stack||e)};
@@ -824,7 +849,7 @@ internal sealed class FoamLensForm : Form
 
                 string secondaryVisualJson = "null";
                 var secondaryVisualDeadline = Stopwatch.StartNew();
-                while (secondaryVisualDeadline.Elapsed < TimeSpan.FromSeconds(15))
+                while (secondaryVisualDeadline.Elapsed < TimeSpan.FromSeconds(60))
                 {
                     await Task.Delay(120);
                     secondaryVisualJson = await _web.CoreWebView2.ExecuteScriptAsync(
@@ -844,6 +869,9 @@ internal sealed class FoamLensForm : Form
                             string.IsNullOrWhiteSpace(secondaryCase.GetString()) ||
                         !root.TryGetProperty("secondaryField", out var secondaryField) ||
                             string.IsNullOrWhiteSpace(secondaryField.GetString()) ||
+                        !root.TryGetProperty("copySettingsApplied", out var copySettingsApplied) || !copySettingsApplied.GetBoolean() ||
+                        !root.TryGetProperty("swapApplied", out var swapApplied) || !swapApplied.GetBoolean() ||
+                        !root.TryGetProperty("swapRestored", out var swapRestored) || !swapRestored.GetBoolean() ||
                         !root.TryGetProperty("multiPanelSourceCount", out var multiPanelSourceCount) || multiPanelSourceCount.GetInt32() < 2 ||
                         !root.TryGetProperty("multiPanelWidth", out var multiPanelWidth) || multiPanelWidth.GetInt32() != 2400 ||
                         !root.TryGetProperty("multiPanelHeight", out var multiPanelHeight) || multiPanelHeight.GetInt32() != 1600 ||
