@@ -60,11 +60,47 @@ function fcSymmetricDifferenceRange(values){
 
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
-  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:''
+  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
 function fcFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
+function fcCloneCamera(camera){
+  const c=camera||fvState.camera||{};return{yaw:Number(c.yaw)||0,pitch:Number(c.pitch)||0,distance:Math.max(1e-10,Number(c.distance)||1),target:Array.isArray(c.target)?c.target.map(Number):[0,0,0]}
+}
+function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
+function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
+function fcCameraFor(state,mesh){
+  if(fcCamerasLinked())return fcSyncedCamera(fvState.camera,fvState.mesh,mesh);
+  if(!state.camera)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,mesh));
+  return state.camera
+}
+function fcMvpForCamera(camera,canvas){
+  const c=camera||fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],basis=fvCameraBasis(c),near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,basis.upRef||[0,1,0]);return fvMat4Mul(proj,view)
+}
+function fcPanCamera(camera,dx,dy,canvas){
+  const b=fvCameraBasis(camera),scale=Math.max(1e-12,camera.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);for(let a=0;a<3;a++)camera.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale
+}
+function fcFitCameraState(state,mesh){
+  if(!state||!mesh)return;const min=mesh.boundsMin,max=mesh.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1,c=state.camera||fcCloneCamera(fvState.camera);c.target=center;c.distance=diag*1.65;state.camera=c
+}
+function fcResyncCameras(){
+  fcState.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh));for(const state of fcExtraViews)if(state.mesh)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh));fcRender();fcRenderDifference();fcRenderExtras()
+}
+function fcFitAllCameras(){
+  fvCameraFitCurrent();if(!fcCamerasLinked()){fcFitCameraState(fcState,fcState.mesh);for(const state of fcExtraViews)fcFitCameraState(state,state.mesh)}fcRender();fcRenderDifference();fcRenderExtras()
+}
+function fcGlobalVisual(){
+  return{palette:document.getElementById('fvPalette')?.value||'viridis',opacity:fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),edges:document.getElementById('fvEdges')?.checked!==false}
+}
+function fcVisualFor(state,prefix='fcView2'){
+  if(fcVisualsSynced())return fcGlobalVisual();const g=fcGlobalVisual();if(!state.visual)state.visual={...g};
+  const palette=document.getElementById(prefix+'Palette'),opacity=document.getElementById(prefix+'Opacity'),edges=document.getElementById(prefix+'Edges');
+  if(palette)state.visual.palette=palette.value||state.visual.palette||g.palette;if(opacity)state.visual.opacity=fvClamp(opacity.value,.05,1);if(edges)state.visual.edges=!!edges.checked;return state.visual
+}
+function fcSyncVisualUi(){
+  const independent=!fcVisualsSynced();document.getElementById('fcView2Visuals')?.classList.toggle('hidden',!independent);for(const state of fcExtraViews)fcExtraDom(state.id,'Visuals')?.classList.toggle('hidden',!independent)
+}
 function fcUnit(parsed){
   try{return parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):''}catch{return''}
 }
@@ -74,8 +110,8 @@ function fcLegendMarkup(field,component,parsed,range,palette='viridis'){
   const grad=typeof fvLegendGradient==='function'?fvLegendGradient(palette):'linear-gradient(90deg,#440154,#21908d,#fde725)',fmt=v=>fcEsc(typeof fvFmtRange==='function'?fvFmtRange(v,range):fcFmt(v));
   return '<div class="fcLegendTitle">'+fcEsc(name+comp)+(unit?' <span>['+fcEsc(unit)+']</span>':'')+'</div><div class="fcLegendBar" style="background:'+fcEsc(grad)+'"></div><div class="fcLegendTicks"><span>'+fmt(range.min)+'</span><span>'+fmt((Number(range.min)+Number(range.max))/2)+'</span><span>'+fmt(range.max)+'</span></div><div class="fcLegendDelta">Δ '+fmt(delta)+'</div>'
 }
-function fcUpdateViewportLegend(id,field,component,parsed,range){
-  const e=document.getElementById(id);if(!e)return;const palette=document.getElementById('fvPalette')?.value||'viridis';e.innerHTML=fcLegendMarkup(field,component,parsed,range,palette);e.classList.toggle('hidden',!range?.valid)
+function fcUpdateViewportLegend(id,field,component,parsed,range,palette=null){
+  const e=document.getElementById(id);if(!e)return;palette=palette||document.getElementById('fvPalette')?.value||'viridis';e.innerHTML=fcLegendMarkup(field,component,parsed,range,palette);e.classList.toggle('hidden',!range?.valid)
 }
 function fcProbeEnabled(){try{return !!window.FoamLensFieldProbe?.isEnabled?.()}catch{return false}}
 function fcProbeCore(){return window.FoamLensFieldProbe||{}}
@@ -124,13 +160,14 @@ function fcUpdateStatsGrid(){
   for(const s of fcExtraViews)if(s.mesh&&s.fieldValues)cards.push('<div class="fcStatsCard">'+fcStatsMarkup((fcExtraCase(s)?.name||fcUi('View','Vista')+' '+s.id)+' · '+(s.fieldName||'—'),s.mesh,s.range,s.fieldParsed,s.storage,s.probe)+'</div>');
   root.innerHTML=cards.join('')
 }
-function fcDriveSharedCamera(canvas){
+function fcDriveSharedCamera(canvas,state=fcState,meshFn=()=>state.mesh,renderFn=()=>{fcRender();fcRenderDifference();fcRenderExtras()}){
   if(!canvas||canvas.dataset.fcSharedCamera)return;canvas.dataset.fcSharedCamera='1';let drag=null;
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch,distance:fvState.camera.distance,mode:e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit'}});
-  canvas.addEventListener('pointermove',e=>{canvas.style.cursor=fcProbeEnabled()?'crosshair':'';if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.mode==='orbit'){fvState.camera.yaw=drag.yaw+dx*.008;fvState.camera.pitch=fvClamp(drag.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4);fvRender()}else if(drag.mode==='pan'){fvCameraPanPixels(e.clientX-drag.lastX,e.clientY-drag.lastY,canvas);drag.lastX=e.clientX;drag.lastY=e.clientY}else if(drag.mode==='zoom'){fvState.camera.distance=Math.max(1e-10,drag.distance*Math.exp(dy*.01));fvRender()}});
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);const cam=fcCamerasLinked()?fvState.camera:fcCameraFor(state,meshFn());drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:cam.yaw,pitch:cam.pitch,distance:cam.distance,mode:e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit'}});
+  canvas.addEventListener('pointermove',e=>{canvas.style.cursor=fcProbeEnabled()?'crosshair':'';if(!drag)return;const cam=fcCamerasLinked()?fvState.camera:fcCameraFor(state,meshFn()),dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.mode==='orbit'){cam.yaw=drag.yaw+dx*.008;cam.pitch=fvClamp(drag.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4)}else if(drag.mode==='pan'){fcPanCamera(cam,e.clientX-drag.lastX,e.clientY-drag.lastY,canvas);drag.lastX=e.clientX;drag.lastY=e.clientY}else if(drag.mode==='zoom')cam.distance=Math.max(1e-10,drag.distance*Math.exp(dy*.01));if(fcCamerasLinked())fvRender();else renderFn()});
   const end=()=>{drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
-  canvas.addEventListener('wheel',e=>{e.preventDefault();fvCameraZoomFactor(Math.exp(e.deltaY*.001))},{passive:false});canvas.addEventListener('dblclick',fvCameraFitCurrent)
+  canvas.addEventListener('wheel',e=>{e.preventDefault();const cam=fcCamerasLinked()?fvState.camera:fcCameraFor(state,meshFn());cam.distance=Math.max(1e-10,cam.distance*Math.exp(e.deltaY*.001));if(fcCamerasLinked())fvRender();else renderFn()},{passive:false});
+  canvas.addEventListener('dblclick',()=>{if(fcCamerasLinked())fvCameraFitCurrent();else{fcFitCameraState(state,meshFn());renderFn()}})
 }
 function fcInstallViewProbe(canvas,getContext){
   if(!canvas||canvas.dataset.fcProbe)return;canvas.dataset.fcProbe='1';let down=null;
@@ -173,10 +210,7 @@ function fcRefreshSelectors(preserve=true){
   const badge=document.getElementById('fcBadge');if(badge)badge.textContent=eligible.length?eligible.length+' '+fcUi('3D cases','casos 3D'):fcUi('no 3D case','sin caso 3D');
   fcUpdateLabels()
 }
-function fcMvp(canvas){
-  const c=fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh),d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,[0,1,0]);
-  return fvMat4Mul(proj,view)
-}
+function fcMvp(canvas){return fcMvpForCamera(fcCameraFor(fcState,fcState.mesh),canvas)}
 function fcRender(){
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
@@ -195,7 +229,7 @@ function fcUploadMesh(mesh){
   fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;fcState.spatialHash=fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount)
 }
 function fcUpdateDerived(range){
-  range=fcState.videoRangeOverride?.valid?fcState.videoRangeOverride:range;const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues,storage=String(fcState.fieldStorage||'volume');if(!r||!mesh||!values||!range?.valid)return;const palette=document.getElementById('fvPalette')?.value||'viridis';r.faceFieldCount=0;
+  range=fcState.videoRangeOverride?.valid?fcState.videoRangeOverride:range;const r=fcState.renderer,mesh=fcState.mesh,values=fcState.fieldValues,storage=String(fcState.fieldStorage||'volume');if(!r||!mesh||!values||!range?.valid)return;const palette=fcVisualFor(fcState,'fcView2').palette;r.faceFieldCount=0;
   if(storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,values,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
   else if(storage==='surface'){
     fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const triFaces=mesh._fcInternalTriangleFaces||[],colors=fvInternalFaceColors(triFaces,values,range.min,range.max,palette);fvUploadBuffer(r,'faceFieldColor',colors,r.gl.DYNAMIC_DRAW);r.faceFieldCount=triFaces.length*3
@@ -262,7 +296,7 @@ async function fcRefreshFrame(){
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const data=await fvLoadFrameData(selected,group,region,sync.time,component,{includeBoundary:false});if(seq!==fcState.seq)return;
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.range=data.range;
-    const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared);fcUpdateStatsGrid();fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
+    const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared,fcVisualFor(fcState,'fcView2').palette);fcUpdateStatsGrid();fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
     const timing=sync.exact?fcUi('exact physical time','tiempo físico exacto'):fcUi('nearest physical time','tiempo físico más cercano');fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+timing+(sync.exact?'':' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s'))
   }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
 }
@@ -277,27 +311,25 @@ function fcExtraCase(state){return (cases||[]).find(c=>String(c.id)===String(fcE
 function fcExtraRegion(state){return fcExtraDom(state.id,'Region')?.value||state.region||''}
 function fcExtraField(state){return fcExtraDom(state.id,'Field')?.value||state.fieldName||''}
 function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value||state.component||'value'}
-function fcExtraMvp(state,canvas){
-  const cam=fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh),d=Math.max(1e-12,cam.distance),cp=Math.cos(cam.pitch),eye=[cam.target[0]+d*cp*Math.sin(cam.yaw),cam.target[1]+d*Math.sin(cam.pitch),cam.target[2]+d*cp*Math.cos(cam.yaw)],basis=typeof fvCameraBasis==='function'?fvCameraBasis(cam):{upRef:[0,1,0]},near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,cam.target,basis.upRef||[0,1,0]);return fvMat4Mul(proj,view)
-}
+function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state){
   if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
-  const opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),showEdges=document.getElementById('fvEdges')?.checked!==false;
+  const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges;
   if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}
   else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
   if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
-  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=document.getElementById('fvPalette')?.value||'viridis';
+  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=fcVisualFor(state,'fcExtra'+state.id).palette;
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
   state.storage=data.storage;
   if(data.storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
   else if(data.storage==='surface'){
     fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const fb=fvBuildInternalFaceBuffers(mesh);fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(fb.triangleFaces,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=fb.positions.length/3
   }else fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
-  state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range);fcExtraRender(state);fcUpdateStatsGrid()
+  state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range,palette);fcExtraRender(state);fcUpdateStatsGrid()
 }
 function fcExtraUpdateLabel(state){
   const e=fcExtraDom(state.id,'Label'),c=fcExtraCase(state);if(!e)return;e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'')+(Number.isFinite(state.delta)&&Math.abs(state.delta)>1e-12?' · Δt='+(state.delta>=0?'+':'')+fcFmt(state.delta)+' s':'')
@@ -322,11 +354,11 @@ function fcExtraRemove(id){
   const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout()
 }
 function fcExtraAdd(){
-  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null};fcExtraViews.push(state);
-  const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');if(!controls||!grid)return;const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
+  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null};fcExtraViews.push(state);
+  const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');if(!controls||!grid)return;const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Mesh edges','Aristas de malla')+'</label></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);
   fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{state.probe=null;fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state)});
-  const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas);fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
+  for(const suffix of ['Palette','Opacity','Edges'])fcExtraDom(id,suffix)?.addEventListener(suffix==='Opacity'?'input':'change',()=>{state.visual=null;fcExtraUpload(state,{mesh:state.mesh,storage:state.storage,fieldValues:state.fieldValues,parsed:state.fieldParsed,range:state.range});fcExtraRender(state)});fcSyncVisualUi();const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas,state,()=>state.mesh,()=>fcExtraRender(state));fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state);fcUpdateLayout()
 }
 function fcVideoDescriptors(){
@@ -348,6 +380,8 @@ function fcInstallUi(){
     '<div class="row2" style="margin-top:8px"><div class="field"><label data-fl-en="View 2 case" data-fl-es="Caso de vista 2">View 2 case</label><select id="fcCase"></select></div><div class="field"><label data-fl-en="Region" data-fl-es="Región">Region</label><select id="fcRegion"></select></div></div>'+
     '<div class="row2"><div class="field"><label data-fl-en="View 2 field" data-fl-es="Variable de vista 2">View 2 field</label><select id="fcField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fcComponent"></select></div></div>'+
     '<div class="field"><label data-fl-en="Physical-time synchronization" data-fl-es="Sincronización por tiempo físico">Physical-time synchronization</label><select id="fcSync"><option value="nearest" data-fl-en="Nearest available (show Δt)" data-fl-es="Más cercano disponible (mostrar Δt)">Nearest available (show Δt)</option><option value="exact" data-fl-en="Exact time only" data-fl-es="Solo tiempo exacto">Exact time only</option></select></div>'+
+    '<div class="fvChecks fcLinkRow"><label class="inlineCheck"><input id="fcLinkCameras" type="checkbox" checked> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label><button class="btn tiny" id="fcResyncCameras" type="button" data-fl-en="Re-sync" data-fl-es="Re-sincronizar">Re-sync</button><button class="btn tiny" id="fcFitAll" type="button" data-fl-en="Fit all" data-fl-es="Ajustar todas">Fit all</button><label class="inlineCheck"><input id="fcSyncVisuals" type="checkbox" checked> <span data-fl-en="Sync visual settings" data-fl-es="Sincronizar ajustes visuales">Sync visual settings</span></label></div>'+
+    '<div class="fcExtraCard hidden" id="fcView2Visuals"><div class="row2"><div class="field"><label data-fl-en="View 2 colormap" data-fl-es="Mapa de color Vista 2">View 2 colormap</label><select id="fcView2Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label data-fl-en="View 2 opacity" data-fl-es="Opacidad Vista 2">View 2 opacity</label><input id="fcView2Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><label class="inlineCheck"><input id="fcView2Edges" type="checkbox" checked> <span data-fl-en="View 2 mesh edges" data-fl-es="Aristas de malla Vista 2">View 2 mesh edges</span></label></div>'+
     '<div class="smallnote" data-fl-en="Each viewport may use its own case, field and component. Time and camera remain synchronized. A shared color scale and 3D difference are used only when both views represent the same physical quantity." data-fl-es="Cada viewport puede usar su propio caso, variable y componente. El tiempo y la cámara permanecen sincronizados. La escala compartida y la diferencia 3D solo se usan cuando ambas vistas representan la misma cantidad física.">Each viewport may use its own case, field and component. Time and camera remain synchronized. A shared color scale and 3D difference are used only when both views represent the same physical quantity.</div>'+
     '<div class="fcExtraActions"><button class="btn soft" id="fcAddView" type="button" data-fl-en="+ Add 3D view" data-fl-es="+ Añadir vista 3D">+ Add 3D view</button><span class="smallnote" data-fl-en="Up to 4 synchronized viewports" data-fl-es="Hasta 4 viewports sincronizados">Up to 4 synchronized viewports</span></div><div id="fcExtraControls"></div>'+
     '<div class="extStatus" id="fcStatus"></div></div>';status.insertAdjacentElement('beforebegin',box);
@@ -364,7 +398,7 @@ function fcInstallUi(){
   document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcComponent').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcSync').addEventListener('change',()=>fcRefreshFrame());
-  const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas);fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
+  document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Edges'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>fcRender()).observe(second);new ResizeObserver(()=>fcRenderDifference()).observe(diff);}
   fcRefreshSelectors(false);fcUpdateLayout();return true
 }
@@ -373,7 +407,7 @@ function fcInstall(){
   if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){const previous=fvLoadFrame;fvLoadFrame=async function(...args){const x=await previous.apply(this,args);await fcRefreshFrame();await fcRefreshExtras();return x};fvLoadFrame.__fcPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));
-  for(const id of ['fvPalette','fvSurface','fvEdges','fvOpacity','fvRangeMode','fvRangeMin','fvRangeMax','fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedAxis','fvSeedCount','fvSeedPosition'])document.getElementById(id)?.addEventListener(id==='fvSlicePosition'||id==='fvIsoValue'||id==='fvOpacity'||id==='fvSliceOpacity'||id==='fvIsoOpacity'||id==='fvVectorScale'||id==='fvSeedPosition'?'input':'change',()=>setTimeout(fcRefreshVisuals,0));
+  for(const id of ['fvPalette','fvSurface','fvEdges','fvOpacity','fvRangeMode','fvRangeMin','fvRangeMax','fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id)?.addEventListener(id==='fvSlicePosition'||id==='fvIsoValue'||id==='fvOpacity'||id==='fvSliceOpacity'||id==='fvIsoOpacity'||id==='fvVectorScale'||id==='fvSeedPosition'?'input':'change',()=>setTimeout(fcRefreshVisuals,0));
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels()});
 }
 fcInstall();
