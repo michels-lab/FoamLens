@@ -2090,3 +2090,143 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - Multi-case runtime fixture artifact: `QuickCup-MultiCase-Windows-runtime`.
 - Runtime fixture artifact id: `11129997074`.
 - v1.4.4 remains unchanged and historical; promotion target is v1.4.5.
+
+
+## 2026-10-02 — FoamLens post-v1.4.5 pending roadmap
+
+### Roadmap policy
+- This section intentionally records **pending / proposed work**, not completed product behavior.
+- An item remains pending until product code, regressions and packaged-runtime evidence exist.
+- Completed items should be moved into a dated validation section rather than silently removed from this roadmap.
+- Current public release at the time this roadmap was written: **v1.4.5**.
+
+### P0 — Scientific visualization / trust
+- **Streamline seeding and integration controls**
+  - add explicit seed modes: Plane / Line / Box-Volume / Patch;
+  - expose seed density independently from vector glyph density;
+  - add Forward / Backward / Both integration direction;
+  - expose max integration length, max steps and integration step controls;
+  - report actual streamline count and integration-point count;
+  - support coloring streamlines by velocity magnitude or another compatible scalar field;
+  - validate representative streamline paths against ParaView/VTK before calling the feature thesis-grade.
+- **Vector glyph analysis controls**
+  - keep Adaptive / fixed glyph-count resolution and glyph-size controls;
+  - add normalized-length vs magnitude-proportional arrow modes;
+  - allow region/ROI-based glyph sampling;
+  - report requested vs actually rendered glyph count;
+  - validate spatial sampling against the underlying vector field rather than only visual density.
+- **Per-viewport visual independence**
+  - allow every 3D viewport to own its own colormap, color-range mode, opacity, vector/streamline visibility, Slice/Iso settings and Probe state when desired;
+  - add an explicit Sync visual settings toggle rather than implicitly sharing all visualization controls;
+  - retain independent scientific legends for every viewport.
+- **Scientific provenance in the viewport**
+  - make field association, dimensions/units, physical time, region, case and parser/source provenance visible without opening the catalog;
+  - expose when a frame is Exact / Nearest / Interpolated in multi-case synchronized views.
+
+### P0 — Multi-view / case comparison
+- **Camera synchronization groups**
+  - add Link cameras ON/OFF;
+  - allow one viewport to be rotated independently without breaking the others;
+  - provide Re-sync camera and Fit all actions.
+- **Time synchronization modes per comparison**
+  - Exact / Nearest / Interpolated physical-time synchronization;
+  - explicit per-view Δt badges when times are not exact;
+  - prevent silent index-based equivalence.
+- **Generalized 3D difference**
+  - choose any two compatible visible views as A and B;
+  - support signed difference, absolute difference and percent difference where scientifically valid;
+  - keep strict association / dimensions / mesh-compatibility checks.
+- **Multi-case matrix workflow**
+  - quicker Case A / B / C / D assignment;
+  - copy visual settings from one viewport to another;
+  - swap views without rebuilding the workspace.
+
+### P1 — 3D + 2D linked analysis
+- **Interactive profile definition from the 3D view**
+  - draw a line in 3D and immediately generate a Spatial Profile along it;
+  - support axis-aligned and arbitrary lines;
+  - show the sampled line/plane visibly inside the 3D viewport.
+- **Probe-to-profile linking**
+  - selecting a 3D Probe should optionally move a cursor/marker on the Spatial Profile;
+  - selecting a point on a Spatial Profile should optionally highlight the corresponding 3D location.
+- **Synchronized companion plots**
+  - keep Spatial Profile / Time Series / Solver Logs simultaneously available beside 3D;
+  - make the physical-time link explicit and reversible;
+  - allow more than one 2D companion panel when screen space permits.
+- **Cross-case profile comparison**
+  - overlay profiles from multiple selected 3D cases/fields at the same physical time;
+  - display difference / relative difference without extrapolating beyond common support.
+
+### P1 — Animation / video
+- **Camera-path / keyframe animation**
+  - save camera keyframes and interpolate orbit / pan / zoom through the exported animation.
+- **Scientific video overlays**
+  - configurable case / field / region / time / legend / Δt labels;
+  - optional watermark/provenance and thesis-safe title block.
+- **Multi-view video layouts**
+  - 1-up / 2-up / 2×2 templates;
+  - optional 3D + Spatial Profile composition in the same video;
+  - preserve an independent fixed global color range for each viewport across the full recording.
+- **Export quality controls**
+  - bitrate/quality presets;
+  - frame-step and playback-speed controls;
+  - explicit codec/fallback reporting for MP4/WebM.
+
+### P1 — Performance / responsiveness
+- **Progressive frame rendering**
+  - update the visible viewport as soon as its required field is ready instead of waiting for hidden or secondary views.
+- **Viewport-aware loading**
+  - prioritize active/visible viewports;
+  - lazy-load hidden secondary views;
+  - cancel stale case/time/field requests aggressively.
+- **GPU/resource reuse**
+  - reuse mesh and WebGL buffers when only field values change;
+  - avoid rebuilding equivalent geometry across synchronized views.
+- **Cache telemetry**
+  - show hit/miss/prefetch counts in addition to retained MB;
+  - expose a clear-cache action;
+  - distinguish mesh cache from field cache.
+- **Playback prefetch policy**
+  - adaptive prefetch depth based on current playback speed and measured parse time.
+
+### P1 — Export / thesis workflow
+- **Multi-panel thesis figure export**
+  - export 3D + Spatial Profile / comparison views as one high-resolution figure;
+  - consistent margins, labels, legends and physical-time caption.
+- **Per-view export**
+  - export an individual viewport without hiding the others first.
+- **Reusable figure presets**
+  - save camera, field, range, legend and layout presets for repeatable thesis figures.
+
+### P2 — Workspace / usability
+- **Persistent Field Workspace layouts**
+  - save and restore viewport count, case/field assignments, companion plots, splitter positions and synchronization settings.
+- **Per-view rename / labels**
+  - user labels such as Baseline / Pressure BC / Fixed Value for presentations and exports.
+- **Visual comparison status bar**
+  - compact always-visible summary of linked camera, linked time, active Probe, vector glyph count and streamline count.
+- **Keyboard/mouse discoverability**
+  - viewport help overlay for orbit / pan / zoom / Probe shortcuts.
+- **Resizable multi-view panels**
+  - drag splitters between 3D viewports and companion plots instead of fixed equal columns.
+
+### Recommended next implementation order
+1. Streamline seeding/integration controls + ParaView validation.
+2. Per-viewport visual settings and camera-link toggle.
+3. Interactive 3D-defined Spatial Profile.
+4. Generalized A/B 3D difference and explicit time-sync modes.
+5. Multi-panel thesis/video export.
+6. Performance pass with viewport-aware loading and GPU-buffer reuse.
+
+### Already closed before this roadmap
+- top-level Field Workspace;
+- simultaneous 3D + Spatial Profile workflow;
+- visible Add 3D View and up to four synchronized views;
+- safe 3D case switching;
+- independent added-view legends;
+- Probe marker/picking in added 3D views;
+- adjustable vector glyph resolution / size;
+- adjustable streamline seed density;
+- synchronized multi-view video export;
+- late-time B13 thermal-range validation;
+- packaged portable + installed runtime evidence for v1.4.5.
