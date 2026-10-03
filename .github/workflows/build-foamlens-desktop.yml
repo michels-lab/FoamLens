@@ -396,6 +396,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/actionable-diagnostics.test.cjs
 
+      - name: Test multi-panel export and progressive performance
+        shell: pwsh
+        run: node desktop/tests/multipanel-performance.test.cjs
+
       - name: Test compact ribbon navigation
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
