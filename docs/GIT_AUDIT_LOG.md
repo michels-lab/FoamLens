@@ -2090,3 +2090,25 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - Multi-case runtime fixture artifact: `QuickCup-MultiCase-Windows-runtime`.
 - Runtime fixture artifact id: `11129997074`.
 - v1.4.4 remains unchanged and historical; promotion target is v1.4.5.
+
+
+## 2026-10-03 — v1.4.6 visible-version validation repaired and completed
+
+- Development branch: `development/v1.4.6-visible-version`.
+- Product change already present on the branch: persistent visible FoamLens Desktop v1.4.6 identity across the desktop UI/runtime.
+- Previous Windows builds on 2026-10-02 failed after the real QuickCup regression had already passed because `desktop/tests/native-performance.test.cjs` still expected the historical runtime-smoke text `FoamLens v1.4.5 3D runtime UI smoke passed` while `Program.cs` correctly emitted the v1.4.6 identity.
+- Fix commit: `a80ffd51d7a13c3dfc12e28df863aea6df917d09` — `test: align native runtime smoke with v1.4.6`.
+- The fix changed only the stale regression expectation/name/error text; production runtime behavior was not altered.
+- GitHub Actions run **#494** (`37104141077`) completed **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Native background progress/cancellation regression: **SUCCESS**; this was the step that had blocked the previous v1.4.6 builds.
+- 3D Field View, point-field reconstruction, decomposed meshes, dynamic mesh, iso-surfaces, 3D Probe, explicit surface fields, strict 3D difference, Smart Import, dual Time-Series Focus, convergence, momentum, energy, experimental validation, contextual UI, diagnostics and bilingual/overflow regressions: **SUCCESS**.
+- Portable Windows executable build: **SUCCESS**.
+- Packaged portable runtime smoke with real OpenFOAM fixture: **SUCCESS**.
+- Windows installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Windows build artifact upload: **SUCCESS**.
+- Release publication: **SKIPPED**, expected for a development-branch push.
+- Artifact: `FoamLens-Windows-v1.4.6`, id `11267431426`, size `135,196,674 bytes`, digest `sha256:63089cb91f640ca78ea7cb7c19217947bb2500251d1c97b547c84a8ed652d015`.
+- Multi-case runtime fixture artifact: `QuickCup-MultiCase-Windows-runtime`, id `11267780761`, size `326,073,834 bytes`, digest `sha256:32d37d99429fa308cdfc410d08866d6419fbe5f6ccbe152a84039d6fabffdaa7`.
+- Public release remains **v1.4.5**; v1.4.6 is validated and ready for promotion when explicitly requested.
