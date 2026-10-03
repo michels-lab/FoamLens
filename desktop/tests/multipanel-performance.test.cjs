@@ -32,7 +32,7 @@ test('multi-panel export exposes thesis paper presentation and layout presets',(
   for(const token of [
     'Thesis 2400×1600','Thesis Hi-Res 3200×2000','Paper 2400×1800','Presentation 1920×1080',
     '1-up','2-up','2×2','3D + Profile',
-    'Export multi-panel PNG','Export panels separately'
+    'Export multi-panel PNG','Export panels separately','scientific labels and ranges','meCompose([source]'
   ])assert(multipanel.includes(token),'Missing multi-panel preset token: '+token);
 });
 
@@ -82,7 +82,7 @@ test('performance telemetry reports latency cache reuse and deferred view work',
 
 test('new workflow tools are discoverable from the desktop ribbon',()=>{
   for(const token of [
-    'flRaSwapAB','Swap A/B','swapPrimaryCompare',
+    'flRaSwapAB','Swap A/B','swapPrimaryCompare','flRaCopyAToB','Copy A→B','copyPrimarySettingsToCompare',
     'flRaExportMulti','Multi-panel','FoamLensMultiPanelExport',
     'flRaPerformance','Performance','ppPanel'
   ])assert(ribbon.includes(token),'Missing ribbon workflow token: '+token);
