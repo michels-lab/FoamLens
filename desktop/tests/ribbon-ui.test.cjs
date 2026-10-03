@@ -29,6 +29,8 @@ for(const id of requiredTargets)assert(source.includes("'"+id+"'")||source.inclu
 
 assert(source.includes("globalContextBar"),'Ribbon must preserve the existing project/case/region context bar.');
 assert(source.includes("contextTrail"),'Ribbon must preserve the existing context trail.');
+assert(source.includes("ribbon.appendChild(casePanel)"),'Cases visibility menu must be moved out of the hidden legacy toolbar.');
+assert(source.includes("e.stopPropagation()"),'Ribbon actions must not be immediately cancelled by legacy document click handlers.');
 assert(source.includes("body.flRibbonReady #modeNavBar{display:none!important}"),
   'Legacy mode navigation may only be hidden after the ribbon is installed.');
 assert(source.includes("body.flRibbonReady .top .tools{display:none!important}"),
