@@ -199,7 +199,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','plots','analysis','compare','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme'];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -209,6 +209,11 @@ internal sealed class FoamLensForm : Form
                   const fieldPanelActive=document.getElementById('flRibbonPanel-field')?.classList.contains('active')===true;
                   const fieldMode=document.body.classList.contains('appMode-field');
                   document.getElementById('flRibbonTab-home')?.click();
+                  document.getElementById('flRaCases')?.click();
+                  const casePanel=document.getElementById('caseQuickPanel');
+                  const casePanelParent=casePanel?.parentElement?.id||'';
+                  const casePanelOpen=!!casePanel&&!casePanel.classList.contains('hidden');
+                  casePanel?.classList.add('hidden');
                   return {
                     ribbon:!!ribbon,
                     api:typeof window.FoamLensRibbon?.selectTab==='function',
@@ -222,7 +227,9 @@ internal sealed class FoamLensForm : Form
                     fieldMode,
                     legacyNavHidden:document.getElementById('modeNavBar')?getComputedStyle(document.getElementById('modeNavBar')).display==='none':false,
                     legacyToolsHidden:document.querySelector('.top .tools')?getComputedStyle(document.querySelector('.top .tools')).display==='none':false,
-                    contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost'
+                    contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
+                    casePanelParent,
+                    casePanelOpen
                   };
                 })()
                 """);
@@ -244,10 +251,15 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens ribbon icon/label hierarchy is incomplete: {ribbonUiJson}");
                 foreach (var property in new[] { "fieldTabActive", "fieldPanelActive", "fieldMode",
-                                                  "legacyNavHidden", "legacyToolsHidden", "contextPreserved" })
+                                                  "legacyNavHidden", "legacyToolsHidden", "contextPreserved",
+                                                  "casePanelOpen" })
                     if (!root.TryGetProperty(property, out var ok) || !ok.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens ribbon runtime behavior failed ({property}): {ribbonUiJson}");
+                if (!root.TryGetProperty("casePanelParent", out var casePanelParent) ||
+                    !string.Equals(casePanelParent.GetString(), "flRibbon", StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        $"FoamLens ribbon Cases menu was not re-homed correctly: {ribbonUiJson}");
             }
             Log($"FoamLens ribbon runtime UI smoke passed: {ribbonUiJson}");
 
