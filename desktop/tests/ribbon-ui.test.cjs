@@ -9,8 +9,8 @@ const ribbonPath=path.join(repoRoot,'desktop','src','FoamLensDesktop','frontend'
 const source=fs.readFileSync(ribbonPath,'utf8');
 
 const tabs=['home','data','field','plots','analysis','compare','export','view'];
-assert(source.includes("'flRibbonTab-'+key"),'Ribbon tab IDs must be generated from stable tab keys.');
-assert(source.includes("'flRibbonPanel-'+key"),'Ribbon panel IDs must be generated from stable tab keys.');
+assert(source.includes('id="flRibbonTab-\'+key+\'"'),'Ribbon tab IDs must be generated from stable tab keys.');
+assert(source.includes('id="flRibbonPanel-\'+key+\'"'),'Ribbon panel IDs must be generated from stable tab keys.');
 for(const tab of tabs){
   const tuplePattern=new RegExp("\\['"+tab+"','[^']+','[^']+','[^']+'\\]");
   assert(tuplePattern.test(source),"Ribbon tab definition missing: "+tab);
