@@ -919,7 +919,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     fieldRibbonText:document.querySelector('#flRibbonTab-field span')?.textContent?.trim()||'',
     fieldRibbonVisible:(()=>{const e=document.getElementById('flRibbonTab-field');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
-    legacyFieldModeHidden:(()=>{const e=document.getElementById('modeField');if(!e)return false;return getComputedStyle(e).display==='none'})(),
+    legacyFieldModeHidden:(()=>{const nav=document.getElementById('modeNavBar');return !!nav&&getComputedStyle(nav).display==='none'})(),
     status:document.getElementById('fvStatus')?.textContent||''
   };
 };
