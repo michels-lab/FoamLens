@@ -536,6 +536,28 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens ribbon Field navigation is not visible after case import: {realCaseJson}");
 
+                    if (!data.TryGetProperty("streamlineSeed400", out var streamlineSeed400Node) ||
+                        streamlineSeed400Node.GetInt32() != 400 ||
+                        !data.TryGetProperty("advancedStreamlineControls", out var advancedStreamlineControlsNode) ||
+                        !advancedStreamlineControlsNode.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens advanced streamline runtime controls are incomplete: {realCaseJson}");
+                    if (!data.TryGetProperty("multiViewControlSet", out var multiViewControlSetNode) ||
+                        !multiViewControlSetNode.GetBoolean())
+                        throw new InvalidOperationException(
+                            $"FoamLens linked/independent multi-view controls are incomplete: {realCaseJson}");
+                    if (!data.TryGetProperty("profile3DPoints", out var profile3DPointsNode) ||
+                        profile3DPointsNode.GetInt32() < 20 ||
+                        !data.TryGetProperty("profile3DFinite", out var profile3DFiniteNode) ||
+                        profile3DFiniteNode.GetInt32() != profile3DPointsNode.GetInt32() ||
+                        !data.TryGetProperty("profile3DDerivedKind", out var profile3DKindNode) ||
+                        !string.Equals(profile3DKindNode.GetString(), "field3d_line_profile", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("profile3DLineLength", out var profile3DLineLengthNode) ||
+                        !double.IsFinite(profile3DLineLengthNode.GetDouble()) ||
+                        profile3DLineLengthNode.GetDouble() <= 0)
+                        throw new InvalidOperationException(
+                            $"FoamLens 3D-defined Spatial Profile runtime smoke failed: {realCaseJson}");
+
                     if (!string.IsNullOrWhiteSpace(minimumCasesText) &&
                         int.TryParse(minimumCasesText, NumberStyles.Integer,
                             CultureInfo.InvariantCulture, out var minimumCases))
@@ -880,9 +902,28 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   }
   fvCameraPreset('iso');
   fvRender();
+  const streamlineSeed400=typeof fvSeedPlane==='function'&&fvState.mesh?fvSeedPlane(fvState.mesh.boundsMin,fvState.mesh.boundsMax,'x',400,.5).length:0;
+  const advancedStreamlineControls=['fvSeedMode','fvSeedCount','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'].every(id=>!!document.getElementById(id));
+  const multiViewControlSet=['fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals','fcView2Palette','fcView2Opacity'].every(id=>!!document.getElementById(id));
+  let runtimeProfile=null,runtimeProfileError='';
+  try{
+    const centers=fvState.mesh?.cellCenters||[],n=Number(fvState.mesh?.cellCount)||0;
+    if(n>1&&centers.length>=n*3&&typeof window.FoamLensFieldWorkspace?.set3DProfileLine==='function'){
+      const a=[Number(centers[0]),Number(centers[1]),Number(centers[2])],j=3*(n-1),b=[Number(centers[j]),Number(centers[j+1]),Number(centers[j+2])];
+      runtimeProfile=window.FoamLensFieldWorkspace.set3DProfileLine(a,b,{select:false});
+    }
+  }catch(e){runtimeProfileError=String(e?.stack||e)}
   const range=fvFiniteRange(fvState.fieldValues);
   const gl=fvState.renderer?.gl||null;
   return{
+    streamlineSeed400,
+    advancedStreamlineControls,
+    multiViewControlSet,
+    profile3DPoints:Number(runtimeProfile?.t?.length||0),
+    profile3DFinite:Number(runtimeProfile?.y?.filter?.(Number.isFinite)?.length||0),
+    profile3DDerivedKind:String(runtimeProfile?.derivedKind||''),
+    profile3DLineLength:Number(runtimeProfile?.t?.at?.(-1)||0),
+    profile3DError:runtimeProfileError,
     caseCount:cases.length,
     readyCaseCount:(cases||[]).filter(fvCaseViewAvailable).length,
     initialCaseId:Number(initialCase?.id),
