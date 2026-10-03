@@ -2774,3 +2774,42 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - Public release remains **v1.4.5**.
 - \`development/v1.4.9-compare-export-performance\` is validated and ready for user review / later promotion.
 
+## 2026-10-03 — FoamLens Desktop v1.4.9 public release published
+
+- Release tag: `v1.4.9`.
+- Release name: **FoamLens v1.4.9**.
+- GitHub release id: `402430264`.
+- Published at: `2026-10-03T09:15:07Z`.
+- Release commit / tag source: `597d8d2a9d6fa35a1745e1ee713fb72f7faddf47`.
+- Promotion method: clean non-forced fast-forward of `main` after rebuilding the release commit on top of the previous `main` head so the main-only roadmap/audit history was preserved.
+- Pull request #6 is closed as merged at the same release commit.
+- GitHub Actions run **#542** (`37112111383`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full 60-test scientific/UI regression suite: **SUCCESS**.
+- Portable Windows executable build and packaged runtime smoke: **SUCCESS**.
+- Installer build and installed-application runtime smoke: **SUCCESS**.
+- Publish GitHub Release step: **SUCCESS**.
+
+### Public release assets
+- `FoamLens-Portable-v1.4.9.exe`
+  - asset id: `607513824`
+  - size: `73,101,447 bytes`
+  - digest: `sha256:b81626968d6c9a4e9868c7cd9621c99e90ba82a9ca3ab381cccf5ba4d7c6bb8e`
+- `FoamLens-Portable-v1.4.9.exe.sha256`
+  - asset id: `607513823`
+  - size: `96 bytes`
+  - digest: `sha256:60351c726c897136f7b6df2b870f30a508f4dfd50a9a5c8f69aacc9f9667aaef`
+- `FoamLens-Setup-v1.4.9.exe`
+  - asset id: `607513821`
+  - size: `67,928,528 bytes`
+  - digest: `sha256:444c6d616bafe5a87b3efc21ee62de9945881b3f9ebda06b4ad8df0fd89ca80c`
+
+### Actions artifact
+- `FoamLens-Windows-v1.4.9`
+  - artifact id: `11270470033`
+  - size: `135,272,702 bytes`
+  - digest: `sha256:80cca9523ef6c3f1208766e276b618b1bcde1c9bb122cf54c35e658913de9b22`
+
+### State
+- **v1.4.9 is now the current public FoamLens Desktop release.**
+- Release is not marked draft or prerelease.
