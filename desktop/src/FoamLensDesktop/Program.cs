@@ -37,7 +37,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.4.6", "app");
+        "FoamLens", "Desktop", "1.4.9", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -342,7 +342,7 @@ internal sealed class FoamLensForm : Form
                 if (root.TryGetProperty("missing", out var missing) &&
                     missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                     throw new InvalidOperationException(
-                        $"FoamLens v1.4.6 3D runtime controls are missing: {fieldViewRuntimeJson}");
+                        $"FoamLens v1.4.9 3D runtime controls are missing: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("extraViews", out var extraViews) ||
                     extraViews.ValueKind != JsonValueKind.Array || extraViews.GetArrayLength() != 2 ||
                     extraViews.EnumerateArray().Any(v =>
@@ -412,7 +412,7 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens standard camera presets did not mount: {fieldViewRuntimeJson}");
             }
-            Log($"FoamLens v1.4.6 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
+            Log($"FoamLens v1.4.9 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
 
             // Exercise the actual WebView2 recording primitives used by FoamLens video export.
             // ExecuteScriptAsync serializes an unresolved JavaScript Promise as {}, so the
