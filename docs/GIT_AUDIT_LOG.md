@@ -2210,3 +2210,185 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - No public release created.
 - Public release remains **v1.4.5**.
 - Ribbon branch is validated and ready for user review / later promotion.
+
+
+## 2026-10-03 — v1.4.8 scientific workspace: advanced streamlines, independent views and 3D-defined profiles
+
+- Development branch: `development/v1.4.8-scientific-workspace`.
+- Validated product head: `aee2581127c3771b93b4c7fda3177009dd25c652`.
+- Base executable/version identity remains FoamLens Desktop v1.4.6 / frontend v51 on this development branch; no release-version promotion was performed.
+- This line implements the next three prioritized scientific-workspace improvements after the ribbon validation.
+
+### 1. Advanced streamline controls
+
+#### Density bug resolved
+- The UI had advertised up to 400 streamline seeds, but `fvSeedPlane()` internally clamped the request to 64.
+- The seed-count contract is now 1–400 and the requested Plane/Line/Box count is honored exactly.
+- Regression evidence:
+  - Plane request 100 -> 100 seeds;
+  - Plane request 400 -> 400 seeds;
+  - Line request 73 -> 73 seeds;
+  - Box request 125 -> 125 seeds.
+- The packaged real-case smoke also reports `streamlineSeed400 = 400`.
+
+#### New seeding modes
+- Plane.
+- Line.
+- Box / Volume.
+- Boundary patch.
+- Boundary-patch mode seeds from actual OpenFOAM boundary faces, ignores processor patches and nudges the seed toward the owner-cell center to avoid immediate integration outside the domain.
+
+#### Integration controls
+- Forward / Backward / Both direction.
+- Integration step expressed as a percentage of domain diagonal.
+- Maximum integration steps per direction.
+- Maximum physical path length expressed as a percentage of domain diagonal.
+- Streamline metadata now reports actual seed count, generated streamline count and integration-point count.
+
+#### Integration regression
+- Uniform-field regression verifies forward and backward propagation.
+- Maximum path length is enforced from accumulated geometric distance.
+- Both-direction integration produces the combined two-sided path rather than silently behaving as a forward-only trace.
+- Synchronized View 2 now uses the same advanced streamline settings rather than the previous Plane-only defaults.
+
+### 2. Independent multi-view cameras and visual settings
+
+#### Camera control
+- Added `Link cameras` ON/OFF.
+- Added `Re-sync`.
+- Added `Fit all`.
+- When cameras are linked, View 2 / additional views continue to derive camera orientation and relative distance from the primary view.
+- When cameras are unlinked, each comparison viewport owns its own camera state and supports independent orbit, pan, wheel zoom and fit.
+
+#### Visual synchronization
+- Added `Sync visual settings` ON/OFF.
+- With sync enabled, comparison views retain the shared visual behavior.
+- With sync disabled, View 2 can independently control:
+  - colormap;
+  - opacity;
+  - surface visibility;
+  - mesh edges;
+  - Slice;
+  - Iso;
+  - Vectors;
+  - Streamlines.
+- Views 3/4 can independently control:
+  - colormap;
+  - opacity;
+  - surface visibility;
+  - mesh edges;
+  - Slice;
+  - Iso.
+- Independent visual mode also prevents the comparison view from forcing a shared display range onto the primary viewport.
+
+#### Runtime evidence
+- The packaged WebView2 smoke disables camera linking, zooms View 2 and verifies:
+  - `independentCameraChanged = true`;
+  - `primaryCameraUnaffected = true`.
+- The same smoke disables visual synchronization, applies View 2 opacity independently and verifies:
+  - `independentVisualApplied = true`;
+  - `linkedCameras = false`;
+  - `syncedVisuals = false`.
+- Existing View 2 local legend and Probe-marker runtime checks continue to pass.
+
+### 3. Spatial Profile defined directly from the 3D geometry
+
+#### Interactive workflow
+- Added `Draw profile` to Field Workspace and the 3D/Field ribbon.
+- The user selects point A and point B directly on rendered 3D geometry.
+- Picking reuses the same rendered-geometry ray-casting path as the existing Probe tool rather than estimating coordinates from screen position.
+- A high-contrast A→B overlay is rendered on the 3D viewport and follows camera redraws.
+- Line sampling is configurable from 20 to 500 samples; default is 160.
+- Added `Clear line`.
+
+#### Native Spatial Profile integration
+- The A→B result is inserted into FoamLens as a normal Spatial Profile series rather than a separate ad-hoc plot.
+- Generated series metadata includes:
+  - `datasetType = profile`;
+  - `profileAxis = s`;
+  - `profileLine = 3D A→B`;
+  - `profileCoordUnit = m`;
+  - `derivedKind = field3d_line_profile`;
+  - saved point A / point B / sample count.
+- Sampling reuses `fwSampleFieldAtPoint()` and the currently loaded 3D field.
+- The same derived profile is refreshed when the active 3D frame changes.
+
+#### Real QuickCup runtime evidence
+- B13 real-case smoke at the established late-time reference generated:
+  - 160 requested profile samples;
+  - 160 finite samples;
+  - `profile3DDerivedKind = field3d_line_profile`;
+  - `profile3DError = ""`;
+  - A→B length = `0.05586143571373727 m`.
+- The companion remains the normal Spatial Profile workflow.
+
+### Ribbon integration
+- 3D / Field ribbon now exposes:
+  - Profile line;
+  - Link cameras;
+  - Re-sync;
+  - Visual sync;
+  - Fit all.
+- Active state is reflected for Profile line, Link cameras and Visual sync.
+
+### Regression history
+- Run #507 validated the advanced-streamline implementation independently: **SUCCESS**.
+- Runs #508–#513 exposed stale exact-source assertions in the historical comparison test after camera/legend signatures changed; real QuickCup regression continued to pass. Those tests were updated to validate linked-or-independent camera behavior and palette-aware per-viewport legends.
+- Run #514 then completed the full scientific/UI suite, portable smoke, installer smoke and artifact upload successfully.
+- Run #518 intentionally strengthened the packaged smoke for independent camera/visual behavior and initially failed because the smoke attempted to access encapsulated `fvState` from global WebView2 scope. Product behavior was not the failing condition.
+- The comparison runtime API now exposes primary and comparison view state through `getViewStates()`, and the smoke validates through that public API instead of breaking module encapsulation.
+
+### Final validation
+- GitHub Actions run **#520** (`37108477817`): **SUCCESS**.
+- Tested product head: `aee2581127c3771b93b4c7fda3177009dd25c652`.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Full scientific/UI regression suite: **SUCCESS**.
+- 3D Difference regression after independent-view changes: **SUCCESS**.
+- Field View / pointField / decomposed mesh / dynamic mesh / iso-surface / Probe / surface-field regressions: **SUCCESS**.
+- Advanced streamline regression: **SUCCESS**.
+- A→B Spatial Profile regression: **SUCCESS**.
+- Ribbon / bilingual / overflow regressions: **SUCCESS**.
+- Portable Windows build: **SUCCESS**.
+- Packaged portable runtime smoke: **SUCCESS**.
+- Portable checksum: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application runtime smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Run #520 packaged evidence
+- Real B13 reference remained:
+  - 6400 cells;
+  - 13122 points;
+  - `T` at `t = 9.8 s`;
+  - min `1417.57 K`;
+  - max `1481.90 K`;
+  - span `64.33 K`;
+  - WebGL error `0`.
+- Advanced streamline controls mounted: true.
+- 400 requested Plane seeds -> 400 actual seeds.
+- 3D A→B profile: 160 points / 160 finite values / `0.05586143571373727 m`.
+- Independent View 2 camera changed while primary camera remained unchanged.
+- Independent View 2 visual settings applied successfully.
+- View 2 local legend remained visible and Probe marker remained functional.
+
+### Candidate artifacts
+- Windows build artifact: `FoamLens-Windows-v1.4.6`.
+- Artifact id: `11268294037`.
+- Size: `135,247,453 bytes`.
+- Digest: `sha256:6680f3d074c517faf2d05fff304c4afda69f22bd3cebb4aab2aef5e6cb1dba22`.
+- Multi-case runtime fixture: `QuickCup-MultiCase-Windows-runtime`.
+- Fixture artifact id: `11269275359`.
+- Size: `326,073,834 bytes`.
+- Digest: `sha256:24f48cfa5abb90851ba7b9bc3c241fb025a988d6d3078e4cbf7dcd31bda2e442`.
+
+### Scientific validation boundary
+- The streamline implementation is covered by analytical/unit regressions, full application regressions and real QuickCup packaged-runtime smoke.
+- Direct path-by-path comparison of representative FoamLens streamlines against ParaView/VTK has **not yet been performed**.
+- Therefore this work should not yet be described as ParaView-validated or thesis-grade streamline equivalence until that cross-tool validation is completed.
+
+### Promotion state
+- No merge to `main`.
+- No public release created.
+- Public release remains **v1.4.5**.
+- The `development/v1.4.8-scientific-workspace` product head is validated and ready for user review / later promotion.
