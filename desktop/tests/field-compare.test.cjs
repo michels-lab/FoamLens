@@ -119,7 +119,7 @@ test('each synchronized 3D viewport owns an independent scientific legend',()=>{
     'fcLegendMarkup','fcUpdateViewportLegend','fcLegend',
     'id="fcExtra\'+id+\'Legend"',"fcExtra'+state.id+'Legend",
     'fcLegendTitle','fcLegendBar','fcLegendTicks','fcLegendDelta',
-    "fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared)"
+    "fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared,fcVisualFor(fcState,'fcView2').palette)"
   ])assert(source.includes(token),'Missing per-viewport legend token: '+token);
   assert(source.includes('second.innerHTML=\'<canvas id="fcCanvas"'),
     'View 2 canvas markup is missing.');
@@ -127,14 +127,25 @@ test('each synchronized 3D viewport owns an independent scientific legend',()=>{
     'View 2 has no independent legend container.');
 });
 
-test('every synchronized 3D viewport can drive the shared camera',()=>{
+test('every synchronized 3D viewport supports linked or independent cameras',()=>{
   for(const token of [
     'fcDriveSharedCamera','dataset.fcSharedCamera',
     "canvas.addEventListener('pointerdown'","canvas.addEventListener('pointermove'",
     "canvas.addEventListener('wheel'","canvas.addEventListener('dblclick'",
-    'fvState.camera.yaw','fvState.camera.pitch','fvCameraPanPixels','fvCameraZoomFactor',
-    'fcDriveSharedCamera(compareCanvas)','fcDriveSharedCamera(extraCanvas)'
-  ])assert(source.includes(token),'Missing bidirectional synchronized-camera token: '+token);
+    'fcLinkCameras','fcCamerasLinked','fcCameraFor','fcCloneCamera',
+    'fcResyncCameras','fcFitAllCameras','camera:null,visual:null',
+    "fcDriveSharedCamera(compareCanvas,fcState","fcDriveSharedCamera(extraCanvas,state"
+  ])assert(source.includes(token),'Missing linked/independent camera token: '+token);
+});
+
+test('comparison view visual synchronization can be disabled without losing independent legends',()=>{
+  for(const token of [
+    'fcSyncVisuals','fcVisualsSynced','fcVisualFor',
+    'fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges',
+    'fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines',
+    "if(!fcVisualsSynced())","fcExtra'+id+'Palette","fcExtra'+id+'Opacity",
+    "fcExtra'+id+'Surface","fcExtra'+id+'Edges","fcExtra'+id+'Slice","fcExtra'+id+'Iso"
+  ])assert(source.includes(token),'Missing per-viewport visual-independence token: '+token);
 });
 
 test('each 3D viewport keeps its own Probe selection and statistics table',()=>{
