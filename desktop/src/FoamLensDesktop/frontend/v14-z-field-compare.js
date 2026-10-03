@@ -430,12 +430,23 @@ function fcExtraAdd(){
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state);fcUpdateLayout()
 }
 async function fcSwapPrimaryCompare(){
-  const p={caseId:String(document.getElementById('fvCase')?.value||''),region:document.getElementById('fvRegion')?.value||'',field:document.getElementById('fvField')?.value||'',component:document.getElementById('fvComponent')?.value||'value'};
-  const q={caseId:String(document.getElementById('fcCase')?.value||''),region:document.getElementById('fcRegion')?.value||'',field:document.getElementById('fcField')?.value||'',component:document.getElementById('fcComponent')?.value||'value'};
-  if(!p.caseId||!q.caseId)return;
-  const pc=document.getElementById('fvCase');pc.value=q.caseId;await fvHandleCaseChange();const pr=document.getElementById('fvRegion');if([...pr.options].some(o=>o.value===q.region))pr.value=q.region;fvRefreshSelectors(true);const pf=document.getElementById('fvField');if([...pf.options].some(o=>o.value===q.field))pf.value=q.field;fvSyncComponent();const pcomp=document.getElementById('fvComponent');if([...pcomp.options].some(o=>o.value===q.component))pcomp.value=q.component;await fvLoadFrame(null,{resetCamera:false});
-  fcRefreshSelectors(false);const qc=document.getElementById('fcCase');qc.value=p.caseId;fcRefreshSelectors(true);const qr=document.getElementById('fcRegion');if([...qr.options].some(o=>o.value===p.region))qr.value=p.region;fcRefreshSelectors(true);const qf=document.getElementById('fcField');if([...qf.options].some(o=>o.value===p.field))qf.value=p.field;fcRefreshSelectors(true);const qcomp=document.getElementById('fcComponent');if([...qcomp.options].some(o=>o.value===p.component))qcomp.value=p.component;
-  await fcRefreshFrame()
+  const targetTime=Number(fvState.time),p={caseId:String(document.getElementById('fvCase')?.value||''),region:document.getElementById('fvRegion')?.value||'',field:document.getElementById('fvField')?.value||'',component:document.getElementById('fvComponent')?.value||'value'},q={caseId:String(document.getElementById('fcCase')?.value||''),region:document.getElementById('fcRegion')?.value||'',field:document.getElementById('fcField')?.value||'',component:document.getElementById('fcComponent')?.value||'value'};
+  if(!p.caseId||!q.caseId)return false;
+  const enabled=document.getElementById('fcEnabled'),wasEnabled=!!enabled?.checked;if(enabled)enabled.checked=false;
+  try{
+    const pc=document.getElementById('fvCase');pc.value=q.caseId;await fvHandleCaseChange();
+    const pr=document.getElementById('fvRegion');if([...pr.options].some(o=>o.value===q.region))pr.value=q.region;fvRefreshSelectors(true);
+    const pf=document.getElementById('fvField');if([...pf.options].some(o=>o.value===q.field))pf.value=q.field;
+    const pg=fvCurrentFieldGroup(),pcomp=document.getElementById('fvComponent');if(pg&&pcomp){pcomp.innerHTML=fvFieldComponents(pg).map(o=>'<option value="'+fvEsc(o.v)+'">'+fvEsc(o.t)+'</option>').join('');if([...pcomp.options].some(o=>o.value===q.component))pcomp.value=q.component}
+    const ptimes=(pg?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);let pi=0;if(Number.isFinite(targetTime)&&ptimes.length){let d=Infinity;for(let i=0;i<ptimes.length;i++){const qd=Math.abs(ptimes[i]-targetTime);if(qd<d){d=qd;pi=i}}}
+    await fvLoadFrame(pi,{resetCamera:false});
+
+    fcRefreshSelectors(false);const qc=document.getElementById('fcCase');qc.value=p.caseId;fcRefreshSelectors(true);
+    const qr=document.getElementById('fcRegion');if([...qr.options].some(o=>o.value===p.region))qr.value=p.region;fcRefreshSelectors(true);
+    const qf=document.getElementById('fcField');if([...qf.options].some(o=>o.value===p.field))qf.value=p.field;fcRefreshSelectors(true);
+    const qcomp=document.getElementById('fcComponent');if([...qcomp.options].some(o=>o.value===p.component))qcomp.value=p.component;
+  }finally{if(enabled)enabled.checked=wasEnabled}
+  await fcRefreshFrame();return true
 }
 function fcVideoDescriptors(){
   const out=[];if(fcState.enabled&&fcState.mesh&&fcState.fieldValues)out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
