@@ -100,12 +100,16 @@ function flRibbonBuild(){
     ]),
     flRibbonGroup('Inspect','Inspeccionar',[
       flRibbonActionHtml('flRaProbe','probe','Probe','Sonda'),
+      flRibbonActionHtml('flRaProfileLine','profile','Profile line','Línea perfil'),
       flRibbonActionHtml('flRaSlice','slice','Slice','Corte'),
       flRibbonActionHtml('flRaVectors','vector','Vectors','Vectores'),
       flRibbonActionHtml('flRaStreamlines','stream','Streamlines','Corrientes')
     ]),
     flRibbonGroup('Camera','Cámara',[
-      flRibbonActionHtml('flRaFit','fit','Fit','Ajustar'),
+      flRibbonActionHtml('flRaLinkCameras','compare','Link cameras','Enlazar cámaras'),
+      flRibbonActionHtml('flRaResyncCameras','reset','Re-sync','Re-sincronizar'),
+      flRibbonActionHtml('flRaVisualSync','sliders','Visual sync','Sync visual'),
+      flRibbonActionHtml('flRaFitAll','fit','Fit all','Ajustar todas'),
       flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer')
     ])
   ];
@@ -257,7 +261,10 @@ function flRibbonSyncStates(){
     ['flRaSlice',!!document.getElementById('fvSlice')?.checked],
     ['flRaVectors',!!document.getElementById('fvVectors')?.checked],
     ['flRaStreamlines',!!document.getElementById('fvStreamlines')?.checked],
-    ['flRaCompare3D',!!document.getElementById('fcEnabled')?.checked]
+    ['flRaCompare3D',!!document.getElementById('fcEnabled')?.checked],
+    ['flRaProfileLine',!!window.FoamLensFieldWorkspace?.get3DProfile?.().enabled],
+    ['flRaLinkCameras',document.getElementById('fcLinkCameras')?.checked!==false],
+    ['flRaVisualSync',document.getElementById('fcSyncVisuals')?.checked!==false]
   ];
   for(const [id,on] of map)document.getElementById(id)?.classList.toggle('active',!!on)
 }
@@ -307,10 +314,14 @@ function flRibbonInstall(){
   flRibbonBind('flRa3DFocus',()=>flRibbonSetLayout('3d'));
   flRibbonBind('flRaPlotFocus',()=>flRibbonSetLayout('plot'));
   flRibbonBind('flRaProbe',()=>flRibbonField(()=>flRibbonClick('fvProbeMode'),'field'));
+  flRibbonBind('flRaProfileLine',()=>flRibbonField(()=>window.FoamLensFieldWorkspace?.toggle3DProfile?.(),'field'));
   flRibbonBind('flRaSlice',()=>flRibbonField(()=>flRibbonToggleCheck('fvSlice'),'field'));
   flRibbonBind('flRaVectors',()=>flRibbonField(()=>flRibbonToggleCheck('fvVectors'),'field'));
   flRibbonBind('flRaStreamlines',()=>flRibbonField(()=>flRibbonToggleCheck('fvStreamlines'),'field'));
-  flRibbonBind('flRaFit',()=>flRibbonField(()=>flRibbonClick('fvFitCamera'),'field'));
+  flRibbonBind('flRaLinkCameras',()=>flRibbonField(()=>flRibbonToggleCheck('fcLinkCameras'),'field'));
+  flRibbonBind('flRaResyncCameras',()=>flRibbonField(()=>flRibbonClick('fcResyncCameras'),'field'));
+  flRibbonBind('flRaVisualSync',()=>flRibbonField(()=>flRibbonToggleCheck('fcSyncVisuals'),'field'));
+  flRibbonBind('flRaFitAll',()=>flRibbonField(()=>flRibbonClick('fcFitAll'),'field'));
   flRibbonBind('flRaResetCamera',()=>flRibbonField(()=>flRibbonClick('fvResetCamera'),'field'));
 
   flRibbonBind('flRaPlotTimeSeries',()=>flRibbonData('timeSeriesTab','plots'));
