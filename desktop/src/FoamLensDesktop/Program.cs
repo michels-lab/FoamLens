@@ -627,7 +627,7 @@ internal sealed class FoamLensForm : Form
                     (async()=>{
                       try{
                         const api=window.FoamLensFieldCompare;
-                        if(typeof api?.fcRefreshFrame!=='function'||typeof api?.getProbeDescriptors!=='function'||typeof api?.getVideoDescriptors!=='function')
+                        if(typeof api?.fcRefreshFrame!=='function'||typeof api?.getProbeDescriptors!=='function'||typeof api?.getVideoDescriptors!=='function'||typeof api?.getViewStates!=='function')
                           throw new Error('Synchronized 3D comparison public runtime API is unavailable.');
 
                         const enabled=document.getElementById('fcEnabled');
@@ -662,6 +662,34 @@ internal sealed class FoamLensForm : Form
                         }
                         view2=(api.getVideoDescriptors()||[]).find(x=>x.key==='view2');
 
+                        const canvas=document.getElementById('fcCanvas');
+                        if(!canvas)throw new Error('View 2 canvas is unavailable.');
+                        const linkCameras=document.getElementById('fcLinkCameras');
+                        const syncVisuals=document.getElementById('fcSyncVisuals');
+                        if(!linkCameras||!syncVisuals)throw new Error('Independent View 2 controls are unavailable.');
+                        linkCameras.checked=false;
+                        linkCameras.dispatchEvent(new Event('change',{bubbles:true}));
+                        await new Promise(resolve=>requestAnimationFrame(resolve));
+                        const cameraBefore=(api.getViewStates()||[]).find(v=>v.id==='view2')?.camera;
+                        const primaryDistanceBefore=Number(fvState.camera?.distance);
+                        canvas.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:140}));
+                        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+                        const cameraAfter=(api.getViewStates()||[]).find(v=>v.id==='view2')?.camera;
+                        const primaryDistanceAfter=Number(fvState.camera?.distance);
+                        const independentCameraChanged=Number.isFinite(Number(cameraBefore?.distance))&&Number.isFinite(Number(cameraAfter?.distance))&&Math.abs(Number(cameraAfter.distance)-Number(cameraBefore.distance))>1e-12;
+                        const primaryCameraUnaffected=Number.isFinite(primaryDistanceBefore)&&Number.isFinite(primaryDistanceAfter)&&Math.abs(primaryDistanceAfter-primaryDistanceBefore)<=Math.max(1,Math.abs(primaryDistanceBefore))*1e-12;
+
+                        syncVisuals.checked=false;
+                        syncVisuals.dispatchEvent(new Event('change',{bubbles:true}));
+                        const view2Opacity=document.getElementById('fcView2Opacity');
+                        if(!view2Opacity)throw new Error('View 2 independent opacity control is unavailable.');
+                        const primaryOpacity=Number(document.getElementById('fvOpacity')?.value);
+                        view2Opacity.value='.55';
+                        view2Opacity.dispatchEvent(new Event('input',{bubbles:true}));
+                        await new Promise(resolve=>requestAnimationFrame(resolve));
+                        const view2Visual=(api.getViewStates()||[]).find(v=>v.id==='view2')?.visual;
+                        const independentVisualApplied=Math.abs(Number(view2Visual?.opacity)-.55)<1e-9&&(!Number.isFinite(primaryOpacity)||Math.abs(primaryOpacity-.55)>1e-9);
+
                         const legend=document.getElementById('fcLegend');
                         const legendStyle=legend?getComputedStyle(legend):null;
                         const legendRect=legend?.getBoundingClientRect();
@@ -673,7 +701,6 @@ internal sealed class FoamLensForm : Form
                           legendText.length>0;
 
                         window.FoamLensFieldProbe?.fpSetEnabled?.(true);
-                        const canvas=document.getElementById('fcCanvas');
                         if(!canvas)throw new Error('View 2 canvas is unavailable for Probe smoke.');
                         const attempts=[[.50,.50],[.45,.50],[.55,.50],[.50,.45],[.50,.55],[.40,.40],[.60,.40],[.40,.60],[.60,.60],[.35,.50],[.65,.50]];
                         let probeDescriptor=null;
@@ -704,6 +731,11 @@ internal sealed class FoamLensForm : Form
                           secondaryField:view2?.fieldName||'',
                           secondaryComponent:view2?.component||'',
                           usedDifferentField:!!differentField,
+                          independentCameraChanged,
+                          primaryCameraUnaffected,
+                          independentVisualApplied,
+                          linkedCameras:!!linkCameras.checked,
+                          syncedVisuals:!!syncVisuals.checked,
                           legendVisible,
                           legendText,
                           probeEnabled:!!window.FoamLensFieldProbe?.isEnabled?.(),
@@ -742,6 +774,9 @@ internal sealed class FoamLensForm : Form
                             string.IsNullOrWhiteSpace(secondaryCase.GetString()) ||
                         !root.TryGetProperty("secondaryField", out var secondaryField) ||
                             string.IsNullOrWhiteSpace(secondaryField.GetString()) ||
+                        !root.TryGetProperty("independentCameraChanged", out var independentCameraChanged) || !independentCameraChanged.GetBoolean() ||
+                        !root.TryGetProperty("primaryCameraUnaffected", out var primaryCameraUnaffected) || !primaryCameraUnaffected.GetBoolean() ||
+                        !root.TryGetProperty("independentVisualApplied", out var independentVisualApplied) || !independentVisualApplied.GetBoolean() ||
                         !root.TryGetProperty("legendVisible", out var legendVisible) || !legendVisible.GetBoolean() ||
                         !root.TryGetProperty("legendText", out var legendText) ||
                             string.IsNullOrWhiteSpace(legendText.GetString()) ||
