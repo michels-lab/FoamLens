@@ -141,7 +141,8 @@ function flRibbonBuild(){
     flRibbonGroup('3D compare','Comparación 3D',[
       flRibbonActionHtml('flRaCompare3D','compare','Compare 3D','Comparar 3D'),
       flRibbonActionHtml('flRaCompareAddView','add','Add view','Añadir vista'),
-      flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar')
+      flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar'),
+      flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B')
     ]),
     flRibbonGroup('Differences','Diferencias',[
       flRibbonActionHtml('flRaCompareDifference','delta','Difference','Diferencia'),
@@ -153,7 +154,8 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaExportPng','image','PNG','PNG'),
       flRibbonActionHtml('flRaExportSvg','image','SVG','SVG'),
       flRibbonActionHtml('flRaExportCsv','database','CSV','CSV'),
-      flRibbonActionHtml('flRaExportThesis','image','Thesis','Tesis')
+      flRibbonActionHtml('flRaExportThesis','image','Thesis','Tesis'),
+      flRibbonActionHtml('flRaExportMulti','grid','Multi-panel','Multipanel')
     ]),
     flRibbonGroup('Animation','Animación',[
       flRibbonActionHtml('flRaExportVideo','video','Video','Video')
@@ -162,7 +164,8 @@ function flRibbonBuild(){
   const view=[
     flRibbonGroup('Panels','Paneles',[
       flRibbonActionHtml('flRaSidebar','sidebar','Sidebar','Panel lateral'),
-      flRibbonActionHtml('flRaViewFit','fit','Fit','Ajustar')
+      flRibbonActionHtml('flRaViewFit','fit','Fit','Ajustar'),
+      flRibbonActionHtml('flRaPerformance','pulse','Performance','Rendimiento')
     ]),
     flRibbonGroup('Appearance','Apariencia',[
       flRibbonActionHtml('flRaTheme','theme','Theme','Tema'),
@@ -341,6 +344,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>flRibbonToggleCheck('fcEnabled'),'compare'));
   flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'compare'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>flRibbonClick('fwConfigureViews'),'compare'));
+  flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'compare'));
   flRibbonBind('flRaCompareDifference',()=>flRibbonAnalysis('difference','compare'));
   flRibbonBind('flRaCreateDifference',()=>{flRibbonAnalysis('difference','compare');requestAnimationFrame(()=>flRibbonClick('createDifference'))});
 
@@ -348,10 +352,12 @@ function flRibbonInstall(){
   flRibbonBind('flRaExportSvg',()=>flRibbonClick('exportSvg'));
   flRibbonBind('flRaExportCsv',()=>flRibbonClick('exportCsv'));
   flRibbonBind('flRaExportThesis',()=>flRibbonClick('thesisFigureBtn'));
+  flRibbonBind('flRaExportMulti',()=>window.FoamLensMultiPanelExport?.open?.());
   flRibbonBind('flRaExportVideo',()=>flRibbonField(()=>{const panel=document.getElementById('fvAnimationPanel');if(panel){panel.open=true;panel.scrollIntoView({block:'nearest'})}else flRibbonClick('fvVideoExport')},'export'));
 
   flRibbonBind('flRaSidebar',()=>flRibbonClick('sidebarToggle'));
   flRibbonBind('flRaViewFit',()=>{if(document.body.classList.contains('appMode-field'))flRibbonField(()=>flRibbonClick('fvFitCamera'),'view');else flRibbonClick('zoomFit')});
+  flRibbonBind('flRaPerformance',()=>flRibbonField(()=>{const p=document.getElementById('ppPanel');if(p){p.open=true;p.scrollIntoView({block:'nearest',behavior:'smooth'})}},'view'));
   flRibbonBind('flRaTheme',()=>{const s=document.getElementById('theme');if(!s)return;s.value=s.value==='dark'?'light':'dark';s.dispatchEvent(new Event('change',{bubbles:true}))});
   flRibbonBind('flRaLanguage',()=>{const s=document.getElementById('language');if(!s)return;s.value=s.value==='es'?'en':'es';s.dispatchEvent(new Event('change',{bubbles:true}));setTimeout(flRibbonApplyLanguage,0)});
 
