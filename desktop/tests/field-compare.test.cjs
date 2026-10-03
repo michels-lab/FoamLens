@@ -80,7 +80,7 @@ test('difference color range is symmetric around zero',()=>{
 test('difference wiring exposes optional third 3D viewport and strict compatibility',()=>{
   for(const token of [
     'Show 3D difference','Mostrar diferencia 3D','fcDifferenceCanvas','fcDifferenceViewport',
-    'Primary − Comparison','fcMeshesEquivalent','point-geometry-mismatch',
+    'fcDifferenceLabel','fcMeshesEquivalent','point-geometry-mismatch',
     "mode==='absolute'?'turbo':'coolwarm'",
     "flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable'",
     "flSetIssue(status,'no-compatible-values'"
