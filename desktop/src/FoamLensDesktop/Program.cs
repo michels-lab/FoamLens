@@ -527,12 +527,14 @@ internal sealed class FoamLensForm : Form
                         !add3DViewNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens Field workspace did not keep 3D + Spatial Profile mounted together: {realCaseJson}");
-                    if (!data.TryGetProperty("fieldModeVisible", out var fieldModeVisibleNode) ||
-                        !fieldModeVisibleNode.GetBoolean() ||
-                        !data.TryGetProperty("fieldModeText", out var fieldModeTextNode) ||
-                        string.IsNullOrWhiteSpace(fieldModeTextNode.GetString()))
+                    if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
+                        !fieldRibbonVisibleNode.GetBoolean() ||
+                        !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
+                        string.IsNullOrWhiteSpace(fieldRibbonTextNode.GetString()) ||
+                        !data.TryGetProperty("legacyFieldModeHidden", out var legacyFieldModeHiddenNode) ||
+                        !legacyFieldModeHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens Field View top-level navigation is not visible after case import: {realCaseJson}");
+                            $"FoamLens ribbon Field navigation is not visible after case import: {realCaseJson}");
 
                     if (!string.IsNullOrWhiteSpace(minimumCasesText) &&
                         int.TryParse(minimumCasesText, NumberStyles.Integer,
@@ -915,6 +917,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     add3DViewVisible:(()=>{const e=document.getElementById('fwAdd3DView');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
     fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
+    fieldRibbonText:document.querySelector('#flRibbonTab-field span')?.textContent?.trim()||'',
+    fieldRibbonVisible:(()=>{const e=document.getElementById('flRibbonTab-field');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
+    legacyFieldModeHidden:(()=>{const e=document.getElementById('modeField');if(!e)return false;return getComputedStyle(e).display==='none'})(),
     status:document.getElementById('fvStatus')?.textContent||''
   };
 };
