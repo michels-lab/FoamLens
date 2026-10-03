@@ -262,7 +262,7 @@ function flRibbonSyncStates(){
   for(const [id,on] of map)document.getElementById(id)?.classList.toggle('active',!!on)
 }
 function flRibbonBind(id,fn){
-  document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();fn();setTimeout(flRibbonSyncStates,0)})
+  document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();fn();setTimeout(flRibbonSyncStates,0)})
 }
 function flRibbonInstall(){
   if(flRibbonState.installed||document.getElementById('flRibbon'))return true;
@@ -271,6 +271,7 @@ function flRibbonInstall(){
   const style=document.createElement('style');style.id='flRibbonStyles';style.textContent=flRibbonCss();document.head.appendChild(style);
   const context=document.getElementById('globalContextBar'),contextHost=document.getElementById('flRibbonContextHost');if(context&&contextHost)contextHost.appendChild(context);
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
+  const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
   document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
