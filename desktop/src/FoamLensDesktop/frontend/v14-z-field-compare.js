@@ -418,8 +418,9 @@ function fcInstall(){
 }
 fcInstall();
 function fcViewStateDescriptors(){
-  const out=[];if(fcState.enabled)out.push({id:'view2',camera:fcState.camera?fcCloneCamera(fcState.camera):null,visual:{...fcVisualFor(fcState,'fcView2')},caseId:fcState.caseId,field:fcState.fieldName,time:fcState.time});
-  for(const state of fcExtraViews)out.push({id:'view'+state.id,camera:state.camera?fcCloneCamera(state.camera):null,visual:{...fcVisualFor(state,'fcExtra'+state.id)},caseId:state.caseId,field:state.fieldName,time:state.time});
+  const out=[{id:'view1',camera:fcCloneCamera(fvState.camera),visual:{...fcGlobalVisual()},caseId:fvState.caseId,field:fvState.fieldName,time:fvState.time}];
+  if(fcState.enabled)out.push({id:'view2',camera:fcState.camera?fcCloneCamera(fcState.camera):fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh)),visual:{...fcVisualFor(fcState,'fcView2')},caseId:fcState.caseId,field:fcState.fieldName,time:fcState.time});
+  for(const state of fcExtraViews)out.push({id:'view'+state.id,camera:state.camera?fcCloneCamera(state.camera):fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh)),visual:{...fcVisualFor(state,'fcExtra'+state.id)},caseId:state.caseId,field:state.fieldName,time:state.time});
   return out
 }
 function fcProbeDescriptors(){
