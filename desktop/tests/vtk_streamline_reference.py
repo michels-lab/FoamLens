@@ -26,7 +26,7 @@ marker=case_root/"FoamLensVTK.foam"
 marker.write_text("")
 reader=vtk.vtkOpenFOAMReader()
 reader.SetFileName(str(marker))
-reader.SetCreateCellToPoint(1)
+reader.SetCreateCellToPoint(0)
 reader.UpdateInformation()
 reader.EnableAllCellArrays()
 reader.EnableAllPointArrays()
@@ -85,14 +85,15 @@ inside_count,_,_,block_name,dataset=candidates[0]
 if inside_count<=0:
     raise RuntimeError("No VTK U-bearing dataset contains any FoamLens in-mesh validation seed.")
 
+if not dataset.GetCellData().HasArray("U"):
+    raise RuntimeError("Selected VTK internal mesh does not contain cell-associated U.")
+c2p=vtkCellDataToPointData()
+c2p.SetInputData(dataset)
+c2p.PassCellDataOn()
+c2p.Update()
+dataset=c2p.GetOutput()
 if not dataset.GetPointData().HasArray("U"):
-    c2p=vtkCellDataToPointData()
-    c2p.SetInputData(dataset)
-    c2p.PassCellDataOn()
-    c2p.Update()
-    dataset=c2p.GetOutput()
-if not dataset.GetPointData().HasArray("U"):
-    raise RuntimeError("VTK could not produce point-associated U for streamline tracing.")
+    raise RuntimeError("vtkCellDataToPointData could not produce point-associated U for streamline tracing.")
 dataset.GetPointData().SetActiveVectors("U")
 print("VTK selected streamline block:",json.dumps({
     "name":block_name,
@@ -213,7 +214,7 @@ len_vals=[m["lengthRelativeDifference"] for m in good]
 report={
     "schema":"foamlens-vtk-streamline-validation-v1",
     "vtkVersion":vtk.vtkVersion.GetVTKVersion(),
-    "reader":"vtkOpenFOAMReader",
+    "reader":"vtkOpenFOAMReader(CreateCellToPoint=0) + vtkCellDataToPointData",
     "tracer":"vtkStreamTracer/RK2",
     "caseName":data["caseName"],"region":data["region"],"field":data["field"],"time":time,
     "vtkBlock":block_name,
