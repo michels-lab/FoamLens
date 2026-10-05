@@ -154,7 +154,7 @@ function paDrawScatter(points,A,B){
   ctx.fillText(String(A?.name||A?.field?.canonical||'A').slice(0,28),L,T+ph+17);ctx.save();ctx.translate(11,T+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(String(B?.name||B?.field?.canonical||'B').slice(0,28),0,0);ctx.restore()
 }
 function paBuildUi(){
-  if(document.getElementById('paTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='paTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('paTools'))return;const host=document.getElementById('generalAnalysisModules');if(!host)return;const box=document.createElement('div');box.id='paTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="General Physical Analysis" data-fl-es="Análisis físico general">General Physical Analysis</b><span class="badge" data-fl-en="derived" data-fl-es="derivado">derived</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Derived quantities are explicit transforms of selected data. FoamLens does not infer nucleation, recalescence, dominance, or causality from these operations." data-fl-es="Las cantidades derivadas son transformaciones explícitas de los datos seleccionados. FoamLens no infiere nucleación, recalescencia, dominancia ni causalidad a partir de estas operaciones.">Derived quantities are explicit transforms of selected data.</div>
   <hr style="border:0;border-top:1px solid var(--line);margin:10px 0"><b data-fl-en="Physical-time rate" data-fl-es="Tasa respecto al tiempo físico">Physical-time rate</b>
