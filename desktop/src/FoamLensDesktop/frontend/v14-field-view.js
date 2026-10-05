@@ -818,45 +818,51 @@ function fvVectorGlyphTarget(mesh){
 function fvVectorGlyphScale(){
   return fvClamp(Number(document.getElementById('fvVectorScale')?.value)||1,.35,3)
 }
-function fvSelectVectorGlyphCells(mesh,vectors,target){
-  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),limit=Math.max(1,Math.min(count,Math.round(target)||1));
-  if(limit>=count)return Array.from({length:count},(_,i)=>i);
-  const hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,count),picked=[],used=new Set();
+function fvNormalizeVectorRoi(mesh,roi=null){
+  const full={enabled:false,min:[0,0,0],max:[1,1,1],worldMin:(mesh?.boundsMin||[0,0,0]).slice(),worldMax:(mesh?.boundsMax||[0,0,0]).slice()};
+  if(!roi||roi.enabled===false)return full;
+  const lo=[],hi=[],worldMin=[],worldMax=[],bmin=mesh?.boundsMin||[0,0,0],bmax=mesh?.boundsMax||[0,0,0];
+  for(let k=0;k<3;k++){const a=fvClamp(Number(roi.min?.[k]??0),0,1),b=fvClamp(Number(roi.max?.[k]??1),0,1),mn=Math.min(a,b),mx=Math.max(a,b),span=Number(bmax[k])-Number(bmin[k]);lo.push(mn);hi.push(mx);worldMin.push(Number(bmin[k])+span*mn);worldMax.push(Number(bmin[k])+span*mx)}
+  return{enabled:true,min:lo,max:hi,worldMin,worldMax}
+}
+function fvVectorCellInRoi(mesh,ci,roi=null){
+  const r=fvNormalizeVectorRoi(mesh,roi);if(!r.enabled)return true;const c=mesh?.cellCenters||[],x=Number(c[3*ci]),y=Number(c[3*ci+1]),z=Number(c[3*ci+2]);return Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)&&x>=r.worldMin[0]&&x<=r.worldMax[0]&&y>=r.worldMin[1]&&y<=r.worldMax[1]&&z>=r.worldMin[2]&&z<=r.worldMax[2]
+}
+function fvVectorRoi(mesh=fvState.mesh){
+  const enabled=(document.getElementById('fvVectorRoiMode')?.value||'full')==='box',read=id=>fvClamp(Number(document.getElementById(id)?.value),0,1);
+  return fvNormalizeVectorRoi(mesh,{enabled,min:[read('fvVectorRoiXMin'),read('fvVectorRoiYMin'),read('fvVectorRoiZMin')],max:[read('fvVectorRoiXMax'),read('fvVectorRoiYMax'),read('fvVectorRoiZMax')]})
+}
+function fvVectorLengthMode(){return(document.getElementById('fvVectorLengthMode')?.value||'magnitude')==='normalized'?'normalized':'magnitude'}
+function fvSelectVectorGlyphCells(mesh,vectors,target,roi=null){
+  const centers=mesh?.cellCenters||[],total=Math.min(Math.floor(centers.length/3),vectors?.length||0),eligible=[];for(let i=0;i<total;i++)if(fvVectorCellInRoi(mesh,i,roi))eligible.push(i);
+  const limit=Math.max(0,Math.min(eligible.length,Math.round(target)||1));if(!limit)return[];if(limit>=eligible.length)return eligible;
+  const allowed=new Set(eligible),hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,total),picked=[],used=new Set();
   if(hash?.buckets?.size){
-    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
-    const bucketCells=[];
+    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),bucketCells=[];
     for(const [,indices] of entries){
-      if(!indices?.length)continue;
-      let best=-1,bestMag=-Infinity;
-      for(const ci of indices){const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
+      let best=-1,bestMag=-Infinity;for(const ci of indices||[]){if(!allowed.has(ci))continue;const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
       if(best>=0)bucketCells.push(best)
     }
-    if(bucketCells.length){
-      const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;
-      for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-    }
+    if(bucketCells.length){const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   }
-  if(picked.length<limit){
-    const step=count/Math.max(1,limit-picked.length);
-    for(let k=0;picked.length<limit&&k<count*2;k++){const ci=Math.min(count-1,Math.floor((k+.5)*step)%count);if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-  }
+  if(picked.length<limit){const remaining=eligible.filter(ci=>!used.has(ci)),need=limit-picked.length,step=remaining.length/Math.max(1,need);for(let k=0;k<need&&remaining.length;k++){const ci=remaining[Math.min(remaining.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   return picked.slice(0,limit)
 }
-function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1){
+function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1,options={}){
   const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
   const mags=new Array(count);for(let i=0;i<count;i++){const v=vectors[i]||[];mags[i]=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))}
-  const range=fvFiniteRange(mags),positions=[],colors=[],cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs),scale=fvClamp(Number(glyphScale)||1,.35,3);
+  const range=fvFiniteRange(mags),positions=[],colors=[],lengths=[],selectedCells=[],roi=fvNormalizeVectorRoi(mesh,options.roi),cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs,roi),scale=fvClamp(Number(glyphScale)||1,.35,3),lengthMode=options.lengthMode==='normalized'?'normalized':'magnitude';
   let glyphCount=0;
   for(const ci of cells){
     const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
-    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1))*scale;
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(lengthMode==='normalized'?.035:(.018+.035*fvClamp(norm,0,1)))*scale;
     const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
     const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
     const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
     for(const seg of [[p,q],[q,left],[q,right]])for(const point of seg){positions.push(...point);colors.push(...rgb)}
-    glyphCount++
+    lengths.push(len);selectedCells.push(ci);glyphCount++
   }
-  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(count,Math.round(maxGlyphs))}
+  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(cells.length,Math.round(maxGlyphs)),eligibleCount:cells.length?Math.max(cells.length,fvSelectVectorGlyphCells(mesh,vectors,Number.MAX_SAFE_INTEGER,roi).length):0,selectedCells,lengths,roi,lengthMode}
 }
 function fvRefreshSeedPatchOptions(mesh=fvState.mesh){
   const sel=document.getElementById('fvSeedPatch');if(!sel)return;const patches=(mesh?.boundaryPatches||[]).filter(p=>!fvIsProcessorPatch(p)),old=sel.value;sel.innerHTML=patches.length?patches.map(p=>'<option value="'+fvEsc(p.name||p.sourceName||'')+'">'+fvEsc(p.name||p.sourceName||'patch')+'</option>').join(''):'<option value="">—</option>';if(patches.some(p=>String(p.name||p.sourceName||'')===old))sel.value=old
@@ -876,7 +882,7 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
 
   let glyphs=null;
   if(showVectors){
-    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale();glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
+    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale(),lengthMode=fvVectorLengthMode(),roi=fvVectorRoi(mesh);glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale,{lengthMode,roi});fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
   }else r.vectorCount=0;
 
   let lines=[],seedCount=0,requestedSeeds=0,pointCount=0,mode='plane',direction='both',step=0,maxLength=Infinity;
@@ -889,7 +895,7 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
     const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
   }else r.lineCount=0;
   fvState.streamlines=lines;fvRender();
-  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('target','objetivo')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
+  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('requested','solicitados')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+flUi('eligible','elegibles')+' '+Number(glyphs?.eligibleCount||0).toLocaleString()+' · '+(glyphs?.lengthMode==='normalized'?flUi('normalized length','longitud normalizada'):flUi('magnitude-proportional length','longitud proporcional a magnitud'))+' · '+(glyphs?.roi?.enabled?'ROI ['+glyphs.roi.min.map(fvFmt).join(',')+']→['+glyphs.roi.max.map(fvFmt).join(',')+']':flUi('full domain','dominio completo'))+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
   const streamMeta=document.getElementById('fvStreamMeta');if(streamMeta)streamMeta.textContent=showStreamlines?(flUi('Seeds','Semillas')+' '+seedCount.toLocaleString()+'/'+requestedSeeds.toLocaleString()+' · '+lines.length.toLocaleString()+' '+flUi('streamlines','líneas de corriente')+' · '+pointCount.toLocaleString()+' '+flUi('integration points','puntos de integración')+' · '+mode+' · '+direction+' · '+flUi('step','paso')+' '+fvFmt(step)+' · '+g.name+' @ '+fvFmt(vt)+' s'):''
 }
 function fvStopPlayback(){fvState.playing=false;if(fvState.timer){clearTimeout(fvState.timer);fvState.timer=null}const b=document.getElementById('fvPlay');if(b)b.textContent='▶ '+flUi('Play','Reproducir')}
@@ -974,6 +980,8 @@ function fvUiHtml(){
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <strong data-fl-en="Vectors" data-fl-es="Vectores">Vectors</strong></label></div>
       <div class="fvVizSubpanel hidden" id="fvVectorControls">
         <div class="row2"><div class="field"><label data-fl-en="Vector resolution" data-fl-es="Resolución de vectores">Vector resolution</label><select id="fvVectorResolution"><option value="adaptive" data-fl-en="Adaptive" data-fl-es="Adaptativa">Adaptive</option><option value="150">150 glyphs</option><option value="300">300 glyphs</option><option value="600">600 glyphs</option><option value="1200">1,200 glyphs</option><option value="2400">2,400 glyphs</option></select></div><div class="field"><label data-fl-en="Glyph size" data-fl-es="Tamaño de flecha">Glyph size</label><input id="fvVectorScale" type="range" min=".35" max="3" step=".05" value="1"></div></div>
+        <div class="row2"><div class="field"><label data-fl-en="Arrow length" data-fl-es="Longitud de flecha">Arrow length</label><select id="fvVectorLengthMode"><option value="magnitude" data-fl-en="Magnitude proportional" data-fl-es="Proporcional a magnitud">Magnitude proportional</option><option value="normalized" data-fl-en="Normalized / fixed" data-fl-es="Normalizada / fija">Normalized / fixed</option></select></div><div class="field"><label data-fl-en="Sampling region" data-fl-es="Región de muestreo">Sampling region</label><select id="fvVectorRoiMode"><option value="full" data-fl-en="Full domain" data-fl-es="Dominio completo">Full domain</option><option value="box" data-fl-en="Box ROI" data-fl-es="ROI de caja">Box ROI</option></select></div></div>
+        <div id="fvVectorRoiControls" class="hidden"><div class="smallnote" data-fl-en="ROI bounds are normalized fractions of the mesh bounds (0–1)." data-fl-es="Los límites ROI son fracciones normalizadas de los límites de la malla (0–1).">ROI bounds are normalized fractions of the mesh bounds (0–1).</div><div class="row2"><div class="field"><label>X min / max</label><div class="row2"><input id="fvVectorRoiXMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiXMax" type="number" min="0" max="1" step=".05" value="1"></div></div><div class="field"><label>Y min / max</label><div class="row2"><input id="fvVectorRoiYMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiYMax" type="number" min="0" max="1" step=".05" value="1"></div></div></div><div class="field"><label>Z min / max</label><div class="row2"><input id="fvVectorRoiZMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiZMax" type="number" min="0" max="1" step=".05" value="1"></div></div></div>
         <div class="smallnote" id="fvVectorMeta" data-fl-en="Vectors are sampled spatially across the cell-centred vector field." data-fl-es="Los vectores se muestrean espacialmente a través del campo vectorial centrado en celdas.">Vectors are sampled spatially across the cell-centred vector field.</div>
       </div>
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <strong data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</strong></label></div>
@@ -1035,8 +1043,8 @@ function fvInstallUi(){
   document.getElementById('fvSliceAxis').onchange=()=>fvUpdateSlice();
   document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
   document.getElementById('fvSliceOpacity').oninput=fvRender;
-  const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked)};
-  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
+  const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked);document.getElementById('fvVectorRoiControls')?.classList.toggle('hidden',(document.getElementById('fvVectorRoiMode')?.value||'full')!=='box')};
+  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiMode','fvVectorRoiXMin','fvVectorRoiXMax','fvVectorRoiYMin','fvVectorRoiYMax','fvVectorRoiZMin','fvVectorRoiZMax','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
   syncVectorPanels();fvSyncStreamSeedUi();
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'));
   const goData=document.getElementById('workspaceGoData'),actions=goData?.parentElement;if(actions&&!document.getElementById('workspaceGoFieldView')){const q=document.createElement('button');q.className='btn';q.id='workspaceGoFieldView';q.type='button';q.setAttribute('data-fl-en','Open 3D Field View');q.setAttribute('data-fl-es','Abrir Vista 3D');q.textContent=flUi('Open 3D Field View','Abrir Vista 3D');q.onclick=()=>{try{setAppMode('data')}catch{}setDataView('field3d')};goData.insertAdjacentElement('afterend',q);flApplyBilingualText(q)}
@@ -1073,6 +1081,6 @@ function fvInstallIntegration(){
   try{const prevDraw=draw;draw=function(...args){if(currentDataView==='field3d'){fvApplyHeader();fvRender();return}return prevDraw.apply(this,args)}}catch{}
   try{const prevRefresh=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prevRefresh.apply(this,args);setTimeout(()=>{mount();fvRefreshSelectors(true)},0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const c=document.getElementById('fieldViewControls'),p=document.getElementById('fieldViewPanel'),q=document.getElementById('workspaceGoFieldView');if(c)flApplyBilingualText(c);if(p)flApplyBilingualText(p);if(q)flApplyBilingualText(q);if(currentDataView==='field3d'){fvApplyHeader();fvRefreshSelectors(true)}});
-  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,setVideoRangeOverride(range){fvState.videoRangeOverride=range?.valid?{valid:true,min:Number(range.min),max:Number(range.max)}:null;if(fvState.fieldValues){const current=fvFiniteRange(fvState.fieldValues),display=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,display);fvUpdateSlice(display);if(typeof fvUpdateIso==='function')fvUpdateIso(display);fvLegend(display,fvState.fieldParsed)}},getVideoDescriptor(){const range=fvFiniteRange(fvState.fieldValues);return{key:'primary',canvasId:'fvCanvas',labelId:'fcPrimaryLabel',caseName:fvCase()?.name||'',fieldName:fvState.fieldName||'',component:fvState.component||'',time:fvState.time,range,dimensions:fvState.fieldParsed?.dimensions||''}},renderAtSize(width,height){fvRender({width,height});return document.getElementById('fvCanvas')}}
+  window.FoamLensFieldView={fvBuildMeshInventory,fvNormalizeVectorRoi,fvVectorCellInRoi,fvSelectVectorGlyphCells,fvBuildVectorGlyphBuffers,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,setVideoRangeOverride(range){fvState.videoRangeOverride=range?.valid?{valid:true,min:Number(range.min),max:Number(range.max)}:null;if(fvState.fieldValues){const current=fvFiniteRange(fvState.fieldValues),display=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,display);fvUpdateSlice(display);if(typeof fvUpdateIso==='function')fvUpdateIso(display);fvLegend(display,fvState.fieldParsed)}},getVideoDescriptor(){const range=fvFiniteRange(fvState.fieldValues);return{key:'primary',canvasId:'fvCanvas',labelId:'fcPrimaryLabel',caseName:fvCase()?.name||'',fieldName:fvState.fieldName||'',component:fvState.component||'',time:fvState.time,range,dimensions:fvState.fieldParsed?.dimensions||''}},renderAtSize(width,height){fvRender({width,height});return document.getElementById('fvCanvas')}}
 }
 fvInstallIntegration();
