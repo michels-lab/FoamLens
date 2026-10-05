@@ -34,6 +34,12 @@ assert(source.includes("['profile','timeseries','log','split'].includes(state.vi
   'Field context must appear only for plot/log/split views that consume shared context.');
 assert(source.includes("foamlens-field-view-change"),
   'Ribbon does not listen for internal Field tab scope changes.');
+assert(source.includes('function flRibbonUpdateFieldScope'),
+  'Field Ribbon does not scope 3D-only actions to 3D/Split.');
+for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
+  assert(source.includes(id),'Expected scoped Field action missing: '+id);
+assert(source.includes("view==='3d'||view==='split'"),
+  '3D-only Ribbon actions are not tied to 3D/Split view state.');
 assert(source.includes("flRibbonContextHost.hidden{display:none!important}"),
   'Context host cannot be hidden in pure 3D focus.');
 assert(source.includes("globalContextBar"),
