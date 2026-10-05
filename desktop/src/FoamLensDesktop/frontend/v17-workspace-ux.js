@@ -25,6 +25,7 @@ function uxSnapshot(){
     syncMode:document.getElementById('fcSync')?.value||'nearest',
     camerasLinked:document.getElementById('fcLinkCameras')?.checked!==false,
     visualsSynced:document.getElementById('fcSyncVisuals')?.checked!==false,
+    panelSizes:window.FoamLensWorkspaceResize?.getSizes?.()||uxLoad().panelSizes||null,
     names
   }
 }
@@ -38,7 +39,7 @@ function uxReset(){
     const set=(id,value,event='change')=>{const e=document.getElementById(id);if(!e)return;e.value=String(value);e.dispatchEvent(new Event(event,{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
     set('fwLayout','split');set('fwCompanion','profile');check('fwSyncTime',true);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
-    for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}
+    for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}window.FoamLensWorkspaceResize?.resetSizes?.()
   }finally{uxRestoring=false}
   uxDecorateLabels();uxUpdateComparisonStatus();uxSave()
 }
