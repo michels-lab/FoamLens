@@ -376,6 +376,8 @@ test('normalized vector glyphs keep equal arrow length while magnitude mode pres
   assert(fixed.lengths.every(x=>Math.abs(x-fixed.lengths[0])<1e-12),'Normalized arrows do not have a constant length.');
   assert(scaled.lengths[3]>scaled.lengths[2]&&scaled.lengths[2]>scaled.lengths[1]&&scaled.lengths[1]>scaled.lengths[0],
     'Magnitude-proportional arrows do not increase with vector magnitude.');
+  near(scaled.lengths[3]/scaled.lengths[0],8,1e-10);
+  near(scaled.lengths[2]/scaled.lengths[0],4,1e-10);
 });
 
 test('vector glyph metadata distinguishes requested eligible and actually rendered cells',()=>{
