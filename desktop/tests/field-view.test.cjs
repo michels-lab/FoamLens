@@ -24,7 +24,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage,fvVectorRoiCells,fvSelectVectorGlyphCells,fvBuildVectorGlyphBuffers};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -329,14 +329,33 @@ test('3D case switching preserves the explicit user selection and invalidates st
     '3D Case selector is not wired through the safe case-switch handler.');
 });
 
+test('vector glyph ROI sampling never selects cells outside the requested physical box',()=>{
+  const centers=[],vectors=[];for(let x=0;x<10;x++)for(let y=0;y<2;y++){centers.push(x+.5,y+.5,.5);vectors.push([1+x,1,0])}
+  const mesh={cellCenters:centers,cellCount:vectors.length,boundsMin:[0,0,0],boundsMax:[10,2,1]};
+  const roi={min:[2,0,0],max:[6,2,1]},eligible=api.fvVectorRoiCells(mesh,vectors,roi),picked=api.fvSelectVectorGlyphCells(mesh,vectors,6,roi);
+  assert(eligible.length>0);assert(picked.length<=6);assert(picked.every(i=>eligible.includes(i)));
+  assert(picked.every(i=>centers[3*i]>=2&&centers[3*i]<=6));
+});
+
+test('normalized vector glyphs have equal shaft length while magnitude mode preserves relative magnitude',()=>{
+  const mesh={cellCenters:[.5,.5,.5,1.5,.5,.5],cellCount:2,boundsMin:[0,0,0],boundsMax:[2,1,1]};
+  const vectors=[[1,0,0],[10,0,0]];
+  const normalized=api.fvBuildVectorGlyphBuffers(mesh,vectors,2,1,{lengthMode:'normalized'});
+  const magnitude=api.fvBuildVectorGlyphBuffers(mesh,vectors,2,1,{lengthMode:'magnitude'});
+  const shaft=(buf,g)=>{const b=g*18;return Math.hypot(buf.positions[b+3]-buf.positions[b],buf.positions[b+4]-buf.positions[b+1],buf.positions[b+5]-buf.positions[b+2])};
+  near(shaft(normalized,0),shaft(normalized,1),1e-6);
+  assert(shaft(magnitude,1)>shaft(magnitude,0),'Magnitude-proportional arrows lost their length encoding.');
+  assert.equal(normalized.requested,2);assert.equal(normalized.selected,2);assert.equal(normalized.glyphCount,2);
+});
+
 test('vector and streamline visualization expose independent real-resolution controls',()=>{
   for(const token of [
-    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
-    'Vector resolution','Seed density','max="400"','value="100"',
+    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiEnabled','fvVectorRoiControls',
+    'Vector resolution','Magnitude proportional','Normalized length','Limit sampling to ROI','X ROI (%)','Y ROI (%)','Z ROI (%)','Seed density','max="400"','value="100"',
     'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
     'Boundary patch','Box / Volume','Forward','Backward','integration points',
     'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
-    'fvSelectVectorGlyphCells','glyphCount','requested',
+    'fvSelectVectorGlyphCells','fvVectorRoiCells','lengthMode','eligibleCount','glyphCount','requested','selected',
     "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
     "document.getElementById('fvStreamlineControls')?.classList.toggle('hidden'"
   ])assert(source.includes(token),'Missing flow-resolution control token: '+token);
