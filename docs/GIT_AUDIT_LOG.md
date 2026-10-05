@@ -3423,3 +3423,55 @@ Status: **fix present / final main publication validation pending**.
 
 ### Documentation
 - Extended `docs/UX_COHERENCE_AUDIT_2026-10-05.md` with findings UX-18 through UX-29 and the updated scope rule.
+
+
+## 2026-10-05 — v1.6.0 UX coherence implementation
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- Baseline: public FoamLens Desktop v1.5.1.
+- Scope: resolve the UX ownership defects documented in `docs/UX_COHERENCE_AUDIT_2026-10-05.md` without changing OpenFOAM parsing or scientific kernels.
+
+### Implemented so far
+- Field Workspace default changed from permanent 3D + companion Split to a single **3D** central view.
+- Added internal Field tabs: **3D / Spatial Profile / Time Series / Solver Logs / Split**.
+- Split is now explicit and owns only one 3D/plot divider.
+- 3D Focus no longer reserves a permanent controls column.
+- Detailed Field controls moved to a floating Inspector drawer.
+- Inspector content is scoped: pure 3D shows 3D controls, plot/log views show companion controls, Split can show both.
+- Added one visible physical-time transport in Field; legacy 3D/Profile/Log engines remain internal.
+- The global Field transport now selects the physical-time source from the active view (3D, Spatial Profile or Solver Logs).
+- PROJECT / CASE / REGION state is preserved, but its Ribbon presentation is contextual:
+  - visible for Data and Analysis;
+  - visible for Field Profile / Time Series / Solver Logs / Split;
+  - hidden for pure 3D and unrelated surfaces.
+- Removed top-level Ribbon alias tabs **Plots** and **Compare**.
+- Compare tools remain available contextually inside Field.
+- Preserved **Copy A→B** after CI identified it as a valid comparison action.
+- Data now opens the Data Catalog instead of silently reusing a legacy plot view.
+- Legacy dataset tabs are hidden under the v1.6 Ribbon so they no longer compete with Field's internal view tabs.
+- Sidebar sections are scoped to their actual workflow:
+  - Catalog does not show Figure / Selected Curve / Phase-change / Reference Lines;
+  - Analysis does not inherit legacy Data/plot cards;
+  - Phase-change / Reference Lines appear only in compatible Time Series / Profile contexts.
+- Flow, Numerical Performance, Physical Analysis, Solidification, Spatial Difference, Temporal Alignment, Thermal Analysis and Vector Derived Fields no longer fall back to `document.body`; they mount only in their owned analysis hosts.
+- Added a unified activity presentation policy: compact activity toast is suppressed while a detailed modal/scan overlay owns progress.
+- Field Ribbon 3D-only actions (Probe, Slice, Vectors, Streamlines, 3D Compare, Camera tools) are hidden while Profile / Time Series / Solver Logs is the active internal view and return in 3D / Split.
+
+### Regression contract changes
+- Packaged smoke no longer requires permanent 3D + Spatial Profile mounting.
+- Packaged smoke now requires:
+  - six real top-level Ribbon tabs;
+  - internal Field view tabs;
+  - single-view 3D default;
+  - hidden companion in 3D focus;
+  - hidden Inspector in default 3D focus;
+  - PROJECT / CASE / REGION hidden in 3D and visible in Profile.
+- Workspace, Ribbon, Field View, playback, resize/help and sidebar regression tests were updated to enforce the v1.6 interaction model.
+
+### Validation state
+- Intermediate CI caught and corrected:
+  - removal of valid Copy A→B comparison workflow;
+  - asynchronous context refresh causing Profile context to appear one tick late.
+- QuickCup / VTK regressions continue to pass on intermediate v1.6 commits.
+- Full packaged Windows smoke and installer validation are still required on the final candidate.
+- **No merge to main and no v1.6.0 public release yet.**
