@@ -6,6 +6,8 @@ const assert=require('assert');
 
 const base=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const index=fs.readFileSync(path.join(base,'index.html'),'utf8');
+const analysisScope=fs.readFileSync(path.join(base,'v21-analysis-scope.js'),'utf8');
+new Function(analysisScope);
 const generalFiles=[
   'v13-temporal-alignment.js',
   'v13-numerical-performance.js',
@@ -72,6 +74,14 @@ test('derived Analysis results do not silently switch hidden Data views',()=>{
     const js=fs.readFileSync(path.join(base,file),'utf8');
     assert(js.includes("activeAppMode!=='analysis'"),file+' can still mutate the hidden Data view while Analysis is active.');
   }
+});
+
+test('Analysis owns one stable inspector instead of borrowing Data/Profile/Log controls',()=>{
+  for(const token of [
+    'flAnalysisInspectorCard','flAnalysisOwnedHost',
+    "'generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','differenceTools','fieldMappingTools','phaseMomentumTools'",
+    'host.appendChild(node)','FoamLensSidebarSections?.sbApplyContext?.()'
+  ])assert(analysisScope.includes(token),'Missing Analysis-owned surface token: '+token);
 });
 
 test('General Analysis title is bilingual',()=>{
