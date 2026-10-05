@@ -335,6 +335,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/vector-fields.test.cjs
 
+      - name: Test vector glyph ROI, length semantics and scientific provenance
+        shell: pwsh
+        run: node desktop/tests/vector-analysis.test.cjs
+
       - name: Test native background progress and cancellation
         shell: pwsh
         run: node desktop/tests/native-performance.test.cjs
