@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.4.9 — thesis/paper multi-panel scientific figure export. */
+/* FoamLens Desktop v1.5.0 — thesis/paper multi-panel scientific figure export. */
 const meState={open:false,lastSources:[]};
 function meUi(en,es){try{return flUi(en,es)}catch{return en}}
 function meFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}

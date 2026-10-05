@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.4.9 — progressive rendering, viewport-aware work and adaptive prefetch telemetry. */
+/* FoamLens Desktop v1.5.0 — progressive rendering, viewport-aware work and adaptive prefetch telemetry. */
 const ppState={loads:0,totalMs:0,lastMs:0,lastIndex:null,lastDirection:1,prefetchHits:0,prefetchMisses:0,prefetched:new Set(),meshReuses:0,meshBuilds:0,deferredViews:0,lastPrefetch:[],mode:'optimized',benchmarking:false,lastBenchmark:null};
 function ppUi(en,es){try{return flUi(en,es)}catch{return en}}
 function ppIdle(fn,timeout=180){if(typeof requestIdleCallback==='function')return requestIdleCallback(fn,{timeout});return setTimeout(fn,0)}

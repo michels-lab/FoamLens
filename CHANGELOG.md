@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop v1.5.0 — 2026-10-05
+
+- Added independent VTK-based B13 streamline geometry validation with mesh-aware interpolation and in-mesh termination.
+- Added true high-resolution 3D rerendering for thesis/paper multi-panel exports.
+- Added a controlled baseline-vs-optimized A/B performance benchmark using identical frame sequences and cleared caches.
+- Added persistent Field Workspace layouts, resizable splitters, saved control groups and custom 3D view names.
+- Added comparison status chips and contextual Field Workspace help.
+- Preserved custom viewport names in scientific multi-panel exports.
+- Validated the combined v1.5.0 candidate against the real QuickCup/B13 fixture in portable and installed Windows builds.
+
+
 ## Desktop v1.4.9 — 2026-10-03
 
 - Added the compact Word-style ribbon with contextual scientific controls.
