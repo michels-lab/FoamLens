@@ -354,7 +354,7 @@ function flRibbonInstall(){
     setTimeout(flRibbonSyncStates,0)
   },true);
   document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
-  document.addEventListener('foamlens-field-view-change',()=>setTimeout(flRibbonUpdateContextVisibility,0));
+  document.addEventListener('foamlens-field-view-change',flRibbonUpdateContextVisibility);
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
   flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();
