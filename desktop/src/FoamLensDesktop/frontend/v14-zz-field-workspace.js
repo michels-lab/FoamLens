@@ -154,18 +154,47 @@ function fwActivateView(view){
   fwRefreshGlobalTime();
   document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view,companion:fwState.companion}}))
 }
+function fwTimeMode(){return fwState.view==='split'?'3d':fwState.view}
 function fwTimeTimes(){
-  try{return (fvCurrentFieldGroup()?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)}catch{return[]}
+  try{
+    const mode=fwTimeMode();
+    if(mode==='profile'&&typeof profileAvailableTimes==='function')return profileAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(mode==='log'&&typeof logAvailableTimes==='function')return logAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    return (fvCurrentFieldGroup()?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)
+  }catch{return[]}
+}
+function fwTimeCurrent(){
+  try{
+    const mode=fwTimeMode();
+    if(mode==='profile'){
+      if(typeof profilePlaybackUsesGlobalClock==='function'&&profilePlaybackUsesGlobalClock()&&Number.isFinite(Number(profilePlaybackClockTime)))return Number(profilePlaybackClockTime);
+      return Number(document.getElementById('profileTime')?.value)
+    }
+    if(mode==='log')return Number(document.getElementById('logCurrentTime')?.value);
+    return Number(fvState?.time)
+  }catch{return NaN}
 }
 function fwRefreshGlobalTime(){
-  const times=fwTimeTimes(),slider=document.getElementById('fwTimeSlider'),readout=document.getElementById('fwTimeReadout');if(!slider||!readout)return;
-  slider.max=String(Math.max(0,times.length-1));let idx=0;
-  if(times.length&&Number.isFinite(Number(fvState?.time))){let best=Infinity;times.forEach((t,i)=>{const d=Math.abs(t-Number(fvState.time));if(d<best){best=d;idx=i}})}
-  slider.value=String(Math.max(0,Math.min(times.length-1,idx)));readout.textContent=times.length?'t = '+fvFmt(times[idx])+' s':'t = —'
+  const times=fwTimeTimes(),slider=document.getElementById('fwTimeSlider'),readout=document.getElementById('fwTimeReadout'),play=document.getElementById('fwTimePlay');
+  if(!slider||!readout)return;slider.max=String(Math.max(0,times.length-1));let idx=0,current=fwTimeCurrent();
+  if(times.length&&Number.isFinite(current)){let best=Infinity;times.forEach((t,i)=>{const d=Math.abs(t-current);if(d<best){best=d;idx=i}})}
+  slider.value=String(Math.max(0,Math.min(Math.max(0,times.length-1),idx)));slider.disabled=times.length<2;if(play)play.disabled=times.length<2;
+  readout.textContent=times.length?'t = '+fvFmt(times[idx])+' s':'t = —'
 }
 async function fwTimeLoadIndex(index){
-  const times=fwTimeTimes();if(!times.length)return;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0)));
-  try{fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(times[i]);fwRefreshGlobalTime()}catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}}
+  const times=fwTimeTimes();if(!times.length)return;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0))),time=times[i],mode=fwTimeMode();
+  try{
+    if(mode==='profile'){
+      try{stopProfileAnimation()}catch{}
+      applyProfileTimeValue(Number(time),{renderListToo:false})
+    }else if(mode==='log'){
+      try{stopLogAnimation()}catch{}
+      syncLogTimeNavigator(Number(time))
+    }else{
+      fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(time)
+    }
+    fwUpdateTimeBadge();fwRefreshGlobalTime()
+  }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}}
 }
 function fwTimeStep(delta){const slider=document.getElementById('fwTimeSlider');fwTimeStop();return fwTimeLoadIndex((Number(slider?.value)||0)+Number(delta||0))}
 function fwTimeStop(){
@@ -173,7 +202,7 @@ function fwTimeStop(){
 }
 function fwTimePlay(){
   const times=fwTimeTimes();if(times.length<2)return;fwTimeStop();fwTimeState.playing=true;const b=document.getElementById('fwTimePlay');if(b){b.textContent='⏸ '+fwUi('Pause','Pausa');b.setAttribute('aria-pressed','true')}
-  const tick=async()=>{if(!fwTimeState.playing)return;const s=document.getElementById('fwTimeSlider'),next=(Number(s?.value)||0)>=times.length-1?0:(Number(s?.value)||0)+1;await fwTimeLoadIndex(next);if(fwTimeState.playing){const speed=Math.max(.1,Number(document.getElementById('fwTimeSpeed')?.value)||1);fwTimeState.timer=setTimeout(tick,Math.max(40,500/speed))}};tick()
+  const tick=async()=>{if(!fwTimeState.playing)return;const s=document.getElementById('fwTimeSlider'),current=Number(s?.value)||0;if(current>=times.length-1){fwTimeStop();return}await fwTimeLoadIndex(current+1);if(fwTimeState.playing){const speed=Math.max(.1,Number(document.getElementById('fwTimeSpeed')?.value)||1);fwTimeState.timer=setTimeout(tick,Math.max(40,500/speed))}};tick()
 }
 
 function fwFieldTsReadyCases(){return (cases||[]).filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c))}
