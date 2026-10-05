@@ -13,7 +13,7 @@ seeds=[[float(v) for v in p] for p in data["seeds"]]
 foam_lines=[[[float(v) for v in p] for p in line] for line in data["foamLensLines"]]
 diag=float(data["mesh"]["diag"])
 step=float(data["integration"]["step"])
-max_per_direction=float(data["integration"]["maxLengthPerDirection"])
+max_length=float(data["integration"]["maxLength"])
 
 import vtk
 from vtkmodules.vtkCommonDataModel import vtkCompositeDataSet, vtkDataObject
@@ -120,7 +120,7 @@ tracer.SetIntegrationStepUnit(vtkStreamTracer.LENGTH_UNIT)
 tracer.SetInitialIntegrationStep(step)
 tracer.SetMinimumIntegrationStep(step)
 tracer.SetMaximumIntegrationStep(step)
-tracer.SetMaximumPropagation(max_per_direction)
+tracer.SetMaximumPropagation(max_length)
 if hasattr(tracer,"SetMaximumNumberOfSteps"):
     tracer.SetMaximumNumberOfSteps(int(data["integration"]["maxSteps"]))
 tracer.SetComputeVorticity(False)
