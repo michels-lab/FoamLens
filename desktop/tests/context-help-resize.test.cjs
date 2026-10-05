@@ -9,72 +9,64 @@ const resize=fs.readFileSync(path.join(root,'v18-context-help-resize.js'),'utf8'
 const ux=fs.readFileSync(path.join(root,'v17-workspace-ux.js'),'utf8');
 const ribbon=fs.readFileSync(path.join(root,'v15-ribbon-ui.js'),'utf8');
 
-new Function(resize);
-new Function(ux);
-new Function(ribbon);
+new Function(resize);new Function(ux);new Function(ribbon);
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
-test('Field Workspace has draggable splitters for 3D plot and controls',()=>{
+test('only explicit Split receives a draggable divider',()=>{
   for(const token of [
-    'uxSplitterA','uxSplitterB','role','separator','aria-orientation',
-    'pointerdown','pointermove','pointerup','col-resize',
-    '--ux3d','--uxplot','--uxcontrols'
-  ])assert(resize.includes(token),'Missing splitter token: '+token);
+    'uxSplitterA','role','separator','aria-orientation',
+    "g.classList.contains('layout-split')",'pointerdown','pointermove','pointerup',
+    '--ux3d','--uxplot'
+  ])assert(resize.includes(token),'Missing Split divider token: '+token);
+  assert(!resize.includes('uxSplitterB'),'Obsolete plot/controls divider still exists.');
+  assert(!resize.includes('--uxcontrols'),'Inspector width is still encoded as a grid column.');
 });
 
-test('splitter drag enforces minimum scientific workspace widths',()=>{
+test('3D focus has no splitter or controls column',()=>{
+  assert(resize.includes(".fwGrid.uxResizable:not(.layout-split)>#uxSplitterA{display:none}"));
+  assert(resize.includes('grid-template-areas:"threeD splitA plot"'));
+  assert(!resize.includes('grid-template-areas:"threeD splitA plot splitB controls"'));
+});
+
+test('splitter drag keeps both scientific panes usable',()=>{
   for(const token of [
     'hrClamp(uxDrag.a+d,280,total-280)',
-    'hrClamp(uxDrag.c-d,260,total-320)',
-    'hrClamp(uxDrag.c-d,260,total-280)',
-    "Math.max(280,Number(v.threeD))",
-    "Math.max(280,Number(v.plot))",
-    "Math.max(260,Number(v.controls))"
-  ])assert(resize.includes(token),'Missing splitter width constraint: '+token);
+    'Math.max(280,Number(v.threeD))',
+    'Math.max(280,Number(v.plot))'
+  ])assert(resize.includes(token),'Missing Split minimum-width safeguard: '+token);
 });
 
-test('panel sizes persist in the same Field Workspace UX state',()=>{
+test('panel sizes use the v2 workspace persistence state',()=>{
   for(const token of [
-    "foamlens.fieldWorkspace.ux.v1",'current.panelSizes=hrSizes()',
-    'panelSizes:window.FoamLensWorkspaceResize?.getSizes?.()',
-    'hrLoadState().panelSizes','hrApplySizes(saved)',
-    'FoamLensWorkspaceResize'
+    "foamlens.fieldWorkspace.ux.v2",'current.panelSizes=hrSizes()',
+    'hrLoadState().panelSizes','hrApplySizes(saved)','FoamLensWorkspaceResize'
   ])assert(resize.includes(token)||ux.includes(token),'Missing panel-size persistence token: '+token);
 });
 
-test('responsive mode disables splitters rather than forcing desktop widths',()=>{
+test('narrow layouts collapse Split vertically instead of forcing desktop widths',()=>{
   for(const token of [
-    "matchMedia('(max-width:1100px)').matches",
-    '@media(max-width:1100px)',
+    "matchMedia('(max-width:900px)').matches",
+    '@media(max-width:900px)',
     '.uxWorkspaceSplitter{display:none!important}',
     'grid-template-columns:1fr!important'
-  ])assert(resize.includes(token),'Missing responsive splitter safeguard: '+token);
+  ])assert(resize.includes(token),'Missing responsive Split safeguard: '+token);
 });
 
-test('contextual help covers field compare export and view workflows',()=>{
+test('contextual help describes the new tabbed Field model',()=>{
   for(const token of [
-    'hrHelpContent','Field Workspace','3D Compare','Scientific Export','View & Layout',
-    'comparison status strip','Exact, Nearest or Interpolated',
-    '3D panels are rerendered at requested export resolution',
-    'View names are presentation labels'
-  ])assert(resize.includes(token),'Missing contextual help token: '+token);
+    'Field Workspace','internal tabs','Split is opt-in','Physical-time playback is shared',
+    'Inspector','3D focus uses the full central workspace'
+  ])assert(resize.includes(token),'Missing v1.6 help token: '+token);
 });
 
-test('help overlay supports Ribbon invocation Escape close and question-mark shortcut',()=>{
+test('help remains available from the View Ribbon',()=>{
   for(const token of [
     'hrHelpOverlay','aria-modal','hrHelpClose',"e.key==='Escape'","e.key==='?'",
     'FoamLensContextHelp','flRaHelp','Help','Ayuda'
   ])assert(resize.includes(token)||ribbon.includes(token),'Missing help interaction token: '+token);
 });
 
-test('View ribbon exposes view naming reset-layout and help controls together',()=>{
-  for(const token of [
-    'flRaViewNames','flRaResetLayout','flRaHelp',
-    'FoamLensWorkspaceUx?.reset','FoamLensContextHelp?.open'
-  ])assert(ribbon.includes(token),'Missing View ribbon UX token: '+token);
-});
-
-console.log('FoamLens contextual help / resizable workspace regression suite passed: '+passed.length+' checks.');
+console.log('FoamLens v1.6 contextual help / Split resizing regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
