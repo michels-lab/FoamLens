@@ -137,7 +137,7 @@ function npSummaryFromImportedSeries(caseId){
 }
 function npBuildUi(){
   if(document.getElementById('npTools'))return;
-  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='npTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules');if(!host)return;const box=document.createElement('div');box.id='npTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Numerical Performance" data-fl-es="Rendimiento numérico">Numerical Performance</b><span class="badge" data-fl-en="solver logs" data-fl-es="logs del solver">solver logs</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Physical results and numerical cost are reported separately. Linear-solver residuals are not treated as nonlinear/PIMPLE convergence." data-fl-es="Los resultados físicos y el costo numérico se reportan por separado. Los residuales del solver lineal no se tratan como convergencia no lineal/PIMPLE.">Physical results and numerical cost are reported separately.</div>
   <div class="field" style="margin-top:8px"><label data-fl-en="Case" data-fl-es="Caso">Case</label><select id="npCase"></select></div>
