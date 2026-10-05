@@ -66,8 +66,9 @@ test('global sidebar toggle stays clear of the scrollbar and resize rail',()=>{
 test('sidebar sections are scoped to the active workflow instead of leaking across tabs',()=>{
   for(const token of [
     "if(card.querySelector?.('#referenceLinesTitle'))return 'reference-lines'",
+    "if(card.id==='flAnalysisInspectorCard')return 'analysis-tools'",
     'function sbSectionVisible',
-    "if(mode==='analysis')return !['load-data','case-comparison','figure','figure-element-editor','selected-curve','phase-change','reference-lines'].includes(key)",
+    "if(mode==='analysis')return key==='analysis-tools'",
     "if(view==='catalog')return false",
     "if(key==='phase-change'||key==='reference-lines')return view==='timeseries'||view==='profile'",
     'flSidebarContextHidden',
