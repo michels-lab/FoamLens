@@ -1016,6 +1016,8 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
+        html = html.Replace("1.4.9", "1.5.0", StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
