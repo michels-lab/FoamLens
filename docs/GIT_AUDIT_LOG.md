@@ -3294,3 +3294,63 @@ Status: **fix present / final main publication validation pending**.
 - PR #11 is the promotion path to `main`.
 - The functional candidate is validated and ready for promotion.
 - Public v1.5.1 release remains pending the final main-branch publication workflow.
+
+
+## 2026-10-05 — FoamLens Desktop v1.5.1 public release published
+
+- Release tag: `v1.5.1`.
+- Release name: **FoamLens v1.5.1**.
+- GitHub release id: `404130001`.
+- Published at: `2026-10-05T22:10:41Z`.
+- Main release commit: `e2cb2708b5978f58d61450b7772b3dbd970aee8c`.
+- Promotion PR: **#11**, merged successfully.
+- Final main-branch publication workflow: GitHub Actions run **#687** (`37379871647`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Version consistency for Desktop v1.5.1: **SUCCESS**.
+- Verified automatic-update regression: **SUCCESS**.
+- Portable Windows executable build and packaged runtime smoke: **SUCCESS**.
+- Portable SHA-256 generation: **SUCCESS**.
+- Installer build and installed-application smoke: **SUCCESS**.
+- Installer SHA-256 generation: **SUCCESS**.
+- GitHub Release publication: **SUCCESS**.
+
+### Public release assets
+- `FoamLens-Portable-v1.5.1.exe`
+  - asset id: `613733137`;
+  - size: `73,143,943 bytes`;
+  - digest: `sha256:75ff7d62fa55f8255692f8aba19e795d8ba048f7a820062f9ad204f1e35d96e5`.
+- `FoamLens-Portable-v1.5.1.exe.sha256`
+  - asset id: `613733135`;
+  - size: `96 bytes`;
+  - digest: `sha256:72d1f82dd47e0b13473001a19183a05897550d4ef05e5dc0f039188c38bf8c46`.
+- `FoamLens-Setup-v1.5.1.exe`
+  - asset id: `613733134`;
+  - size: `67,956,240 bytes`;
+  - digest: `sha256:5a27c76fa37b01e8289fc297c17f8bf27bf26ff8f70ab0fc2767f4c1bf12b2ff`.
+- `FoamLens-Setup-v1.5.1.exe.sha256`
+  - asset id: `613733136`;
+  - size: `93 bytes`;
+  - digest: `sha256:cedac8ef1d96a663c75ed1f092da21d7034d2e2600fb1f4c44fc093fef64da94`.
+
+### Final Actions evidence
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11373184296`;
+  - size: `135,315,333 bytes`;
+  - digest: `sha256:d139eba3a5a50a8ca8f2dfcc9523ab45952bbfedb005e149d4f0c0c66e6e125b`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11374025292`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:7280635824f444e1de085a2d1c9ea34ba25273a941fa6a7aebcb9fed840b82f1`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11373865984`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:cb088362634d6cad9abb472366d566c998efaf20f0d96c6a06b975a96080ea2f`.
+
+### Automatic-update state
+- **FoamLens Desktop v1.5.1 is now the current public release.**
+- v1.5.1 checks the official FoamLens GitHub Releases endpoint in the background and also exposes a manual **Updates / Actualizaciones** action.
+- Newer installers are offered only after semantic-version comparison and explicit user approval.
+- The updater downloads the matching installer checksum and verifies SHA-256 before launching the installer; checksum mismatch fails closed.
+- Update checks do not upload OpenFOAM project or simulation data.
+- v1.5.0 predates the updater, so moving from v1.5.0 to v1.5.1 is the one-time manual bridge; future releases can be discovered from inside FoamLens.
