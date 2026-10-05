@@ -80,7 +80,7 @@ function fwCreateSurface(){
       </div>
       <aside class="fwControlsCard fwControlsDrawer hidden" id="fwControlsDrawer" aria-hidden="true">
         <div class="fwInspectorHead"><strong data-fl-en="Inspector" data-fl-es="Inspector">Inspector</strong><button class="btn tiny" id="fwInspectorClose" type="button" aria-label="Close inspector">×</button></div>
-        <details open class="fwControlGroup"><summary><strong>3D controls</strong></summary><div id="fw3DControlsHost"></div></details>
+        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div id="fw3DControlsHost"></div></details>
         <details open class="fwControlGroup" id="fw2DControlGroup"><summary><strong id="fw2DControlTitle">Spatial Profile controls</strong></summary><div id="fw2DControlsHost"></div></details>
       </aside>
     </div>`;
@@ -151,6 +151,9 @@ function fwActivateView(view){
   else fwSetLayout('3d');
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>{const on=b.dataset.fwView===view;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false')});
   document.getElementById('fwSplitChooser')?.classList.toggle('hidden',view!=='split');
+  const group3D=document.getElementById('fw3DControlGroup'),group2D=document.getElementById('fw2DControlGroup');
+  if(group3D)group3D.style.display=(view==='3d'||view==='split')?'':'none';
+  if(group2D)group2D.style.display=(view==='3d')?'none':'';
   fwRefreshGlobalTime();
   document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view,companion:fwState.companion}}))
 }
