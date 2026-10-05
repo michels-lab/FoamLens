@@ -117,7 +117,7 @@ function fwCreateSurface(){
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:auto auto auto minmax(90px,1fr);}.fwTimeReadout,#fwTimeSpeed{grid-row:2}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
   if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));
-  document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split')fwSetLayout('split')});
+  document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
   document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
@@ -150,7 +150,9 @@ function fwActivateView(view){
   else if(view==='split'){if(fwState.companion==='none')fwSetCompanion('profile');fwSetLayout('split')}
   else fwSetLayout('3d');
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>{const on=b.dataset.fwView===view;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false')});
-  document.getElementById('fwSplitChooser')?.classList.toggle('hidden',view!=='split');fwRefreshGlobalTime()
+  document.getElementById('fwSplitChooser')?.classList.toggle('hidden',view!=='split');
+  fwRefreshGlobalTime();
+  document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view,companion:fwState.companion}}))
 }
 function fwTimeTimes(){
   try{return (fvCurrentFieldGroup()?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)}catch{return[]}
