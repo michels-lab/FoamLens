@@ -356,19 +356,19 @@ function fvStreamlineSeeds(mesh,{mode='plane',axis='x',count=16,position=.5,patc
   const candidateCount=Math.min(400,Math.max(count,Math.ceil(count*4))),raw=mode==='line'?fvSeedLine(mesh.boundsMin,mesh.boundsMax,axis,candidateCount,position):mode==='box'?fvSeedBox(mesh.boundsMin,mesh.boundsMax,candidateCount):fvSeedPlane(mesh.boundsMin,mesh.boundsMax,axis,candidateCount,position);
   return fvFilterSeedsInsideMesh(mesh,raw,count)
 }
-function fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,direction=1,step=null,maxSteps=180,maxLength=Infinity){
+function fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,direction=1,step=null,maxSteps=180,maxLength=Infinity,insideTest=null){
   const diag=Math.hypot(boundsMax[0]-boundsMin[0],boundsMax[1]-boundsMin[1],boundsMax[2]-boundsMin[2])||1,h=Number(step)>0?Number(step):diag/220,p=[...seed],out=[{p:[...p],speed:0,distance:0}],dir=Math.sign(direction)||1,limitSteps=Math.max(1,Math.min(10000,Math.round(Number(maxSteps)||180))),limitLength=Number(maxLength)>0?Number(maxLength):Infinity;let length=0;
   for(let k=0;k<limitSteps&&length+h<=limitLength+1e-12;k++){
     const v1=fvSampleVector(hash,centers,vectors,p);if(!v1)break;const s1=fvVecLen(v1);if(!(s1>1e-14))break;
     const u1=v1.map(x=>x/s1),mid=p.map((x,a)=>x+dir*.5*h*u1[a]),v2=fvSampleVector(hash,centers,vectors,mid);if(!v2)break;const s2=fvVecLen(v2);if(!(s2>1e-14))break;
-    const u2=v2.map(x=>x/s2),next=p.map((x,a)=>x+dir*h*u2[a]);if(!fvInsideBounds(next,boundsMin,boundsMax,h*.25))break;
+    const u2=v2.map(x=>x/s2),next=p.map((x,a)=>x+dir*h*u2[a]);if(!fvInsideBounds(next,boundsMin,boundsMax,h*.25)||(typeof insideTest==='function'&&!insideTest(next)))break;
     length+=Math.hypot(next[0]-p[0],next[1]-p[1],next[2]-p[2]);p[0]=next[0];p[1]=next[1];p[2]=next[2];out.push({p:[...p],speed:s2,distance:length})
   }return out
 }
-function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,{direction='both',step=null,maxSteps=180,maxLength=Infinity}={}){
-  if(direction==='forward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,maxLength);
-  if(direction==='backward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,maxLength);
-  const half=Number.isFinite(Number(maxLength))?Number(maxLength)/2:maxLength,back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,half).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,half);
+function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,{direction='both',step=null,maxSteps=180,maxLength=Infinity,insideTest=null}={}){
+  if(direction==='forward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,maxLength,insideTest);
+  if(direction==='backward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,maxLength,insideTest);
+  const half=Number.isFinite(Number(maxLength))?Number(maxLength)/2:maxLength,back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,half,insideTest).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,half,insideTest);
   return back.slice(0,-1).concat(fwd)
 }
 function fvMeshFacePoints(mesh,faceIndex){
@@ -859,7 +859,7 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
     const requested=fvClampSeedCount(document.getElementById('fvSeedCount')?.value||16);requestedSeeds=requested;const axis=document.getElementById('fvSeedAxis')?.value||'x',position=Number(document.getElementById('fvSeedPosition')?.value)||.5,patch=document.getElementById('fvSeedPatch')?.value||'',diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
     step=diag*Math.max(.0005,Number(document.getElementById('fvStreamStepPct')?.value||.45)/100);const maxSteps=Math.max(10,Math.min(5000,Math.round(Number(document.getElementById('fvStreamMaxSteps')?.value)||300))),maxLengthPct=Math.max(1,Number(document.getElementById('fvStreamMaxLengthPct')?.value)||200);maxLength=diag*maxLengthPct/100;
     const seeds=fvStreamlineSeeds(mesh,{mode,axis,count:requested,position,patch});seedCount=seeds.length;
-    for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction,step,maxSteps,maxLength});if(line.length>2){lines.push(line);pointCount+=line.length}}
+    for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction,step,maxSteps,maxLength,insideTest:p=>fvPointInMesh(mesh,p,fvState.spatialHash)});if(line.length>2){lines.push(line);pointCount+=line.length}}
     const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
   }else r.lineCount=0;
   fvState.streamlines=lines;fvRender();
