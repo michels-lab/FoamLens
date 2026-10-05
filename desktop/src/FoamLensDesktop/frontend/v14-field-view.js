@@ -302,8 +302,16 @@ function fvFindContainingCell(mesh,hash,p,lastCell=-1){
 }
 function fvSampleMeshVectorInCell(mesh,cell,vectors,pointVectors,p){
   const center=[Number(mesh.cellCenters?.[3*cell]),Number(mesh.cellCenters?.[3*cell+1]),Number(mesh.cellCenters?.[3*cell+2])],cv=vectors?.[cell],pts=mesh?.points||[];if(!center.every(Number.isFinite)||!Array.isArray(cv)||cv.length<3)return null;
-  for(const fi of fvCellFaces(mesh)?.[cell]||[]){const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];for(let j=1;j<face.length-1;j++){const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],weights=fvTetraWeights(p,...vertices);if(!weights)continue;const vv=[cv,...ids.map(pi=>pointVectors?.[pi])],out=[0,0,0];for(let q=0;q<4;q++){const v=vv[q];if(!Array.isArray(v)||v.length<3||!v.slice(0,3).every(Number.isFinite))return null;for(let a=0;a<3;a++)out[a]+=weights[q]*Number(v[a])}return out}}
-  }return Array.isArray(cv)&&cv.slice(0,3).every(Number.isFinite)?cv.slice(0,3).map(Number):null
+  for(const fi of fvCellFaces(mesh)?.[cell]||[]){
+    const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];
+    for(let j=1;j<face.length-1;j++){
+      const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],weights=fvTetraWeights(p,...vertices);if(!weights)continue;
+      const vv=[cv,...ids.map(pi=>pointVectors?.[pi])],out=[0,0,0];
+      for(let q=0;q<4;q++){const v=vv[q];if(!Array.isArray(v)||v.length<3||!v.slice(0,3).every(Number.isFinite))return null;for(let axis=0;axis<3;axis++)out[axis]+=weights[q]*Number(v[axis])}
+      return out
+    }
+  }
+  return Array.isArray(cv)&&cv.slice(0,3).every(Number.isFinite)?cv.slice(0,3).map(Number):null
 }
 function fvCreateMeshVectorSampler(mesh,hash,vectors){
   const pointVectors=fvPointVectorsFromCells(mesh,vectors);let lastCell=-1;const sample=p=>{const cell=fvFindContainingCell(mesh,hash,p,lastCell);if(cell<0){lastCell=-1;return null}lastCell=cell;return fvSampleMeshVectorInCell(mesh,cell,vectors,pointVectors,p)};sample.pointVectors=pointVectors;return sample
