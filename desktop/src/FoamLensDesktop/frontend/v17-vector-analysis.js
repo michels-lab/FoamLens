@@ -30,7 +30,7 @@ function fvaEligibleCells(mesh,vectors,roi=null){
   return out
 }
 function fvaSelectCells(mesh,vectors,target,roi=null){
-  const centers=mesh?.cellCenters||[],eligible=fvaEligibleCells(mesh,vectors,roi),limit=Math.max(0,Math.min(eligible.length,Math.round(Number(target)||0));
+  const centers=mesh?.cellCenters||[],eligible=fvaEligibleCells(mesh,vectors,roi),limit=Math.max(0,Math.min(eligible.length,Math.round(Number(target)||0)));
   if(!limit)return[];
   if(limit>=eligible.length)return eligible.slice();
   const eligibleSet=new Set(eligible),hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,Math.floor(centers.length/3)),picked=[],used=new Set();
