@@ -102,7 +102,7 @@ let taLastResult=null;
 
 function taBuildUi(){
   if(document.getElementById('taTools'))return;
-  const host=document.getElementById('generalAnalysisModules')||document.getElementById('analysisPanel')||document.querySelector('.analysisTools')||document.body;
+  const host=document.getElementById('generalAnalysisModules');if(!host)return;
   const box=document.createElement('div');box.id='taTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b id="taTitle" data-fl-en="Temporal alignment" data-fl-es="Alineación temporal">Temporal alignment</b><span class="badge">v1.3</span></div>
