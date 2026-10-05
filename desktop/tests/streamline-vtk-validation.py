@@ -317,6 +317,7 @@ def main():
                 "vtk_points": int(len(vtk_path)),
                 "foam_length": float(foam_len),
                 "vtk_length": float(vtk_len),
+                "vtk_path": [[float(x) for x in p] for p in vtk_path],
                 "metrics": metrics,
             })
 
