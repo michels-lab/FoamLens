@@ -96,6 +96,7 @@ for(const token of [
   'fvVectorLengthMode','Magnitude-proportional','Normalized / equal length',
   'fvVectorRoiEnabled','Normalized ROI bounds',
   'fvProvenance','dims ','native/reconstructed field',
+  'fcProvenance',"fcExtra'+state.id+'Provenance",'fvaEnsureCompareProvenance','fcSyncText',
   'sourcePath','meshSnapshot','fvAssociationLabel'
 ]) assert(source.includes(token),'Missing vector/provenance product token: '+token);
 
