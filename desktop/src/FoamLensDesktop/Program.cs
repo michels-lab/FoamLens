@@ -37,7 +37,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.4.9", "app");
+        "FoamLens", "Desktop", "1.5.0", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -296,7 +296,7 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel'
+                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','uxSplitterB','hrHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -325,6 +325,10 @@ internal sealed class FoamLensForm : Form
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
+                    workspaceUxApi:typeof window.FoamLensWorkspaceUx?.getState==='function'&&typeof window.FoamLensWorkspaceUx?.setViewName==='function',
+                    workspaceResizeApi:typeof window.FoamLensWorkspaceResize?.getSizes==='function'&&typeof window.FoamLensWorkspaceResize?.resetSizes==='function',
+                    contextualHelpApi:typeof window.FoamLensContextHelp?.open==='function'&&typeof window.FoamLensContextHelp?.close==='function',
+                    workspaceSplitterCount:document.querySelectorAll('.uxWorkspaceSplitter').length,
                     advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
                     interpolationSmoke:window.FoamLensFieldCompare?.fcResolveTime?.([0,1],.25,'interpolate')||null,
                     percentDifferenceSmoke:Number(window.FoamLensFieldCompare?.fcDifferenceValues?.([10],[8],'percent')?.[0]),
@@ -365,10 +369,15 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
                 foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
-                                                  "multipanelApi", "performanceApi", "advancedCompareApi" })
+                                                  "multipanelApi", "performanceApi", "workspaceUxApi",
+                                                  "workspaceResizeApi", "contextualHelpApi", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("workspaceSplitterCount", out var splitterCount) ||
+                    splitterCount.GetInt32() != 2)
+                    throw new InvalidOperationException(
+                        $"FoamLens Field Workspace splitters did not mount correctly: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
                     rangeModes.ValueKind != JsonValueKind.Array ||
                     !new[] { "current", "global", "manual" }.All(expected =>
@@ -600,6 +609,31 @@ internal sealed class FoamLensForm : Form
                         performanceAvgMs.GetDouble() < 0)
                         throw new InvalidOperationException(
                             $"FoamLens progressive-performance telemetry runtime smoke failed: {realCaseJson}");
+                    if (!data.TryGetProperty("performanceBenchmarkSchema", out var performanceBenchmarkSchema) ||
+                        !string.Equals(performanceBenchmarkSchema.GetString(), "foamlens-performance-ab-v1", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("performanceBenchmarkFinite", out var performanceBenchmarkFinite) ||
+                        !performanceBenchmarkFinite.GetBoolean() ||
+                        !data.TryGetProperty("performanceBenchmarkFrames", out var performanceBenchmarkFrames) ||
+                        performanceBenchmarkFrames.GetInt32() != 3 ||
+                        !data.TryGetProperty("performanceBenchmarkRounds", out var performanceBenchmarkRounds) ||
+                        performanceBenchmarkRounds.GetInt32() != 2 ||
+                        !data.TryGetProperty("performanceBaselineCount", out var performanceBaselineCount) ||
+                        performanceBaselineCount.GetInt32() != 6 ||
+                        !data.TryGetProperty("performanceOptimizedCount", out var performanceOptimizedCount) ||
+                        performanceOptimizedCount.GetInt32() != 6 ||
+                        !data.TryGetProperty("performanceBaselineMean", out var performanceBaselineMean) ||
+                        !double.IsFinite(performanceBaselineMean.GetDouble()) ||
+                        performanceBaselineMean.GetDouble() <= 0 ||
+                        !data.TryGetProperty("performanceOptimizedMean", out var performanceOptimizedMean) ||
+                        !double.IsFinite(performanceOptimizedMean.GetDouble()) ||
+                        performanceOptimizedMean.GetDouble() <= 0 ||
+                        !data.TryGetProperty("performanceSpeedupFactor", out var performanceSpeedupFactor) ||
+                        !double.IsFinite(performanceSpeedupFactor.GetDouble()) ||
+                        performanceSpeedupFactor.GetDouble() <= 0 ||
+                        !data.TryGetProperty("performanceBenchmarkError", out var performanceBenchmarkError) ||
+                        !string.IsNullOrWhiteSpace(performanceBenchmarkError.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens controlled performance A/B benchmark smoke failed: {realCaseJson}");
                     if (!data.TryGetProperty("profile3DPoints", out var profile3DPointsNode) ||
                         profile3DPointsNode.GetInt32() < 20 ||
                         !data.TryGetProperty("profile3DFinite", out var profile3DFiniteNode) ||
@@ -730,7 +764,16 @@ internal sealed class FoamLensForm : Form
                         if(typeof multiApi?.compose!=='function'||typeof multiApi?.getSources!=='function')
                           throw new Error('Multi-panel export runtime API is unavailable.');
                         const multiSources=multiApi.getSources();
-                        const multiResult=multiApi.compose(multiSources.filter(x=>x.key==='primary'||x.key==='view2').slice(0,2));
+                        const primaryExportSource=multiSources.find(x=>x.key==='primary');
+                        if(!primaryExportSource||typeof multiApi?.renderSource!=='function')throw new Error('High-resolution 3D export source/runtime API is unavailable.');
+                        const primaryCanvas=document.getElementById(primaryExportSource.canvasId);
+                        const primaryWidthBefore=Number(primaryCanvas?.width||0),primaryHeightBefore=Number(primaryCanvas?.height||0);
+                        const hiResPrimary=await multiApi.renderSource(primaryExportSource,1800,1200);
+                        const hiRes3DWidth=Number(hiResPrimary?.width||0),hiRes3DHeight=Number(hiResPrimary?.height||0);
+                        const primaryRestored=Number(primaryCanvas?.width||0)===primaryWidthBefore&&Number(primaryCanvas?.height||0)===primaryHeightBefore;
+                        const hiResMeta=multiApi.getLastHiRes?.()||null;
+                        const highResRerendered=!!hiResMeta?.rerendered&&Number(hiResMeta?.width)===1800&&Number(hiResMeta?.height)===1200;
+                        const multiResult=await multiApi.compose(multiSources.filter(x=>x.key==='primary'||x.key==='view2').slice(0,2));
                         const multiPanelSourceCount=multiResult?.sources?.length||0;
                         const multiPanelWidth=Number(multiResult?.canvas?.width||0);
                         const multiPanelHeight=Number(multiResult?.canvas?.height||0);
@@ -823,6 +866,10 @@ internal sealed class FoamLensForm : Form
                           secondaryComponent:view2?.component||'',
                           usedDifferentField:!!differentField,
                           multiPanelSourceCount,
+                          hiRes3DWidth,
+                          hiRes3DHeight,
+                          highResRerendered,
+                          primaryRestored,
                           multiPanelWidth,
                           multiPanelHeight,
                           multiPanelPixels,
@@ -873,6 +920,10 @@ internal sealed class FoamLensForm : Form
                         !root.TryGetProperty("swapApplied", out var swapApplied) || !swapApplied.GetBoolean() ||
                         !root.TryGetProperty("swapRestored", out var swapRestored) || !swapRestored.GetBoolean() ||
                         !root.TryGetProperty("multiPanelSourceCount", out var multiPanelSourceCount) || multiPanelSourceCount.GetInt32() < 2 ||
+                        !root.TryGetProperty("hiRes3DWidth", out var hiRes3DWidth) || hiRes3DWidth.GetInt32() != 1800 ||
+                        !root.TryGetProperty("hiRes3DHeight", out var hiRes3DHeight) || hiRes3DHeight.GetInt32() != 1200 ||
+                        !root.TryGetProperty("highResRerendered", out var highResRerendered) || !highResRerendered.GetBoolean() ||
+                        !root.TryGetProperty("primaryRestored", out var primaryRestored) || !primaryRestored.GetBoolean() ||
                         !root.TryGetProperty("multiPanelWidth", out var multiPanelWidth) || multiPanelWidth.GetInt32() != 2400 ||
                         !root.TryGetProperty("multiPanelHeight", out var multiPanelHeight) || multiPanelHeight.GetInt32() != 1600 ||
                         !root.TryGetProperty("multiPanelPixels", out var multiPanelPixels) || multiPanelPixels.GetInt64() != 3_840_000 ||
@@ -965,6 +1016,8 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
+        html = html.Replace("1.4.9", "1.5.0", StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
@@ -1050,9 +1103,28 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       runtimeProfile=window.FoamLensFieldWorkspace.set3DProfileLine(a,b,{select:false});
     }
   }catch(e){runtimeProfileError=String(e?.stack||e)}
+  let performanceBenchmark=null,performanceBenchmarkError='';
+  try{
+    if(typeof window.FoamLensPerformance?.runBenchmark==='function')performanceBenchmark=await window.FoamLensPerformance.runBenchmark({frames:3,rounds:2,settleMs:100});
+  }catch(e){performanceBenchmarkError=String(e?.stack||e)}
   const range=fvFiniteRange(fvState.fieldValues);
   const gl=fvState.renderer?.gl||null,performanceStats=window.FoamLensPerformance?.stats?.()||null;
   return{
+    performanceBenchmarkSchema:String(performanceBenchmark?.schema||''),
+    performanceBenchmarkFinite:!!performanceBenchmark?.finite,
+    performanceBenchmarkFrames:Number(performanceBenchmark?.frames||0),
+    performanceBenchmarkRounds:Number(performanceBenchmark?.rounds||0),
+    performanceBaselineCount:Number(performanceBenchmark?.baseline?.count||0),
+    performanceOptimizedCount:Number(performanceBenchmark?.optimized?.count||0),
+    performanceBaselineMean:Number(performanceBenchmark?.baseline?.mean),
+    performanceOptimizedMean:Number(performanceBenchmark?.optimized?.mean),
+    performanceBaselineMedian:Number(performanceBenchmark?.baseline?.median),
+    performanceOptimizedMedian:Number(performanceBenchmark?.optimized?.median),
+    performanceBaselineP95:Number(performanceBenchmark?.baseline?.p95),
+    performanceOptimizedP95:Number(performanceBenchmark?.optimized?.p95),
+    performanceSpeedupFactor:Number(performanceBenchmark?.speedupFactor),
+    performancePercentChange:Number(performanceBenchmark?.percentChange),
+    performanceBenchmarkError,
     performanceLoads:Number(performanceStats?.loads||0),
     performanceLastMs:Number(performanceStats?.lastMs||0),
     performanceAvgMs:Number(performanceStats?.avgMs||0),

@@ -16,16 +16,16 @@ assert(index.includes("productVersion:'v51'"),'Workspace productVersion is not v
 assert(!index.includes('v51 development'),'Release UI still reports a frontend development build.');
 assert(!index.includes('release candidate build'),'Release UI still reports a release candidate.');
 assert(!index.includes("productVersion:'v51-development'"),'Workspace payload still reports a development version.');
-assert(/<Version>1.4.9<\/Version>/.test(project),'Desktop project version is not 1.4.9.');
-assert(/<AssemblyVersion>1.4.9\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.4.9.0.');
-assert(/<FileVersion>1.4.9\.0<\/FileVersion>/.test(project),'FileVersion is not 1.4.9.0.');
-assert(readme.includes('The current public release is **FoamLens Desktop v1.4.9 with frontend v51**'),'Desktop README does not identify v1.4.9 as the current public release.');
-assert(readme.includes('# FoamLens Desktop v1.4.9'),'Desktop README does not identify the v1.4.9 release.');
+assert(/<Version>1.5.0<\/Version>/.test(project),'Desktop project version is not 1.5.0.');
+assert(/<AssemblyVersion>1.5.0\.0<\/AssemblyVersion>/.test(project),'AssemblyVersion is not 1.5.0.0.');
+assert(/<FileVersion>1.5.0\.0<\/FileVersion>/.test(project),'FileVersion is not 1.5.0.0.');
+assert(readme.includes('The current public release is **FoamLens Desktop v1.5.0 with frontend v51**'),'Desktop README does not identify v1.5.0 as the current public release.');
+assert(readme.includes('# FoamLens Desktop v1.5.0'),'Desktop README does not identify the v1.5.0 release.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
-assert(fieldView.includes("Desktop v1.4.9"),'Field View module does not expose the v1.4.9 build identity.');
-assert(program.includes('"FoamLens", "Desktop", "1.4.9", "app"'),'Desktop app bundle root is not isolated for v1.4.9.');
-assert(index.includes("function flDesktopVersion(){return '1.4.9'}"),'Desktop version helper is not v1.4.9.');
+assert(fieldView.includes("Desktop v1.5.0"),'Field View module does not expose the v1.5.0 build identity.');
+assert(program.includes('"FoamLens", "Desktop", "1.5.0", "app"'),'Desktop app bundle root is not isolated for v1.5.0.');
+assert(program.includes('html = html.Replace("1.4.9", "1.5.0", StringComparison.Ordinal);'),'Desktop host does not normalize embedded frontend release identity to v1.5.0.');
 assert(index.includes("function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}"),'Global export provenance identity is not derived from the Desktop version helper.');
 assert((index.match(/data-desktop-version/g)||[]).length>=3,'Desktop version is not visibly surfaced in launch/sidebar/footer.');
 assert(index.includes("document.title='FoamLens v51 · '+label+' — by Michel Duarte'"),'Window title does not expose the Desktop version.');
@@ -42,4 +42,4 @@ for(const name of fs.readdirSync(frontendDir).filter(x=>/\.(?:js|html)$/i.test(x
   }
 }
 assert(provenanceUses>=5,'Expected versioned export provenance was not found.');
-console.log('Version consistency passed: public Desktop v1.4.9 / frontend v51 with visible build identity.');
+console.log('Version consistency passed: public Desktop v1.5.0 / frontend v51 with visible build identity.');

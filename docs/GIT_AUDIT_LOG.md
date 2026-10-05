@@ -2814,6 +2814,280 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - **v1.4.9 is now the current public FoamLens Desktop release.**
 - Release is not marked draft or prerelease.
 
+## 2026-10-05 — v1.5.0 validation/export/performance boundaries closed
+
+- Development branch: \`development/v1.5.0-validation-export-benchmark\`.
+- Validated product head: \`01845b0bce089c910dfd054c380724ab1638f6cf\`.
+- Public release remains **FoamLens Desktop v1.4.9**. No version bump, merge to \`main\`, or public release was performed.
+- This development line closes the three scientific / export / performance boundaries left explicitly open after v1.4.9:
+  1. independent streamline geometry validation against VTK;
+  2. true high-resolution WebGL 3D rerendering for multipanel export;
+  3. controlled baseline-vs-optimized performance benchmarking.
+
+### 1. Independent streamline validation against VTK
+
+#### Reference implementation
+- Added \`desktop/tests/streamline-vtk-reference-input.cjs\` to generate deterministic B13 streamline inputs directly from the real OpenFOAM mesh and \`U\` field.
+- Added \`desktop/tests/vtk_streamline_reference.py\` using:
+  - VTK 9.7.1;
+  - \`vtkOpenFOAMReader\`;
+  - \`vtkCellDataToPointData\`;
+  - \`vtkStreamTracer\`;
+  - Runge-Kutta 2;
+  - the same fixed integration step and directional propagation budget used by FoamLens.
+- The workflow installs VTK independently and produces a retained \`FoamLens-VTK-streamline-validation\` artifact.
+
+#### FoamLens sampling refinement
+- Field View now exposes mesh-aware vector interpolation for streamline integration:
+  - cell→point vector reconstruction;
+  - tetrahedral local interpolation;
+  - explicit containing-cell lookup;
+  - reusable mesh vector sampler.
+- Streamline integration keeps the existing RK2 trajectory integration but can now consume the mesh-aware sampler instead of the older nearest/IDW-only path.
+
+#### VTK Both-direction topology correction
+- Diagnostic runs #614–#623 showed that VTK \`IntegrationDirection=Both\` returns **two output polyline cells per seed** (forward and backward), while FoamLens exposes one combined bidirectional polyline.
+- The initial validator was therefore comparing one FoamLens combined path against one VTK directional branch and produced misleading Hausdorff errors despite near-identical path lengths.
+- Run #624 corrects the comparison without relaxing thresholds:
+  - raw VTK output: 16 lines for 8 seeds;
+  - VTK forward/backward branches are paired by seed and combined into 8 bidirectional paths;
+  - VTK maximum propagation uses the same effective per-direction fixed-step budget as FoamLens;
+  - FoamLens path i is compared directly against the reconstructed VTK path for the same seed.
+
+#### B13 validation result
+- Case: real B13-derived OpenFOAM fixture.
+- Region: \`metal\`.
+- Field: \`U\`.
+- Physical time: \`9.8 s\`.
+- Compared deterministic seed paths: **8**.
+- Effective propagation per direction: \`0.022748468080290594 m\`.
+- VTK raw lines: **16**.
+- Reconstructed VTK bidirectional lines: **8**.
+- Metrics normalized by domain diagonal:
+  - mean RMS distance: \`0.001079412105434675\`;
+  - worst RMS distance: \`0.005370900274556226\`;
+  - worst Hausdorff distance: \`0.012707557766339842\`;
+  - mean relative path-length difference: \`1.4196553839305338e-08\`.
+- Validation thresholds remained:
+  - mean RMS / diagonal ≤ \`0.06\`;
+  - worst RMS / diagonal ≤ \`0.10\`;
+  - worst Hausdorff / diagonal ≤ \`0.16\`;
+  - mean relative length difference ≤ \`0.35\`.
+- Result: **PASS**.
+- This closes the previous “not independently VTK-validated” boundary for the representative B13 validation configuration. It should still not be generalized to every possible ParaView integration/interpolation setting without matching those settings explicitly.
+
+### 2. True high-resolution 3D multipanel rendering
+
+- Primary Field View renderer now accepts an explicit render size.
+- View 2, Difference, and extra comparison views also accept explicit render sizes.
+- Public runtime APIs:
+  - \`FoamLensFieldView.renderAtSize(width,height)\`;
+  - \`FoamLensFieldCompare.renderAtSize(key,width,height)\`.
+- \`v16-multipanel-export.js\` now rerenders WebGL 3D sources at the target panel pixel dimensions before composition instead of scaling the existing low-resolution viewport raster.
+- After each export render, the original viewport pixel dimensions are restored in a \`finally\` path.
+
+#### Runtime evidence
+- Portable packaged smoke requested a primary 3D rerender at **1800×1200**.
+- Installed-app smoke repeated the same operation.
+- Both reported:
+  - \`hiRes3DWidth = 1800\`;
+  - \`hiRes3DHeight = 1200\`;
+  - \`highResRerendered = true\`;
+  - \`primaryRestored = true\`.
+- The resulting two-panel scientific composition remained **2400×1600 = 3,840,000 pixels**.
+- Existing case/field labels, legend, Probe and independent-view behavior continued to pass after the high-resolution render/restore cycle.
+
+### 3. Controlled performance A/B benchmark
+
+#### Benchmark method
+- Added explicit runtime modes:
+  - \`baseline\`;
+  - \`optimized\`.
+- Baseline disables the optimizations being measured:
+  - progressive browser-paint yield;
+  - adaptive field prefetch;
+  - viewport-aware deferred comparison-view loading.
+- Optimized mode enables those behaviors.
+- Each pass:
+  - uses the same stored field-frame sequence;
+  - clears FoamLens field cache / inflight state;
+  - resets pass telemetry.
+- Two rounds alternate execution order:
+  - round 1: baseline → optimized;
+  - round 2: optimized → baseline.
+- Packaged smoke uses 3 frames × 2 rounds = **6 baseline samples + 6 optimized samples**.
+- Report schema: \`foamlens-performance-ab-v1\`.
+- The smoke requires finite metrics but does **not** require a positive speedup; measured results are reported as observed.
+
+#### Portable Windows smoke result
+- Baseline mean: \`725.5666666667288 ms\`.
+- Optimized mean: \`671.3166666666511 ms\`.
+- Baseline median: \`673.5000000001164 ms\`.
+- Optimized median: \`652.1999999999534 ms\`.
+- Baseline p95: \`911.5 ms\`.
+- Optimized p95: \`744.6999999999534 ms\`.
+- Speedup factor: \`1.0808113408973592×\`.
+- Mean-time reduction: **7.476914595498646%**.
+
+#### Installed-app smoke result
+- Baseline mean: \`740.4166666666279 ms\`.
+- Optimized mean: \`677.75 ms\`.
+- Baseline median: \`725.75 ms\`.
+- Optimized median: \`671.8999999999069 ms\`.
+- Baseline p95: \`1005 ms\`.
+- Optimized p95: \`776.3000000000466 ms\`.
+- Speedup factor: \`1.0924628058526415×\`.
+- Mean-time reduction: **8.46370287000083%**.
+
+#### Interpretation boundary
+- The benchmark demonstrates a repeatable improvement under the B13 smoke workload on GitHub-hosted Windows runners.
+- These percentages are **not** claimed as universal application speedups; different hardware, cases, fields, viewport layouts and cache states may produce different results.
+
+### Automated / runtime validation
+- GitHub Actions run **#624** (\`37296824298\`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline comparison: **SUCCESS**.
+- Full 60-test scientific/UI regression suite: **SUCCESS**.
+- Multi-panel / progressive-performance regression: **SUCCESS**.
+- Portable Windows executable build: **SUCCESS**.
+- Packaged portable smoke including benchmark and high-resolution WebGL rerender: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installed-application smoke including benchmark and high-resolution WebGL rerender: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Validation artifacts
+- \`FoamLens-VTK-streamline-validation\`
+  - artifact id: \`11340285640\`;
+  - size: \`30,899 bytes\`;
+  - digest: \`sha256:4701a1c0944fa53b63cbdaadb5a53ae2d447ab54f2acd745dd949fc10d334342\`.
+- \`QuickCup-MultiCase-Windows-runtime\`
+  - artifact id: \`11340725615\`;
+  - size: \`326,074,466 bytes\`;
+  - digest: \`sha256:cebe5547d1b2bf4664505180915c7b67fe496d21a726a4accf5107fe3a19cc2e\`.
+- \`FoamLens-Windows-v1.4.9\`
+  - artifact id: \`11340051662\`;
+  - size: \`135,280,604 bytes\`;
+  - digest: \`sha256:739c8fcfef7dfe3efd349fb24c827a21c73ddb73f3c91bc5244661e8187364a0\`.
+
+### State
+- The three previously explicit boundaries are now closed on this development branch:
+  - representative B13 streamline geometry independently validated against VTK;
+  - 3D WebGL export rerendered at requested high-resolution pixel dimensions;
+  - controlled before/after performance benchmark executed and measured.
+- No merge to \`main\`.
+- No new public release.
+- Public FoamLens release remains **v1.4.9**.
+
+## 2026-10-05 — persistent workspace UX validated
+
+- Development branch: `development/v1.5.0-validation-export-benchmark`.
+- Validated product head: `a97d26f33c01c34eafba2d4ab3c6f931798452df`.
+- Public release remains **FoamLens Desktop v1.4.9**. No merge to `main` and no public release were performed.
+
+### Persistent Field Workspace
+- Added `v17-workspace-ux.js`.
+- FoamLens now stores/restores locally:
+  - Split / 3D focus / Plot focus layout;
+  - companion plot selection;
+  - physical-time follow toggle;
+  - comparison enabled state and visible comparison-view count;
+  - Difference enabled state and time-sync mode;
+  - linked/independent camera state;
+  - linked/independent visual-settings state;
+  - per-view display names A–D;
+  - draggable panel sizes.
+- Added Reset layout, which restores the predictable Split + Spatial Profile + linked-camera/visual defaults without modifying OpenFOAM data.
+
+### Per-view names / provenance preservation
+- Views A–D may be renamed for presentation use.
+- Presentation labels are prepended to, rather than substituted for, the scientific case / field / time labels.
+- The implementation keeps the original scientific label in dedicated dataset attributes before applying an alias, preventing repeated refreshes from progressively stripping provenance.
+
+### Comparison status strip
+- Added an always-visible comparison summary while Compare 3D is active.
+- It reports:
+  - A and B case/time context;
+  - Exact / Nearest / Interpolated time state and Δt where relevant;
+  - same/different physical quantity compatibility;
+  - linked/independent cameras;
+  - linked/independent visual settings;
+  - Difference mode;
+  - selected synchronization mode.
+
+### Contextual help / discoverability
+- Added `v18-context-help-resize.js`.
+- Added Ribbon **View → Help** plus the `?` keyboard shortcut.
+- Contextual help covers:
+  - Field Workspace;
+  - 3D Compare;
+  - Scientific Export;
+  - View & Layout.
+- Escape closes the overlay.
+- Help explicitly documents Exact / Nearest / Interpolated sync, comparison status, high-resolution 3D export, view-name semantics and splitter behavior.
+
+### Resizable workspace panels
+- Added two draggable vertical splitters:
+  - 3D ↔ companion plot;
+  - companion plot ↔ controls.
+- Minimum widths protect scientific readability:
+  - 3D: 280 px;
+  - companion plot: 280 px;
+  - controls: 260 px.
+- Splitter sizes persist in the same Field Workspace state.
+- At responsive widths ≤1100 px, splitters are disabled and the workspace stacks vertically instead of forcing desktop dimensions.
+
+### Ribbon integration
+- View tab now exposes:
+  - View names;
+  - Reset layout;
+  - Help.
+- Existing Performance / Fit / Sidebar / appearance controls remain intact.
+
+### Automated/runtime validation
+- Added `desktop/tests/workspace-ux.test.cjs`.
+- Added `desktop/tests/context-help-resize.test.cjs`.
+- CI suite increased from 60 to **62** tests and the manifest verifies each test runs exactly once.
+- Packaged WebView2 runtime smoke now requires:
+  - `uxViewNamesPanel`;
+  - `uxComparisonStatus`;
+  - `uxSplitterA`;
+  - `uxSplitterB`;
+  - `hrHelpOverlay`;
+  - live `FoamLensWorkspaceUx`, `FoamLensWorkspaceResize` and `FoamLensContextHelp` APIs;
+  - exactly two workspace splitters.
+- GitHub Actions run **#651** (`37303650253`): **SUCCESS**.
+- Real QuickCup/B13 regression: **SUCCESS**.
+- Independent VTK streamline validation: **SUCCESS**.
+- Full 62-test scientific/UI suite: **SUCCESS**.
+- Portable build and packaged WebView2 smoke: **SUCCESS**.
+- Installer build and installed-app smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Validation artifacts
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11343186219`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:725152631b566d559106d48e687148fb8603f1b0287b64d208db06da510bc8f8`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11342128295`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:9a0dfe979e3c9d615b09868762c28e037b80157f715bc9819ed20f7f5ca414af`.
+- `FoamLens-Windows-v1.4.9`
+  - artifact id: `11342907254`;
+  - size: `135,286,428 bytes`;
+  - digest: `sha256:42e8184b4e26cc7ddff820415d104c24cb5bf46c6524158d49921f3d50e1ef0c`.
+
+### State
+- The P2 Workspace / usability items recorded in the original post-v1.4.5 roadmap are now materially closed:
+  - persistent layout;
+  - per-view naming;
+  - compact comparison status;
+  - interaction/help discoverability;
+  - resizable Field Workspace panels.
+- The next incomplete P0 block is vector-glyph analysis: normalized/proportional length, ROI sampling and quantitative sampling validation.
+
 ## 2026-10-05 — Infrastructure / cloud audit
 
 Added `docs/INFRASTRUCTURE_AUDIT.md`.
@@ -2830,3 +3104,57 @@ Added the repository-level Michel's Lab governance declaration:
 - Reusable/cross-app decisions are promoted to the master standards repository.
 - The master repository polls child status centrally; this repository receives no credential that can write to the master.
 - Secret values remain prohibited from both repositories.
+
+## 2026-10-05 — v1.5.0 vector analysis + scientific provenance development
+
+- Development branch: `development/v1.5.0-vector-provenance`.
+- Base: current public `main` after FoamLens Desktop v1.4.9 publication.
+- This block addresses remaining roadmap items under **Vector glyph analysis controls** and **Scientific provenance in the viewport**.
+
+### Implemented
+- Added isolated frontend module: `desktop/src/FoamLensDesktop/frontend/v17-vector-analysis.js`.
+- Added vector arrow-length semantics:
+  - `Magnitude-proportional`;
+  - `Normalized / equal length`.
+- Added normalized ROI-box sampling controls for X/Y/Z.
+- ROI sampling filters candidate cell centers before glyph selection; cells outside the ROI are not eligible.
+- Vector metadata now reports:
+  - actual glyph count;
+  - requested glyph count;
+  - eligible ROI-cell count;
+  - length mode;
+  - ROI bounds;
+  - sampled mean magnitude / ROI-field mean magnitude;
+  - sampled magnitude-range coverage.
+- Added scientific provenance overlay to the primary 3D viewport.
+- Added provenance overlays to synchronized View 2 / View 3 / View 4.
+- Provenance exposes case, region, field, association, unit when available, physical time, dimensions, synchronization context for comparison views, parser/reconstruction context and source identity.
+- Existing v1.4.9 Field View engine remains intact; v17 extends the already-validated module rather than rewriting v14.
+
+### Regression coverage
+- Added `desktop/tests/vector-analysis.test.cjs`.
+- Workflow now executes the vector-analysis regression exactly once.
+- The existing CI manifest will require the new test to remain wired because it checks every `.test.cjs` file against the workflow.
+
+### Direct validation on repository content
+- v17 JavaScript syntax validation: **PASS**.
+- ROI test with normalized X bounds `0.5–1.0`: selected only cells inside the requested ROI.
+- Normalized-length test: two different vector magnitudes produced equal glyph shaft lengths.
+- Magnitude-proportional test: the larger vector produced a longer glyph shaft.
+- Comparison provenance tokens for A/B/C/D are present.
+- Workflow reference count for `vector-analysis.test.cjs`: exactly **1**.
+
+### Validation status
+- Latest full CI head: `b6bc2a5e0b10c0df057b0b6a23e4462e8b67e4ae`.
+- GitHub Actions run **#664** (`37371845965`) was queued at the time of this log entry.
+- This block is **implemented but not yet marked fully validated** until the complete QuickCup + Windows packaging workflow passes.
+- No merge to `main`.
+- No release created.
+
+## 2026-10-05 — v1.5.0 unified integration candidate
+
+- Integration branch: `integration/v1.5.0-unified`.
+- Base block: validated VTK streamline / high-resolution export / controlled performance benchmark / workspace UX branch.
+- Integrated block: vector glyph ROI + normalized/proportional length semantics + quantitative sampling metrics + scientific provenance overlays + Michel's Lab governance/infrastructure declarations.
+- CI workflow now retains independent VTK validation and also runs `vector-analysis.test.cjs` exactly once.
+- No merge to `main` and no public release at this stage; full unified CI validation is required first.

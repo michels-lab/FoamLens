@@ -9,9 +9,9 @@
     <RootNamespace>FoamLensDesktop</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\FoamLens.ico</ApplicationIcon>
-    <Version>1.4.9</Version>
-    <AssemblyVersion>1.4.9.0</AssemblyVersion>
-    <FileVersion>1.4.9.0</FileVersion>
+    <Version>1.5.0</Version>
+    <AssemblyVersion>1.5.0.0</AssemblyVersion>
+    <FileVersion>1.5.0.0</FileVersion>
     <Product>FoamLens Desktop</Product>
     <Company>Michel's Lab</Company>
     <Authors>Michel Armando Duarte Flores</Authors>

@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.4.9 — OpenFOAM mesh/field visualization and streamline playback. */
+/* FoamLens Desktop v1.5.0 — OpenFOAM mesh/field visualization and streamline playback. */
 
 /* FOAMLENS_FIELD_VIEW_CORE_START */
 function fvNormPath(v){return String(v||'').replace(/\\/g,'/').replace(/\/+/g,'/').replace(/^\/|\/$/g,'')}
@@ -290,6 +290,32 @@ function fvSampleVector(hash,centers,vectors,p){
   for(const q of nearest){const v=vectors[q.i];if(!Array.isArray(v)||v.length<3)continue;const vx=Number(v[0]),vy=Number(v[1]),vz=Number(v[2]);if(![vx,vy,vz].every(Number.isFinite))continue;const w=1/Math.max(q.d2,1e-18);wsum+=w;x+=w*vx;y+=w*vy;z+=w*vz}
   return wsum>0?[x/wsum,y/wsum,z/wsum]:null
 }
+function fvPointVectorsFromCells(mesh,vectors){
+  const adj=fvPointCells(mesh),out=new Array(adj.length);for(let pi=0;pi<adj.length;pi++){let x=0,y=0,z=0,n=0;for(const c of adj[pi]){const v=vectors?.[c];if(!Array.isArray(v)||v.length<3)continue;const a=Number(v[0]),b=Number(v[1]),d=Number(v[2]);if(![a,b,d].every(Number.isFinite))continue;x+=a;y+=b;z+=d;n++}out[pi]=n?[x/n,y/n,z/n]:[NaN,NaN,NaN]}return out
+}
+function fvTetraWeights(p,a,b,c,d,tol=1e-8){
+  const sub=(u,v)=>[u[0]-v[0],u[1]-v[1],u[2]-v[2]],cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],dot=(u,v)=>u[0]*v[0]+u[1]*v[1]+u[2]*v[2],v0=sub(b,a),v1=sub(c,a),v2=sub(d,a),vp=sub(p,a),den=dot(v0,cross(v1,v2));if(!(Math.abs(den)>1e-24))return null;
+  const w1=dot(vp,cross(v1,v2))/den,w2=dot(v0,cross(vp,v2))/den,w3=dot(v0,cross(v1,vp))/den,w0=1-w1-w2-w3,w=[w0,w1,w2,w3];return w.every(q=>q>=-tol&&q<=1+tol)?w:null
+}
+function fvFindContainingCell(mesh,hash,p,lastCell=-1){
+  if(lastCell>=0&&fvCellContainsPoint(mesh,lastCell,p))return lastCell;for(const cell of fvNearbyCells(hash,p,2))if(fvCellContainsPoint(mesh,cell,p))return cell;return-1
+}
+function fvSampleMeshVectorInCell(mesh,cell,vectors,pointVectors,p){
+  const center=[Number(mesh.cellCenters?.[3*cell]),Number(mesh.cellCenters?.[3*cell+1]),Number(mesh.cellCenters?.[3*cell+2])],cv=vectors?.[cell],pts=mesh?.points||[];if(!center.every(Number.isFinite)||!Array.isArray(cv)||cv.length<3)return null;
+  for(const fi of fvCellFaces(mesh)?.[cell]||[]){
+    const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];
+    for(let j=1;j<face.length-1;j++){
+      const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],weights=fvTetraWeights(p,...vertices);if(!weights)continue;
+      const vv=[cv,...ids.map(pi=>pointVectors?.[pi])],out=[0,0,0];
+      for(let q=0;q<4;q++){const v=vv[q];if(!Array.isArray(v)||v.length<3||!v.slice(0,3).every(Number.isFinite))return null;for(let axis=0;axis<3;axis++)out[axis]+=weights[q]*Number(v[axis])}
+      return out
+    }
+  }
+  return Array.isArray(cv)&&cv.slice(0,3).every(Number.isFinite)?cv.slice(0,3).map(Number):null
+}
+function fvCreateMeshVectorSampler(mesh,hash,vectors){
+  const pointVectors=fvPointVectorsFromCells(mesh,vectors);let lastCell=-1;const sample=p=>{const cell=fvFindContainingCell(mesh,hash,p,lastCell);if(cell<0){lastCell=-1;return null}lastCell=cell;return fvSampleMeshVectorInCell(mesh,cell,vectors,pointVectors,p)};sample.pointVectors=pointVectors;return sample
+}
 function fvClampSeedCount(count,fallback=16){return Math.max(1,Math.min(400,Math.round(Number(count)||fallback)))}
 function fvSeedPlane(boundsMin,boundsMax,axis='x',count=16,position=.5){
   count=fvClampSeedCount(count);position=fvClamp(position,0,1);const ai={x:0,y:1,z:2}[axis]??0,other=[0,1,2].filter(x=>x!==ai),n=Math.ceil(Math.sqrt(count)),out=[];
@@ -322,22 +348,53 @@ function fvSeedPatch(mesh,patchName,count=16){
     if(c&&c.every(Number.isFinite)){const d=[c[0]-p[0],c[1]-p[1],c[2]-p[2]],m=Math.hypot(...d)||1;out.push([p[0]+eps*d[0]/m,p[1]+eps*d[1]/m,p[2]+eps*d[2]/m])}else out.push(p)
   }return out
 }
-function fvStreamlineSeeds(mesh,{mode='plane',axis='x',count=16,position=.5,patch=''}={}){
-  if(!mesh)return[];if(mode==='line')return fvSeedLine(mesh.boundsMin,mesh.boundsMax,axis,count,position);if(mode==='box')return fvSeedBox(mesh.boundsMin,mesh.boundsMax,count);if(mode==='patch')return fvSeedPatch(mesh,patch,count);return fvSeedPlane(mesh.boundsMin,mesh.boundsMax,axis,count,position)
+function fvCellContainsPoint(mesh,cell,p,tolerance=null){
+  const pts=mesh?.points||[],faces=fvCellFaces(mesh)?.[cell]||[],owners=mesh?.owners||[],neighbours=mesh?.neighbours||[],diag=Math.hypot(...[0,1,2].map(a=>(mesh?.boundsMax?.[a]||0)-(mesh?.boundsMin?.[a]||0)))||1,tol=Number.isFinite(Number(tolerance))?Math.abs(Number(tolerance)):diag*1e-8;
+  if(!faces.length||!Array.isArray(p)||p.length<3)return false;let validFaces=0;
+  for(const fi of faces){
+    const ids=fvMeshFacePoints(mesh,fi);if(ids.length<3)continue;const p0=[Number(pts[3*ids[0]]),Number(pts[3*ids[0]+1]),Number(pts[3*ids[0]+2])];if(!p0.every(Number.isFinite))continue;
+    let nx=0,ny=0,nz=0,cx=0,cy=0,cz=0,n=0;
+    for(const id of ids){const x=Number(pts[3*id]),y=Number(pts[3*id+1]),z=Number(pts[3*id+2]);if(![x,y,z].every(Number.isFinite))continue;cx+=x;cy+=y;cz+=z;n++}
+    if(n<3)continue;cx/=n;cy/=n;cz/=n;
+    for(let j=1;j<ids.length-1;j++){const a=[Number(pts[3*ids[j]])-p0[0],Number(pts[3*ids[j]+1])-p0[1],Number(pts[3*ids[j]+2])-p0[2]],b=[Number(pts[3*ids[j+1]])-p0[0],Number(pts[3*ids[j+1]+1])-p0[1],Number(pts[3*ids[j+1]+2])-p0[2]];nx+=a[1]*b[2]-a[2]*b[1];ny+=a[2]*b[0]-a[0]*b[2];nz+=a[0]*b[1]-a[1]*b[0]}
+    const mag=Math.hypot(nx,ny,nz);if(!(mag>1e-20))continue;const owner=Number(owners[fi]),neighbour=fi<neighbours.length?Number(neighbours[fi]):-1,orientation=owner===cell?1:neighbour===cell?-1:0;if(!orientation)continue;
+    const signed=orientation*((Number(p[0])-cx)*nx+(Number(p[1])-cy)*ny+(Number(p[2])-cz)*nz);if(signed>tol*mag)return false;validFaces++
+  }
+  return validFaces>=4
 }
-function fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,direction=1,step=null,maxSteps=180,maxLength=Infinity){
-  const diag=Math.hypot(boundsMax[0]-boundsMin[0],boundsMax[1]-boundsMin[1],boundsMax[2]-boundsMin[2])||1,h=Number(step)>0?Number(step):diag/220,p=[...seed],out=[{p:[...p],speed:0,distance:0}],dir=Math.sign(direction)||1,limitSteps=Math.max(1,Math.min(10000,Math.round(Number(maxSteps)||180))),limitLength=Number(maxLength)>0?Number(maxLength):Infinity;let length=0;
+function fvNearbyCells(hash,p,maxRadius=2){
+  if(!hash)return[];const c=[hash.coord(p,0),hash.coord(p,1),hash.coord(p,2)],out=[],seen=new Set();
+  for(let radius=0;radius<=maxRadius;radius++)for(let dz=-radius;dz<=radius;dz++)for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){
+    const ix=c[0]+dx,iy=c[1]+dy,iz=c[2]+dz;if(ix<0||iy<0||iz<0||ix>=hash.dims[0]||iy>=hash.dims[1]||iz>=hash.dims[2])continue;const arr=hash.buckets.get(hash.key(ix,iy,iz));for(const cell of arr||[])if(!seen.has(cell)){seen.add(cell);out.push(cell)}
+  }return out
+}
+function fvPointInMesh(mesh,p,hash=null){
+  if(!mesh||!Array.isArray(p)||p.length<3||!p.every(Number.isFinite)||!fvInsideBounds(p,mesh.boundsMin,mesh.boundsMax,0))return false;
+  if(!(mesh.faceOffsets?.length>1)&&!(mesh.owners?.length))return true;hash=hash||mesh._seedSpatialHash||fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);mesh._seedSpatialHash=hash;
+  for(const cell of fvNearbyCells(hash,p,2))if(fvCellContainsPoint(mesh,cell,p))return true;return false
+}
+function fvFilterSeedsInsideMesh(mesh,seeds,count){
+  count=fvClampSeedCount(count);if(!(mesh?.faceOffsets?.length>1)||!(mesh?.owners?.length))return(seeds||[]).slice(0,count);const hash=mesh._seedSpatialHash||fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);mesh._seedSpatialHash=hash;
+  const valid=(seeds||[]).filter(p=>fvPointInMesh(mesh,p,hash));if(valid.length<=count)return valid;const out=[],step=valid.length/count;for(let i=0;i<count;i++)out.push(valid[Math.min(valid.length-1,Math.floor((i+.5)*step))]);return out
+}
+function fvStreamlineSeeds(mesh,{mode='plane',axis='x',count=16,position=.5,patch=''}={}){
+  if(!mesh)return[];count=fvClampSeedCount(count);if(mode==='patch')return fvSeedPatch(mesh,patch,count);
+  const candidateCount=Math.min(400,Math.max(count,Math.ceil(count*4))),raw=mode==='line'?fvSeedLine(mesh.boundsMin,mesh.boundsMax,axis,candidateCount,position):mode==='box'?fvSeedBox(mesh.boundsMin,mesh.boundsMax,candidateCount):fvSeedPlane(mesh.boundsMin,mesh.boundsMax,axis,candidateCount,position);
+  return fvFilterSeedsInsideMesh(mesh,raw,count)
+}
+function fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,direction=1,step=null,maxSteps=180,maxLength=Infinity,insideTest=null,sampleVector=null){
+  const diag=Math.hypot(boundsMax[0]-boundsMin[0],boundsMax[1]-boundsMin[1],boundsMax[2]-boundsMin[2])||1,h=Number(step)>0?Number(step):diag/220,p=[...seed],out=[{p:[...p],speed:0,distance:0}],dir=Math.sign(direction)||1,limitSteps=Math.max(1,Math.min(10000,Math.round(Number(maxSteps)||180))),limitLength=Number(maxLength)>0?Number(maxLength):Infinity,sample=typeof sampleVector==='function'?sampleVector:q=>fvSampleVector(hash,centers,vectors,q);let length=0;
   for(let k=0;k<limitSteps&&length+h<=limitLength+1e-12;k++){
-    const v1=fvSampleVector(hash,centers,vectors,p);if(!v1)break;const s1=fvVecLen(v1);if(!(s1>1e-14))break;
-    const u1=v1.map(x=>x/s1),mid=p.map((x,a)=>x+dir*.5*h*u1[a]),v2=fvSampleVector(hash,centers,vectors,mid);if(!v2)break;const s2=fvVecLen(v2);if(!(s2>1e-14))break;
-    const u2=v2.map(x=>x/s2),next=p.map((x,a)=>x+dir*h*u2[a]);if(!fvInsideBounds(next,boundsMin,boundsMax,h*.25))break;
+    const v1=sample(p);if(!v1)break;const s1=fvVecLen(v1);if(!(s1>1e-14))break;
+    const u1=v1.map(x=>x/s1),mid=p.map((x,a)=>x+dir*.5*h*u1[a]),v2=sample(mid);if(!v2)break;const s2=fvVecLen(v2);if(!(s2>1e-14))break;
+    const u2=v2.map(x=>x/s2),next=p.map((x,a)=>x+dir*h*u2[a]);if(!fvInsideBounds(next,boundsMin,boundsMax,h*.25)||(typeof insideTest==='function'&&!insideTest(next)))break;
     length+=Math.hypot(next[0]-p[0],next[1]-p[1],next[2]-p[2]);p[0]=next[0];p[1]=next[1];p[2]=next[2];out.push({p:[...p],speed:s2,distance:length})
   }return out
 }
-function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,{direction='both',step=null,maxSteps=180,maxLength=Infinity}={}){
-  if(direction==='forward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,maxLength);
-  if(direction==='backward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,maxLength);
-  const half=Number.isFinite(Number(maxLength))?Number(maxLength)/2:maxLength,back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,half).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,half);
+function fvCombineStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,{direction='both',step=null,maxSteps=180,maxLength=Infinity,insideTest=null,sampleVector=null}={}){
+  if(direction==='forward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,maxLength,insideTest,sampleVector);
+  if(direction==='backward')return fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,maxLength,insideTest,sampleVector);
+  const half=Number.isFinite(Number(maxLength))?Number(maxLength)/2:maxLength,back=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,-1,step,maxSteps,half,insideTest,sampleVector).reverse(),fwd=fvIntegrateStreamline(seed,hash,centers,vectors,boundsMin,boundsMax,1,step,maxSteps,half,insideTest,sampleVector);
   return back.slice(0,-1).concat(fwd)
 }
 function fvMeshFacePoints(mesh,faceIndex){
@@ -658,8 +715,8 @@ function fvUpdateSlice(range=null){
   const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${pointAssoc?flUi('point-field reconstruction','reconstrucción de campo de puntos'):flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
   fvRender()
 }
-function fvRender(){
-  const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(2,Math.round(rect.width*dpr)),h=Math.max(2,Math.round(rect.height*dpr));
+function fvRender(exportSize=null){
+  const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,showSlice=!!document.getElementById('fvSlice')?.checked,showIso=!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);fvBindDraw(r,r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
@@ -737,7 +794,7 @@ async function fvLoadFrame(index=null,options={}){
   // Progressive frame presentation: expose the surface/legend immediately, then build heavier derived geometry.
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
-  await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
+  if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
   fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
 }
@@ -761,45 +818,54 @@ function fvVectorGlyphTarget(mesh){
 function fvVectorGlyphScale(){
   return fvClamp(Number(document.getElementById('fvVectorScale')?.value)||1,.35,3)
 }
-function fvSelectVectorGlyphCells(mesh,vectors,target){
-  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),limit=Math.max(1,Math.min(count,Math.round(target)||1));
-  if(limit>=count)return Array.from({length:count},(_,i)=>i);
-  const hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,count),picked=[],used=new Set();
+function fvNormalizeVectorRoi(mesh,roi=null){
+  const full={enabled:false,min:[0,0,0],max:[1,1,1],worldMin:(mesh?.boundsMin||[0,0,0]).slice(),worldMax:(mesh?.boundsMax||[0,0,0]).slice()};
+  if(!roi||roi.enabled===false)return full;
+  const lo=[],hi=[],worldMin=[],worldMax=[],bmin=mesh?.boundsMin||[0,0,0],bmax=mesh?.boundsMax||[0,0,0];
+  for(let k=0;k<3;k++){const a=fvClamp(Number(roi.min?.[k]??0),0,1),b=fvClamp(Number(roi.max?.[k]??1),0,1),mn=Math.min(a,b),mx=Math.max(a,b),span=Number(bmax[k])-Number(bmin[k]);lo.push(mn);hi.push(mx);worldMin.push(Number(bmin[k])+span*mn);worldMax.push(Number(bmin[k])+span*mx)}
+  return{enabled:true,min:lo,max:hi,worldMin,worldMax}
+}
+function fvVectorCellInRoi(mesh,ci,roi=null){
+  const r=fvNormalizeVectorRoi(mesh,roi);if(!r.enabled)return true;const c=mesh?.cellCenters||[],x=Number(c[3*ci]),y=Number(c[3*ci+1]),z=Number(c[3*ci+2]);return Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)&&x>=r.worldMin[0]&&x<=r.worldMax[0]&&y>=r.worldMin[1]&&y<=r.worldMax[1]&&z>=r.worldMin[2]&&z<=r.worldMax[2]
+}
+function fvVectorRoi(mesh=fvState.mesh){
+  const enabled=(document.getElementById('fvVectorRoiMode')?.value||'full')==='box',read=id=>fvClamp(Number(document.getElementById(id)?.value),0,1);
+  return fvNormalizeVectorRoi(mesh,{enabled,min:[read('fvVectorRoiXMin'),read('fvVectorRoiYMin'),read('fvVectorRoiZMin')],max:[read('fvVectorRoiXMax'),read('fvVectorRoiYMax'),read('fvVectorRoiZMax')]})
+}
+function fvVectorLengthMode(){return(document.getElementById('fvVectorLengthMode')?.value||'magnitude')==='normalized'?'normalized':'magnitude'}
+function fvVectorEligibleCells(mesh,vectors,roi=null){
+  const centers=mesh?.cellCenters||[],total=Math.min(Math.floor(centers.length/3),vectors?.length||0),eligible=[];for(let i=0;i<total;i++)if(fvVectorCellInRoi(mesh,i,roi))eligible.push(i);return eligible
+}
+function fvSelectVectorGlyphCells(mesh,vectors,target,roi=null){
+  const centers=mesh?.cellCenters||[],total=Math.min(Math.floor(centers.length/3),vectors?.length||0),eligible=fvVectorEligibleCells(mesh,vectors,roi);
+  const limit=Math.max(0,Math.min(eligible.length,Math.round(target)||1));if(!limit)return[];if(limit>=eligible.length)return eligible;
+  const allowed=new Set(eligible),hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,total),picked=[],used=new Set();
   if(hash?.buckets?.size){
-    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
-    const bucketCells=[];
+    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),bucketCells=[];
     for(const [,indices] of entries){
-      if(!indices?.length)continue;
-      let best=-1,bestMag=-Infinity;
-      for(const ci of indices){const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
+      let best=-1,bestMag=-Infinity;for(const ci of indices||[]){if(!allowed.has(ci))continue;const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
       if(best>=0)bucketCells.push(best)
     }
-    if(bucketCells.length){
-      const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;
-      for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-    }
+    if(bucketCells.length){const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   }
-  if(picked.length<limit){
-    const step=count/Math.max(1,limit-picked.length);
-    for(let k=0;picked.length<limit&&k<count*2;k++){const ci=Math.min(count-1,Math.floor((k+.5)*step)%count);if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-  }
+  if(picked.length<limit){const remaining=eligible.filter(ci=>!used.has(ci)),need=limit-picked.length,step=remaining.length/Math.max(1,need);for(let k=0;k<need&&remaining.length;k++){const ci=remaining[Math.min(remaining.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   return picked.slice(0,limit)
 }
-function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1){
+function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1,options={}){
   const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
   const mags=new Array(count);for(let i=0;i<count;i++){const v=vectors[i]||[];mags[i]=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))}
-  const range=fvFiniteRange(mags),positions=[],colors=[],cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs),scale=fvClamp(Number(glyphScale)||1,.35,3);
+  const range=fvFiniteRange(mags),positions=[],colors=[],lengths=[],selectedCells=[],roi=fvNormalizeVectorRoi(mesh,options.roi),cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs,roi),scale=fvClamp(Number(glyphScale)||1,.35,3),lengthMode=options.lengthMode==='normalized'?'normalized':'magnitude';
   let glyphCount=0;
   for(const ci of cells){
     const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
-    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1))*scale;
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],relative=range.valid&&range.max>1e-14?fvClamp(mag/range.max,0,1):1,len=diag*(lengthMode==='normalized'?.035:.053*relative)*scale;
     const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
     const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
     const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
     for(const seg of [[p,q],[q,left],[q,right]])for(const point of seg){positions.push(...point);colors.push(...rgb)}
-    glyphCount++
+    lengths.push(len);selectedCells.push(ci);glyphCount++
   }
-  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(count,Math.round(maxGlyphs))}
+  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.max(1,Math.round(maxGlyphs)||1),eligibleCount:fvVectorEligibleCells(mesh,vectors,roi).length,selectedCells,lengths,roi,lengthMode}
 }
 function fvRefreshSeedPatchOptions(mesh=fvState.mesh){
   const sel=document.getElementById('fvSeedPatch');if(!sel)return;const patches=(mesh?.boundaryPatches||[]).filter(p=>!fvIsProcessorPatch(p)),old=sel.value;sel.innerHTML=patches.length?patches.map(p=>'<option value="'+fvEsc(p.name||p.sourceName||'')+'">'+fvEsc(p.name||p.sourceName||'patch')+'</option>').join(''):'<option value="">—</option>';if(patches.some(p=>String(p.name||p.sourceName||'')===old))sel.value=old
@@ -819,21 +885,21 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
 
   let glyphs=null;
   if(showVectors){
-    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale();glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
+    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale(),lengthMode=fvVectorLengthMode(),roi=fvVectorRoi(mesh);glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale,{lengthMode,roi});fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
   }else r.vectorCount=0;
 
-  let lines=[],seedCount=0,pointCount=0,mode='plane',direction='both',step=0,maxLength=Infinity;
+  let lines=[],seedCount=0,requestedSeeds=0,pointCount=0,mode='plane',direction='both',step=0,maxLength=Infinity;
   if(showStreamlines){
     fvRefreshSeedPatchOptions(mesh);fvSyncStreamSeedUi();mode=document.getElementById('fvSeedMode')?.value||'plane';direction=document.getElementById('fvStreamDirection')?.value||'both';
-    const requested=fvClampSeedCount(document.getElementById('fvSeedCount')?.value||16),axis=document.getElementById('fvSeedAxis')?.value||'x',position=Number(document.getElementById('fvSeedPosition')?.value)||.5,patch=document.getElementById('fvSeedPatch')?.value||'',diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
+    const requested=fvClampSeedCount(document.getElementById('fvSeedCount')?.value||16);requestedSeeds=requested;const axis=document.getElementById('fvSeedAxis')?.value||'x',position=Number(document.getElementById('fvSeedPosition')?.value)||.5,patch=document.getElementById('fvSeedPatch')?.value||'',diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
     step=diag*Math.max(.0005,Number(document.getElementById('fvStreamStepPct')?.value||.45)/100);const maxSteps=Math.max(10,Math.min(5000,Math.round(Number(document.getElementById('fvStreamMaxSteps')?.value)||300))),maxLengthPct=Math.max(1,Number(document.getElementById('fvStreamMaxLengthPct')?.value)||200);maxLength=diag*maxLengthPct/100;
-    const seeds=fvStreamlineSeeds(mesh,{mode,axis,count:requested,position,patch});seedCount=seeds.length;
-    for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction,step,maxSteps,maxLength});if(line.length>2){lines.push(line);pointCount+=line.length}}
+    const seeds=fvStreamlineSeeds(mesh,{mode,axis,count:requested,position,patch}),streamSampler=fvCreateMeshVectorSampler(mesh,fvState.spatialHash,vectors);seedCount=seeds.length;
+    for(const seed of seeds){const line=fvCombineStreamline(seed,fvState.spatialHash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction,step,maxSteps,maxLength,insideTest:p=>fvPointInMesh(mesh,p,fvState.spatialHash),sampleVector:streamSampler});if(line.length>2){lines.push(line);pointCount+=line.length}}
     const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
   }else r.lineCount=0;
   fvState.streamlines=lines;fvRender();
-  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('target','objetivo')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
-  const streamMeta=document.getElementById('fvStreamMeta');if(streamMeta)streamMeta.textContent=showStreamlines?(flUi('Seeds','Semillas')+' '+seedCount.toLocaleString()+' · '+lines.length.toLocaleString()+' '+flUi('streamlines','líneas de corriente')+' · '+pointCount.toLocaleString()+' '+flUi('integration points','puntos de integración')+' · '+mode+' · '+direction+' · '+flUi('step','paso')+' '+fvFmt(step)+' · '+g.name+' @ '+fvFmt(vt)+' s'):''
+  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('requested','solicitados')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+flUi('eligible','elegibles')+' '+Number(glyphs?.eligibleCount||0).toLocaleString()+' · '+(glyphs?.lengthMode==='normalized'?flUi('normalized length','longitud normalizada'):flUi('magnitude-proportional length','longitud proporcional a magnitud'))+' · '+(glyphs?.roi?.enabled?'ROI ['+glyphs.roi.min.map(fvFmt).join(',')+']→['+glyphs.roi.max.map(fvFmt).join(',')+']':flUi('full domain','dominio completo'))+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
+  const streamMeta=document.getElementById('fvStreamMeta');if(streamMeta)streamMeta.textContent=showStreamlines?(flUi('Seeds','Semillas')+' '+seedCount.toLocaleString()+'/'+requestedSeeds.toLocaleString()+' · '+lines.length.toLocaleString()+' '+flUi('streamlines','líneas de corriente')+' · '+pointCount.toLocaleString()+' '+flUi('integration points','puntos de integración')+' · '+mode+' · '+direction+' · '+flUi('step','paso')+' '+fvFmt(step)+' · '+g.name+' @ '+fvFmt(vt)+' s'):''
 }
 function fvStopPlayback(){fvState.playing=false;if(fvState.timer){clearTimeout(fvState.timer);fvState.timer=null}const b=document.getElementById('fvPlay');if(b)b.textContent='▶ '+flUi('Play','Reproducir')}
 function fvSchedulePlayback(){
@@ -917,6 +983,8 @@ function fvUiHtml(){
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <strong data-fl-en="Vectors" data-fl-es="Vectores">Vectors</strong></label></div>
       <div class="fvVizSubpanel hidden" id="fvVectorControls">
         <div class="row2"><div class="field"><label data-fl-en="Vector resolution" data-fl-es="Resolución de vectores">Vector resolution</label><select id="fvVectorResolution"><option value="adaptive" data-fl-en="Adaptive" data-fl-es="Adaptativa">Adaptive</option><option value="150">150 glyphs</option><option value="300">300 glyphs</option><option value="600">600 glyphs</option><option value="1200">1,200 glyphs</option><option value="2400">2,400 glyphs</option></select></div><div class="field"><label data-fl-en="Glyph size" data-fl-es="Tamaño de flecha">Glyph size</label><input id="fvVectorScale" type="range" min=".35" max="3" step=".05" value="1"></div></div>
+        <div class="row2"><div class="field"><label data-fl-en="Arrow length" data-fl-es="Longitud de flecha">Arrow length</label><select id="fvVectorLengthMode"><option value="magnitude" data-fl-en="Magnitude proportional" data-fl-es="Proporcional a magnitud">Magnitude proportional</option><option value="normalized" data-fl-en="Normalized / fixed" data-fl-es="Normalizada / fija">Normalized / fixed</option></select></div><div class="field"><label data-fl-en="Sampling region" data-fl-es="Región de muestreo">Sampling region</label><select id="fvVectorRoiMode"><option value="full" data-fl-en="Full domain" data-fl-es="Dominio completo">Full domain</option><option value="box" data-fl-en="Box ROI" data-fl-es="ROI de caja">Box ROI</option></select></div></div>
+        <div id="fvVectorRoiControls" class="hidden"><div class="smallnote" data-fl-en="ROI bounds are normalized fractions of the mesh bounds (0–1)." data-fl-es="Los límites ROI son fracciones normalizadas de los límites de la malla (0–1).">ROI bounds are normalized fractions of the mesh bounds (0–1).</div><div class="row2"><div class="field"><label>X min / max</label><div class="row2"><input id="fvVectorRoiXMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiXMax" type="number" min="0" max="1" step=".05" value="1"></div></div><div class="field"><label>Y min / max</label><div class="row2"><input id="fvVectorRoiYMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiYMax" type="number" min="0" max="1" step=".05" value="1"></div></div></div><div class="field"><label>Z min / max</label><div class="row2"><input id="fvVectorRoiZMin" type="number" min="0" max="1" step=".05" value="0"><input id="fvVectorRoiZMax" type="number" min="0" max="1" step=".05" value="1"></div></div></div>
         <div class="smallnote" id="fvVectorMeta" data-fl-en="Vectors are sampled spatially across the cell-centred vector field." data-fl-es="Los vectores se muestrean espacialmente a través del campo vectorial centrado en celdas.">Vectors are sampled spatially across the cell-centred vector field.</div>
       </div>
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <strong data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</strong></label></div>
@@ -978,8 +1046,8 @@ function fvInstallUi(){
   document.getElementById('fvSliceAxis').onchange=()=>fvUpdateSlice();
   document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
   document.getElementById('fvSliceOpacity').oninput=fvRender;
-  const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked)};
-  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
+  const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked);document.getElementById('fvVectorRoiControls')?.classList.toggle('hidden',(document.getElementById('fvVectorRoiMode')?.value||'full')!=='box')};
+  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiMode','fvVectorRoiXMin','fvVectorRoiXMax','fvVectorRoiYMin','fvVectorRoiYMax','fvVectorRoiZMin','fvVectorRoiZMax','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
   syncVectorPanels();fvSyncStreamSeedUi();
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'));
   const goData=document.getElementById('workspaceGoData'),actions=goData?.parentElement;if(actions&&!document.getElementById('workspaceGoFieldView')){const q=document.createElement('button');q.className='btn';q.id='workspaceGoFieldView';q.type='button';q.setAttribute('data-fl-en','Open 3D Field View');q.setAttribute('data-fl-es','Abrir Vista 3D');q.textContent=flUi('Open 3D Field View','Abrir Vista 3D');q.onclick=()=>{try{setAppMode('data')}catch{}setDataView('field3d')};goData.insertAdjacentElement('afterend',q);flApplyBilingualText(q)}
@@ -1001,7 +1069,7 @@ function fvApplyBuildIdentity(){
   const overlay=document.getElementById('versionOverlay');if(!overlay)return;
   for(const block of overlay.querySelectorAll('.detailBlock')){
     const label=String(block.querySelector('span')?.textContent||'').trim().toLowerCase();
-    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.4.9'}
+    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.5.0'}
   }
 }
 function fvInstallIntegration(){
@@ -1016,6 +1084,6 @@ function fvInstallIntegration(){
   try{const prevDraw=draw;draw=function(...args){if(currentDataView==='field3d'){fvApplyHeader();fvRender();return}return prevDraw.apply(this,args)}}catch{}
   try{const prevRefresh=refreshDatasetControls;refreshDatasetControls=function(...args){const x=prevRefresh.apply(this,args);setTimeout(()=>{mount();fvRefreshSelectors(true)},0);return x}}catch{}
   document.addEventListener('foamlens-language-change',()=>{const c=document.getElementById('fieldViewControls'),p=document.getElementById('fieldViewPanel'),q=document.getElementById('workspaceGoFieldView');if(c)flApplyBilingualText(c);if(p)flApplyBilingualText(p);if(q)flApplyBilingualText(q);if(currentDataView==='field3d'){fvApplyHeader();fvRefreshSelectors(true)}});
-  window.FoamLensFieldView={fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,setVideoRangeOverride(range){fvState.videoRangeOverride=range?.valid?{valid:true,min:Number(range.min),max:Number(range.max)}:null;if(fvState.fieldValues){const current=fvFiniteRange(fvState.fieldValues),display=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,display);fvUpdateSlice(display);if(typeof fvUpdateIso==='function')fvUpdateIso(display);fvLegend(display,fvState.fieldParsed)}},getVideoDescriptor(){const range=fvFiniteRange(fvState.fieldValues);return{key:'primary',canvasId:'fvCanvas',labelId:'fcPrimaryLabel',caseName:fvCase()?.name||'',fieldName:fvState.fieldName||'',component:fvState.component||'',time:fvState.time,range,dimensions:fvState.fieldParsed?.dimensions||''}}}
+  window.FoamLensFieldView={fvBuildMeshInventory,fvNormalizeVectorRoi,fvVectorCellInRoi,fvVectorEligibleCells,fvSelectVectorGlyphCells,fvBuildVectorGlyphBuffers,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,setVideoRangeOverride(range){fvState.videoRangeOverride=range?.valid?{valid:true,min:Number(range.min),max:Number(range.max)}:null;if(fvState.fieldValues){const current=fvFiniteRange(fvState.fieldValues),display=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,display);fvUpdateSlice(display);if(typeof fvUpdateIso==='function')fvUpdateIso(display);fvLegend(display,fvState.fieldParsed)}},getVideoDescriptor(){const range=fvFiniteRange(fvState.fieldValues);return{key:'primary',canvasId:'fvCanvas',labelId:'fcPrimaryLabel',caseName:fvCase()?.name||'',fieldName:fvState.fieldName||'',component:fvState.component||'',time:fvState.time,range,dimensions:fvState.fieldParsed?.dimensions||''}},renderAtSize(width,height){fvRender({width,height});return document.getElementById('fvCanvas')}}
 }
 fvInstallIntegration();

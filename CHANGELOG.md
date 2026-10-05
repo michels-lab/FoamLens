@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop v1.5.0 — 2026-10-05
+
+- Unified the validated v1.5 development lines into one release candidate.
+- Added independent B13 streamline validation against VTK and retained reproducible validation evidence in CI.
+- Added high-resolution 3D WebGL rerendering for scientific multi-panel exports instead of upscaling viewport rasters.
+- Added controlled baseline/optimized performance benchmarking and preserved progressive field loading, adaptive prefetch and viewport-aware loading.
+- Added persistent Field Workspace layout, per-view presentation names, comparison status, contextual help and resizable panels.
+- Added vector-glyph analysis controls with magnitude-proportional or normalized arrow length, normalized XYZ ROI sampling and quantitative sampling diagnostics.
+- Added scientific provenance overlays to the primary and synchronized 3D views, including case, region, field, association, units/dimensions, physical time, synchronization context and source identity.
+- Preserved real OpenFOAM QuickCup regression, portable Windows smoke testing and installed-app smoke testing as release gates.
+
 ## Desktop v1.4.9 — 2026-10-03
 
 - Added the compact Word-style ribbon with contextual scientific controls.
