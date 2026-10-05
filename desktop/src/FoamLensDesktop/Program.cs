@@ -296,7 +296,7 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel'
+                    'meDialog','ppPanel','uxSplitA','uxSplitB','uxCompareStatus','uxHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -325,6 +325,8 @@ internal sealed class FoamLensForm : Form
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
+                    workspaceUxApi:['save','restore','reset','help','snapshot','applySplit'].every(k=>typeof window.FoamLensWorkspaceUX?.[k]==='function'),
+                    workspaceUxMounted:['uxSplitA','uxSplitB','uxCompareStatus','uxHelpOverlay'].every(id=>!!document.getElementById(id)),
                     advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
                     interpolationSmoke:window.FoamLensFieldCompare?.fcResolveTime?.([0,1],.25,'interpolate')||null,
                     percentDifferenceSmoke:Number(window.FoamLensFieldCompare?.fcDifferenceValues?.([10],[8],'percent')?.[0]),
@@ -365,7 +367,8 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
                 foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
-                                                  "multipanelApi", "performanceApi", "advancedCompareApi" })
+                                                  "multipanelApi", "performanceApi", "workspaceUxApi",
+                                                  "workspaceUxMounted", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
