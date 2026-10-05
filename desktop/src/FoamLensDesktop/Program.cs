@@ -206,9 +206,9 @@ internal sealed class FoamLensForm : Form
             var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{
-                  const tabs=['home','data','field','plots','analysis','compare','export','view'];
+                  const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -217,6 +217,13 @@ internal sealed class FoamLensForm : Form
                   const fieldTabActive=document.getElementById('flRibbonTab-field')?.classList.contains('active')===true;
                   const fieldPanelActive=document.getElementById('flRibbonPanel-field')?.classList.contains('active')===true;
                   const fieldMode=document.body.classList.contains('appMode-field');
+                  const internalTabs=[...document.querySelectorAll('#fwViewTabs [data-fw-view]')].map(x=>x.dataset.fwView);
+                  const workspaceView=window.FoamLensFieldWorkspace?.getState?.().view||'';
+                  const contextHost=document.getElementById('flRibbonContextHost');
+                  const contextHidden3D=!!contextHost&&getComputedStyle(contextHost).display==='none';
+                  document.querySelector('#fwViewTabs [data-fw-view="profile"]')?.click();
+                  const contextVisibleProfile=!!contextHost&&getComputedStyle(contextHost).display!=='none';
+                  document.querySelector('#fwViewTabs [data-fw-view="3d"]')?.click();
                   document.getElementById('flRibbonTab-home')?.click();
                   document.getElementById('flRaCases')?.click();
                   const casePanel=document.getElementById('caseQuickPanel');
@@ -238,6 +245,10 @@ internal sealed class FoamLensForm : Form
                     legacyNavHidden:document.getElementById('modeNavBar')?getComputedStyle(document.getElementById('modeNavBar')).display==='none':false,
                     legacyToolsHidden:document.querySelector('.top .tools')?getComputedStyle(document.querySelector('.top .tools')).display==='none':false,
                     contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
+                    contextHidden3D,
+                    contextVisibleProfile,
+                    internalTabs,
+                    workspaceView,
                     casePanelParent,
                     casePanelOpen
                   };
@@ -248,7 +259,9 @@ internal sealed class FoamLensForm : Form
                 var root = ribbonUi.RootElement;
                 if (!root.TryGetProperty("ribbon", out var ribbonNode) || !ribbonNode.GetBoolean() ||
                     !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean() ||
-                    !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean())
+                    !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean() ||
+                    !root.TryGetProperty("contextHidden3D", out var contextHidden3DNode) || !contextHidden3DNode.GetBoolean() ||
+                    !root.TryGetProperty("contextVisibleProfile", out var contextVisibleProfileNode) || !contextVisibleProfileNode.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon did not mount: {ribbonUiJson}");
                 foreach (var property in new[] { "missingTabs", "missingActions" })
@@ -581,14 +594,14 @@ internal sealed class FoamLensForm : Form
                         !workspaceActiveNode.GetBoolean() ||
                         !data.TryGetProperty("field3DHostMounted", out var field3DHostNode) ||
                         !field3DHostNode.GetBoolean() ||
-                        !data.TryGetProperty("companionChartMounted", out var companionChartNode) ||
-                        !companionChartNode.GetBoolean() ||
-                        !data.TryGetProperty("companionMode", out var companionModeNode) ||
-                        !string.Equals(companionModeNode.GetString(), "profile", StringComparison.Ordinal) ||
-                        !data.TryGetProperty("add3DViewVisible", out var add3DViewNode) ||
-                        !add3DViewNode.GetBoolean())
+                        !data.TryGetProperty("workspaceView", out var workspaceViewNode) ||
+                        !string.Equals(workspaceViewNode.GetString(), "3d", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotHiddenIn3D", out var plotHiddenNode) ||
+                        !plotHiddenNode.GetBoolean() ||
+                        !data.TryGetProperty("inspectorHidden", out var inspectorHiddenNode) ||
+                        !inspectorHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens Field workspace did not keep 3D + Spatial Profile mounted together: {realCaseJson}");
+                            $"FoamLens Field workspace did not start in a true single-view 3D focus state: {realCaseJson}");
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
@@ -1177,10 +1190,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     fieldWorkspaceActive:document.body.classList.contains('appMode-field'),
     fieldWorkspaceTitle:document.getElementById('fwTitle')?.textContent?.trim()||'',
     field3DHostMounted:document.getElementById('fieldViewPanel')?.parentElement?.id==='fw3DHost',
+    workspaceView:window.FoamLensFieldWorkspace?.getState?.().view||'',
     companionMode:document.getElementById('fwCompanion')?.value||'',
     companionTitle:document.getElementById('fwPlotTitle')?.textContent?.trim()||'',
     companionChartMounted:!!document.querySelector('#fw2DHost .chartwrap'),
-    add3DViewVisible:(()=>{const e=document.getElementById('fwAdd3DView');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
+    plotHiddenIn3D:(()=>{const e=document.querySelector('.fwPlotCard');return !!e&&getComputedStyle(e).display==='none'})(),
+    inspectorHidden:(()=>{const e=document.getElementById('fwControlsDrawer');return !!e&&e.classList.contains('hidden')})(),
     fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
     fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     fieldRibbonText:document.querySelector('#flRibbonTab-field span')?.textContent?.trim()||'',
