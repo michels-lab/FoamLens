@@ -55,11 +55,22 @@ function meRenderPlotCanvas(w,h){
   }catch(e){console.warn('FoamLens multipanel high-resolution plot render fallback:',e)}
   const src=document.getElementById('canvas');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);if(src)ctx.drawImage(src,0,0,c.width,c.height);return c
 }
+function meRender3DCanvas(source,w,h){
+  try{
+    if(source?.key==='primary'&&typeof window.FoamLensFieldView?.captureHighRes==='function'){
+      const c=window.FoamLensFieldView.captureHighRes(w,h);if(c)return c
+    }
+    if(source?.key!=='primary'&&typeof window.FoamLensFieldCompare?.captureHighRes==='function'){
+      const c=window.FoamLensFieldCompare.captureHighRes(source.key,w,h);if(c)return c
+    }
+  }catch(e){console.warn('FoamLens high-resolution 3D rerender fallback:',e)}
+  return document.getElementById(source?.canvasId||'')
+}
 function meDrawPanel(ctx,source,x,y,w,h,index,total){
   const pad=Math.max(18,Math.round(w*.025)),header=Math.max(58,Math.round(h*.095)),footer=Math.max(68,Math.round(h*.12));
   ctx.fillStyle='#ffffff';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#d8dde4';ctx.lineWidth=2;ctx.strokeRect(x+.5,y+.5,w-1,h-1);
   ctx.fillStyle='#13202d';ctx.font='700 '+Math.max(20,Math.round(h*.032))+'px Arial';ctx.textBaseline='middle';ctx.fillText(String.fromCharCode(65+index)+'. '+String(source.title||source.key||meUi('Panel','Panel')),x+pad,y+header*.48);
-  const bodyY=y+header,bodyH=h-header-footer,src=source.type==='plot'?meRenderPlotCanvas(w-2*pad,bodyH):document.getElementById(source.canvasId);
+  const bodyY=y+header,bodyH=h-header-footer,targetW=Math.max(2,Math.round(w-2*pad)),targetH=Math.max(2,Math.round(bodyH)),src=source.type==='plot'?meRenderPlotCanvas(targetW,targetH):meRender3DCanvas(source,targetW,targetH);
   if(src){
     const sw=Math.max(1,src.width||src.clientWidth||1),sh=Math.max(1,src.height||src.clientHeight||1),scale=Math.min((w-2*pad)/sw,bodyH/sh),dw=sw*scale,dh=sh*scale,dx=x+(w-dw)/2,dy=bodyY+(bodyH-dh)/2;
     ctx.drawImage(src,dx,dy,dw,dh)
