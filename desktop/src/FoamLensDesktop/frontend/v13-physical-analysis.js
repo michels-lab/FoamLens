@@ -96,12 +96,12 @@ function paFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(und
 function paAddSeries(base,name,t,y,metadata={}){
   const unit=metadata.outputUnit??paUnitOf(base),dimensions=metadata.outputDimensions??base?.field?.dimensions??base?.dimensions??'';
   const d={...base,id:'pa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:t.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens physical analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name,unit,dimensions},unit,dimensions,physicalAnalysis:{...metadata,outputUnit:unit,outputDimensions:dimensions}};
-  series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch(e){console.warn('Physical derived series refresh failed',e)}return d
+  series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode!=='analysis')setDataView('timeseries')}catch(e){console.warn('Physical derived series refresh failed',e)}return d
 }
 function paAddProfileSeries(base,name,x,y,metadata={}){
   const unit=metadata.outputUnit??paUnitOf(base),dimensions=metadata.outputDimensions??base?.field?.dimensions??base?.dimensions??'';
   const d={...base,id:'pa_profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:x.slice(),y:y.slice(),derived:true,derivedKind:'physicalDerived',sourceKind:'derived',sourcePath:'FoamLens gradient analysis',visible:true,hidden:false,checked:true,enabled:true,field:{...(base?.field||{}),canonical:'derived:'+name,raw:name,name,displayName:name,unit,dimensions},unit,dimensions,physicalAnalysis:{...metadata,outputUnit:unit,outputDimensions:dimensions}};
-  series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();setDataView('profile')}catch(e){console.warn('Spatial gradient series refresh failed',e)}return d
+  series.push(d);activeId=d.id;try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode!=='analysis')setDataView('profile')}catch(e){console.warn('Spatial gradient series refresh failed',e)}return d
 }
 function paRateConfig(){
   const mode=document.getElementById('paRateMode')?.value||'derivative';
