@@ -2830,3 +2830,49 @@ Added the repository-level Michel's Lab governance declaration:
 - Reusable/cross-app decisions are promoted to the master standards repository.
 - The master repository polls child status centrally; this repository receives no credential that can write to the master.
 - Secret values remain prohibited from both repositories.
+
+## 2026-10-05 — v1.5.0 vector analysis + scientific provenance development
+
+- Development branch: `development/v1.5.0-vector-provenance`.
+- Base: current public `main` after FoamLens Desktop v1.4.9 publication.
+- This block addresses remaining roadmap items under **Vector glyph analysis controls** and **Scientific provenance in the viewport**.
+
+### Implemented
+- Added isolated frontend module: `desktop/src/FoamLensDesktop/frontend/v17-vector-analysis.js`.
+- Added vector arrow-length semantics:
+  - `Magnitude-proportional`;
+  - `Normalized / equal length`.
+- Added normalized ROI-box sampling controls for X/Y/Z.
+- ROI sampling filters candidate cell centers before glyph selection; cells outside the ROI are not eligible.
+- Vector metadata now reports:
+  - actual glyph count;
+  - requested glyph count;
+  - eligible ROI-cell count;
+  - length mode;
+  - ROI bounds;
+  - sampled mean magnitude / ROI-field mean magnitude;
+  - sampled magnitude-range coverage.
+- Added scientific provenance overlay to the primary 3D viewport.
+- Added provenance overlays to synchronized View 2 / View 3 / View 4.
+- Provenance exposes case, region, field, association, unit when available, physical time, dimensions, synchronization context for comparison views, parser/reconstruction context and source identity.
+- Existing v1.4.9 Field View engine remains intact; v17 extends the already-validated module rather than rewriting v14.
+
+### Regression coverage
+- Added `desktop/tests/vector-analysis.test.cjs`.
+- Workflow now executes the vector-analysis regression exactly once.
+- The existing CI manifest will require the new test to remain wired because it checks every `.test.cjs` file against the workflow.
+
+### Direct validation on repository content
+- v17 JavaScript syntax validation: **PASS**.
+- ROI test with normalized X bounds `0.5–1.0`: selected only cells inside the requested ROI.
+- Normalized-length test: two different vector magnitudes produced equal glyph shaft lengths.
+- Magnitude-proportional test: the larger vector produced a longer glyph shaft.
+- Comparison provenance tokens for A/B/C/D are present.
+- Workflow reference count for `vector-analysis.test.cjs`: exactly **1**.
+
+### Validation status
+- Latest full CI head: `b6bc2a5e0b10c0df057b0b6a23e4462e8b67e4ae`.
+- GitHub Actions run **#664** (`37371845965`) was queued at the time of this log entry.
+- This block is **implemented but not yet marked fully validated** until the complete QuickCup + Windows packaging workflow passes.
+- No merge to `main`.
+- No release created.
