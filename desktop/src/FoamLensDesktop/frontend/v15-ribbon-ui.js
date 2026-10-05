@@ -168,6 +168,8 @@ function flRibbonCss(){
     'body.flRibbonReady .top h2{font-size:14px}',
     'body.flRibbonReady .top .sub{font-size:9px;margin-top:2px}',
     'body.flRibbonReady .top .tools{display:none!important}',
+    'body.flRibbonReady.appMode-data .datasetTabs,body.flRibbonReady.appMode-analysis .datasetTabs{display:none!important}',
+    'body.flRibbonReady.appMode-data #dataViewTitle,body.flRibbonReady.appMode-analysis #dataViewTitle{display:none!important}',
     '.flRibbon{position:relative;z-index:260;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 96%,transparent);box-shadow:0 4px 18px rgba(18,32,51,.045);min-width:0}',
     'body.dark .flRibbon{box-shadow:0 4px 18px rgba(0,0,0,.18)}',
     '.flRibbonTabRow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:31px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel2)}',
