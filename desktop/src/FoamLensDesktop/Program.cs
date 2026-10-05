@@ -764,6 +764,16 @@ internal sealed class FoamLensForm : Form
                         const multiPanelWidth=Number(multiResult?.canvas?.width||0);
                         const multiPanelHeight=Number(multiResult?.canvas?.height||0);
                         const multiPanelPixels=multiPanelWidth*multiPanelHeight;
+                        const primaryHi=window.FoamLensFieldView?.captureHighRes?.(1600,1000);
+                        const view2Hi=api.captureHighRes?.('view2',1400,900);
+                        const highResPrimaryWidth=Number(primaryHi?.width||0),highResPrimaryHeight=Number(primaryHi?.height||0);
+                        const highResView2Width=Number(view2Hi?.width||0),highResView2Height=Number(view2Hi?.height||0);
+                        const perfApi=window.FoamLensPerformance;
+                        if(typeof perfApi?.runControlledBenchmark!=='function')throw new Error('Controlled performance benchmark API is unavailable.');
+                        const frameCount=Number(document.getElementById('fvTimeSlider')?.max||0)+1;
+                        const benchmarkIndices=frameCount>1?[0,frameCount-1]:[];
+                        const benchmark=await perfApi.runControlledBenchmark({indices:benchmarkIndices,repeats:1});
+                        const benchmarkColdMs=Number(benchmark?.coldMedianMs),benchmarkWarmMs=Number(benchmark?.warmMedianMs),benchmarkSamples=Number(benchmark?.samplesPerPhase||0),benchmarkScope=String(benchmark?.scope||'');
 
                         const canvas=document.getElementById('fcCanvas');
                         if(!canvas)throw new Error('View 2 canvas is unavailable.');
@@ -855,6 +865,14 @@ internal sealed class FoamLensForm : Form
                           multiPanelWidth,
                           multiPanelHeight,
                           multiPanelPixels,
+                          highResPrimaryWidth,
+                          highResPrimaryHeight,
+                          highResView2Width,
+                          highResView2Height,
+                          benchmarkColdMs,
+                          benchmarkWarmMs,
+                          benchmarkSamples,
+                          benchmarkScope,
                           independentCameraChanged,
                           primaryCameraUnaffected,
                           independentVisualApplied,
@@ -905,6 +923,14 @@ internal sealed class FoamLensForm : Form
                         !root.TryGetProperty("multiPanelWidth", out var multiPanelWidth) || multiPanelWidth.GetInt32() != 2400 ||
                         !root.TryGetProperty("multiPanelHeight", out var multiPanelHeight) || multiPanelHeight.GetInt32() != 1600 ||
                         !root.TryGetProperty("multiPanelPixels", out var multiPanelPixels) || multiPanelPixels.GetInt64() != 3_840_000 ||
+                        !root.TryGetProperty("highResPrimaryWidth", out var highResPrimaryWidth) || highResPrimaryWidth.GetInt32() != 1600 ||
+                        !root.TryGetProperty("highResPrimaryHeight", out var highResPrimaryHeight) || highResPrimaryHeight.GetInt32() != 1000 ||
+                        !root.TryGetProperty("highResView2Width", out var highResView2Width) || highResView2Width.GetInt32() != 1400 ||
+                        !root.TryGetProperty("highResView2Height", out var highResView2Height) || highResView2Height.GetInt32() != 900 ||
+                        !root.TryGetProperty("benchmarkColdMs", out var benchmarkColdMs) || !double.IsFinite(benchmarkColdMs.GetDouble()) || benchmarkColdMs.GetDouble() < 0 ||
+                        !root.TryGetProperty("benchmarkWarmMs", out var benchmarkWarmMs) || !double.IsFinite(benchmarkWarmMs.GetDouble()) || benchmarkWarmMs.GetDouble() < 0 ||
+                        !root.TryGetProperty("benchmarkSamples", out var benchmarkSamples) || benchmarkSamples.GetInt32() < 2 ||
+                        !root.TryGetProperty("benchmarkScope", out var benchmarkScope) || !benchmarkScope.GetString()!.Contains("cold field-cache", StringComparison.Ordinal) ||
                         !root.TryGetProperty("independentCameraChanged", out var independentCameraChanged) || !independentCameraChanged.GetBoolean() ||
                         !root.TryGetProperty("primaryCameraUnaffected", out var primaryCameraUnaffected) || !primaryCameraUnaffected.GetBoolean() ||
                         !root.TryGetProperty("independentVisualApplied", out var independentVisualApplied) || !independentVisualApplied.GetBoolean() ||
