@@ -22,7 +22,7 @@ if(fa<0||fb<=fa)throw new Error('Field View core markers missing.');
 const fvCore=fvFile.slice(fa,fb+fvEnd.length);
 const fv=new Function(
   'const cases=[];const flUi=(en)=>en;'+fvCore+
-  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvSeedPlane,fvCombineStreamline};'
+  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvCombineStreamline};'
 )();
 
 const indexFile=fs.readFileSync(path.join(frontendDir,'index.html'),'utf8');
@@ -53,16 +53,21 @@ const diag=Math.hypot(
   mesh.boundsMax[2]-mesh.boundsMin[2]
 );
 const step=diag*0.0045,maxLength=diag*0.8,maxSteps=500;
-const seeds=fv.fvSeedPlane(mesh.boundsMin,mesh.boundsMax,'x',16,.5);
 const hash=fv.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);
-const candidates=seeds.map((seed,index)=>{
+const candidateCount=Math.min(96,mesh.cellCount),seedCells=[];
+for(let k=0;k<candidateCount;k++){
+  const ci=Math.min(mesh.cellCount-1,Math.floor((k+.5)*mesh.cellCount/candidateCount));
+  const seed=[Number(mesh.cellCenters[3*ci]),Number(mesh.cellCenters[3*ci+1]),Number(mesh.cellCenters[3*ci+2])];
+  const speed=Math.hypot(...(vectors[ci]||[]).map(Number));if(seed.every(Number.isFinite)&&speed>1e-12)seedCells.push({ci,seed,speed})
+}
+const candidates=seedCells.map(({ci,seed,speed},index)=>{
   const line=fv.fvCombineStreamline(seed,hash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction:'both',step,maxSteps,maxLength});
   const length=line.length?line.reduce((sum,q,i)=>i?sum+Math.hypot(q.p[0]-line[i-1].p[0],q.p[1]-line[i-1].p[1],q.p[2]-line[i-1].p[2]):0,0):0;
-  return{index,seed,line:line.map(q=>q.p.map(Number)),length}
+  return{index,cell:ci,seed,speed,line:line.map(q=>q.p.map(Number)),length}
 });
 const active=candidates.filter(x=>x.line.length>=6&&x.length>=step*4);
-if(active.length<4)throw new Error('Too few active B13 FoamLens streamlines for VTK validation: '+active.length);
-const chosen=active.sort((a,b)=>b.length-a.length||a.index-b.index).slice(0,8).sort((a,b)=>a.index-b.index);
+if(active.length<4)throw new Error('Too few active B13 cell-centre streamlines for VTK validation: '+active.length);
+const chosen=active.sort((a,b)=>b.length-a.length||b.speed-a.speed||a.cell-b.cell).slice(0,8).sort((a,b)=>a.cell-b.cell);
 const payload={
   schema:'foamlens-vtk-streamline-reference-v1',
   caseName:path.basename(caseRoot),region:'metal',field:'U',time,
@@ -71,10 +76,10 @@ const payload={
   seeds:chosen.map(x=>x.seed),
   foamLensLines:chosen.map(x=>x.line),
   foamLensLengths:chosen.map(x=>x.length),
-  selection:{requested:16,active:active.length,compared:chosen.length,rule:'deterministic longest active seeds, then original seed order'}
+  selection:{candidateCellCenters:seedCells.length,active:active.length,compared:chosen.length,cells:chosen.map(x=>x.cell),rule:'deterministic longest active in-mesh cell-centre seeds, then cell index'}
 };
 fs.writeFileSync(outPath,JSON.stringify(payload,null,2));
 console.log('FoamLens B13 streamline reference input: '+JSON.stringify({
-  time,cellCount:mesh.cellCount,diag,step,maxLength,requested:16,active:active.length,compared:chosen.length,
-  seedIndices:chosen.map(x=>x.index),lengths:chosen.map(x=>x.length)
+  time,cellCount:mesh.cellCount,diag,step,maxLength,candidateCellCenters:seedCells.length,active:active.length,compared:chosen.length,
+  cells:chosen.map(x=>x.cell),lengths:chosen.map(x=>x.length)
 }));
