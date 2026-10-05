@@ -36,6 +36,12 @@ assert(source.includes("foamlens-field-view-change"),
   'Ribbon does not listen for internal Field tab scope changes.');
 assert(source.includes('function flRibbonUpdateFieldScope'),
   'Field Ribbon does not scope 3D-only actions to 3D/Split.');
+assert(source.includes('function flRibbonMountFieldTimeTransport'),
+  'Global physical-time transport is not mounted into the Field Ribbon.');
+assert(source.includes("host.appendChild(transport)"),
+  'Field Ribbon creates a second time controller instead of reusing the global transport.');
+assert(source.includes('flRibbonTimeHost'),
+  'Field Ribbon has no physical-time transport host.');
 for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
   assert(source.includes(id),'Expected scoped Field action missing: '+id);
 assert(source.includes("view==='3d'||view==='split'"),
