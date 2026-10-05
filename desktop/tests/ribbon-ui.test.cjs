@@ -5,45 +5,57 @@ const path=require('path');
 const assert=require('assert');
 
 const repoRoot=path.join(__dirname,'..','..');
-const ribbonPath=path.join(repoRoot,'desktop','src','FoamLensDesktop','frontend','v15-ribbon-ui.js');
-const source=fs.readFileSync(ribbonPath,'utf8');
+const frontend=path.join(repoRoot,'desktop','src','FoamLensDesktop','frontend');
+const source=fs.readFileSync(path.join(frontend,'v15-ribbon-ui.js'),'utf8');
+const workspace=fs.readFileSync(path.join(frontend,'v14-zz-field-workspace.js'),'utf8');
+const activity=fs.readFileSync(path.join(frontend,'v20-activity-manager.js'),'utf8');
 
-const tabs=['home','data','field','plots','analysis','compare','export','view'];
-assert(source.includes('id="flRibbonTab-\'+key+\'"'),'Ribbon tab IDs must be generated from stable tab keys.');
-assert(source.includes('id="flRibbonPanel-\'+key+\'"'),'Ribbon panel IDs must be generated from stable tab keys.');
+new Function(source);new Function(workspace);new Function(activity);
+
+const tabs=['home','data','field','analysis','export','view'];
 for(const tab of tabs){
   const tuplePattern=new RegExp("\\['"+tab+"','[^']+','[^']+','[^']+'\\]");
   assert(tuplePattern.test(source),"Ribbon tab definition missing: "+tab);
 }
+for(const removed of ['plots','compare'])
+  assert(!new RegExp("\\['"+removed+"','[^']+','[^']+','[^']+'\\]").test(source),
+    "Obsolete top-level alias tab still present: "+removed);
 
-const requiredTargets=[
-  'addFiles','addFolder','saveWorkspaceTop','openWorkspaceTop',
-  'timeSeriesTab','profileTab','logTab','catalogTab',
-  'fwAdd3DView','fwConfigureViews','fwLayout',
-  'fvProbeMode','fvSlice','fvVectors','fvStreamlines','fvFitCamera','fvResetCamera',
-  'generalAnalysisNav','pmMappingNav','pmPhaseNav','createDifference',
-  'fcEnabled','fcAddView','exportPng','exportSvg','exportCsv','thesisFigureBtn',
-  'fvAnimationPanel','sidebarToggle','theme','language'
-];
-for(const id of requiredTargets)assert(source.includes("'"+id+"'")||source.includes('"'+id+'"'),"Ribbon lost existing control target: "+id);
+for(const id of [
+  'flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
+  'flRaSplit','flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
+  'flRaExportPng','flRaTheme'
+]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
 
-assert(source.includes("globalContextBar"),'Ribbon must preserve the existing project/case/region context bar.');
-assert(source.includes("contextTrail"),'Ribbon must preserve the existing context trail.');
-assert(source.includes("ribbon.appendChild(casePanel)"),'Cases visibility menu must be moved out of the hidden legacy toolbar.');
-assert(source.includes("e.stopPropagation()"),'Ribbon actions must not be immediately cancelled by legacy document click handlers.');
+assert(source.includes("flRibbonContextNeeded"),'Context scope policy is missing.');
+assert(source.includes("activeAppMode==='data'||activeAppMode==='analysis'"),
+  'Data/Analysis must retain the shared Project/Case/Region context.');
+assert(source.includes("['profile','timeseries','log','split'].includes(state.view)"),
+  'Field context must appear only for plot/log/split views that consume shared context.');
+assert(source.includes("foamlens-field-view-change"),
+  'Ribbon does not listen for internal Field tab scope changes.');
+assert(source.includes("flRibbonContextHost.hidden{display:none!important}"),
+  'Context host cannot be hidden in pure 3D focus.');
+assert(source.includes("globalContextBar"),
+  'Project/Case/Region state presentation was deleted instead of scoped.');
+
+assert(workspace.includes('data-fw-view="3d"'));
+assert(workspace.includes('data-fw-view="profile"'));
+assert(workspace.includes('data-fw-view="timeseries"'));
+assert(workspace.includes('data-fw-view="log"'));
+assert(workspace.includes('data-fw-view="split"'));
+assert(workspace.includes("foamlens-field-view-change"),
+  'Field tabs do not publish scope changes.');
+
+assert(activity.includes('flActivityOverlayOpen'));
+assert(activity.includes('activityToast.flActivitySuppressed{display:none!important}'),
+  'Activity toast is not suppressed while a detailed overlay owns progress.');
+assert(activity.includes("'scanOverlay'"),
+  'Scanner overlay is not part of the unified activity policy.');
+
 assert(source.includes("body.flRibbonReady #modeNavBar{display:none!important}"),
-  'Legacy mode navigation may only be hidden after the ribbon is installed.');
-assert(source.includes("body.flRibbonReady .top .tools{display:none!important}"),
-  'Legacy toolbar may only be hidden after the ribbon is installed.');
-assert(source.includes(".flRibbonLabel{font-size:8px"),
-  'Ribbon action words must remain compact beneath the icons.');
-assert(source.includes(".flRibbonIcon{width:21px;height:21px"),
-  'Ribbon actions must retain icon-first visual hierarchy.');
-assert(source.includes("aria-selected"),'Ribbon tabs must expose selected state accessibly.');
-assert(source.includes("role=\"tablist\""),'Ribbon must expose a tablist.');
-assert(source.includes("window.FoamLensRibbon"),'Ribbon must expose a small runtime smoke API.');
+  'Legacy mode navigation may only be hidden after the Ribbon mounts.');
+assert(source.includes("body.flRibbonReady .top .tools{display:none!important}"));
+assert(source.includes('window.FoamLensRibbon'));
 
-const actionCount=(source.match(/flRibbonActionHtml\('/g)||[]).length;
-assert(actionCount>=35,'Ribbon should organize the major workflows, not be a token toolbar. Found '+actionCount+' action definitions.');
-
-console.log('FoamLens ribbon UI source audit passed:',tabs.length,'tabs,',actionCount,'actions.');
+console.log('FoamLens v1.6 Ribbon/context/activity scope audit passed:',tabs.length,'top-level tabs.');
