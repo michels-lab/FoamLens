@@ -2979,3 +2979,111 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 - No new public release.
 - Public FoamLens release remains **v1.4.9**.
 
+## 2026-10-05 — persistent workspace UX validated
+
+- Development branch: `development/v1.5.0-validation-export-benchmark`.
+- Validated product head: `a97d26f33c01c34eafba2d4ab3c6f931798452df`.
+- Public release remains **FoamLens Desktop v1.4.9**. No merge to `main` and no public release were performed.
+
+### Persistent Field Workspace
+- Added `v17-workspace-ux.js`.
+- FoamLens now stores/restores locally:
+  - Split / 3D focus / Plot focus layout;
+  - companion plot selection;
+  - physical-time follow toggle;
+  - comparison enabled state and visible comparison-view count;
+  - Difference enabled state and time-sync mode;
+  - linked/independent camera state;
+  - linked/independent visual-settings state;
+  - per-view display names A–D;
+  - draggable panel sizes.
+- Added Reset layout, which restores the predictable Split + Spatial Profile + linked-camera/visual defaults without modifying OpenFOAM data.
+
+### Per-view names / provenance preservation
+- Views A–D may be renamed for presentation use.
+- Presentation labels are prepended to, rather than substituted for, the scientific case / field / time labels.
+- The implementation keeps the original scientific label in dedicated dataset attributes before applying an alias, preventing repeated refreshes from progressively stripping provenance.
+
+### Comparison status strip
+- Added an always-visible comparison summary while Compare 3D is active.
+- It reports:
+  - A and B case/time context;
+  - Exact / Nearest / Interpolated time state and Δt where relevant;
+  - same/different physical quantity compatibility;
+  - linked/independent cameras;
+  - linked/independent visual settings;
+  - Difference mode;
+  - selected synchronization mode.
+
+### Contextual help / discoverability
+- Added `v18-context-help-resize.js`.
+- Added Ribbon **View → Help** plus the `?` keyboard shortcut.
+- Contextual help covers:
+  - Field Workspace;
+  - 3D Compare;
+  - Scientific Export;
+  - View & Layout.
+- Escape closes the overlay.
+- Help explicitly documents Exact / Nearest / Interpolated sync, comparison status, high-resolution 3D export, view-name semantics and splitter behavior.
+
+### Resizable workspace panels
+- Added two draggable vertical splitters:
+  - 3D ↔ companion plot;
+  - companion plot ↔ controls.
+- Minimum widths protect scientific readability:
+  - 3D: 280 px;
+  - companion plot: 280 px;
+  - controls: 260 px.
+- Splitter sizes persist in the same Field Workspace state.
+- At responsive widths ≤1100 px, splitters are disabled and the workspace stacks vertically instead of forcing desktop dimensions.
+
+### Ribbon integration
+- View tab now exposes:
+  - View names;
+  - Reset layout;
+  - Help.
+- Existing Performance / Fit / Sidebar / appearance controls remain intact.
+
+### Automated/runtime validation
+- Added `desktop/tests/workspace-ux.test.cjs`.
+- Added `desktop/tests/context-help-resize.test.cjs`.
+- CI suite increased from 60 to **62** tests and the manifest verifies each test runs exactly once.
+- Packaged WebView2 runtime smoke now requires:
+  - `uxViewNamesPanel`;
+  - `uxComparisonStatus`;
+  - `uxSplitterA`;
+  - `uxSplitterB`;
+  - `hrHelpOverlay`;
+  - live `FoamLensWorkspaceUx`, `FoamLensWorkspaceResize` and `FoamLensContextHelp` APIs;
+  - exactly two workspace splitters.
+- GitHub Actions run **#651** (`37303650253`): **SUCCESS**.
+- Real QuickCup/B13 regression: **SUCCESS**.
+- Independent VTK streamline validation: **SUCCESS**.
+- Full 62-test scientific/UI suite: **SUCCESS**.
+- Portable build and packaged WebView2 smoke: **SUCCESS**.
+- Installer build and installed-app smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Validation artifacts
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11343186219`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:725152631b566d559106d48e687148fb8603f1b0287b64d208db06da510bc8f8`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11342128295`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:9a0dfe979e3c9d615b09868762c28e037b80157f715bc9819ed20f7f5ca414af`.
+- `FoamLens-Windows-v1.4.9`
+  - artifact id: `11342907254`;
+  - size: `135,286,428 bytes`;
+  - digest: `sha256:42e8184b4e26cc7ddff820415d104c24cb5bf46c6524158d49921f3d50e1ef0c`.
+
+### State
+- The P2 Workspace / usability items recorded in the original post-v1.4.5 roadmap are now materially closed:
+  - persistent layout;
+  - per-view naming;
+  - compact comparison status;
+  - interaction/help discoverability;
+  - resizable Field Workspace panels.
+- The next incomplete P0 block is vector-glyph analysis: normalized/proportional length, ROI sampling and quantitative sampling validation.
