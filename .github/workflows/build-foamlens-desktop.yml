@@ -431,6 +431,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/workspace-ux.test.cjs
 
+      - name: Test contextual help and resizable workspace
+        shell: pwsh
+        run: node desktop/tests/context-help-resize.test.cjs
+
       - name: Test compact ribbon navigation
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
