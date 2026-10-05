@@ -24,7 +24,25 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+
+function fvClampProxy(v,a,b){v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,v)):a}
+function fvFiniteRangeProxy(values){let min=Infinity,max=-Infinity,count=0;for(const raw of values||[]){const v=Number(raw);if(!Number.isFinite(v))continue;if(v<min)min=v;if(v>max)max=v;count++}return count?{valid:true,min,max,count}:{valid:false,min:NaN,max:NaN,count:0}}
+function fvColorMapProxy(v,min,max){return api.fvColorMap(v,min,max,'turbo')}
+function fvBuildSpatialHashProxy(centers,min,max,count){return api.fvBuildSpatialHash(centers,min,max,count)}
+const vectorStart=source.indexOf('function fvAdaptiveVectorGlyphTarget');
+const vectorEnd=source.indexOf('function fvRefreshSeedPatchOptions',vectorStart);
+assert(vectorStart>=0&&vectorEnd>vectorStart,'Vector-analysis kernel markers missing.');
+const vectorCore=source.slice(vectorStart,vectorEnd);
+const vectorApi=new Function(
+  'const fvState={spatialHash:null};'+
+  'const fvClamp='+fvClampProxy.toString()+';'+
+  'const fvFiniteRange='+fvFiniteRangeProxy.toString()+';'+
+  'const fvColorMap=(v,min,max)=>[0.5,0.5,0.5];'+
+  'const fvBuildSpatialHash='+fvBuildSpatialHashProxy.toString().replace('return api.fvBuildSpatialHash(centers,min,max,count)','return {buckets:new Map()}')+';'+
+  vectorCore+
+  ';return {fvNormalizeVectorRoi,fvVectorCellInRoi,fvVectorEligibleCells,fvSelectVectorGlyphCells,fvBuildVectorGlyphBuffers};'
+)();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -257,6 +275,14 @@ test('legend gradient follows the selected colormap',()=>{
   assert.notEqual(turbo,coolwarm);
 });
 
+test('mesh-aware streamline sampler preserves a uniform vector exactly inside a real cell',()=>{
+  const mesh=api.fvBuildMeshFromTexts(points,faces,owner,neighbour),hash=api.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount),sampler=api.fvCreateMeshVectorSampler(mesh,hash,[[2,-3,4]]);
+  for(const p of [[.5,.5,.5],[.2,.3,.4],[.8,.7,.6]]){
+    const v=sampler(p);assert(v,'mesh-aware sampler rejected an interior cube point');near(v[0],2,1e-10);near(v[1],-3,1e-10);near(v[2],4,1e-10)
+  }
+  assert.equal(sampler([1.2,.5,.5]),null);
+});
+
 test('streamline integrator follows a uniform cell-centred velocity field',()=>{
   const centers=[],vectors=[];
   for(let i=0;i<12;i++){centers.push(.25+i*.5,.5,.5);vectors.push([1,0,0])}
@@ -274,6 +300,20 @@ test('streamline seed density is real up to the advertised 400 seeds',()=>{
   assert.equal(api.fvSeedPlane(min,max,'y',400,.25).length,400);
   assert.equal(api.fvSeedLine(min,max,'z',73,.5).length,73);
   assert.equal(api.fvSeedBox(min,max,125).length,125);
+});
+
+test('volume seed modes reject points that are only inside the bounding box but outside the actual polyhedral mesh',()=>{
+  const pyramidPoints=foamFile('vectorField','points','5\n(\n(-1 -1 0)\n(1 -1 0)\n(1 1 0)\n(-1 1 0)\n(0 0 3)\n)');
+  const pyramidFaces=foamFile('faceList','faces','5\n(\n4(0 3 2 1)\n3(0 1 4)\n3(1 2 4)\n3(2 3 4)\n3(3 0 4)\n)');
+  const pyramidOwner=foamFile('labelList','owner','5\n(\n0\n0\n0\n0\n0\n)');
+  const pyramidNeighbour=foamFile('labelList','neighbour','0\n(\n)');
+  const mesh=api.fvBuildMeshFromTexts(pyramidPoints,pyramidFaces,pyramidOwner,pyramidNeighbour);
+  assert.equal(api.fvCellContainsPoint(mesh,0,[0,0,.75]),true);
+  assert.equal(api.fvPointInMesh(mesh,[0,0,.75]),true);
+  assert.equal(api.fvPointInMesh(mesh,[.9,.9,2.5]),false,'bounding-box-only point leaked into the pyramid mesh');
+  const seeds=api.fvStreamlineSeeds(mesh,{mode:'box',count:80});
+  assert(seeds.length>0&&seeds.length<=80);
+  assert(seeds.every(p=>api.fvPointInMesh(mesh,p)),'Box seeding emitted a point outside the real cell geometry');
 });
 
 test('boundary-patch seeding uses actual patch faces and nudges seeds inward',()=>{
@@ -329,14 +369,55 @@ test('3D case switching preserves the explicit user selection and invalidates st
     '3D Case selector is not wired through the safe case-switch handler.');
 });
 
+test('vector ROI sampling selects only cells inside normalized mesh bounds',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[10,2,2],cellCenters:[]};
+  const vectors=[];
+  for(let i=0;i<10;i++){mesh.cellCenters.push(i+.5,1,1);vectors.push([i+1,0,0])}
+  const roi=vectorApi.fvNormalizeVectorRoi(mesh,{enabled:true,min:[.2,0,0],max:[.6,1,1]});
+  assert.equal(roi.enabled,true);
+  near(roi.worldMin[0],2);near(roi.worldMax[0],6);
+  const eligible=vectorApi.fvVectorEligibleCells(mesh,vectors,roi);
+  assert.deepEqual(eligible,[2,3,4,5]);
+  const selected=vectorApi.fvSelectVectorGlyphCells(mesh,vectors,3,roi);
+  assert.equal(selected.length,3);
+  assert(selected.every(i=>eligible.includes(i)),'ROI sampler selected a cell outside the ROI.');
+  assert(selected.every(i=>vectorApi.fvVectorCellInRoi(mesh,i,roi)));
+});
+
+test('normalized vector glyphs keep equal arrow length while magnitude mode preserves relative magnitude',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[4,1,1],cellCenters:[.5,.5,.5,1.5,.5,.5,2.5,.5,.5,3.5,.5,.5]};
+  const vectors=[[1,0,0],[2,0,0],[4,0,0],[8,0,0]];
+  const fixed=vectorApi.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,{lengthMode:'normalized'});
+  const scaled=vectorApi.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,{lengthMode:'magnitude'});
+  assert.equal(fixed.glyphCount,4);assert.equal(scaled.glyphCount,4);
+  assert.equal(fixed.lengthMode,'normalized');assert.equal(scaled.lengthMode,'magnitude');
+  assert(fixed.lengths.every(x=>Math.abs(x-fixed.lengths[0])<1e-12),'Normalized arrows do not have a constant length.');
+  assert(scaled.lengths[3]>scaled.lengths[2]&&scaled.lengths[2]>scaled.lengths[1]&&scaled.lengths[1]>scaled.lengths[0],
+    'Magnitude-proportional arrows do not increase with vector magnitude.');
+  near(scaled.lengths[3]/scaled.lengths[0],8,1e-10);
+  near(scaled.lengths[2]/scaled.lengths[0],4,1e-10);
+});
+
+test('vector glyph metadata distinguishes requested eligible and actually rendered cells',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[8,1,1],cellCenters:[]},vectors=[];
+  for(let i=0;i<8;i++){mesh.cellCenters.push(i+.5,.5,.5);vectors.push([i===2?0:i+1,0,0])}
+  const roi={enabled:true,min:[.25,0,0],max:[.75,1,1]};
+  const glyph=vectorApi.fvBuildVectorGlyphBuffers(mesh,vectors,20,1,{lengthMode:'normalized',roi});
+  assert.equal(glyph.requested,20);
+  assert.equal(glyph.eligibleCount,4);
+  assert.equal(glyph.selectedCells.length,3,'zero-magnitude eligible cell should not render a glyph');
+  assert.equal(glyph.glyphCount,3);
+  assert(glyph.selectedCells.every(i=>i>=2&&i<=5));
+});
+
 test('vector and streamline visualization expose independent real-resolution controls',()=>{
   for(const token of [
-    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
+    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiMode','fvVectorRoiControls',
     'Vector resolution','Seed density','max="400"','value="100"',
     'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
-    'Boundary patch','Box / Volume','Forward','Backward','integration points',
+    'Boundary patch','Box / Volume','Forward','Backward','integration points','fvPointInMesh','fvFilterSeedsInsideMesh','requestedSeeds',
     'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
-    'fvSelectVectorGlyphCells','glyphCount','requested',
+    'fvNormalizeVectorRoi','fvVectorEligibleCells','fvVectorCellInRoi','fvSelectVectorGlyphCells','glyphCount','requested','eligibleCount','lengthMode',
     "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
     "document.getElementById('fvStreamlineControls')?.classList.toggle('hidden'"
   ])assert(source.includes(token),'Missing flow-resolution control token: '+token);

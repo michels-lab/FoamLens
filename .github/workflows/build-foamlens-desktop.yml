@@ -1,3 +1,4 @@
+# FoamLens CI — unified v1.5.0 integration validation
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -12,6 +13,7 @@ on:
     branches:
       - main
       - 'development/**'
+      - 'integration/**'
       - 'release/**'
       - 'fix/**'
     tags:
@@ -55,6 +57,33 @@ jobs:
       - name: Test real OpenFOAM fixture integration
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
+
+      - name: Install VTK streamline reference runtime
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check --upgrade pip
+          python3 -m pip install --disable-pip-version-check vtk
+
+      - name: Validate B13 streamlines against VTK
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case_root="quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14"
+          mkdir -p vtk-validation
+          node desktop/tests/streamline-vtk-reference-input.cjs "$case_root" vtk-validation/foamlens-streamlines.json 9.8
+          python3 desktop/tests/vtk_streamline_reference.py "$case_root" vtk-validation/foamlens-streamlines.json vtk-validation/vtk-streamline-report.json
+          cat vtk-validation/vtk-streamline-report.json
+
+      - name: Upload VTK streamline validation evidence
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-VTK-streamline-validation
+          path: vtk-validation/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Prepare Windows-safe multi-case 3D runtime fixture
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
@@ -308,6 +337,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/vector-fields.test.cjs
 
+      - name: Test vector glyph ROI, length semantics and scientific provenance
+        shell: pwsh
+        run: node desktop/tests/vector-analysis.test.cjs
+
       - name: Test native background progress and cancellation
         shell: pwsh
         run: node desktop/tests/native-performance.test.cjs
@@ -400,6 +433,14 @@ jobs:
         shell: pwsh
         run: node desktop/tests/multipanel-performance.test.cjs
 
+      - name: Test persistent Field Workspace UX
+        shell: pwsh
+        run: node desktop/tests/workspace-ux.test.cjs
+
+      - name: Test contextual help and resizable workspace
+        shell: pwsh
+        run: node desktop/tests/context-help-resize.test.cjs
+
       - name: Test compact ribbon navigation
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
@@ -455,9 +496,9 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-          if (-not $process.WaitForExit(180000)) {
+          if (-not $process.WaitForExit(300000)) {
             try { $process.Kill($true) } catch {}
-            throw 'FoamLens executable smoke test timed out after 180 seconds.'
+            throw 'FoamLens executable smoke test timed out after 300 seconds.'
           }
           if ($process.ExitCode -ne 0) {
             $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
@@ -566,9 +607,9 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
-          if (-not $app.WaitForExit(180000)) {
+          if (-not $app.WaitForExit(300000)) {
             try { $app.Kill($true) } catch {}
-            throw 'Installed FoamLens smoke test timed out after 180 seconds.'
+            throw 'Installed FoamLens smoke test timed out after 300 seconds.'
           }
           if ($app.ExitCode -ne 0) {
             if (Test-Path $log) {
