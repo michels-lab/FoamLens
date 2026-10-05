@@ -213,6 +213,10 @@ internal sealed class FoamLensForm : Form
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
                   const icons=[...document.querySelectorAll('#flRibbon .flRibbonIcon')];
+                  const actions=[...document.querySelectorAll('#flRibbon .flRibbonAction')];
+                  const ribbonTabs=[...document.querySelectorAll('#flRibbon .flRibbonTab')];
+                  const actionHierarchyComplete=actions.length>0&&actions.every(a=>!!a.querySelector('.flRibbonIcon')&&!!a.querySelector('.flRibbonLabel'));
+                  const tabHierarchyComplete=ribbonTabs.length===tabs.length&&ribbonTabs.every(t=>!!t.querySelector('.flRibbonIcon')&&!!t.querySelector('span'));
                   document.getElementById('flRibbonTab-field')?.click();
                   const fieldTabActive=document.getElementById('flRibbonTab-field')?.classList.contains('active')===true;
                   const fieldPanelActive=document.getElementById('flRibbonPanel-field')?.classList.contains('active')===true;
@@ -236,9 +240,12 @@ internal sealed class FoamLensForm : Form
                     updateApi:typeof window.FoamLensAutoUpdate?.check==='function',
                     missingTabs,
                     missingActions,
-                    tabCount:document.querySelectorAll('#flRibbon .flRibbonTab').length,
+                    tabCount:ribbonTabs.length,
+                    actionCount:actions.length,
                     labelCount:labels.length,
                     iconCount:icons.length,
+                    actionHierarchyComplete,
+                    tabHierarchyComplete,
                     fieldTabActive,
                     fieldPanelActive,
                     fieldMode,
@@ -269,9 +276,10 @@ internal sealed class FoamLensForm : Form
                         missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                         throw new InvalidOperationException(
                             $"FoamLens ribbon is incomplete ({property}): {ribbonUiJson}");
-                if (!root.TryGetProperty("tabCount", out var tabCount) || tabCount.GetInt32() != 8 ||
-                    !root.TryGetProperty("labelCount", out var labelCount) || labelCount.GetInt32() < 35 ||
-                    !root.TryGetProperty("iconCount", out var iconCount) || iconCount.GetInt32() < 43)
+                if (!root.TryGetProperty("tabCount", out var tabCount) || tabCount.GetInt32() != 6 ||
+                    !root.TryGetProperty("actionCount", out var actionCount) || actionCount.GetInt32() <= 0 ||
+                    !root.TryGetProperty("actionHierarchyComplete", out var actionHierarchyComplete) || !actionHierarchyComplete.GetBoolean() ||
+                    !root.TryGetProperty("tabHierarchyComplete", out var tabHierarchyComplete) || !tabHierarchyComplete.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon icon/label hierarchy is incomplete: {ribbonUiJson}");
                 foreach (var property in new[] { "fieldTabActive", "fieldPanelActive", "fieldMode",
