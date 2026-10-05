@@ -297,6 +297,8 @@ internal sealed class FoamLensForm : Form
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
                     'meDialog','ppPanel','fcComparisonStatus','fcPrimaryName','fcCompareName',
+                    'fvVectorLengthMode','fvVectorRoiEnabled','fvVectorRoiControls',
+                    'fvProvenance','fcPrimaryProvenance','fcCompareProvenance','fcDifferenceA','fcDifferenceB',
                     'fwHelp','wlHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
@@ -327,7 +329,7 @@ internal sealed class FoamLensForm : Form
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
                     workspaceUxApi:['snapshot','apply','save','restore','reset','openHelp','closeHelp'].every(k=>typeof window.FoamLensWorkspaceUX?.[k]==='function'),
-                    advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare','getViewNames','setViewName','updateComparisonStatus'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
+                    advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare','getViewNames','setViewName','updateComparisonStatus','getViewData','getDifferencePair','getProvenance','refreshDifferenceSelectors'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
                     workspaceLayoutSmoke:(()=>{
                       const api=window.FoamLensWorkspaceUX,cmp=window.FoamLensFieldCompare;if(!api||!cmp)return null;
                       const before=api.snapshot(),probe={...before,layout:'plot',viewNames:{...(before.viewNames||{}),1:'Smoke Primary',2:'Smoke Reference'}};
@@ -777,6 +779,44 @@ internal sealed class FoamLensForm : Form
                         const benchmark=await perfApi.runControlledBenchmark({indices:benchmarkIndices,repeats:1});
                         const benchmarkColdMs=Number(benchmark?.coldMedianMs),benchmarkWarmMs=Number(benchmark?.warmMedianMs),benchmarkSamples=Number(benchmark?.samplesPerPhase||0),benchmarkScope=String(benchmark?.scope||'');
 
+                        const provenance=api.getProvenance?.()||{};
+                        const primaryProvenance=provenance.view1||null,compareProvenance=provenance.view2||null;
+                        const provenanceStructured=!!primaryProvenance&&!!compareProvenance&&
+                          !!primaryProvenance.caseName&&!!primaryProvenance.field&&
+                          !!primaryProvenance.associationLabel&&Number.isFinite(Number(primaryProvenance.time))&&
+                          !!compareProvenance.caseName&&!!compareProvenance.field&&!!compareProvenance.associationLabel;
+                        const provenanceOverlayVisible=!!document.getElementById('fcPrimaryProvenance')?.textContent?.trim()&&
+                          !!document.getElementById('fcCompareProvenance')?.textContent?.trim();
+
+                        const extra3Case=document.getElementById('fcExtra3Case'),extra3Region=document.getElementById('fcExtra3Region'),extra3Field=document.getElementById('fcExtra3Field'),extra3Component=document.getElementById('fcExtra3Component');
+                        if(extra3Case&&[...extra3Case.options].some(o=>String(o.value)===primaryCaseId))extra3Case.value=primaryCaseId;
+                        if(extra3Region&&[...extra3Region.options].some(o=>String(o.value)===primaryRegion))extra3Region.value=primaryRegion;
+                        if(extra3Field&&[...extra3Field.options].some(o=>String(o.value)===primaryField))extra3Field.value=primaryField;
+                        if(extra3Component&&[...extra3Component.options].some(o=>String(o.value)===primaryComponent))extra3Component.value=primaryComponent;
+                        await api.refreshExtras();
+                        api.refreshDifferenceSelectors();
+                        const diffToggle=document.getElementById('fcDifference'),diffA=document.getElementById('fcDifferenceA'),diffB=document.getElementById('fcDifferenceB');
+                        if(!diffToggle||!diffA||!diffB)throw new Error('Arbitrary-view Difference controls are unavailable.');
+                        diffToggle.checked=true;diffToggle.dispatchEvent(new Event('change',{bubbles:true}));
+                        api.refreshDifferenceSelectors();
+                        if(![...diffA.options].some(o=>o.value==='view3')||![...diffB.options].some(o=>o.value==='view1'))
+                          throw new Error('View C/A are not available to Difference after loading View 3.');
+                        diffA.value='view3';diffB.value='view1';
+                        diffA.dispatchEvent(new Event('change',{bubbles:true}));diffB.dispatchEvent(new Event('change',{bubbles:true}));
+                        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+                        const arbitraryDifferencePair=api.getDifferencePair?.();
+                        const arbitraryDifferenceDescriptor=(api.getVideoDescriptors()||[]).find(x=>x.key==='difference')||null;
+                        const arbitraryDifferenceApplied=arbitraryDifferencePair?.aKey==='view3'&&arbitraryDifferencePair?.bKey==='view1'&&
+                          !!arbitraryDifferenceDescriptor&&String(arbitraryDifferenceDescriptor.caseName||'').includes('C↔A')&&
+                          !!document.getElementById('fcDifferenceStatus')?.textContent?.trim();
+
+                        const vectorLengthMode=document.getElementById('fvVectorLengthMode');
+                        const vectorRoiEnabled=document.getElementById('fvVectorRoiEnabled');
+                        const vectorRoiControls=document.getElementById('fvVectorRoiControls');
+                        if(vectorLengthMode)vectorLengthMode.value='normalized';
+                        if(vectorRoiEnabled){vectorRoiEnabled.checked=true;vectorRoiEnabled.dispatchEvent(new Event('change',{bubbles:true}))}
+                        const vectorScientificControls=vectorLengthMode?.value==='normalized'&&!!vectorRoiEnabled?.checked&&!vectorRoiControls?.classList.contains('hidden');
+
                         const canvas=document.getElementById('fcCanvas');
                         if(!canvas)throw new Error('View 2 canvas is unavailable.');
                         const linkCameras=document.getElementById('fcLinkCameras');
@@ -877,6 +917,12 @@ internal sealed class FoamLensForm : Form
                           benchmarkWarmMs,
                           benchmarkSamples,
                           benchmarkScope,
+                          provenanceStructured,
+                          provenanceOverlayVisible,
+                          arbitraryDifferenceApplied,
+                          arbitraryDifferenceA:arbitraryDifferencePair?.aKey||'',
+                          arbitraryDifferenceB:arbitraryDifferencePair?.bKey||'',
+                          vectorScientificControls,
                           independentCameraChanged,
                           primaryCameraUnaffected,
                           independentVisualApplied,
@@ -937,6 +983,12 @@ internal sealed class FoamLensForm : Form
                         !root.TryGetProperty("benchmarkWarmMs", out var benchmarkWarmMs) || !double.IsFinite(benchmarkWarmMs.GetDouble()) || benchmarkWarmMs.GetDouble() < 0 ||
                         !root.TryGetProperty("benchmarkSamples", out var benchmarkSamples) || benchmarkSamples.GetInt32() < 2 ||
                         !root.TryGetProperty("benchmarkScope", out var benchmarkScope) || !benchmarkScope.GetString()!.Contains("cold field-cache", StringComparison.Ordinal) ||
+                        !root.TryGetProperty("provenanceStructured", out var provenanceStructured) || !provenanceStructured.GetBoolean() ||
+                        !root.TryGetProperty("provenanceOverlayVisible", out var provenanceOverlayVisible) || !provenanceOverlayVisible.GetBoolean() ||
+                        !root.TryGetProperty("arbitraryDifferenceApplied", out var arbitraryDifferenceApplied) || !arbitraryDifferenceApplied.GetBoolean() ||
+                        !root.TryGetProperty("arbitraryDifferenceA", out var arbitraryDifferenceA) || !string.Equals(arbitraryDifferenceA.GetString(), "view3", StringComparison.Ordinal) ||
+                        !root.TryGetProperty("arbitraryDifferenceB", out var arbitraryDifferenceB) || !string.Equals(arbitraryDifferenceB.GetString(), "view1", StringComparison.Ordinal) ||
+                        !root.TryGetProperty("vectorScientificControls", out var vectorScientificControls) || !vectorScientificControls.GetBoolean() ||
                         !root.TryGetProperty("independentCameraChanged", out var independentCameraChanged) || !independentCameraChanged.GetBoolean() ||
                         !root.TryGetProperty("primaryCameraUnaffected", out var primaryCameraUnaffected) || !primaryCameraUnaffected.GetBoolean() ||
                         !root.TryGetProperty("independentVisualApplied", out var independentVisualApplied) || !independentVisualApplied.GetBoolean() ||
