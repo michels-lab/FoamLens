@@ -332,6 +332,10 @@ test('3D case switching preserves the explicit user selection and invalidates st
 test('vector and streamline visualization expose independent real-resolution controls',()=>{
   for(const token of [
     'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
+    'fvVectorLengthMode','fvVectorRoiEnabled','fvVectorRoiControls',
+    'fvVectorRoiXMin','fvVectorRoiXMax','fvVectorRoiYMin','fvVectorRoiYMax','fvVectorRoiZMin','fvVectorRoiZMax',
+    'Magnitude-proportional','Normalized','Limit sampling to ROI',
+    'fvVectorRoiContains','fvSelectVectorGlyphCells','lengthMode','roiEligible',
     'Vector resolution','Seed density','max="400"','value="100"',
     'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
     'Boundary patch','Box / Volume','Forward','Backward','integration points',
