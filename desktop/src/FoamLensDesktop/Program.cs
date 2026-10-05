@@ -296,7 +296,8 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel'
+                    'meDialog','ppPanel','fcComparisonStatus','fcPrimaryName','fcCompareName',
+                    'fwHelp','wlHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -325,7 +326,21 @@ internal sealed class FoamLensForm : Form
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
-                    advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
+                    workspaceUxApi:['snapshot','apply','save','restore','reset','openHelp','closeHelp'].every(k=>typeof window.FoamLensWorkspaceUX?.[k]==='function'),
+                    advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare','getViewNames','setViewName','updateComparisonStatus'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
+                    workspaceLayoutSmoke:(()=>{
+                      const api=window.FoamLensWorkspaceUX,cmp=window.FoamLensFieldCompare;if(!api||!cmp)return null;
+                      const before=api.snapshot(),probe={...before,layout:'plot',viewNames:{...(before.viewNames||{}),1:'Smoke Primary',2:'Smoke Reference'}};
+                      api.apply(probe);const changed=api.snapshot();api.apply(before);
+                      return{
+                        changedLayout:changed.layout,
+                        primaryName:changed.viewNames?.[1]||changed.viewNames?.['1']||'',
+                        compareName:changed.viewNames?.[2]||changed.viewNames?.['2']||'',
+                        restoredLayout:api.snapshot().layout,
+                        helpMounted:!!document.getElementById('wlHelpOverlay'),
+                        statusMounted:!!document.getElementById('fcComparisonStatus')
+                      }
+                    })(),
                     interpolationSmoke:window.FoamLensFieldCompare?.fcResolveTime?.([0,1],.25,'interpolate')||null,
                     percentDifferenceSmoke:Number(window.FoamLensFieldCompare?.fcDifferenceValues?.([10],[8],'percent')?.[0]),
                     syncModes:[...document.querySelectorAll('#fcSync option')].map(x=>x.value),
@@ -365,10 +380,24 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
                 foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
-                                                  "multipanelApi", "performanceApi", "advancedCompareApi" })
+                                                  "multipanelApi", "performanceApi", "workspaceUxApi", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("workspaceLayoutSmoke", out var workspaceLayoutSmoke) ||
+                    workspaceLayoutSmoke.ValueKind != JsonValueKind.Object ||
+                    !workspaceLayoutSmoke.TryGetProperty("changedLayout", out var changedLayout) ||
+                    !string.Equals(changedLayout.GetString(), "plot", StringComparison.OrdinalIgnoreCase) ||
+                    !workspaceLayoutSmoke.TryGetProperty("primaryName", out var primaryName) ||
+                    !string.Equals(primaryName.GetString(), "Smoke Primary", StringComparison.Ordinal) ||
+                    !workspaceLayoutSmoke.TryGetProperty("compareName", out var compareName) ||
+                    !string.Equals(compareName.GetString(), "Smoke Reference", StringComparison.Ordinal) ||
+                    !workspaceLayoutSmoke.TryGetProperty("helpMounted", out var helpMounted) ||
+                    !helpMounted.GetBoolean() ||
+                    !workspaceLayoutSmoke.TryGetProperty("statusMounted", out var statusMounted) ||
+                    !statusMounted.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens persistent Field Workspace runtime smoke failed: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
                     rangeModes.ValueKind != JsonValueKind.Array ||
                     !new[] { "current", "global", "manual" }.All(expected =>
