@@ -14,6 +14,10 @@ foam_lines=[[[float(v) for v in p] for p in line] for line in data["foamLensLine
 diag=float(data["mesh"]["diag"])
 step=float(data["integration"]["step"])
 max_length=float(data["integration"]["maxLength"])
+max_length_per_direction=float(data["integration"].get("maxLengthPerDirection",max_length/2.0))
+# FoamLens advances by fixed full steps and stops before a step would exceed the
+# per-direction length budget. Give VTK the same effective propagation budget.
+effective_per_direction=max(step,math.floor((max_length_per_direction+1e-12)/step)*step)
 
 import vtk
 from vtkmodules.vtkCommonDataModel import vtkCompositeDataSet, vtkDataObject
@@ -121,14 +125,14 @@ tracer.SetIntegrationStepUnit(vtkStreamTracer.LENGTH_UNIT)
 tracer.SetInitialIntegrationStep(step)
 tracer.SetMinimumIntegrationStep(step)
 tracer.SetMaximumIntegrationStep(step)
-tracer.SetMaximumPropagation(max_length)
+tracer.SetMaximumPropagation(effective_per_direction)
 if hasattr(tracer,"SetMaximumNumberOfSteps"):
     tracer.SetMaximumNumberOfSteps(int(data["integration"]["maxSteps"]))
 tracer.SetComputeVorticity(False)
 tracer.Update()
 out=tracer.GetOutput()
 
-vtk_lines=[]
+vtk_raw_lines=[]
 for ci in range(out.GetNumberOfCells()):
     cell=out.GetCell(ci)
     ids=cell.GetPointIds()
@@ -137,8 +141,8 @@ for ci in range(out.GetNumberOfCells()):
     line=[]
     for j in range(ids.GetNumberOfIds()):
         line.append(list(out.GetPoint(ids.GetId(j))))
-    vtk_lines.append(line)
-if not vtk_lines:
+    vtk_raw_lines.append(line)
+if not vtk_raw_lines:
     raise RuntimeError("vtkStreamTracer produced no output lines.")
 def dist(a,b):
     return math.sqrt(sum((a[i]-b[i])**2 for i in range(3)))
@@ -173,26 +177,46 @@ def hausdorff(a,b):
 def closest_seed_distance(line,seed):
     return min(dist(p,seed) for p in line)
 
+# vtkStreamTracer emits two independent output cells per seed when direction=Both:
+# one forward and one backward, each starting at the seed. FoamLens exposes one
+# combined polyline. Reconstruct the same topology before geometry comparison.
+groups={i:[] for i in range(len(seeds))}
+for li,line in enumerate(vtk_raw_lines):
+    si=min(range(len(seeds)),key=lambda q:closest_seed_distance(line,seeds[q]))
+    groups[si].append((li,line))
+vtk_lines=[]
+vtk_source_indices=[]
+for si,seed in enumerate(seeds):
+    branches=sorted(groups.get(si,[]),key=lambda item:arclength(item[1]),reverse=True)
+    if len(branches)<2:
+        vtk_lines.append(branches[0][1] if branches else [])
+        vtk_source_indices.append([branches[0][0]] if branches else [])
+        continue
+    (ia,a),(ib,b)=branches[:2]
+    # Both branches start at the seed; reverse one branch so the seed becomes the
+    # shared midpoint, then append the other without duplicating the seed point.
+    combined=list(reversed(a))+b[1:]
+    vtk_lines.append(combined)
+    vtk_source_indices.append([ia,ib])
+
 print("VTK streamline output summary:",json.dumps({
     "seedCount":len(seeds),
-    "lineCount":len(vtk_lines),
-    "lineLengths":[arclength(line) if len(line)>1 else 0.0 for line in vtk_lines],
-    "linePointCounts":[len(line) for line in vtk_lines],
-    "closestSeed":[min(range(len(seeds)),key=lambda si:closest_seed_distance(line,seeds[si])) for line in vtk_lines],
-    "startClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[0],seeds[si])) for line in vtk_lines],
-    "endClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[-1],seeds[si])) for line in vtk_lines]
+    "rawLineCount":len(vtk_raw_lines),
+    "combinedLineCount":len([x for x in vtk_lines if len(x)>=2]),
+    "effectivePropagationPerDirection":effective_per_direction,
+    "rawLineLengths":[arclength(line) if len(line)>1 else 0.0 for line in vtk_raw_lines],
+    "combinedLineLengths":[arclength(line) if len(line)>1 else 0.0 for line in vtk_lines],
+    "combinedPointCounts":[len(line) for line in vtk_lines],
+    "sourceLineIndices":vtk_source_indices,
+    "rawClosestSeed":[min(range(len(seeds)),key=lambda si:closest_seed_distance(line,seeds[si])) for line in vtk_raw_lines]
 },indent=2))
 
-unused=set(range(len(vtk_lines)))
 matches=[]
 for si,seed in enumerate(seeds):
-    ranked=sorted(unused,key=lambda li:closest_seed_distance(vtk_lines[li],seed))
-    if not ranked:
-        matches.append({"seedIndex":si,"ok":False,"reason":"no-unmatched-vtk-line"})
+    if si>=len(vtk_lines) or len(vtk_lines[si])<2:
+        matches.append({"seedIndex":si,"ok":False,"reason":"missing-vtk-bidirectional-line","vtkSourceLineIndices":vtk_source_indices[si] if si<len(vtk_source_indices) else []})
         continue
-    li=ranked[0]
-    unused.remove(li)
-    fl=foam_lines[si];vl=vtk_lines[li]
+    fl=foam_lines[si];vl=vtk_lines[si]
     fr=resample(fl);vr=resample(vl)
     rev=list(reversed(vr))
     rms_forward=rms_pair(fr,vr);rms_reverse=rms_pair(fr,rev)
@@ -204,7 +228,7 @@ for si,seed in enumerate(seeds):
     length_rel=abs(flen-vlen)/max(flen,vlen,diag*1e-12)
     seed_error=closest_seed_distance(vl,seed)
     matches.append({
-        "seedIndex":si,"vtkLineIndex":li,"ok":True,
+        "seedIndex":si,"vtkLineIndex":si,"vtkSourceLineIndices":vtk_source_indices[si],"ok":True,
         "foamLensPoints":len(fl),"vtkPoints":len(vl),
         "foamLensLength":flen,"vtkLength":vlen,
         "rms":rms,"rmsDiag":rms/diag,
@@ -224,10 +248,12 @@ report={
     "schema":"foamlens-vtk-streamline-validation-v1",
     "vtkVersion":vtk.vtkVersion.GetVTKVersion(),
     "reader":"vtkOpenFOAMReader(CreateCellToPoint=0) + vtkCellDataToPointData",
-    "tracer":"vtkStreamTracer/RK2",
+    "tracer":"vtkStreamTracer/RK2 Both; forward/backward cells combined per seed",
     "caseName":data["caseName"],"region":data["region"],"field":data["field"],"time":time,
     "vtkBlock":block_name,
     "datasetCells":dataset.GetNumberOfCells(),"datasetPoints":dataset.GetNumberOfPoints(),
+    "rawVtkLineCount":len(vtk_raw_lines),"combinedVtkLineCount":len([x for x in vtk_lines if len(x)>=2]),
+    "effectivePropagationPerDirection":effective_per_direction,
     "compared":len(good),"requested":len(seeds),
     "thresholds":{"maxMeanRmsDiag":0.06,"maxWorstRmsDiag":0.10,"maxWorstHausdorffDiag":0.16,"maxMeanLengthRelativeDifference":0.35},
     "metrics":{
