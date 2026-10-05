@@ -296,7 +296,7 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel'
+                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','uxSplitterB','hrHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -325,6 +325,10 @@ internal sealed class FoamLensForm : Form
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
+                    workspaceUxApi:typeof window.FoamLensWorkspaceUx?.getState==='function'&&typeof window.FoamLensWorkspaceUx?.setViewName==='function',
+                    workspaceResizeApi:typeof window.FoamLensWorkspaceResize?.getSizes==='function'&&typeof window.FoamLensWorkspaceResize?.resetSizes==='function',
+                    contextualHelpApi:typeof window.FoamLensContextHelp?.open==='function'&&typeof window.FoamLensContextHelp?.close==='function',
+                    workspaceSplitterCount:document.querySelectorAll('.uxWorkspaceSplitter').length,
                     advancedCompareApi:['fcTimeBracket','fcResolveTime','fcInterpolateValues','fcDifferenceValues','fcDifferenceRange','swapPrimaryCompare'].every(k=>typeof window.FoamLensFieldCompare?.[k]==='function'),
                     interpolationSmoke:window.FoamLensFieldCompare?.fcResolveTime?.([0,1],.25,'interpolate')||null,
                     percentDifferenceSmoke:Number(window.FoamLensFieldCompare?.fcDifferenceValues?.([10],[8],'percent')?.[0]),
@@ -365,10 +369,15 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
                 foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
-                                                  "multipanelApi", "performanceApi", "advancedCompareApi" })
+                                                  "multipanelApi", "performanceApi", "workspaceUxApi",
+                                                  "workspaceResizeApi", "contextualHelpApi", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("workspaceSplitterCount", out var splitterCount) ||
+                    splitterCount.GetInt32() != 2)
+                    throw new InvalidOperationException(
+                        $"FoamLens Field Workspace splitters did not mount correctly: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
                     rangeModes.ValueKind != JsonValueKind.Array ||
                     !new[] { "current", "global", "manual" }.All(expected =>
