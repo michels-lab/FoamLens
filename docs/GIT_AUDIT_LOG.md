@@ -2813,3 +2813,122 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### State
 - **v1.4.9 is now the current public FoamLens Desktop release.**
 - Release is not marked draft or prerelease.
+
+## 2026-10-05 — v1.5.0 validation/layout UX: VTK streamlines, true high-res 3D export and controlled performance benchmark
+
+- Development branch: `development/v1.5.0-validation-layout-ux`.
+- Validated head: `30125fcc769a10e5773f856d9057d0c31fd0540d`.
+- GitHub Actions run **#584** (`37289642069`): **SUCCESS**.
+- Public release remains **FoamLens Desktop v1.4.9**; no merge to `main` and no new release were performed.
+
+### Representative B13 streamline validation against VTK
+- The validation now compares the **actual FoamLens frontend implementation** `v14-field-view.js -> fvIntegrateStreamline()` against an independent VTK reference built with `vtkOpenFOAMReader` + `vtkStreamTracer`.
+- Validation case: real B13-derived OpenFOAM case, physical time `t=9.8 s`, region `metal`.
+- 4 representative seeds × forward/backward integration = **8 comparable paths**.
+- Actual FoamLens JS vs VTK:
+  - median RMS path deviation / domain diagonal: `0.001379561063042037` (~0.138%);
+  - worst RMS / diagonal: `0.002638000688034105` (~0.264%);
+  - median maximum deviation / diagonal: `0.002738676729778798`;
+  - median endpoint deviation / diagonal: `0.00269372162664018`;
+  - median relative path-length difference: `0.0009577103719722378` (~0.096%).
+- The independent Python RK2/IDW FoamLens-like reference also passed against VTK.
+- This closes the previous requirement for a representative path-by-path independent validation.
+- Scope remains explicit: this is strong evidence for the representative B13 paths tested, not a blanket claim that every possible mesh/case is numerically identical to ParaView/VTK.
+- Final VTK evidence artifact:
+  - `FoamLens-Streamline-VTK-validation`
+  - artifact id: `11336096688`
+  - size: `35,725 bytes`
+  - digest: `sha256:145df89e780abfe5e3be27789e5bd90ab7bbd8dd05a5d8904d32f66bbec504f9`.
+
+### Persistent Field Workspace UX already validated in this branch
+- Persistent-ready custom names for Views A/B/C/D.
+- Comparison status presentation.
+- Persistent Field Workspace layout state.
+- Resizable splitters.
+- Contextual Field Workspace help exposed from the ribbon.
+- Custom viewport names propagate into export descriptors and multi-panel figures.
+- These changes and their packaged-runtime regression coverage were already green before the work below.
+
+### True high-resolution 3D multi-panel export
+- Primary Field View and comparison views now support explicit export render dimensions up to 8192 px per axis.
+- Export does **not** enlarge an existing screenshot:
+  - FoamLens asks the live WebGL renderer to rerender the scientific scene at the requested target resolution;
+  - copies that freshly rendered buffer into the export canvas;
+  - then restores the normal interactive viewport resolution.
+- Supported high-resolution sources:
+  - Primary;
+  - View 2;
+  - Views 3/4;
+  - 3D Difference.
+- Multi-panel export now requests the target panel-body pixel dimensions from those APIs.
+- Existing 2D plot / Spatial Profile high-resolution render path remains unchanged.
+- A fallback to the live canvas remains available only if an explicit high-resolution rerender cannot be produced.
+
+#### Packaged-runtime evidence
+- Portable and installed smoke requested:
+  - Primary: `1600×1000`;
+  - View 2: `1400×900`.
+- Both exact output dimensions were observed.
+- To prevent a false-positive large-but-empty canvas, the smoke downsamples the returned canvases and checks alpha evidence.
+- Final smoke evidence:
+  - Primary nontransparent samples: **241**;
+  - View 2 nontransparent samples: **251**.
+- Therefore the high-resolution path contains rendered 3D geometry rather than only resized canvas dimensions.
+
+### Controlled performance benchmark
+- Added an in-app **Run controlled benchmark** action.
+- Benchmark scope is intentionally narrow and reproducible:
+  - same physical-time frame sequence;
+  - cold field-cache load vs pre-warmed field-cache load;
+  - prefetch suppressed in both phases.
+- It reports:
+  - cold and warm samples;
+  - medians;
+  - sample count;
+  - tested physical times;
+  - case / field / region;
+  - ratio and percentage difference;
+  - timestamp.
+- The benchmark does **not** assume or require warm-cache performance to be faster.
+
+#### B13 packaged-runtime results
+- Portable smoke (`n=2` per phase):
+  - cold median: **769.05 ms**;
+  - warm median: **891.40 ms**.
+- Installed-app smoke (`n=2` per phase):
+  - cold median: **897.10 ms**;
+  - warm median: **905.50 ms**.
+- In this small two-frame B13 smoke, the pre-warmed field cache did **not** reduce total `fvLoadFrame` latency.
+- This is useful evidence rather than a failed benchmark: it shows that whole-frame latency is not dominated solely by field parsing/cache retrieval in this scenario.
+- No percentage speedup claim is warranted from these measurements.
+- Next performance work should instrument phase-level timings (I/O / parse / mesh / derived geometry / buffer upload / render) before optimizing further.
+
+### Final run / artifacts
+- Run **#584**: **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- VTK reference streamline validation: **SUCCESS**.
+- Actual FoamLens JS streamline comparison vs VTK: **SUCCESS**.
+- Frontend/scientific regression suite: **SUCCESS**.
+- High-resolution 3D pixel-evidence smoke: **SUCCESS**.
+- Controlled B13 cold/warm benchmark execution: **SUCCESS**.
+- Portable Windows smoke: **SUCCESS**.
+- Installer build + installed-app smoke: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected on development branch.
+- Windows artifact:
+  - `FoamLens-Windows-v1.4.9`
+  - id: `11335249643`
+  - size: `135,284,688 bytes`
+  - digest: `sha256:a9922d919c4516365e4a82b631e83a7ee488fc719ea96c2ebde4f131e642a979`.
+- Runtime fixture:
+  - id: `11335997627`
+  - digest: `sha256:56fa7f9b164ddacc2502f528a05376504753ef1c9dbe4105224fc1e3f7919202`.
+
+### State / next priorities
+- Closed:
+  - representative VTK streamline validation boundary;
+  - true high-resolution 3D export boundary;
+  - controlled performance-benchmark boundary.
+- Remaining high-priority P0 work:
+  1. complete vector-glyph scientific controls and validation;
+  2. visible scientific provenance per 3D viewport;
+  3. generalized 3D Difference with arbitrary compatible visible views selectable as A/B.
