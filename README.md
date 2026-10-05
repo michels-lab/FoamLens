@@ -45,6 +45,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - Light and dark appearance.
 - Local persistence of visual defaults.
 - Built-in About / Developer section.
+- Native GitHub Release update checks with user-controlled installation and SHA-256 installer verification.
 
 ## FoamLens Desktop
 
