@@ -58,7 +58,7 @@ function sdSamePhysicalKind(A,B){
   if(ca!==cb)return{ok:false,reason:'variables differ'};return{ok:true}
 }
 function sdBuildUi(){
-  if(document.getElementById('sdTools'))return;const host=document.getElementById('differenceTools')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='sdTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('sdTools'))return;const host=document.getElementById('differenceTools');if(!host)return;const box=document.createElement('div');box.id='sdTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Spatial quantitative comparison" data-fl-es="Comparación cuantitativa espacial">Spatial quantitative comparison</b><span class="badge" data-fl-en="physical X" data-fl-es="X física">physical X</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Uses the profiles currently rendered at the same physical playback time. Spatial samples are aligned by coordinate, never by array index, and are clipped to their shared spatial range." data-fl-es="Usa los perfiles renderizados actualmente en el mismo tiempo físico de reproducción. Las muestras espaciales se alinean por coordenada, nunca por índice de arreglo, y se recortan a su rango espacial compartido.">Uses the profiles currently rendered at the same physical playback time.</div>
   <div class="field" style="margin-top:8px"><label data-fl-en="Profile A" data-fl-es="Perfil A">Profile A</label><select id="sdA"></select></div>
