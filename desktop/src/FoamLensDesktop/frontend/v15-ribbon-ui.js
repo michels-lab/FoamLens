@@ -166,7 +166,8 @@ function flRibbonBuild(){
     flRibbonGroup('Panels','Paneles',[
       flRibbonActionHtml('flRaSidebar','sidebar','Sidebar','Panel lateral'),
       flRibbonActionHtml('flRaViewFit','fit','Fit','Ajustar'),
-      flRibbonActionHtml('flRaPerformance','pulse','Performance','Rendimiento')
+      flRibbonActionHtml('flRaPerformance','pulse','Performance','Rendimiento'),
+      flRibbonActionHtml('flRaFieldHelp','help','Help','Ayuda')
     ]),
     flRibbonGroup('Appearance','Apariencia',[
       flRibbonActionHtml('flRaTheme','theme','Theme','Tema'),
@@ -360,6 +361,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaSidebar',()=>flRibbonClick('sidebarToggle'));
   flRibbonBind('flRaViewFit',()=>{if(document.body.classList.contains('appMode-field'))flRibbonField(()=>flRibbonClick('fvFitCamera'),'view');else flRibbonClick('zoomFit')});
   flRibbonBind('flRaPerformance',()=>flRibbonField(()=>{const p=document.getElementById('ppPanel');if(p){p.open=true;p.scrollIntoView({block:'nearest',behavior:'smooth'})}},'view'));
+  flRibbonBind('flRaFieldHelp',()=>{if(document.body.classList.contains('appMode-field'))window.FoamLensWorkspaceUX?.openHelp?.();else{flRibbonField(()=>window.FoamLensWorkspaceUX?.openHelp?.(),'view')}});
   flRibbonBind('flRaTheme',()=>{const s=document.getElementById('theme');if(!s)return;s.value=s.value==='dark'?'light':'dark';s.dispatchEvent(new Event('change',{bubbles:true}))});
   flRibbonBind('flRaLanguage',()=>{const s=document.getElementById('language');if(!s)return;s.value=s.value==='es'?'en':'es';s.dispatchEvent(new Event('change',{bubbles:true}));setTimeout(flRibbonApplyLanguage,0)});
 
