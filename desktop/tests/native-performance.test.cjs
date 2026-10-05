@@ -202,7 +202,7 @@ test('packaged Windows smoke uses a real B13 fixture plus distinct complete case
     "$env:FOAMLENS_SMOKE_FIELD='T'",
     "$env:FOAMLENS_SMOKE_TIME='9.8'",
     "$env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'",
-    'WaitForExit(180000)'
+    'WaitForExit(300000)'
   ])assert(workflow.includes(token),'Missing Windows V12/V13 smoke workflow token '+token);
   assert(!workflow.includes('Checkout private B13 runtime fixture'),'Windows must not git-checkout QuickCup paths that are invalid on NTFS.');
   const fixtureEnvUses=(workflow.match(/FOAMLENS_SMOKE_OPENFOAM_CASE/g)||[]).length;
