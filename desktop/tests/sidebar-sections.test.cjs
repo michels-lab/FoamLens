@@ -63,5 +63,18 @@ test('global sidebar toggle stays clear of the scrollbar and resize rail',()=>{
   assert(indexSource.includes('.app.sidebarCollapsed .sidebarToggle{position:fixed;left:10px;top:50%'),'Collapsed-sidebar reopen control is no longer reachable.');
 });
 
+test('sidebar sections are scoped to the active workflow instead of leaking across tabs',()=>{
+  for(const token of [
+    "if(card.querySelector?.('#referenceLinesTitle'))return 'reference-lines'",
+    'function sbSectionVisible',
+    "if(mode==='analysis')return !['load-data','case-comparison','figure','figure-element-editor','selected-curve','phase-change','reference-lines'].includes(key)",
+    "if(view==='catalog')return false",
+    "if(key==='phase-change'||key==='reference-lines')return view==='timeseries'||view==='profile'",
+    'flSidebarContextHidden',
+    'sbApplyContext',
+    'sbPatchNavigation'
+  ])assert(source.includes(token),'Missing contextual sidebar token: '+token);
+});
+
 console.log('FoamLens collapsible sidebar regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
