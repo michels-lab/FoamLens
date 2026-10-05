@@ -224,6 +224,7 @@ internal sealed class FoamLensForm : Form
                   const internalTabs=[...document.querySelectorAll('#fwViewTabs [data-fw-view]')].map(x=>x.dataset.fwView);
                   const workspaceView=window.FoamLensFieldWorkspace?.getState?.().view||'';
                   const contextHost=document.getElementById('flRibbonContextHost');
+                  const timeTransportInRibbon=document.getElementById('fwTimeTransport')?.parentElement?.id==='flRibbonTimeHost';
                   const contextHidden3D=!!contextHost&&getComputedStyle(contextHost).display==='none';
                   document.querySelector('#fwViewTabs [data-fw-view="profile"]')?.click();
                   const contextVisibleProfile=!!contextHost&&getComputedStyle(contextHost).display!=='none';
@@ -252,6 +253,7 @@ internal sealed class FoamLensForm : Form
                     legacyNavHidden:document.getElementById('modeNavBar')?getComputedStyle(document.getElementById('modeNavBar')).display==='none':false,
                     legacyToolsHidden:document.querySelector('.top .tools')?getComputedStyle(document.querySelector('.top .tools')).display==='none':false,
                     contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
+                    timeTransportInRibbon,
                     contextHidden3D,
                     contextVisibleProfile,
                     internalTabs,
@@ -267,6 +269,7 @@ internal sealed class FoamLensForm : Form
                 if (!root.TryGetProperty("ribbon", out var ribbonNode) || !ribbonNode.GetBoolean() ||
                     !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean() ||
                     !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean() ||
+                    !root.TryGetProperty("timeTransportInRibbon", out var timeTransportInRibbonNode) || !timeTransportInRibbonNode.GetBoolean() ||
                     !root.TryGetProperty("contextHidden3D", out var contextHidden3DNode) || !contextHidden3DNode.GetBoolean() ||
                     !root.TryGetProperty("contextVisibleProfile", out var contextVisibleProfileNode) || !contextVisibleProfileNode.GetBoolean())
                     throw new InvalidOperationException(
