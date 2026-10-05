@@ -149,7 +149,7 @@ async function maCreateEvolution(){
     }
     if(points.length>=2)created.push(maAddEvolutionSeries(x.c,x.region,pair,x.subset,points));else skipped.push(pair.key)
   }
-  if(created.length){activeId=created[0].id;refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
+  if(created.length){activeId=created[0].id;refreshDatasetControls();if(activeAppMode!=='analysis')setDataView('timeseries');renderList();updateMeta();if(activeAppMode!=='analysis')draw()}
   if(status){if(created.length){flClearIssue(status);status.textContent=maUi('Created '+created.length+' median local-ratio evolution curve(s). No temporal extrapolation was used.','Se crearon '+created.length+' curva(s) de evolución de la mediana de la razón local. No se usó extrapolación temporal.')}else flSetIssue(status,'mechanism-times-insufficient',{analysis:'Momentum Mechanisms',region:x.region})}
   return{created,skipped}
 }
