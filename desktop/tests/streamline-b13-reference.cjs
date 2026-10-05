@@ -10,13 +10,19 @@ const a=fvSource.indexOf('/* FOAMLENS_FIELD_VIEW_CORE_START */'),b=fvSource.inde
 assert(a>=0&&b>a,'Field View core missing');
 const fvCore=fvSource.slice(a,b+'/* FOAMLENS_FIELD_VIEW_CORE_END */'.length);
 const fv=new Function('const cases=[];const flUi=(en)=>en;'+fvCore+
-  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvVectorArray,fvIntegrateStreamline,fvFiniteRange};')();
+  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvIntegrateStreamline,fvFiniteRange};')();
 const html=fs.readFileSync(path.join(frontend,'index.html'),'utf8');
 const pa=html.indexOf('/* FOAMLENS_PHASE_MOMENTUM_CORE_START */'),pb=html.indexOf('/* FOAMLENS_PHASE_MOMENTUM_CORE_END */',pa);
 assert(pa>=0&&pb>pa,'Phase/Momentum core missing');
 const pmCore=html.slice(pa,pb+'/* FOAMLENS_PHASE_MOMENTUM_CORE_END */'.length);
 const pm=new Function("function stripFoamComments(s){return String(s||'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/\\/\\/.*$/gm,'')}"+pmCore+
   ';return {pmParseOpenFOAMFieldText};')();
+function vectorArray(parsed,count){
+  if(!parsed?.supported||parsed.kind!=='vector')return null;
+  if(parsed.uniform){const v=(parsed.uniformValue||[]).map(Number);return v.length===3?Array.from({length:count},()=>v.slice()):null}
+  const a=(parsed.values||[]).map(v=>(v||[]).map(Number));
+  return a.length===count&&a.every(v=>v.length>=3&&v.slice(0,3).every(Number.isFinite))?a:null
+}
 const read=p=>fs.readFileSync(p,'utf8'),meshDir=path.join(caseRoot,'constant',region,'polyMesh');
 const mesh=fv.fvBuildMeshFromTexts(read(path.join(meshDir,'points')),read(path.join(meshDir,'faces')),read(path.join(meshDir,'owner')),read(path.join(meshDir,'neighbour')));
 assert(mesh?.supported,'B13 metal mesh parser failed');
@@ -25,7 +31,7 @@ if(!times.length)throw new Error('No B13 metal/U time directories found');
 let chosen=null,vectors=null,parsed=null;
 for(const time of times.slice().reverse()){
   const p=path.join(caseRoot,String(time),region,'U');const q=pm.pmParseOpenFOAMFieldText(read(p),p);
-  const v=fv.fvVectorArray(q,mesh.cellCount);if(!v)continue;
+  const v=vectorArray(q,mesh.cellCount);if(!v)continue;
   const mags=v.map(x=>Math.hypot(...x));const r=fv.fvFiniteRange(mags);
   if(r.valid&&r.max>1e-10){chosen=time;vectors=v;parsed=q;break}
 }
