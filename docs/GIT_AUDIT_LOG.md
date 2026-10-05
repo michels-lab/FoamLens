@@ -2819,3 +2819,14 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 Added `docs/INFRASTRUCTURE_AUDIT.md`.
 
 FoamLens remains intentionally local-first for scientific case data. No Google/Supabase backend is required for core analysis. Current infrastructure priorities are automatic updates, version/license reconciliation, shared About migration and preservation of current-HEAD CI validation. Any future cloud feature must be opt-in and must not silently upload OpenFOAM case data.
+
+## 2026-10-05 — Michel's Lab parent/child governance contract
+
+Added the repository-level Michel's Lab governance declaration:
+
+- `.michelslab/project.yml` identifies `realmichelduarte/Michel-Software-Standards` as the shared standards authority.
+- `MICHELS_LAB_PROJECT.md` documents the human-readable reporting contract.
+- App-specific implementation evidence remains in this repository.
+- Reusable/cross-app decisions are promoted to the master standards repository.
+- The master repository polls child status centrally; this repository receives no credential that can write to the master.
+- Secret values remain prohibited from both repositories.
