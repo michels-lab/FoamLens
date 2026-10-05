@@ -12,6 +12,7 @@ function sbSectionKey(card,index=0){
   if(!card)return 'section-'+index;
   if(card.querySelector?.('#caseManagerTitle'))return 'case-comparison';
   if(card.id==='elementEditorCard')return 'figure-element-editor';
+  if(card.id==='flAnalysisInspectorCard')return 'analysis-tools';
   if(card.querySelector?.('#countBadge'))return 'load-data';
   if(card.querySelector?.('#thesisFigureBtn'))return 'figure';
   if(card.querySelector?.('#selBadge'))return 'selected-curve';
@@ -70,7 +71,7 @@ function sbDataView(){
 function sbSectionVisible(key,mode=sbAppMode(),view=sbDataView()){
   if(!key||key.startsWith('section-'))return true;
   if(mode==='field'||mode==='workspace'||mode==='review'||mode==='live')return false;
-  if(mode==='analysis')return !['load-data','case-comparison','figure','figure-element-editor','selected-curve','phase-change','reference-lines'].includes(key);
+  if(mode==='analysis')return key==='analysis-tools';
   if(mode!=='data')return true;
   if(key==='load-data'||key==='case-comparison')return true;
   if(view==='catalog')return false;
