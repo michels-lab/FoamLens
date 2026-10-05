@@ -28,8 +28,10 @@ for(const id of [
 ]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
 
 assert(source.includes("flRibbonContextNeeded"),'Context scope policy is missing.');
-assert(source.includes("activeAppMode==='data'||activeAppMode==='analysis'"),
-  'Data/Analysis must retain the shared Project/Case/Region context.');
+assert(source.includes("activeAppMode==='analysis'"),
+  'Analysis must retain the shared Project/Case/Region context.');
+assert(source.includes("activeAppMode==='data')return typeof currentDataView==='string'&&currentDataView!=='catalog'"),
+  'Catalog must not duplicate its own Case/Region filters with the shared context bar.');
 assert(source.includes("['profile','timeseries','log','split'].includes(state.view)"),
   'Field context must appear only for plot/log/split views that consume shared context.');
 assert(source.includes("foamlens-field-view-change"),
