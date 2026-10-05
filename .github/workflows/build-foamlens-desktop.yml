@@ -68,6 +68,10 @@ jobs:
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: python3 desktop/tests/streamline-vtk-validation.py quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14 --time 9.8 --region metal --output streamline-vtk-validation.json
 
+      - name: Compare actual FoamLens JavaScript streamlines against VTK
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: node desktop/tests/streamline-vtk-js-compare.test.cjs quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14 streamline-vtk-validation.json
+
       - name: Upload VTK streamline validation evidence
         if: ${{ always() && env.QUICKCUP_FIXTURE_TOKEN != '' }}
         uses: actions/upload-artifact@v4
