@@ -3251,3 +3251,46 @@ Status: **fix present / final main publication validation pending**.
 ### Validation state
 - Final versioned candidate workflow: GitHub Actions run **#684** (`37378777465`) was running at the time of this entry.
 - No merge to `main` and no v1.5.1 public release should occur until the full QuickCup + VTK + Windows portable/installer pipeline is green.
+
+
+## 2026-10-05 — v1.5.1 automatic updater candidate validated
+
+- Functional candidate head: `ad68941e28cc4a41776cb8058185ab4a675decee`.
+- GitHub Actions run **#686** (`37379049218`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Version consistency for Desktop v1.5.1: **SUCCESS**.
+- Native automatic-update regression: **SUCCESS**.
+- CI suite manifest: **SUCCESS**.
+- Portable Windows executable build: **SUCCESS**.
+- Packaged portable WebView2 smoke, including updater Ribbon action/API: **SUCCESS**.
+- Portable SHA-256 generation: **SUCCESS**.
+- Installer build: **SUCCESS**.
+- Installer SHA-256 generation: **SUCCESS**.
+- Installed-application smoke: **SUCCESS**.
+- Windows artifact upload: **SUCCESS**.
+- GitHub Release publication: **SKIPPED**, expected for a development branch.
+
+### Candidate validation artifacts
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11373651153`;
+  - size: `135,316,277 bytes`;
+  - digest: `sha256:c18632ca9353a3c5c27cae66624dca33272aeb2ca969ec3df7913b43b120a4ec`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11373117042`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:b34b120e9964bee2300ce0f2d18bd0952fdf0e7d4fddf485bf6b6260f93fbc57`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11372449964`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:67cf819af33e4a9dcd3bef9b363579e4d4f6f6d2c1198595166c6f504854c20b`.
+
+### Integration correction evidence
+- Run #675 was an intermediate integration run: the native smoke test correctly rejected the build because the updater Ribbon module had not yet been added (`flRaCheckUpdates` / `FoamLensAutoUpdate` missing).
+- The missing frontend updater module was added immediately afterward; subsequent packaged smoke validation passed.
+- Runs during the 1.5.0 → 1.5.1 version-file transition that failed version-consistency checks are superseded by final run #686.
+
+### Promotion state
+- PR #11 is the promotion path to `main`.
+- The functional candidate is validated and ready for promotion.
+- Public v1.5.1 release remains pending the final main-branch publication workflow.
