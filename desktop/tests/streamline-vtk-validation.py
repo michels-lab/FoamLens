@@ -102,7 +102,7 @@ def pick_seeds(centers, vectors, bounds, count=4):
             if len(chosen) >= count:
                 return chosen
     ids = np.where(finite)[0]
-    return [int(i) for i in ids[np.argsort(speed[ids])[::-1][:count]]
+    return [int(i) for i in ids[np.argsort(speed[ids])[::-1][:count]]]
 
 
 def sample_foam_v(centers, vectors, point, nearest=8):
