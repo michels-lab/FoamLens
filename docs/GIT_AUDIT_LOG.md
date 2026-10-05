@@ -3395,3 +3395,31 @@ Status: **fix present / final main publication validation pending**.
 - Scientific parsing, VTK validation, field reconstruction and numerical-analysis logic were not identified as the cause of these UX issues.
 - Recommended development target: **v1.6.0** because the correction changes the information architecture and interaction model.
 - No functional code was changed as part of this audit.
+
+
+## 2026-10-05 — Whole-app cross-scope UX audit extension
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- The audit was expanded from the reported Field/Data defects to the complete Desktop frontend module set and the primary UX regression tests.
+- Important correction: Project / Case / Region is **not obsolete**. It is useful for Profiles/Data/Logs and analysis context, but its persistent presentation in pure 3D / Field and unrelated modes is incorrect.
+
+### Additional cross-scope findings
+- Data Catalog still shares sidebar cards intended for plot editing (Figure, Selected curve, Phase-change, Reference lines).
+- Reference Lines combines controls whose applicability depends on the active data view.
+- Analysis and Data share the same core workspace/sidebar, so Analysis inherits unrelated Data/plot presentation controls.
+- Several analysis modules create derived results by silently switching the hidden underlying Data view to Time Series or Profile.
+- Profile playback, legacy `playbackGlobal` and 3D playback are separate presentation engines for the same physical-time concept.
+- Field extensions such as Compare, Animation/Video and performance tooling are valid, but are structurally children of legacy Data-owned `fieldViewControls`, allowing leakage if reparent/hide state becomes inconsistent.
+- Ribbon Plots is currently a second doorway into Data rather than a distinct workspace.
+- Ribbon Compare is currently a second doorway into Field rather than a distinct workspace.
+- Legacy Data/Field navigation shims remain active under the newer Ribbon/Field Workspace model.
+- Several analysis modules can fall back to generic `.analysisTools` or `document.body` if the intended host is unavailable.
+
+### Updated refactor rule
+- Do not remove useful controls merely because they are irrelevant in one tab.
+- Preserve shared scientific/application state.
+- Scope the presentation to the views that actually consume that state.
+- Remove only genuinely duplicate/legacy navigation after equivalent owned surfaces are validated.
+
+### Documentation
+- Extended `docs/UX_COHERENCE_AUDIT_2026-10-05.md` with findings UX-18 through UX-29 and the updated scope rule.
