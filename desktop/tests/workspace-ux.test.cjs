@@ -67,6 +67,14 @@ test('Inspector is a floating drawer rather than a permanent grid column',()=>{
     '3D focus still reserves a permanent controls column.');
 });
 
+test('Inspector hides 3D controls outside 3D/Split and hides plot controls in pure 3D',()=>{
+  for(const token of [
+    'id="fw3DControlGroup"',
+    "group3D.style.display=(view==='3d'||view==='split')?'':'none'",
+    "group2D.style.display=(view==='3d')?'none':''"
+  ])assert(field.includes(token),'Missing Inspector scope token: '+token);
+});
+
 test('one global Field time transport replaces visible per-view primary playback',()=>{
   for(const token of [
     'id="fwTimeTransport"','id="fwTimePlay"','id="fwTimeSlider"',
