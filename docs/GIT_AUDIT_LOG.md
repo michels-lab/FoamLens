@@ -2813,3 +2813,9 @@ Previously silent/no-op paths were replaced with actionable diagnostics for:
 ### State
 - **v1.4.9 is now the current public FoamLens Desktop release.**
 - Release is not marked draft or prerelease.
+
+## 2026-10-05 — Infrastructure / cloud audit
+
+Added `docs/INFRASTRUCTURE_AUDIT.md`.
+
+FoamLens remains intentionally local-first for scientific case data. No Google/Supabase backend is required for core analysis. Current infrastructure priorities are automatic updates, version/license reconciliation, shared About migration and preservation of current-HEAD CI validation. Any future cloud feature must be opt-in and must not silently upload OpenFOAM case data.
