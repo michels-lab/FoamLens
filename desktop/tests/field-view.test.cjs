@@ -24,7 +24,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage,fvNormalizeVectorRoi,fvVectorCellInRoi,fvVectorEligibleCells,fvSelectVectorGlyphCells,fvBuildVectorGlyphBuffers};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -351,14 +351,53 @@ test('3D case switching preserves the explicit user selection and invalidates st
     '3D Case selector is not wired through the safe case-switch handler.');
 });
 
+test('vector ROI sampling selects only cells inside normalized mesh bounds',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[10,2,2],cellCenters:[]};
+  const vectors=[];
+  for(let i=0;i<10;i++){mesh.cellCenters.push(i+.5,1,1);vectors.push([i+1,0,0])}
+  const roi=api.fvNormalizeVectorRoi(mesh,{enabled:true,min:[.2,0,0],max:[.6,1,1]});
+  assert.equal(roi.enabled,true);
+  near(roi.worldMin[0],2);near(roi.worldMax[0],6);
+  const eligible=api.fvVectorEligibleCells(mesh,vectors,roi);
+  assert.deepEqual(eligible,[2,3,4,5]);
+  const selected=api.fvSelectVectorGlyphCells(mesh,vectors,3,roi);
+  assert.equal(selected.length,3);
+  assert(selected.every(i=>eligible.includes(i)),'ROI sampler selected a cell outside the ROI.');
+  assert(selected.every(i=>api.fvVectorCellInRoi(mesh,i,roi)));
+});
+
+test('normalized vector glyphs keep equal arrow length while magnitude mode preserves relative magnitude',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[4,1,1],cellCenters:[.5,.5,.5,1.5,.5,.5,2.5,.5,.5,3.5,.5,.5]};
+  const vectors=[[1,0,0],[2,0,0],[4,0,0],[8,0,0]];
+  const fixed=api.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,{lengthMode:'normalized'});
+  const scaled=api.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,{lengthMode:'magnitude'});
+  assert.equal(fixed.glyphCount,4);assert.equal(scaled.glyphCount,4);
+  assert.equal(fixed.lengthMode,'normalized');assert.equal(scaled.lengthMode,'magnitude');
+  assert(fixed.lengths.every(x=>Math.abs(x-fixed.lengths[0])<1e-12),'Normalized arrows do not have a constant length.');
+  assert(scaled.lengths[3]>scaled.lengths[2]&&scaled.lengths[2]>scaled.lengths[1]&&scaled.lengths[1]>scaled.lengths[0],
+    'Magnitude-proportional arrows do not increase with vector magnitude.');
+});
+
+test('vector glyph metadata distinguishes requested eligible and actually rendered cells',()=>{
+  const mesh={boundsMin:[0,0,0],boundsMax:[8,1,1],cellCenters:[]},vectors=[];
+  for(let i=0;i<8;i++){mesh.cellCenters.push(i+.5,.5,.5);vectors.push([i===2?0:i+1,0,0])}
+  const roi={enabled:true,min:[.25,0,0],max:[.75,1,1]};
+  const glyph=api.fvBuildVectorGlyphBuffers(mesh,vectors,20,1,{lengthMode:'normalized',roi});
+  assert.equal(glyph.requested,20);
+  assert.equal(glyph.eligibleCount,4);
+  assert.equal(glyph.selectedCells.length,3,'zero-magnitude eligible cell should not render a glyph');
+  assert.equal(glyph.glyphCount,3);
+  assert(glyph.selectedCells.every(i=>i>=2&&i<=5));
+});
+
 test('vector and streamline visualization expose independent real-resolution controls',()=>{
   for(const token of [
-    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
+    'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiMode','fvVectorRoiControls',
     'Vector resolution','Seed density','max="400"','value="100"',
     'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
     'Boundary patch','Box / Volume','Forward','Backward','integration points','fvPointInMesh','fvFilterSeedsInsideMesh','requestedSeeds',
     'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
-    'fvSelectVectorGlyphCells','glyphCount','requested',
+    'fvNormalizeVectorRoi','fvVectorEligibleCells','fvVectorCellInRoi','fvSelectVectorGlyphCells','glyphCount','requested','eligibleCount','lengthMode',
     "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
     "document.getElementById('fvStreamlineControls')?.classList.toggle('hidden'"
   ])assert(source.includes(token),'Missing flow-resolution control token: '+token);
