@@ -60,13 +60,19 @@ def leaves(obj, prefix=""):
             out.extend(leaves(obj.GetPartition(i),prefix+f"/part{i}"))
     return out
 
+def seed_containment(ds):
+    locator=vtk.vtkStaticCellLocator()
+    locator.SetDataSet(ds)
+    locator.BuildLocator()
+    return sum(1 for p in seeds if locator.FindCell(p)>=0)
+
 candidates=[]
 for name,ds in leaves(root):
     pd=ds.GetPointData()
     cd=ds.GetCellData()
     has_u=(pd and pd.HasArray("U")) or (cd and cd.HasArray("U"))
     if has_u and ds.GetNumberOfCells()>0:
-        inside=sum(1 for p in seeds if ds.FindCell(p)>=0)
+        inside=seed_containment(ds)
         candidates.append((inside,ds.GetNumberOfCells(),ds.GetNumberOfPoints(),name,ds))
 if not candidates:
     raise RuntimeError("VTK did not expose any OpenFOAM dataset containing U.")
