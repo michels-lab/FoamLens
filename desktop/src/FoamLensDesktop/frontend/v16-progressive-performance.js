@@ -1,5 +1,5 @@
 /* FoamLens Desktop v1.4.9 — progressive rendering, viewport-aware work and adaptive prefetch telemetry. */
-const ppState={loads:0,totalMs:0,lastMs:0,lastIndex:null,lastDirection:1,prefetchHits:0,prefetchMisses:0,prefetched:new Set(),meshReuses:0,meshBuilds:0,deferredViews:0,lastPrefetch:[],benchmarking:false,suppressPrefetch:false,lastBenchmark:null};
+const ppState={loads:0,totalMs:0,lastMs:0,lastIndex:null,lastDirection:1,prefetchHits:0,prefetchMisses:0,prefetched:new Set(),meshReuses:0,meshBuilds:0,deferredViews:0,lastPrefetch:[],mode:'optimized',benchmarking:false,lastBenchmark:null};
 function ppUi(en,es){try{return flUi(en,es)}catch{return en}}
 function ppIdle(fn,timeout=180){if(typeof requestIdleCallback==='function')return requestIdleCallback(fn,{timeout});return setTimeout(fn,0)}
 function ppFieldVisible(){
@@ -11,7 +11,50 @@ function ppViewportVisible(el){
 }
 function ppStats(){
   const cache=typeof pmFieldCacheStats==='function'?pmFieldCacheStats():{entries:0,bytes:0,limit:0},avg=ppState.loads?ppState.totalMs/ppState.loads:0;
-  return{loads:ppState.loads,lastMs:ppState.lastMs,avgMs:avg,prefetchHits:ppState.prefetchHits,prefetchMisses:ppState.prefetchMisses,hitRate:(ppState.prefetchHits+ppState.prefetchMisses)?ppState.prefetchHits/(ppState.prefetchHits+ppState.prefetchMisses):0,meshReuses:ppState.meshReuses,meshBuilds:ppState.meshBuilds,deferredViews:ppState.deferredViews,lastPrefetch:ppState.lastPrefetch.slice(),cache}
+  return{mode:ppState.mode,benchmarking:ppState.benchmarking,loads:ppState.loads,lastMs:ppState.lastMs,avgMs:avg,prefetchHits:ppState.prefetchHits,prefetchMisses:ppState.prefetchMisses,hitRate:(ppState.prefetchHits+ppState.prefetchMisses)?ppState.prefetchHits/(ppState.prefetchHits+ppState.prefetchMisses):0,meshReuses:ppState.meshReuses,meshBuilds:ppState.meshBuilds,deferredViews:ppState.deferredViews,lastPrefetch:ppState.lastPrefetch.slice(),cache,lastBenchmark:ppState.lastBenchmark}
+}
+function ppMode(){return ppState.mode}
+function ppSetMode(mode){
+  ppState.mode=String(mode)==='baseline'?'baseline':'optimized';if(typeof fvState!=='undefined')fvState.prefetchSeq++;ppState.prefetched.clear();ppState.lastPrefetch=[];ppUpdateUi();return ppState.mode
+}
+function ppResetPassTelemetry(){
+  ppState.loads=0;ppState.totalMs=0;ppState.lastMs=0;ppState.lastIndex=null;ppState.lastDirection=1;ppState.prefetchHits=0;ppState.prefetchMisses=0;ppState.prefetched.clear();ppState.meshReuses=0;ppState.meshBuilds=0;ppState.deferredViews=0;ppState.lastPrefetch=[]
+}
+function ppClearRuntimeCache(){
+  if(typeof pmClearFieldCache==='function')pmClearFieldCache();if(typeof fvState!=='undefined'){fvState.fieldInflight?.clear?.();fvState.prefetchSeq++}ppState.prefetched.clear()
+}
+function ppSampleStats(values){
+  const a=(values||[]).map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return{count:0,mean:NaN,median:NaN,p95:NaN,min:NaN,max:NaN};
+  const q=p=>{const i=Math.max(0,Math.min(a.length-1,Math.ceil(p*a.length)-1));return a[i]},mean=a.reduce((x,y)=>x+y,0)/a.length,mid=Math.floor(a.length/2),median=a.length%2?a[mid]:(a[mid-1]+a[mid])/2;
+  return{count:a.length,mean,median,p95:q(.95),min:a[0],max:a.at(-1)}
+}
+function ppBenchmarkSequence(frameCount=4){
+  const g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null,times=(g?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider'),current=Math.max(0,Math.min(times.length-1,Math.round(Number(slider?.value)||0))),n=Math.max(2,Math.min(times.length,Math.round(Number(frameCount)||4)));
+  if(times.length<n)return{times,indices:[]};const start=Math.max(0,Math.min(current,times.length-n)),indices=Array.from({length:n},(_,i)=>start+i);return{times,indices}
+}
+async function ppRunBenchmark(options={}){
+  if(ppState.benchmarking)throw new Error(ppUi('A performance benchmark is already running.','Ya hay un benchmark de rendimiento en curso.'));
+  const frames=Math.max(2,Math.min(8,Math.round(Number(options.frames)||4))),rounds=Math.max(1,Math.min(3,Math.round(Number(options.rounds)||2))),settleMs=Math.max(0,Math.min(1000,Math.round(Number(options.settleMs)||160))),seq=ppBenchmarkSequence(frames);
+  if(seq.indices.length<2)throw new Error(ppUi('At least two stored field times are required for the A/B benchmark.','Se requieren al menos dos tiempos almacenados para el benchmark A/B.'));
+  const originalMode=ppState.mode,originalIndex=Math.max(0,Math.round(Number(document.getElementById('fvTimeSlider')?.value)||0)),samples={baseline:[],optimized:[]},passes=[];
+  ppState.benchmarking=true;const status=document.getElementById('ppBenchmarkStatus');if(status)status.textContent=ppUi('Running controlled A/B benchmark…','Ejecutando benchmark A/B controlado…');
+  try{
+    for(let round=0;round<rounds;round++){
+      const order=round%2===0?['baseline','optimized']:['optimized','baseline'];
+      for(const mode of order){
+        ppSetMode(mode);ppClearRuntimeCache();ppResetPassTelemetry();const pass=[];
+        for(const index of seq.indices){
+          const start=performance.now();await fvLoadFrame(index,{resetCamera:false});const ms=performance.now()-start;pass.push(ms);samples[mode].push(ms);if(settleMs)await new Promise(r=>setTimeout(r,settleMs))
+        }
+        passes.push({round:round+1,mode,indices:seq.indices.slice(),times:seq.indices.map(i=>seq.times[i]),samplesMs:pass,telemetry:{...ppStats(),lastBenchmark:null}})
+      }
+    }
+    const baseline=ppSampleStats(samples.baseline),optimized=ppSampleStats(samples.optimized),speedupFactor=baseline.mean/optimized.mean,percentChange=100*(baseline.mean-optimized.mean)/baseline.mean;
+    const report={schema:'foamlens-performance-ab-v1',frames:seq.indices.length,rounds,settleMs,sequenceIndices:seq.indices.slice(),sequenceTimes:seq.indices.map(i=>seq.times[i]),baseline,optimized,speedupFactor,percentChange,passes,finite:[baseline.mean,baseline.median,baseline.p95,optimized.mean,optimized.median,optimized.p95,speedupFactor,percentChange].every(Number.isFinite)};
+    ppState.lastBenchmark=report;if(status)status.textContent=ppUi('A/B result: ','Resultado A/B: ')+baseline.mean.toFixed(1)+' ms → '+optimized.mean.toFixed(1)+' ms · '+(Number.isFinite(percentChange)?percentChange.toFixed(1):'—')+'%';return report
+  }finally{
+    ppClearRuntimeCache();ppSetMode(originalMode);ppState.benchmarking=false;try{await fvLoadFrame(originalIndex,{resetCamera:false})}catch{}ppUpdateUi()
+  }
 }
 function ppUpdateUi(){
   const e=document.getElementById('ppTelemetry');if(!e)return;const s=ppStats(),mb=Number(s.cache.bytes||0)/1048576,lim=Number(s.cache.limit||0)/1048576;
@@ -20,7 +63,7 @@ function ppUpdateUi(){
 }
 function ppInstallUi(){
   if(document.getElementById('ppPanel'))return;const controls=document.getElementById('fieldViewControls'),anchor=document.getElementById('fcPanel')||controls?.lastElementChild;if(!controls)return;
-  const box=document.createElement('details');box.className='analysisExt';box.id='ppPanel';box.innerHTML='<summary class="analysisExtHead"><strong data-fl-en="Performance / cache" data-fl-es="Rendimiento / caché">Performance / cache</strong><span class="badge" data-fl-en="Adaptive" data-fl-es="Adaptativo">Adaptive</span></summary><div class="extSectionBody"><div class="fcStatsCells" id="ppTelemetry"></div><div class="smallnote" id="ppPrefetchNote" style="margin-top:7px"></div><div class="fcExtraActions" style="margin-top:7px"><button class="btn tiny" id="ppRunBenchmark" type="button" data-fl-en="Run controlled benchmark" data-fl-es="Ejecutar benchmark controlado">Run controlled benchmark</button></div><div class="smallnote" id="ppBenchmarkNote" style="margin-top:6px"></div><div class="smallnote" style="margin-top:5px" data-fl-en="Surface + legend are presented first; Slice / Iso / Streamlines continue after the browser can paint. Off-screen comparison views are deferred outside video export." data-fl-es="Superficie + leyenda se muestran primero; Slice / Iso / Streamlines continúan después de que el navegador puede pintar. Las vistas comparativas fuera de pantalla se difieren excepto durante exportación de video.">Surface + legend are presented first; Slice / Iso / Streamlines continue after the browser can paint. Off-screen comparison views are deferred outside video export.</div></div>';
+  const box=document.createElement('details');box.className='analysisExt';box.id='ppPanel';box.innerHTML='<summary class="analysisExtHead"><strong data-fl-en="Performance / cache" data-fl-es="Rendimiento / caché">Performance / cache</strong><span class="badge" data-fl-en="Adaptive" data-fl-es="Adaptativo">Adaptive</span></summary><div class="extSectionBody"><div class="fcStatsCells" id="ppTelemetry"></div><div class="smallnote" id="ppPrefetchNote" style="margin-top:7px"></div><div class="fcExtraActions" style="margin-top:8px"><button class="btn" id="ppRunBenchmark" type="button" data-fl-en="Run A/B benchmark" data-fl-es="Ejecutar benchmark A/B">Run A/B benchmark</button></div><div class="smallnote" id="ppBenchmarkStatus" style="margin-top:7px" data-fl-en="Baseline and optimized modes use the same frames and a cleared FoamLens field cache." data-fl-es="Los modos baseline y optimizado usan los mismos frames y limpian la caché de campos de FoamLens.">Baseline and optimized modes use the same frames and a cleared FoamLens field cache.</div><div class="smallnote" style="margin-top:5px" data-fl-en="Surface + legend are presented first; Slice / Iso / Streamlines continue after the browser can paint. Off-screen comparison views are deferred outside video export." data-fl-es="Superficie + leyenda se muestran primero; Slice / Iso / Streamlines continúan después de que el navegador puede pintar. Las vistas comparativas fuera de pantalla se difieren excepto durante exportación de video.">Surface + legend are presented first; Slice / Iso / Streamlines continue after the browser can paint. Off-screen comparison views are deferred outside video export.</div></div>';
   if(anchor?.parentElement===controls)anchor.insertAdjacentElement('afterend',box);else controls.appendChild(box);try{flApplyBilingualText(box)}catch{};ppUpdateUi()
 }
 function ppCurrentRequestKey(index){
@@ -39,7 +82,7 @@ function ppInstallAdaptivePrefetch(){
   if(typeof fvSchedulePrefetch!=='function'||fvSchedulePrefetch.__ppPatched)return;
   fvSchedulePrefetch=function(c,g,region,times,index){
     const prev=ppState.lastIndex;if(Number.isFinite(prev)&&index!==prev)ppState.lastDirection=index>prev?1:-1;ppState.lastIndex=index;
-    const seq=++fvState.prefetchSeq;if(ppState.suppressPrefetch||!ppFieldVisible()){ppState.lastPrefetch=[];ppUpdateUi();return}
+    const seq=++fvState.prefetchSeq;if(ppState.mode==='baseline'||!ppFieldVisible()){ppState.lastPrefetch=[];ppUpdateUi();return}
     const avg=ppState.loads?ppState.totalMs/ppState.loads:0,ahead=avg>700?4:avg>250?3:2,behind=1,order=[];
     for(let d=1;d<=ahead;d++)order.push(index+ppState.lastDirection*d);for(let d=1;d<=behind;d++)order.push(index-ppState.lastDirection*d);
     const unique=[...new Set(order)].filter(i=>i>=0&&i<times.length);ppState.lastPrefetch=unique.map(i=>(i+1)+'/'+times.length);ppUpdateUi();
@@ -49,38 +92,17 @@ function ppInstallAdaptivePrefetch(){
 function ppInstallViewportAwareCompare(){
   if(typeof fcRefreshExtras!=='function'||fcRefreshExtras.__ppPatched)return;const previous=fcRefreshExtras;
   fcRefreshExtras=async function(){
-    const video=typeof vaState!=='undefined'&&!!vaState.exporting;if(video||typeof fcExtraViews==='undefined')return previous.apply(this,arguments);
+    const video=typeof vaState!=='undefined'&&!!vaState.exporting;if(ppState.mode==='baseline'||video||typeof fcExtraViews==='undefined')return previous.apply(this,arguments);
     const visible=[],deferred=[];for(const state of fcExtraViews){const el=fcExtraDom(state.id,'Viewport');(ppViewportVisible(el)?visible:deferred).push(state)}
     if(visible.length)await Promise.all(visible.map(state=>fcExtraRefreshFrame(state)));ppState.deferredViews=deferred.length;ppUpdateUi();
     if(deferred.length)ppIdle(async()=>{for(const state of deferred){if(!fcState?.enabled)return;await fcExtraRefreshFrame(state);await new Promise(r=>setTimeout(r,0))}ppState.deferredViews=0;ppUpdateUi()},320)
   };fcRefreshExtras.__ppPatched=true
 }
-function ppMedian(values){const a=(values||[]).map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return NaN;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
-async function ppControlledBenchmark(options={}){
-  if(ppState.benchmarking)throw new Error(ppUi('A performance benchmark is already running.','Ya hay un benchmark de rendimiento en ejecución.'));
-  const c=fvCase(),g=fvCurrentFieldGroup(),region=document.getElementById('fvRegion')?.value||'',times=(g?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
-  if(!c||!g||times.length<2)throw new Error(ppUi('Load a transient 3D field with at least two physical times first.','Carga primero un campo 3D transitorio con al menos dos tiempos físicos.'));
-  const repeats=Math.max(1,Math.min(4,Math.round(Number(options.repeats)||2))),current=Math.max(0,Math.min(times.length-1,Number(document.getElementById('fvTimeSlider')?.value)||0)),candidates=[0,Math.floor((times.length-1)/2),times.length-1,current],indices=[...new Set((options.indices||candidates).map(Number).filter(i=>Number.isInteger(i)&&i>=0&&i<times.length))].slice(0,4);
-  if(indices.length<2)throw new Error(ppUi('Not enough distinct frames are available for a controlled benchmark.','No hay suficientes frames distintos para un benchmark controlado.'));
-  const original=current,cold=[],warm=[];ppState.benchmarking=true;ppState.suppressPrefetch=true;fvState.prefetchSeq++;
-  try{
-    for(let r=0;r<repeats;r++)for(const i of indices){if(typeof pmClearFieldCache==='function')pmClearFieldCache();const t0=performance.now();await fvLoadFrame(i,{resetCamera:false});cold.push(performance.now()-t0)}
-    if(typeof pmClearFieldCache==='function')pmClearFieldCache();
-    for(const i of indices)await fvLoadFieldSetCached(c.id,g.name,times[i],region);
-    for(let r=0;r<repeats;r++)for(const i of indices){const t0=performance.now();await fvLoadFrame(i,{resetCamera:false});warm.push(performance.now()-t0)}
-  }finally{try{await fvLoadFrame(original,{resetCamera:false})}catch{}ppState.suppressPrefetch=false;ppState.benchmarking=false}
-  const coldMedianMs=ppMedian(cold),warmMedianMs=ppMedian(warm),ratio=Number.isFinite(coldMedianMs)&&coldMedianMs>0?warmMedianMs/coldMedianMs:NaN,deltaPct=Number.isFinite(ratio)?(ratio-1)*100:NaN;
-  const result={scope:'same frame sequence; cold field-cache load vs pre-warmed field-cache load; prefetch suppressed in both phases',caseName:c.name||'',field:g.name||'',region,times:indices.map(i=>times[i]),samplesPerPhase:cold.length,coldMedianMs,warmMedianMs,ratio,deltaPct,coldSamples:cold,warmSamples:warm,measuredAt:new Date().toISOString()};ppState.lastBenchmark=result;ppUpdateBenchmarkUi();return result
-}
-function ppUpdateBenchmarkUi(){
-  const e=document.getElementById('ppBenchmarkNote');if(!e)return;const b=ppState.lastBenchmark;if(!b){e.textContent=ppUi('Benchmark: not run yet. Compares the same time sequence with a cold vs pre-warmed field cache; prefetch is disabled in both phases.','Benchmark: aún no ejecutado. Compara la misma secuencia temporal con caché de campo fría vs precargada; el prefetch se desactiva en ambas fases.');return}
-  const change=Number.isFinite(b.deltaPct)?(b.deltaPct<=0?(-b.deltaPct).toFixed(1)+'% '+ppUi('lower median latency','menor latencia mediana'):b.deltaPct.toFixed(1)+'% '+ppUi('higher median latency','mayor latencia mediana')):'—';
-  e.textContent=ppUi('Controlled cache benchmark','Benchmark controlado de caché')+': '+b.coldMedianMs.toFixed(1)+' ms cold → '+b.warmMedianMs.toFixed(1)+' ms warm · '+change+' · n='+b.samplesPerPhase
-}
 function ppInstall(){
-  ppInstallUi();ppInstallAdaptivePrefetch();ppInstallViewportAwareCompare();ppInstallFrameTelemetry();ppUpdateBenchmarkUi();const benchmarkBtn=document.getElementById('ppRunBenchmark');if(benchmarkBtn)benchmarkBtn.onclick=async()=>{benchmarkBtn.disabled=true;try{await ppControlledBenchmark()}catch(e){const n=document.getElementById('ppBenchmarkNote');if(n)n.textContent=String(e?.message||e)}finally{benchmarkBtn.disabled=false}};
+  ppInstallUi();ppInstallAdaptivePrefetch();ppInstallViewportAwareCompare();ppInstallFrameTelemetry();
+  const run=document.getElementById('ppRunBenchmark');if(run)run.onclick=async()=>{run.disabled=true;try{await ppRunBenchmark({frames:4,rounds:2,settleMs:160})}catch(e){const status=document.getElementById('ppBenchmarkStatus');if(status){status.textContent=String(e?.message||e);status.classList.add('error')}}finally{run.disabled=false}};
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('ppPanel');if(p)try{flApplyBilingualText(p)}catch{};ppUpdateUi()});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&typeof fvState!=='undefined')fvState.prefetchSeq++;ppUpdateUi()});
-  window.FoamLensPerformance={stats:ppStats,refresh:ppUpdateUi,isViewportVisible:ppViewportVisible,runControlledBenchmark:ppControlledBenchmark,getLastBenchmark:()=>ppState.lastBenchmark}
+  window.FoamLensPerformance={stats:ppStats,refresh:ppUpdateUi,isViewportVisible:ppViewportVisible,mode:ppMode,setMode:ppSetMode,runBenchmark:ppRunBenchmark,getLastBenchmark:()=>ppState.lastBenchmark}
 }
 ppInstall();
