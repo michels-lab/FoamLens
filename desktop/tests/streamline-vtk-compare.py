@@ -74,7 +74,10 @@ for p,ds in datasets(root):
     pd=ds.GetPointData()
     has_u=(cd and cd.GetArray("U") is not None) or (pd and pd.GetArray("U") is not None)
     if has_u and ds.GetNumberOfCells()>0:
-        score=(10 if "metal" in p.lower() else 0)+math.log10(max(1,ds.GetNumberOfCells()))
+        low=p.lower()
+        if "/boundary/" in low or low.endswith("/boundary"):
+            continue
+        score=(100 if "internalmesh" in low else 0)+(20 if "metal" in low else 0)+math.log10(max(1,ds.GetNumberOfCells()))
         candidates.append((score,p,ds))
 if not candidates:
     names=[]
