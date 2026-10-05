@@ -483,8 +483,8 @@ async function fcSwapPrimaryCompare(){
   await fcRefreshFrame();return true
 }
 function fcVideoDescriptors(){
-  const out=[];if(fcState.enabled&&fcState.mesh&&fcState.fieldValues)out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
-  for(const s of fcExtraViews)if(fcState.enabled&&s.mesh&&s.fieldValues)out.push({key:'view'+s.id,canvasId:'fcExtra'+s.id+'Canvas',labelId:'fcExtra'+s.id+'Label',caseName:fcExtraCase(s)?.name||'',fieldName:s.fieldName||fcExtraField(s),component:s.component||fcExtraComponent(s),time:s.time,range:fvFiniteRange(s.fieldValues),dimensions:s.fieldParsed?.dimensions||''});
+  const out=[];if(fcState.enabled&&fcState.mesh&&fcState.fieldValues)out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',viewName:fcViewDisplayName(2),caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
+  for(const s of fcExtraViews)if(fcState.enabled&&s.mesh&&s.fieldValues)out.push({key:'view'+s.id,canvasId:'fcExtra'+s.id+'Canvas',labelId:'fcExtra'+s.id+'Label',viewName:fcViewDisplayName(s.id),caseName:fcExtraCase(s)?.name||'',fieldName:s.fieldName||fcExtraField(s),component:s.component||fcExtraComponent(s),time:s.time,range:fvFiniteRange(s.fieldValues),dimensions:s.fieldParsed?.dimensions||''});
   if(fcState.enabled&&document.getElementById('fcDifference')?.checked&&fcState.differenceValues)out.push({key:'difference',canvasId:'fcDifferenceCanvas',labelId:'',caseName:'Δ',fieldName:(fvState.fieldName||'')+' − '+(fcState.fieldName||''),component:(fcState.differenceMode||'signed')+' difference',time:fvState.time,range:fcState.differenceRange,dimensions:fvState.fieldParsed?.dimensions||''});return out
 }
 function fcSetVideoRanges(ranges){
