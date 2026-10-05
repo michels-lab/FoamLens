@@ -467,13 +467,16 @@ test('Field workspace can define a native Spatial Profile by picking A and B in 
   ])assert((workspaceSource+'\n'+source).includes(token),'Missing 3D-defined Spatial Profile token: '+token);
 });
 
-test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{
+test('Field workspace shows one view by default and supports explicit 3D + Spatial Profile Split',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwCompanion','Spatial Profile','fwSetCompanion',
-    "mode==='profile'?'profile'","document.getElementById('fw2DHost')?.appendChild(chart)",
+    'data-fw-view="3d"','data-fw-view="profile"','data-fw-view="split"',
+    "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
+    "view==='split'","fwSetLayout('split')",
+    "document.getElementById('fw2DHost')?.appendChild(chart)",
     "fwMove('fieldViewPanel','fw3DHost')","fwMove('fieldViewControls','fw3DControlsHost')",
-    'Follow 3D physical time','fwSyncCompanionTime','applyProfileTimeValue'
-  ])assert(workspaceSource.includes(token),'Missing simultaneous 3D + profile token: '+token);
+    'fwSyncCompanionTime','applyProfileTimeValue'
+  ])assert(workspaceSource.includes(token),'Missing explicit Field view/Split token: '+token);
   assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
     'Dead/invalid canvas move remains in the Field workspace.');
 });
@@ -557,15 +560,18 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
-test('Field workspace gives 3D and companion plots independent hosts instead of exclusive header ownership',()=>{
+test('Field workspace owns one central viewport plus a floating contextual Inspector',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
+    'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
     "document.getElementById('fw2DHost')?.appendChild(chart)",
     "fwMove('fieldViewPanel','fw3DHost')",
-    "fwMove('fieldViewControls','fw3DControlsHost')"
-  ])assert(workspaceSource.includes(token),'Missing independent Field workspace host token: '+token);
-  assert(workspaceSource.includes("mode==='profile'?'profile'"),
-    'Spatial Profile is not a first-class companion view.');
+    "fwMove('fieldViewControls','fw3DControlsHost')",
+    'fwGrid.layout-3d .fwPlotCard{display:none}',
+    'fwGrid.layout-plot .fw3DCard{display:none}'
+  ])assert(workspaceSource.includes(token),'Missing central Field viewport/Inspector token: '+token);
+  assert(!workspaceSource.includes('grid-template-columns:minmax(0,1fr) 340px'),
+    '3D focus still reserves a permanent controls column.');
 });
 
 test('Field View stays discoverable as a top-level mode even when no compatible 3D case is loaded',()=>{
