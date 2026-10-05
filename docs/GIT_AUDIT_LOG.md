@@ -3220,3 +3220,34 @@ Status: **fix present / final main publication validation pending**.
 - **FoamLens Desktop v1.5.0 is the current public release.**
 - The earlier release-transition note that said final publication validation was pending is superseded by run #674.
 - There are no open GitHub issues at release closure.
+
+
+## 2026-10-05 — v1.5.1 verified automatic updater candidate
+
+- Development branch: `development/v1.5.1-auto-update`.
+- Public release at candidate creation: **FoamLens Desktop v1.5.0**.
+- Candidate Desktop version: **v1.5.1**.
+- Purpose: close the infrastructure audit item for an in-app update path without introducing a cloud backend for scientific case data.
+
+### Implemented
+- Normal Desktop startup performs a non-blocking query to the official `realmichelduarte/FoamLens` latest GitHub Release endpoint.
+- Semantic version comparison suppresses prompts unless the public release is newer than the installed Desktop build.
+- Added a manual **Updates / Actualizaciones** Ribbon action.
+- The native updater requires both:
+  - `FoamLens-Setup-vX.Y.Z.exe`;
+  - `FoamLens-Setup-vX.Y.Z.exe.sha256`.
+- The installer is downloaded to the user-local FoamLens update cache and verified with SHA-256 before launch.
+- A checksum mismatch fails closed; the installer is not launched.
+- After a verified installer is started, FoamLens closes so the installer can replace the application cleanly.
+- Automatic network checking is disabled during packaged smoke tests.
+- Update traffic is limited to public GitHub Release metadata/assets; no OpenFOAM project or simulation data are uploaded.
+
+### Release-pipeline hardening
+- CI now creates a SHA-256 file for the installer **after optional Authenticode signing**, so the checksum represents the final distributed binary.
+- The installer checksum is included in both the Windows Actions artifact and GitHub Release assets.
+- Added `desktop/tests/auto-update.test.cjs` and wired it exactly once into the CI suite manifest.
+- Packaged WebView2 smoke now requires the updater Ribbon action and `FoamLensAutoUpdate` frontend API to be mounted.
+
+### Validation state
+- Final versioned candidate workflow: GitHub Actions run **#684** (`37378777465`) was running at the time of this entry.
+- No merge to `main` and no v1.5.1 public release should occur until the full QuickCup + VTK + Windows portable/installer pipeline is green.
