@@ -56,6 +56,10 @@ jobs:
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
+      - name: Compile VTK streamline validator
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: python3 -m py_compile desktop/tests/streamline-vtk-validation.py
+
       - name: Install VTK streamline reference
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: python3 -m pip install --disable-pip-version-check vtk
