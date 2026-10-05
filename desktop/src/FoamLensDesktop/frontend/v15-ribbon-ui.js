@@ -238,7 +238,8 @@ function flRibbonSetLayout(value){
   flRibbonField(()=>window.FoamLensFieldWorkspace?.setView?.(value),'field')
 }
 function flRibbonContextNeeded(){
-  if(typeof activeAppMode==='string'&&(activeAppMode==='data'||activeAppMode==='analysis'))return true;
+  if(typeof activeAppMode==='string'&&activeAppMode==='analysis')return true;
+  if(typeof activeAppMode==='string'&&activeAppMode==='data')return typeof currentDataView==='string'&&currentDataView!=='catalog';
   if(typeof activeAppMode==='string'&&activeAppMode==='field'){
     const state=window.FoamLensFieldWorkspace?.getState?.()||{};
     return ['profile','timeseries','log','split'].includes(state.view)
