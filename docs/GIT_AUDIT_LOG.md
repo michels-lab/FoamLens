@@ -3158,3 +3158,21 @@ Added the repository-level Michel's Lab governance declaration:
 - Integrated block: vector glyph ROI + normalized/proportional length semantics + quantitative sampling metrics + scientific provenance overlays + Michel's Lab governance/infrastructure declarations.
 - CI workflow now retains independent VTK validation and also runs `vector-analysis.test.cjs` exactly once.
 - No merge to `main` and no public release at this stage; full unified CI validation is required first.
+
+## 2026-10-05 — v1.5.0 CI version-transition incident
+
+The Michel's Lab master governance audit surfaced FoamLens CI as red during the Desktop v1.5.0 release transition.
+
+Evidence:
+- failed Windows build runs stopped at `desktop/tests/version-consistency.test.cjs`;
+- the failing assertion still expected Desktop `1.4.9` while release work had already advanced the project to `1.5.0`;
+- the current default-branch version-consistency test now expects Desktop `1.5.0` and the README identifies Desktop v1.5.0 / frontend v51;
+- a newer v1.5.0 workflow run completed successfully;
+- the final main-branch publication workflow was still running at the time of this audit note.
+
+Impact:
+- the earlier red runs represent an intermediate release-transition mismatch, not evidence that the scientific regression suite itself failed;
+- no additional conflicting code patch was applied while the v1.5.0 publication pipeline was active.
+
+Status: **fix present / final main publication validation pending**.
+
