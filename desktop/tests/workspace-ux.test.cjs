@@ -27,7 +27,7 @@ test('wide Field Workspace exposes two real drag splitters and persists their ge
 test('views A through D are renameable and names persist',()=>{
   for(const token of [
     "names:{1:'A',2:'B',3:'C',4:'D'}",'uxRename','uxViewName','data-ux-rename',
-    'uxName1','uxName2','uxName3','uxName4','names:{...uxState.names}'
+    "'uxName'+id",'viewports=[','names:{...uxState.names}'
   ])assert(ux.includes(token),'Missing view-name token: '+token);
 });
 
