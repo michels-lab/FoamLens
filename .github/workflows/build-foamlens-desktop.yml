@@ -1,3 +1,4 @@
+# FoamLens CI — unified v1.5.0 integration validation
 name: Build FoamLens Desktop for Windows
 
 on:
