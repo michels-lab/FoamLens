@@ -761,45 +761,42 @@ function fvVectorGlyphTarget(mesh){
 function fvVectorGlyphScale(){
   return fvClamp(Number(document.getElementById('fvVectorScale')?.value)||1,.35,3)
 }
-function fvSelectVectorGlyphCells(mesh,vectors,target){
-  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),limit=Math.max(1,Math.min(count,Math.round(target)||1));
-  if(limit>=count)return Array.from({length:count},(_,i)=>i);
-  const hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,count),picked=[],used=new Set();
+function fvVectorLengthMode(){return document.getElementById('fvVectorLengthMode')?.value==='normalized'?'normalized':'magnitude'}
+function fvVectorRoi(mesh){
+  const enabled=!!document.getElementById('fvVectorRoiEnabled')?.checked;if(!enabled||!mesh)return null;
+  const axis=(a,minId,maxId)=>{let lo=fvClamp(Number(document.getElementById(minId)?.value)||0,0,100)/100,hi=fvClamp(Number(document.getElementById(maxId)?.value)||100,0,100)/100;if(hi<lo)[lo,hi]=[hi,lo];const mn=Number(mesh.boundsMin[a]),mx=Number(mesh.boundsMax[a]);return[mn+(mx-mn)*lo,mn+(mx-mn)*hi]};
+  const x=axis(0,'fvVectorRoiXMin','fvVectorRoiXMax'),y=axis(1,'fvVectorRoiYMin','fvVectorRoiYMax'),z=axis(2,'fvVectorRoiZMin','fvVectorRoiZMax');
+  return{min:[x[0],y[0],z[0]],max:[x[1],y[1],z[1]]}
+}
+function fvVectorRoiContains(roi,x,y,z){return !roi||(x>=roi.min[0]&&x<=roi.max[0]&&y>=roi.min[1]&&y<=roi.max[1]&&z>=roi.min[2]&&z<=roi.max[2])}
+function fvSelectVectorGlyphCells(mesh,vectors,target,roi=null){
+  const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),eligible=[];
+  for(let i=0;i<count;i++){const x=Number(centers[3*i]),y=Number(centers[3*i+1]),z=Number(centers[3*i+2]);if(fvVectorRoiContains(roi,x,y,z))eligible.push(i)}
+  const limit=Math.max(0,Math.min(eligible.length,Math.round(target)||1));if(!limit)return[];if(limit>=eligible.length)return eligible.slice();
+  const eligibleSet=new Set(eligible),hash=fvState.spatialHash||fvBuildSpatialHash(centers,mesh.boundsMin,mesh.boundsMax,count),picked=[],used=new Set();
   if(hash?.buckets?.size){
-    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
-    const bucketCells=[];
-    for(const [,indices] of entries){
-      if(!indices?.length)continue;
-      let best=-1,bestMag=-Infinity;
-      for(const ci of indices){const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}
-      if(best>=0)bucketCells.push(best)
-    }
-    if(bucketCells.length){
-      const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;
-      for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-    }
+    const entries=[...hash.buckets.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),bucketCells=[];
+    for(const [,indices] of entries){let best=-1,bestMag=-Infinity;for(const ci of indices||[]){if(!eligibleSet.has(ci))continue;const v=vectors[ci]||[],mag=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]));if(Number.isFinite(mag)&&mag>bestMag){best=ci;bestMag=mag}}if(best>=0)bucketCells.push(best)}
+    if(bucketCells.length){const take=Math.min(limit,bucketCells.length),step=bucketCells.length/take;for(let k=0;k<take;k++){const ci=bucketCells[Math.min(bucketCells.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   }
-  if(picked.length<limit){
-    const step=count/Math.max(1,limit-picked.length);
-    for(let k=0;picked.length<limit&&k<count*2;k++){const ci=Math.min(count-1,Math.floor((k+.5)*step)%count);if(!used.has(ci)){used.add(ci);picked.push(ci)}}
-  }
+  if(picked.length<limit){const remaining=eligible.filter(ci=>!used.has(ci)),take=limit-picked.length,step=remaining.length/Math.max(1,take);for(let k=0;k<take&&remaining.length;k++){const ci=remaining[Math.min(remaining.length-1,Math.floor((k+.5)*step))];if(!used.has(ci)){used.add(ci);picked.push(ci)}}}
   return picked.slice(0,limit)
 }
-function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1){
+function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1,lengthMode='magnitude',roi=null){
   const centers=mesh?.cellCenters||[],count=Math.min(Math.floor(centers.length/3),vectors?.length||0),diag=Math.hypot(mesh.boundsMax[0]-mesh.boundsMin[0],mesh.boundsMax[1]-mesh.boundsMin[1],mesh.boundsMax[2]-mesh.boundsMin[2])||1;
   const mags=new Array(count);for(let i=0;i<count;i++){const v=vectors[i]||[];mags[i]=Math.hypot(Number(v[0]),Number(v[1]),Number(v[2]))}
-  const range=fvFiniteRange(mags),positions=[],colors=[],cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs),scale=fvClamp(Number(glyphScale)||1,.35,3);
+  const range=fvFiniteRange(mags),positions=[],colors=[],cells=fvSelectVectorGlyphCells(mesh,vectors,maxGlyphs,roi),scale=fvClamp(Number(glyphScale)||1,.35,3),roiEligible=(()=>{let n=0;for(let i=0;i<count;i++)if(fvVectorRoiContains(roi,Number(centers[3*i]),Number(centers[3*i+1]),Number(centers[3*i+2])))n++;return n})();
   let glyphCount=0;
   for(const ci of cells){
     const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
-    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(.018+.035*fvClamp(norm,0,1))*scale;
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=lengthMode==='normalized'?diag*.035*scale:diag*(.018+.035*fvClamp(norm,0,1))*scale;
     const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
     const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
     const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
     for(const seg of [[p,q],[q,left],[q,right]])for(const point of seg){positions.push(...point);colors.push(...rgb)}
     glyphCount++
   }
-  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(count,Math.round(maxGlyphs))}
+  return{positions:new Float32Array(positions),colors:new Float32Array(colors),range,glyphCount,requested:Math.min(roiEligible,Math.round(maxGlyphs)),roiEligible,lengthMode}
 }
 function fvRefreshSeedPatchOptions(mesh=fvState.mesh){
   const sel=document.getElementById('fvSeedPatch');if(!sel)return;const patches=(mesh?.boundaryPatches||[]).filter(p=>!fvIsProcessorPatch(p)),old=sel.value;sel.innerHTML=patches.length?patches.map(p=>'<option value="'+fvEsc(p.name||p.sourceName||'')+'">'+fvEsc(p.name||p.sourceName||'patch')+'</option>').join(''):'<option value="">—</option>';if(patches.some(p=>String(p.name||p.sourceName||'')===old))sel.value=old
@@ -808,6 +805,7 @@ function fvSyncStreamSeedUi(){
   const mode=document.getElementById('fvSeedMode')?.value||'plane';document.getElementById('fvSeedPatchField')?.classList.toggle('hidden',mode!=='patch');document.getElementById('fvSeedGeometryRow')?.classList.toggle('hidden',mode==='box'||mode==='patch')
 }
 async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
+  document.getElementById('fvVectorRoiControls')?.classList.toggle('hidden',!document.getElementById('fvVectorRoiEnabled')?.checked);
   const showStreamlines=!!document.getElementById('fvStreamlines')?.checked,showVectors=!!document.getElementById('fvVectors')?.checked,mesh=fvState.mesh,r=fvState.renderer;if(!r||!mesh)return;
   if(!showStreamlines&&!showVectors){r.lineCount=0;r.vectorCount=0;fvRender();return}
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvVectorGroup();if(!c||!g){r.lineCount=0;r.vectorCount=0;fvRender();return}
@@ -819,7 +817,7 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
 
   let glyphs=null;
   if(showVectors){
-    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale();glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
+    const target=fvVectorGlyphTarget(mesh),scale=fvVectorGlyphScale(),lengthMode=fvVectorLengthMode(),roi=fvVectorRoi(mesh);glyphs=fvBuildVectorGlyphBuffers(mesh,vectors,target,scale,lengthMode,roi);fvUploadBuffer(r,'vectorPos',glyphs.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'vectorColor',glyphs.colors,r.gl.DYNAMIC_DRAW);r.vectorCount=glyphs.positions.length/3
   }else r.vectorCount=0;
 
   let lines=[],seedCount=0,pointCount=0,mode='plane',direction='both',step=0,maxLength=Infinity;
@@ -832,7 +830,7 @@ async function fvUpdateStreamlines(time,seq=fvState.frameSeq){
     const speeds=lines.flatMap(l=>l.map(q=>q.speed)),range=fvFiniteRange(speeds),b=fvBuildLineBuffers(lines,range.valid?range:{min:0,max:1});fvUploadBuffer(r,'linePos',b.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'lineColor',b.colors,r.gl.DYNAMIC_DRAW);r.lineCount=b.positions.length/3
   }else r.lineCount=0;
   fvState.streamlines=lines;fvRender();
-  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('target','objetivo')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
+  const vectorMeta=document.getElementById('fvVectorMeta');if(vectorMeta)vectorMeta.textContent=showVectors?((glyphs?.glyphCount||0).toLocaleString()+' '+flUi('vector glyphs','glyphs vectoriales')+' · '+flUi('requested','solicitados')+' '+Number(glyphs?.requested||0).toLocaleString()+' · '+(glyphs?.lengthMode==='normalized'?flUi('normalized length','longitud normalizada'):flUi('magnitude-proportional','proporcional a magnitud'))+(document.getElementById('fvVectorRoiEnabled')?.checked?' · ROI '+Number(glyphs?.roiEligible||0).toLocaleString()+' '+flUi('cells','celdas'):'')+' · '+g.name+' @ '+fvFmt(vt)+' s'):'';
   const streamMeta=document.getElementById('fvStreamMeta');if(streamMeta)streamMeta.textContent=showStreamlines?(flUi('Seeds','Semillas')+' '+seedCount.toLocaleString()+' · '+lines.length.toLocaleString()+' '+flUi('streamlines','líneas de corriente')+' · '+pointCount.toLocaleString()+' '+flUi('integration points','puntos de integración')+' · '+mode+' · '+direction+' · '+flUi('step','paso')+' '+fvFmt(step)+' · '+g.name+' @ '+fvFmt(vt)+' s'):''
 }
 function fvStopPlayback(){fvState.playing=false;if(fvState.timer){clearTimeout(fvState.timer);fvState.timer=null}const b=document.getElementById('fvPlay');if(b)b.textContent='▶ '+flUi('Play','Reproducir')}
@@ -917,6 +915,11 @@ function fvUiHtml(){
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvVectors" type="checkbox"> <strong data-fl-en="Vectors" data-fl-es="Vectores">Vectors</strong></label></div>
       <div class="fvVizSubpanel hidden" id="fvVectorControls">
         <div class="row2"><div class="field"><label data-fl-en="Vector resolution" data-fl-es="Resolución de vectores">Vector resolution</label><select id="fvVectorResolution"><option value="adaptive" data-fl-en="Adaptive" data-fl-es="Adaptativa">Adaptive</option><option value="150">150 glyphs</option><option value="300">300 glyphs</option><option value="600">600 glyphs</option><option value="1200">1,200 glyphs</option><option value="2400">2,400 glyphs</option></select></div><div class="field"><label data-fl-en="Glyph size" data-fl-es="Tamaño de flecha">Glyph size</label><input id="fvVectorScale" type="range" min=".35" max="3" step=".05" value="1"></div></div>
+        <div class="row2"><div class="field"><label data-fl-en="Arrow length" data-fl-es="Longitud de flecha">Arrow length</label><select id="fvVectorLengthMode"><option value="magnitude" data-fl-en="Magnitude-proportional" data-fl-es="Proporcional a magnitud">Magnitude-proportional</option><option value="normalized" data-fl-en="Normalized" data-fl-es="Normalizada">Normalized</option></select></div><div class="field"><label class="inlineCheck"><input id="fvVectorRoiEnabled" type="checkbox"> <span data-fl-en="Limit sampling to ROI" data-fl-es="Limitar muestreo a ROI">Limit sampling to ROI</span></label></div></div>
+        <div id="fvVectorRoiControls" class="fvVizSubpanel hidden">
+          <div class="row2"><div class="field"><label>X min / max (%)</label><div class="row2"><input id="fvVectorRoiXMin" type="number" min="0" max="100" step="1" value="0"><input id="fvVectorRoiXMax" type="number" min="0" max="100" step="1" value="100"></div></div><div class="field"><label>Y min / max (%)</label><div class="row2"><input id="fvVectorRoiYMin" type="number" min="0" max="100" step="1" value="0"><input id="fvVectorRoiYMax" type="number" min="0" max="100" step="1" value="100"></div></div></div>
+          <div class="field"><label>Z min / max (%)</label><div class="row2"><input id="fvVectorRoiZMin" type="number" min="0" max="100" step="1" value="0"><input id="fvVectorRoiZMax" type="number" min="0" max="100" step="1" value="100"></div></div>
+        </div>
         <div class="smallnote" id="fvVectorMeta" data-fl-en="Vectors are sampled spatially across the cell-centred vector field." data-fl-es="Los vectores se muestrean espacialmente a través del campo vectorial centrado en celdas.">Vectors are sampled spatially across the cell-centred vector field.</div>
       </div>
       <div class="fvVizToggle"><label class="inlineCheck"><input id="fvStreamlines" type="checkbox"> <strong data-fl-en="Streamlines" data-fl-es="Líneas de corriente">Streamlines</strong></label></div>
@@ -979,7 +982,7 @@ function fvInstallUi(){
   document.getElementById('fvSlicePosition').oninput=()=>fvUpdateSlice();
   document.getElementById('fvSliceOpacity').oninput=fvRender;
   const syncVectorPanels=()=>{document.getElementById('fvVectorControls')?.classList.toggle('hidden',!document.getElementById('fvVectors')?.checked);document.getElementById('fvStreamlineControls')?.classList.toggle('hidden',!document.getElementById('fvStreamlines')?.checked)};
-  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
+  for(const id of ['fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvVectorLengthMode','fvVectorRoiEnabled','fvVectorRoiXMin','fvVectorRoiXMax','fvVectorRoiYMin','fvVectorRoiYMax','fvVectorRoiZMin','fvVectorRoiZMax','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id).addEventListener(['fvVectorScale','fvSeedPosition'].includes(id)?'input':'change',()=>{syncVectorPanels();fvSyncStreamSeedUi();fvUpdateStreamlines(fvState.time).catch(e=>fvSetStatus(String(e?.message||e),true))});
   syncVectorPanels();fvSyncStreamSeedUi();
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fvRender()).observe(document.getElementById('fvCanvas'));
   const goData=document.getElementById('workspaceGoData'),actions=goData?.parentElement;if(actions&&!document.getElementById('workspaceGoFieldView')){const q=document.createElement('button');q.className='btn';q.id='workspaceGoFieldView';q.type='button';q.setAttribute('data-fl-en','Open 3D Field View');q.setAttribute('data-fl-es','Abrir Vista 3D');q.textContent=flUi('Open 3D Field View','Abrir Vista 3D');q.onclick=()=>{try{setAppMode('data')}catch{}setDataView('field3d')};goData.insertAdjacentElement('afterend',q);flApplyBilingualText(q)}
