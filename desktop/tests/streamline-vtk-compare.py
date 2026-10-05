@@ -205,17 +205,17 @@ for fi,line in enumerate(data["lines"]):
 # point field, so bit identity is neither expected nor scientifically meaningful.
 fail=[]
 for m in matches:
-    if m["seedErrorDiag"]>0.02: fail.append((m["index"],"seed",m["seedErrorDiag"]))
-    if m["initialDirectionCosine"]<0.90: fail.append((m["index"],"direction",m["initialDirectionCosine"]))
-    if m["rmsDiag"]>0.10: fail.append((m["index"],"rms",m["rmsDiag"]))
-    if m["maxDiag"]>0.22: fail.append((m["index"],"max",m["maxDiag"]))
-    if m["relativeLengthError"]>0.40: fail.append((m["index"],"length",m["relativeLengthError"]))
+    if m["seedErrorDiag"]>0.005: fail.append((m["index"],"seed",m["seedErrorDiag"]))
+    if m["initialDirectionCosine"]<0.995: fail.append((m["index"],"direction",m["initialDirectionCosine"]))
+    if m["rmsDiag"]>0.005: fail.append((m["index"],"rms",m["rmsDiag"]))
+    if m["maxDiag"]>0.01: fail.append((m["index"],"max",m["maxDiag"]))
+    if m["relativeLengthError"]>0.05: fail.append((m["index"],"length",m["relativeLengthError"]))
 
 report={
     "case":data["caseName"],"region":data["region"],"time":target_time,"field":"U",
     "vtkDataset":dataset_path,"foamLensIntegrator":"normalized midpoint / RK2-like",
     "vtkIntegrator":"vtkStreamTracer Runge-Kutta 2","lineCount":len(matches),"metrics":matches,
-    "thresholds":{"seedErrorDiag":0.02,"initialDirectionCosineMin":0.90,"rmsDiag":0.10,"maxDiag":0.22,"relativeLengthError":0.40}
+    "thresholds":{"seedErrorDiag":0.005,"initialDirectionCosineMin":0.995,"rmsDiag":0.005,"maxDiag":0.01,"relativeLengthError":0.05}
 }
 print(json.dumps(report,indent=2))
 Path(str(foam_path)+".vtk-report.json").write_text(json.dumps(report,indent=2))
