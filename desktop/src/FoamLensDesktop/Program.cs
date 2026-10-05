@@ -296,7 +296,8 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel','uxSplitA','uxSplitB','uxCompareStatus','uxHelpOverlay'
+                    'meDialog','ppPanel','uxSplitA','uxSplitB','uxCompareStatus','uxHelpOverlay',
+                    'fvVectorLengthMode','fvVectorRoiEnabled','fvVectorRoiControls'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -323,6 +324,19 @@ internal sealed class FoamLensForm : Form
                     animationApi:typeof window.FoamLensAnimationExport?.descriptorList==='function',
                     compareApi:typeof window.FoamLensFieldCompare?.getVideoDescriptors==='function',
                     fieldApi:typeof window.FoamLensFieldView?.getVideoDescriptor==='function',
+                    vectorSamplingApi:['fvVectorRoiContains','fvSelectVectorGlyphCells','fvBuildVectorGlyphBuffers'].every(k=>typeof window.FoamLensFieldView?.[k]==='function'),
+                    vectorSamplingSmoke:(()=>{
+                      const api=window.FoamLensFieldView;
+                      if(typeof api?.fvBuildVectorGlyphBuffers!=='function')return null;
+                      const mesh={cellCenters:[.1,.1,.1,.3,.3,.3,.7,.7,.7,.9,.9,.9],cellCount:4,boundsMin:[0,0,0],boundsMax:[1,1,1]};
+                      const vectors=[[1,0,0],[2,0,0],[3,0,0],[4,0,0]];
+                      const shaftLengths=b=>{const p=b.positions,a=[];for(let i=0;i<p.length;i+=18)a.push(Math.hypot(p[i+3]-p[i],p[i+4]-p[i+1],p[i+5]-p[i+2]));return a};
+                      const normalized=api.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,'normalized',null);
+                      const magnitude=api.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,'magnitude',null);
+                      const roi=api.fvBuildVectorGlyphBuffers(mesh,vectors,4,1,'normalized',{min:[0,0,0],max:[.5,.5,.5]});
+                      const nl=shaftLengths(normalized),ml=shaftLengths(magnitude);
+                      return{normalizedCount:normalized.glyphCount,magnitudeCount:magnitude.glyphCount,roiCount:roi.glyphCount,roiEligible:roi.roiEligible,normalizedSpread:Math.max(...nl)-Math.min(...nl),magnitudeSpread:Math.max(...ml)-Math.min(...ml)};
+                    })(),
                     multipanelApi:typeof window.FoamLensMultiPanelExport?.compose==='function',
                     performanceApi:typeof window.FoamLensPerformance?.stats==='function',
                     workspaceUxApi:['save','restore','reset','help','snapshot','applySplit'].every(k=>typeof window.FoamLensWorkspaceUX?.[k]==='function'),
@@ -367,11 +381,27 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens 3D canvas is still inheriting the global absolute-canvas defect: {fieldViewRuntimeJson}");
                 foreach (var property in new[] { "animationApi", "compareApi", "fieldApi",
-                                                  "multipanelApi", "performanceApi", "workspaceUxApi",
+                                                  "vectorSamplingApi", "multipanelApi", "performanceApi", "workspaceUxApi",
                                                   "workspaceUxMounted", "advancedCompareApi" })
                     if (!root.TryGetProperty(property, out var apiNode) || !apiNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
+                if (!root.TryGetProperty("vectorSamplingSmoke", out var vectorSamplingSmoke) ||
+                    vectorSamplingSmoke.ValueKind != JsonValueKind.Object ||
+                    !vectorSamplingSmoke.TryGetProperty("normalizedCount", out var normalizedCount) ||
+                    normalizedCount.GetInt32() != 4 ||
+                    !vectorSamplingSmoke.TryGetProperty("magnitudeCount", out var magnitudeCount) ||
+                    magnitudeCount.GetInt32() != 4 ||
+                    !vectorSamplingSmoke.TryGetProperty("roiCount", out var roiCount) ||
+                    roiCount.GetInt32() != 2 ||
+                    !vectorSamplingSmoke.TryGetProperty("roiEligible", out var roiEligible) ||
+                    roiEligible.GetInt32() != 2 ||
+                    !vectorSamplingSmoke.TryGetProperty("normalizedSpread", out var normalizedSpread) ||
+                    Math.Abs(normalizedSpread.GetDouble()) > 1e-8 ||
+                    !vectorSamplingSmoke.TryGetProperty("magnitudeSpread", out var magnitudeSpread) ||
+                    magnitudeSpread.GetDouble() <= 1e-6)
+                    throw new InvalidOperationException(
+                        $"FoamLens vector normalized/magnitude/ROI runtime smoke failed: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
                     rangeModes.ValueKind != JsonValueKind.Array ||
                     !new[] { "current", "global", "manual" }.All(expected =>
