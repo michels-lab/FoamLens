@@ -95,7 +95,7 @@ function fwCreateSurface(){
     .fwViewTabs{display:flex;gap:4px;flex-wrap:wrap}.fwViewTab{border:1px solid transparent;background:transparent;color:var(--muted);padding:7px 10px;border-radius:9px;font-size:9px;font-weight:800}.fwViewTab:hover{border-color:var(--line);color:var(--text)}.fwViewTab.active{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--text)}
     .fwSplitChooser{display:flex;align-items:center;gap:6px}.fwSplitChooser label{font-size:8px;color:var(--muted);font-weight:800}.fwSplitChooser.hidden{display:none!important}
     .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:auto auto auto minmax(140px,320px) auto auto;align-items:center;gap:6px;min-width:min(100%,540px)}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
-    body.appMode-field .fvTimeline,body.appMode-field #profileTimeline,body.appMode-field #playbackGlobal{display:none!important}
+    body.appMode-field .fvTimeline,body.appMode-field #profileTimeline,body.appMode-field #playbackGlobal,body.appMode-field #logPlayTime,body.appMode-field #logTimePrev,body.appMode-field #logTimeSlider,body.appMode-field #logTimeNext{display:none!important}
     .fwHeader{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
     .fwEyebrow{font-size:8px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
     .fwHeader h2{margin:3px 0 2px;font-size:18px}.fwHeader p{margin:0;color:var(--muted);font-size:9px}
