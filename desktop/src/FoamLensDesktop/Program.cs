@@ -38,6 +38,7 @@ internal sealed class FoamLensForm : Form
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
+    private int _updateCheckInProgress;
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FoamLens", "Desktop", "1.5.1", "app");
@@ -1206,6 +1207,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     private async Task CheckForUpdatesAsync(bool userInitiated)
     {
+        if (Interlocked.Exchange(ref _updateCheckInProgress, 1) != 0)
+        {
+            if (userInitiated)
+                MessageBox.Show(this, "FoamLens is already checking for updates.",
+                    "FoamLens updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
         try
         {
             var release = await GetLatestReleaseAsync();
@@ -1259,6 +1268,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 MessageBox.Show(this,
                     $"FoamLens could not check for updates.\n\n{ex.Message}",
                     "FoamLens updates", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _updateCheckInProgress, 0);
         }
     }
 
@@ -1338,7 +1351,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         var process = Process.Start(new ProcessStartInfo(installerPath)
         {
             UseShellExecute = true,
-            Arguments = "/CURRENTUSER"
+            Arguments = "/SP-"
         });
         if (process is null)
             throw new InvalidOperationException("The verified FoamLens installer could not be started.");
