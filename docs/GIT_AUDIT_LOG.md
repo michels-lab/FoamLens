@@ -3176,3 +3176,47 @@ Impact:
 
 Status: **fix present / final main publication validation pending**.
 
+
+
+## 2026-10-05 — FoamLens Desktop v1.5.0 public release closed
+
+- Public tag: `v1.5.0`.
+- Release name: **FoamLens v1.5.0**.
+- GitHub release id: `404110768`.
+- Published at: `2026-10-05T21:39:43Z`.
+- Main release commit: `d0dcee996b7d0b9068a0475824a243256b103f8d`.
+- Promotion PR: **#10**, merged successfully.
+- Final publication workflow: GitHub Actions run **#674** (`37376581634`): **SUCCESS**.
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Full scientific/UI regression suite including vector ROI/provenance, Field Workspace, Probe, synchronized multi-view, strict 3D differences, export and bilingual UI: **SUCCESS**.
+- Portable Windows build and packaged smoke test: **SUCCESS**.
+- Installer build and installed-application smoke test: **SUCCESS**.
+- GitHub Release publication: **SUCCESS**.
+
+### Public release assets
+- `FoamLens-Portable-v1.5.0.exe`
+  - asset id: `613670549`;
+  - size: `73,129,095 bytes`;
+  - digest: `sha256:206b583411204a51aa06d291a1ab4583d6846d01966c29c05dc9d8f7d33bd844`.
+- `FoamLens-Portable-v1.5.0.exe.sha256`
+  - asset id: `613670551`;
+  - size: `96 bytes`;
+  - digest: `sha256:f0992a3e0b6a90afe7edb2e3dd66b3ade072195d8258aea8f9886344e6686731`.
+- `FoamLens-Setup-v1.5.0.exe`
+  - asset id: `613670548`;
+  - size: `67,953,164 bytes`;
+  - digest: `sha256:8d201b50859533e851c78c14df2c29616c194dbf09a1989c0a4d385af0525ca7`.
+
+### Final Actions evidence
+- Windows artifact: `FoamLens-Windows-v1.5.0`.
+  - artifact id: `11371754114`;
+  - size: `135,303,440 bytes`;
+  - digest: `sha256:4feb96d752e6464c1385900218ad979dcf04cf84357592958453daa7c79ad076`.
+- VTK evidence artifact id: `11371333301`.
+- Multi-case runtime fixture artifact id: `11371283366`.
+
+### State
+- **FoamLens Desktop v1.5.0 is the current public release.**
+- The earlier release-transition note that said final publication validation was pending is superseded by run #674.
+- There are no open GitHub issues at release closure.
