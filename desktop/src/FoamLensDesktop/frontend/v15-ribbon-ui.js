@@ -102,6 +102,7 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaCompareAddView','add','Add view','Añadir vista'),
       flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar'),
       flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B'),
+      flRibbonActionHtml('flRaCopyAToB','sliders','Copy A→B','Copiar A→B'),
       flRibbonActionHtml('flRaCompareDifference','delta','Strict 3D Δ','Δ 3D estricta')
     ]),
     flRibbonGroup('Camera','Cámara',[
@@ -327,6 +328,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'field'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.setInspector?.(true);const p=document.getElementById('fcPanel');if(p)p.open=true},'field'));
   flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'field'));
+  flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'field'));
   flRibbonBind('flRaCompareDifference',()=>flRibbonField(()=>flRibbonToggleCheck('fcDifference'),'field'));
 
   flRibbonBind('flRaExportPng',()=>flRibbonClick('exportPng'));
