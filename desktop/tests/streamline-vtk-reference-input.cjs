@@ -8,6 +8,11 @@ const outPath=process.argv[3];
 const time=Number(process.argv[4]||9.8);
 if(!caseRoot||!outPath)throw new Error('Usage: node streamline-vtk-reference-input.cjs <OpenFOAM case> <output.json> [time]');
 function read(rel){return fs.readFileSync(path.join(caseRoot,...rel.split('/')),'utf8')}
+function vectorArray(parsed,count){
+  if(!parsed?.supported||parsed.kind!=='vector')return null;
+  if(parsed.uniform){const v=(parsed.uniformValue||[]).map(Number);return v.length===3&&v.every(Number.isFinite)?Array.from({length:count},()=>v.slice()):null}
+  const a=(parsed.values||[]).map(v=>(v||[]).map(Number));return a.length===count&&a.every(v=>v.length>=3&&v.slice(0,3).every(Number.isFinite))?a:null
+}
 
 const frontendDir=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const fvFile=fs.readFileSync(path.join(frontendDir,'v14-field-view.js'),'utf8');
@@ -17,7 +22,7 @@ if(fa<0||fb<=fa)throw new Error('Field View core markers missing.');
 const fvCore=fvFile.slice(fa,fb+fvEnd.length);
 const fv=new Function(
   'const cases=[];const flUi=(en)=>en;'+fvCore+
-  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvSeedPlane,fvCombineStreamline,fvVectorArray};'
+  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvSeedPlane,fvCombineStreamline};'
 )();
 
 const indexFile=fs.readFileSync(path.join(frontendDir,'index.html'),'utf8');
@@ -39,7 +44,7 @@ const mesh=fv.fvBuildMeshFromTexts(
 if(!mesh.supported)throw new Error('FoamLens mesh parse failed: '+mesh.reason);
 const parsed=pm.pmParseOpenFOAMFieldText(read(String(time)+'/metal/U'),String(time)+'/metal/U');
 if(!parsed.supported||parsed.kind!=='vector')throw new Error('FoamLens vector field parse failed: '+(parsed.reason||parsed.kind));
-const vectors=fv.fvVectorArray(parsed,mesh.cellCount);
+const vectors=vectorArray(parsed,mesh.cellCount);
 if(!vectors)throw new Error('FoamLens vector array does not match mesh cell count.');
 
 const diag=Math.hypot(
