@@ -188,6 +188,8 @@ function flRibbonCss(){
     '.flRibbonAction:hover{border-color:var(--line);background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.active{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.danger{color:var(--danger)}',
+    '.flRibbonAction.flScopeHidden{display:none!important}',
+    '.flRibbonGroup.flScopeHidden{display:none!important}',
     '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
     '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
@@ -237,6 +239,17 @@ function flRibbonContextNeeded(){
 function flRibbonUpdateContextVisibility(){
   const host=document.getElementById('flRibbonContextHost');if(!host)return;
   host.classList.toggle('hidden',!flRibbonContextNeeded())
+}
+function flRibbonUpdateFieldScope(){
+  const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=view==='3d'||view==='split';
+  const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
+    'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
+    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera'];
+  for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
+  document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup').forEach(group=>{
+    const actions=[...group.querySelectorAll('.flRibbonAction')];
+    group.classList.toggle('flScopeHidden',actions.length>0&&actions.every(a=>a.classList.contains('flScopeHidden')))
+  })
 }
 function flRibbonAnalysis(name,tabKey){
   flRibbonSelectTab(tabKey||'analysis');try{setAppMode('analysis')}catch{};requestAnimationFrame(()=>document.querySelector('.analysisSubBtn[data-analysis="'+name+'"]')?.click())
@@ -354,11 +367,11 @@ function flRibbonInstall(){
     setTimeout(flRibbonSyncStates,0)
   },true);
   document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
-  document.addEventListener('foamlens-field-view-change',flRibbonUpdateContextVisibility);
+  document.addEventListener('foamlens-field-view-change',()=>{flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
-  flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();
-  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,isInstalled:()=>flRibbonState.installed};
+  flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope();
+  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,isInstalled:()=>flRibbonState.installed};
   return true
 }
 flRibbonInstall();
