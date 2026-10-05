@@ -858,7 +858,7 @@ function fvBuildVectorGlyphBuffers(mesh,vectors,maxGlyphs=260,glyphScale=1,optio
   let glyphCount=0;
   for(const ci of cells){
     const v=vectors[ci]||[],mag=mags[ci];if(!(mag>1e-14)||!v.every(Number.isFinite))continue;
-    const u=[v[0]/mag,v[1]/mag,v[2]/mag],norm=range.valid&&range.max>range.min?(mag-range.min)/(range.max-range.min):1,len=diag*(lengthMode==='normalized'?.035:(.018+.035*fvClamp(norm,0,1)))*scale;
+    const u=[v[0]/mag,v[1]/mag,v[2]/mag],relative=range.valid&&range.max>1e-14?fvClamp(mag/range.max,0,1):1,len=diag*(lengthMode==='normalized'?.035:.053*relative)*scale;
     const p=[centers[3*ci],centers[3*ci+1],centers[3*ci+2]],q=[p[0]+u[0]*len,p[1]+u[1]*len,p[2]+u[2]*len];
     const ref=Math.abs(u[2])<.86?[0,0,1]:[0,1,0],cross=[u[1]*ref[2]-u[2]*ref[1],u[2]*ref[0]-u[0]*ref[2],u[0]*ref[1]-u[1]*ref[0]],cl=Math.hypot(...cross)||1,perp=cross.map(x=>x/cl);
     const head=len*.28,wing=len*.11,base=[q[0]-u[0]*head,q[1]-u[1]*head,q[2]-u[2]*head],left=[base[0]+perp[0]*wing,base[1]+perp[1]*wing,base[2]+perp[2]*wing],right=[base[0]-perp[0]*wing,base[1]-perp[1]*wing,base[2]-perp[2]*wing],rgb=fvColorMap(mag,range.min,range.max,'turbo');
