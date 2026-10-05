@@ -24,7 +24,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -255,6 +255,14 @@ test('legend gradient follows the selected colormap',()=>{
   assert.notEqual(viridis,turbo);
   assert.notEqual(viridis,coolwarm);
   assert.notEqual(turbo,coolwarm);
+});
+
+test('mesh-aware streamline sampler preserves a uniform vector exactly inside a real cell',()=>{
+  const mesh=api.fvBuildMeshFromTexts(points,faces,owner,neighbour),hash=api.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount),sampler=api.fvCreateMeshVectorSampler(mesh,hash,[[2,-3,4]]);
+  for(const p of [[.5,.5,.5],[.2,.3,.4],[.8,.7,.6]]){
+    const v=sampler(p);assert(v,'mesh-aware sampler rejected an interior cube point');near(v[0],2,1e-10);near(v[1],-3,1e-10);near(v[2],4,1e-10)
+  }
+  assert.equal(sampler([1.2,.5,.5]),null);
 });
 
 test('streamline integrator follows a uniform cell-centred velocity field',()=>{
