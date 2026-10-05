@@ -56,6 +56,33 @@ jobs:
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         run: node desktop/tests/openfoam-integration.test.cjs quickcup-fixture/cases_controlled_buoyancy
 
+      - name: Install VTK streamline reference runtime
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check --upgrade pip
+          python3 -m pip install --disable-pip-version-check vtk
+
+      - name: Validate B13 streamlines against VTK
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case_root="quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14"
+          mkdir -p vtk-validation
+          node desktop/tests/streamline-vtk-reference-input.cjs "$case_root" vtk-validation/foamlens-streamlines.json 9.8
+          python3 desktop/tests/vtk_streamline_reference.py "$case_root" vtk-validation/foamlens-streamlines.json vtk-validation/vtk-streamline-report.json
+          cat vtk-validation/vtk-streamline-report.json
+
+      - name: Upload VTK streamline validation evidence
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-VTK-streamline-validation
+          path: vtk-validation/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Prepare Windows-safe multi-case 3D runtime fixture
         if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
         shell: bash
