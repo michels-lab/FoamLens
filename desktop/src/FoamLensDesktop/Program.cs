@@ -768,6 +768,8 @@ internal sealed class FoamLensForm : Form
                         const view2Hi=api.captureHighRes?.('view2',1400,900);
                         const highResPrimaryWidth=Number(primaryHi?.width||0),highResPrimaryHeight=Number(primaryHi?.height||0);
                         const highResView2Width=Number(view2Hi?.width||0),highResView2Height=Number(view2Hi?.height||0);
+                        const alphaEvidence=c=>{if(!c)return 0;const q=document.createElement('canvas');q.width=48;q.height=32;const x=q.getContext('2d');x.drawImage(c,0,0,q.width,q.height);const d=x.getImageData(0,0,q.width,q.height).data;let n=0;for(let i=3;i<d.length;i+=4)if(d[i]>8)n++;return n};
+                        const highResPrimaryOpaqueSamples=alphaEvidence(primaryHi),highResView2OpaqueSamples=alphaEvidence(view2Hi);
                         const perfApi=window.FoamLensPerformance;
                         if(typeof perfApi?.runControlledBenchmark!=='function')throw new Error('Controlled performance benchmark API is unavailable.');
                         const frameCount=Number(document.getElementById('fvTimeSlider')?.max||0)+1;
@@ -869,6 +871,8 @@ internal sealed class FoamLensForm : Form
                           highResPrimaryHeight,
                           highResView2Width,
                           highResView2Height,
+                          highResPrimaryOpaqueSamples,
+                          highResView2OpaqueSamples,
                           benchmarkColdMs,
                           benchmarkWarmMs,
                           benchmarkSamples,
@@ -927,6 +931,8 @@ internal sealed class FoamLensForm : Form
                         !root.TryGetProperty("highResPrimaryHeight", out var highResPrimaryHeight) || highResPrimaryHeight.GetInt32() != 1000 ||
                         !root.TryGetProperty("highResView2Width", out var highResView2Width) || highResView2Width.GetInt32() != 1400 ||
                         !root.TryGetProperty("highResView2Height", out var highResView2Height) || highResView2Height.GetInt32() != 900 ||
+                        !root.TryGetProperty("highResPrimaryOpaqueSamples", out var highResPrimaryOpaqueSamples) || highResPrimaryOpaqueSamples.GetInt32() < 8 ||
+                        !root.TryGetProperty("highResView2OpaqueSamples", out var highResView2OpaqueSamples) || highResView2OpaqueSamples.GetInt32() < 8 ||
                         !root.TryGetProperty("benchmarkColdMs", out var benchmarkColdMs) || !double.IsFinite(benchmarkColdMs.GetDouble()) || benchmarkColdMs.GetDouble() < 0 ||
                         !root.TryGetProperty("benchmarkWarmMs", out var benchmarkWarmMs) || !double.IsFinite(benchmarkWarmMs.GetDouble()) || benchmarkWarmMs.GetDouble() < 0 ||
                         !root.TryGetProperty("benchmarkSamples", out var benchmarkSamples) || benchmarkSamples.GetInt32() < 2 ||
