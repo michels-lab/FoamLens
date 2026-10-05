@@ -140,16 +140,6 @@ for ci in range(out.GetNumberOfCells()):
     vtk_lines.append(line)
 if not vtk_lines:
     raise RuntimeError("vtkStreamTracer produced no output lines.")
-print("VTK streamline output summary:",json.dumps({
-    "seedCount":len(seeds),
-    "lineCount":len(vtk_lines),
-    "lineLengths":[arclength(line) if len(line)>1 else 0.0 for line in vtk_lines],
-    "linePointCounts":[len(line) for line in vtk_lines],
-    "closestSeed":[min(range(len(seeds)),key=lambda si:closest_seed_distance(line,seeds[si])) for line in vtk_lines],
-    "startClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[0],seeds[si])) for line in vtk_lines],
-    "endClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[-1],seeds[si])) for line in vtk_lines]
-},indent=2))
-
 def dist(a,b):
     return math.sqrt(sum((a[i]-b[i])**2 for i in range(3)))
 def arclength(line):
@@ -182,6 +172,16 @@ def hausdorff(a,b):
     return max(directed(a,b),directed(b,a))
 def closest_seed_distance(line,seed):
     return min(dist(p,seed) for p in line)
+
+print("VTK streamline output summary:",json.dumps({
+    "seedCount":len(seeds),
+    "lineCount":len(vtk_lines),
+    "lineLengths":[arclength(line) if len(line)>1 else 0.0 for line in vtk_lines],
+    "linePointCounts":[len(line) for line in vtk_lines],
+    "closestSeed":[min(range(len(seeds)),key=lambda si:closest_seed_distance(line,seeds[si])) for line in vtk_lines],
+    "startClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[0],seeds[si])) for line in vtk_lines],
+    "endClosestSeed":[min(range(len(seeds)),key=lambda si:dist(line[-1],seeds[si])) for line in vtk_lines]
+},indent=2))
 
 unused=set(range(len(vtk_lines)))
 matches=[]
