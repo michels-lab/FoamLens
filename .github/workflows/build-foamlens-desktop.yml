@@ -427,6 +427,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/multipanel-performance.test.cjs
 
+      - name: Test persistent Field Workspace UX
+        shell: pwsh
+        run: node desktop/tests/workspace-ux.test.cjs
+
       - name: Test compact ribbon navigation
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
