@@ -44,6 +44,10 @@ assert(source.includes("flRibbonContextHost.hidden{display:none!important}"),
   'Context host cannot be hidden in pure 3D focus.');
 assert(source.includes("globalContextBar"),
   'Project/Case/Region state presentation was deleted instead of scoped.');
+assert(source.includes('body.flRibbonReady.appMode-data .datasetTabs'),
+  'Legacy Data view tabs are still competing with the Field internal tabs.');
+assert(source.includes('body.flRibbonReady.appMode-analysis .datasetTabs'),
+  'Legacy Data view tabs are still visible in Analysis.');
 
 assert(workspace.includes('data-fw-view="3d"'));
 assert(workspace.includes('data-fw-view="profile"'));
