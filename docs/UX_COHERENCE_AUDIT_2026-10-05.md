@@ -516,3 +516,52 @@ The UX refactor is not complete until all of the following are true:
 **Overall UX coherence status:** NEEDS STRUCTURAL REFACTOR  
 **Scientific-validation status:** unaffected by this audit  
 **Recommended next development version:** v1.6.0 rather than v1.5.2, because the required work changes the information architecture and interaction model rather than applying a small patch.
+
+
+---
+
+## Automated cross-module sweep findings
+
+After the manual architecture review, all major versioned frontend modules were sampled for cross-mode navigation, DOM injection, global-context dependencies and legacy tab references.
+
+### UX-16 — Analysis modules can fall back to generic or document-level mount points
+
+**Severity:** Medium architectural risk  
+**Status:** Source-confirmed; runtime misplacement not yet reproduced.
+
+Several analysis modules use a pattern similar to:
+
+```js
+document.getElementById('generalAnalysisModules')
+  || document.querySelector('.analysisTools')
+  || document.body
+```
+
+Affected examples include Flow Analysis, Numerical Performance, Solidification Analysis and Thermal Analysis. Spatial Differences similarly falls back from `differenceTools` to a generic analysis host.
+
+This makes module placement dependent on mount order. If the intended host is unavailable during initialization, a valid control block may still be created in a generic location rather than failing closed and retrying the correct host.
+
+**Required correction:** section modules must mount only into explicit owned hosts. If the host is not available, defer/retry mounting; do not append analysis UI to `document.body` as a fallback.
+
+### UX-17 — Multi-region context is coupled directly to the global context strip
+
+**Severity:** Medium–High dependency  
+**Status:** Source-confirmed.
+
+`v13-multiregion-context.js` overrides `refreshGlobalContext()` and directly reads/writes:
+- `globalCaseSelect`;
+- `globalRegionSelect`;
+- `activeContextCaseId`;
+- `activeContextRegion`.
+
+Therefore deleting the rejected global Project / Case / Region strip without replacing its **state API** would regress multi-region filtering even though the visible strip itself is the wrong UX.
+
+**Required correction:** separate context state from context presentation:
+- keep an internal Data/Analysis context store;
+- let contextual Data/Analysis selectors bind to that store;
+- remove the persistent global presentation;
+- update multi-region logic to consume the state API instead of concrete global DOM IDs.
+
+### Sweep conclusion
+
+The automated sweep reinforces the central audit conclusion: FoamLens needs **stable section ownership plus shared state APIs**, not additional show/hide/reparent patches. The next refactor must explicitly remove generic mount fallbacks and DOM-ID coupling between sections.
