@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.5.0
+# FoamLens Desktop v1.5.1
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The current public release is **FoamLens Desktop v1.5.0 with frontend v51**.
+The current public release is **FoamLens Desktop v1.5.1 with frontend v51**.
 
 ## Architecture
 
@@ -22,6 +22,14 @@ The current public release is **FoamLens Desktop v1.5.0 with frontend v51**.
 - **Read-only safety:** analyses read files on demand and persist only FoamLens mappings/settings; OpenFOAM case files are never modified.
 
 The frontend retains its normal web folder flow when opened as HTML. The native bridge is detected automatically only inside FoamLens Desktop.
+
+## Automatic updates
+
+FoamLens Desktop checks the official GitHub Releases endpoint in the background on normal startup. When a newer semantic version is available, the user can choose whether to update; nothing is installed without that choice.
+
+The native updater downloads the release installer and its matching `.sha256` file, verifies the installer with SHA-256, and only then launches the installer. A manual **Updates / Actualizaciones** action is also exposed in the Ribbon. Update checks transmit only the normal HTTPS request needed to query/download the public release; OpenFOAM project or simulation data are never uploaded.
+
+The updater is disabled during packaged smoke tests so CI does not depend on live release-network behavior.
 
 ## GitHub Windows build
 

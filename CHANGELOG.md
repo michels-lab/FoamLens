@@ -1,5 +1,15 @@
 # Changelog
 
+## Desktop v1.5.1 — 2026-10-05
+
+- Added a native automatic-update check against the official FoamLens GitHub Releases endpoint.
+- Added a manual **Updates / Actualizaciones** Ribbon action.
+- Added semantic version comparison so only newer releases are offered.
+- Added verified installer download: FoamLens now requires the matching installer SHA-256 file and refuses to launch a mismatched installer.
+- Added installer SHA-256 generation to CI and GitHub Release assets.
+- Preserved local-first behavior: update checks never upload OpenFOAM project or simulation data.
+- Closed the FoamLens Desktop v1.5.0 release audit with final run #674 and published asset evidence.
+
 ## Desktop v1.5.0 — 2026-10-05
 
 - Unified the validated v1.5 development lines into one release candidate.

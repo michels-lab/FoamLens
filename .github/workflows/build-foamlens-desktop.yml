@@ -311,6 +311,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/version-consistency.test.cjs
 
+      - name: Test native automatic update path
+        shell: pwsh
+        run: node desktop/tests/auto-update.test.cjs
+
       - name: Test native Windows icon packaging
         shell: pwsh
         run: node desktop/tests/windows-icon.test.cjs
@@ -563,6 +567,14 @@ jobs:
           & $signtool.FullName sign /fd SHA256 /f artifacts/signing.pfx /p $env:WINDOWS_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "artifacts/FoamLens-Setup-v$v.exe"
           Remove-Item artifacts/signing.pfx -Force
 
+      - name: Create installer checksum
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          $exe="artifacts/FoamLens-Setup-v$v.exe"
+          $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  FoamLens-Setup-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
+
       - name: Install and smoke-test FoamLens installer
         shell: pwsh
         run: |
@@ -649,6 +661,7 @@ jobs:
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Portable-smoke.png
             artifacts/FoamLens-Installed-smoke.png
             artifacts/FoamLens-Portable-smoke.log
@@ -673,7 +686,8 @@ jobs:
           $assets=@(
             "artifacts/FoamLens-Portable-v$v.exe",
             "artifacts/FoamLens-Portable-v$v.exe.sha256",
-            "artifacts/FoamLens-Setup-v$v.exe"
+            "artifacts/FoamLens-Setup-v$v.exe",
+            "artifacts/FoamLens-Setup-v$v.exe.sha256"
           )
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
