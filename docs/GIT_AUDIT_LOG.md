@@ -3354,3 +3354,44 @@ Status: **fix present / final main publication validation pending**.
 - The updater downloads the matching installer checksum and verifies SHA-256 before launching the installer; checksum mismatch fails closed.
 - Update checks do not upload OpenFOAM project or simulation data.
 - v1.5.0 predates the updater, so moving from v1.5.0 to v1.5.1 is the one-time manual bridge; future releases can be discovered from inside FoamLens.
+
+
+## 2026-10-05 — UX / information-architecture coherence audit
+
+- Audit branch: `audit/ux-coherence-2026-10-05`.
+- Audited baseline: FoamLens Desktop **v1.5.1**, main commit `275427b61ad848c98e351dfb4c6df5a310f5a964`.
+- Full report: `docs/UX_COHERENCE_AUDIT_2026-10-05.md`.
+
+### Runtime issues reported and included
+- overlapping progress/activity cards during folder/background operations;
+- persistent PROJECT / CASE / REGION strip appears ineffective in Field Workspace and wastes vertical space;
+- 3D Focus does not reclaim the full content area;
+- separate 3D and Spatial Profile playback controls conflict with the desired single global physical-time controller;
+- Field Workspace defaults to simultaneous 3D + companion panels instead of one central tabbed view with explicit Split;
+- 3D comparison configuration appears in Data even though it belongs to Field/Compare.
+
+### Source-level root causes confirmed
+- Field View still contains its legacy identity as a Data dataset tab.
+- Field Workspace reparents legacy Data DOM nodes with `fwMove` / `fwRestore` rather than owning independent section UI.
+- 3D Compare is injected into generic `fieldViewControls`.
+- 3D Focus CSS deliberately keeps a ~340 px controls column.
+- Profile and 3D use independent playback engines/timers, with an additional Field synchronization layer.
+- Data and Plots Ribbon actions route to the same underlying legacy dataset tabs.
+- Compare Ribbon routes through Field rather than owning a separate surface.
+- the original monolithic sidebar contains controls for many unrelated modes.
+- Data and Analysis share the same core `#workspace`.
+- several analysis modules can fall back to generic `.analysisTools` or `document.body` mount points.
+- multi-region context is directly coupled to the persistent global Case/Region DOM controls.
+
+### Regression conflicts found
+- `ribbon-ui.test.cjs` requires the rejected `globalContextBar`.
+- `workspace-ux.test.cjs` requires Reset Layout to restore `split + profile`.
+- `context-help-resize.test.cjs` requires the permanent 3D / plot / controls splitter model.
+- packaged runtime smoke in `Program.cs` requires 3D + Spatial Profile to remain mounted together.
+
+### Audit conclusion
+- **Status: NEEDS STRUCTURAL UX REFACTOR.**
+- A CSS-only patch is explicitly rejected as insufficient because tests and ownership rules encode the old architecture.
+- Scientific parsing, VTK validation, field reconstruction and numerical-analysis logic were not identified as the cause of these UX issues.
+- Recommended development target: **v1.6.0** because the correction changes the information architecture and interaction model.
+- No functional code was changed as part of this audit.
