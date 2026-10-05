@@ -22,7 +22,7 @@ if(fa<0||fb<=fa)throw new Error('Field View core markers missing.');
 const fvCore=fvFile.slice(fa,fb+fvEnd.length);
 const fv=new Function(
   'const cases=[];const flUi=(en)=>en;'+fvCore+
-  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvPointInMesh,fvCombineStreamline};'
+  ';return {fvBuildMeshFromTexts,fvBuildSpatialHash,fvPointInMesh,fvCreateMeshVectorSampler,fvCombineStreamline};'
 )();
 
 const indexFile=fs.readFileSync(path.join(frontendDir,'index.html'),'utf8');
@@ -53,7 +53,7 @@ const diag=Math.hypot(
   mesh.boundsMax[2]-mesh.boundsMin[2]
 );
 const step=diag*0.0045,maxLength=diag*0.8,maxSteps=500;
-const hash=fv.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount);
+const hash=fv.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount),streamSampler=fv.fvCreateMeshVectorSampler(mesh,hash,vectors);
 const candidateCount=Math.min(96,mesh.cellCount),seedCells=[];
 for(let k=0;k<candidateCount;k++){
   const ci=Math.min(mesh.cellCount-1,Math.floor((k+.5)*mesh.cellCount/candidateCount));
@@ -61,7 +61,7 @@ for(let k=0;k<candidateCount;k++){
   const speed=Math.hypot(...(vectors[ci]||[]).map(Number));if(seed.every(Number.isFinite)&&speed>1e-12)seedCells.push({ci,seed,speed})
 }
 const candidates=seedCells.map(({ci,seed,speed},index)=>{
-  const line=fv.fvCombineStreamline(seed,hash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction:'both',step,maxSteps,maxLength,insideTest:p=>fv.fvPointInMesh(mesh,p,hash)});
+  const line=fv.fvCombineStreamline(seed,hash,mesh.cellCenters,vectors,mesh.boundsMin,mesh.boundsMax,{direction:'both',step,maxSteps,maxLength,insideTest:p=>fv.fvPointInMesh(mesh,p,hash),sampleVector:streamSampler});
   const length=line.length?line.reduce((sum,q,i)=>i?sum+Math.hypot(q.p[0]-line[i-1].p[0],q.p[1]-line[i-1].p[1],q.p[2]-line[i-1].p[2]):0,0):0;
   return{index,cell:ci,seed,speed,line:line.map(q=>q.p.map(Number)),length}
 });
