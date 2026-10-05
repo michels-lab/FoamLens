@@ -66,11 +66,18 @@ for name,ds in leaves(root):
     cd=ds.GetCellData()
     has_u=(pd and pd.HasArray("U")) or (cd and cd.HasArray("U"))
     if has_u and ds.GetNumberOfCells()>0:
-        candidates.append((ds.GetNumberOfCells(),ds.GetNumberOfPoints(),name,ds))
+        inside=sum(1 for p in seeds if ds.FindCell(p)>=0)
+        candidates.append((inside,ds.GetNumberOfCells(),ds.GetNumberOfPoints(),name,ds))
 if not candidates:
     raise RuntimeError("VTK did not expose any OpenFOAM dataset containing U.")
-candidates.sort(key=lambda x:(x[0],x[1]),reverse=True)
-_,_,block_name,dataset=candidates[0]
+print("VTK U-bearing blocks:",json.dumps([
+    {"name":x[3],"seedCells":x[0],"cells":x[1],"points":x[2],"bounds":list(x[4].GetBounds())}
+    for x in sorted(candidates,key=lambda q:(q[0],q[1],q[2]),reverse=True)
+],indent=2))
+candidates.sort(key=lambda x:(x[0],x[1],x[2]),reverse=True)
+inside_count,_,_,block_name,dataset=candidates[0]
+if inside_count<=0:
+    raise RuntimeError("No VTK U-bearing dataset contains any FoamLens in-mesh validation seed.")
 
 if not dataset.GetPointData().HasArray("U"):
     c2p=vtkCellDataToPointData()
@@ -81,6 +88,15 @@ if not dataset.GetPointData().HasArray("U"):
 if not dataset.GetPointData().HasArray("U"):
     raise RuntimeError("VTK could not produce point-associated U for streamline tracing.")
 dataset.GetPointData().SetActiveVectors("U")
+print("VTK selected streamline block:",json.dumps({
+    "name":block_name,
+    "seedCells":inside_count,
+    "cells":dataset.GetNumberOfCells(),
+    "points":dataset.GetNumberOfPoints(),
+    "bounds":list(dataset.GetBounds()),
+    "pointArrays":[dataset.GetPointData().GetArrayName(i) for i in range(dataset.GetPointData().GetNumberOfArrays())],
+    "cellArrays":[dataset.GetCellData().GetArrayName(i) for i in range(dataset.GetCellData().GetNumberOfArrays())]
+},indent=2))
 
 pts=vtkPoints()
 for p in seeds:
