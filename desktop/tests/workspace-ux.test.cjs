@@ -36,7 +36,7 @@ test('saved workspace UX state restores layout, companion, comparison count and 
 test('views A through D can be named without replacing scientific case/field/time labels',()=>{
   for(const token of [
     "const uxDefaultNames={1:'A',2:'B',3:'C',4:'D'}",
-    'uxViewName1','uxViewName2','uxViewName3','uxViewName4',
+    "'uxViewName'+i","'uxViewNameRow'+i",
     'maxlength="28"','uxSetViewName','uxDecorateOne',
     'el.dataset.uxBase=base','el.dataset.uxRendered=rendered',
     "text===String(el.dataset.uxRendered||'')"
