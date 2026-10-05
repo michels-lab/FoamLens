@@ -119,6 +119,19 @@ function fvaUpdateProvenance(){
 function fvaSyncRoiUi(){
   document.getElementById('fvVectorRoiControls')?.classList.toggle('hidden',!document.getElementById('fvVectorRoiEnabled')?.checked)
 }
+function fvaCompareProvenance(state,c,viewId){
+  if(!state||!c)return'';const g=typeof fcFieldFor==='function'?fcFieldFor(c,state.region||'',state.fieldName||''):null,parsed=state.fieldParsed,unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',dims=parsed?.dimensions?String(parsed.dimensions):'—',assoc=fvAssociationLabel(state.fieldStorage||state.storage||'volume'),sync=typeof fcSyncText==='function'?fcSyncText(state.sync):'',source=fvaSource(g,parsed);
+  return '<b>'+fvEsc(c.name||viewId)+'</b> · '+fvEsc(state.region||fvaUi('default region','región predeterminada'))+' · <b>'+fvEsc(state.fieldName||'—')+'</b> · '+fvEsc(assoc)+(unit?' · ['+fvEsc(unit)+']':'')+' · t='+(Number.isFinite(Number(state.time))?fvFmt(state.time):'—')+' s'+(sync?' · '+fvEsc(sync):'')+' · dims '+fvEsc(dims)+' · '+fvEsc(source)
+}
+function fvaEnsureCompareProvenance(){
+  if(typeof fcState==='undefined')return;
+  const v2=document.getElementById('fcViewport');if(v2&&!document.getElementById('fcProvenance'))v2.insertAdjacentHTML('beforeend','<div class="fvProvenance fcProvenance" id="fcProvenance"></div>');
+  const e2=document.getElementById('fcProvenance'),c2=typeof fcCase==='function'?fcCase():null;if(e2)e2.innerHTML=fvaCompareProvenance(fcState,c2,'B');
+  if(typeof fcExtraViews!=='undefined')for(const state of fcExtraViews){
+    const vp=document.getElementById('fcExtra'+state.id+'Viewport'),id='fcExtra'+state.id+'Provenance';if(vp&&!document.getElementById(id))vp.insertAdjacentHTML('beforeend','<div class="fvProvenance fcProvenance" id="'+id+'"></div>');
+    const e=document.getElementById(id),c=typeof fcExtraCase==='function'?fcExtraCase(state):null;if(e)e.innerHTML=fvaCompareProvenance(state,c,String.fromCharCode(64+Number(state.id)))
+  }
+}
 function fvaInstallControls(){
   const sub=document.getElementById('fvVectorControls');if(!sub)return false;if(document.getElementById('fvVectorLengthMode'))return true;
   const meta=document.getElementById('fvVectorMeta');
@@ -138,9 +151,11 @@ function fvaInstall(){
   if(!fvaInstallControls())return false;
   const originalBuild=fvBuildVectorGlyphBuffers;fvBuildVectorGlyphBuffers=function(mesh,vectors,maxGlyphs=260,glyphScale=1){return fvaBuildGlyphs(mesh,vectors,maxGlyphs,glyphScale)};
   const originalUpdate=fvUpdateStreamlines;fvUpdateStreamlines=async function(...args){const x=await originalUpdate.apply(this,args);fvaUpdateVectorMeta();return x};
-  const originalLoad=fvLoadFrame;fvLoadFrame=async function(...args){const x=await originalLoad.apply(this,args);fvaUpdateProvenance();return x};
-  const api=window.FoamLensFieldView||{};Object.assign(api,{fvaRoi,fvaEligibleCells,fvaSelectCells,fvaMetrics,fvaBuildGlyphs,getVectorAnalysis:()=>fvaState.lastVectorAnalysis,updateProvenance:fvaUpdateProvenance});window.FoamLensFieldView=api;
-  document.addEventListener('foamlens-language-change',()=>{try{flApplyBilingualText(document.getElementById('fvVectorControls'))}catch{};fvaUpdateVectorMeta();fvaUpdateProvenance()});
-  fvaState.installed=true;fvaUpdateProvenance();return true
+  const originalLoad=fvLoadFrame;fvLoadFrame=async function(...args){const x=await originalLoad.apply(this,args);fvaUpdateProvenance();fvaEnsureCompareProvenance();return x};
+  if(typeof fcRefreshFrame==='function'){const originalCompareRefresh=fcRefreshFrame;fcRefreshFrame=async function(...args){const x=await originalCompareRefresh.apply(this,args);fvaEnsureCompareProvenance();return x}}
+  if(typeof fcExtraRefreshFrame==='function'){const originalExtraRefresh=fcExtraRefreshFrame;fcExtraRefreshFrame=async function(...args){const x=await originalExtraRefresh.apply(this,args);fvaEnsureCompareProvenance();return x}}
+  const api=window.FoamLensFieldView||{};Object.assign(api,{fvaRoi,fvaEligibleCells,fvaSelectCells,fvaMetrics,fvaBuildGlyphs,getVectorAnalysis:()=>fvaState.lastVectorAnalysis,updateProvenance:fvaUpdateProvenance,updateCompareProvenance:fvaEnsureCompareProvenance});window.FoamLensFieldView=api;
+  document.addEventListener('foamlens-language-change',()=>{try{flApplyBilingualText(document.getElementById('fvVectorControls'))}catch{};fvaUpdateVectorMeta();fvaUpdateProvenance();fvaEnsureCompareProvenance()});
+  fvaState.installed=true;fvaUpdateProvenance();fvaEnsureCompareProvenance();return true
 }
 (function retry(){if(fvaInstall())return;requestAnimationFrame(retry)})();
