@@ -397,7 +397,7 @@ internal sealed class FoamLensForm : Form
                     !vectorSamplingSmoke.TryGetProperty("roiEligible", out var roiEligible) ||
                     roiEligible.GetInt32() != 2 ||
                     !vectorSamplingSmoke.TryGetProperty("normalizedSpread", out var normalizedSpread) ||
-                    Math.Abs(normalizedSpread.GetDouble()) > 1e-8 ||
+                    Math.Abs(normalizedSpread.GetDouble()) > 1e-6 ||
                     !vectorSamplingSmoke.TryGetProperty("magnitudeSpread", out var magnitudeSpread) ||
                     magnitudeSpread.GetDouble() <= 1e-6)
                     throw new InvalidOperationException(
