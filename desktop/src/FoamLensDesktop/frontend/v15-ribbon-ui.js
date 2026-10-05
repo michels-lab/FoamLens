@@ -192,6 +192,13 @@ function flRibbonCss(){
     '.flRibbonAction.danger{color:var(--danger)}',
     '.flRibbonAction.flScopeHidden{display:none!important}',
     '.flRibbonGroup.flScopeHidden{display:none!important}',
+    '.flRibbonTimeGroup{min-width:min(520px,46vw)}',
+    '.flRibbonTimeGroup .flRibbonActions{align-items:center}',
+    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:0;width:100%;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
+    '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
+    '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:8px}',
     '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
     '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
@@ -256,6 +263,18 @@ function flRibbonUpdateFieldScope(){
 function flRibbonAnalysis(name,tabKey){
   flRibbonSelectTab(tabKey||'analysis');try{setAppMode('analysis')}catch{};requestAnimationFrame(()=>document.querySelector('.analysisSubBtn[data-analysis="'+name+'"]')?.click())
 }
+function flRibbonMountFieldTimeTransport(){
+  const panel=document.getElementById('flRibbonPanel-field'),transport=document.getElementById('fwTimeTransport');
+  if(!panel||!transport)return false;
+  let group=document.getElementById('flRibbonTimeGroup');
+  if(!group){
+    group=document.createElement('div');group.id='flRibbonTimeGroup';group.className='flRibbonGroup flRibbonTimeGroup';
+    group.innerHTML='<div class="flRibbonGroupTitle" data-ri-en="Physical time" data-ri-es="Tiempo físico">Physical time</div><div class="flRibbonActions" id="flRibbonTimeHost"></div>';
+    panel.appendChild(group)
+  }
+  const host=document.getElementById('flRibbonTimeHost');if(host&&transport.parentElement!==host)host.appendChild(transport);
+  transport.classList.add('flRibbonTimeTransport');return true
+}
 function flRibbonApplyLanguage(){
   const es=document.getElementById('language')?.value==='es';
   document.querySelectorAll('#flRibbon [data-ri-en]').forEach(el=>{
@@ -289,6 +308,7 @@ function flRibbonInstall(){
   const context=document.getElementById('globalContextBar'),contextHost=document.getElementById('flRibbonContextHost');if(context&&contextHost)contextHost.appendChild(context);
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
+  flRibbonMountFieldTimeTransport();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
   document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
@@ -369,11 +389,11 @@ function flRibbonInstall(){
     setTimeout(flRibbonSyncStates,0)
   },true);
   document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
-  document.addEventListener('foamlens-field-view-change',()=>{flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
+  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
   flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope();
-  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,isInstalled:()=>flRibbonState.installed};
+  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,mountTimeTransport:flRibbonMountFieldTimeTransport,isInstalled:()=>flRibbonState.installed};
   return true
 }
 flRibbonInstall();
