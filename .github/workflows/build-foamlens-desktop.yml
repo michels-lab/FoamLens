@@ -332,6 +332,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
 
+      - name: Test vector ROI analysis and viewport provenance
+        shell: pwsh
+        run: node desktop/tests/vector-analysis.test.cjs
+
       - name: Test pointField interior slice and iso-surface reconstruction
         shell: pwsh
         run: node desktop/tests/point-interior.test.cjs
