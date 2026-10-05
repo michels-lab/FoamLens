@@ -19,8 +19,10 @@ assert(program.includes('SHA256.HashDataAsync(installerStream)'),
   'Installer must be verified with SHA-256 before launch.');
 assert(program.includes('installer SHA-256 does not match'),
   'Checksum mismatch must fail closed.');
-assert(program.includes('Arguments = "/CURRENTUSER"'),
-  'Verified installer must use the supported current-user update path.');
+assert(program.includes('Interlocked.Exchange(ref _updateCheckInProgress, 1)'),
+  'Updater must suppress overlapping automatic/manual checks.');
+assert(program.includes('Arguments = "/SP-"'),
+  'Verified installer handoff must preserve the existing installation context.');
 assert(program.includes('BeginInvoke(new Action(Close))'),
   'FoamLens must close after handing off to the verified installer.');
 
