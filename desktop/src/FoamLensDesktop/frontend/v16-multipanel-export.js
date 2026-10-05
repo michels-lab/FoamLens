@@ -20,7 +20,7 @@ function meSources(){
   try{
     for(const d of window.FoamLensFieldCompare?.getVideoDescriptors?.()||[]){
       if(!document.getElementById(d.canvasId))continue;
-      out.push({...d,type:d.key==='difference'?'difference':'3d',title:d.key==='difference'?meUi('3D Difference','Diferencia 3D'):(d.caseName||d.key)+' · '+(d.fieldName||'—'),defaultSelected:true})
+      out.push({...d,type:d.key==='difference'?'difference':'3d',title:d.key==='difference'?meUi('3D Difference','Diferencia 3D'):((d.viewName||d.caseName||d.key)+(d.viewName&&d.caseName?' — '+d.caseName:'')+' · '+(d.fieldName||'—')),defaultSelected:true})
     }
   }catch{}
   if(mePlotAvailable()){
