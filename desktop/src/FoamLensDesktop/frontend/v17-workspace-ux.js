@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.4.10 — persistent Field Workspace layout, splitters, view names and contextual help. */
 const uxKey='FoamLens.fieldWorkspace.layout.v2';
-const uxState={installed:false,splitRatio:.56,controlsWidth:340,names:{1:'A',2:'B',3:'C',4:'D'},drag:null,lastProject:'',restoring:false};
+const uxState={installed:false,splitRatio:.56,controlsWidth:340,names:{1:'A',2:'B',3:'C',4:'D'},drag:null,lastProject:'',restoredProject:'',restoring:false};
 function uxUi(en,es){try{return flUi(en,es)}catch{return en}}
 function uxClamp(v,a,b){v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,v)):a}
 function uxProjectKey(){try{return (cases||[]).map(c=>String(c.name||'')).sort().join('|')}catch{return''}}
@@ -74,7 +74,9 @@ async function uxRestoreAssignments(saved){
   }catch(e){console.warn('FoamLens layout restore:',e)}finally{uxState.restoring=false;uxUpdateStatus()}
 }
 function uxRestore(){
-  const saved=uxRead();if(!saved)return null;uxState.names={...uxState.names,...(saved.names||{})};const l=document.getElementById('fwLayout');if(l&&saved.layout){l.value=saved.layout;fwSetLayout?.(saved.layout)}const c=document.getElementById('fwCompanion');if(c&&saved.companion){c.value=saved.companion;fwSetCompanion?.(saved.companion)}const st=document.getElementById('fwSyncTime');if(st&&typeof saved.syncTime==='boolean')st.checked=saved.syncTime;uxApplyNames();uxApplySplit();setTimeout(()=>uxRestoreAssignments(saved),120);return saved
+  const saved=uxRead();if(!saved)return null;uxState.names={...uxState.names,...(saved.names||{})};const l=document.getElementById('fwLayout');if(l&&saved.layout){l.value=saved.layout;fwSetLayout?.(saved.layout)}const c=document.getElementById('fwCompanion');if(c&&saved.companion){c.value=saved.companion;fwSetCompanion?.(saved.companion)}const st=document.getElementById('fwSyncTime');if(st&&typeof saved.syncTime==='boolean')st.checked=saved.syncTime;uxApplyNames();uxApplySplit();
+  const project=uxProjectKey();if(project&&saved.project===project&&uxState.restoredProject!==project){uxState.restoredProject=project;setTimeout(()=>uxRestoreAssignments(saved),120)}
+  return saved
 }
 function uxInstall(){
   if(uxState.installed&&document.getElementById('uxCompareStatus')){uxInstallNames();return}uxState.installed=true;
@@ -83,11 +85,11 @@ function uxInstall(){
   uxInstallStatus();uxInstallNames();
   if(!document.getElementById('uxHelpOverlay')){const o=document.createElement('div');o.id='uxHelpOverlay';o.className='uxHelpOverlay';o.setAttribute('aria-hidden','true');o.innerHTML='<section class="uxHelpCard" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;gap:10px"><div><h3 style="margin:0">'+uxUi('Field Workspace help','Ayuda del Workspace de campos')+'</h3><p class="smallnote">'+uxUi('Contextual shortcuts for the current scientific workspace.','Atajos contextuales para el workspace científico actual.')+'</p></div><button class="btn tiny" id="uxHelpClose" type="button">×</button></div><div class="uxHelpGrid"><div class="uxHelpItem"><b>'+uxUi('Rename views','Renombrar vistas')+'</b><span>'+uxUi('Click the A/B/C/D badge or the comparison status bar. Names persist with the layout.','Haz clic en el badge A/B/C/D o en la barra de comparación. Los nombres persisten con el diseño.')+'</span></div><div class="uxHelpItem"><b>'+uxUi('Resize workspace','Redimensionar workspace')+'</b><span>'+uxUi('Drag the separators between 3D, companion plot and controls on wide screens.','Arrastra los separadores entre 3D, gráfica compañera y controles en pantallas anchas.')+'</span></div><div class="uxHelpItem"><b>'+uxUi('Save layout','Guardar diseño')+'</b><span>'+uxUi('Stores layout, companion, splitter positions, view count, compatible case/field assignments and view names.','Guarda diseño, companion, splitters, número de vistas, asignaciones compatibles caso/campo y nombres.')+'</span></div><div class="uxHelpItem"><b>'+uxUi('Comparison status','Estado de comparación')+'</b><span>'+uxUi('The bar shows each visible view, physical time and synchronization mode without opening configuration panels.','La barra muestra cada vista visible, tiempo físico y modo de sincronización sin abrir paneles.')+'</span></div></div></section>';document.body.appendChild(o);o.onclick=e=>{if(e.target===o)uxCloseHelp()};document.getElementById('uxHelpClose').onclick=uxCloseHelp}
   document.addEventListener('pointermove',uxMoveDrag);document.addEventListener('pointerup',uxEndDrag);window.addEventListener('resize',uxApplySplit);
-  document.addEventListener('change',e=>{if(/^fw|^fc|^fv/.test(String(e.target?.id||''))){uxSave(true);setTimeout(()=>{uxInstallNames();uxUpdateStatus();uxApplySplit()},60)}},true);
+  document.addEventListener('change',e=>{if(/^fw|^fc|^fv/.test(String(e.target?.id||''))){if(document.body.classList.contains('appMode-field')&&!uxState.restoring)uxSave(true);setTimeout(()=>{uxInstallNames();uxUpdateStatus();uxApplySplit()},60)}},true);
   setInterval(()=>{if(document.body.classList.contains('appMode-field')){uxInstallNames();uxUpdateStatus();uxPositionSplitters()}},700);
   uxRestore();
   window.FoamLensWorkspaceUX={save:uxSave,restore:uxRestore,reset:uxReset,help:uxHelp,rename:uxRename,snapshot:uxSnapshot,applySplit:uxApplySplit}
 }
 const uxPrevEnter=typeof fwEnter==='function'?fwEnter:null;
-if(uxPrevEnter&&!uxPrevEnter.__uxPatched){fwEnter=function(){const r=uxPrevEnter.apply(this,arguments);setTimeout(()=>{uxInstall();uxRestore()},40);return r};fwEnter.__uxPatched=true}
+if(uxPrevEnter&&!uxPrevEnter.__uxPatched){fwEnter=function(){const r=uxPrevEnter.apply(this,arguments);setTimeout(()=>{uxInstall();const project=uxProjectKey();if(project&&uxState.restoredProject!==project)uxRestore();else{uxApplySplit();uxApplyNames();uxUpdateStatus()}},40);return r};fwEnter.__uxPatched=true}
 uxRead();setTimeout(()=>{if(document.getElementById('fwGrid'))uxInstall()},0);
