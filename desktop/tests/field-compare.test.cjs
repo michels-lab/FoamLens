@@ -128,11 +128,37 @@ test('interpolated comparison rejects unsafe mesh or association changes instead
 test('comparison UI exposes time badges on every viewport, generalized differences and A/B swapping',()=>{
   for(const token of [
     'fcPrimaryTimeBadge','fcCompareTimeBadge',"fcExtra'+id+'TimeBadge",'fcTimeBadge',
-    'Interpolated between frames','fcDifferenceMode','Signed A − B','Absolute |A − B|','Percent of A',
+    'Interpolated between frames','fcDifferenceMode','Signed A − B','Absolute |A − B|','Percent of left view',
     'fcPercentEpsilon','fcSwapCases','fcSwapPrimaryCompare','swapPrimaryCompare:fcSwapPrimaryCompare',
     'fcCopyAToB','fcCopyPrimarySettingsToCompare','copyPrimarySettingsToCompare:fcCopyPrimarySettingsToCompare',
     "mode==='percent'","mode==='absolute'"
   ])assert(source.includes(token),'Missing advanced comparison UI token: '+token);
+});
+
+test('3D Difference can select any two loaded compatible viewports',()=>{
+  for(const token of [
+    'fcDifferenceA','fcDifferenceB','Difference left view','Difference right view',
+    'fcViewData','fcSameQuantityData','fcDifferencePair','fcRefreshDifferenceSelectors',
+    "['view1','view2','view3','view4'].map(fcViewData)",
+    "a.mesh,b.mesh","a.values,b.values","fcState.differenceMesh=a.mesh",
+    "getViewData:fcViewData","getDifferencePair:fcDifferencePair"
+  ])assert(source.includes(token),'Missing arbitrary-view Difference token: '+token);
+  assert(source.includes("fcDifferenceMvp(canvas)"),'Difference renderer no longer exposes selected-view camera mapping.');
+});
+
+test('every 3D viewport exposes structured scientific provenance',()=>{
+  for(const token of [
+    'fcPrimaryProvenance','fcCompareProvenance',"fcExtra'+id+'Provenance",'fcDifferenceProvenance',
+    'fcUpdateProvenance','fvFrameProvenance','getProvenance',
+    'associationLabel','dimensions','meshSource','source'
+  ])assert(source.includes(token),'Missing scientific provenance token: '+token);
+});
+
+test('comparison vectors inherit primary vector length and ROI sampling semantics',()=>{
+  for(const token of [
+    'fvVectorLengthMode','fvVectorRoi','{lengthMode,roi}',
+    'fvVectorRoiEnabled','fvVectorRoiXMin','fvVectorRoiXMax','fvVectorRoiYMin','fvVectorRoiYMax','fvVectorRoiZMin','fvVectorRoiZMax'
+  ])assert(source.includes(token),'Missing synchronized vector ROI/length token: '+token);
 });
 
 test('3D comparison can add synchronized views three and four',()=>{
