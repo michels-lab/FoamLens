@@ -36,6 +36,16 @@ test('multi-panel export exposes thesis paper presentation and layout presets',(
   ])assert(multipanel.includes(token),'Missing multi-panel preset token: '+token);
 });
 
+test('multi-panel export rerenders 3D panels at the target export resolution',()=>{
+  for(const token of [
+    'meRender3DCanvas','FoamLensFieldView.captureHighRes','FoamLensFieldCompare.captureHighRes',
+    'targetW','targetH','high-resolution 3D rerender fallback'
+  ])assert(multipanel.includes(token),'Missing high-resolution 3D export token: '+token);
+  for(const token of [
+    'function fvCaptureHighRes','Math.min(8192','fvRender({width:w,height:h,skipGizmo:true})','captureHighRes:fvCaptureHighRes'
+  ])assert(field.includes(token),'Missing primary high-resolution rerender token: '+token);
+});
+
 test('multi-panel export preserves per-panel labels time and scientific ranges',()=>{
   for(const token of [
     "String.fromCharCode(65+index)",'source.caseName','source.fieldName',
@@ -71,6 +81,14 @@ test('off-screen comparison view loading is deferred but video export remains ex
     'return previous.apply(this,arguments)',
     'deferredViews','ppIdle(async()=>'
   ])assert(performance.includes(token),'Missing viewport-aware loading token: '+token);
+});
+
+test('controlled benchmark measures the same frame sequence with cold and warm field caches',()=>{
+  for(const token of [
+    'ppControlledBenchmark','pmClearFieldCache','fvLoadFieldSetCached','suppressPrefetch',
+    'coldMedianMs','warmMedianMs','samplesPerPhase','same frame sequence; cold field-cache load vs pre-warmed field-cache load',
+    'runControlledBenchmark:ppControlledBenchmark','Run controlled benchmark'
+  ])assert(performance.includes(token),'Missing controlled benchmark token: '+token);
 });
 
 test('performance telemetry reports latency cache reuse and deferred view work',()=>{
