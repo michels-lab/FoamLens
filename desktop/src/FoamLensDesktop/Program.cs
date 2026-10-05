@@ -40,7 +40,7 @@ internal sealed class FoamLensForm : Form
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.5.0", "app");
+        "FoamLens", "Desktop", "1.5.1", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -1027,7 +1027,7 @@ internal sealed class FoamLensForm : Form
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
-        html = html.Replace("1.4.9", "1.5.0", StringComparison.Ordinal);
+        html = html.Replace("1.4.9", "1.5.1", StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
