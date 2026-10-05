@@ -46,6 +46,34 @@ test('Spatial Differences remains inside Difference',()=>{
   assert(!js.includes("document.getElementById('generalAnalysisModules')"));
 });
 
+test('analysis modules never fall back to document.body or generic analysisTools hosts',()=>{
+  const owned=[
+    ...generalFiles,
+    'v13-spatial-differences.js'
+  ];
+  for(const file of owned){
+    const js=fs.readFileSync(path.join(base,file),'utf8');
+    assert(!js.includes("||document.body"),file+' can still leak controls into document.body.');
+    assert(!js.includes("document.querySelector('.analysisTools')"),file+' can still mount in a generic analysis host.');
+  }
+});
+
+test('derived Analysis results do not silently switch hidden Data views',()=>{
+  const guardedFiles=[
+    'v13-physical-analysis.js',
+    'v13-solidification-analysis.js',
+    'v13-temporal-alignment.js',
+    'v13-thermal-analysis.js',
+    'v14-energy-audit.js',
+    'v14-experimental-validation.js',
+    'v14-momentum-mechanisms.js'
+  ];
+  for(const file of guardedFiles){
+    const js=fs.readFileSync(path.join(base,file),'utf8');
+    assert(js.includes("activeAppMode!=='analysis'"),file+' can still mutate the hidden Data view while Analysis is active.');
+  }
+});
+
 test('General Analysis title is bilingual',()=>{
   assert(index.includes("'Análisis general':'General Analysis'"));
 });
