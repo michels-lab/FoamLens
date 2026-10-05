@@ -6,6 +6,8 @@ const assert = require('assert');
 
 const frontend = path.join(__dirname, '..', 'src', 'FoamLensDesktop', 'frontend', 'index.html');
 const html = fs.readFileSync(frontend, 'utf8');
+const workspace = fs.readFileSync(path.join(__dirname, '..', 'src', 'FoamLensDesktop', 'frontend', 'v14-zz-field-workspace.js'), 'utf8');
+new Function(workspace);
 
 const begin = '/* FOAMLENS_PROFILE_PLAYBACK_CORE_START */';
 const end = '/* FOAMLENS_PROFILE_PLAYBACK_CORE_END */';
@@ -94,11 +96,16 @@ test('different spatial sampling', () => {
   assert(!unsafe.ok && unsafe.reason === 'axis-or-unit-mismatch');
 });
 
-// 7. Play and Pause are separate controls.
-test('Play/Pause controls', () => {
-  assert(html.includes('id="profilePlay"'));
-  assert(html.includes('id="profilePause"'));
-  assert(html.includes("$('profilePause').onclick=stopProfileAnimation"));
+// 7. Profile playback algorithms remain available, but Field exposes one primary transport.
+test('Field uses one primary physical-time transport', () => {
+  assert(html.includes('id="profilePlay"'),'Legacy Profile playback engine was removed instead of being reused internally.');
+  assert(html.includes('id="profilePause"'),'Legacy Profile pause engine was removed instead of being reused internally.');
+  assert(workspace.includes('id="fwTimeTransport"'));
+  assert(workspace.includes('id="fwTimePlay"'));
+  assert(workspace.includes('id="fwTimeSlider"'));
+  assert(workspace.includes('body.appMode-field #profileTimeline'));
+  assert(workspace.includes('body.appMode-field .fvTimeline'));
+  assert(workspace.includes('body.appMode-field #playbackGlobal'));
 });
 
 // 8. Manual slider passes a physical-time value rather than an array index.
