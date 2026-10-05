@@ -15,6 +15,14 @@ test('Field Workspace persists layout and project-compatible view assignments',(
   ])assert(ux.includes(token),'Missing persistent layout token: '+token);
 });
 
+test('automatic assignment restore is single-shot per project and cannot race case loading',()=>{
+  for(const token of [
+    "restoredProject:''","saved.project===project","uxState.restoredProject!==project",
+    "uxState.restoredProject=project","document.body.classList.contains('appMode-field')&&!uxState.restoring",
+    "if(project&&uxState.restoredProject!==project)uxRestore()"
+  ])assert(ux.includes(token),'Missing restore-race guard token: '+token);
+});
+
 test('wide Field Workspace exposes two real drag splitters and persists their geometry',()=>{
   for(const token of [
     'uxSplitA','uxSplitB','role','separator','aria-orientation','vertical',
