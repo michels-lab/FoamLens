@@ -47,10 +47,10 @@ function uxSetViewName(id,value){
 }
 function uxViewName(id){return uxNames()[Math.max(1,Math.min(4,Number(id)||1))]||uxDefaultNames[id]||String(id)}
 function uxBaseLabel(el){
-  if(!el)return'';const text=String(el.textContent||'').trim(),mark=' · ';if(el.dataset.uxDecorated==='1'&&text.includes(mark)){const first=text.indexOf(mark);return text.slice(first+mark.length)}return text
+  if(!el)return'';const text=String(el.textContent||'').trim();if(el.dataset.uxDecorated==='1'&&text===String(el.dataset.uxRendered||''))return String(el.dataset.uxBase||'');return text
 }
 function uxDecorateOne(el,id){
-  if(!el)return;const base=uxBaseLabel(el),name=uxViewName(id);el.textContent=name+(base?' · '+base:'');el.dataset.uxDecorated='1'
+  if(!el)return;const base=uxBaseLabel(el),name=uxViewName(id),rendered=name+(base?' · '+base:'');el.dataset.uxBase=base;el.dataset.uxRendered=rendered;el.dataset.uxDecorated='1';el.textContent=rendered
 }
 function uxDecorateLabels(){
   uxDecorateOne(document.getElementById('fcPrimaryLabel'),1);uxDecorateOne(document.getElementById('fcCompareLabel'),2);
