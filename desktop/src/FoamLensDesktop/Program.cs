@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -35,6 +36,8 @@ internal sealed class FoamLensForm : Form
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
+    private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
+    private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FoamLens", "Desktop", "1.5.0", "app");
@@ -110,9 +113,14 @@ internal sealed class FoamLensForm : Form
                 Log($"WebView2 process failed: {e.ProcessFailedKind}");
 
             if (_smokeTest)
+            {
                 await RunSmokeTestAsync();
+            }
             else
+            {
                 _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
+                _ = CheckForUpdatesAsync(userInitiated: false);
+            }
         }
         catch (Exception ex)
         {
@@ -199,7 +207,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','plots','analysis','compare','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -217,6 +225,7 @@ internal sealed class FoamLensForm : Form
                   return {
                     ribbon:!!ribbon,
                     api:typeof window.FoamLensRibbon?.selectTab==='function',
+                    updateApi:typeof window.FoamLensAutoUpdate?.check==='function',
                     missingTabs,
                     missingActions,
                     tabCount:document.querySelectorAll('#flRibbon .flRibbonTab').length,
@@ -237,7 +246,8 @@ internal sealed class FoamLensForm : Form
             {
                 var root = ribbonUi.RootElement;
                 if (!root.TryGetProperty("ribbon", out var ribbonNode) || !ribbonNode.GetBoolean() ||
-                    !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean())
+                    !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean() ||
+                    !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon did not mount: {ribbonUiJson}");
                 foreach (var property in new[] { "missingTabs", "missingActions" })
@@ -1184,6 +1194,169 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         File.WriteAllText(indexPath, html, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
+
+    private static HttpClient CreateUpdateHttpClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("FoamLensDesktop-Updater/1.0");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+        client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        return client;
+    }
+
+    private async Task CheckForUpdatesAsync(bool userInitiated)
+    {
+        try
+        {
+            var release = await GetLatestReleaseAsync();
+            var current = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0);
+            if (release.Version.CompareTo(current) <= 0)
+            {
+                if (userInitiated)
+                    MessageBox.Show(this,
+                        $"FoamLens is up to date.\n\nInstalled: v{current.Major}.{current.Minor}.{Math.Max(0, current.Build)}",
+                        "FoamLens updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(release.InstallerUrl) ||
+                string.IsNullOrWhiteSpace(release.ChecksumUrl))
+            {
+                if (userInitiated)
+                {
+                    var open = MessageBox.Show(this,
+                        $"FoamLens {release.Tag} is available, but its verified installer package is incomplete.\n\nOpen the GitHub release page?",
+                        "FoamLens update available", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (open == DialogResult.Yes) OpenExternal(release.HtmlUrl);
+                }
+                else
+                {
+                    Log($"Update {release.Tag} detected without installer/checksum assets.");
+                }
+                return;
+            }
+
+            var currentText = $"v{current.Major}.{current.Minor}.{Math.Max(0, current.Build)}";
+            var answer = MessageBox.Show(this,
+                $"A newer FoamLens release is available.\n\nInstalled: {currentText}\nAvailable: {release.Tag}\n\nDownload, verify and start the installer now?",
+                "FoamLens update available", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (answer != DialogResult.Yes) return;
+
+            UseWaitCursor = true;
+            try
+            {
+                await DownloadVerifyAndLaunchUpdateAsync(release);
+            }
+            finally
+            {
+                if (!IsDisposed) UseWaitCursor = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Automatic update check failed: {ex}");
+            if (userInitiated)
+                MessageBox.Show(this,
+                    $"FoamLens could not check for updates.\n\n{ex.Message}",
+                    "FoamLens updates", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private static async Task<UpdateReleaseInfo> GetLatestReleaseAsync()
+    {
+        using var response = await UpdateHttpClient.GetAsync(
+            LatestReleaseApi, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var doc = await JsonDocument.ParseAsync(stream);
+        var root = doc.RootElement;
+        var tag = root.TryGetProperty("tag_name", out var tagNode) ? tagNode.GetString() ?? "" : "";
+        if (!TryParseReleaseVersion(tag, out var version))
+            throw new InvalidOperationException($"GitHub returned an invalid FoamLens release tag: {tag}");
+
+        var htmlUrl = root.TryGetProperty("html_url", out var htmlNode)
+            ? htmlNode.GetString() ?? "https://github.com/realmichelduarte/FoamLens/releases"
+            : "https://github.com/realmichelduarte/FoamLens/releases";
+        var normalized = $"{version.Major}.{version.Minor}.{Math.Max(0, version.Build)}";
+        var installerName = $"FoamLens-Setup-v{normalized}.exe";
+        var checksumName = installerName + ".sha256";
+        string? installerUrl = null, checksumUrl = null;
+
+        if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var asset in assets.EnumerateArray())
+            {
+                var name = asset.TryGetProperty("name", out var nameNode) ? nameNode.GetString() ?? "" : "";
+                var url = asset.TryGetProperty("browser_download_url", out var urlNode) ? urlNode.GetString() : null;
+                if (string.Equals(name, installerName, StringComparison.OrdinalIgnoreCase)) installerUrl = url;
+                if (string.Equals(name, checksumName, StringComparison.OrdinalIgnoreCase)) checksumUrl = url;
+            }
+        }
+
+        return new UpdateReleaseInfo(version, tag, htmlUrl, installerName, installerUrl, checksumUrl);
+    }
+
+    private static bool TryParseReleaseVersion(string tag, out Version version)
+    {
+        version = new Version(0, 0);
+        if (string.IsNullOrWhiteSpace(tag)) return false;
+        var text = tag.Trim();
+        if (text.StartsWith('v') || text.StartsWith('V')) text = text[1..];
+        var dash = text.IndexOf('-');
+        if (dash >= 0) text = text[..dash];
+        if (!Version.TryParse(text, out var parsed) || parsed is null) return false;
+        version = parsed;
+        return true;
+    }
+
+    private async Task DownloadVerifyAndLaunchUpdateAsync(UpdateReleaseInfo release)
+    {
+        var safeTag = Regex.Replace(release.Tag, @"[^A-Za-z0-9._-]", "_");
+        var updateDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FoamLens", "Desktop", "Updates", safeTag);
+        Directory.CreateDirectory(updateDir);
+
+        var installerPath = Path.Combine(updateDir, release.InstallerName);
+        var checksumPath = installerPath + ".sha256";
+        await DownloadUpdateFileAsync(release.InstallerUrl!, installerPath);
+        await DownloadUpdateFileAsync(release.ChecksumUrl!, checksumPath);
+
+        var checksumText = await File.ReadAllTextAsync(checksumPath, Encoding.ASCII);
+        if (!checksumText.Contains(release.InstallerName, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The update checksum does not identify the downloaded installer.");
+        var match = Regex.Match(checksumText, @"\b[a-fA-F0-9]{64}\b");
+        if (!match.Success)
+            throw new InvalidDataException("The update checksum file does not contain a valid SHA-256 hash.");
+
+        await using var installerStream = File.OpenRead(installerPath);
+        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(installerStream));
+        if (!string.Equals(match.Value, actualHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("FoamLens update verification failed: installer SHA-256 does not match.");
+
+        Log($"Verified FoamLens update {release.Tag}: {actualHash.ToLowerInvariant()}");
+        var process = Process.Start(new ProcessStartInfo(installerPath)
+        {
+            UseShellExecute = true,
+            Arguments = "/CURRENTUSER"
+        });
+        if (process is null)
+            throw new InvalidOperationException("The verified FoamLens installer could not be started.");
+
+        BeginInvoke(new Action(Close));
+    }
+
+    private static async Task DownloadUpdateFileAsync(string url, string path)
+    {
+        using var response = await UpdateHttpClient.GetAsync(
+            url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        await using var source = await response.Content.ReadAsStreamAsync();
+        await using var destination = new FileStream(
+            path, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 128, useAsync: true);
+        await source.CopyToAsync(destination);
+    }
+
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         string requestId = "";
@@ -1218,6 +1391,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     break;
                 case "cancelOperation":
                     HandleCancelOperation(root, requestId);
+                    break;
+                case "checkForUpdates":
+                    await CheckForUpdatesAsync(userInitiated: true);
                     break;
                 default:
                     Reply(requestId, false, null, $"Unknown native request: {type}");
@@ -2971,6 +3147,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         catch { }
     }
 
+    private sealed record UpdateReleaseInfo(
+        Version Version, string Tag, string HtmlUrl, string InstallerName, string? InstallerUrl, string? ChecksumUrl);
     private sealed record NativeFileRef(string Token, string Name, string RelativePath, long Size, long LastModified);
     private sealed record TemporalColumn(double[] T, double[] Y);
     private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes);
