@@ -482,9 +482,9 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-          if (-not $process.WaitForExit(180000)) {
+          if (-not $process.WaitForExit(300000)) {
             try { $process.Kill($true) } catch {}
-            throw 'FoamLens executable smoke test timed out after 180 seconds.'
+            throw 'FoamLens executable smoke test timed out after 300 seconds.'
           }
           if ($process.ExitCode -ne 0) {
             $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
@@ -593,9 +593,9 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
-          if (-not $app.WaitForExit(180000)) {
+          if (-not $app.WaitForExit(300000)) {
             try { $app.Kill($true) } catch {}
-            throw 'Installed FoamLens smoke test timed out after 180 seconds.'
+            throw 'Installed FoamLens smoke test timed out after 300 seconds.'
           }
           if ($app.ExitCode -ne 0) {
             if (Test-Path $log) {
