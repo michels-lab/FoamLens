@@ -34,7 +34,7 @@ function ppBenchmarkSequence(frameCount=4){
 }
 async function ppRunBenchmark(options={}){
   if(ppState.benchmarking)throw new Error(ppUi('A performance benchmark is already running.','Ya hay un benchmark de rendimiento en curso.'));
-  const frames=Math.max(2,Math.min(8,Math.round(Number(options.frames)||4))),rounds=Math.max(1,Math.min(3,Math.round(Number(options.rounds)||2))),settleMs=Math.max(0,Math.min(1000,Math.round(Number(options.settleMs)||160)),seq=ppBenchmarkSequence(frames);
+  const frames=Math.max(2,Math.min(8,Math.round(Number(options.frames)||4))),rounds=Math.max(1,Math.min(3,Math.round(Number(options.rounds)||2))),settleMs=Math.max(0,Math.min(1000,Math.round(Number(options.settleMs)||160))),seq=ppBenchmarkSequence(frames);
   if(seq.indices.length<2)throw new Error(ppUi('At least two stored field times are required for the A/B benchmark.','Se requieren al menos dos tiempos almacenados para el benchmark A/B.'));
   const originalMode=ppState.mode,originalIndex=Math.max(0,Math.round(Number(document.getElementById('fvTimeSlider')?.value)||0)),samples={baseline:[],optimized:[]},passes=[];
   ppState.benchmarking=true;const status=document.getElementById('ppBenchmarkStatus');if(status)status.textContent=ppUi('Running controlled A/B benchmark…','Ejecutando benchmark A/B controlado…');
