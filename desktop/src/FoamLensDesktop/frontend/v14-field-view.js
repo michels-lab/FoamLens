@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.5.0 — OpenFOAM mesh/field visualization and streamline playback. */
+/* FoamLens Desktop v1.5.1 — OpenFOAM mesh/field visualization and streamline playback. */
 
 /* FOAMLENS_FIELD_VIEW_CORE_START */
 function fvNormPath(v){return String(v||'').replace(/\\/g,'/').replace(/\/+/g,'/').replace(/^\/|\/$/g,'')}
@@ -1069,7 +1069,7 @@ function fvApplyBuildIdentity(){
   const overlay=document.getElementById('versionOverlay');if(!overlay)return;
   for(const block of overlay.querySelectorAll('.detailBlock')){
     const label=String(block.querySelector('span')?.textContent||'').trim().toLowerCase();
-    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.5.0'}
+    if(label==='version'){const detail=block.querySelector('div');if(detail)detail.textContent='Desktop v1.5.1'}
   }
 }
 function fvInstallIntegration(){
