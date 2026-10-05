@@ -24,7 +24,7 @@ const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field View core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
+const api=new Function('const cases=[];const flUi=(en)=>en;'+core+';return {fvBuildMeshInventory,fvBuildMeshFromTexts,fvNearestTime,fvAdvanceIndex,fvColorMap,fvLegendGradient,fvBuildSpatialHash,fvSeedPlane,fvSeedLine,fvSeedBox,fvSeedPatch,fvCellContainsPoint,fvPointInMesh,fvFilterSeedsInsideMesh,fvPointVectorsFromCells,fvTetraWeights,fvFindContainingCell,fvSampleMeshVectorInCell,fvCreateMeshVectorSampler,fvStreamlineSeeds,fvIntegrateStreamline,fvCombineStreamline,fvReadyRegions,fvCaseViewAvailable,fvAvailability,fvMeshFacePoints,fvCellFaces,fvPointCells,fvPointValuesFromCells,fvSliceTetra,fvBuildSliceGeometry,fvResolveFieldMeshLayout,fvCombinePartitionMeshes,fvBoundaryPatchCoverage};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -257,6 +257,14 @@ test('legend gradient follows the selected colormap',()=>{
   assert.notEqual(turbo,coolwarm);
 });
 
+test('mesh-aware streamline sampler preserves a uniform vector exactly inside a real cell',()=>{
+  const mesh=api.fvBuildMeshFromTexts(points,faces,owner,neighbour),hash=api.fvBuildSpatialHash(mesh.cellCenters,mesh.boundsMin,mesh.boundsMax,mesh.cellCount),sampler=api.fvCreateMeshVectorSampler(mesh,hash,[[2,-3,4]]);
+  for(const p of [[.5,.5,.5],[.2,.3,.4],[.8,.7,.6]]){
+    const v=sampler(p);assert(v,'mesh-aware sampler rejected an interior cube point');near(v[0],2,1e-10);near(v[1],-3,1e-10);near(v[2],4,1e-10)
+  }
+  assert.equal(sampler([1.2,.5,.5]),null);
+});
+
 test('streamline integrator follows a uniform cell-centred velocity field',()=>{
   const centers=[],vectors=[];
   for(let i=0;i<12;i++){centers.push(.25+i*.5,.5,.5);vectors.push([1,0,0])}
@@ -274,6 +282,20 @@ test('streamline seed density is real up to the advertised 400 seeds',()=>{
   assert.equal(api.fvSeedPlane(min,max,'y',400,.25).length,400);
   assert.equal(api.fvSeedLine(min,max,'z',73,.5).length,73);
   assert.equal(api.fvSeedBox(min,max,125).length,125);
+});
+
+test('volume seed modes reject points that are only inside the bounding box but outside the actual polyhedral mesh',()=>{
+  const pyramidPoints=foamFile('vectorField','points','5\n(\n(-1 -1 0)\n(1 -1 0)\n(1 1 0)\n(-1 1 0)\n(0 0 3)\n)');
+  const pyramidFaces=foamFile('faceList','faces','5\n(\n4(0 3 2 1)\n3(0 1 4)\n3(1 2 4)\n3(2 3 4)\n3(3 0 4)\n)');
+  const pyramidOwner=foamFile('labelList','owner','5\n(\n0\n0\n0\n0\n0\n)');
+  const pyramidNeighbour=foamFile('labelList','neighbour','0\n(\n)');
+  const mesh=api.fvBuildMeshFromTexts(pyramidPoints,pyramidFaces,pyramidOwner,pyramidNeighbour);
+  assert.equal(api.fvCellContainsPoint(mesh,0,[0,0,.75]),true);
+  assert.equal(api.fvPointInMesh(mesh,[0,0,.75]),true);
+  assert.equal(api.fvPointInMesh(mesh,[.9,.9,2.5]),false,'bounding-box-only point leaked into the pyramid mesh');
+  const seeds=api.fvStreamlineSeeds(mesh,{mode:'box',count:80});
+  assert(seeds.length>0&&seeds.length<=80);
+  assert(seeds.every(p=>api.fvPointInMesh(mesh,p)),'Box seeding emitted a point outside the real cell geometry');
 });
 
 test('boundary-patch seeding uses actual patch faces and nudges seeds inward',()=>{
@@ -334,7 +356,7 @@ test('vector and streamline visualization expose independent real-resolution con
     'fvVectorControls','fvStreamlineControls','fvVectorResolution','fvVectorScale',
     'Vector resolution','Seed density','max="400"','value="100"',
     'fvSeedMode','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct',
-    'Boundary patch','Box / Volume','Forward','Backward','integration points',
+    'Boundary patch','Box / Volume','Forward','Backward','integration points','fvPointInMesh','fvFilterSeedsInsideMesh','requestedSeeds',
     'fvAdaptiveVectorGlyphTarget','fvVectorGlyphTarget','fvVectorGlyphScale',
     'fvSelectVectorGlyphCells','glyphCount','requested',
     "document.getElementById('fvVectorControls')?.classList.toggle('hidden'",
