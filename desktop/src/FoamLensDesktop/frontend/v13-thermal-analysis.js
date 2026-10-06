@@ -88,7 +88,7 @@ function thCreateRates(){
   const a=thAnalyzeTemperature(s.t,s.y,Math.max(0,Number(document.getElementById('thEpsilon')?.value)||0));series=series.filter(x=>x.thermalSourceId!==s.id);
   const c=thAddRate(s,flUi('Cooling Rate: ','Tasa de enfriamiento: ')+thLabel(s),a.t,a.coolingRate,'thermal-cooling-rate','max(−dT/dt,0)');c.thermalSourceId=s.id;
   const h=thAddRate(s,flUi('Heating Rate: ','Tasa de calentamiento: ')+thLabel(s),a.t,a.heatingRate,'thermal-heating-rate','max(dT/dt,0)');h.thermalSourceId=s.id;activeId=c.id;
-  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode!=='analysis')setDataView('timeseries')}catch{}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch{}
 }
 function thExport(){
   const p=window.FoamLensLastThermalAnalysis;if(!p){flSetIssue('thStatus','analysis-result-missing',{analysis:'Thermal Analysis'});return}downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
