@@ -3484,3 +3484,18 @@ The only later branch changes are documentation entries recording this evidence.
 
 **Validation required:** Windows CI must pass the complete regression/build/portable/installer smoke path before Issue #14 is closed.
 
+### Branding branch validation complete
+
+Windows CI run `37442846439` completed **SUCCESS** on functional head `fbf5e38c1ffe1dcee8ed42b38c46682778a0cec6`.
+
+Validated in the successful run:
+- real QuickCup/OpenFOAM regression;
+- complete scientific/UI regression suite;
+- canonical FoamLens SVG blob identity;
+- official Windows multi-resolution ICO packaging;
+- portable EXE build and packaged smoke with launch/sidebar/About brand rendering;
+- installer build and installed-application smoke;
+- GitHub Release publication correctly skipped on the branding branch.
+
+The branch is ready to merge without a version bump or release publication.
+
