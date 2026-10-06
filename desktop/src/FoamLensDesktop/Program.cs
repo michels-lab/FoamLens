@@ -257,7 +257,6 @@ internal sealed class FoamLensForm : Form
         string indexReasonPhrase = "";
         string indexContentType = "";
         string indexContentLength = "";
-        CoreWebView2WebResourceResponseView? indexResponseView = null;
         void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
         {
             if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
@@ -266,7 +265,6 @@ internal sealed class FoamLensForm : Form
             {
                 indexStatusCode = e.Response.StatusCode;
                 indexReasonPhrase = e.Response.ReasonPhrase ?? "";
-                indexResponseView = e.Response;
                 try { indexContentType = e.Response.Headers.GetHeader("Content-Type") ?? ""; } catch { }
                 try { indexContentLength = e.Response.Headers.GetHeader("Content-Length") ?? ""; } catch { }
             }
@@ -294,34 +292,7 @@ internal sealed class FoamLensForm : Form
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
 
             if (indexStatusCode.HasValue)
-            {
                 Log($"FoamLens index response: status={indexStatusCode.Value}; reason={indexReasonPhrase}; contentType={indexContentType}; contentLength={indexContentLength}");
-                if (indexResponseView is not null)
-                {
-                    try
-                    {
-                        await using var responseStream = await indexResponseView.GetContentAsync();
-                        if (responseStream is null)
-                        {
-                            Log("FoamLens index response body: null stream.");
-                        }
-                        else
-                        {
-                            using var responseCopy = new MemoryStream();
-                            await responseStream.CopyToAsync(responseCopy);
-                            var responseBytes = responseCopy.ToArray();
-                            var responseHash = Convert.ToHexString(SHA256.HashData(responseBytes)).ToLowerInvariant();
-                            var responsePrefix = Encoding.UTF8.GetString(responseBytes, 0, Math.Min(responseBytes.Length, 120))
-                                .Replace("\r", " ").Replace("\n", " ");
-                            Log($"FoamLens index response body: bytes={responseBytes.Length}; sha256={responseHash}; prefix={responsePrefix}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"FoamLens index response body inspection failed: {ex.Message}");
-                    }
-                }
-            }
             else
                 Log("FoamLens index response: no WebResourceResponseReceived event captured.");
 
@@ -336,7 +307,8 @@ internal sealed class FoamLensForm : Form
                     "const rect=title?.getBoundingClientRect?.();" +
                     "const titleText=title?.textContent?.trim()||'';" +
                     "const titleVisible=!!title&&titleText.includes('FoamLens')&&titleStyle?.display!=='none'&&titleStyle?.visibility!=='hidden'&&Number(rect?.width||0)>0&&Number(rect?.height||0)>0;" +
-                    "return {titleText,titleVisible,titleDisplay:titleStyle?.display||'',titleVisibility:titleStyle?.visibility||'',titleWidth:Number(rect?.width||0),titleHeight:Number(rect?.height||0),bodyDisplay:bodyStyle?.display||'',bodyVisibility:bodyStyle?.visibility||'',bodyClasses:body?.className||'',bodyTextHasFoamLens:!!body?.innerText?.includes('FoamLens'),bodyTextLength:Number(body?.innerText?.length||0),readyState:document.readyState,href:location.href};})()");
+                    "const outer=document.documentElement?.outerHTML||'';" +
+                    "return {titleText,titleVisible,titleDisplay:titleStyle?.display||'',titleVisibility:titleStyle?.visibility||'',titleWidth:Number(rect?.width||0),titleHeight:Number(rect?.height||0),bodyDisplay:bodyStyle?.display||'',bodyVisibility:bodyStyle?.visibility||'',bodyClasses:body?.className||'',bodyTextHasFoamLens:!!body?.innerText?.includes('FoamLens'),bodyTextLength:Number(body?.innerText?.length||0),documentTitle:document.title||'',headHtmlLength:Number(document.head?.innerHTML?.length||0),bodyHtmlLength:Number(body?.innerHTML?.length||0),outerHtmlLength:Number(outer.length||0),outerHtmlPrefix:outer.slice(0,240),readyState:document.readyState,href:location.href};})()");
                 using (var launchState = JsonDocument.Parse(launchStateJson))
                 {
                     var root = launchState.RootElement;
