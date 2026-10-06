@@ -3395,3 +3395,12 @@ Status: **fix present / final main publication validation pending**.
 - Scientific parsing, VTK validation, field reconstruction and numerical-analysis logic were not identified as the cause of these UX issues.
 - Recommended development target: **v1.6.0** because the correction changes the information architecture and interaction model.
 - No functional code was changed as part of this audit.
+
+## 2026-10-06 — GitHub Copilot agent delegation
+
+Added repository-level Copilot instructions and custom App Maintainer, QA Regression and Release Manager agents. The contracts make scientific provenance, workspace ownership, 3D/Profile/Time-Series/Solver-Log separation, current-commit regression evidence, Windows build/smoke validation and updater integrity mandatory agent constraints.
+
+Purpose: move bounded implementation, regression inspection and release preparation to repository agents while keeping cross-project ChatGPT focused on architecture and coordination.
+
+No FoamLens scientific behavior, UI behavior, version or release artifact changed in this infrastructure-only update.
+
