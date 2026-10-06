@@ -3492,3 +3492,31 @@ Status: **fix present / final main publication validation pending**.
 - QuickCup runtime artifact: id `11381712511`, digest `sha256:dfa2bd9ddf021d4244bbcca9ceada76c40824c60be396d41d0c8d38b9b676aca`.
 - GitHub Release publication was correctly skipped because this is a development branch.
 - **No merge to main and no v1.6.0 public release yet.**
+
+## 2026-10-05 — v1.6.0 permanent Field ownership phase validated
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `84fb85ca3f28591ec4ad59e786997131bcb4eb65`.
+- GitHub Actions run **#747** (`37396621308`): **SUCCESS**.
+- Structural correction: the core 3D Field View panel and its controls are now adopted by the Field Workspace once and remain Field-owned across top-level section changes.
+- `fwLeave()` no longer restores `fieldViewPanel` or `fieldViewControls` into the legacy Data tree.
+- Added `fwAdoptFieldNode()` plus regression coverage that forbids restoring the 3D panel/control tree back into Data.
+- Historical Field View regressions were updated from the obsolete `fwMove(...)` contract to the new permanent-ownership contract.
+- Scope deliberately kept surgical: the shared 2D chart plus Profile / Time Series / Solver Log control trees still use compatibility reparenting because Analysis and legacy plot rendering currently share that chart path. Their separation is the next structural block and was not mixed into this change.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- 3D OpenFOAM Field View regression: **SUCCESS**.
+- Persistent Field Workspace UX regression: **SUCCESS**.
+- Contextual help / Split resizing regression: **SUCCESS**.
+- Ribbon/context/activity scope regression: **SUCCESS**.
+- Analysis UI organization regression: **SUCCESS**.
+- Bilingual / overflow hardening: **SUCCESS**.
+- Portable Windows executable build + packaged runtime smoke: **SUCCESS**.
+- Installer build + installed-application smoke: **SUCCESS**.
+- Windows artifact: `FoamLens-Windows-v1.5.1`, id `11384410036`, digest `sha256:2d0e506546b5fd161b4fc2f3638df3d34f0651d08deb92e1cc573e0d76d05f6d`.
+- VTK validation artifact: id `11382939909`, digest `sha256:7aae37d5bf0c2b80a79ff33973ad7216b01848ba7b5d284bf362b6c836d11f00`.
+- QuickCup Windows runtime fixture: id `11383540206`, digest `sha256:551759b034181b5fc58781afd50276887b3388d27eefd70546e8d4eb43dbeb58`.
+- No merge to `main` and no v1.6.0 release were performed.
+
