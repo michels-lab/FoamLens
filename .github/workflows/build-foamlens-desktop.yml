@@ -16,6 +16,7 @@ on:
       - 'integration/**'
       - 'release/**'
       - 'fix/**'
+      - 'branding/**'
     tags:
       - 'v*'
     paths:
@@ -201,6 +202,7 @@ jobs:
           New-Item -ItemType Directory -Force bundle_tmp | Out-Null
           Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
           Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force
           Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
           Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
 
@@ -318,6 +320,10 @@ jobs:
       - name: Test native Windows icon packaging
         shell: pwsh
         run: node desktop/tests/windows-icon.test.cjs
+
+      - name: Test official FoamLens product identity
+        shell: pwsh
+        run: node desktop/tests/official-branding.test.cjs
 
       - name: Guard product code from regression-fixture names
         shell: pwsh
