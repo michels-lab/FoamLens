@@ -133,13 +133,12 @@ internal sealed class FoamLensForm : Form
                         return;
                     }
 
-                    var bytes = File.ReadAllBytes(localPath);
-                    e.Response = CreateLocalResponse(
-                        environment,
+                    var stream = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    e.Response = environment.CreateWebResourceResponse(
+                        stream,
                         200,
                         "OK",
-                        bytes,
-                        LocalContentType(localPath));
+                        $"Content-Type: {LocalContentType(localPath)}\r\nCache-Control: no-store\r\n");
                 }
                 catch (Exception ex)
                 {
