@@ -48,6 +48,12 @@ assert(source.includes("host.appendChild(transport)"),
   'Field Ribbon creates a second time controller instead of reusing the global transport.');
 assert(source.includes('flRibbonTimeHost'),
   'Field Ribbon has no physical-time transport host.');
+assert(source.includes("document.getElementById('fvCacheLimit')"),
+  'Frame-cache selector is not reused in the playback strip.');
+assert(source.includes('flRibbonCacheHost')&&source.includes('flRibbonCacheField'),
+  'Frame-cache selector is not mounted beside Play / time / speed.');
+assert(source.includes('Playback / frame cache'),
+  'Playback strip does not label the cache control as part of frame playback.');
 for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
   assert(source.includes(id),'Expected scoped Field action missing: '+id);
 assert(source.includes("view==='3d'||view==='split'"),
