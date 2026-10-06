@@ -179,28 +179,32 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
-            // Extension integration smoke: Field View must mount as a first-class
-            // top-level mode. The launch screen intentionally hides #appShell
-            // before a case is loaded, so actual visual visibility is checked
-            // later after the real OpenFOAM fixture has been imported.
+            // Extension integration smoke: Field View must mount through the v1.6
+            // Ribbon + Field surface contract. Legacy mode/data-tab navigation
+            // must not survive as a second route into the same workspace.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const mode=document.getElementById('modeField');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {mode:!!mode,controls:!!controls,panel:!!panel,modeDisabled:!!mode?.disabled,modeText:mode?.textContent?.trim()||'',modeDisplay:mode?getComputedStyle(mode).display:''}})()");
+                "(()=>{const ribbon=document.getElementById('flRibbonTab-field');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');const surface=document.getElementById('fieldSurface');return {ribbon:!!ribbon,controls:!!controls,panel:!!panel,surface:!!surface,ribbonDisabled:!!ribbon?.disabled,ribbonText:ribbon?.textContent?.trim()||'',ribbonDisplay:ribbon?getComputedStyle(ribbon).display:'',legacyFieldButtonAbsent:!document.getElementById('modeField'),legacyFieldDatasetTabAbsent:!document.getElementById('fieldViewTab')}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
                 var mounted =
                     root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
-                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
+                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean() &&
+                    root.TryGetProperty("surface", out var surfaceNode) && surfaceNode.GetBoolean();
                 var topLevelMounted =
-                    root.TryGetProperty("mode", out var modeNode) && modeNode.GetBoolean() &&
-                    root.TryGetProperty("modeDisabled", out var modeDisabledNode) && !modeDisabledNode.GetBoolean() &&
-                    root.TryGetProperty("modeText", out var modeTextNode) &&
-                    !string.IsNullOrWhiteSpace(modeTextNode.GetString()) &&
-                    root.TryGetProperty("modeDisplay", out var modeDisplayNode) &&
-                    !string.Equals(modeDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
+                    root.TryGetProperty("ribbon", out var ribbonNode) && ribbonNode.GetBoolean() &&
+                    root.TryGetProperty("ribbonDisabled", out var ribbonDisabledNode) && !ribbonDisabledNode.GetBoolean() &&
+                    root.TryGetProperty("ribbonText", out var ribbonTextNode) &&
+                    !string.IsNullOrWhiteSpace(ribbonTextNode.GetString()) &&
+                    root.TryGetProperty("ribbonDisplay", out var ribbonDisplayNode) &&
+                    !string.Equals(ribbonDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase) &&
+                    root.TryGetProperty("legacyFieldButtonAbsent", out var legacyFieldButtonAbsentNode) &&
+                    legacyFieldButtonAbsentNode.GetBoolean() &&
+                    root.TryGetProperty("legacyFieldDatasetTabAbsent", out var legacyFieldDatasetTabAbsentNode) &&
+                    legacyFieldDatasetTabAbsentNode.GetBoolean();
                 if (!mounted || !topLevelMounted)
                     throw new InvalidOperationException(
-                        $"FoamLens Field View top-level mode did not mount correctly: {fieldViewUiJson}");
+                        $"FoamLens v1.6 Field Ribbon/surface did not mount cleanly: {fieldViewUiJson}");
             }
 
             var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
@@ -617,10 +621,14 @@ internal sealed class FoamLensForm : Form
                         !fieldRibbonVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
                         string.IsNullOrWhiteSpace(fieldRibbonTextNode.GetString()) ||
+                        !data.TryGetProperty("legacyFieldButtonAbsent", out var legacyFieldButtonAbsentNode) ||
+                        !legacyFieldButtonAbsentNode.GetBoolean() ||
+                        !data.TryGetProperty("legacyFieldDatasetTabAbsent", out var legacyFieldDatasetTabAbsentNode) ||
+                        !legacyFieldDatasetTabAbsentNode.GetBoolean() ||
                         !data.TryGetProperty("legacyFieldModeHidden", out var legacyFieldModeHiddenNode) ||
                         !legacyFieldModeHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens ribbon Field navigation is not visible after case import: {realCaseJson}");
+                            $"FoamLens v1.6 Field Ribbon navigation / legacy-nav retirement failed after case import: {realCaseJson}");
 
                     if (!data.TryGetProperty("streamlineSeed400", out var streamlineSeed400Node) ||
                         streamlineSeed400Node.GetInt32() != 400 ||
@@ -1207,8 +1215,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     companionChartMounted:!!document.querySelector('#fw2DHost .chartwrap'),
     plotHiddenIn3D:(()=>{const e=document.querySelector('.fwPlotCard');return !!e&&getComputedStyle(e).display==='none'})(),
     inspectorHidden:(()=>{const e=document.getElementById('fwControlsDrawer');return !!e&&e.classList.contains('hidden')})(),
-    fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
-    fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
+    legacyFieldButtonAbsent:!document.getElementById('modeField'),
+    legacyFieldDatasetTabAbsent:!document.getElementById('fieldViewTab'),
     fieldRibbonText:document.querySelector('#flRibbonTab-field span')?.textContent?.trim()||'',
     fieldRibbonVisible:(()=>{const e=document.getElementById('flRibbonTab-field');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     legacyFieldModeHidden:(()=>{const nav=document.getElementById('modeNavBar');return !!nav&&getComputedStyle(nav).display==='none'})(),
