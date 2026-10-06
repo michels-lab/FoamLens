@@ -815,3 +815,37 @@ The new `section-ownership.test.cjs` and updated Field/Ribbon/Analysis regressio
 - hidden Analysis plot navigation;
 - ambiguous 2D-vs-3D Difference labels.
 
+
+
+---
+
+## Final renderer-boundary disposition — validated through run #792
+
+**Validated product head:** `48599763a1c8bdbe9b6445f5ee361c88f9c91e7b`  
+**GitHub Actions:** #792 — SUCCESS
+
+The final open renderer items from the previous disposition are now closed:
+
+- **UX-07 / UX-12 — CLOSED.**
+- Data, Analysis and Field each own a stable 2D plot surface.
+- Field no longer borrows or restores the Data/Analysis `.chartwrap`.
+- The scientific renderer remains shared at the function/model level instead of the DOM-node level.
+- Interactive behavior is shared through `bindPlotCanvasInteractions(canvas)`, so hover, point pinning, figure selection, legend drag/resize and direct manipulation remain consistent on every surface.
+- The active surface receives the legacy canonical plot IDs so existing renderer/export code remains one implementation, while inactive surfaces keep scoped IDs.
+- Surface switching preserves each workspace's plot view, pinned points and active-series identity.
+- No fixed-position or absolute overlay portal was introduced.
+
+### Runtime validation
+The Windows packaged and installed smokes now explicitly cycle:
+
+`Field → Data (Catalog) → Analysis (Time Series) → Data (Catalog restored) → Field`
+
+and verify:
+- exactly three stable surfaces exist;
+- Data and Analysis remain parented to `chartViewport`;
+- Field remains parented to `fw2DHost`;
+- the canonical `#canvas` belongs to the active workspace at every transition;
+- parent relationships remain unchanged throughout the cycle.
+
+### Audit status
+The previously identified cross-section DOM ownership boundary is now fully resolved. Any future movement of the 2D chart between top-level workspaces is considered a regression and is blocked by `plot-surfaces.test.cjs`, `section-ownership.test.cjs`, Workspace UX tests and the packaged runtime smoke.
