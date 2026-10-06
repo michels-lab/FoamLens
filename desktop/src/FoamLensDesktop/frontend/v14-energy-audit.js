@@ -186,7 +186,7 @@ function eaCreateCurves(){
     const cumulative=eaTrapezoid(r.grid,r.total),cum=eaAddDerived(base,eaUi('Cumulative total boundary energy · ','Energía total acumulada de frontera · ')+label,cumulative.t,cumulative.y,'J',{operation:'time-integral-total-energy-flux',source:label,group:g.key});
     first=first||residual||cum;created+=2
   }
-  if(created){activeId=first?.id||activeId;refreshDatasetControls();if(activeAppMode!=='analysis')setDataView('timeseries');renderList();updateMeta();if(activeAppMode!=='analysis')draw()}
+  if(created){activeId=first?.id||activeId;refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}
   const status=document.getElementById('eaStatus');if(created){flClearIssue(status);status.textContent=eaUi('Created '+created+' audit curve(s): closure residuals and cumulative total boundary energy.','Se crearon '+created+' curva(s) de auditoría: residuales de cierre y energía total acumulada de frontera.')}else flSetIssue(status,'energy-flux-set-incomplete',{analysis:'Energy Audit'});
 }
 function eaInstallUi(){
