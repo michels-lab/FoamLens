@@ -579,16 +579,17 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
-test('Field workspace owns one central viewport plus a floating contextual Inspector',()=>{
+test('Field workspace owns one central viewport plus a contextual sidebar',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
-    'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
+    'fwControlsDrawer','fwInspectorToggle','fwSetInspector','fwMountContextSidebar',
+    "sidebar.prepend(drawer)",".sidebar>.fwControlsDrawer.fwSidebarContext{position:static",
     'fwEnsureCompanionSurface','fwActivateCompanionSurface',
     "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
     "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwGrid.layout-3d .fwPlotCard{display:none}',
     'fwGrid.layout-plot .fw3DCard{display:none}'
-  ])assert(workspaceSource.includes(token),'Missing central Field viewport/Inspector token: '+token);
+  ])assert(workspaceSource.includes(token),'Missing central Field viewport/context sidebar token: '+token);
   assert(!workspaceSource.includes('grid-template-columns:minmax(0,1fr) 340px'),
     '3D focus still reserves a permanent controls column.');
 });
