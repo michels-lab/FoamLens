@@ -8,6 +8,7 @@ const base=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const session=fs.readFileSync(path.join(base,'v23-session-state.js'),'utf8');
 const plots=fs.readFileSync(path.join(base,'v14-zy-plot-surfaces.js'),'utf8');
 const fieldUx=fs.readFileSync(path.join(base,'v17-workspace-ux.js'),'utf8');
+const program=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8');
 
 new Function(session);new Function(plots);new Function(fieldUx);
 
@@ -60,10 +61,30 @@ test('plot surface persistence uses stable series workspace keys',()=>{
   ])assert(plots.includes(token),'Missing stable plot persistence token: '+token);
 });
 
-test('Field Inspector joins the existing persisted Field layout',()=>{
+test('Field Inspector and full Field layout join the persisted session',()=>{
   assert(fieldUx.includes("inspector:typeof fwState!=='undefined'?!!fwState.inspector:false"));
+  assert(fieldUx.includes('async function uxApplyState(saved)'));
   assert(fieldUx.includes("setInspector?.(!!saved.inspector)"));
   assert(fieldUx.includes("setInspector?.(false)"));
+  assert(fieldUx.includes('applyState:uxApplyState'));
+  assert(session.includes("FoamLensWorkspaceUx?.applyState?.(payload.field)"));
+});
+
+test('packaged runtime smoke round-trips persisted session state',()=>{
+  for(const token of [
+    'sessionRestored',
+    'sessionStoredSchema',
+    'sessionStoredMode',
+    'sessionRestoredMode',
+    'sessionRestoredCaseId',
+    'sessionRestoredRegion',
+    'sessionStoredDataView',
+    'sessionRestoredDataView',
+    'sessionInspectorRestored',
+    'sessionFieldViewRestored',
+    'sessionFieldCompanionRestored',
+    'cross-session state round-trip smoke failed'
+  ])assert(program.includes(token),'Missing packaged persistence smoke token: '+token);
 });
 
 test('session saves on navigation context plot interaction and application close',()=>{
