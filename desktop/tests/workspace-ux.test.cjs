@@ -19,7 +19,7 @@ test('Field Workspace persists v2 view state instead of obsolete permanent split
   for(const token of [
     "foamlens.fieldWorkspace.ux.v2",'schema:2','view:','companion:',
     'compareEnabled:','viewCount:','differenceEnabled:','syncMode:',
-    'camerasLinked:','visualsSynced:','names'
+    'camerasLinked:','visualsSynced:','inspector:','names'
   ])assert(ux.includes(token),'Missing persistent workspace token: '+token);
   assert(!ux.includes("foamlens.fieldWorkspace.ux.v1"),'Old workspace state schema is still active.');
 });
@@ -28,6 +28,7 @@ test('saved workspace state restores active Field tab and optional Split compani
   for(const token of [
     "set('fwCompanion',saved.companion)",
     "FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d')",
+    "setInspector?.(!!saved.inspector)",
     "check('fcLinkCameras',saved.camerasLinked)",
     "check('fcSyncVisuals',saved.visualsSynced)",
     "set('fcSync',saved.syncMode)",
@@ -41,6 +42,7 @@ test('layout reset returns to a single 3D view',()=>{
     'localStorage.removeItem(uxWorkspaceKey)',
     "set('fwCompanion','profile')",
     "FoamLensFieldWorkspace?.setView?.('3d')",
+    "FoamLensFieldWorkspace?.setInspector?.(false)",
     "check('fcLinkCameras',true)",
     "check('fcSyncVisuals',true)",
     "check('fcDifference',false)"
