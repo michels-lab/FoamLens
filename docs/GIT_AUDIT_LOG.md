@@ -3423,3 +3423,9 @@ Purpose: reduce repeated context reconstruction in future ChatGPT sessions and m
 
 **Validation status:** replacement `fix/deterministic-real-case-smoke` Windows CI is required before closing the finding.
 
+### Follow-up validation correction
+
+Replacement run `37437700568` reached the regression suite but stopped at `native-performance.test.cjs` because that source-level guard still required the obsolete polling implementation token `while(performance.now()-started<30000)`. This was test drift caused by the synchronization fix, not a product failure.
+
+The guard now requires the new deterministic contract (`await fvHandleCaseChange()`) plus explicit unavailable-region/field diagnostics. A fresh Windows CI run is required.
+
