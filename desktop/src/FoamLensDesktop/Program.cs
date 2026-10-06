@@ -248,10 +248,10 @@ internal sealed class FoamLensForm : Form
             while (brandingDeadline.Elapsed < TimeSpan.FromSeconds(10))
             {
                 brandingStateJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                    """(()=>{const ids=['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo'];
-                    const assets=ids.map(id=>{const img=document.getElementById(id);return{id,exists:!!img,isImage:img instanceof HTMLImageElement,src:img?.getAttribute?.('src')||'',complete:!!img?.complete,naturalWidth:Number(img?.naturalWidth||0),naturalHeight:Number(img?.naturalHeight||0)}});
-                    const legacyCount=document.querySelectorAll('.foamLensLogoSvg').length;
-                    return{ready:assets.every(x=>x.exists&&x.isImage&&x.complete&&x.naturalWidth>0&&x.naturalHeight>0)&&legacyCount===0,legacyCount,assets};})()""");
+                    "(()=>{const ids=['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo'];" +
+                    "const assets=ids.map(id=>{const img=document.getElementById(id);return{id,exists:!!img,isImage:img instanceof HTMLImageElement,src:img?.getAttribute?.('src')||'',complete:!!img?.complete,naturalWidth:Number(img?.naturalWidth||0),naturalHeight:Number(img?.naturalHeight||0)}});" +
+                    "const legacyCount=document.querySelectorAll('.foamLensLogoSvg').length;" +
+                    "return{ready:assets.every(x=>x.exists&&x.isImage&&x.complete&&x.naturalWidth>0&&x.naturalHeight>0)&&legacyCount===0,legacyCount,assets};})()");
                 using (var brandingState = JsonDocument.Parse(brandingStateJson))
                 {
                     var root = brandingState.RootElement;
