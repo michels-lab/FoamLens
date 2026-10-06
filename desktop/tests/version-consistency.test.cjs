@@ -31,6 +31,8 @@ assert(program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.
 assert(installer.includes('#define MyAppVersion "1.6.0"'),'Installer fallback version is not v1.6.0.');
 assert(workflow.includes('# FoamLens CI — v1.6.0 release validation'),'CI workflow identity is not v1.6.0.');
 assert(workflow.includes('FoamLens-Windows-v${{ steps.ver.outputs.version }}'),'CI artifact version is not derived from the project version.');
+assert(workflow.includes("github.ref == 'refs/heads/main'"),'Main builds are not configured to publish a public GitHub Release.');
+assert(workflow.includes("CHANGELOG.md")&&workflow.includes("--notes-file 'artifacts/release-notes.md'"),'GitHub Release notes are not sourced from the v1.6 changelog.');
 assert(index.includes("function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}"),'Global export provenance identity is not derived from the Desktop version helper.');
 assert((index.match(/data-desktop-version/g)||[]).length>=3,'Desktop version is not visibly surfaced in launch/sidebar/footer.');
 assert(index.includes("document.title='FoamLens v51 · '+label+' — by Michel Duarte'"),'Window title does not expose the Desktop version.');
