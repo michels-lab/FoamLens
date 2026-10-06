@@ -59,6 +59,10 @@ assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
 assert(program.includes('SetVirtualHostNameToFolderMapping(')&&program.includes('"foamlens.local", AppRoot, CoreWebView2HostResourceAccessKind.Allow'),
   'Desktop host does not use the stable local virtual-host mapping.');
+assert(program.includes('InlineRasterBrandAsset(')&&program.includes('"image/jpeg"')&&program.includes('"image/png"')&&program.includes('Convert.ToBase64String(bytes)'),
+  'Desktop host does not inline the two canonical raster brand assets from their materialized bytes.');
+assert(program.includes('"assets/branding/michel-duarte-avatar.jpg"')&&program.includes('"assets/branding/michels-lab-lockup.png"'),
+  'Desktop host raster inlining lost a canonical About asset path.');
 assert(!program.includes('AddWebResourceRequestedFilter('),
   'Desktop host still carries the temporary WebResourceRequested local-origin experiment.');
 assert(program.includes('data-foamlens-desktop-version')&&!program.includes('$"<html lang=\"en\" data-desktop-version='),
