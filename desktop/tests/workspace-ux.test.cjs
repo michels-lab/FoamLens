@@ -6,10 +6,11 @@ const assert=require('assert');
 
 const root=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const ux=fs.readFileSync(path.join(root,'v17-workspace-ux.js'),'utf8');
+const plotSurfaces=fs.readFileSync(path.join(root,'v14-zy-plot-surfaces.js'),'utf8');
 const field=fs.readFileSync(path.join(root,'v14-zz-field-workspace.js'),'utf8');
 const ribbon=fs.readFileSync(path.join(root,'v15-ribbon-ui.js'),'utf8');
 
-new Function(ux);new Function(field);new Function(ribbon);
+new Function(ux);new Function(plotSurfaces);new Function(field);new Function(ribbon);
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -73,18 +74,20 @@ test('3D Field DOM is adopted once and never restored to Data on section switch'
     'Field View controls are still restored into legacy Data ownership on leave.');
 });
 
-test('Field plot control trees are permanently owned by the Field Inspector',()=>{
+test('Field plot controls and the 2D viewport have permanent owners',()=>{
   for(const token of [
     'function fwOwnCompanionControls',
     "fwAdoptFieldNode(id,'fw2DControlsHost')",
-    "'playbackGlobal','timeSeriesControls','profileControls','logControls'"
-  ])assert(field.includes(token),'Missing permanent Field plot-control ownership token: '+token);
-  const start=field.indexOf('function fwRestoreCompanionNodes()'),end=field.indexOf('function fwCompanionTitle',start),restore=field.slice(start,end);
-  assert(start>=0&&end>start,'fwRestoreCompanionNodes block missing.');
-  for(const id of ['profileControls','timeSeriesControls','logControls','playbackGlobal'])
-    assert(!restore.includes(id),'Field plot control is still restored to legacy Data ownership: '+id);
-  assert(restore.includes("fwRestore(document.querySelector('#fw2DHost .chartwrap'))"),
-    'Shared chart compatibility restore was removed before Analysis owns an independent renderer.');
+    "'playbackGlobal','timeSeriesControls','profileControls','logControls'",
+    'function fwEnsureCompanionSurface',
+    'function fwActivateCompanionSurface'
+  ])assert(field.includes(token),'Missing permanent Field plot ownership token: '+token);
+  assert(!field.includes('fwRestoreCompanionNodes'),'Field still contains the legacy shared-chart restore bridge.');
+  assert(!field.includes('appendChild(chart)'),'Field still moves the shared chart into fw2DHost.');
+  assert(plotSurfaces.includes("['analysis',{view:'timeseries'"),'Analysis does not own a stable 2D surface state.');
+  assert(plotSurfaces.includes("['field',{view:'profile'"),'Field does not own a stable 2D surface state.');
+  assert(plotSurfaces.includes("flPlotSurfaceEnsure('analysis',document.getElementById('chartViewport'))"),
+    'Analysis stable surface is not created in the shared 2D workspace.');
 });
 
 test('Inspector is a floating drawer rather than a permanent grid column',()=>{
