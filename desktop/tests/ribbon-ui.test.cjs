@@ -71,6 +71,10 @@ assert(activity.includes('activityToast.flActivitySuppressed{display:none!import
 assert(activity.includes("'scanOverlay'"),
   'Scanner overlay is not part of the unified activity policy.');
 
+assert(source.includes("document.getElementById('modeField')?.remove()"),
+  'Legacy Field mode button is not retired after Ribbon installation.');
+assert(!source.includes("flRibbonClick('modeField')"),
+  'Field Ribbon still falls back to the retired legacy mode button.');
 assert(source.includes("body.flRibbonReady #modeNavBar{display:none!important}"),
   'Legacy mode navigation may only be hidden after the Ribbon mounts.');
 assert(source.includes("body.flRibbonReady .top .tools{display:none!important}"));
