@@ -7,6 +7,7 @@ const assert=require('assert');
 const root=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 const field=read('v14-zz-field-workspace.js');
+const fieldView=read('v14-field-view.js');
 const ribbon=read('v15-ribbon-ui.js');
 const activity=read('v20-activity-manager.js');
 const analysisScope=read('v21-analysis-scope.js');
@@ -18,7 +19,7 @@ const analysisModules=[
   'v14-experimental-validation.js','v14-momentum-mechanisms.js'
 ].map(read);
 
-for(const src of [field,ribbon,activity,analysisScope,compare,...analysisModules])new Function(src);
+for(const src of [field,fieldView,ribbon,activity,analysisScope,compare,...analysisModules])new Function(src);
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -48,6 +49,15 @@ test('top-level Ribbon exposes real scopes only',()=>{
     assert(!new RegExp("\\['"+removed+"','[^']+','[^']+','[^']+'\\]").test(ribbon),'Fake top-level alias returned: '+removed);
   for(const kept of ['home','data','field','analysis','export','view'])
     assert(new RegExp("\\['"+kept+"','[^']+','[^']+','[^']+'\\]").test(ribbon),'Expected top-level scope missing: '+kept);
+});
+
+test('legacy Field navigation cannot reappear beside the Ribbon',()=>{
+  assert(!field.includes('createdModeButton'),'Field workspace still contains legacy mode-button creation logic.');
+  assert(!field.includes("b.id='modeField'"),'Field workspace still creates modeField.');
+  assert(!fieldView.includes("tab.id='fieldViewTab'"),'Field View still creates a Data dataset tab.');
+  assert(!fieldView.includes("document.getElementById('fieldViewTab')"),'Field View still depends on the retired dataset tab.');
+  assert(ribbon.includes("document.getElementById('modeField')?.remove()"),'Ribbon does not remove the base legacy Field button.');
+  assert(!ribbon.includes("flRibbonClick('modeField')"),'Ribbon still uses modeField as a fallback.');
 });
 
 test('Difference labels distinguish 2D curve differences from strict 3D field differences',()=>{
