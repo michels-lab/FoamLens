@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.5.0 — persistent Field Workspace layout, view names and comparison status. */
+/* FoamLens Desktop v1.6.0 — persistent Field Workspace layout, view names and comparison status. */
 const uxWorkspaceKey='foamlens.fieldWorkspace.ux.v2';
 const uxDefaultNames={1:'A',2:'B',3:'C',4:'D'};
 let uxRestoring=false,uxInstalled=false;
