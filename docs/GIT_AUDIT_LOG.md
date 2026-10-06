@@ -3661,3 +3661,121 @@ The packaged smoke now performs an actual workspace cycle:
 ### Architecture status
 - The previous UX-07 / UX-12 singleton-chart compatibility boundary is **closed**.
 - There is no remaining intentional chart reparenting bridge between Data, Analysis and Field.
+
+## 2026-10-06 — GitHub Copilot agent delegation
+
+Added repository-level Copilot instructions and custom App Maintainer, QA Regression and Release Manager agents. The contracts make scientific provenance, workspace ownership, 3D/Profile/Time-Series/Solver-Log separation, current-commit regression evidence, Windows build/smoke validation and updater integrity mandatory agent constraints.
+
+Purpose: move bounded implementation, regression inspection and release preparation to repository agents while keeping cross-project ChatGPT focused on architecture and coordination.
+
+No FoamLens scientific behavior, UI behavior, version or release artifact changed in this infrastructure-only update.
+
+## 2026-10-06 — ChatGPT-ready task intake
+
+Added `.github/ISSUE_TEMPLATE/chatgpt-task.yml` so new implementation/audit tasks can capture the desired outcome, evidence, scope, acceptance criteria, required validation and release permission up front.
+
+Purpose: reduce repeated context reconstruction in future ChatGPT sessions and make repository work resumable from a bounded GitHub Issue without changing product behavior.
+\n
+
+## 2026-10-06 — Deterministic real-case packaged smoke selection
+
+**Finding:** Windows build run `37434467481` passed the scientific/unit suite and packaged executable launch, but the real OpenFOAM packaged smoke failed after switching to `B13_prghPressure_airGapOF14`: the requested `metal / T / t=9.8` selection ended on `CoCell`.
+
+**Evidence:** the QuickCup/VTK regression in the same workflow confirmed `T` exists in the `metal` region. The smoke helper used `dispatchEvent('change')` for an async case-change handler and only polled for the case ID/name; that condition could become true before `fvHandleCaseChange()` finished its awaited frame load. The still-running case load could then overwrite the smoke's requested field.
+
+**Action:** the smoke-only helper now invokes and awaits `fvHandleCaseChange()` directly before applying region/field/time selection. Requested regions/fields now also fail immediately with an explicit list of available choices instead of silently retaining a default field.
+
+**Scope:** smoke-test synchronization only; normal FoamLens user interaction and scientific field-selection behavior are unchanged.
+
+**Validation status:** replacement `fix/deterministic-real-case-smoke` Windows CI is required before closing the finding.
+
+### Follow-up validation correction
+
+Replacement run `37437700568` reached the regression suite but stopped at `native-performance.test.cjs` because that source-level guard still required the obsolete polling implementation token `while(performance.now()-started<30000)`. This was test drift caused by the synchronization fix, not a product failure.
+
+The guard now requires the new deterministic contract (`await fvHandleCaseChange()`) plus explicit unavailable-region/field diagnostics. A fresh Windows CI run is required.
+
+### Validation complete
+
+Replacement Windows CI run `37438147013` completed **SUCCESS** on commit `ed113c9637af9e0d98514eec77b775cd290f18e4`.
+
+Validated in the successful run:
+- real QuickCup/OpenFOAM regression;
+- full frontend/scientific regression suite;
+- native-performance guard updated for the awaited case-switch contract;
+- portable Windows publish;
+- packaged executable real-case smoke, including requested `metal / T / t=9.8`;
+- installer build;
+- installed-application smoke test.
+
+Conclusion: the prior `CoCell` result was a smoke synchronization race, not missing `T` data. The deterministic smoke fix is validated and ready to merge. Merging is intentionally kept separate because a `main` desktop change invokes the repository's current main-branch release workflow.
+
+### Release publication guard
+
+During P0 reconciliation, the FoamLens workflow was found to publish a GitHub Release automatically for every qualifying `main` desktop push. That conflicts with the repository agent/release contract requiring explicit publication authorization and makes safe maintenance merges capable of producing unintended releases.
+
+The workflow now keeps full CI/build/portable/installer validation on `main`, but `Publish GitHub Release` runs only for:
+- an explicit `v*` tag; or
+- manual `workflow_dispatch` with `publish=true`.
+
+`auto-update.test.cjs` now guards this separation so future CI changes cannot silently restore implicit main-branch publication.
+
+### Final branch validation after release-policy guard
+
+Windows CI run `37439205812` completed **SUCCESS** on functional/workflow commit `47c9d75eb6e9866cff0dd14abef51092c17a072b`.
+
+The successful run validates the combined change set:
+- deterministic awaited real-case smoke switching;
+- updated source-level smoke regression guard;
+- full QuickCup/OpenFOAM and scientific/UI regression suite;
+- portable packaged real-case smoke;
+- installer build and installed-app smoke;
+- explicit release-publication policy regression, with ordinary `main` pushes no longer sufficient to publish a GitHub Release.
+
+The only later branch changes are documentation entries recording this evidence.
+
+## 2026-10-06 — Official FoamLens identity adopted across active product surfaces
+
+**Source of truth:** `realmichelduarte/Michel-Software-Standards/shared-assets/product-logos/foamlens` (approved concept: 3D field/focus surface).
+
+**Migration:**
+- vendored the canonical `official-app-icon.svg`, `official-mark.svg` and `official-lockup.svg` under `desktop/src/FoamLensDesktop/frontend/assets/branding`;
+- replaced the legacy inline launch/sidebar/About marks and data-URI favicon with the canonical assets;
+- replaced `Assets/FoamLens.ico` with a seven-size (16/24/32/48/64/128/256) Windows derivative of the approved app icon, preserving the existing EXE/taskbar/shortcut/installer wiring;
+- embedded the canonical SVGs in the .NET assembly and materialized them into the local WebView app directory so packaged FoamLens remains self-contained;
+- updated the bundle workflow to vendor the assets and added `official-branding.test.cjs` plus stronger ICO-size validation;
+- extended the packaged smoke to require successful rendering of launch, sidebar and About official assets and to reject the former competing inline mark.
+
+**Scope:** product identity only. Scientific analysis, OpenFOAM parsing, workspace behavior and release version are unchanged.
+
+**Validation required:** Windows CI must pass the complete regression/build/portable/installer smoke path before Issue #14 is closed.
+
+### Branding branch validation complete
+
+Windows CI run `37442846439` completed **SUCCESS** on functional head `fbf5e38c1ffe1dcee8ed42b38c46682778a0cec6`.
+
+Validated in the successful run:
+- real QuickCup/OpenFOAM regression;
+- complete scientific/UI regression suite;
+- canonical FoamLens SVG blob identity;
+- official Windows multi-resolution ICO packaging;
+- portable EXE build and packaged smoke with launch/sidebar/About brand rendering;
+- installer build and installed-application smoke;
+- GitHub Release publication correctly skipped on the branding branch.
+
+The branch is ready to merge without a version bump or release publication.
+
+### Main-branch branding validation complete
+
+Merged PR #18 as `1b8213af89a2539e7da77cd532e389f001831c89`.
+
+Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently revalidated:
+- canonical FoamLens SVG identity and local packaging;
+- official multi-resolution Windows icon;
+- complete scientific/UI regression suite;
+- portable executable smoke;
+- installer build and installed-app smoke.
+
+`Publish GitHub Release` was **skipped**, confirming that the branding migration did not publish a new FoamLens version.
+
+**Status:** official FoamLens logo adoption is complete across the active Windows/startup/About/in-app surfaces covered by Issue #14.
