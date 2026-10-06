@@ -486,14 +486,10 @@ function fwInstall3DProfilePicker(){
   const canvas=document.getElementById('fvCanvas');if(!canvas||canvas.dataset.fwProfilePicker)return;canvas.dataset.fwProfilePicker='1';canvas.addEventListener('click',fwHandle3DProfileClick,true)
 }
 
-function fwCompanionControlIds(mode){
-  if(mode==='profile')return['profileControls','playbackGlobal'];
-  if(mode==='timeseries')return['timeSeriesControls'];
-  if(mode==='log')return['logControls','playbackGlobal'];
-  return[]
+function fwOwnCompanionControls(){
+  for(const id of ['playbackGlobal','timeSeriesControls','profileControls','logControls'])fwAdoptFieldNode(id,'fw2DControlsHost')
 }
 function fwRestoreCompanionNodes(){
-  for(const id of ['profileControls','timeSeriesControls','logControls','playbackGlobal'])fwRestore(document.getElementById(id));
   fwRestore(document.querySelector('#fw2DHost .chartwrap'))
 }
 function fwCompanionTitle(mode){
@@ -502,7 +498,7 @@ function fwCompanionTitle(mode){
 function fwSetCompanion(mode){
   mode=['profile','timeseries','log','none'].includes(mode)?mode:'profile';fwState.companion=mode;
   const select=document.getElementById('fwCompanion');if(select&&select.value!==mode)select.value=mode;
-  fwRestoreCompanionNodes();
+  fwRestoreCompanionNodes();fwOwnCompanionControls();
   const card=document.getElementById('fwPlotCard'),group=document.getElementById('fw2DControlGroup'),empty=document.getElementById('fwPlotEmpty'),title=document.getElementById('fwPlotTitle'),controlTitle=document.getElementById('fw2DControlTitle');
   card?.classList.toggle('companion-none',mode==='none');if(group)group.style.display=mode==='none'?'none':'';
   if(title)title.textContent=fwCompanionTitle(mode);if(controlTitle)controlTitle.textContent=fwCompanionTitle(mode)+' '+fwUi('controls','controles');
@@ -511,7 +507,6 @@ function fwSetCompanion(mode){
   if(currentDataView==='field3d')currentDataView='catalog';
   try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
   const chart=document.querySelector('#chartViewport .chartwrap')||document.querySelector('.chartwrap');if(chart){fwRemember(chart);document.getElementById('fw2DHost')?.appendChild(chart);chart.classList.remove('hidden')}
-  for(const id of fwCompanionControlIds(mode)){const n=fwMove(id,'fw2DControlsHost');if(n&&mode!=='timeseries'||(n&&timeSeriesOptionsBase().length))n.classList.remove('hidden')}
   fwRefreshFieldTsControls();
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
