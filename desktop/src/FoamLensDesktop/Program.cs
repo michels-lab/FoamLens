@@ -1206,6 +1206,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     if(!availableFields.includes(options.field))
       throw new Error('Requested smoke field is unavailable: '+options.field+'; available: '+availableFields.join(', '));
     fieldSel.value=options.field;
+    // Programmatic smoke selection has no DOM onchange event. Keep the loaded
+    // Field View state aligned so selector remount preservation does not
+    // restore the previous field before fvLoadSelection() consumes the request.
+    fvState.fieldName=options.field;
   }
   await fvLoadSelection();
   const requestedTime=Number(options.time);
