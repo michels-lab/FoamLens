@@ -83,6 +83,21 @@ test('v1.6 context state is exposed independently from selector presentation',()
     'Series filtering is still coupled to selector DOM.');
 });
 
+test('context effects are non-reentrant and avoid duplicate Review refresh',()=>{
+  for(const token of [
+    'let mrApplyingContextEffects=false',
+    'if(mrApplyingContextEffects)return false',
+    'mrApplyingContextEffects=true',
+    'finally{mrApplyingContextEffects=false}',
+    'apply:mrApplyContextEffects',
+    'applying:()=>mrApplyingContextEffects'
+  ])assert(mr.includes(token),'Missing context reentrancy guard token '+token);
+  const start=mr.indexOf('function mrApplyContextEffects()'),end=mr.indexOf('function mrSetContext',start),body=mr.slice(start,end);
+  assert(start>=0&&end>start,'Context effects block missing.');
+  assert(body.includes('refreshDatasetControls()'),'Context effects no longer refresh dependent controls.');
+  assert(!body.includes('refreshWorkspaceReview()'),'Context effects still duplicate the Review refresh already owned by refreshDatasetControls.');
+});
+
 test('new v1.3 analyses obey global context',()=>{
   for(const [name,src] of [['temporal',temporal],['physical',physical],['numerical',numerical],['vector',vector]]){
     assert(src.includes('seriesMatchesGlobalContext'),name+' analysis ignores active case/region context.');
