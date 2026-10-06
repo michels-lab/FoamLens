@@ -4484,9 +4484,9 @@ function flDerivedCatalogRows(){
   for(const s of series||[]){
     const derived=!!s?.derived||!!s?.derivedKind||s?.sourceKind==='derived'||String(s?.sourcePath||'').startsWith('derived:')||String(s?.sourcePath||'').startsWith('FoamLens ');
     if(!derived)continue;
-    const dtype=datasetTypeOf(s),physicalProfileTime=Number(s.profileTime),timeRange=dtype==='profile'&&Number.isFinite(physicalProfileTime)?null:flSafeMinMax(s.t||[]);
-    const timeMin=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:timeRange.min;
-    const timeMax=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:timeRange.max;
+    const dtype=datasetTypeOf(s),physicalProfileTime=Number(s.profileTime);let timeMin=NaN,timeMax=NaN;
+    if(dtype==='profile'&&Number.isFinite(physicalProfileTime)){timeMin=physicalProfileTime;timeMax=physicalProfileTime}
+    else for(const value of s.t||[]){const t=Number(value);if(!Number.isFinite(t))continue;if(!Number.isFinite(timeMin)||t<timeMin)timeMin=t;if(!Number.isFinite(timeMax)||t>timeMax)timeMax=t}
     const dimensions=String(s?.field?.dimensions||s?.dimensions||''),unit=String(s?.field?.unit||s?.unit||'');
     out.push({
       caseId:s.caseId??null,
