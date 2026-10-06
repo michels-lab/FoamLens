@@ -58,6 +58,21 @@ test('Field workspace exposes one central tab model and explicit Split',()=>{
   ])assert(field.includes(token),'Missing central-view token: '+token);
 });
 
+test('3D Field DOM is adopted once and never restored to Data on section switch',()=>{
+  for(const token of [
+    'function fwAdoptFieldNode',
+    "node.dataset.fwOwner='field'",
+    "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
+    "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"
+  ])assert(field.includes(token),'Missing permanent Field ownership token: '+token);
+  const start=field.indexOf('function fwLeave()'),end=field.indexOf('function fwInstall()',start),leave=field.slice(start,end);
+  assert(start>=0&&end>start,'fwLeave block missing.');
+  assert(!leave.includes("fwRestore(document.getElementById('fieldViewPanel'))"),
+    'Field View panel is still restored into legacy Data ownership on leave.');
+  assert(!leave.includes("fwRestore(document.getElementById('fieldViewControls'))"),
+    'Field View controls are still restored into legacy Data ownership on leave.');
+});
+
 test('Inspector is a floating drawer rather than a permanent grid column',()=>{
   for(const token of [
     'fwControlsDrawer','position:fixed','fwSetInspector',
