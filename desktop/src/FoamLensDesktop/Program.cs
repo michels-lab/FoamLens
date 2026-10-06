@@ -1262,6 +1262,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     setDataView('timeseries');
 
     const restored=ss.restoreSnapshot(stored,{force:true});
+    if(typeof ss.whenRestored==='function')await ss.whenRestored();
     const restoredContext=ctx.get?.()||{};
     const fieldState=window.FoamLensFieldWorkspace?.getState?.()||{};
     sessionSmoke={
