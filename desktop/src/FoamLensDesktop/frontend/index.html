@@ -5463,7 +5463,7 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
-function flDesktopVersion(){return document.documentElement.dataset.desktopVersion||'1.6.0'}
+function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.6.0'}
 function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}
 function flSyncVersionLabels(){
   const label='Desktop v'+flDesktopVersion();
