@@ -1,7 +1,17 @@
-/* FoamLens Desktop v1.6.0 — Field-owned 3D workspace with tabbed diagnostics and explicit Split. */
+/* FoamLens Desktop v1.6.1 — Field-owned command surface with contextual sidebar and explicit Split. */
 
 const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
 const fwTimeState={playing:false,timer:null};
+let fwRenderFrame=0,fwRenderNeeds3D=false,fwRenderNeeds2D=false;
+function fwScheduleRender({threeD=false,twoD=false}={}){
+  fwRenderNeeds3D=fwRenderNeeds3D||!!threeD;fwRenderNeeds2D=fwRenderNeeds2D||!!twoD;
+  if(fwRenderFrame)return;
+  fwRenderFrame=requestAnimationFrame(()=>{
+    fwRenderFrame=0;const do3D=fwRenderNeeds3D,do2D=fwRenderNeeds2D;fwRenderNeeds3D=false;fwRenderNeeds2D=false;
+    if(do3D&&fwState.layout!=='plot')try{fvRender()}catch{}
+    if(do2D&&fwState.layout!=='3d')try{draw()}catch{}
+  })
+}
 const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fwAdoptFieldNode(id,targetId){
@@ -9,6 +19,12 @@ function fwAdoptFieldNode(id,targetId){
   if(node.parentNode!==target)target.appendChild(node);
   node.dataset.fwOwner='field';
   return node
+}
+function fwMountContextSidebar(){
+  const sidebar=document.querySelector('.sidebar'),drawer=document.getElementById('fwControlsDrawer');if(!sidebar||!drawer)return false;
+  if(drawer.parentElement!==sidebar)sidebar.prepend(drawer);
+  drawer.classList.add('fwSidebarContext');
+  return true
 }
 function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
@@ -99,7 +115,7 @@ function fwCreateSurface(){
     .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
-    .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
+    .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
@@ -119,16 +135,17 @@ function fwCreateSurface(){
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  fwMountContextSidebar();
   fwEnsureCompanionSurface();
   fwUpdateNavText()
 }
 function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
-  setTimeout(()=>{try{fvRender()}catch{};try{draw()}catch{}},0)
+  fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.layout!=='3d'})
 }
 function fwSetInspector(open){
-  fwState.inspector=!!open;const drawer=document.getElementById('fwControlsDrawer'),toggle=document.getElementById('fwInspectorToggle');
+  fwMountContextSidebar();fwState.inspector=!!open;const drawer=document.getElementById('fwControlsDrawer'),toggle=document.getElementById('fwInspectorToggle');
   drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
 }
 function fwActivateView(view){
@@ -143,6 +160,7 @@ function fwActivateView(view){
   const group3D=document.getElementById('fw3DControlGroup'),group2D=document.getElementById('fw2DControlGroup');
   if(group3D)group3D.style.display=(view==='3d'||view==='split')?'':'none';
   if(group2D)group2D.style.display=(view==='3d')?'none':'';
+  const sidebarTitle=document.querySelector('#fwControlsDrawer .fwInspectorHead strong');if(sidebarTitle)sidebarTitle.textContent=view==='3d'?fwUi('3D controls','Controles 3D'):view==='split'?fwUi('Split controls','Controles divididos'):fwCompanionTitle(view);
   fwRefreshGlobalTime();
   document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view,companion:fwState.companion}}))
 }
@@ -499,7 +517,7 @@ function fwSetCompanion(mode){
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
   if(mode==='timeseries'&&fieldHistoryAvailable)setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),0);
-  setTimeout(()=>{try{draw()}catch{};fwUpdateTimeBadge();try{fvRender()}catch{}},0)
+  fwScheduleRender({threeD:fwState.layout!=='plot',twoD:true});setTimeout(fwUpdateTimeBadge,0)
 }
 function fwUpdateTimeBadge(){
   const e=document.getElementById('fwPlotTime');if(!e)return;
@@ -542,7 +560,7 @@ function fwMount3D(){
   const compare=document.getElementById('fcPanel');if(compare){compare.open=true;compare.classList.add('fwCompareConfig')}
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
-  try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);setTimeout(()=>{fvRender();fwUpdate3DProfileOverlay()},0);return true
+  try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
 }
 function fwEnter(){
   fwCreateSurface();if(!fwMount3D())return;
@@ -551,8 +569,9 @@ function fwEnter(){
   document.querySelectorAll('.modeNavBtn').forEach(b=>b.classList.toggle('active',b.dataset.mode==='field'));
   const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');
   const trail=document.getElementById('contextTrail');if(trail)trail.textContent=fwUi('Field View','Vista 3D');
+  fwMountContextSidebar();fwSetInspector(true);
   const preferred=(fwState.companion==='profile'&&profileOptionsBase().length)?'profile':fwState.companion;fwSetCompanion(preferred);
-  fwActivateView(fwState.view||'3d');fwUpdateViewCount();fwRefreshGlobalTime();setTimeout(()=>{fvRender();fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
+  fwActivateView(fwState.view||'3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
