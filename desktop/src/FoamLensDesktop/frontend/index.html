@@ -8979,57 +8979,66 @@ function nearestPointFromMouse(ev){
 }
 
 
-$('canvas').addEventListener('pointerdown',ev=>{
-  const element=findFigureElementAt(ev);
-  if(element?.resizeEdge){selectFigureElement({...element,resizeEdge:false});beginLegendResize(ev,element);$('canvas').setPointerCapture?.(ev.pointerId);return}
-  if(element && (forceDragMode || ['legend','title','axis-label','pinned'].includes(element.type))){selectFigureElement(element);beginElementDrag(ev,element);$('canvas').setPointerCapture?.(ev.pointerId)}
-});
-$('canvas').addEventListener('pointermove',ev=>{if(legendResizeState)moveLegendResize(ev);else moveElementDrag(ev)});
-$('canvas').addEventListener('pointerup',ev=>{if(legendResizeState){$('canvas').releasePointerCapture?.(ev.pointerId);endLegendResize();return}if(dragState){$('canvas').releasePointerCapture?.(ev.pointerId);endElementDrag()}});
-$('canvas').addEventListener('pointercancel',()=>{endLegendResize();endElementDrag()});
+const plotCanvasInteractionBindings=new WeakSet();
+function bindPlotCanvasInteractions(canvas){
+  if(!canvas||plotCanvasInteractionBindings.has(canvas))return false;
+  plotCanvasInteractionBindings.add(canvas);
 
-$('canvas').addEventListener('mousemove',ev=>{
-  if(!legendResizeState&&!dragState){const hit=findFigureElementAt(ev);$('canvas').classList.toggle('legendResizeCursor',!!hit?.resizeEdge)}
-  const p=nearestPointFromMouse(ev),tip=$('tooltip');
+  canvas.addEventListener('pointerdown',ev=>{
+    const element=findFigureElementAt(ev);
+    if(element?.resizeEdge){selectFigureElement({...element,resizeEdge:false});beginLegendResize(ev,element);ev.currentTarget.setPointerCapture?.(ev.pointerId);return}
+    if(element && (forceDragMode || ['legend','title','axis-label','pinned'].includes(element.type))){selectFigureElement(element);beginElementDrag(ev,element);ev.currentTarget.setPointerCapture?.(ev.pointerId)}
+  });
+  canvas.addEventListener('pointermove',ev=>{if(legendResizeState)moveLegendResize(ev);else moveElementDrag(ev)});
+  canvas.addEventListener('pointerup',ev=>{if(legendResizeState){ev.currentTarget.releasePointerCapture?.(ev.pointerId);endLegendResize();return}if(dragState){ev.currentTarget.releasePointerCapture?.(ev.pointerId);endElementDrag()}});
+  canvas.addEventListener('pointercancel',()=>{endLegendResize();endElementDrag()});
 
-  if(!p){
-    hoverPoint=null;tip.style.display='none';draw();return
-  }
+  canvas.addEventListener('mousemove',ev=>{
+    const activeCanvas=ev.currentTarget;
+    if(!legendResizeState&&!dragState){const hit=findFigureElementAt(ev);activeCanvas.classList.toggle('legendResizeCursor',!!hit?.resizeEdge)}
+    const p=nearestPointFromMouse(ev),tip=$('tooltip');
 
-  hoverPoint={seriesId:p.seriesId,index:p.index};
-  const s=currentViewSeries().find(q=>q.id===p.seriesId)||series.find(q=>q.id===p.seriesId),side=p.state.asg.get(s.id);
-  const xTxt=tick(s.t[p.index],null,'x',p.state.xmin,p.state.xmax),yTxt=pointValueText(s,p.index,side);
-  const unit=s.field.quantity==='temperature'?($('tempUnit').value==='C'?' °C':' K'):(s.field.unit==='-'?'':` ${s.field.unit}`);
+    if(!p){
+      hoverPoint=null;tip.style.display='none';draw();return
+    }
 
-  const xUnit=datasetTypeOf(s)==='profile'?(s.profileCoordUnit||'mm'):(s.derivedKind==='log_evolution'?'subIter':'s');
-  tip.innerHTML=`<b>${esc(labelFor(s))}</b>X = ${xTxt} ${xUnit}<br>Y = ${yTxt}${unit}<br><span style="opacity:.72">OpenFOAM: ${esc(s.field.original||s.field.canonical)}</span><br><span style="opacity:.7">${tr('clickPin')}</span>`;
-  tip.style.left=Math.min(ev.offsetX+16,$('canvas').clientWidth-280)+'px';
-  tip.style.top=Math.max(8,ev.offsetY-14)+'px';
-  tip.style.display='block';
-  draw()
-});
+    hoverPoint={seriesId:p.seriesId,index:p.index};
+    const s=currentViewSeries().find(q=>q.id===p.seriesId)||series.find(q=>q.id===p.seriesId),side=p.state.asg.get(s.id);
+    const xTxt=tick(s.t[p.index],null,'x',p.state.xmin,p.state.xmax),yTxt=pointValueText(s,p.index,side);
+    const unit=s.field.quantity==='temperature'?($('tempUnit').value==='C'?' °C':' K'):(s.field.unit==='-'?'':` ${s.field.unit}`);
 
-$('canvas').addEventListener('mouseleave',()=>{
-  if(!legendResizeState)$('canvas').classList.remove('legendResizeCursor');
-  hoverPoint=null;$('tooltip').style.display='none';draw()
-});
+    const xUnit=datasetTypeOf(s)==='profile'?(s.profileCoordUnit||'mm'):(s.derivedKind==='log_evolution'?'subIter':'s');
+    tip.innerHTML=`<b>${esc(labelFor(s))}</b>X = ${xTxt} ${xUnit}<br>Y = ${yTxt}${unit}<br><span style="opacity:.72">OpenFOAM: ${esc(s.field.original||s.field.canonical)}</span><br><span style="opacity:.7">${tr('clickPin')}</span>`;
+    tip.style.left=Math.min(ev.offsetX+16,activeCanvas.clientWidth-280)+'px';
+    tip.style.top=Math.max(8,ev.offsetY-14)+'px';
+    tip.style.display='block';
+    draw()
+  });
 
-$('canvas').addEventListener('click',ev=>{
-  const element=findFigureElementAt(ev);
-  if(element){
-    selectFigureElement(element);
-    return
-  }
+  canvas.addEventListener('mouseleave',ev=>{
+    if(!legendResizeState)ev.currentTarget.classList.remove('legendResizeCursor');
+    hoverPoint=null;$('tooltip').style.display='none';draw()
+  });
 
-  selectFigureElement(null);
+  canvas.addEventListener('click',ev=>{
+    const element=findFigureElementAt(ev);
+    if(element){
+      selectFigureElement(element);
+      return
+    }
 
-  const p=nearestPointFromMouse(ev);
-  if(!p)return;
-  const idx=pinnedPoints.findIndex(q=>q.seriesId===p.seriesId&&q.index===p.index);
-  if(idx>=0)pinnedPoints.splice(idx,1);
-  else pinnedPoints.push({seriesId:p.seriesId,index:p.index});
-  draw()
-});
+    selectFigureElement(null);
+
+    const p=nearestPointFromMouse(ev);
+    if(!p)return;
+    const idx=pinnedPoints.findIndex(q=>q.seriesId===p.seriesId&&q.index===p.index);
+    if(idx>=0)pinnedPoints.splice(idx,1);
+    else pinnedPoints.push({seriesId:p.seriesId,index:p.index});
+    draw()
+  });
+  return true
+}
+bindPlotCanvasInteractions($('canvas'));
 
 $('clearPins').onclick=()=>{pinnedPoints=[];draw()};
 $('resetElementPosition').onclick=resetSelectedElementPosition;
