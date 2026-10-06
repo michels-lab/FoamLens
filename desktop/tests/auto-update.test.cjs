@@ -37,8 +37,10 @@ assert(workflow.includes('FoamLens-Setup-v$v.exe.sha256'),
 assert((workflow.match(/node desktop\/tests\/auto-update\.test\.cjs/g)||[]).length===1,
   'Auto-update regression must run exactly once in CI.');
 
-assert(!workflow.includes("github.ref == 'refs/heads/main'"),
-  'Main pushes must validate without implicitly publishing a GitHub Release.');
+assert(workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')"),
+  'Main must support explicit chat-driven releases through a release: commit.');
+assert(!workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' }}"),
+  'Ordinary main pushes must validate without implicitly publishing a GitHub Release.');
 assert(workflow.includes("github.event_name == 'workflow_dispatch' && inputs.publish == true"),
   'Manual GitHub Release publication must require workflow_dispatch with publish=true.');
 assert(workflow.includes("startsWith(github.ref, 'refs/tags/')"),
