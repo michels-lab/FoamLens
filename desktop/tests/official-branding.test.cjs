@@ -54,6 +54,10 @@ assert(program.includes('NavigationStarting += OnSmokeNavigationStarting')&&prog
 assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&&program.includes('titleWidth')&&program.includes('titleHeight'),
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
+assert(workflow.includes('Verify embedded frontend bundle integrity')&&workflow.includes('AppBundle index hash mismatch'),
+  'CI does not verify the embedded AppBundle index against the source frontend.');
+for(const asset of ['michel-duarte-avatar.jpg','michels-lab-lockup.png','official-lockup.svg'])
+  assert(workflow.includes(asset),'CI AppBundle integrity check does not require '+asset+'.');
 assert((workflow.match(/node desktop\/tests\/official-branding\.test\.cjs/g)||[]).length===1,'Official branding regression must run exactly once in CI.');
 
 console.log('Official FoamLens branding passed: canonical SVGs, launch/sidebar/About, favicon, embedded runtime assets and CI ownership are wired.');
