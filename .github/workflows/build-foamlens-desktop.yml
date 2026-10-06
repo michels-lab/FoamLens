@@ -195,6 +195,51 @@ jobs:
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Building FoamLens v$v"
 
+      - name: Recover canonical About raster derivatives
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $outDir='raster_recovery'
+          New-Item -ItemType Directory -Force $outDir | Out-Null
+
+          function Write-Base64Chunks([string]$label,[string]$path) {
+            $b64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+            $chunkSize=3000
+            $count=[Math]::Ceiling($b64.Length / $chunkSize)
+            Write-Host "FOAMLENS_RASTER_$($label)_BEGIN length=$($b64.Length) chunks=$count"
+            for($i=0;$i -lt $count;$i++) {
+              $start=$i*$chunkSize
+              $len=[Math]::Min($chunkSize,$b64.Length-$start)
+              Write-Host ("FOAMLENS_RASTER_{0}_{1:D3}={2}" -f $label,$i,$b64.Substring($start,$len))
+            }
+            Write-Host "FOAMLENS_RASTER_$($label)_END"
+          }
+
+          function Recover-Raster([string]$source,[string]$target,[string]$format,[string]$label) {
+            $stream=[IO.File]::OpenRead($source)
+            try {
+              $image=[System.Drawing.Image]::FromStream($stream,$true,$false)
+              try {
+                Write-Host "Recovered $label source dimensions: $($image.Width)x$($image.Height)"
+                $bitmap=New-Object System.Drawing.Bitmap $image
+                try {
+                  if($format -eq 'jpeg') {
+                    $bitmap.Save($target,[System.Drawing.Imaging.ImageFormat]::Jpeg)
+                  } else {
+                    $bitmap.Save($target,[System.Drawing.Imaging.ImageFormat]::Png)
+                  }
+                } finally { $bitmap.Dispose() }
+              } finally { $image.Dispose() }
+            } finally { $stream.Dispose() }
+            $check=[System.Drawing.Image]::FromFile((Resolve-Path $target))
+            try { Write-Host "Re-exported $label dimensions: $($check.Width)x$($check.Height); bytes=$((Get-Item $target).Length)" }
+            finally { $check.Dispose() }
+            Write-Base64Chunks $label $target
+          }
+
+          Recover-Raster 'desktop/src/FoamLensDesktop/frontend/assets/branding/michel-duarte-avatar.jpg' (Join-Path $outDir 'avatar.jpg') 'jpeg' 'AVATAR'
+          Recover-Raster 'desktop/src/FoamLensDesktop/frontend/assets/branding/michels-lab-lockup.png' (Join-Path $outDir 'lockup.png') 'png' 'LOCKUP'
+
       - name: Rebuild embedded frontend bundle
         shell: pwsh
         run: |
