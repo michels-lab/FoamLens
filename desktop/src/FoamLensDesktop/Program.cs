@@ -642,6 +642,37 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens stable Data / Analysis / Field plot-surface runtime smoke failed: {realCaseJson}");
 
+                    if (!data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
+                        !sessionRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionStoredSchema", out var sessionStoredSchemaNode) ||
+                        sessionStoredSchemaNode.GetInt32() != 1 ||
+                        !data.TryGetProperty("sessionStoredMode", out var sessionStoredModeNode) ||
+                        !string.Equals(sessionStoredModeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionRestoredMode", out var sessionRestoredModeNode) ||
+                        !string.Equals(sessionRestoredModeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionStoredRoot", out var sessionStoredRootNode) ||
+                        !data.TryGetProperty("sessionExpectedRoot", out var sessionExpectedRootNode) ||
+                        !string.Equals(sessionStoredRootNode.GetString(), sessionExpectedRootNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionRestoredCaseId", out var sessionRestoredCaseIdNode) ||
+                        !data.TryGetProperty("sessionExpectedCaseId", out var sessionExpectedCaseIdNode) ||
+                        sessionRestoredCaseIdNode.GetInt32() != sessionExpectedCaseIdNode.GetInt32() ||
+                        !data.TryGetProperty("sessionStoredRegion", out var sessionStoredRegionNode) ||
+                        !data.TryGetProperty("sessionRestoredRegion", out var sessionRestoredRegionNode) ||
+                        !string.Equals(sessionStoredRegionNode.GetString(), sessionRestoredRegionNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionStoredDataView", out var sessionStoredDataViewNode) ||
+                        !data.TryGetProperty("sessionRestoredDataView", out var sessionRestoredDataViewNode) ||
+                        !string.Equals(sessionStoredDataViewNode.GetString(), sessionRestoredDataViewNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionInspectorRestored", out var sessionInspectorRestoredNode) ||
+                        !sessionInspectorRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionFieldViewRestored", out var sessionFieldViewRestoredNode) ||
+                        !sessionFieldViewRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionFieldCompanionRestored", out var sessionFieldCompanionRestoredNode) ||
+                        !sessionFieldCompanionRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionSmokeError", out var sessionSmokeErrorNode) ||
+                        !string.IsNullOrWhiteSpace(sessionSmokeErrorNode.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens cross-session state round-trip smoke failed: {realCaseJson}");
+
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
@@ -1209,6 +1240,51 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceError=String(e?.stack||e);
     try{setAppMode('field')}catch{}
   }
+  let sessionSmoke=null,sessionSmokeError='';
+  try{
+    const ss=window.FoamLensSessionState,ctx=window.FoamLensContextStore,ps=window.FoamLensPlotSurfaces;
+    if(!ss||!ctx||!ps)throw new Error('Session persistence APIs are incomplete.');
+    ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke'});
+    window.FoamLensFieldWorkspace?.setInspector?.(true);
+    setAppMode('field');
+    ss.save();
+    const stored=ss.load();
+    if(!stored)throw new Error('Session state was not written to localStorage.');
+    const storedDataView=String(stored?.plots?.surfaces?.data?.view||'');
+    const storedRoot=String(stored?.context?.caseRoot||'');
+    const expectedRoot=String(caseById(Number(switchedCase.id))?.rootPath||'');
+
+    window.FoamLensFieldWorkspace?.setInspector?.(false);
+    ctx.set({caseId:null,region:''},{source:'session-smoke-mutate'});
+    setAppMode('data');
+    setDataView('timeseries');
+    setAppMode('analysis');
+    setDataView('timeseries');
+
+    const restored=ss.restoreSnapshot(stored,{force:true});
+    const restoredContext=ctx.get?.()||{};
+    const fieldState=window.FoamLensFieldWorkspace?.getState?.()||{};
+    sessionSmoke={
+      restored:!!restored,
+      storedSchema:Number(stored.schema||0),
+      storedMode:String(stored.activeMode||''),
+      restoredMode:String(activeAppMode||''),
+      storedRoot,
+      expectedRoot,
+      restoredCaseId:Number(restoredContext.caseId),
+      expectedCaseId:Number(switchedCase.id),
+      storedRegion:String(stored?.context?.region||''),
+      restoredRegion:String(restoredContext.region||''),
+      storedDataView,
+      restoredDataView:String(ps.state?.('data')?.view||''),
+      inspectorRestored:fieldState.inspector===true,
+      fieldViewRestored:String(fieldState.view||'')===String(stored?.field?.view||''),
+      fieldCompanionRestored:String(fieldState.companion||'')===String(stored?.field?.companion||'')
+    };
+  }catch(e){
+    sessionSmokeError=String(e?.stack||e);
+    try{setAppMode('field')}catch{}
+  }
   const streamlineSeed400=typeof fvSeedPlane==='function'&&fvState.mesh?fvSeedPlane(fvState.mesh.boundsMin,fvState.mesh.boundsMax,'x',400,.5).length:0;
   const advancedStreamlineControls=['fvSeedMode','fvSeedCount','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'].every(id=>!!document.getElementById(id));
   const multiViewControlSet=['fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals','fcView2Palette','fcView2Opacity'].every(id=>!!document.getElementById(id));
@@ -1254,6 +1330,22 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
+    sessionRestored:!!sessionSmoke?.restored,
+    sessionStoredSchema:Number(sessionSmoke?.storedSchema||0),
+    sessionStoredMode:String(sessionSmoke?.storedMode||''),
+    sessionRestoredMode:String(sessionSmoke?.restoredMode||''),
+    sessionStoredRoot:String(sessionSmoke?.storedRoot||''),
+    sessionExpectedRoot:String(sessionSmoke?.expectedRoot||''),
+    sessionRestoredCaseId:Number(sessionSmoke?.restoredCaseId),
+    sessionExpectedCaseId:Number(sessionSmoke?.expectedCaseId),
+    sessionStoredRegion:String(sessionSmoke?.storedRegion||''),
+    sessionRestoredRegion:String(sessionSmoke?.restoredRegion||''),
+    sessionStoredDataView:String(sessionSmoke?.storedDataView||''),
+    sessionRestoredDataView:String(sessionSmoke?.restoredDataView||''),
+    sessionInspectorRestored:!!sessionSmoke?.inspectorRestored,
+    sessionFieldViewRestored:!!sessionSmoke?.fieldViewRestored,
+    sessionFieldCompanionRestored:!!sessionSmoke?.fieldCompanionRestored,
+    sessionSmokeError,
     performanceLoads:Number(performanceStats?.loads||0),
     performanceLastMs:Number(performanceStats?.lastMs||0),
     performanceAvgMs:Number(performanceStats?.avgMs||0),
