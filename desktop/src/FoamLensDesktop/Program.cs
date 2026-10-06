@@ -179,6 +179,11 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
+            var officialBranding = await _web.CoreWebView2.ExecuteScriptAsync(
+                "Boolean(['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo'].every(id=>{const img=document.getElementById(id);return img instanceof HTMLImageElement&&img.complete&&img.naturalWidth>0})&&document.querySelectorAll('.foamLensLogoSvg').length===0)");
+            if (!string.Equals(officialBranding.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("FoamLens official local brand assets did not render on launch/sidebar/About.");
+
             // Extension integration smoke: Field View must mount as a first-class
             // top-level mode. The launch screen intentionally hides #appShell
             // before a case is loaded, so actual visual visibility is checked
@@ -1016,6 +1021,26 @@ internal sealed class FoamLensForm : Form
             .GetManifestResourceStream("FoamLensDesktop.AppBundle.zip")
             ?? throw new InvalidOperationException("Embedded FoamLens AppBundle.zip was not found.");
         ZipFile.ExtractToDirectory(stream, AppRoot, overwriteFiles: true);
+        MaterializeBrandAssets();
+    }
+
+    private void MaterializeBrandAssets()
+    {
+        var brandingDir = Path.Combine(AppRoot, "assets", "branding");
+        Directory.CreateDirectory(brandingDir);
+        var assembly = Assembly.GetExecutingAssembly();
+        foreach (var asset in new[]
+        {
+            (Resource: "FoamLensDesktop.Branding.official-app-icon.svg", File: "official-app-icon.svg"),
+            (Resource: "FoamLensDesktop.Branding.official-mark.svg", File: "official-mark.svg"),
+            (Resource: "FoamLensDesktop.Branding.official-lockup.svg", File: "official-lockup.svg")
+        })
+        {
+            using var input = assembly.GetManifestResourceStream(asset.Resource)
+                ?? throw new InvalidOperationException($"Embedded FoamLens brand asset was not found: {asset.Resource}");
+            using var output = File.Create(Path.Combine(brandingDir, asset.File));
+            input.CopyTo(output);
+        }
     }
 
     private void ApplyFrontendExtensions()
