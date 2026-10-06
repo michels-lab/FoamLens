@@ -3520,3 +3520,68 @@ Status: **fix present / final main publication validation pending**.
 - QuickCup Windows runtime fixture: id `11383540206`, digest `sha256:551759b034181b5fc58781afd50276887b3388d27eefd70546e8d4eb43dbeb58`.
 - No merge to `main` and no v1.6.0 release were performed.
 
+
+
+## 2026-10-05 — v1.6.0 Field ownership / navigation coherence phase validated
+
+- Development branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `2b0e54c31e3dc0a6fa48b2b33a5c90fa1ee9bca2`.
+- GitHub Actions run **#782** (`37409195436`): **SUCCESS**.
+- No merge to `main` and no v1.6.0 public release were performed.
+
+### Structural ownership closed
+- Core 3D UI is now permanently Field-owned:
+  - `fieldViewPanel` stays under `fw3DHost`;
+  - `fieldViewControls` stays under `fw3DControlsHost`;
+  - leaving Field no longer restores either tree into Data.
+- Profile / Time Series / Solver Log control trees are also permanently Field-owned.
+- The only remaining compatibility reparenting is the singleton 2D `.chartwrap`, because Data/Analysis/Field still share the legacy interactive 2D renderer.
+- A cross-section ownership regression now fails if 3D/Compare/control trees leak back into Data, if Analysis modules fall back to `document.body`, or if fake top-level Plots/Compare tabs return.
+
+### Legacy Field navigation retired
+- Field View no longer creates a legacy Data `fieldViewTab`.
+- The hidden legacy `modeField` button is removed after Ribbon installation.
+- Ribbon Field no longer falls back to clicking `modeField`.
+- The old `setDataView('field3d')` path and its Data-view wrappers were removed.
+- Official Field entry points are now:
+  - the `3D / Field` Ribbon tab;
+  - the Overview `Open 3D Field View` action.
+- Packaged smoke explicitly requires the Ribbon/Field surface and requires legacy Field button/dataset-tab navigation to be absent.
+
+### Context and Analysis ownership
+- Added `window.FoamLensContextStore` so Case/Region state is independent of `globalCaseSelect/globalRegionSelect`.
+- Shared context selectors are now a presentation of the store; series filtering reads the context state rather than selector DOM.
+- Analysis-derived curve creation is navigation-neutral: analysis modules no longer call `setDataView('timeseries')` or `setDataView('profile')`.
+- Analysis Ribbon now exposes explicit **Open Time Series** and **Open Spatial Profile** result handoffs.
+- Difference wording is explicit:
+  - **2D Curve Δ** / **2D Curve Difference** for curve analysis;
+  - **Strict 3D Δ** for field comparison.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Full 57-test manifest: **SUCCESS**, each test executed exactly once.
+- Field View / permanent ownership / Ribbon navigation regressions: **SUCCESS**.
+- Section ownership / anti-leak regression: **SUCCESS**.
+- Multi-region context-store regression: **SUCCESS**.
+- Analysis UI organization + navigation-neutral result regression: **SUCCESS**.
+- Bilingual / overflow regressions: **SUCCESS**.
+- Portable Windows executable build + packaged runtime smoke: **SUCCESS**.
+- Installer build + installed-application smoke: **SUCCESS**.
+
+### Run #782 artifacts
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11388442160`;
+  - size: `135,262,559 bytes`;
+  - digest: `sha256:6de06d22abb3c7df180c3c5e23935fc763b818734197691d343b19a9d92a9f69`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11388911110`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:d7e3fab2b3f5931f91df4c291bb3d1db173088fa6317c59bc46ca445e648fb86`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11387858833`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:c86f68a410f791890a0c2f842258fa08414d281f91449631f2b126ccce374831`.
+
+### Remaining structural boundary
+- The singleton interactive 2D chart remains shared by Data / Analysis / Field. Separating it requires preserving the existing hover, pins, legend drag/resize, export and plot interaction semantics; this is intentionally left as the next isolated architecture block rather than replacing safe ownership work with a fragile overlay.
