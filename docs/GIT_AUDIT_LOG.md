@@ -3817,3 +3817,11 @@ Updated Field workspace, Ribbon, Field View and final UX audit tests to require 
 
 ### Validation status
 Branch CI is required on the final head before promotion to `main`. No release publication is authorized by this entry.
+
+### 2026-10-06 Windows packaged-smoke follow-up
+- Branch workflow run `37529035320` passed the scientific/UI regression suite and portable publish step, then failed specifically in `Smoke-test packaged FoamLens executable`.
+- The packaged runtime evidence showed the app, Ribbon, 3D runtime and WebView2 video smoke all started successfully. The failing assertion was `highResRerendered=false` during the 1800×1200 primary 3D export smoke.
+- Root cause: `fcUpdateLayout()` could leave a coalesced `requestAnimationFrame` pending. If high-resolution export started before that frame executed, the deferred normal-layout render could resize the primary canvas back to viewport dimensions before the export capture verified the requested pixel size.
+- Fix: multi-view layout rendering now preserves the unpatched primary renderer as `fvRender.__fcBase`, renders the primary and comparison views exactly once per coalesced layout pass, and exposes `fcFlushLayoutRender()` to cancel/flush a pending layout render. Multi-panel export flushes that work before explicit high-resolution rendering.
+- Regression coverage now requires the flush/cancel path and the high-resolution export integration. The intentionally independent visual-settings smoke state (`fcSyncVisuals=false`) was confirmed not to be a failure criterion.
+- Replacement Windows CI on the final branch head remains required before merge/release promotion.
