@@ -925,9 +925,9 @@ function fvRefreshSelectors(preserve=true){
   if(regionOptions.includes(oldRegion)&&(!readyRegions.length||readyRegions.includes(oldRegion)))regionSel.value=oldRegion;
   else if(activeContextRegion&&regionOptions.includes(activeContextRegion))regionSel.value=activeContextRegion;
   else if(regionOptions.length)regionSel.value=regionOptions[0];
-  const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?fieldSel.value:'',groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+  const region=regionSel.value||'',fieldSel=document.getElementById('fvField'),oldField=preserve?(fvState.fieldName||fieldSel.value):'',groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
   fieldSel.innerHTML=groups.length?groups.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)} · ${fvEsc(g.kind)} · ${fvEsc(fvAssociationLabel(g.storage))}</option>`).join(''):'<option value="">—</option>';if(groups.some(g=>g.name===oldField))fieldSel.value=oldField;
-  const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),oldComp=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===oldComp))comp.value=oldComp;
+  const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),oldComp=preserve?(fvState.component||comp.value):comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===oldComp))comp.value=oldComp;
   const vectorSel=document.getElementById('fvVector'),oldVector=vectorSel.value,vg=fvFieldGroups(c,region,'vector','volume');vectorSel.innerHTML=vg.length?vg.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)}</option>`).join(''):'<option value="">—</option>';if(vg.some(g=>g.name===oldVector))vectorSel.value=oldVector;
   const times=g?.times||[],slider=document.getElementById('fvTimeSlider');slider.max=String(Math.max(0,times.length-1));if(Number(slider.value)>Number(slider.max))slider.value=slider.max;
   const readyCases=allCases.filter(fvCaseViewAvailable);
