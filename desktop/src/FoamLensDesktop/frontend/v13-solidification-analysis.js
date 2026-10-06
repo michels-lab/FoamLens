@@ -83,7 +83,7 @@ function saCreateRates(){
   solid.solidificationSourceId=s.id;
   const remelt=saAddDerived(s,flUi('Remelting Rate: ','Tasa de refusión: ')+saLabel(s),a.t,a.remeltingRate,'remelting-rate',role==='liquidFraction'?'max(dαL/dt,0)':'max(−dαS/dt,0)');
   remelt.solidificationSourceId=s.id;activeId=solid.id;
-  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode!=='analysis')setDataView('timeseries')}catch{}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch{}
 }
 function saExport(){
   const p=window.FoamLensLastSolidificationAnalysis;if(!p){flSetIssue('saStatus','analysis-result-missing',{analysis:'Solidification / Remelting'});return}
