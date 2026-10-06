@@ -3779,3 +3779,13 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 `Publish GitHub Release` was **skipped**, confirming that the branding migration did not publish a new FoamLens version.
 
 **Status:** official FoamLens logo adoption is complete across the active Windows/startup/About/in-app surfaces covered by Issue #14.
+## 2026-10-06 — Chat-driven release publication enabled
+
+- Release workflow policy changed so a push to `main` whose head commit message starts with `release:` publishes the validated GitHub Release automatically after all CI gates pass.
+- Ordinary `main` pushes remain validation-only and do not publish releases.
+- Manual `workflow_dispatch publish=true` and tag-triggered publication remain supported as fallback paths, but are no longer required for releases initiated from ChatGPT/GitHub tooling.
+- Updated release-policy regressions in `version-consistency.test.cjs` and `auto-update.test.cjs` to enforce the new explicit `release:` intent gate.
+- Validation: workflow run #853 passed QuickCup/OpenFOAM + VTK, full desktop regression suite, portable Windows smoke, installed-app smoke, checksums, artifact upload, and `Publish GitHub Release`.
+- Published public release: `FoamLens v1.6.0` with portable EXE, installer EXE, and both SHA-256 checksum assets.
+- State: COMPLETE. Future FoamLens releases can be initiated directly from chat by committing an explicit `release:` change to `main`; no manual tag creation or Actions UI step is required.
+
