@@ -3457,6 +3457,13 @@ Status: **fix present / final main publication validation pending**.
 - Added a unified activity presentation policy: compact activity toast is suppressed while a detailed modal/scan overlay owns progress.
 - Field Ribbon 3D-only actions (Probe, Slice, Vectors, Streamlines, 3D Compare, Camera tools) are hidden while Profile / Time Series / Solver Logs is the active internal view and return in 3D / Split.
 
+- Findings review now supports a portable evidence handoff:
+  - **Assistant bundle (.md)** with review instructions, findings table and per-case configuration/run evidence.
+  - **Raw evidence (.json)** with structured findings, measured/reference values, targets, case metadata, output completeness, dataset provenance and related evidence.
+  - **Copy for ChatGPT** copies the assistant-ready review prompt/bundle and opens ChatGPT in the default browser.
+  - **Create GitHub issue** opens a prefilled FoamLens issue containing workspace health counts and highest-priority findings.
+- The Windows host now exposes a minimal `openExternal` bridge restricted to `http/https`; FoamLens stores no ChatGPT or GitHub credentials for these handoffs.
+
 ### Regression contract changes
 - Packaged smoke no longer requires permanent 3D + Spatial Profile mounting.
 - Packaged smoke now requires:
