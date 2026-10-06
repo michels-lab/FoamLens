@@ -214,6 +214,32 @@ jobs:
             throw 'Desktop frontend is not FoamLens v51.'
           }
 
+      - name: Verify embedded frontend bundle integrity
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          $verify='bundle_verify'
+          if (Test-Path $verify) { Remove-Item $verify -Recurse -Force }
+          Expand-Archive -Path $bundle -DestinationPath $verify -Force
+          $source='desktop/src/FoamLensDesktop/frontend/index.html'
+          $packed=Join-Path $verify 'index.html'
+          if (-not (Test-Path $packed)) { throw 'AppBundle.zip does not contain root index.html.' }
+          $sourceHash=(Get-FileHash $source -Algorithm SHA256).Hash
+          $packedHash=(Get-FileHash $packed -Algorithm SHA256).Hash
+          if ($sourceHash -ne $packedHash) { throw "AppBundle index hash mismatch: source=$sourceHash packed=$packedHash" }
+          if ((Get-Item $packed).Length -lt 100000) { throw 'Packed FoamLens index.html is unexpectedly small.' }
+          if (-not (Select-String -Path $packed -Pattern 'id="launchTitle">FoamLens</h1>' -Quiet)) {
+            throw 'Packed FoamLens index.html lost the launch surface.'
+          }
+          foreach ($asset in @(
+            'assets/branding/michel-duarte-avatar.jpg',
+            'assets/branding/michels-lab-lockup.png',
+            'assets/branding/official-lockup.svg'
+          )) {
+            if (-not (Test-Path (Join-Path $verify $asset))) { throw "AppBundle.zip is missing $asset" }
+          }
+          Write-Host "Validated AppBundle.zip root index and canonical About/product assets; index SHA-256 $packedHash"
+
       - name: Validate FoamLens frontend JavaScript
         shell: pwsh
         run: |
