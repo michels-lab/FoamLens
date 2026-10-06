@@ -155,7 +155,7 @@ test('packaged Windows smoke uses a real B13 fixture plus distinct complete case
     'window.__foamLensSmokeImportNativeRefs=async function(refs,options={})',
     'await runProjectScan(files)',
     'await importSelectedAsCases()',
-    "setDataView('field3d')",
+    "setAppMode('field')",
     'selectSmokeCase',
     "caseSel.dispatchEvent(new Event('change',{bubbles:true}))",
     'while(performance.now()-started<30000)',
