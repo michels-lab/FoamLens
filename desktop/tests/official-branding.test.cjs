@@ -47,6 +47,10 @@ assert(!index.includes('class="foamLensLogoSvg"'),'Legacy competing inline FoamL
 assert(program.includes("['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo']"),'Packaged smoke does not validate rendered official branding.');
 assert(program.includes("document.getElementById('launchTitle')")&&program.includes("launchDeadline.Elapsed < TimeSpan.FromSeconds(10)")&&program.includes("titleVisible"),
   'Packaged smoke does not wait for a visibly rendered FoamLens launch surface.');
+assert(program.includes('CoreWebView2NavigationStartingEventArgs')&&program.includes('smokeNavigationId = e.NavigationId')&&program.includes('e.NavigationId == smokeNavigationId.Value'),
+  'Packaged smoke is not bound to the NavigationId of the requested FoamLens document.');
+assert(program.includes('NavigationStarting += OnSmokeNavigationStarting')&&program.includes('NavigationStarting -= OnSmokeNavigationStarting'),
+  'Packaged smoke does not own its NavigationStarting handler lifecycle.');
 assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&&program.includes('titleWidth')&&program.includes('titleHeight'),
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
