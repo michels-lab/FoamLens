@@ -20,6 +20,7 @@ function uxSnapshot(){
     view:typeof fwState!=='undefined'?(fwState.view||'3d'):'3d',
     companion:document.getElementById('fwCompanion')?.value||(typeof fwState!=='undefined'?fwState.companion:'profile')||'profile',
     syncTime:typeof fwState!=='undefined'?fwState.syncTime!==false:true,
+    inspector:typeof fwState!=='undefined'?!!fwState.inspector:false,
     compareEnabled:!!document.getElementById('fcEnabled')?.checked,
     viewCount:Math.max(1,2+(typeof fcExtraViews!=='undefined'?fcExtraViews.length:0)),
     differenceEnabled:!!document.getElementById('fcDifference')?.checked,
@@ -39,7 +40,7 @@ function uxReset(){
   try{
     const set=(id,value,event='change')=>{const e=document.getElementById(id);if(!e)return;e.value=String(value);e.dispatchEvent(new Event(event,{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
-    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
+    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
     for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}window.FoamLensWorkspaceResize?.resetSizes?.()
   }finally{uxRestoring=false}
   uxDecorateLabels();uxUpdateComparisonStatus();uxSave()
@@ -90,7 +91,7 @@ async function uxRestore(){
   try{
     const set=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.value=String(value);e.dispatchEvent(new Event('change',{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
-    set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d');
+    set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d');if(saved.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!saved.inspector);
     check('fcLinkCameras',saved.camerasLinked);check('fcSyncVisuals',saved.visualsSynced);set('fcSync',saved.syncMode);check('fcDifference',saved.differenceEnabled);
     if(saved.compareEnabled)check('fcEnabled',true);
     const target=Math.max(2,Math.min(4,Number(saved.viewCount)||2));if(saved.compareEnabled&&typeof fcExtraAdd==='function'&&typeof fcExtraViews!=='undefined'){while(2+fcExtraViews.length<target)fcExtraAdd()}
