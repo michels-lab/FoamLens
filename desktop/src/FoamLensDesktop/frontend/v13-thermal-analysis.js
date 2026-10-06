@@ -88,7 +88,7 @@ function thCreateRates(){
   const a=thAnalyzeTemperature(s.t,s.y,Math.max(0,Number(document.getElementById('thEpsilon')?.value)||0));series=series.filter(x=>x.thermalSourceId!==s.id);
   const c=thAddRate(s,flUi('Cooling Rate: ','Tasa de enfriamiento: ')+thLabel(s),a.t,a.coolingRate,'thermal-cooling-rate','max(−dT/dt,0)');c.thermalSourceId=s.id;
   const h=thAddRate(s,flUi('Heating Rate: ','Tasa de calentamiento: ')+thLabel(s),a.t,a.heatingRate,'thermal-heating-rate','max(dT/dt,0)');h.thermalSourceId=s.id;activeId=c.id;
-  try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch{}
 }
 function thExport(){
   const p=window.FoamLensLastThermalAnalysis;if(!p){flSetIssue('thStatus','analysis-result-missing',{analysis:'Thermal Analysis'});return}downloadText('FoamLens_thermal_analysis.json',JSON.stringify({generatedBy:flBuildIdentity(),analysis:'thermal-signal-analysis',...p},null,2),'application/json')
@@ -100,7 +100,7 @@ function thRefresh(){
   else flClearIssue('thStatus')
 }
 function thBuildUi(){
-  if(document.getElementById('thTools'))return;const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';
+  if(document.getElementById('thTools'))return;const host=document.getElementById('generalAnalysisModules');if(!host)return;const box=document.createElement('div');box.id='thTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Thermal Analysis" data-fl-es="Análisis térmico">Thermal Analysis</b><span class="badge" data-fl-en="explicit role" data-fl-es="rol explícito">explicit role</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Select the thermal quantity and its role explicitly. FoamLens keeps temperature, gradients, fluxes, sensible enthalpy, latent heat, and boundary/interface power conceptually separate." data-fl-es="Selecciona explícitamente la cantidad térmica y su rol. FoamLens mantiene separados conceptualmente temperatura, gradientes, flujos, entalpía sensible, calor latente y potencia de frontera/interfaz.">Select the thermal quantity and its role explicitly.</div>
   <div class="field" style="margin-top:8px"><label data-fl-en="Thermal signal" data-fl-es="Señal térmica">Thermal signal</label><select id="thSource"></select></div>

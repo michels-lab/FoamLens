@@ -6,6 +6,8 @@ const assert=require('assert');
 
 const base=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const index=fs.readFileSync(path.join(base,'index.html'),'utf8');
+const analysisScope=fs.readFileSync(path.join(base,'v21-analysis-scope.js'),'utf8');
+new Function(analysisScope);
 const generalFiles=[
   'v13-temporal-alignment.js',
   'v13-numerical-performance.js',
@@ -44,6 +46,43 @@ test('Spatial Differences remains inside Difference',()=>{
   const js=fs.readFileSync(path.join(base,'v13-spatial-differences.js'),'utf8');
   assert(js.includes("document.getElementById('differenceTools')"));
   assert(!js.includes("document.getElementById('generalAnalysisModules')"));
+});
+
+test('analysis modules never fall back to document.body or generic analysisTools hosts',()=>{
+  const owned=[
+    ...generalFiles,
+    'v13-spatial-differences.js'
+  ];
+  for(const file of owned){
+    const js=fs.readFileSync(path.join(base,file),'utf8');
+    assert(!js.includes("||document.body"),file+' can still leak controls into document.body.');
+    assert(!js.includes("document.querySelector('.analysisTools')"),file+' can still mount in a generic analysis host.');
+  }
+});
+
+test('derived Analysis results do not silently switch hidden Data views',()=>{
+  const guardedFiles=[
+    'v13-physical-analysis.js',
+    'v13-solidification-analysis.js',
+    'v13-temporal-alignment.js',
+    'v13-thermal-analysis.js',
+    'v14-energy-audit.js',
+    'v14-experimental-validation.js',
+    'v14-momentum-mechanisms.js'
+  ];
+  for(const file of guardedFiles){
+    const js=fs.readFileSync(path.join(base,file),'utf8');
+    assert(!js.includes("setDataView('timeseries')"),file+' can still silently switch to the hidden Time Series Data view.');
+    assert(!js.includes("setDataView('profile')"),file+' can still silently switch to the hidden Spatial Profile Data view.');
+  }
+});
+
+test('Analysis owns one stable inspector instead of borrowing Data/Profile/Log controls',()=>{
+  for(const token of [
+    'flAnalysisInspectorCard','flAnalysisOwnedHost',
+    "'generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','differenceTools','fieldMappingTools','phaseMomentumTools'",
+    'host.appendChild(node)','FoamLensSidebarSections?.sbApplyContext?.()'
+  ])assert(analysisScope.includes(token),'Missing Analysis-owned surface token: '+token);
 });
 
 test('General Analysis title is bilingual',()=>{

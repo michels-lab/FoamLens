@@ -55,8 +55,7 @@ function flRibbonPanelHtml(key,groups){
 function flRibbonBuild(){
   const tabs=[
     ['home','home','Home','Inicio'],['data','database','Data','Datos'],['field','cube','3D / Field','3D / Campo'],
-    ['plots','chart','Plots','Gráficas'],['analysis','flask','Analysis','Análisis'],['compare','compare','Compare','Comparar'],
-    ['export','export','Export','Exportar'],['view','eye','View','Vista']
+    ['analysis','flask','Analysis','Análisis'],['export','export','Export','Exportar'],['view','eye','View','Vista']
   ].map(x=>flRibbonTabHtml(...x)).join('');
 
   const home=[
@@ -75,28 +74,21 @@ function flRibbonBuild(){
     flRibbonGroup('FoamLens','FoamLens',[flRibbonActionHtml('flRaAbout','info','About','Acerca de')])
   ];
   const data=[
-    flRibbonGroup('Explore','Explorar',[
-      flRibbonActionHtml('flRaTimeSeries','chart','Time series','Series temporales'),
-      flRibbonActionHtml('flRaProfiles','profile','Profiles','Perfiles'),
-      flRibbonActionHtml('flRaLogs','log','Solver logs','Logs solver'),
-      flRibbonActionHtml('flRaCatalog','database','Catalog','Catálogo')
-    ]),
-    flRibbonGroup('Series','Series',[
+    flRibbonGroup('Data','Datos',[
+      flRibbonActionHtml('flRaCatalog','database','Catalog','Catálogo'),
       flRibbonActionHtml('flRaSelectAll','case','Select all','Seleccionar todo'),
       flRibbonActionHtml('flRaShowSeries','eye','Show series','Mostrar series'),
       flRibbonActionHtml('flRaClear','reset','Clear','Limpiar','','danger')
     ])
   ];
   const field=[
-    flRibbonGroup('Workspace','Workspace',[
-      flRibbonActionHtml('flRaFieldWorkspace','cube','Field view','Vista 3D'),
-      flRibbonActionHtml('flRaAdd3D','add','Add 3D','Añadir 3D'),
-      flRibbonActionHtml('flRaConfigure3D','sliders','Configure','Configurar')
-    ]),
-    flRibbonGroup('Layout','Diseño',[
+    flRibbonGroup('Views','Vistas',[
+      flRibbonActionHtml('flRaFieldWorkspace','cube','3D','3D'),
+      flRibbonActionHtml('flRaFieldProfile','profile','Spatial profile','Perfil espacial'),
+      flRibbonActionHtml('flRaFieldTimeSeries','chart','Time series','Series temporales'),
+      flRibbonActionHtml('flRaFieldLogs','log','Solver logs','Logs solver'),
       flRibbonActionHtml('flRaSplit','grid','Split','Dividida'),
-      flRibbonActionHtml('flRa3DFocus','cube','3D focus','Foco 3D'),
-      flRibbonActionHtml('flRaPlotFocus','chart','Plot focus','Foco gráfica')
+      flRibbonActionHtml('flRaInspector','sliders','Inspector','Inspector')
     ]),
     flRibbonGroup('Inspect','Inspeccionar',[
       flRibbonActionHtml('flRaProbe','probe','Probe','Sonda'),
@@ -104,6 +96,14 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaSlice','slice','Slice','Corte'),
       flRibbonActionHtml('flRaVectors','vector','Vectors','Vectores'),
       flRibbonActionHtml('flRaStreamlines','stream','Streamlines','Corrientes')
+    ]),
+    flRibbonGroup('Compare','Comparar',[
+      flRibbonActionHtml('flRaCompare3D','compare','Compare 3D','Comparar 3D'),
+      flRibbonActionHtml('flRaCompareAddView','add','Add view','Añadir vista'),
+      flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar'),
+      flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B'),
+      flRibbonActionHtml('flRaCopyAToB','sliders','Copy A→B','Copiar A→B'),
+      flRibbonActionHtml('flRaCompareDifference','delta','Strict 3D Δ','Δ 3D estricta')
     ]),
     flRibbonGroup('Camera','Cámara',[
       flRibbonActionHtml('flRaLinkCameras','compare','Link cameras','Enlazar cámaras'),
@@ -113,41 +113,20 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer')
     ])
   ];
-  const plots=[
-    flRibbonGroup('Plot type','Tipo de gráfica',[
-      flRibbonActionHtml('flRaPlotTimeSeries','chart','Time series','Series temporales'),
-      flRibbonActionHtml('flRaPlotProfiles','profile','Spatial profile','Perfil espacial'),
-      flRibbonActionHtml('flRaPlotLogs','log','Solver logs','Logs solver')
-    ]),
-    flRibbonGroup('Display','Visualización',[
-      flRibbonActionHtml('flRaPlotShowSeries','eye','Series','Series'),
-      flRibbonActionHtml('flRaZoomFit','fit','Fit chart','Ajustar gráfica'),
-      flRibbonActionHtml('flRaThesisFigure','image','Thesis figure','Figura tesis')
-    ])
-  ];
   const analysis=[
     flRibbonGroup('Analysis','Análisis',[
       flRibbonActionHtml('flRaAnalysisGeneral','flask','General','General'),
       flRibbonActionHtml('flRaCoupling','compare','Coupling','Acoplamiento'),
       flRibbonActionHtml('flRaFront','profile','Front track','Frente'),
-      flRibbonActionHtml('flRaDifference','delta','Difference','Diferencia')
+      flRibbonActionHtml('flRaDifference','delta','2D Curve Δ','Δ de curvas 2D')
     ]),
     flRibbonGroup('Fields','Campos',[
       flRibbonActionHtml('flRaMapping','grid','Mapping','Mapeo'),
       flRibbonActionHtml('flRaPhaseMomentum','vector','Phase / Mom.','Fase / Mom.')
-    ])
-  ];
-  const compare=[
-    flRibbonGroup('3D compare','Comparación 3D',[
-      flRibbonActionHtml('flRaCompare3D','compare','Compare 3D','Comparar 3D'),
-      flRibbonActionHtml('flRaCompareAddView','add','Add view','Añadir vista'),
-      flRibbonActionHtml('flRaCompareConfig','sliders','Configure','Configurar'),
-      flRibbonActionHtml('flRaSwapAB','compare','Swap A/B','Intercambiar A/B'),
-      flRibbonActionHtml('flRaCopyAToB','sliders','Copy A→B','Copiar A→B')
     ]),
-    flRibbonGroup('Differences','Diferencias',[
-      flRibbonActionHtml('flRaCompareDifference','delta','Difference','Diferencia'),
-      flRibbonActionHtml('flRaCreateDifference','chart','Create Δ','Crear Δ')
+    flRibbonGroup('Results','Resultados',[
+      flRibbonActionHtml('flRaAnalysisTimeResult','chart','Open Time Series','Abrir Series temporales'),
+      flRibbonActionHtml('flRaAnalysisProfileResult','profile','Open Spatial Profile','Abrir Perfil espacial')
     ])
   ];
   const exp=[
@@ -180,8 +159,8 @@ function flRibbonBuild(){
   return '<section class="flRibbon" id="flRibbon" aria-label="FoamLens ribbon">'+
     '<div class="flRibbonTabRow"><div class="flRibbonTabs" role="tablist">'+tabs+'</div><div class="flRibbonTrailHost" id="flRibbonTrailHost"></div></div>'+
     '<div class="flRibbonPanels">'+
-      flRibbonPanelHtml('home',home)+flRibbonPanelHtml('data',data)+flRibbonPanelHtml('field',field)+flRibbonPanelHtml('plots',plots)+
-      flRibbonPanelHtml('analysis',analysis)+flRibbonPanelHtml('compare',compare)+flRibbonPanelHtml('export',exp)+flRibbonPanelHtml('view',view)+
+      flRibbonPanelHtml('home',home)+flRibbonPanelHtml('data',data)+flRibbonPanelHtml('field',field)+
+      flRibbonPanelHtml('analysis',analysis)+flRibbonPanelHtml('export',exp)+flRibbonPanelHtml('view',view)+
     '</div>'+
     '<div class="flRibbonContextHost" id="flRibbonContextHost"></div>'+
   '</section>';
@@ -193,6 +172,8 @@ function flRibbonCss(){
     'body.flRibbonReady .top h2{font-size:14px}',
     'body.flRibbonReady .top .sub{font-size:9px;margin-top:2px}',
     'body.flRibbonReady .top .tools{display:none!important}',
+    'body.flRibbonReady.appMode-data .datasetTabs,body.flRibbonReady.appMode-analysis .datasetTabs{display:none!important}',
+    'body.flRibbonReady.appMode-data #dataViewTitle,body.flRibbonReady.appMode-analysis #dataViewTitle{display:none!important}',
     '.flRibbon{position:relative;z-index:260;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 96%,transparent);box-shadow:0 4px 18px rgba(18,32,51,.045);min-width:0}',
     'body.dark .flRibbon{box-shadow:0 4px 18px rgba(0,0,0,.18)}',
     '.flRibbonTabRow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:31px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel2)}',
@@ -213,9 +194,19 @@ function flRibbonCss(){
     '.flRibbonAction:hover{border-color:var(--line);background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.active{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.danger{color:var(--danger)}',
+    '.flRibbonAction.flScopeHidden{display:none!important}',
+    '.flRibbonGroup.flScopeHidden{display:none!important}',
+    '.flRibbonTimeGroup{min-width:min(520px,46vw)}',
+    '.flRibbonTimeGroup .flRibbonActions{align-items:center}',
+    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:0;width:100%;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
+    '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
+    '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:8px}',
     '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
     '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
+    '.flRibbonContextHost.hidden{display:none!important}',
     '.flRibbonContextHost .globalContextBar{width:100%;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;min-height:0!important}',
     '.flRibbonContextHost .contextProject span,.flRibbonContextHost .contextCompact label{font-size:7px!important}',
     '.flRibbonContextHost .contextProject b{font-size:9px!important}',
@@ -242,16 +233,63 @@ function flRibbonData(tabId,tabKey){
   flRibbonSelectTab(tabKey||'data');try{setAppMode('data')}catch{};requestAnimationFrame(()=>flRibbonClick(tabId))
 }
 function flRibbonField(fn,tabKey){
-  flRibbonSelectTab(tabKey||'field');try{setAppMode('field')}catch{flRibbonClick('modeField')};requestAnimationFrame(()=>{try{fn&&fn()}catch(e){console.error(e)}})
+  flRibbonSelectTab(tabKey||'field');try{setAppMode('field')}catch(e){console.error(e);return}requestAnimationFrame(()=>{try{fn&&fn()}catch(e){console.error(e)}})
 }
 function flRibbonToggleCheck(id){
   const el=document.getElementById(id);if(!el)return false;el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));return true
 }
 function flRibbonSetLayout(value){
-  flRibbonField(()=>{const s=document.getElementById('fwLayout');if(!s)return;s.value=value;s.dispatchEvent(new Event('change',{bubbles:true}))},'field')
+  flRibbonField(()=>window.FoamLensFieldWorkspace?.setView?.(value),'field')
+}
+function flRibbonContextNeeded(){
+  if(typeof activeAppMode==='string'&&activeAppMode==='analysis')return true;
+  if(typeof activeAppMode==='string'&&activeAppMode==='data')return typeof currentDataView==='string'&&currentDataView!=='catalog';
+  if(typeof activeAppMode==='string'&&activeAppMode==='field'){
+    const state=window.FoamLensFieldWorkspace?.getState?.()||{};
+    return ['profile','timeseries','log','split'].includes(state.view)
+  }
+  return false
+}
+function flRibbonUpdateContextVisibility(){
+  const host=document.getElementById('flRibbonContextHost');if(!host)return;
+  host.classList.toggle('hidden',!flRibbonContextNeeded())
+}
+function flRibbonUpdateFieldScope(){
+  const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=view==='3d'||view==='split';
+  const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
+    'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
+    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera'];
+  for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
+  document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup').forEach(group=>{
+    const actions=[...group.querySelectorAll('.flRibbonAction')];
+    group.classList.toggle('flScopeHidden',actions.length>0&&actions.every(a=>a.classList.contains('flScopeHidden')))
+  })
 }
 function flRibbonAnalysis(name,tabKey){
   flRibbonSelectTab(tabKey||'analysis');try{setAppMode('analysis')}catch{};requestAnimationFrame(()=>document.querySelector('.analysisSubBtn[data-analysis="'+name+'"]')?.click())
+}
+function flRibbonMountFieldTimeTransport(){
+  const panel=document.getElementById('flRibbonPanel-field'),transport=document.getElementById('fwTimeTransport');
+  if(!panel||!transport)return false;
+  let group=document.getElementById('flRibbonTimeGroup');
+  if(!group){
+    group=document.createElement('div');group.id='flRibbonTimeGroup';group.className='flRibbonGroup flRibbonTimeGroup';
+    group.innerHTML='<div class="flRibbonGroupTitle" data-ri-en="Physical time" data-ri-es="Tiempo físico">Physical time</div><div class="flRibbonActions" id="flRibbonTimeHost"></div>';
+    panel.appendChild(group)
+  }
+  const host=document.getElementById('flRibbonTimeHost');if(host&&transport.parentElement!==host)host.appendChild(transport);
+  transport.classList.add('flRibbonTimeTransport');return true
+}
+function flRibbonClarifyDifferenceLabels(){
+  const es=document.getElementById('language')?.value==='es';
+  const labels=[
+    ['differenceTitle','2D Curve Difference','Diferencia de curvas 2D'],
+    ['createDifference','Create 2D Δ curve','Crear curva Δ 2D']
+  ];
+  for(const [id,en,esText] of labels){
+    const el=document.getElementById(id);if(!el)continue;
+    el.dataset.flEn=en;el.dataset.flEs=esText;el.textContent=es?esText:en
+  }
 }
 function flRibbonApplyLanguage(){
   const es=document.getElementById('language')?.value==='es';
@@ -260,7 +298,8 @@ function flRibbonApplyLanguage(){
     if(el.classList.contains('flRibbonAction')){const label=el.querySelector('.flRibbonLabel');if(label)label.textContent=value;el.title=value}
     else if(el.classList.contains('flRibbonTab')){const label=el.querySelector('span');if(label)label.textContent=value}
     else el.textContent=value;
-  })
+  });
+  flRibbonClarifyDifferenceLabels()
 }
 function flRibbonSyncStates(){
   const map=[
@@ -286,14 +325,17 @@ function flRibbonInstall(){
   const context=document.getElementById('globalContextBar'),contextHost=document.getElementById('flRibbonContextHost');if(context&&contextHost)contextHost.appendChild(context);
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
+  flRibbonMountFieldTimeTransport();
+  document.getElementById('modeField')?.remove();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
   document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
     const key=b.dataset.ribbonTab||'home';flRibbonSelectTab(key);
     if(key==='home')try{setAppMode('workspace')}catch{}
-    else if(key==='data'||key==='plots')try{setAppMode('data')}catch{}
-    else if(key==='field'||key==='compare')try{setAppMode('field')}catch{}
+    else if(key==='data'){try{setAppMode('data');setDataView('catalog')}catch{}}
+    else if(key==='field')try{setAppMode('field')}catch{}
     else if(key==='analysis')try{setAppMode('analysis')}catch{}
+    setTimeout(flRibbonUpdateContextVisibility,0)
   }));
 
   flRibbonBind('flRaOpenFiles',()=>flRibbonClick('addFiles'));
@@ -306,20 +348,17 @@ function flRibbonInstall(){
   flRibbonBind('flRaLive',()=>flRibbonMode('live','home'));
   flRibbonBind('flRaAbout',()=>flRibbonClick('aboutDeveloperBtn'));
 
-  flRibbonBind('flRaTimeSeries',()=>flRibbonData('timeSeriesTab','data'));
-  flRibbonBind('flRaProfiles',()=>flRibbonData('profileTab','data'));
-  flRibbonBind('flRaLogs',()=>flRibbonData('logTab','data'));
   flRibbonBind('flRaCatalog',()=>flRibbonData('catalogTab','data'));
   flRibbonBind('flRaSelectAll',()=>flRibbonClick('selectAll'));
   flRibbonBind('flRaShowSeries',()=>flRibbonClick('showSeriesTop'));
   flRibbonBind('flRaClear',()=>flRibbonClick('clear'));
 
-  flRibbonBind('flRaFieldWorkspace',()=>flRibbonField(null,'field'));
-  flRibbonBind('flRaAdd3D',()=>flRibbonField(()=>flRibbonClick('fwAdd3DView'),'field'));
-  flRibbonBind('flRaConfigure3D',()=>flRibbonField(()=>flRibbonClick('fwConfigureViews'),'field'));
+  flRibbonBind('flRaFieldWorkspace',()=>flRibbonSetLayout('3d'));
+  flRibbonBind('flRaFieldProfile',()=>flRibbonSetLayout('profile'));
+  flRibbonBind('flRaFieldTimeSeries',()=>flRibbonSetLayout('timeseries'));
+  flRibbonBind('flRaFieldLogs',()=>flRibbonSetLayout('log'));
   flRibbonBind('flRaSplit',()=>flRibbonSetLayout('split'));
-  flRibbonBind('flRa3DFocus',()=>flRibbonSetLayout('3d'));
-  flRibbonBind('flRaPlotFocus',()=>flRibbonSetLayout('plot'));
+  flRibbonBind('flRaInspector',()=>flRibbonField(()=>window.FoamLensFieldWorkspace?.setInspector?.(true),'field'));
   flRibbonBind('flRaProbe',()=>flRibbonField(()=>flRibbonClick('fvProbeMode'),'field'));
   flRibbonBind('flRaProfileLine',()=>flRibbonField(()=>window.FoamLensFieldWorkspace?.toggle3DProfile?.(),'field'));
   flRibbonBind('flRaSlice',()=>flRibbonField(()=>flRibbonToggleCheck('fvSlice'),'field'));
@@ -331,27 +370,21 @@ function flRibbonInstall(){
   flRibbonBind('flRaFitAll',()=>flRibbonField(()=>flRibbonClick('fcFitAll'),'field'));
   flRibbonBind('flRaResetCamera',()=>flRibbonField(()=>flRibbonClick('fvResetCamera'),'field'));
 
-  flRibbonBind('flRaPlotTimeSeries',()=>flRibbonData('timeSeriesTab','plots'));
-  flRibbonBind('flRaPlotProfiles',()=>flRibbonData('profileTab','plots'));
-  flRibbonBind('flRaPlotLogs',()=>flRibbonData('logTab','plots'));
-  flRibbonBind('flRaPlotShowSeries',()=>flRibbonClick('showSeriesTop'));
-  flRibbonBind('flRaZoomFit',()=>flRibbonClick('zoomFit'));
-  flRibbonBind('flRaThesisFigure',()=>flRibbonClick('thesisFigureBtn'));
-
   flRibbonBind('flRaAnalysisGeneral',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('generalAnalysisNav'))});
   flRibbonBind('flRaCoupling',()=>flRibbonAnalysis('coupling','analysis'));
   flRibbonBind('flRaFront',()=>flRibbonAnalysis('front','analysis'));
   flRibbonBind('flRaDifference',()=>flRibbonAnalysis('difference','analysis'));
   flRibbonBind('flRaMapping',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmMappingNav'))});
   flRibbonBind('flRaPhaseMomentum',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmPhaseNav'))});
+  flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'));
+  flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'));
 
-  flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>flRibbonToggleCheck('fcEnabled'),'compare'));
-  flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'compare'));
-  flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>flRibbonClick('fwConfigureViews'),'compare'));
-  flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'compare'));
-  flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'compare'));
-  flRibbonBind('flRaCompareDifference',()=>flRibbonAnalysis('difference','compare'));
-  flRibbonBind('flRaCreateDifference',()=>{flRibbonAnalysis('difference','compare');requestAnimationFrame(()=>flRibbonClick('createDifference'))});
+  flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>flRibbonToggleCheck('fcEnabled'),'field'));
+  flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'field'));
+  flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.setInspector?.(true);const p=document.getElementById('fcPanel');if(p)p.open=true},'field'));
+  flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'field'));
+  flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'field'));
+  flRibbonBind('flRaCompareDifference',()=>flRibbonField(()=>flRibbonToggleCheck('fcDifference'),'field'));
 
   flRibbonBind('flRaExportPng',()=>flRibbonClick('exportPng'));
   flRibbonBind('flRaExportSvg',()=>flRibbonClick('exportSvg'));
@@ -371,15 +404,16 @@ function flRibbonInstall(){
 
   document.addEventListener('click',e=>{
     const id=e.target?.closest?.('[id]')?.id||'';
-    const modeMap={modeWorkspace:'home',modeData:'data',modeField:'field',modeAnalysis:'analysis',modeReview:'home',modeLive:'home'};
+    const modeMap={modeWorkspace:'home',modeData:'data',modeAnalysis:'analysis',modeReview:'home',modeLive:'home'};
     if(modeMap[id])flRibbonSelectTab(modeMap[id]);
     setTimeout(flRibbonSyncStates,0)
   },true);
-  document.addEventListener('change',()=>setTimeout(flRibbonSyncStates,0),true);
+  document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
+  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
-  flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');
-  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,isInstalled:()=>flRibbonState.installed};
+  flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope();
+  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,mountTimeTransport:flRibbonMountFieldTimeTransport,isInstalled:()=>flRibbonState.installed};
   return true
 }
 flRibbonInstall();

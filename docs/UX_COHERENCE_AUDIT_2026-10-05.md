@@ -62,8 +62,9 @@ Additional duplication:
 **Regression conflict:** `desktop/tests/ribbon-ui.test.cjs` currently asserts that the Ribbon **must preserve** `globalContextBar`.
 
 **Required correction:**
-- remove the global Project / Case / Region strip from the persistent Ribbon;
-- keep any useful Case/Region filtering only inside the section that owns it (Data or Analysis);
+- remove Project / Case / Region from the **persistent** Ribbon presentation;
+- preserve its filtering state and show the selectors contextually where they are actually useful: Data, Spatial Profile, Solver Logs and analysis workflows that consume the shared context;
+- hide that context in pure 3D / Field focus, Home, Review and Live, where the visible workspace uses different selectors or does not consume the filter;
 - bind Ribbon Save/Open directly to command APIs rather than hidden legacy DOM buttons;
 - update the Ribbon regression test accordingly.
 
@@ -565,3 +566,286 @@ Therefore deleting the rejected global Project / Case / Region strip without rep
 ### Sweep conclusion
 
 The automated sweep reinforces the central audit conclusion: FoamLens needs **stable section ownership plus shared state APIs**, not additional show/hide/reparent patches. The next refactor must explicitly remove generic mount fallbacks and DOM-ID coupling between sections.
+
+
+---
+
+## Whole-app cross-scope audit — “useful control, wrong tab / wrong scope”
+
+The full frontend sweep found additional cases matching the same pattern reported for Project / Case / Region: the underlying feature is valid, but its presentation or state ownership is too global.
+
+### UX-18 — Global context is valid for Profiles/Data, but wrong when persistently shown in Field/Home/Review/Live
+
+**Severity:** High  
+**Status:** Runtime clarified by user + source-confirmed.
+
+The earlier audit correctly identified the persistent Ribbon placement as wrong, but the control itself is **not obsolete**.
+
+`activeContextCaseId` and `activeContextRegion` are consumed by:
+- Spatial Profile filtering;
+- contextual Solver Log filtering;
+- Data Catalog filtering;
+- several analysis workflows through the shared series/data model.
+
+The same selectors are misleading in:
+- 3D / Field, because each 3D view has its own Case / Region selectors;
+- Home / Overview;
+- Review;
+- Live monitoring.
+
+**Correct target behavior:** keep the shared context state, but make its UI contextual. It should appear in Data/Profile/Log/Analysis workflows that consume it and disappear in pure 3D focus and unrelated top-level surfaces.
+
+### UX-19 — The Data sidebar contains plot-only cards even when the active Data view is Catalog
+
+**Severity:** High  
+**Status:** Source-confirmed.
+
+`setDataView()` switches only:
+- `timeSeriesControls`;
+- `profileControls`;
+- `logControls`;
+- `catalogControls`;
+- `playbackGlobal`;
+- chart/catalog visibility.
+
+It does **not** scope the surrounding sidebar cards.
+
+Therefore cards such as:
+- Figure;
+- Figure element editor;
+- Selected curve;
+- Phase-change analysis;
+- Reference lines
+
+remain part of the sidebar structure even when the user is in Data Catalog, where several of those controls have no meaningful target.
+
+**Required correction:** add view ownership at the card level. Catalog should show catalog/data-source controls, not figure-editing controls.
+
+### UX-20 — Reference Lines mixes controls that belong to different plot types
+
+**Severity:** Medium–High  
+**Status:** Source-confirmed.
+
+The single Reference Lines card contains heterogeneous options:
+- profile-specific center-X reference;
+- time/field-related `U_y = 0` / phase references;
+- custom X/Y references.
+
+The code already checks `currentDataView` when drawing some references, proving that the controls are not universally applicable even though they are displayed together.
+
+**Required correction:** show only reference controls compatible with the current plot type, or split them into contextual groups.
+
+### UX-21 — Phase-change controls are globally mounted inside the shared Data/Analysis sidebar
+
+**Severity:** Medium–High  
+**Status:** Source-confirmed.
+
+Liquidus/solidus and phase-change configuration are scientifically valid, but the card is always part of the shared sidebar while Data/Analysis is visible. It has no reason to occupy Solver Logs, generic Catalog or unrelated analyses.
+
+**Required correction:** scope phase-change settings to analyses/plots that consume temperature/liquid-fraction semantics.
+
+### UX-22 — Analysis and Data share the same sidebar, so analysis workflows inherit unrelated Data presentation controls
+
+**Severity:** High  
+**Status:** Source-confirmed.
+
+Both `body.appMode-data #workspace` and `body.appMode-analysis #workspace` render the same core workspace and sidebar.
+
+Consequences:
+- Load Data / Data View controls remain structurally present during Analysis;
+- Figure and Selected Curve controls remain present even when an analysis module is the user's task;
+- analysis modules are appended into the same legacy control hierarchy.
+
+Some of these controls are useful as source selection, but the current UI does not distinguish “analysis input context” from “plot editing”.
+
+**Required correction:** Analysis should get an analysis-owned inspector while shared source state remains behind an API.
+
+### UX-23 — Several analysis actions silently switch hidden Data views
+
+**Severity:** Medium–High state-ownership issue  
+**Status:** Source-confirmed.
+
+Examples:
+- Physical Analysis creates derived curves then calls `setDataView('timeseries')` or `setDataView('profile')`;
+- Solidification Analysis switches to Time Series;
+- Thermal Analysis switches to Time Series;
+- Energy Audit switches to Time Series;
+- Experimental Validation switches to Time Series;
+- Momentum Mechanisms switches to Time Series;
+- Temporal Alignment can switch to Time Series.
+
+When these actions are invoked while the app is in Analysis mode, they mutate the underlying Data/plot view state even though that view is not the visible top-level task.
+
+**Required correction:** derived-output creation should not silently repurpose hidden navigation state. Either:
+- remain in Analysis and expose an explicit “Open result” action, or
+- intentionally navigate to the result and make that transition visible to the user.
+
+### UX-24 — Profile playback, legacy playbackGlobal and 3D playback are three presentation layers over physical time
+
+**Severity:** Critical  
+**Status:** Source-confirmed.
+
+The whole-app sweep confirmed:
+- `profilePlay/profilePause/profileTimeSlider` are a full playback engine;
+- `playbackGlobal` is separately mounted for Profile/Log contexts;
+- `fvPlay/fvTimeSlider/fvSpeed` is another full 3D playback engine;
+- Field Workspace reparents `playbackGlobal` into its companion controls.
+
+The controls are individually useful, but presenting them independently creates the exact “one Play for Profiles, another for 3D” problem.
+
+**Required correction:** keep specialized interpolation/alignment algorithms internally, but expose one authoritative physical-time transport UI. Views subscribe to it.
+
+### UX-25 — Field-specific panels are structurally children of legacy Data Field View controls
+
+**Severity:** Critical  
+**Status:** Source-confirmed.
+
+The following valid Field features are inserted into `fieldViewControls`:
+- 3D Compare;
+- Animation / Video;
+- progressive-performance telemetry;
+- vector-analysis controls;
+- isosurface and other Field extensions.
+
+Since legacy Field View itself was created inside Data, any failure in hide/restore/reparent logic can expose valid 3D controls in Data — exactly the reported “Synchronized 3D case comparison” leak.
+
+**Required correction:** these features should remain, but their owned host must be a Field/3D inspector that never belongs to Data.
+
+### UX-26 — Plots is currently a duplicate doorway into Data rather than an independent scope
+
+**Severity:** High  
+**Status:** Source-confirmed.
+
+Ribbon actions under Plots route to the same legacy `timeSeriesTab`, `profileTab` and `logTab` while calling `setAppMode('data')`.
+
+So a user can select a top-level “Plots” tab while the underlying top-level app mode remains Data.
+
+**Required correction:** either:
+- remove Plots as a fake top-level workspace and expose plot views as internal tabs of a real plot/Field workspace; or
+- build a true Plot surface with its own ownership.
+
+### UX-27 — Compare is also a duplicate doorway into Field
+
+**Severity:** High  
+**Status:** Source-confirmed.
+
+The Ribbon Compare tab calls `setAppMode('field')` and manipulates Field controls. It is not a separate app surface.
+
+**Required correction:** treat Compare as contextual Field tooling unless/until it becomes a genuinely independent workspace.
+
+### UX-28 — Legacy navigation and new navigation coexist simultaneously
+
+**Severity:** Medium technical-debt / regression risk  
+**Status:** Source-confirmed.
+
+Examples:
+- legacy `datasetTabs` still include a generated `fieldViewTab`;
+- Field Workspace later hides/intercepts that tab;
+- legacy `modeField` can still be created even though the Ribbon hides the old mode navigation;
+- legacy “Open 3D Field View” first targeted Data and is later patched to Field.
+
+These paths are mostly compatibility scaffolding, but they increase the number of ways a future change can reintroduce controls into the wrong section.
+
+**Required correction:** after the v1.6 surface model is stable, remove obsolete navigation shims instead of keeping permanent interception patches.
+
+### UX-29 — Analysis modules can be valid but mount in the wrong place if initialization order changes
+
+**Severity:** Medium architectural risk  
+**Status:** Source-confirmed.
+
+Flow Analysis, Numerical Performance, Physical Analysis, Solidification Analysis, Thermal Analysis and Vector Derived Fields may fall back from their intended analysis host to `.analysisTools` and ultimately `document.body`.
+
+The feature itself is valid. The fallback presentation is not.
+
+**Required correction:** fail/defer mount until the correct owned host exists. Never use `document.body` as a normal analysis-controls fallback.
+
+---
+
+## Updated scope rule
+
+For the v1.6 refactor, the governing rule is now:
+
+> **Do not delete a control merely because it is useless in one tab. First identify the state/function it serves, then show it only in the views that consume that state.**
+
+Examples:
+- Project / Case / Region: keep for Profiles/Data/Analysis; hide for pure 3D and unrelated surfaces.
+- Phase-change settings: keep for thermal/phase workflows; hide from Catalog/Logs.
+- Figure controls: keep for plot views; hide from Catalog and non-plot analysis contexts.
+- Compare controls: keep in Field/Compare context; never leak into Data.
+- Physical-time playback: keep all required algorithms, but expose one global transport UI instead of multiple competing primary controls.
+
+
+---
+
+## Implementation disposition — validated through run #782
+
+**Validated product head:** `2b0e54c31e3dc0a6fa48b2b33a5c90fa1ee9bca2`  
+**GitHub Actions:** #782 — SUCCESS
+
+The v1.6.0 implementation now materially closes the following audit findings:
+
+- **UX-01 / UX-15:** unified activity presentation prevents compact/detailed progress overlap.
+- **UX-02 / UX-17 / UX-18:** Project / Case / Region presentation is contextual and its state now lives behind `FoamLensContextStore`, independent of selector DOM.
+- **UX-03:** 3D focus uses the central workspace without a permanent controls column.
+- **UX-04:** Field uses internal 3D / Spatial Profile / Time Series / Solver Logs tabs with explicit Split.
+- **UX-05 / UX-24:** Field exposes one primary physical-time transport while specialized legacy engines remain internal.
+- **UX-06 / UX-28:** 3D is no longer a Data dataset view; `fieldViewTab`, the hidden `modeField` fallback and `setDataView('field3d')` navigation are retired.
+- **UX-08 / UX-25:** 3D comparison and Field controls remain permanently Field-owned rather than returning to Data.
+- **UX-09 / UX-26:** the fake top-level Plots alias is removed.
+- **UX-10 / UX-27:** the fake top-level Compare alias is removed; comparison remains contextual in Field.
+- **UX-14:** 2D Curve Difference / Δ and Strict 3D Δ are explicitly distinguished.
+- **UX-16 / UX-29:** audited Analysis modules no longer fall back to generic `document.body` hosts.
+- **UX-19 / UX-20 / UX-21 / UX-22:** sidebar/control presentation is scoped by active workflow; Analysis owns a stable inspector surface.
+- **UX-23:** derived Analysis output creation no longer silently switches hidden Data views; explicit Ribbon handoffs open Time Series or Spatial Profile.
+
+### Still open by design
+
+- **UX-07 / UX-12 (remaining renderer boundary):** the singleton interactive 2D `.chartwrap` is still shared across Data / Analysis / Field and is the final deliberate compatibility bridge.
+- It was not replaced with a fixed-position portal because that would introduce clipping/scroll/overlay risks.
+- It was not duplicated into a second canvas because the current renderer's hover, pinning, legend drag/resize and interaction handlers are coupled to the singleton canvas.
+- The next architecture block should extract a reusable 2D Plot Surface / interaction controller so each workspace can own a stable render surface without duplicating scientific plot logic.
+
+### Prevention
+
+The new `section-ownership.test.cjs` and updated Field/Ribbon/Analysis regressions prevent reintroduction of:
+- legacy Field navigation;
+- fake top-level aliases;
+- 3D/control-tree leakage back into Data;
+- Analysis `document.body` fallback;
+- hidden Analysis plot navigation;
+- ambiguous 2D-vs-3D Difference labels.
+
+
+
+---
+
+## Final renderer-boundary disposition — validated through run #792
+
+**Validated product head:** `48599763a1c8bdbe9b6445f5ee361c88f9c91e7b`  
+**GitHub Actions:** #792 — SUCCESS
+
+The final open renderer items from the previous disposition are now closed:
+
+- **UX-07 / UX-12 — CLOSED.**
+- Data, Analysis and Field each own a stable 2D plot surface.
+- Field no longer borrows or restores the Data/Analysis `.chartwrap`.
+- The scientific renderer remains shared at the function/model level instead of the DOM-node level.
+- Interactive behavior is shared through `bindPlotCanvasInteractions(canvas)`, so hover, point pinning, figure selection, legend drag/resize and direct manipulation remain consistent on every surface.
+- The active surface receives the legacy canonical plot IDs so existing renderer/export code remains one implementation, while inactive surfaces keep scoped IDs.
+- Surface switching preserves each workspace's plot view, pinned points and active-series identity.
+- No fixed-position or absolute overlay portal was introduced.
+
+### Runtime validation
+The Windows packaged and installed smokes now explicitly cycle:
+
+`Field → Data (Catalog) → Analysis (Time Series) → Data (Catalog restored) → Field`
+
+and verify:
+- exactly three stable surfaces exist;
+- Data and Analysis remain parented to `chartViewport`;
+- Field remains parented to `fw2DHost`;
+- the canonical `#canvas` belongs to the active workspace at every transition;
+- parent relationships remain unchanged throughout the cycle.
+
+### Audit status
+The previously identified cross-section DOM ownership boundary is now fully resolved. Any future movement of the 2D chart between top-level workspaces is considered a regression and is blocked by `plot-surfaces.test.cjs`, `section-ownership.test.cjs`, Workspace UX tests and the packaged runtime smoke.

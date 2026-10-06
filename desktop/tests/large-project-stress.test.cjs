@@ -100,6 +100,42 @@ test('32 interleaved temporal parser states remain isolated',()=>{
   }
 });
 
+test('observed case time range handles 250k values without argument-spread overflow',()=>{
+  const match=index.match(/function observedCaseTimeRange\(caseId\)\{[^\n]+\}/);
+  assert(match,'Missing observedCaseTimeRange implementation');
+  const times=Array.from({length:250000},(_,i)=>i-125000);
+  const observed=new Function('healthCaseIndex','series','datasetTypeOf',match[0]+'; return observedCaseTimeRange;')(
+    ()=>null,
+    [{caseId:7,kind:'timeseries',t:times}],
+    s=>s.kind
+  );
+  const range=observed(7);
+  assert.strictEqual(range.min,-125000);
+  assert.strictEqual(range.max,124999);
+  assert.strictEqual(range.count,250000);
+});
+
+test('safe min/max helper handles 300k finite values without call-stack expansion',()=>{
+  const match=index.match(/function flSafeMinMax\(values,project=null\)\{[^\n]+\}/);
+  assert(match,'Missing flSafeMinMax implementation');
+  const safe=new Function(match[0]+'; return flSafeMinMax;')();
+  const values=Array.from({length:300000},(_,i)=>i-150000);
+  const range=safe(values);
+  assert.deepStrictEqual(range,{min:-150000,max:149999,count:300000});
+  const projected=safe([{v:-8},{v:3},{v:NaN}],x=>x.v);
+  assert.deepStrictEqual(projected,{min:-8,max:3,count:2});
+});
+
+test('large data paths do not use argument-spread min/max',()=>{
+  const banned=[
+    'Math.max(...coordsRaw.map(Math.abs)','Math.min(...x)','Math.max(...x)','Math.min(...y)','Math.max(...y)',
+    'Math.min(...xs)','Math.max(...xs)','Math.min(...ys)','Math.max(...ys)','Math.max(...initials)',
+    'Math.max(...rows.map(r=>r.t))','Math.max(...vals)','Math.min(...positive)','Math.max(...positive)',
+    'Math.min(...current.t)','Math.max(...current.t)'
+  ];
+  for(const token of banned)assert(!index.includes(token),'Large-data spread regression: '+token);
+});
+
 test('stress harness stays fixture agnostic',()=>{
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt'])assert(!temporalCore.includes(banned)&&!fieldCore.includes(banned));
 });

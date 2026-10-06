@@ -41,7 +41,7 @@ internal sealed class FoamLensForm : Form
     private int _updateCheckInProgress;
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.5.1", "app");
+        "FoamLens", "Desktop", "1.6.0", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -184,44 +184,60 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(officialBranding.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens official local brand assets did not render on launch/sidebar/About.");
 
-            // Extension integration smoke: Field View must mount as a first-class
-            // top-level mode. The launch screen intentionally hides #appShell
-            // before a case is loaded, so actual visual visibility is checked
-            // later after the real OpenFOAM fixture has been imported.
+            // Extension integration smoke: Field View must mount through the v1.6
+            // Ribbon + Field surface contract. Legacy mode/data-tab navigation
+            // must not survive as a second route into the same workspace.
             var fieldViewUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const mode=document.getElementById('modeField');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');return {mode:!!mode,controls:!!controls,panel:!!panel,modeDisabled:!!mode?.disabled,modeText:mode?.textContent?.trim()||'',modeDisplay:mode?getComputedStyle(mode).display:''}})()");
+                "(()=>{const ribbon=document.getElementById('flRibbonTab-field');const controls=document.getElementById('fieldViewControls');const panel=document.getElementById('fieldViewPanel');const surface=document.getElementById('fieldSurface');return {ribbon:!!ribbon,controls:!!controls,panel:!!panel,surface:!!surface,ribbonDisabled:!!ribbon?.disabled,ribbonText:ribbon?.textContent?.trim()||'',ribbonDisplay:ribbon?getComputedStyle(ribbon).display:'',legacyFieldButtonAbsent:!document.getElementById('modeField'),legacyFieldDatasetTabAbsent:!document.getElementById('fieldViewTab')}})()");
             using (var fieldViewUi = JsonDocument.Parse(fieldViewUiJson))
             {
                 var root = fieldViewUi.RootElement;
                 var mounted =
                     root.TryGetProperty("controls", out var controlsNode) && controlsNode.GetBoolean() &&
-                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean();
+                    root.TryGetProperty("panel", out var panelNode) && panelNode.GetBoolean() &&
+                    root.TryGetProperty("surface", out var surfaceNode) && surfaceNode.GetBoolean();
                 var topLevelMounted =
-                    root.TryGetProperty("mode", out var modeNode) && modeNode.GetBoolean() &&
-                    root.TryGetProperty("modeDisabled", out var modeDisabledNode) && !modeDisabledNode.GetBoolean() &&
-                    root.TryGetProperty("modeText", out var modeTextNode) &&
-                    !string.IsNullOrWhiteSpace(modeTextNode.GetString()) &&
-                    root.TryGetProperty("modeDisplay", out var modeDisplayNode) &&
-                    !string.Equals(modeDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase);
+                    root.TryGetProperty("ribbon", out var ribbonNode) && ribbonNode.GetBoolean() &&
+                    root.TryGetProperty("ribbonDisabled", out var ribbonDisabledNode) && !ribbonDisabledNode.GetBoolean() &&
+                    root.TryGetProperty("ribbonText", out var ribbonTextNode) &&
+                    !string.IsNullOrWhiteSpace(ribbonTextNode.GetString()) &&
+                    root.TryGetProperty("ribbonDisplay", out var ribbonDisplayNode) &&
+                    !string.Equals(ribbonDisplayNode.GetString(), "none", StringComparison.OrdinalIgnoreCase) &&
+                    root.TryGetProperty("legacyFieldButtonAbsent", out var legacyFieldButtonAbsentNode) &&
+                    legacyFieldButtonAbsentNode.GetBoolean() &&
+                    root.TryGetProperty("legacyFieldDatasetTabAbsent", out var legacyFieldDatasetTabAbsentNode) &&
+                    legacyFieldDatasetTabAbsentNode.GetBoolean();
                 if (!mounted || !topLevelMounted)
                     throw new InvalidOperationException(
-                        $"FoamLens Field View top-level mode did not mount correctly: {fieldViewUiJson}");
+                        $"FoamLens v1.6 Field Ribbon/surface did not mount cleanly: {fieldViewUiJson}");
             }
 
             var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{
-                  const tabs=['home','data','field','plots','analysis','compare','export','view'];
+                  const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaTimeSeries','flRaAdd3D','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
                   const icons=[...document.querySelectorAll('#flRibbon .flRibbonIcon')];
+                  const actions=[...document.querySelectorAll('#flRibbon .flRibbonAction')];
+                  const ribbonTabs=[...document.querySelectorAll('#flRibbon .flRibbonTab')];
+                  const actionHierarchyComplete=actions.length>0&&actions.every(a=>!!a.querySelector('.flRibbonIcon')&&!!a.querySelector('.flRibbonLabel'));
+                  const tabHierarchyComplete=ribbonTabs.length===tabs.length&&ribbonTabs.every(t=>!!t.querySelector('.flRibbonIcon')&&!!t.querySelector('span'));
                   document.getElementById('flRibbonTab-field')?.click();
                   const fieldTabActive=document.getElementById('flRibbonTab-field')?.classList.contains('active')===true;
                   const fieldPanelActive=document.getElementById('flRibbonPanel-field')?.classList.contains('active')===true;
                   const fieldMode=document.body.classList.contains('appMode-field');
+                  const internalTabs=[...document.querySelectorAll('#fwViewTabs [data-fw-view]')].map(x=>x.dataset.fwView);
+                  const workspaceView=window.FoamLensFieldWorkspace?.getState?.().view||'';
+                  const contextHost=document.getElementById('flRibbonContextHost');
+                  const timeTransportInRibbon=document.getElementById('fwTimeTransport')?.parentElement?.id==='flRibbonTimeHost';
+                  const contextHidden3D=!!contextHost&&getComputedStyle(contextHost).display==='none';
+                  document.querySelector('#fwViewTabs [data-fw-view="profile"]')?.click();
+                  const contextVisibleProfile=!!contextHost&&getComputedStyle(contextHost).display!=='none';
+                  document.querySelector('#fwViewTabs [data-fw-view="3d"]')?.click();
                   document.getElementById('flRibbonTab-home')?.click();
                   document.getElementById('flRaCases')?.click();
                   const casePanel=document.getElementById('caseQuickPanel');
@@ -234,15 +250,23 @@ internal sealed class FoamLensForm : Form
                     updateApi:typeof window.FoamLensAutoUpdate?.check==='function',
                     missingTabs,
                     missingActions,
-                    tabCount:document.querySelectorAll('#flRibbon .flRibbonTab').length,
+                    tabCount:ribbonTabs.length,
+                    actionCount:actions.length,
                     labelCount:labels.length,
                     iconCount:icons.length,
+                    actionHierarchyComplete,
+                    tabHierarchyComplete,
                     fieldTabActive,
                     fieldPanelActive,
                     fieldMode,
                     legacyNavHidden:document.getElementById('modeNavBar')?getComputedStyle(document.getElementById('modeNavBar')).display==='none':false,
                     legacyToolsHidden:document.querySelector('.top .tools')?getComputedStyle(document.querySelector('.top .tools')).display==='none':false,
                     contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
+                    timeTransportInRibbon,
+                    contextHidden3D,
+                    contextVisibleProfile,
+                    internalTabs,
+                    workspaceView,
                     casePanelParent,
                     casePanelOpen
                   };
@@ -253,7 +277,10 @@ internal sealed class FoamLensForm : Form
                 var root = ribbonUi.RootElement;
                 if (!root.TryGetProperty("ribbon", out var ribbonNode) || !ribbonNode.GetBoolean() ||
                     !root.TryGetProperty("api", out var apiNode) || !apiNode.GetBoolean() ||
-                    !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean())
+                    !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean() ||
+                    !root.TryGetProperty("timeTransportInRibbon", out var timeTransportInRibbonNode) || !timeTransportInRibbonNode.GetBoolean() ||
+                    !root.TryGetProperty("contextHidden3D", out var contextHidden3DNode) || !contextHidden3DNode.GetBoolean() ||
+                    !root.TryGetProperty("contextVisibleProfile", out var contextVisibleProfileNode) || !contextVisibleProfileNode.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon did not mount: {ribbonUiJson}");
                 foreach (var property in new[] { "missingTabs", "missingActions" })
@@ -261,9 +288,10 @@ internal sealed class FoamLensForm : Form
                         missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                         throw new InvalidOperationException(
                             $"FoamLens ribbon is incomplete ({property}): {ribbonUiJson}");
-                if (!root.TryGetProperty("tabCount", out var tabCount) || tabCount.GetInt32() != 8 ||
-                    !root.TryGetProperty("labelCount", out var labelCount) || labelCount.GetInt32() < 35 ||
-                    !root.TryGetProperty("iconCount", out var iconCount) || iconCount.GetInt32() < 43)
+                if (!root.TryGetProperty("tabCount", out var tabCount) || tabCount.GetInt32() != 6 ||
+                    !root.TryGetProperty("actionCount", out var actionCount) || actionCount.GetInt32() <= 0 ||
+                    !root.TryGetProperty("actionHierarchyComplete", out var actionHierarchyComplete) || !actionHierarchyComplete.GetBoolean() ||
+                    !root.TryGetProperty("tabHierarchyComplete", out var tabHierarchyComplete) || !tabHierarchyComplete.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon icon/label hierarchy is incomplete: {ribbonUiJson}");
                 foreach (var property in new[] { "fieldTabActive", "fieldPanelActive", "fieldMode",
@@ -312,7 +340,7 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','uxSplitterB','hrHelpOverlay'
+                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','hrHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -362,7 +390,7 @@ internal sealed class FoamLensForm : Form
                 if (root.TryGetProperty("missing", out var missing) &&
                     missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                     throw new InvalidOperationException(
-                        $"FoamLens v1.4.9 3D runtime controls are missing: {fieldViewRuntimeJson}");
+                        $"FoamLens v1.6.0 3D runtime controls are missing: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("extraViews", out var extraViews) ||
                     extraViews.ValueKind != JsonValueKind.Array || extraViews.GetArrayLength() != 2 ||
                     extraViews.EnumerateArray().Any(v =>
@@ -391,7 +419,7 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("workspaceSplitterCount", out var splitterCount) ||
-                    splitterCount.GetInt32() != 2)
+                    splitterCount.GetInt32() != 1)
                     throw new InvalidOperationException(
                         $"FoamLens Field Workspace splitters did not mount correctly: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
@@ -437,7 +465,7 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens standard camera presets did not mount: {fieldViewRuntimeJson}");
             }
-            Log($"FoamLens v1.4.9 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
+            Log($"FoamLens v1.6.0 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
 
             // Exercise the actual WebView2 recording primitives used by FoamLens video export.
             // ExecuteScriptAsync serializes an unresolved JavaScript Promise as {}, so the
@@ -586,22 +614,82 @@ internal sealed class FoamLensForm : Form
                         !workspaceActiveNode.GetBoolean() ||
                         !data.TryGetProperty("field3DHostMounted", out var field3DHostNode) ||
                         !field3DHostNode.GetBoolean() ||
-                        !data.TryGetProperty("companionChartMounted", out var companionChartNode) ||
-                        !companionChartNode.GetBoolean() ||
-                        !data.TryGetProperty("companionMode", out var companionModeNode) ||
-                        !string.Equals(companionModeNode.GetString(), "profile", StringComparison.Ordinal) ||
-                        !data.TryGetProperty("add3DViewVisible", out var add3DViewNode) ||
-                        !add3DViewNode.GetBoolean())
+                        !data.TryGetProperty("workspaceView", out var workspaceViewNode) ||
+                        !string.Equals(workspaceViewNode.GetString(), "3d", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotHiddenIn3D", out var plotHiddenNode) ||
+                        !plotHiddenNode.GetBoolean() ||
+                        !data.TryGetProperty("inspectorHidden", out var inspectorHiddenNode) ||
+                        !inspectorHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens Field workspace did not keep 3D + Spatial Profile mounted together: {realCaseJson}");
+                            $"FoamLens Field workspace did not start in a true single-view 3D focus state: {realCaseJson}");
+                    if (!data.TryGetProperty("plotSurfaceCount", out var plotSurfaceCountNode) ||
+                        plotSurfaceCountNode.GetInt32() != 3 ||
+                        !data.TryGetProperty("plotSurfaceParentsStable", out var plotSurfaceParentsStableNode) ||
+                        !plotSurfaceParentsStableNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataParent", out var plotSurfaceDataParentNode) ||
+                        !string.Equals(plotSurfaceDataParentNode.GetString(), "chartViewport", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceAnalysisParent", out var plotSurfaceAnalysisParentNode) ||
+                        !string.Equals(plotSurfaceAnalysisParentNode.GetString(), "chartViewport", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceFieldParent", out var plotSurfaceFieldParentNode) ||
+                        !string.Equals(plotSurfaceFieldParentNode.GetString(), "fw2DHost", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceFieldOwnerBefore", out var plotSurfaceFieldOwnerBeforeNode) ||
+                        !string.Equals(plotSurfaceFieldOwnerBeforeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceDataActive", out var plotSurfaceDataActiveNode) ||
+                        !plotSurfaceDataActiveNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceAnalysisActive", out var plotSurfaceAnalysisActiveNode) ||
+                        !plotSurfaceAnalysisActiveNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataRestored", out var plotSurfaceDataRestoredNode) ||
+                        !plotSurfaceDataRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
+                        !plotSurfaceFieldRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
+                        !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens stable Data / Analysis / Field plot-surface runtime smoke failed: {realCaseJson}");
+
+                    if (!data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
+                        !sessionRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionStoredSchema", out var sessionStoredSchemaNode) ||
+                        sessionStoredSchemaNode.GetInt32() != 1 ||
+                        !data.TryGetProperty("sessionStoredMode", out var sessionStoredModeNode) ||
+                        !string.Equals(sessionStoredModeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionRestoredMode", out var sessionRestoredModeNode) ||
+                        !string.Equals(sessionRestoredModeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionStoredRoot", out var sessionStoredRootNode) ||
+                        !data.TryGetProperty("sessionExpectedRoot", out var sessionExpectedRootNode) ||
+                        !string.Equals(sessionStoredRootNode.GetString(), sessionExpectedRootNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionRestoredCaseId", out var sessionRestoredCaseIdNode) ||
+                        !data.TryGetProperty("sessionExpectedCaseId", out var sessionExpectedCaseIdNode) ||
+                        sessionRestoredCaseIdNode.GetInt32() != sessionExpectedCaseIdNode.GetInt32() ||
+                        !data.TryGetProperty("sessionStoredRegion", out var sessionStoredRegionNode) ||
+                        !data.TryGetProperty("sessionRestoredRegion", out var sessionRestoredRegionNode) ||
+                        !string.Equals(sessionStoredRegionNode.GetString(), sessionRestoredRegionNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionStoredDataView", out var sessionStoredDataViewNode) ||
+                        !data.TryGetProperty("sessionRestoredDataView", out var sessionRestoredDataViewNode) ||
+                        !string.Equals(sessionStoredDataViewNode.GetString(), sessionRestoredDataViewNode.GetString(), StringComparison.Ordinal) ||
+                        !data.TryGetProperty("sessionInspectorRestored", out var sessionInspectorRestoredNode) ||
+                        !sessionInspectorRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionFieldViewRestored", out var sessionFieldViewRestoredNode) ||
+                        !sessionFieldViewRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionFieldCompanionRestored", out var sessionFieldCompanionRestoredNode) ||
+                        !sessionFieldCompanionRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionSmokeError", out var sessionSmokeErrorNode) ||
+                        !string.IsNullOrWhiteSpace(sessionSmokeErrorNode.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens cross-session state round-trip smoke failed: {realCaseJson}");
+
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
                         string.IsNullOrWhiteSpace(fieldRibbonTextNode.GetString()) ||
+                        !data.TryGetProperty("legacyFieldButtonAbsent", out var legacyFieldButtonAbsentNode) ||
+                        !legacyFieldButtonAbsentNode.GetBoolean() ||
+                        !data.TryGetProperty("legacyFieldDatasetTabAbsent", out var legacyFieldDatasetTabAbsentNode) ||
+                        !legacyFieldDatasetTabAbsentNode.GetBoolean() ||
                         !data.TryGetProperty("legacyFieldModeHidden", out var legacyFieldModeHiddenNode) ||
                         !legacyFieldModeHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
-                            $"FoamLens ribbon Field navigation is not visible after case import: {realCaseJson}");
+                            $"FoamLens v1.6 Field Ribbon navigation / legacy-nav retirement failed after case import: {realCaseJson}");
 
                     if (!data.TryGetProperty("streamlineSeed400", out var streamlineSeed400Node) ||
                         streamlineSeed400Node.GetInt32() != 400 ||
@@ -1053,7 +1141,7 @@ internal sealed class FoamLensForm : Form
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
-        html = html.Replace("1.4.9", "1.5.1", StringComparison.Ordinal);
+        html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
@@ -1090,7 +1178,6 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   setOverlayOpen('readyOverlay',false);
   setOverlayOpen('scanOverlay',false);
   try{setAppMode('field')}catch{}
-  setDataView('field3d');
   fvRefreshSelectors(false);
   const caseSel=document.getElementById('fvCase');
   const selectSmokeCase=async name=>{
@@ -1098,10 +1185,6 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const target=(cases||[]).find(c=>String(c.name)===String(name));
     if(!target)throw new Error('Requested smoke case is unavailable: '+name);
     caseSel.value=String(target.id);
-    // The normal change handler is async. dispatchEvent() does not await it,
-    // so the smoke used to race the previous case load and could have a late
-    // default field (for example CoCell) overwrite the requested field T.
-    // Call the same handler directly and await the complete case load.
     await fvHandleCaseChange();
     if(Number(fvState.caseId)!==Number(target.id)||String(fvCase()?.name||'')!==String(target.name))
       throw new Error('Field View case switch did not bind renderer to '+name);
@@ -1123,6 +1206,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     if(!availableFields.includes(options.field))
       throw new Error('Requested smoke field is unavailable: '+options.field+'; available: '+availableFields.join(', '));
     fieldSel.value=options.field;
+    // Programmatic smoke selection has no DOM onchange event. Keep the loaded
+    // Field View state aligned so selector remount preservation does not
+    // restore the previous field before fvLoadSelection() consumes the request.
+    fvState.fieldName=options.field;
   }
   await fvLoadSelection();
   const requestedTime=Number(options.time);
@@ -1135,6 +1222,110 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   }
   fvCameraPreset('iso');
   fvRender();
+  let plotSurfaceSmoke=null,plotSurfaceError='';
+  try{
+    const ps=window.FoamLensPlotSurfaces;
+    if(!ps)throw new Error('PlotSurfaceController unavailable');
+    const dataSurface=ps.surface?.('data'),analysisSurface=ps.surface?.('analysis'),fieldPlotSurface=ps.surface?.('field');
+    if(!dataSurface||!analysisSurface||!fieldPlotSurface)throw new Error('Stable Data / Analysis / Field plot surfaces are incomplete');
+    const parentsBefore={
+      data:dataSurface.parentElement?.id||'',
+      analysis:analysisSurface.parentElement?.id||'',
+      field:fieldPlotSurface.parentElement?.id||''
+    };
+    const owner=()=>document.getElementById('canvas')?.closest?.('[data-fl-plot-surface]')?.dataset?.flPlotSurface||'';
+    const fieldOwnerBefore=owner();
+
+    setAppMode('data');
+    if((cases||[]).some(c=>c?.discoveryModel))setDataView('catalog');else setDataView('timeseries');
+    const requestedDataView=String(currentDataView||'');
+    const dataActive=ps.active?.()==='data'&&owner()==='data';
+
+    setAppMode('analysis');
+    setDataView('timeseries');
+    const analysisActive=ps.active?.()==='analysis'&&owner()==='analysis';
+
+    setAppMode('data');
+    const dataRestored=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
+
+    setAppMode('field');
+    const fieldRestored=ps.active?.()==='field'&&owner()==='field';
+    const parentsAfter={
+      data:dataSurface.parentElement?.id||'',
+      analysis:analysisSurface.parentElement?.id||'',
+      field:fieldPlotSurface.parentElement?.id||''
+    };
+    plotSurfaceSmoke={
+      surfaceCount:['data','analysis','field'].filter(k=>!!ps.surface?.(k)).length,
+      parentsStable:parentsBefore.data===parentsAfter.data&&parentsBefore.analysis===parentsAfter.analysis&&parentsBefore.field===parentsAfter.field,
+      dataParent:parentsAfter.data,
+      analysisParent:parentsAfter.analysis,
+      fieldParent:parentsAfter.field,
+      fieldOwnerBefore,
+      dataActive,
+      analysisActive,
+      dataRestored,
+      fieldRestored,
+      requestedDataView
+    };
+  }catch(e){
+    plotSurfaceError=String(e?.stack||e);
+    try{setAppMode('field')}catch{}
+  }
+  let sessionSmoke=null,sessionSmokeError='';
+  try{
+    const ss=window.FoamLensSessionState,ctx=window.FoamLensContextStore,ps=window.FoamLensPlotSurfaces;
+    if(!ss||!ctx||!ps)throw new Error('Session persistence APIs are incomplete.');
+    ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke',apply:false});
+    window.FoamLensFieldWorkspace?.setInspector?.(true);
+    setAppMode('field');
+    ss.save();
+    const stored=ss.load();
+    if(!stored)throw new Error('Session state was not written to localStorage.');
+    const storedDataView=String(stored?.plots?.surfaces?.data?.view||'');
+    const storedRoot=String(stored?.context?.caseRoot||'');
+    const expectedRoot=String(caseById(Number(switchedCase.id))?.rootPath||'');
+
+    window.FoamLensFieldWorkspace?.setInspector?.(false);
+    ctx.set({caseId:null,region:''},{source:'session-smoke-mutate',apply:false});
+    setAppMode('data');
+    setDataView('timeseries');
+    setAppMode('analysis');
+    setDataView('timeseries');
+
+    const restored=ss.restoreSnapshot(stored,{force:true});
+    if(typeof ss.whenRestored==='function')await ss.whenRestored();
+    const restoredContext=ctx.get?.()||{};
+    const fieldState=window.FoamLensFieldWorkspace?.getState?.()||{};
+    sessionSmoke={
+      restored:!!restored,
+      storedSchema:Number(stored.schema||0),
+      storedMode:String(stored.activeMode||''),
+      restoredMode:String(activeAppMode||''),
+      storedRoot,
+      expectedRoot,
+      restoredCaseId:Number(restoredContext.caseId),
+      expectedCaseId:Number(switchedCase.id),
+      storedRegion:String(stored?.context?.region||''),
+      restoredRegion:String(restoredContext.region||''),
+      storedDataView,
+      restoredDataView:String(ps.state?.('data')?.view||''),
+      inspectorRestored:fieldState.inspector===true,
+      fieldViewRestored:String(fieldState.view||'')===String(stored?.field?.view||''),
+      fieldCompanionRestored:String(fieldState.companion||'')===String(stored?.field?.companion||'')
+    };
+  }catch(e){
+    sessionSmokeError=String(e?.stack||e);
+    try{setAppMode('field')}catch{}
+  }
+  // The persistence smoke intentionally opens/restores the Inspector. Reset the
+  // workspace before evaluating the final 3D-focus invariant so the smoke
+  // harness does not leak its own test state into the product-state assertion.
+  try{
+    setAppMode('field');
+    window.FoamLensFieldWorkspace?.setView?.('3d');
+    window.FoamLensFieldWorkspace?.setInspector?.(false);
+  }catch{}
   const streamlineSeed400=typeof fvSeedPlane==='function'&&fvState.mesh?fvSeedPlane(fvState.mesh.boundsMin,fvState.mesh.boundsMax,'x',400,.5).length:0;
   const advancedStreamlineControls=['fvSeedMode','fvSeedCount','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'].every(id=>!!document.getElementById(id));
   const multiViewControlSet=['fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals','fcView2Palette','fcView2Opacity'].every(id=>!!document.getElementById(id));
@@ -1168,6 +1359,34 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     performanceSpeedupFactor:Number(performanceBenchmark?.speedupFactor),
     performancePercentChange:Number(performanceBenchmark?.percentChange),
     performanceBenchmarkError,
+    plotSurfaceCount:Number(plotSurfaceSmoke?.surfaceCount||0),
+    plotSurfaceParentsStable:!!plotSurfaceSmoke?.parentsStable,
+    plotSurfaceDataParent:String(plotSurfaceSmoke?.dataParent||''),
+    plotSurfaceAnalysisParent:String(plotSurfaceSmoke?.analysisParent||''),
+    plotSurfaceFieldParent:String(plotSurfaceSmoke?.fieldParent||''),
+    plotSurfaceFieldOwnerBefore:String(plotSurfaceSmoke?.fieldOwnerBefore||''),
+    plotSurfaceDataActive:!!plotSurfaceSmoke?.dataActive,
+    plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
+    plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
+    plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
+    plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
+    plotSurfaceError,
+    sessionRestored:!!sessionSmoke?.restored,
+    sessionStoredSchema:Number(sessionSmoke?.storedSchema||0),
+    sessionStoredMode:String(sessionSmoke?.storedMode||''),
+    sessionRestoredMode:String(sessionSmoke?.restoredMode||''),
+    sessionStoredRoot:String(sessionSmoke?.storedRoot||''),
+    sessionExpectedRoot:String(sessionSmoke?.expectedRoot||''),
+    sessionRestoredCaseId:Number(sessionSmoke?.restoredCaseId),
+    sessionExpectedCaseId:Number(sessionSmoke?.expectedCaseId),
+    sessionStoredRegion:String(sessionSmoke?.storedRegion||''),
+    sessionRestoredRegion:String(sessionSmoke?.restoredRegion||''),
+    sessionStoredDataView:String(sessionSmoke?.storedDataView||''),
+    sessionRestoredDataView:String(sessionSmoke?.restoredDataView||''),
+    sessionInspectorRestored:!!sessionSmoke?.inspectorRestored,
+    sessionFieldViewRestored:!!sessionSmoke?.fieldViewRestored,
+    sessionFieldCompanionRestored:!!sessionSmoke?.fieldCompanionRestored,
+    sessionSmokeError,
     performanceLoads:Number(performanceStats?.loads||0),
     performanceLastMs:Number(performanceStats?.lastMs||0),
     performanceAvgMs:Number(performanceStats?.avgMs||0),
@@ -1209,12 +1428,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     fieldWorkspaceActive:document.body.classList.contains('appMode-field'),
     fieldWorkspaceTitle:document.getElementById('fwTitle')?.textContent?.trim()||'',
     field3DHostMounted:document.getElementById('fieldViewPanel')?.parentElement?.id==='fw3DHost',
+    workspaceView:window.FoamLensFieldWorkspace?.getState?.().view||'',
     companionMode:document.getElementById('fwCompanion')?.value||'',
     companionTitle:document.getElementById('fwPlotTitle')?.textContent?.trim()||'',
     companionChartMounted:!!document.querySelector('#fw2DHost .chartwrap'),
-    add3DViewVisible:(()=>{const e=document.getElementById('fwAdd3DView');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
-    fieldModeText:document.getElementById('modeField')?.textContent?.trim()||'',
-    fieldModeVisible:(()=>{const e=document.getElementById('modeField');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
+    plotHiddenIn3D:(()=>{const e=document.querySelector('.fwPlotCard');return !!e&&getComputedStyle(e).display==='none'})(),
+    inspectorHidden:(()=>{const e=document.getElementById('fwControlsDrawer');return !!e&&e.classList.contains('hidden')})(),
+    legacyFieldButtonAbsent:!document.getElementById('modeField'),
+    legacyFieldDatasetTabAbsent:!document.getElementById('fieldViewTab'),
     fieldRibbonText:document.querySelector('#flRibbonTab-field span')?.textContent?.trim()||'',
     fieldRibbonVisible:(()=>{const e=document.getElementById('flRibbonTab-field');if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0})(),
     legacyFieldModeHidden:(()=>{const nav=document.getElementById('modeNavBar');return !!nav&&getComputedStyle(nav).display==='none'})(),
@@ -1439,6 +1660,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     break;
                 case "checkForUpdates":
                     await CheckForUpdatesAsync(userInitiated: true);
+                    break;
+                case "openExternal":
+                    HandleOpenExternal(root, requestId);
                     break;
                 default:
                     Reply(requestId, false, null, $"Unknown native request: {type}");
@@ -3049,6 +3273,19 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         if (_operations.TryGetValue(requestId, out var current) && ReferenceEquals(current, source))
             _operations.TryRemove(requestId, out _);
         source.Dispose();
+    }
+
+    private void HandleOpenExternal(JsonElement root, string requestId)
+    {
+        var uri = RequiredString(root, "uri");
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
+            (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        {
+            Reply(requestId, false, null, "Only http/https external links are allowed.");
+            return;
+        }
+        OpenExternal(parsed.ToString());
+        Reply(requestId, true, new { uri = parsed.ToString() }, null);
     }
 
     private void HandleCancelOperation(JsonElement root, string requestId)

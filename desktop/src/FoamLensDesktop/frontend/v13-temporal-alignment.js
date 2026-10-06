@@ -102,7 +102,7 @@ let taLastResult=null;
 
 function taBuildUi(){
   if(document.getElementById('taTools'))return;
-  const host=document.getElementById('generalAnalysisModules')||document.getElementById('analysisPanel')||document.querySelector('.analysisTools')||document.body;
+  const host=document.getElementById('generalAnalysisModules');if(!host)return;
   const box=document.createElement('div');box.id='taTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b id="taTitle" data-fl-en="Temporal alignment" data-fl-es="Alineación temporal">Temporal alignment</b><span class="badge">v1.3</span></div>
@@ -190,7 +190,7 @@ function taAddDerived(kind){
     field:diffField,unit:diffField.unit,dimensions:diffField.dimensions,
     temporalAlignment:{mode:r.aligned.mode,method:r.aligned.method,range:r.aligned.range,sourceA:taSeriesLabel(A),sourceB:taSeriesLabel(B),epsilon:r.epsilon}};
   series.push(d);activeId=d.id;
-  try{refreshDatasetControls();renderList();updateMeta();if(typeof setDataView==='function')setDataView('timeseries');else draw()}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
   const st=document.getElementById('taStatus');if(st)st.textContent=diagEs()?`Se agregó la curva derivada: ${name}`:`Added derived curve: ${name}`;
 }
 function taInit(){

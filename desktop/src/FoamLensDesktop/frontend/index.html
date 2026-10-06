@@ -1662,7 +1662,6 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
   <div class="modeNav" role="navigation" aria-label="FoamLens analysis workspace">
     <button class="modeNavBtn active" data-mode="workspace" id="modeWorkspace">Overview</button>
     <button class="modeNavBtn" data-mode="data" id="modeData">Data</button>
-    <button class="modeNavBtn" data-mode="field" id="modeField" data-fl-en="Field View" data-fl-es="Vista 3D">Field View</button>
     <button class="modeNavBtn" data-mode="analysis" id="modeAnalysis">Analysis</button>
     <button class="modeNavBtn" data-mode="review" id="modeReview">Review</button>
     <button class="modeNavBtn" data-mode="live" id="modeLive">Live</button>
@@ -3038,8 +3037,8 @@ async function parseSpatialProfileFile(file){
     }else descriptors.push({source:j,name})
   }
 
-  const coordsRaw=rawRows.map(r=>Number(r[0])).filter(Number.isFinite);
-  const maxAbs=Math.max(...coordsRaw.map(Math.abs),0);
+  const coordRange=flSafeMinMax(rawRows,r=>Math.abs(Number(r[0])));
+  const maxAbs=coordRange.count?coordRange.max:0;
   const coordScale=maxAbs<=1?1000:1;
   const coordUnit=coordScale===1000?'mm':'m';
   const time=profileTimeFromFile(file),lineInfo=profileLineFromFile(file,axis),caseName=inferCase(file),out=[];
@@ -4404,9 +4403,9 @@ function flDerivedCatalogRows(){
   for(const s of series||[]){
     const derived=!!s?.derived||!!s?.derivedKind||s?.sourceKind==='derived'||String(s?.sourcePath||'').startsWith('derived:')||String(s?.sourcePath||'').startsWith('FoamLens ');
     if(!derived)continue;
-    const dtype=datasetTypeOf(s),x=(s.t||[]).map(Number).filter(Number.isFinite),physicalProfileTime=Number(s.profileTime);
-    const timeMin=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:(x.length?Math.min(...x):NaN);
-    const timeMax=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:(x.length?Math.max(...x):NaN);
+    const dtype=datasetTypeOf(s),physicalProfileTime=Number(s.profileTime);let timeMin=NaN,timeMax=NaN;
+    if(dtype==='profile'&&Number.isFinite(physicalProfileTime)){timeMin=physicalProfileTime;timeMax=physicalProfileTime}
+    else for(const value of s.t||[]){const t=Number(value);if(!Number.isFinite(t))continue;if(!Number.isFinite(timeMin)||t<timeMin)timeMin=t;if(!Number.isFinite(timeMax)||t>timeMax)timeMax=t}
     const dimensions=String(s?.field?.dimensions||s?.dimensions||''),unit=String(s?.field?.unit||s?.unit||'');
     out.push({
       caseId:s.caseId??null,
@@ -5736,11 +5735,11 @@ function couplingRows(caseId,root='p_rgh',includeStartup=true){
 }
 function currentCouplingMetrics(caseId,root,time){const ss=caseLogSeries(caseId,root,'initialResidual').slice().sort((a,b)=>a.logSubIter-b.logSubIter);if(!ss.length)return null;const values=ss.map(s=>({member:Number(s.logSubIter),value:exactOrInterpolated(s,time),series:s})).filter(x=>Number.isFinite(x.value));if(!values.length)return null;const first=values[0],last=values.at(-1),R=first.value!==0?last.value/first.value:NaN,reduction=last.value!==0?first.value/last.value:NaN,map=pressureMapping(caseId,root),outerStarts=[],withinOuter=[];if(map.known){for(let o=0;o<map.nOuter;o++){const a=o*map.nCorrectors,b=a+map.nCorrectors-1,va=values.find(x=>x.member===a)?.value,vb=values.find(x=>x.member===b)?.value;if(Number.isFinite(va)){if(o>0&&first.value!==0)outerStarts.push({outer:o+1,member:a,ratio:va/first.value});if(Number.isFinite(vb)&&va!==0)withinOuter.push({outer:o+1,start:a,end:b,ratio:vb/va})}}}return{time:Number(time),values,first:first.value,last:last.value,R,reduction,orders:reduction>0?Math.log10(reduction):NaN,map,outerStarts,withinOuter}}
 function linearSolveRows(caseId,root,time){const ini=caseLogSeries(caseId,root,'initialResidual').slice().sort((a,b)=>a.logSubIter-b.logSubIter),fin=caseLogSeries(caseId,root,'finalResidual'),iters=caseLogSeries(caseId,root,'iterations');return ini.map(s=>{const member=Number(s.logSubIter),iv=exactOrInterpolated(s,time),fs=fin.find(q=>Number(q.logSubIter)===member),is=iters.find(q=>Number(q.logSubIter)===member),fv=exactOrInterpolated(fs,time),it=exactOrInterpolated(is,time),map=mappedMember(caseId,root,member);return{member,initial:iv,final:fv,reduction:Number.isFinite(fv)&&fv!==0?iv/fv:NaN,iters:it,map}}).filter(r=>Number.isFinite(r.initial))}
-function caseDiagnosticSummary(caseId,root='p_rgh',rowsOverride=null){const set=diagSettings(),rows=rowsOverride||couplingRows(caseId,root,false),ratios=rows.map(r=>r.R).filter(Number.isFinite),initials=rows.map(r=>r.maxInitial).filter(Number.isFinite),mapping=pressureMapping(caseId,root),up=rows.filter(r=>r.R>1),high=rows.filter(r=>r.maxInitial>set.initialThreshold);return{caseId:Number(caseId),root,mapping,n:rows.length,medianR:diagMedian(ratios),p95R:diagPercentile(ratios,.95),fracGt1:rows.length?up.length/rows.length:NaN,maxInitial:initials.length?Math.max(...initials):NaN,fracAbove:rows.length?high.length/rows.length:NaN,executionTime:lastSeriesValue(caseId,'executionTime'),clockTime:lastSeriesValue(caseId,'clockTime')}}
+function caseDiagnosticSummary(caseId,root='p_rgh',rowsOverride=null){const set=diagSettings(),rows=rowsOverride||couplingRows(caseId,root,false),ratios=rows.map(r=>r.R).filter(Number.isFinite),initials=rows.map(r=>r.maxInitial).filter(Number.isFinite),mapping=pressureMapping(caseId,root),up=rows.filter(r=>r.R>1),high=rows.filter(r=>r.maxInitial>set.initialThreshold);return{caseId:Number(caseId),root,mapping,n:rows.length,medianR:diagMedian(ratios),p95R:diagPercentile(ratios,.95),fracGt1:rows.length?up.length/rows.length:NaN,maxInitial:flSafeMinMax(initials).max,fracAbove:rows.length?high.length/rows.length:NaN,executionTime:lastSeriesValue(caseId,'executionTime'),clockTime:lastSeriesValue(caseId,'clockTime')}}
 function lastSeriesValue(caseId,family){const rec=healthCaseIndex(caseId),ss=rec?(rec.families.get(family)||[]):logOptionsBase().filter(x=>x.caseId===Number(caseId)&&x.logFamily===family);const s=ss.find(x=>x.y?.length);return s?s.y.at(-1):NaN}
 function finalResidualMedian(caseId,root,startup){const vals=[];for(const s of caseLogSeries(caseId,root,'finalResidual'))for(let i=0;i<s.t.length;i++)if(s.t[i]>=startup&&Number.isFinite(s.y[i]))vals.push(s.y[i]);return diagMedian(vals)}
 function couplingEvents(caseId,root='p_rgh'){const set=diagSettings(),rows=couplingRows(caseId,root,false),events=[];rows.slice().sort((a,b)=>b.maxInitial-a.maxInitial).slice(0,set.topN).forEach(r=>events.push({...r,type:'highInitial',label:diagEs()?'Residual inicial alto':'High initial residual event',score:r.maxInitial}));rows.filter(r=>r.R>1).sort((a,b)=>b.R-a.R).slice(0,set.topN).forEach(r=>events.push({...r,type:'increased',label:diagEs()?'Residual aumentó durante acoplamiento':'Residual increased across coupling',score:r.R}));rows.filter(r=>r.R<=1&&r.R>=set.ratioThreshold).sort((a,b)=>b.R-a.R).slice(0,set.topN).forEach(r=>events.push({...r,type:'little',label:diagEs()?'Poca reducción':'Little reduction',score:r.R}));return events.sort((a,b)=>b.score-a.score).slice(0,set.topN*3)}
-function windowMaxima(caseId,root='p_rgh'){const set=diagSettings(),rows=couplingRows(caseId,root,false);if(!rows.length)return[];const end=Math.max(...rows.map(r=>r.t)),out=[];for(let a=set.startup;a<end;a+=set.window){const b=Math.min(end,a+set.window),rr=rows.filter(r=>r.t>=a&&(b===end?r.t<=b:r.t<b));if(!rr.length)continue;const best=rr.reduce((x,y)=>y.maxInitial>x.maxInitial?y:x,rr[0]);out.push({start:a,end:b,t:best.t,value:best.maxInitial,member:best.maxInitialMember})}return out}
+function windowMaxima(caseId,root='p_rgh'){const set=diagSettings(),rows=couplingRows(caseId,root,false);if(!rows.length)return[];const end=flSafeMinMax(rows,r=>r.t).max,out=[];for(let a=set.startup;a<end;a+=set.window){const b=Math.min(end,a+set.window),rr=rows.filter(r=>r.t>=a&&(b===end?r.t<=b:r.t<b));if(!rr.length)continue;const best=rr.reduce((x,y)=>y.maxInitial>x.maxInitial?y:x,rr[0]);out.push({start:a,end:b,t:best.t,value:best.maxInitial,member:best.maxInitialMember})}return out}
 function diagnosticCases(){return cases.filter(c=>caseInitialRoots(c.id).length)}
 function diagCaseId(){return Number($('diagCase')?.value)||diagnosticCases()[0]?.id||null}
 function diagRoot(){return $('diagRoot')?.value||caseInitialRoots(diagCaseId())[0]||'p_rgh'}
@@ -5751,10 +5750,10 @@ function renderDiagnosticCurrent(){const id=diagCaseId(),root=diagRoot(),time=di
 function renderDiagnosticEvents(){const id=diagCaseId(),root=diagRoot(),set=diagSettings(),rows=couplingRows(id,root,false),events=couplingEvents(id,root),es=diagEs(),gt1=rows.filter(r=>r.R>1),little=rows.filter(r=>r.R<=1&&r.R>=set.ratioThreshold),high=rows.filter(r=>r.maxInitial>set.initialThreshold);$('diagEventSummary').innerHTML=`${es?'Timesteps analizados':'Analyzed timesteps'}: <b>${rows.length}</b> · R&gt;1: <b>${gt1.length} (${diagPct(rows.length?gt1.length/rows.length:NaN)})</b> · ${es?'poca reducción':'little reduction'}: <b>${little.length}</b> · ${es?'sobre threshold inicial':'above initial threshold'}: <b>${high.length} (${diagPct(rows.length?high.length/rows.length:NaN)})</b>`;$('diagEvents').innerHTML=events.length?`<table class="extTable"><thead><tr><th>${es?'Evento':'Event'}</th><th>t [s]</th><th>max Initial</th><th>#</th><th>r_first</th><th>r_last</th><th>R</th></tr></thead><tbody>${events.map(e=>`<tr class="extEvent" data-time="${e.t}" data-case="${id}" data-root="${esc(root)}" data-member="${Number.isFinite(e.maxInitialMember)?e.maxInitialMember:''}"><td><span class="extTag">${esc(e.label)}</span></td><td>${diagFmt(e.t)}</td><td>${diagFmt(e.maxInitial)}</td><td>${Number.isFinite(e.maxInitialMember)?e.maxInitialMember:'—'}</td><td>${diagFmt(e.rFirst)}</td><td>${diagFmt(e.rLast)}</td><td>${diagFmt(e.R)}</td></tr>`).join('')}</tbody></table>`:'—';const w=windowMaxima(id,root);$('diagWindowMax').innerHTML=w.length?`<table class="extTable"><thead><tr><th>${es?'Ventana':'Window'}</th><th>${es?'Máximo':'Maximum'}</th><th>t [s]</th><th>#</th></tr></thead><tbody>${w.map(x=>`<tr class="extEvent" data-time="${x.t}" data-case="${id}" data-root="${esc(root)}" data-member="${x.member}"><td>${diagFmt(x.start)}–${diagFmt(x.end)}</td><td>${diagFmt(x.value)}</td><td>${diagFmt(x.t)}</td><td>${x.member}</td></tr>`).join('')}</tbody></table>`:'—'}
 function renderDiagnosticComparison(){const root=diagRoot(),es=diagEs(),rows=diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({c,s:caseDiagnosticSummary(c.id,root)}));$('diagCaseCompare').innerHTML=rows.length?`<table class="extTable"><thead><tr><th>${es?'Caso':'Case'}</th><th>nOuter</th><th>median R</th><th>p95 R</th><th>R&gt;1</th><th>${es?'máx. inicial':'max Initial'}</th><th>${es?'&gt;umbral':'&gt;threshold'}</th><th>CPU [s]</th><th>${es?'Reloj [s]':'Clock [s]'}</th></tr></thead><tbody>${rows.map(({c,s})=>`<tr data-case="${c.id}"><td>${esc(c.name)}</td><td>${s.mapping.nOuter??'—'}</td><td>${diagFmt(s.medianR)}</td><td>${diagFmt(s.p95R)}</td><td>${diagPct(s.fracGt1)}</td><td>${diagFmt(s.maxInitial)}</td><td>${diagPct(s.fracAbove)}</td><td>${diagFmt(s.executionTime)}</td><td>${diagFmt(s.clockTime)}</td></tr>`).join('')}</tbody></table>`:'—'}
 function maxAbsSeries(caseId,family,startup){const rec=healthCaseIndex(caseId),ss=rec?(rec.families.get(family)||[]):logOptionsBase().filter(s=>s.caseId===Number(caseId)&&s.logFamily===family);let max=NaN;for(const s of ss)for(let i=0;i<s.t.length;i++)if(s.t[i]>=startup&&Number.isFinite(s.y[i])){const v=Math.abs(s.y[i]);if(!Number.isFinite(max)||v>max)max=v}return max}
-function rootFirstMax(caseId,root,startup){const s=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter)[0];if(!s)return NaN;const vals=s.y.filter((v,i)=>s.t[i]>=startup&&Number.isFinite(v));return vals.length?Math.max(...vals):NaN}
+function rootFirstMax(caseId,root,startup){const s=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter)[0];if(!s)return NaN;const vals=s.y.filter((v,i)=>s.t[i]>=startup&&Number.isFinite(v));return flSafeMinMax(vals).max}
 function renderDiagnosticHealth(){const id=diagCaseId(),root=diagRoot(),c=caseById(id),set=diagSettings(),sum=caseDiagnosticSummary(id,root),cfg=c?.config||{},es=diagEs();if(!c){$('diagHealth').textContent='—';return}const hMax=rootFirstMax(id,'h',set.startup),eMax=rootFirstMax(id,'e',set.startup),contG=maxAbsSeries(id,'contGlobal',set.startup),contC=maxAbsSeries(id,'contCumulative',set.startup),co=maxAbsSeries(id,'CourantMax',set.startup),rho=caseLogSeries(id,'rho','initialResidual'),rhoZero=!!rho.length&&rho.every(s=>s.y?.length&&s.y.every(v=>Number(v)===0));$('diagHealth').innerHTML=[`<b>${es?'Acoplamiento de presión':'Pressure coupling'}</b>: median R ${diagFmt(sum.medianR)}, p95 R ${diagFmt(sum.p95R)}, R&gt;1 ${diagPct(sum.fracGt1)}.`,`<b>${es?'Solver lineal':'Linear solver'}</b>: ${es?'mediana Final residual':'median Final residual'} ${diagFmt(finalResidualMedian(id,root,set.startup))} (${es?'separado de coupling':'separate from coupling'}).`,`<b>${es?'Residuos de energía':'Energy residuals'}</b>: max h_0 ${diagFmt(hMax)} · max e_0 ${diagFmt(eMax)}.`,`<b>rho_*</b>: ${rhoZero?(es?'Todos los valores cero':'All values zero'):(rho.length?(es?'contiene señal':'contains signal'):'—')}.`,`<b>${es?'Continuidad':'Continuity'}</b>: max |global| ${diagFmt(contG)} · max |cumulative| ${diagFmt(contC)}.`,`<b>Courant</b>: max ${diagFmt(co)}.`,`<b>${es?'Paso de tiempo':'Time stepping'}</b>: adjustTimeStep ${esc(cfg.adjustTimeStep??'—')} · deltaT ${diagFmt(cfg.deltaT)} · maxCo ${diagFmt(cfg.maxCo)} · maxDeltaT ${diagFmt(cfg.maxDeltaT)}.`,`<b>CPU / Clock</b>: ${diagFmt(sum.executionTime)} s / ${diagFmt(sum.clockTime)} s.`].join('<br>')}
 function heatColor(z,zmin,zmax){const q=zmax>zmin?Math.max(0,Math.min(1,(z-zmin)/(zmax-zmin))):.5,h=220-215*q;return`hsl(${h} 72% ${52-4*q}%)`}
-function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),tmin=Math.min(...ss.map(s=>s.t[0])),tmax=Math.max(...ss.map(s=>s.t.at(-1))),positive=[];for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v))positive.push(Math.log10(v));let zmin=positive.length?Math.max(-14,Math.min(...positive)):-12,zmax=positive.length?Math.max(...positive):0;if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
+function drawCouplingHeatmap(){const cv=$('diagHeatmap');if(!cv)return;const caseId=diagCaseId(),root=diagRoot(),ss=caseLogSeries(caseId,root,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),rect=cv.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),W=Math.max(260,Math.round(rect.width||320)),H=230;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const dark=document.body.classList.contains('dark'),bg=dark?'#101923':'#fff',fg=dark?'#a9b9c9':'#5a6b7e',grid=dark?'#263442':'#dbe3ea';ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(!ss.length){ctx.fillStyle=fg;ctx.fillText(diagEs()?'Sin Initial residuals':'No Initial residuals',12,24);diagHeatmapHit=null;return}const L=42,R=9,T=18,B=28,pw=W-L-R,ph=H-T-B,members=ss.map(s=>Number(s.logSubIter)),startRange=flSafeMinMax(ss,s=>s.t[0]),endRange=flSafeMinMax(ss,s=>s.t.at(-1)),tmin=startRange.min,tmax=endRange.max;let zmin=Infinity,zmax=-Infinity;for(const s of ss)for(const v of s.y)if(v>0&&Number.isFinite(v)){const z=Math.log10(v);if(z<zmin)zmin=z;if(z>zmax)zmax=z}if(!Number.isFinite(zmin)){zmin=-12;zmax=0}else zmin=Math.max(-14,zmin);if(!(zmax>zmin))zmin=zmax-1;const rh=ph/ss.length,bins=Math.max(1,Math.round(pw));for(let r=0;r<ss.length;r++){const s=ss[r],arr=new Array(bins).fill(-Infinity);for(let i=0;i<s.t.length;i++){const t=s.t[i],v=s.y[i];if(!(v>0)||!Number.isFinite(t))continue;const bi=Math.max(0,Math.min(bins-1,Math.floor((t-tmin)/(tmax-tmin||1)*(bins-1))));arr[bi]=Math.max(arr[bi],Math.log10(v))}for(let x=0;x<bins;x++)if(Number.isFinite(arr[x])){ctx.fillStyle=heatColor(arr[x],zmin,zmax);ctx.fillRect(L+x,T+r*rh,1.2,Math.ceil(rh)+.3)}}const mapping=pressureMapping(caseId,root);if(mapping.known)for(let o=1;o<mapping.nOuter;o++){const y=T+(o*mapping.nCorrectors)*rh;ctx.save();ctx.strokeStyle=dark?'#f0b35d':'#9a6619';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore()}ctx.fillStyle=fg;ctx.font='9px Segoe UI,Arial';ctx.textAlign='right';ctx.textBaseline='middle';members.forEach((m,r)=>ctx.fillText(`#${m}`,L-5,T+(r+.5)*rh));ctx.textAlign='center';ctx.textBaseline='top';for(const q of[0,.25,.5,.75,1]){const x=L+q*pw,t=tmin+q*(tmax-tmin);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(x,T+ph);ctx.lineTo(x,T+ph+4);ctx.stroke();ctx.fillStyle=fg;ctx.fillText(diagFmt(t),x,T+ph+6)}if(Number.isFinite(diagnosticFocusTime)){const fx=L+(diagnosticFocusTime-tmin)/(tmax-tmin||1)*pw;if(fx>=L&&fx<=L+pw){ctx.strokeStyle=dark?'#fff':'#111';ctx.beginPath();ctx.moveTo(fx,T);ctx.lineTo(fx,T+ph);ctx.stroke()}}diagHeatmapHit={L,T,pw,ph,tmin,tmax,members,caseId,root}}
 function nearestValue(values,target){if(!values.length)return null;let best=values[0];for(const v of values)if(Math.abs(v-target)<Math.abs(best-target))best=v;return best}
 function syncAppToDiagnosticTime(time,{caseId=null,root=null,member=null}={}){time=Number(time);if(!Number.isFinite(time))return;const set=diagSettings();diagnosticFocusTime=time;diagnosticSelectedEvent={time,caseId,root,member};const cid=Number(caseId)||diagCaseId(),rr=root||diagRoot(),initial=caseLogSeries(cid,rr,'initialResidual').sort((a,b)=>a.logSubIter-b.logSubIter),fam=initial[0]?.logFamily;if(fam&&[...$('logFamily').options].some(o=>o.value===fam))$('logFamily').value=fam;refreshLogSelectors();if(Number.isFinite(Number(member))&&[...$('logMember').options].some(o=>Number(o.value)===Number(member)))$('logMember').value=String(Number(member));syncLogNavigator();const logTimes=logAvailableTimes(),lt=nearestValue(logTimes,time);if(lt!=null&&(set.syncMode!=='exact'||Math.abs(lt-time)<=set.syncTolerance))syncLogTimeNavigator(lt);logEvolutionActive=true;logEvolutionMemberLimit=Number.isFinite(Number(member))?Number(member):null;rebuildLogEvolutionSeries();const pTimes=profileAvailableTimes(),pt=nearestValue(pTimes,time);if(pt!=null&&(set.syncMode!=='exact'||Math.abs(pt-time)<=set.syncTolerance)){const op=[...$('profileTime').options].find(o=>profileTimeEqual(o.value,pt));if(op)$('profileTime').value=op.value;syncProfileTimeNavigator();updateProfileMeta()}renderList();renderDiagnosticCurrent();drawCouplingHeatmap();renderPhaseFront();draw();$('status').textContent=`${diagEs()?'Tiempo diagnóstico sincronizado':'Diagnostic time synchronized'}: ${diagFmt(time)} s`}
 function diagnosticPayload(){const root=diagRoot(),set=diagSettings();return{generatedBy:flBuildIdentity(),settings:set,cases:diagnosticCases().filter(c=>caseInitialRoots(c.id).includes(root)).map(c=>({case:c.name,config:c.config||{},summary:caseDiagnosticSummary(c.id,root),events:couplingEvents(c.id,root),rows:couplingRows(c.id,root,false)}))}}
@@ -5777,8 +5776,9 @@ let pendingScanFiles=[];
 let liveDirectoryHandle=null;
 let liveWatchTimer=null;
 let liveLastSnapshot=null;
+function flSafeMinMax(values,project=null){let min=Infinity,max=-Infinity,count=0;if(!values)return{min:NaN,max:NaN,count:0};for(const value of values){const n=Number(project?project(value):value);if(!Number.isFinite(n))continue;if(n<min)min=n;if(n>max)max=n;count++}return count?{min,max,count}:{min:NaN,max:NaN,count:0}}
 
-function observedCaseTimeRange(caseId){const rec=healthCaseIndex(caseId);if(rec)return {...rec.range};const vals=[];for(const s of series.filter(s=>s.caseId===Number(caseId))){if(datasetTypeOf(s)==='profile'&&Number.isFinite(s.profileTime))vals.push(Number(s.profileTime));else if(Array.isArray(s.t))for(const t of s.t)if(Number.isFinite(Number(t)))vals.push(Number(t))}if(!vals.length)return{min:NaN,max:NaN,count:0};return{min:Math.min(...vals),max:Math.max(...vals),count:vals.length}}
+function observedCaseTimeRange(caseId){const rec=healthCaseIndex(caseId);if(rec)return {...rec.range};let min=Infinity,max=-Infinity,count=0;for(const s of series.filter(s=>s.caseId===Number(caseId))){if(datasetTypeOf(s)==='profile'&&Number.isFinite(Number(s.profileTime))){const t=Number(s.profileTime);min=Math.min(min,t);max=Math.max(max,t);count++}else if(Array.isArray(s.t))for(const value of s.t){const t=Number(value);if(!Number.isFinite(t))continue;min=Math.min(min,t);max=Math.max(max,t);count++}}return count?{min,max,count}:{min:NaN,max:NaN,count:0}}
 function caseLogFamilies(caseId){const rec=healthCaseIndex(caseId);return rec?[...rec.families.keys()].filter(Boolean).sort():[...new Set(logOptionsBase().filter(s=>s.caseId===Number(caseId)).map(s=>s.logFamily).filter(Boolean))].sort()}
 function caseProfileSets(caseId){return [...new Set([...profileOptionsBase().filter(s=>s.caseId===Number(caseId)).map(s=>s.profileOutputPath).filter(Boolean),...indexedProfileSets(caseId)])].sort()}
 function addFinding(out,f){out.push({id:`finding_${out.length}_${f.caseId??'workspace'}_${String(f.title||'').replace(/\W+/g,'_')}`,...f})}
@@ -6365,7 +6365,7 @@ async function pmPairedValues(caseId,xName,xComp,yName,yComp,time,region,subset,
 }
 function pmDrawScatter(canvas,x,y){
   if(!canvas)return;const dpr=window.devicePixelRatio||1,w=Math.max(260,canvas.clientWidth||320),hh=Math.max(170,canvas.clientHeight||190);canvas.width=Math.round(w*dpr);canvas.height=Math.round(hh*dpr);const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hh);
-  const xmin=Math.min(...x),xmax=Math.max(...x),ymin=Math.min(...y),ymax=Math.max(...y),px=(v)=>28+(w-42)*(v-xmin)/(xmax-xmin||1),py=(v)=>hh-22-(hh-36)*(v-ymin)/(ymax-ymin||1);
+  const xr=flSafeMinMax(x),yr=flSafeMinMax(y),xmin=xr.min,xmax=xr.max,ymin=yr.min,ymax=yr.max,px=(v)=>28+(w-42)*(v-xmin)/(xmax-xmin||1),py=(v)=>hh-22-(hh-36)*(v-ymin)/(ymax-ymin||1);
   c.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line')||'#566';c.strokeRect(28,8,w-42,hh-30);c.fillStyle=getComputedStyle(document.body).getPropertyValue('--accent')||'#5af';c.globalAlpha=.45;
   const step=Math.max(1,Math.ceil(x.length/5000));for(let i=0;i<x.length;i+=step){c.beginPath();c.arc(px(x[i]),py(y[i]),1.6,0,Math.PI*2);c.fill()}c.globalAlpha=1
 }
@@ -6381,7 +6381,7 @@ async function pmRunScatterAnalysis(){
 function pmDrawLines(canvas,lines){
   if(!canvas||!lines.length)return;const all=lines.flatMap(l=>l.points),xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);if(!all.length)return;
   const dpr=window.devicePixelRatio||1,w=Math.max(260,canvas.clientWidth||320),hh=Math.max(170,canvas.clientHeight||190);canvas.width=Math.round(w*dpr);canvas.height=Math.round(hh*dpr);const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,hh);
-  const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys),px=v=>32+(w-46)*(v-xmin)/(xmax-xmin||1),py=v=>hh-24-(hh-38)*(v-ymin)/(ymax-ymin||1);
+  const xr=flSafeMinMax(xs),yr=flSafeMinMax(ys),xmin=xr.min,xmax=xr.max,ymin=yr.min,ymax=yr.max,px=v=>32+(w-46)*(v-xmin)/(xmax-xmin||1),py=v=>hh-24-(hh-38)*(v-ymin)/(ymax-ymin||1);
   c.strokeStyle=getComputedStyle(document.body).getPropertyValue('--line')||'#566';c.strokeRect(32,8,w-46,hh-32);
   const palette=['#4d9cff','#ff9e4d','#4dcf91','#c27aff','#e15f73','#77b6b2'];lines.forEach((l,j)=>{c.beginPath();c.strokeStyle=palette[j%palette.length];c.lineWidth=1.8;l.points.forEach((p,i)=>{const x=px(p[0]),y=py(p[1]);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()})
 }
@@ -6892,7 +6892,7 @@ function syncLogNavigator(){
     ||logs.find(s=>(!family||s.logFamily===family)&&Number(s.logSubIter)===Number($('logMember')?.value));
   $('logCurrentFile').value=current?.fileName||'';
   if(current){
-    const xmin=current.t.length?Math.min(...current.t):NaN,xmax=current.t.length?Math.max(...current.t):NaN;
+    const timeRange=flSafeMinMax(current.t),xmin=timeRange.min,xmax=timeRange.max;
     const range=Number.isFinite(xmin)&&Number.isFinite(xmax)?` · t = ${trimZeros(xmin.toFixed(6))}–${trimZeros(xmax.toFixed(6))} s`:'';
     $('logMeta').innerHTML=`<span class="logBadge">foamLog</span>${esc(current.field.display)} · ${$('language').value==='es'?'subiteración':'sub-iteration'} ${current.logSubIter} · ${current.t.length} ${$('language').value==='es'?'puntos':'points'}${range}<br><span style="opacity:.72">OpenFOAM file: ${esc(current.fileName)}</span>`
   }else $('logMeta').textContent=tr('logNone')
@@ -6940,7 +6940,7 @@ function phaseFrontSeriesAt(caseId,time){const set=$('profileSet')?.value||'',li
 function phaseFrontRows(caseId){const ss=alphaProfileSeries().filter(s=>s.caseId===Number(caseId)),groups=new Map();for(const s of ss){const key=`${s.profileOutputPath}|${s.profileLineKey}|${s.profileTime}`;if(!groups.has(key))groups.set(key,s)}const thresholds=phaseFrontThresholds(),rows=[];for(const s of [...groups.values()].sort((a,b)=>a.profileTime-b.profileTime)){const row={time:s.profileTime,axis:s.profileAxis,unit:s.profileCoordUnit,line:s.profileLine};for(const th of thresholds){const xs=crossingPositions(s,th),key=`${caseId}|${s.profileOutputPath}|${s.profileLineKey}|${th}`;row[String(th)]={position:chooseCrossing(xs,key),count:xs.length,all:xs}}rows.push(row)}return rows}
 function refreshPhaseFrontCases(){const sel=$('phaseFrontCase');if(!sel)return;const old=sel.value,cs=cases.filter(c=>alphaProfileSeries().some(s=>s.caseId===c.id));sel.innerHTML=cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');if(cs.some(c=>String(c.id)===old))sel.value=old;else if(cs.length)sel.value=String(cs[0].id)}
 function renderPhaseFront(){refreshPhaseFrontCases();const id=phaseFrontCaseId(),es=diagEs(),time=Number($('profileTime')?.value),s=phaseFrontSeriesAt(id,time),ths=phaseFrontThresholds();if(!id||!s){flSetIssue('phaseFrontStatus','no spatial profiles',{field:'α1',time});$('phaseFrontCurrent').innerHTML='';$('phaseFrontTrajectory').innerHTML='';return}const current=ths.map(th=>{const xs=crossingPositions(s,th),key=`${id}|${s.profileOutputPath}|${s.profileLineKey}|${th}`,p=chooseCrossing(xs,key);return{th,xs,p}});$('phaseFrontStatus').innerHTML=`<b>${esc(caseById(id)?.name||'')}</b> · ${esc(profileOrientationLabel(s.profileAxis))} · ${esc(s.profileLine)} · t=${diagFmt(time)} s`; $('phaseFrontCurrent').innerHTML=`<table class="extTable phaseFrontTable"><thead><tr><th>αₗ</th><th>${es?'Posición':'Position'} [${esc(s.profileCoordUnit)}]</th><th>${es?'Cruces':'Crossings'}</th><th>${es?'Ambigüedad':'Ambiguity'}</th></tr></thead><tbody>${current.map(r=>`<tr><td>${r.th}</td><td>${diagFmt(r.p)}</td><td>${r.xs.length}</td><td>${r.xs.length>1?(es?'múltiple':'multiple'):(r.xs.length===1?'—':(es?'sin cruce':'no crossing'))}</td></tr>`).join('')}</tbody></table>`;const rows=phaseFrontRows(id);$('phaseFrontTrajectory').innerHTML=rows.length?`<table class="extTable"><thead><tr><th>t [s]</th>${ths.map(th=>`<th>α=${th}</th><th>#</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${diagFmt(r.time)}</td>${ths.map(th=>`<td>${diagFmt(r[String(th)]?.position)}</td><td>${r[String(th)]?.count??0}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'—'}
-function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length){flSetIssue('phaseFrontStatus','no spatial profiles',{analysis:'Phase Front',field:'α1'});return}flClearIssue('phaseFrontStatus');for(const th of ths){const t=[],y=[];for(const r of rows){const p=r[String(th)]?.position;if(Number.isFinite(p)){t.push(r.time);y.push(p)}}if(!t.length)continue;const field={canonical:`phase_front_${th}`,display:`Phase front α=${th}`,unit:rows[0].unit||'mm',quantity:'position',original:'derived from liquid fraction profile crossings'};const key=`phasefront|${id}|${th}|${$('profileSet')?.value||''}|${$('profileLine')?.value||''}`;series=series.filter(s=>s.phaseFrontKey!==key);series.push({id:nextId++,datasetType:'timeseries',caseId:id,caseName:c.name,fileName:'Derived phase-front trajectory',sourcePath:`derived:${key}`,field,probe:null,location:'',t,y,visible:true,color:variableColor(field),width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'phase_front',phaseFrontKey:key})}refreshDatasetControls();setDataView('timeseries');renderList();updateMeta();draw()}
+function createPhaseFrontTrajectories(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length){flSetIssue('phaseFrontStatus','no spatial profiles',{analysis:'Phase Front',field:'α1'});return}flClearIssue('phaseFrontStatus');for(const th of ths){const t=[],y=[];for(const r of rows){const p=r[String(th)]?.position;if(Number.isFinite(p)){t.push(r.time);y.push(p)}}if(!t.length)continue;const field={canonical:`phase_front_${th}`,display:`Phase front α=${th}`,unit:rows[0].unit||'mm',quantity:'position',original:'derived from liquid fraction profile crossings'};const key=`phasefront|${id}|${th}|${$('profileSet')?.value||''}|${$('profileLine')?.value||''}`;series=series.filter(s=>s.phaseFrontKey!==key);series.push({id:nextId++,datasetType:'timeseries',caseId:id,caseName:c.name,fileName:'Derived phase-front trajectory',sourcePath:`derived:${key}`,field,probe:null,location:'',t,y,visible:true,color:variableColor(field),width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'phase_front',phaseFrontKey:key})}refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}
 function exportPhaseFrontCsv(){const id=phaseFrontCaseId(),c=caseById(id),rows=phaseFrontRows(id),ths=phaseFrontThresholds();if(!c||!rows.length){flSetIssue('phaseFrontStatus','analysis-result-missing',{analysis:'Phase Front export',field:'α1'});return}flClearIssue('phaseFrontStatus');const out=[['case','time_s','profile_line','axis','coordinate_unit',...ths.flatMap(th=>[`alpha_${th}_position`,`alpha_${th}_crossing_count`])]];for(const r of rows)out.push([c.name,r.time,r.line,r.axis,r.unit,...ths.flatMap(th=>[r[String(th)]?.position??'',r[String(th)]?.count??0])]);downloadText('FoamLens_phase_front_tracking_v48.csv',out.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv')}
 function profileSetDisplay(path,sample){
   const tail=(path||'profile').split('/').filter(Boolean).at(-1)||'profile';
@@ -7139,8 +7139,9 @@ function loadStyle(){
   const y=s.y;
   $('k0').textContent=formatValue(y[0],s.field);
   $('kf').textContent=formatValue(y.at(-1),s.field);
-  $('kmin').textContent=formatValue(Math.min(...y),s.field);
-  $('kmax').textContent=formatValue(Math.max(...y),s.field)
+  const yRange=flSafeMinMax(y);
+  $('kmin').textContent=formatValue(yRange.min,s.field);
+  $('kmax').textContent=formatValue(yRange.max,s.field)
 }
 
 function trimZeros(s){
@@ -8898,57 +8899,67 @@ function nearestPointFromMouse(ev){
 }
 
 
-$('canvas').addEventListener('pointerdown',ev=>{
-  const element=findFigureElementAt(ev);
-  if(element?.resizeEdge){selectFigureElement({...element,resizeEdge:false});beginLegendResize(ev,element);$('canvas').setPointerCapture?.(ev.pointerId);return}
-  if(element && (forceDragMode || ['legend','title','axis-label','pinned'].includes(element.type))){selectFigureElement(element);beginElementDrag(ev,element);$('canvas').setPointerCapture?.(ev.pointerId)}
-});
-$('canvas').addEventListener('pointermove',ev=>{if(legendResizeState)moveLegendResize(ev);else moveElementDrag(ev)});
-$('canvas').addEventListener('pointerup',ev=>{if(legendResizeState){$('canvas').releasePointerCapture?.(ev.pointerId);endLegendResize();return}if(dragState){$('canvas').releasePointerCapture?.(ev.pointerId);endElementDrag()}});
-$('canvas').addEventListener('pointercancel',()=>{endLegendResize();endElementDrag()});
+const plotCanvasInteractionBindings=new WeakSet();
+function bindPlotCanvasInteractions(canvas){
+  if(!canvas||plotCanvasInteractionBindings.has(canvas))return false;
+  plotCanvasInteractionBindings.add(canvas);
 
-$('canvas').addEventListener('mousemove',ev=>{
-  if(!legendResizeState&&!dragState){const hit=findFigureElementAt(ev);$('canvas').classList.toggle('legendResizeCursor',!!hit?.resizeEdge)}
-  const p=nearestPointFromMouse(ev),tip=$('tooltip');
+  canvas.addEventListener('pointerdown',ev=>{
+    const element=findFigureElementAt(ev);
+    if(element?.resizeEdge){selectFigureElement({...element,resizeEdge:false});beginLegendResize(ev,element);ev.currentTarget.setPointerCapture?.(ev.pointerId);return}
+    if(element && (forceDragMode || ['legend','title','axis-label','pinned'].includes(element.type))){selectFigureElement(element);beginElementDrag(ev,element);ev.currentTarget.setPointerCapture?.(ev.pointerId)}
+  });
+  canvas.addEventListener('pointermove',ev=>{if(legendResizeState)moveLegendResize(ev);else moveElementDrag(ev)});
+  canvas.addEventListener('pointerup',ev=>{if(legendResizeState){ev.currentTarget.releasePointerCapture?.(ev.pointerId);endLegendResize();return}if(dragState){ev.currentTarget.releasePointerCapture?.(ev.pointerId);endElementDrag()}});
+  canvas.addEventListener('pointercancel',()=>{endLegendResize();endElementDrag()});
 
-  if(!p){
-    hoverPoint=null;tip.style.display='none';draw();return
-  }
+  canvas.addEventListener('mousemove',ev=>{
+    const activeCanvas=ev.currentTarget;
+    if(!legendResizeState&&!dragState){const hit=findFigureElementAt(ev);activeCanvas.classList.toggle('legendResizeCursor',!!hit?.resizeEdge)}
+    const p=nearestPointFromMouse(ev),tip=$('tooltip');
 
-  hoverPoint={seriesId:p.seriesId,index:p.index};
-  const s=currentViewSeries().find(q=>q.id===p.seriesId)||series.find(q=>q.id===p.seriesId),side=p.state.asg.get(s.id);
-  const xTxt=tick(s.t[p.index],null,'x',p.state.xmin,p.state.xmax),yTxt=pointValueText(s,p.index,side);
-  const unit=s.field.quantity==='temperature'?($('tempUnit').value==='C'?' °C':' K'):(s.field.unit==='-'?'':` ${s.field.unit}`);
+    if(!p){
+      hoverPoint=null;tip.style.display='none';draw();return
+    }
 
-  const xUnit=datasetTypeOf(s)==='profile'?(s.profileCoordUnit||'mm'):(s.derivedKind==='log_evolution'?'subIter':'s');
-  tip.innerHTML=`<b>${esc(labelFor(s))}</b>X = ${xTxt} ${xUnit}<br>Y = ${yTxt}${unit}<br><span style="opacity:.72">OpenFOAM: ${esc(s.field.original||s.field.canonical)}</span><br><span style="opacity:.7">${tr('clickPin')}</span>`;
-  tip.style.left=Math.min(ev.offsetX+16,$('canvas').clientWidth-280)+'px';
-  tip.style.top=Math.max(8,ev.offsetY-14)+'px';
-  tip.style.display='block';
-  draw()
-});
+    hoverPoint={seriesId:p.seriesId,index:p.index};
+    const s=currentViewSeries().find(q=>q.id===p.seriesId)||series.find(q=>q.id===p.seriesId),side=p.state.asg.get(s.id);
+    const xTxt=tick(s.t[p.index],null,'x',p.state.xmin,p.state.xmax),yTxt=pointValueText(s,p.index,side);
+    const unit=s.field.quantity==='temperature'?($('tempUnit').value==='C'?' °C':' K'):(s.field.unit==='-'?'':` ${s.field.unit}`);
 
-$('canvas').addEventListener('mouseleave',()=>{
-  if(!legendResizeState)$('canvas').classList.remove('legendResizeCursor');
-  hoverPoint=null;$('tooltip').style.display='none';draw()
-});
+    const xUnit=datasetTypeOf(s)==='profile'?(s.profileCoordUnit||'mm'):(s.derivedKind==='log_evolution'?'subIter':'s');
+    tip.innerHTML=`<b>${esc(labelFor(s))}</b>X = ${xTxt} ${xUnit}<br>Y = ${yTxt}${unit}<br><span style="opacity:.72">OpenFOAM: ${esc(s.field.original||s.field.canonical)}</span><br><span style="opacity:.7">${tr('clickPin')}</span>`;
+    tip.style.left=Math.min(ev.offsetX+16,activeCanvas.clientWidth-280)+'px';
+    tip.style.top=Math.max(8,ev.offsetY-14)+'px';
+    tip.style.display='block';
+    draw()
+  });
 
-$('canvas').addEventListener('click',ev=>{
-  const element=findFigureElementAt(ev);
-  if(element){
-    selectFigureElement(element);
-    return
-  }
+  canvas.addEventListener('mouseleave',ev=>{
+    if(!legendResizeState)ev.currentTarget.classList.remove('legendResizeCursor');
+    hoverPoint=null;$('tooltip').style.display='none';draw()
+  });
 
-  selectFigureElement(null);
+  canvas.addEventListener('click',ev=>{
+    const element=findFigureElementAt(ev);
+    if(element){
+      selectFigureElement(element);
+      return
+    }
 
-  const p=nearestPointFromMouse(ev);
-  if(!p)return;
-  const idx=pinnedPoints.findIndex(q=>q.seriesId===p.seriesId&&q.index===p.index);
-  if(idx>=0)pinnedPoints.splice(idx,1);
-  else pinnedPoints.push({seriesId:p.seriesId,index:p.index});
-  draw()
-});
+    selectFigureElement(null);
+
+    const p=nearestPointFromMouse(ev);
+    if(!p)return;
+    const idx=pinnedPoints.findIndex(q=>q.seriesId===p.seriesId&&q.index===p.index);
+    if(idx>=0)pinnedPoints.splice(idx,1);
+    else pinnedPoints.push({seriesId:p.seriesId,index:p.index});
+    draw();
+    document.dispatchEvent(new CustomEvent('foamlens-plot-state-change',{detail:{surface:window.FoamLensPlotSurfaces?.active?.()||'data',reason:'pin'}}))
+  });
+  return true
+}
+bindPlotCanvasInteractions($('canvas'));
 
 $('clearPins').onclick=()=>{pinnedPoints=[];draw()};
 $('resetElementPosition').onclick=resetSelectedElementPosition;

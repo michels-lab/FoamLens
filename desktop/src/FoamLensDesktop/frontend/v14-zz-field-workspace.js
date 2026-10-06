@@ -1,22 +1,17 @@
-/* FoamLens Desktop v1.4.4 — top-level Field workspace with simultaneous 3D + 2D companion views. */
+/* FoamLens Desktop v1.6.0 — Field-owned 3D workspace with tabbed diagnostics and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'split',syncTime:true,origins:new Map(),installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
+const fwTimeState={playing:false,timer:null};
 const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
-function fwRemember(node){
-  if(!node||fwState.origins.has(node.id))return;
-  fwState.origins.set(node.id,{parent:node.parentNode,next:node.nextSibling});
-}
-function fwRestore(node){
-  if(!node)return;const o=fwState.origins.get(node.id);if(!o?.parent)return;
-  if(o.next&&o.next.parentNode===o.parent)o.parent.insertBefore(node,o.next);else o.parent.appendChild(node)
-}
-function fwMove(id,targetId){
-  const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;fwRemember(node);target.appendChild(node);return node
+function fwAdoptFieldNode(id,targetId){
+  const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;
+  if(node.parentNode!==target)target.appendChild(node);
+  node.dataset.fwOwner='field';
+  return node
 }
 function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
-  const b=document.getElementById('modeField');if(b)b.textContent=fwUi('Field View','Vista 3D');
   const title=document.getElementById('fwTitle');if(title)title.textContent=fwUi('Field Workspace','Workspace de campos');
   const sub=document.getElementById('fwSubtitle');if(sub)sub.textContent=fwUi('3D fields and 2D diagnostics in the same workspace','Campos 3D y diagnósticos 2D en el mismo workspace');
   const add=document.getElementById('fwAdd3DView');if(add)add.textContent=fwUi('+ Add 3D View','+ Añadir vista 3D');
@@ -28,10 +23,6 @@ function fwUpdateNavText(){
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
-  const nav=document.querySelector('.modeNav'),analysis=document.getElementById('modeAnalysis');let createdModeButton=false;
-  if(nav&&!document.getElementById('modeField')){
-    const b=document.createElement('button');b.className='modeNavBtn';b.dataset.mode='field';b.id='modeField';b.type='button';b.textContent='Field View';analysis?nav.insertBefore(b,analysis):nav.appendChild(b);createdModeButton=true
-  }
   const surface=document.createElement('section');surface.className='modeSurface fieldWorkspaceSurface';surface.id='fieldSurface';
   surface.innerHTML=`
     <div class="fwShell">
@@ -45,12 +36,28 @@ function fwCreateSurface(){
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
-          <div class="fwCompact"><label id="fwCompanionLabel" for="fwCompanion">Companion plot</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option><option value="none">None</option></select></div>
-          <div class="fwCompact"><label for="fwLayout">Layout</label><select id="fwLayout"><option value="split">Split</option><option value="3d">3D focus</option><option value="plot">Plot focus</option></select></div>
-          <label class="inlineCheck fwSyncCheck"><input id="fwSyncTime" type="checkbox" checked> <span id="fwSyncLabel">Follow 3D physical time</span></label>
+          <button class="btn" id="fwInspectorToggle" type="button" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
         </div>
       </div>
-      <div class="fwGrid" id="fwGrid">
+      <div class="fwWorkspaceBar">
+        <div class="fwViewTabs" id="fwViewTabs" role="tablist" aria-label="Field workspace views">
+          <button class="fwViewTab active" type="button" role="tab" aria-selected="true" data-fw-view="3d">3D</button>
+          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="profile">Spatial Profile</button>
+          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="timeseries">Time Series</button>
+          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="log">Solver Logs</button>
+          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="split">Split</button>
+        </div>
+        <div class="fwSplitChooser hidden" id="fwSplitChooser"><label for="fwCompanion" data-fl-en="Second pane" data-fl-es="Segundo panel">Second pane</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option></select></div>
+        <div class="fwTimeTransport" id="fwTimeTransport" aria-label="Physical time playback">
+          <button class="btn tiny" id="fwTimePrev" type="button" title="Previous physical-time frame">‹</button>
+          <button class="btn soft" id="fwTimePlay" type="button" aria-pressed="false">▶ Play</button>
+          <button class="btn tiny" id="fwTimeNext" type="button" title="Next physical-time frame">›</button>
+          <input id="fwTimeSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Physical time">
+          <span class="fwTimeReadout" id="fwTimeReadout">t = —</span>
+          <select id="fwTimeSpeed" aria-label="Playback speed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+        </div>
+      </div>
+      <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
           <div class="fwCardHead"><strong>3D</strong><span class="badge" id="fw3DCount">1 view</span></div>
           <div id="fw3DHost"></div>
@@ -60,52 +67,134 @@ function fwCreateSurface(){
           <div class="fwCompanionHost" id="fw2DHost"></div>
           <div class="smallnote fwPlotEmpty hidden" id="fwPlotEmpty"></div>
         </section>
-        <aside class="fwControlsCard">
-          <details open class="fwControlGroup"><summary><strong>3D controls</strong></summary><div id="fw3DControlsHost"></div></details>
-          <details open class="fwControlGroup" id="fw2DControlGroup"><summary><strong id="fw2DControlTitle">Spatial Profile controls</strong></summary><div id="fw2DControlsHost"></div></details>
-        </aside>
       </div>
+      <aside class="fwControlsCard fwControlsDrawer hidden" id="fwControlsDrawer" aria-hidden="true">
+        <div class="fwInspectorHead"><strong data-fl-en="Inspector" data-fl-es="Inspector">Inspector</strong><button class="btn tiny" id="fwInspectorClose" type="button" aria-label="Close inspector">×</button></div>
+        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div id="fw3DControlsHost"></div></details>
+        <details open class="fwControlGroup" id="fw2DControlGroup"><summary><strong id="fw2DControlTitle">Spatial Profile controls</strong></summary><div id="fw2DControlsHost"></div></details>
+      </aside>
     </div>`;
   const anchor=document.getElementById('workspaceOverview')||document.getElementById('workspace');anchor?.insertAdjacentElement('beforebegin',surface);
   const style=document.createElement('style');style.id='fwStyles';style.textContent=`
     body.appMode-field #workspace,body.appMode-field #workspaceOverview,body.appMode-field #reviewSurface,body.appMode-field #liveSurface{display:none!important}
     body.appMode-field #fieldSurface{display:block}
-    #fieldViewTab{display:none!important}
-    .fieldWorkspaceSurface{padding:14px;overflow:auto}
+    .fieldWorkspaceSurface{padding:14px;overflow:auto;position:relative}
     .fwShell{display:grid;gap:12px;min-width:0}
+    .fwWorkspaceBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+    .fwViewTabs{display:flex;gap:4px;flex-wrap:wrap}.fwViewTab{border:1px solid transparent;background:transparent;color:var(--muted);padding:7px 10px;border-radius:9px;font-size:9px;font-weight:800}.fwViewTab:hover{border-color:var(--line);color:var(--text)}.fwViewTab.active{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--text)}
+    .fwSplitChooser{display:flex;align-items:center;gap:6px}.fwSplitChooser label{font-size:8px;color:var(--muted);font-weight:800}.fwSplitChooser.hidden{display:none!important}
+    .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:auto auto auto minmax(140px,320px) auto auto;align-items:center;gap:6px;min-width:min(100%,540px)}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
+    body.appMode-field .fvTimeline,body.appMode-field #profileTimeline,body.appMode-field #playbackGlobal,body.appMode-field #logPlayTime,body.appMode-field #logTimePrev,body.appMode-field #logTimeSlider,body.appMode-field #logTimeNext{display:none!important}
     .fwHeader{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
     .fwEyebrow{font-size:8px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
     .fwHeader h2{margin:3px 0 2px;font-size:18px}.fwHeader p{margin:0;color:var(--muted);font-size:9px}
     .fwHeaderActions{display:flex;align-items:end;justify-content:flex-end;gap:7px;flex-wrap:wrap}.fwCompact{display:grid;gap:3px}.fwCompact label{font-size:8px;color:var(--muted);font-weight:700}.fwCompact select{min-width:120px}
     .fwSyncCheck{align-self:center;white-space:nowrap}.fwMultiHint{max-width:260px;align-self:center}.fwCompareConfig,.fwAnimationConfig{outline:1px solid color-mix(in srgb,var(--accent) 32%,transparent)}
     .fwProfilePickStatus{max-width:190px;align-self:center}.fwProfileOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;overflow:visible}.fwProfileOverlay line{stroke:#fff2a6;stroke-width:2.5;stroke-dasharray:7 4;filter:drop-shadow(0 0 2px #000)}.fwProfileOverlay circle{fill:#ffbd2e;stroke:#111;stroke-width:2}.fwProfileOverlay text{font-size:11px;font-weight:900;fill:#fff7c9;stroke:#111;stroke-width:3;paint-order:stroke}.fwCompact input[type="number"]{width:82px}
-    .fwGrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr) 340px;gap:12px;align-items:start;min-width:0}
-    .fwGrid.layout-3d{grid-template-columns:minmax(0,1fr) 340px}.fwGrid.layout-3d .fwPlotCard{display:none}
-    .fwGrid.layout-plot{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) 340px}
+    .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0}
+    .fwGrid.layout-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .fwGrid.layout-3d .fwPlotCard{display:none}
+    .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
     .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
-    .fwControlsCard{padding:9px;display:grid;gap:8px;max-height:calc(100vh - 190px);overflow:auto;position:sticky;top:8px}
+    .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
-    @media(max-width:1350px){.fwGrid,.fwGrid.layout-plot{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.fwControlsCard{grid-column:1/-1;position:static;max-height:none;grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwControlsCard{grid-template-columns:1fr}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
+    @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
+    @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:auto auto auto minmax(90px,1fr);}.fwTimeReadout,#fwTimeSpeed{grid-row:2}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
-  if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));
-  document.getElementById('fwCompanion')?.addEventListener('change',e=>fwSetCompanion(e.target.value));
-  document.getElementById('fwLayout')?.addEventListener('change',e=>fwSetLayout(e.target.value));
-  document.getElementById('fwSyncTime')?.addEventListener('change',e=>fwState.syncTime=!!e.target.checked);
+  document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
+  document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
+  document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
+  document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
+  document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
+  document.getElementById('fwTimeNext')?.addEventListener('click',()=>fwTimeStep(1));
+  document.getElementById('fwTimePlay')?.addEventListener('click',()=>fwTimeState.playing?fwTimeStop():fwTimePlay());
+  document.getElementById('fwTimeSlider')?.addEventListener('input',e=>{fwTimeStop();fwTimeLoadIndex(Number(e.target.value))});
+  document.getElementById('fwTimeSpeed')?.addEventListener('change',()=>{if(fwTimeState.playing){fwTimeStop();fwTimePlay()}});
   document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  fwEnsureCompanionSurface();
   fwUpdateNavText()
 }
 function fwSetLayout(layout){
-  fwState.layout=['split','3d','plot'].includes(layout)?layout:'split';const grid=document.getElementById('fwGrid');if(!grid)return;
-  grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');setTimeout(()=>{try{fvRender()}catch{};try{draw()}catch{}},0)
+  fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
+  grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
+  setTimeout(()=>{try{fvRender()}catch{};try{draw()}catch{}},0)
+}
+function fwSetInspector(open){
+  fwState.inspector=!!open;const drawer=document.getElementById('fwControlsDrawer'),toggle=document.getElementById('fwInspectorToggle');
+  drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
+}
+function fwActivateView(view){
+  view=['3d','profile','timeseries','log','split'].includes(view)?view:'3d';fwState.view=view;
+  if(view==='profile'){fwSetCompanion('profile');fwSetLayout('plot')}
+  else if(view==='timeseries'){fwSetCompanion('timeseries');fwSetLayout('plot')}
+  else if(view==='log'){fwSetCompanion('log');fwSetLayout('plot')}
+  else if(view==='split'){if(fwState.companion==='none')fwSetCompanion('profile');fwSetLayout('split')}
+  else fwSetLayout('3d');
+  document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>{const on=b.dataset.fwView===view;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false')});
+  document.getElementById('fwSplitChooser')?.classList.toggle('hidden',view!=='split');
+  const group3D=document.getElementById('fw3DControlGroup'),group2D=document.getElementById('fw2DControlGroup');
+  if(group3D)group3D.style.display=(view==='3d'||view==='split')?'':'none';
+  if(group2D)group2D.style.display=(view==='3d')?'none':'';
+  fwRefreshGlobalTime();
+  document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view,companion:fwState.companion}}))
+}
+function fwTimeMode(){return fwState.view==='split'?'3d':fwState.view}
+function fwTimeTimes(){
+  try{
+    const mode=fwTimeMode();
+    if(mode==='profile'&&typeof profileAvailableTimes==='function')return profileAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(mode==='log'&&typeof logAvailableTimes==='function')return logAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    return (fvCurrentFieldGroup()?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)
+  }catch{return[]}
+}
+function fwTimeCurrent(){
+  try{
+    const mode=fwTimeMode();
+    if(mode==='profile'){
+      if(typeof profilePlaybackUsesGlobalClock==='function'&&profilePlaybackUsesGlobalClock()&&Number.isFinite(Number(profilePlaybackClockTime)))return Number(profilePlaybackClockTime);
+      return Number(document.getElementById('profileTime')?.value)
+    }
+    if(mode==='log')return Number(document.getElementById('logCurrentTime')?.value);
+    return Number(fvState?.time)
+  }catch{return NaN}
+}
+function fwRefreshGlobalTime(){
+  const times=fwTimeTimes(),slider=document.getElementById('fwTimeSlider'),readout=document.getElementById('fwTimeReadout'),play=document.getElementById('fwTimePlay');
+  if(!slider||!readout)return;slider.max=String(Math.max(0,times.length-1));let idx=0,current=fwTimeCurrent();
+  if(times.length&&Number.isFinite(current)){let best=Infinity;times.forEach((t,i)=>{const d=Math.abs(t-current);if(d<best){best=d;idx=i}})}
+  slider.value=String(Math.max(0,Math.min(Math.max(0,times.length-1),idx)));slider.disabled=times.length<2;if(play)play.disabled=times.length<2;
+  readout.textContent=times.length?'t = '+fvFmt(times[idx])+' s':'t = —'
+}
+async function fwTimeLoadIndex(index){
+  const times=fwTimeTimes();if(!times.length)return;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0))),time=times[i],mode=fwTimeMode();
+  try{
+    if(mode==='profile'){
+      try{stopProfileAnimation()}catch{}
+      applyProfileTimeValue(Number(time),{renderListToo:false})
+    }else if(mode==='log'){
+      try{stopLogAnimation()}catch{}
+      syncLogTimeNavigator(Number(time))
+    }else{
+      fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(time)
+    }
+    fwUpdateTimeBadge();fwRefreshGlobalTime()
+  }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}}
+}
+function fwTimeStep(delta){const slider=document.getElementById('fwTimeSlider');fwTimeStop();return fwTimeLoadIndex((Number(slider?.value)||0)+Number(delta||0))}
+function fwTimeStop(){
+  fwTimeState.playing=false;if(fwTimeState.timer){clearTimeout(fwTimeState.timer);fwTimeState.timer=null}const b=document.getElementById('fwTimePlay');if(b){b.textContent='▶ '+fwUi('Play','Reproducir');b.setAttribute('aria-pressed','false')}
+}
+function fwTimePlay(){
+  const times=fwTimeTimes();if(times.length<2)return;fwTimeStop();fwTimeState.playing=true;const b=document.getElementById('fwTimePlay');if(b){b.textContent='⏸ '+fwUi('Pause','Pausa');b.setAttribute('aria-pressed','true')}
+  const tick=async()=>{if(!fwTimeState.playing)return;const s=document.getElementById('fwTimeSlider'),current=Number(s?.value)||0;if(current>=times.length-1){fwTimeStop();return}await fwTimeLoadIndex(current+1);if(fwTimeState.playing){const speed=Math.max(.1,Number(document.getElementById('fwTimeSpeed')?.value)||1);fwTimeState.timer=setTimeout(tick,Math.max(40,500/speed))}};tick()
 }
 
 function fwFieldTsReadyCases(){return (cases||[]).filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c))}
@@ -380,15 +469,17 @@ function fwInstall3DProfilePicker(){
   const canvas=document.getElementById('fvCanvas');if(!canvas||canvas.dataset.fwProfilePicker)return;canvas.dataset.fwProfilePicker='1';canvas.addEventListener('click',fwHandle3DProfileClick,true)
 }
 
-function fwCompanionControlIds(mode){
-  if(mode==='profile')return['profileControls','playbackGlobal'];
-  if(mode==='timeseries')return['timeSeriesControls'];
-  if(mode==='log')return['logControls','playbackGlobal'];
-  return[]
+function fwOwnCompanionControls(){
+  for(const id of ['playbackGlobal','timeSeriesControls','profileControls','logControls'])fwAdoptFieldNode(id,'fw2DControlsHost')
 }
-function fwRestoreCompanionNodes(){
-  for(const id of ['profileControls','timeSeriesControls','logControls','playbackGlobal'])fwRestore(document.getElementById(id));
-  fwRestore(document.querySelector('#fw2DHost .chartwrap'))
+function fwEnsureCompanionSurface(){
+  const host=document.getElementById('fw2DHost');if(!host)return null;
+  return window.FoamLensPlotSurfaces?.ensure?.('field',host)||null
+}
+function fwActivateCompanionSurface(){
+  const host=document.getElementById('fw2DHost');if(!host)return false;
+  fwEnsureCompanionSurface();
+  return window.FoamLensPlotSurfaces?.activate?.('field',host,{restore:false})!==false
 }
 function fwCompanionTitle(mode){
   return mode==='profile'?fwUi('Spatial Profile','Perfil espacial'):mode==='timeseries'?fwUi('Time Series','Series temporales'):mode==='log'?fwUi('Solver Logs','Logs del solver'):fwUi('No companion plot','Sin gráfica complementaria')
@@ -396,16 +487,14 @@ function fwCompanionTitle(mode){
 function fwSetCompanion(mode){
   mode=['profile','timeseries','log','none'].includes(mode)?mode:'profile';fwState.companion=mode;
   const select=document.getElementById('fwCompanion');if(select&&select.value!==mode)select.value=mode;
-  fwRestoreCompanionNodes();
+  fwOwnCompanionControls();fwActivateCompanionSurface();
   const card=document.getElementById('fwPlotCard'),group=document.getElementById('fw2DControlGroup'),empty=document.getElementById('fwPlotEmpty'),title=document.getElementById('fwPlotTitle'),controlTitle=document.getElementById('fw2DControlTitle');
   card?.classList.toggle('companion-none',mode==='none');if(group)group.style.display=mode==='none'?'none':'';
   if(title)title.textContent=fwCompanionTitle(mode);if(controlTitle)controlTitle.textContent=fwCompanionTitle(mode)+' '+fwUi('controls','controles');
   if(mode==='none'){if(empty){empty.classList.remove('hidden');empty.textContent=fwUi('3D-only workspace. Choose a companion plot at any time.','Workspace solo 3D. Elige una gráfica complementaria cuando quieras.')}return}
   const coreMode=mode==='profile'?'profile':mode==='log'?'log':'timeseries';
-  if(currentDataView==='field3d')currentDataView='catalog';
   try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
-  const chart=document.querySelector('#chartViewport .chartwrap')||document.querySelector('.chartwrap');if(chart){fwRemember(chart);document.getElementById('fw2DHost')?.appendChild(chart);chart.classList.remove('hidden')}
-  for(const id of fwCompanionControlIds(mode)){const n=fwMove(id,'fw2DControlsHost');if(n&&mode!=='timeseries'||(n&&timeSeriesOptionsBase().length))n.classList.remove('hidden')}
+  const chart=window.FoamLensPlotSurfaces?.surface?.('field');if(chart)chart.classList.remove('hidden','flPlotSurfaceInactive');
   fwRefreshFieldTsControls();
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
@@ -449,11 +538,10 @@ function fwAdd3DView(){
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
-  fwMove('fieldViewPanel','fw3DHost');fwMove('fieldViewControls','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
+  fwAdoptFieldNode('fieldViewPanel','fw3DHost');fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
   const compare=document.getElementById('fcPanel');if(compare){compare.open=true;compare.classList.add('fwCompareConfig')}
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
-  document.querySelector('.datasetTabs #fieldViewTab')?.setAttribute('aria-hidden','true');
   try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);setTimeout(()=>{fvRender();fwUpdate3DProfileOverlay()},0);return true
 }
 function fwEnter(){
@@ -464,28 +552,23 @@ function fwEnter(){
   const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');
   const trail=document.getElementById('contextTrail');if(trail)trail.textContent=fwUi('Field View','Vista 3D');
   const preferred=(fwState.companion==='profile'&&profileOptionsBase().length)?'profile':fwState.companion;fwSetCompanion(preferred);
-  fwSetLayout(fwState.layout);fwUpdateViewCount();setTimeout(()=>{fvRender();fwUpdateTimeBadge()},0)
+  fwActivateView(fwState.view||'3d');fwUpdateViewCount();fwRefreshGlobalTime();setTimeout(()=>{fvRender();fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
-  fwRestoreCompanionNodes();fwRestore(document.getElementById('fieldViewPanel'));fwRestore(document.getElementById('fieldViewControls'));
-  document.getElementById('fieldViewPanel')?.classList.remove('active');document.getElementById('fieldViewControls')?.classList.add('hidden');
   document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
-  try{fvStopPlayback()}catch{}
+  try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false)
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
-  const oldFieldTab=document.getElementById('fieldViewTab');if(oldFieldTab)oldFieldTab.style.display='none';
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
-  fwPrevSetDataView=setDataView;setDataView=function(mode){if(mode==='field3d'){setAppMode('field');return}return fwPrevSetDataView.apply(this,arguments)};
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
-  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
+  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
   document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
   document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'||String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
-  if(oldFieldTab)oldFieldTab.onclick=()=>setAppMode('field');
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,syncTime:fwSyncCompanionTime,toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
+window.FoamLensFieldWorkspace={enter:fwEnter,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};

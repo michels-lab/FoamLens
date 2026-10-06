@@ -3396,6 +3396,272 @@ Status: **fix present / final main publication validation pending**.
 - Recommended development target: **v1.6.0** because the correction changes the information architecture and interaction model.
 - No functional code was changed as part of this audit.
 
+
+## 2026-10-05 — Whole-app cross-scope UX audit extension
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- The audit was expanded from the reported Field/Data defects to the complete Desktop frontend module set and the primary UX regression tests.
+- Important correction: Project / Case / Region is **not obsolete**. It is useful for Profiles/Data/Logs and analysis context, but its persistent presentation in pure 3D / Field and unrelated modes is incorrect.
+
+### Additional cross-scope findings
+- Data Catalog still shares sidebar cards intended for plot editing (Figure, Selected curve, Phase-change, Reference lines).
+- Reference Lines combines controls whose applicability depends on the active data view.
+- Analysis and Data share the same core workspace/sidebar, so Analysis inherits unrelated Data/plot presentation controls.
+- Several analysis modules create derived results by silently switching the hidden underlying Data view to Time Series or Profile.
+- Profile playback, legacy `playbackGlobal` and 3D playback are separate presentation engines for the same physical-time concept.
+- Field extensions such as Compare, Animation/Video and performance tooling are valid, but are structurally children of legacy Data-owned `fieldViewControls`, allowing leakage if reparent/hide state becomes inconsistent.
+- Ribbon Plots is currently a second doorway into Data rather than a distinct workspace.
+- Ribbon Compare is currently a second doorway into Field rather than a distinct workspace.
+- Legacy Data/Field navigation shims remain active under the newer Ribbon/Field Workspace model.
+- Several analysis modules can fall back to generic `.analysisTools` or `document.body` if the intended host is unavailable.
+
+### Updated refactor rule
+- Do not remove useful controls merely because they are irrelevant in one tab.
+- Preserve shared scientific/application state.
+- Scope the presentation to the views that actually consume that state.
+- Remove only genuinely duplicate/legacy navigation after equivalent owned surfaces are validated.
+
+### Documentation
+- Extended `docs/UX_COHERENCE_AUDIT_2026-10-05.md` with findings UX-18 through UX-29 and the updated scope rule.
+
+
+## 2026-10-05 — v1.6.0 UX coherence implementation
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- Baseline: public FoamLens Desktop v1.5.1.
+- Scope: resolve the UX ownership defects documented in `docs/UX_COHERENCE_AUDIT_2026-10-05.md` without changing OpenFOAM parsing or scientific kernels.
+
+### Implemented so far
+- Field Workspace default changed from permanent 3D + companion Split to a single **3D** central view.
+- Added internal Field tabs: **3D / Spatial Profile / Time Series / Solver Logs / Split**.
+- Split is now explicit and owns only one 3D/plot divider.
+- 3D Focus no longer reserves a permanent controls column.
+- Detailed Field controls moved to a floating Inspector drawer.
+- Inspector content is scoped: pure 3D shows 3D controls, plot/log views show companion controls, Split can show both.
+- Added one visible physical-time transport in Field; legacy 3D/Profile/Log engines remain internal.
+- The global Field transport now selects the physical-time source from the active view (3D, Spatial Profile or Solver Logs).
+- PROJECT / CASE / REGION state is preserved, but its Ribbon presentation is contextual:
+  - visible for Data and Analysis;
+  - visible for Field Profile / Time Series / Solver Logs / Split;
+  - hidden for pure 3D and unrelated surfaces.
+- Removed top-level Ribbon alias tabs **Plots** and **Compare**.
+- Compare tools remain available contextually inside Field.
+- Preserved **Copy A→B** after CI identified it as a valid comparison action.
+- Data now opens the Data Catalog instead of silently reusing a legacy plot view.
+- Legacy dataset tabs are hidden under the v1.6 Ribbon so they no longer compete with Field's internal view tabs.
+- Sidebar sections are scoped to their actual workflow:
+  - Catalog does not show Figure / Selected Curve / Phase-change / Reference Lines;
+  - Analysis does not inherit legacy Data/plot cards;
+  - Phase-change / Reference Lines appear only in compatible Time Series / Profile contexts.
+- Flow, Numerical Performance, Physical Analysis, Solidification, Spatial Difference, Temporal Alignment, Thermal Analysis and Vector Derived Fields no longer fall back to `document.body`; they mount only in their owned analysis hosts.
+- Added a unified activity presentation policy: compact activity toast is suppressed while a detailed modal/scan overlay owns progress.
+- Field Ribbon 3D-only actions (Probe, Slice, Vectors, Streamlines, 3D Compare, Camera tools) are hidden while Profile / Time Series / Solver Logs is the active internal view and return in 3D / Split.
+
+- Findings review now supports a portable evidence handoff:
+  - **Assistant bundle (.md)** with review instructions, findings table and per-case configuration/run evidence.
+  - **Raw evidence (.json)** with structured findings, measured/reference values, targets, case metadata, output completeness, dataset provenance and related evidence.
+  - **Copy for ChatGPT** copies the assistant-ready review prompt/bundle and opens ChatGPT in the default browser.
+  - **Create GitHub issue** opens a prefilled FoamLens issue containing workspace health counts and highest-priority findings.
+- The Windows host now exposes a minimal `openExternal` bridge restricted to `http/https`; FoamLens stores no ChatGPT or GitHub credentials for these handoffs.
+
+### Regression contract changes
+- Packaged smoke no longer requires permanent 3D + Spatial Profile mounting.
+- Packaged smoke now requires:
+  - six real top-level Ribbon tabs;
+  - internal Field view tabs;
+  - single-view 3D default;
+  - hidden companion in 3D focus;
+  - hidden Inspector in default 3D focus;
+  - PROJECT / CASE / REGION hidden in 3D and visible in Profile.
+- Workspace, Ribbon, Field View, playback, resize/help and sidebar regression tests were updated to enforce the v1.6 interaction model.
+
+### Validation state
+- Intermediate CI caught and corrected:
+  - removal of valid Copy A→B comparison workflow;
+  - asynchronous context refresh causing Profile context to appear one tick late;
+  - stale packaged-smoke expectations for the removed second workspace splitter.
+- Final functional candidate commit: `2bbfdcd200bcb44c411b530e403bb5e241434b41`.
+- GitHub Actions run **#743** (`37392625734`) completed **SUCCESS**.
+- Real OpenFOAM QuickCup regression: PASS.
+- Independent VTK B13 streamline validation: PASS.
+- Full regression suite, including Review/Findings export, Analysis UI organization, Ribbon/workspace scope, scientific field handling and bilingual/overflow checks: PASS.
+- Portable Windows executable smoke: PASS.
+- Installer build + install smoke: PASS.
+- Windows artifact: `FoamLens-Windows-v1.5.1`, artifact id `11381219665`, digest `sha256:ed8b3f4ea23b60ac6955b0a1815ff006e5ff7efde6afb11e7a0aa438267b1542`.
+- VTK evidence artifact: id `11381947195`, digest `sha256:8f52adc944a6e676852f19bb7dfa5d4472d7767ee61113364d0dfa1a0b2e4d55`.
+- QuickCup runtime artifact: id `11381712511`, digest `sha256:dfa2bd9ddf021d4244bbcca9ceada76c40824c60be396d41d0c8d38b9b676aca`.
+- GitHub Release publication was correctly skipped because this is a development branch.
+- **No merge to main and no v1.6.0 public release yet.**
+
+## 2026-10-05 — v1.6.0 permanent Field ownership phase validated
+
+- Branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `84fb85ca3f28591ec4ad59e786997131bcb4eb65`.
+- GitHub Actions run **#747** (`37396621308`): **SUCCESS**.
+- Structural correction: the core 3D Field View panel and its controls are now adopted by the Field Workspace once and remain Field-owned across top-level section changes.
+- `fwLeave()` no longer restores `fieldViewPanel` or `fieldViewControls` into the legacy Data tree.
+- Added `fwAdoptFieldNode()` plus regression coverage that forbids restoring the 3D panel/control tree back into Data.
+- Historical Field View regressions were updated from the obsolete `fwMove(...)` contract to the new permanent-ownership contract.
+- Scope deliberately kept surgical: the shared 2D chart plus Profile / Time Series / Solver Log control trees still use compatibility reparenting because Analysis and legacy plot rendering currently share that chart path. Their separation is the next structural block and was not mixed into this change.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- 3D OpenFOAM Field View regression: **SUCCESS**.
+- Persistent Field Workspace UX regression: **SUCCESS**.
+- Contextual help / Split resizing regression: **SUCCESS**.
+- Ribbon/context/activity scope regression: **SUCCESS**.
+- Analysis UI organization regression: **SUCCESS**.
+- Bilingual / overflow hardening: **SUCCESS**.
+- Portable Windows executable build + packaged runtime smoke: **SUCCESS**.
+- Installer build + installed-application smoke: **SUCCESS**.
+- Windows artifact: `FoamLens-Windows-v1.5.1`, id `11384410036`, digest `sha256:2d0e506546b5fd161b4fc2f3638df3d34f0651d08deb92e1cc573e0d76d05f6d`.
+- VTK validation artifact: id `11382939909`, digest `sha256:7aae37d5bf0c2b80a79ff33973ad7216b01848ba7b5d284bf362b6c836d11f00`.
+- QuickCup Windows runtime fixture: id `11383540206`, digest `sha256:551759b034181b5fc58781afd50276887b3388d27eefd70546e8d4eb43dbeb58`.
+- No merge to `main` and no v1.6.0 release were performed.
+
+
+
+## 2026-10-05 — v1.6.0 Field ownership / navigation coherence phase validated
+
+- Development branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `2b0e54c31e3dc0a6fa48b2b33a5c90fa1ee9bca2`.
+- GitHub Actions run **#782** (`37409195436`): **SUCCESS**.
+- No merge to `main` and no v1.6.0 public release were performed.
+
+### Structural ownership closed
+- Core 3D UI is now permanently Field-owned:
+  - `fieldViewPanel` stays under `fw3DHost`;
+  - `fieldViewControls` stays under `fw3DControlsHost`;
+  - leaving Field no longer restores either tree into Data.
+- Profile / Time Series / Solver Log control trees are also permanently Field-owned.
+- The only remaining compatibility reparenting is the singleton 2D `.chartwrap`, because Data/Analysis/Field still share the legacy interactive 2D renderer.
+- A cross-section ownership regression now fails if 3D/Compare/control trees leak back into Data, if Analysis modules fall back to `document.body`, or if fake top-level Plots/Compare tabs return.
+
+### Legacy Field navigation retired
+- Field View no longer creates a legacy Data `fieldViewTab`.
+- The hidden legacy `modeField` button is removed after Ribbon installation.
+- Ribbon Field no longer falls back to clicking `modeField`.
+- The old `setDataView('field3d')` path and its Data-view wrappers were removed.
+- Official Field entry points are now:
+  - the `3D / Field` Ribbon tab;
+  - the Overview `Open 3D Field View` action.
+- Packaged smoke explicitly requires the Ribbon/Field surface and requires legacy Field button/dataset-tab navigation to be absent.
+
+### Context and Analysis ownership
+- Added `window.FoamLensContextStore` so Case/Region state is independent of `globalCaseSelect/globalRegionSelect`.
+- Shared context selectors are now a presentation of the store; series filtering reads the context state rather than selector DOM.
+- Analysis-derived curve creation is navigation-neutral: analysis modules no longer call `setDataView('timeseries')` or `setDataView('profile')`.
+- Analysis Ribbon now exposes explicit **Open Time Series** and **Open Spatial Profile** result handoffs.
+- Difference wording is explicit:
+  - **2D Curve Δ** / **2D Curve Difference** for curve analysis;
+  - **Strict 3D Δ** for field comparison.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Full 57-test manifest: **SUCCESS**, each test executed exactly once.
+- Field View / permanent ownership / Ribbon navigation regressions: **SUCCESS**.
+- Section ownership / anti-leak regression: **SUCCESS**.
+- Multi-region context-store regression: **SUCCESS**.
+- Analysis UI organization + navigation-neutral result regression: **SUCCESS**.
+- Bilingual / overflow regressions: **SUCCESS**.
+- Portable Windows executable build + packaged runtime smoke: **SUCCESS**.
+- Installer build + installed-application smoke: **SUCCESS**.
+
+### Run #782 artifacts
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11388442160`;
+  - size: `135,262,559 bytes`;
+  - digest: `sha256:6de06d22abb3c7df180c3c5e23935fc763b818734197691d343b19a9d92a9f69`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11388911110`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:d7e3fab2b3f5931f91df4c291bb3d1db173088fa6317c59bc46ca445e648fb86`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11387858833`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:c86f68a410f791890a0c2f842258fa08414d281f91449631f2b126ccce374831`.
+
+### Remaining structural boundary
+- The singleton interactive 2D chart remains shared by Data / Analysis / Field. Separating it requires preserving the existing hover, pins, legend drag/resize, export and plot interaction semantics; this is intentionally left as the next isolated architecture block rather than replacing safe ownership work with a fragile overlay.
+
+
+## 2026-10-06 — v1.6.0 stable 2D Plot Surface architecture validated
+
+- Development branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `48599763a1c8bdbe9b6445f5ee361c88f9c91e7b`.
+- GitHub Actions run **#792** (`37424239577`): **SUCCESS**.
+- No merge to `main` and no v1.6.0 public release were performed.
+
+### Final shared-renderer bridge removed
+- Added `v14-zy-plot-surfaces.js` with a single `FoamLensPlotSurfaces` controller.
+- Data, Analysis and Field now own three persistent `.chartwrap` surfaces:
+  - Data → `#chartViewport`;
+  - Analysis → `#chartViewport`;
+  - Field → `#fw2DHost`.
+- Surface changes no longer move a chart node between workspaces.
+- The existing scientific renderer remains single-source: `draw()`, `renderExportComposition()`, plot-state calculations and export code are reused rather than copied.
+- Legacy compatibility is maintained by switching the canonical internal IDs (`canvas`, `tooltip`, `canvasSelection`, `previewBadge`, etc.) to the active stable surface. Inactive surfaces keep scoped IDs.
+- `bindPlotCanvasInteractions(canvas)` now binds the same hover, pins, figure selection, legend drag/resize and pointer behavior to every stable surface.
+- Data / Analysis / Field preserve per-surface 2D view state, pinned points and active-series identity when switching workspaces.
+- The controller intentionally does **not** use fixed/absolute overlay portals.
+
+### Field cleanup
+- Removed the final 2D `appendChild(chart)` path.
+- Removed `fwRestoreCompanionNodes()`.
+- Removed dead `fwRemember()`, `fwRestore()` and `fwMove()` origin/reparenting helpers.
+- `fw2DHost` now receives a Field-owned plot surface once and keeps it permanently.
+
+### Runtime proof
+The packaged smoke now performs an actual workspace cycle:
+1. starts in Field and verifies the canonical canvas belongs to Field;
+2. enters Data and selects Data Catalog;
+3. enters Analysis and verifies the canonical canvas belongs to Analysis;
+4. returns to Data and verifies Data Catalog state is restored;
+5. returns to Field and verifies the canonical canvas belongs to Field again;
+6. verifies Data / Analysis / Field parent elements are unchanged throughout.
+
+### Regression prevention
+- Added `desktop/tests/plot-surfaces.test.cjs`.
+- CI now fails if:
+  - the Field workspace reintroduces chart reparenting/restoration;
+  - stable Data / Analysis / Field surfaces disappear;
+  - canvas interactions stop being reusable;
+  - the controller introduces an overlay portal;
+  - surface state preservation is removed;
+  - packaged runtime surface cycling is no longer asserted.
+- CI manifest now contains **58** test files, each executed exactly once.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Stable 2D Plot Surface regression: **SUCCESS**.
+- Section ownership / anti-leak regression: **SUCCESS**.
+- Persistent Field Workspace UX regression: **SUCCESS**.
+- Analysis UI organization regression: **SUCCESS**.
+- Full 58-test manifest: **SUCCESS**.
+- Portable Windows executable + Data/Analysis/Field surface-cycle smoke: **SUCCESS**.
+- Installer build + installed-application surface-cycle smoke: **SUCCESS**.
+
+### Run #792 artifacts
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11395065711`;
+  - size: `135,266,803 bytes`;
+  - digest: `sha256:cdc7dcee35bda84db3e615272ac9e97e33be232e8959a2db3b64c05567ef4051`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11393949416`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:5dfe071908498cca06a83b9400e8da1f31b323966e607039726c3471dbccf9f1`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11394231176`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:9b075833ad5c1e00b5396fc6d544881d6f362b819cb1c906415d380535f2cb0d`.
+
+### Architecture status
+- The previous UX-07 / UX-12 singleton-chart compatibility boundary is **closed**.
+- There is no remaining intentional chart reparenting bridge between Data, Analysis and Field.
+
 ## 2026-10-06 — GitHub Copilot agent delegation
 
 Added repository-level Copilot instructions and custom App Maintainer, QA Regression and Release Manager agents. The contracts make scientific provenance, workspace ownership, 3D/Profile/Time-Series/Solver-Log separation, current-commit regression evidence, Windows build/smoke validation and updater integrity mandatory agent constraints.
@@ -3513,4 +3779,3 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 `Publish GitHub Release` was **skipped**, confirming that the branding migration did not publish a new FoamLens version.
 
 **Status:** official FoamLens logo adoption is complete across the active Windows/startup/About/in-app surfaces covered by Issue #14.
-

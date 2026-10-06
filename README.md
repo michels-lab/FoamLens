@@ -7,7 +7,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Published version
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.5.1** for Windows (current public release; frontend v51).
+- **FoamLens Desktop v1.6.0** for Windows (current public release; frontend v51).
 
 ## Features
 

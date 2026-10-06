@@ -27,6 +27,67 @@ function mrRegionsForContext(caseList,activeCaseId){
 }
 /* FOAMLENS_MULTI_REGION_CORE_END */
 
+let mrApplyingContextEffects=false;
+
+function mrContextSnapshot(){
+  return{
+    caseId:activeContextCaseId==null?null:Number(activeContextCaseId),
+    region:String(activeContextRegion||'')
+  }
+}
+function mrValidateContext(next=mrContextSnapshot()){
+  let caseId=next?.caseId==null||next?.caseId===''?null:Number(next.caseId);
+  if(caseId!=null&&!cases.some(c=>Number(c?.id)===caseId))caseId=null;
+  const regions=mrRegionsForContext(cases,caseId),requested=String(next?.region||'');
+  const region=requested&&regions.includes(requested)?requested:'';
+  return{caseId,region,regions}
+}
+function mrRenderContextPresentation(){
+  const state=mrValidateContext();
+  activeContextCaseId=state.caseId;activeContextRegion=state.region;
+  const project=document.getElementById('globalProjectName'),caseSelect=document.getElementById('globalCaseSelect'),regionSelect=document.getElementById('globalRegionSelect');
+  if(project)project.textContent=projectDisplayName();
+  if(caseSelect){
+    caseSelect.innerHTML=`<option value="">${diagEs()?'Todos los casos':'All cases'}</option>`+cases.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    caseSelect.value=state.caseId==null?'':String(state.caseId)
+  }
+  if(regionSelect){
+    regionSelect.innerHTML=`<option value="">${diagEs()?'Todas las regiones':'All regions'}</option>`+state.regions.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
+    regionSelect.value=state.region
+  }
+  return mrContextSnapshot()
+}
+function mrApplyContextEffects(){
+  if(mrApplyingContextEffects)return false;
+  mrApplyingContextEffects=true;
+  try{
+    refreshDatasetControls();
+    if(currentDataView==='profile')refreshProfileTimes(document.getElementById('profileTime')?.value||'');
+    if(currentDataView==='log'){refreshLogSelectors();syncLogTimeNavigator()}
+    if(currentDataView==='catalog')renderDataCatalog();
+    renderList();updateMeta();if(currentDataView!=='catalog')draw();
+    return true
+  }finally{mrApplyingContextEffects=false}
+}
+function mrSetContext(next={},options={}){
+  const current=mrContextSnapshot(),merged={
+    caseId:Object.prototype.hasOwnProperty.call(next,'caseId')?next.caseId:current.caseId,
+    region:Object.prototype.hasOwnProperty.call(next,'region')?next.region:current.region
+  },state=mrValidateContext(merged);
+  activeContextCaseId=state.caseId;activeContextRegion=state.region;
+  if(options.render!==false)mrRenderContextPresentation();
+  if(options.apply!==false)mrApplyContextEffects();
+  document.dispatchEvent(new CustomEvent('foamlens-context-change',{detail:{...mrContextSnapshot(),source:options.source||'api'}}));
+  return mrContextSnapshot()
+}
+function mrContextFromPresentation(){
+  const caseSelect=document.getElementById('globalCaseSelect'),regionSelect=document.getElementById('globalRegionSelect');
+  return{
+    caseId:caseSelect?.value?Number(caseSelect.value):null,
+    region:regionSelect?.value||''
+  }
+}
+
 function mrInstall(){
   try{
     seriesRegion=function(s){
@@ -35,20 +96,24 @@ function mrInstall(){
     }
   }catch{}
   try{
-    refreshGlobalContext=function(){
-      if(!$('globalCaseSelect'))return;
-      $('globalProjectName').textContent=projectDisplayName();
-      const old=activeContextCaseId==null?'':String(activeContextCaseId);
-      $('globalCaseSelect').innerHTML=`<option value="">${diagEs()?'Todos los casos':'All cases'}</option>`+cases.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-      if(old&&cases.some(c=>String(c.id)===old))$('globalCaseSelect').value=old;
-      else{activeContextCaseId=null;$('globalCaseSelect').value=''}
-      const regions=mrRegionsForContext(cases,activeContextCaseId),oldRegion=activeContextRegion||'';
-      $('globalRegionSelect').innerHTML=`<option value="">${diagEs()?'Todas las regiones':'All regions'}</option>`+regions.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
-      if(oldRegion&&regions.includes(oldRegion)){$('globalRegionSelect').value=oldRegion;activeContextRegion=oldRegion}
-      else{activeContextRegion='';$('globalRegionSelect').value=''}
-    }
+    seriesMatchesGlobalContext=function(s){
+      const state=mrContextSnapshot();
+      if(state.caseId!=null&&Number(s?.caseId)!==Number(state.caseId))return false;
+      if(state.region&&seriesRegion(s)!==state.region)return false;
+      return true
+    };
+    refreshGlobalContext=mrRenderContextPresentation;
+    applyGlobalContext=function(){return mrSetContext(mrContextFromPresentation(),{source:'presentation'})}
   }catch{}
   try{refreshGlobalContext()}catch{}
-  window.FoamLensMultiRegion={mrKnownRegions,mrSeriesRegionFromMetadata,mrRegionsForContext}
+  window.FoamLensContextStore={
+    get:mrContextSnapshot,
+    set:(next,options={})=>mrSetContext(next,options),
+    refresh:mrRenderContextPresentation,
+    apply:mrApplyContextEffects,
+    applying:()=>mrApplyingContextEffects,
+    regions:()=>mrValidateContext().regions.slice()
+  };
+  window.FoamLensMultiRegion={mrKnownRegions,mrSeriesRegionFromMetadata,mrRegionsForContext,mrContextSnapshot,mrSetContext,mrRenderContextPresentation}
 }
 mrInstall();

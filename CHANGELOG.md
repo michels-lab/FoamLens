@@ -1,5 +1,20 @@
 # Changelog
 
+## Desktop v1.6.0 — 2026-10-06
+
+- Reworked FoamLens navigation into a coherent Ribbon-first workspace model with explicit Data, 3D / Field, Analysis, Export, and View scopes.
+- Promoted Field View to a true top-level workspace and retired the legacy Data `fieldViewTab`, hidden `modeField` fallback, and `setDataView('field3d')` navigation path.
+- Added Field-internal 3D, Spatial Profile, Time Series, Solver Logs, and explicit Split views, with one always-visible physical-time transport.
+- Made 3D, comparison controls, plot controls, and Analysis tools permanently owned by their correct workspaces instead of moving DOM trees between sections.
+- Added stable independent 2D plot surfaces for Data, Analysis, and Field while retaining one scientific renderer and one interaction implementation for hover, pins, selection, legend drag/resize, export, and plot calculations.
+- Added persistent cross-session state for top-level workspace, Case/Region context, Data/Analysis/Field plot views, pinned points, active series, Field layout, Split companion, Inspector, comparison settings, view names, and panel sizing.
+- Added a context store so Case/Region state is independent of selector DOM and can be restored safely after a project is loaded.
+- Made Analysis-derived result creation navigation-neutral; results no longer silently switch hidden Data views, and explicit Open Time Series / Open Spatial Profile handoffs are available from the Ribbon.
+- Clarified 2D Curve Δ versus Strict 3D Δ workflows.
+- Added Activity Manager ownership, contextual scope rules, Findings export, anti-leak regressions, stable plot-surface regressions, and session-persistence regressions.
+- Expanded the Windows packaged runtime smoke to cycle Field → Data → Analysis → Data → Field, verify permanent plot-surface parents, and round-trip persisted session state.
+- Preserved real OpenFOAM QuickCup regression, independent VTK streamline validation, portable Windows smoke, installed-app smoke, updater checksum verification, and read-only scientific behavior as release gates.
+
 ## Desktop v1.5.1 — 2026-10-05
 
 - Added a native automatic-update check against the official FoamLens GitHub Releases endpoint.

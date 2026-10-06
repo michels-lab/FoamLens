@@ -83,7 +83,7 @@ function saCreateRates(){
   solid.solidificationSourceId=s.id;
   const remelt=saAddDerived(s,flUi('Remelting Rate: ','Tasa de refusión: ')+saLabel(s),a.t,a.remeltingRate,'remelting-rate',role==='liquidFraction'?'max(dαL/dt,0)':'max(−dαS/dt,0)');
   remelt.solidificationSourceId=s.id;activeId=solid.id;
-  try{refreshDatasetControls();renderList();updateMeta();setDataView('timeseries')}catch{}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch{}
 }
 function saExport(){
   const p=window.FoamLensLastSolidificationAnalysis;if(!p){flSetIssue('saStatus','analysis-result-missing',{analysis:'Solidification / Remelting'});return}
@@ -97,7 +97,7 @@ function saRefresh(){
 }
 function saBuildUi(){
   if(document.getElementById('saTools'))return;
-  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='saTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules');if(!host)return;const box=document.createElement('div');box.id='saTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Solidification Analysis" data-fl-es="Análisis de solidificación">Solidification Analysis</b><span class="badge" data-fl-en="phase signal" data-fl-es="señal de fase">phase signal</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Choose the phase-fraction signal explicitly. FoamLens computes progression, solidification and remelting from physical-time derivatives. It does not infer nucleation or recalescence from curve shape." data-fl-es="Elige explícitamente la señal de fracción de fase. FoamLens calcula progresión, solidificación y refusión a partir de derivadas respecto al tiempo físico. No infiere nucleación ni recalescencia a partir de la forma de la curva.">Choose the phase-fraction signal explicitly.</div>
   <div class="field" style="margin-top:8px"><label data-fl-en="Phase signal" data-fl-es="Señal de fase">Phase signal</label><select id="saSource"></select></div>

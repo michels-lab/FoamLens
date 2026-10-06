@@ -12,12 +12,16 @@ const program=fs.readFileSync(programPath,'utf8');
 const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
 const animationSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-animation-export.js'),'utf8');
 const compareSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-z-field-compare.js'),'utf8');
+const plotSurfaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zy-plot-surfaces.js'),'utf8');
 const workspaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zz-field-workspace.js'),'utf8');
+const ribbonSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v15-ribbon-ui.js'),'utf8');
 
 new Function(source);
 new Function(animationSource);
 new Function(compareSource);
+new Function(plotSurfaceSource);
 new Function(workspaceSource);
+new Function(ribbonSource);
 
 const begin='/* FOAMLENS_FIELD_VIEW_CORE_START */';
 const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
@@ -343,9 +347,10 @@ test('streamline direction and physical path-length controls are enforced',()=>{
 });
 
 test('Field View product module is wired to native mesh, transient fields and WebGL',()=>{
-  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','field3d','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
+  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','fieldViewPanel','fieldViewControls','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
     assert(source.includes(token),'Missing Field View wiring token: '+token);
   }
+  assert(!source.includes("setDataView('field3d')"),'Field View wiring regressed to the retired Data navigation path.');
 });
 
 
@@ -427,23 +432,30 @@ test('vector and streamline visualization expose independent real-resolution con
     'High-resolution 2400-glyph option is missing.');
 });
 
-test('top-level Field View navigation has a single fallback click owner',()=>{
-  assert(workspaceSource.includes('let createdModeButton=false'),
-    'Field workspace does not track fallback navigation creation.');
-  const guarded="if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));";
-  assert(workspaceSource.includes(guarded),
-    'Fallback-only Field View click wiring is missing.');
-  const listenerCount=(workspaceSource.match(/addEventListener\('click',\(\)=>setAppMode\('field'\)\)/g)||[]).length;
-  assert.equal(listenerCount,1,
-    'Field workspace contains more than one Field View fallback click listener.');
+test('Field navigation is owned by the Ribbon with no legacy mode-button fallback',()=>{
+  assert(!workspaceSource.includes('createdModeButton'),
+    'Field workspace still creates a legacy modeField fallback.');
+  assert(!workspaceSource.includes("b.id='modeField'"),
+    'Field workspace still synthesizes the hidden legacy Field navigation button.');
+  assert(ribbonSource.includes("document.getElementById('modeField')?.remove()"),
+    'Ribbon does not retire the legacy Field button after mounting.');
+  assert(!ribbonSource.includes("flRibbonClick('modeField')"),
+    'Ribbon still falls back to the hidden legacy Field button.');
 });
 
-test('Field View is promoted to a top-level application mode instead of remaining a Data sub-tab',()=>{
+test('Field View is a top-level Ribbon workspace instead of a Data dataset sub-tab',()=>{
   for(const token of [
-    "b.dataset.mode='field'","b.id='modeField'","analysis?nav.insertBefore(b,analysis)",
-    "body.appMode-field #fieldSurface{display:block}","#fieldViewTab{display:none!important}",
-    "setAppMode=function(mode){if(mode==='field')","setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
+    "body.appMode-field #fieldSurface{display:block}",
+    "setAppMode=function(mode){if(mode==='field')"
   ])assert(workspaceSource.includes(token),'Missing top-level Field workspace token: '+token);
+  assert(!workspaceSource.includes("setDataView=function(mode){if(mode==='field3d'"),
+    'Field workspace still aliases 3D through Data navigation.');
+  assert(!source.includes("setDataView=function(mode){if(mode==='field3d'"),
+    'Field View still patches Data navigation for 3D.');
+  assert(!source.includes("tab.id='fieldViewTab'"),
+    'Field View still creates a legacy Data dataset tab.');
+  assert(source.includes("if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true"),
+    'Field View installation is not keyed to its owned Field UI.');
 });
 
 
@@ -467,15 +479,25 @@ test('Field workspace can define a native Spatial Profile by picking A and B in 
   ])assert((workspaceSource+'\n'+source).includes(token),'Missing 3D-defined Spatial Profile token: '+token);
 });
 
-test('Field workspace can show 3D and Spatial Profile simultaneously',()=>{
+test('Field workspace shows one view by default and supports explicit 3D + Spatial Profile Split',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwCompanion','Spatial Profile','fwSetCompanion',
-    "mode==='profile'?'profile'","document.getElementById('fw2DHost')?.appendChild(chart)",
-    "fwMove('fieldViewPanel','fw3DHost')","fwMove('fieldViewControls','fw3DControlsHost')",
-    'Follow 3D physical time','fwSyncCompanionTime','applyProfileTimeValue'
-  ])assert(workspaceSource.includes(token),'Missing simultaneous 3D + profile token: '+token);
+    'data-fw-view="3d"','data-fw-view="profile"','data-fw-view="split"',
+    "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
+    "view==='split'","fwSetLayout('split')",
+    "FoamLensPlotSurfaces?.ensure?.('field',host)",
+    "FoamLensPlotSurfaces?.activate?.('field',host,{restore:false})",
+    "fwAdoptFieldNode('fieldViewPanel','fw3DHost')","fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
+    'fwSyncCompanionTime','applyProfileTimeValue'
+  ])assert(workspaceSource.includes(token),'Missing explicit Field view/Split token: '+token);
   assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
     'Dead/invalid canvas move remains in the Field workspace.');
+  assert(!workspaceSource.includes('appendChild(chart)'),
+    'Field workspace still reparents the shared 2D chart.');
+  assert(!workspaceSource.includes('fwRestoreCompanionNodes'),
+    'Field workspace still contains the legacy shared-chart restore path.');
+  assert(plotSurfaceSource.includes("['data',{view:currentDataView||'timeseries'"),
+    'Stable Data / Analysis / Field plot-surface state is missing.');
 });
 
 test('Field workspace Time Series can derive curves directly from selectable 3D OpenFOAM fields',()=>{
@@ -557,33 +579,43 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
-test('Field workspace gives 3D and companion plots independent hosts instead of exclusive header ownership',()=>{
+test('Field workspace owns one central viewport plus a floating contextual Inspector',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
-    "document.getElementById('fw2DHost')?.appendChild(chart)",
-    "fwMove('fieldViewPanel','fw3DHost')",
-    "fwMove('fieldViewControls','fw3DControlsHost')"
-  ])assert(workspaceSource.includes(token),'Missing independent Field workspace host token: '+token);
-  assert(workspaceSource.includes("mode==='profile'?'profile'"),
-    'Spatial Profile is not a first-class companion view.');
+    'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
+    'fwEnsureCompanionSurface','fwActivateCompanionSurface',
+    "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
+    "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
+    'fwGrid.layout-3d .fwPlotCard{display:none}',
+    'fwGrid.layout-plot .fw3DCard{display:none}'
+  ])assert(workspaceSource.includes(token),'Missing central Field viewport/Inspector token: '+token);
+  assert(!workspaceSource.includes('grid-template-columns:minmax(0,1fr) 340px'),
+    '3D focus still reserves a permanent controls column.');
 });
 
-test('Field View stays discoverable as a top-level mode even when no compatible 3D case is loaded',()=>{
+test('Field View stays discoverable from Ribbon and Overview even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
   assert.equal(a.ready,false);
   assert(/Load an OpenFOAM case/i.test(a.reason));
-  assert(index.includes('data-mode="field" id="modeField"'),'Top-level Field View mode is missing from the base navigation.');
-  assert(workspaceSource.includes('#fieldViewTab{display:none!important}'),'Legacy Data sub-tab is not retired in the Field workspace architecture.');
+  assert(ribbonSource.includes("['field','cube','3D / Field','3D / Campo']"),
+    'Official Field Ribbon tab definition is missing.');
   assert(source.includes("workspaceGoFieldView"),'Overview quick action for Field View is missing.');
-  assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
+  assert(source.includes("q.onclick=()=>{try{setAppMode('field')}"),
+    'Overview Field action does not enter the Field workspace directly.');
+  assert(!source.includes("setDataView('field3d')"),
+    'Overview still falls back through the retired Data field3d route.');
+  assert(/Load an OpenFOAM case/i.test(a.reason),'Unavailable Field View does not explain its missing input.');
+  assert(!source.includes("tab.id='fieldViewTab'"),'Legacy Data Field View tab still exists.');
 });
 
-test('native host injects extensions into the main FoamLens IIFE, not the last document IIFE',()=>{
+test('native host smokes the Ribbon-owned Field surface and rejects legacy navigation',()=>{
   assert(program.includes('const string mainIifeMarker = "const FOAMLENS_NATIVE=";'));
   assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
   assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
-  assert(program.includes("document.getElementById('modeField')"));
-  assert(program.includes('FoamLens Field View top-level mode did not mount correctly'));
+  assert(program.includes("document.getElementById('flRibbonTab-field')"));
+  assert(program.includes('legacyFieldButtonAbsent'));
+  assert(program.includes('legacyFieldDatasetTabAbsent'));
+  assert(program.includes('FoamLens v1.6 Field Ribbon/surface did not mount cleanly'));
 });
 
 
@@ -706,6 +738,13 @@ test('browser fallback stays explicit about binary mesh limitation',()=>{
 
 test('versioned frontend extensions are loaded generically',()=>{
   assert(program.includes('Directory.GetFiles(AppRoot, "v*-*.js")'));
+});
+
+test('Field selector remount prefers the loaded renderer field and component',()=>{
+  assert(source.includes("oldField=preserve?(fvState.fieldName||fieldSel.value):''"),
+    'Field selector remount can fall back to a stale DOM field instead of the loaded 3D field.');
+  assert(source.includes("oldComp=preserve?(fvState.component||comp.value):comp.value"),
+    'Component selector remount can fall back to a stale DOM component instead of renderer state.');
 });
 
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');

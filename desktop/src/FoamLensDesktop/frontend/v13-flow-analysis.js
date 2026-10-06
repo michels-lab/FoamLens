@@ -88,7 +88,7 @@ function faRefresh(){
 }
 function faBuildUi(){
   if(document.getElementById('faTools'))return;
-  const host=document.getElementById('generalAnalysisModules')||document.querySelector('.analysisTools')||document.body,box=document.createElement('div');box.id='faTools';box.className='detailBlock';box.style.marginTop='10px';
+  const host=document.getElementById('generalAnalysisModules');if(!host)return;const box=document.createElement('div');box.id='faTools';box.className='detailBlock';box.style.marginTop='10px';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b data-fl-en="Flow Analysis" data-fl-es="Análisis de flujo">Flow Analysis</b><span class="badge" data-fl-en="general signal" data-fl-es="señal general">general signal</span></div>
   <div class="smallnote" style="margin-top:5px" data-fl-en="Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret. FoamLens does not infer the role from a case name. Means and RMS values are weighted by physical time or spatial coordinate, so adaptive/nonuniform sampling does not bias them by sample count." data-fl-es="Selecciona el componente de velocidad, rapidez/magnitud, vorticidad u otra señal de flujo que quieras interpretar. FoamLens no infiere el rol a partir del nombre del caso. Las medias y RMS se ponderan por tiempo físico o coordenada espacial, para que un muestreo adaptativo o no uniforme no sesgue los resultados por número de muestras.">Select the velocity component, speed/magnitude, vorticity, or other flow signal you want to interpret.</div>
   <div class="field" style="margin-top:8px"><label data-fl-en="Flow signal" data-fl-es="Señal de flujo">Flow signal</label><select id="faSource"></select></div>

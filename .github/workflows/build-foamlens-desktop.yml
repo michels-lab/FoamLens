@@ -1,4 +1,5 @@
-# FoamLens CI — unified v1.5.0 integration validation
+# FoamLens CI — v1.6.0 release validation
+# Reconciled with main; branch CI validates the combined release candidate without publishing.
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -447,6 +448,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/workspace-ux.test.cjs
 
+      - name: Test cross-session workspace persistence
+        shell: pwsh
+        run: node desktop/tests/session-persistence.test.cjs
+
       - name: Test contextual help and resizable workspace
         shell: pwsh
         run: node desktop/tests/context-help-resize.test.cjs
@@ -454,6 +459,18 @@ jobs:
       - name: Test compact ribbon navigation
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
+
+      - name: Test stable 2D plot surfaces
+        shell: pwsh
+        run: node desktop/tests/plot-surfaces.test.cjs
+
+      - name: Test section ownership and anti-leak boundaries
+        shell: pwsh
+        run: node desktop/tests/section-ownership.test.cjs
+
+      - name: Test final v1.6 UX coherence audit
+        shell: pwsh
+        run: node desktop/tests/v16-final-ux-audit.test.cjs
 
       - name: Test CI suite manifest
         shell: pwsh
@@ -695,9 +712,19 @@ jobs:
             "artifacts/FoamLens-Setup-v$v.exe",
             "artifacts/FoamLens-Setup-v$v.exe.sha256"
           )
+          $changelog=Get-Content 'CHANGELOG.md' -Raw
+          $pattern='(?ms)^## Desktop v'+[regex]::Escape($v)+'\b.*?(?=^## |\z)'
+          $match=[regex]::Match($changelog,$pattern)
+          if ($match.Success) {
+            $match.Value.Trim() | Set-Content 'artifacts/release-notes.md' -Encoding utf8
+          } else {
+            "FoamLens Windows release $tag." | Set-Content 'artifacts/release-notes.md' -Encoding utf8
+          }
+
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @assets --repo $env:GITHUB_REPOSITORY --clobber
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes-file 'artifacts/release-notes.md'
           } else {
-            gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes "FoamLens Windows release $tag."
+            gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes-file 'artifacts/release-notes.md'
           }
