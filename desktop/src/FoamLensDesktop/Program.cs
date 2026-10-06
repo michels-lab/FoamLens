@@ -169,10 +169,30 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException(
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
 
-            var hasRoot = await _web.CoreWebView2.ExecuteScriptAsync(
-                "Boolean(document.body && document.body.innerText && document.body.innerText.includes('FoamLens'))");
-            if (!string.Equals(hasRoot.Trim(), "true", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("FoamLens frontend content was not visible after navigation.");
+            string launchStateJson = "{}";
+            var launchDeadline = Stopwatch.StartNew();
+            var launchVisible = false;
+            while (launchDeadline.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                launchStateJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "(()=>{const title=document.getElementById('launchTitle'),body=document.body;" +
+                    "const titleStyle=title?getComputedStyle(title):null,bodyStyle=body?getComputedStyle(body):null;" +
+                    "const rect=title?.getBoundingClientRect?.();" +
+                    "const titleText=title?.textContent?.trim()||'';" +
+                    "const titleVisible=!!title&&titleText.includes('FoamLens')&&titleStyle?.display!=='none'&&titleStyle?.visibility!=='hidden'&&Number(rect?.width||0)>0&&Number(rect?.height||0)>0;" +
+                    "return {titleText,titleVisible,titleDisplay:titleStyle?.display||'',titleVisibility:titleStyle?.visibility||'',titleWidth:Number(rect?.width||0),titleHeight:Number(rect?.height||0),bodyDisplay:bodyStyle?.display||'',bodyVisibility:bodyStyle?.visibility||'',bodyClasses:body?.className||'',bodyTextHasFoamLens:!!body?.innerText?.includes('FoamLens'),bodyTextLength:Number(body?.innerText?.length||0),readyState:document.readyState,href:location.href};})()");
+                using (var launchState = JsonDocument.Parse(launchStateJson))
+                {
+                    var root = launchState.RootElement;
+                    launchVisible = root.TryGetProperty("titleVisible", out var visibleNode) && visibleNode.GetBoolean();
+                }
+                if (launchVisible) break;
+                await Task.Delay(100);
+            }
+            if (!launchVisible)
+                throw new InvalidOperationException(
+                    $"FoamLens launch surface was not visibly rendered after navigation: {launchStateJson}");
+            Log($"FoamLens launch surface smoke passed: {launchStateJson}");
 
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");
