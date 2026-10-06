@@ -3410,3 +3410,16 @@ Added `.github/ISSUE_TEMPLATE/chatgpt-task.yml` so new implementation/audit task
 
 Purpose: reduce repeated context reconstruction in future ChatGPT sessions and make repository work resumable from a bounded GitHub Issue without changing product behavior.
 \n
+
+## 2026-10-06 — Deterministic real-case packaged smoke selection
+
+**Finding:** Windows build run `37434467481` passed the scientific/unit suite and packaged executable launch, but the real OpenFOAM packaged smoke failed after switching to `B13_prghPressure_airGapOF14`: the requested `metal / T / t=9.8` selection ended on `CoCell`.
+
+**Evidence:** the QuickCup/VTK regression in the same workflow confirmed `T` exists in the `metal` region. The smoke helper used `dispatchEvent('change')` for an async case-change handler and only polled for the case ID/name; that condition could become true before `fvHandleCaseChange()` finished its awaited frame load. The still-running case load could then overwrite the smoke's requested field.
+
+**Action:** the smoke-only helper now invokes and awaits `fvHandleCaseChange()` directly before applying region/field/time selection. Requested regions/fields now also fail immediately with an explicit list of available choices instead of silently retaining a default field.
+
+**Scope:** smoke-test synchronization only; normal FoamLens user interaction and scientific field-selection behavior are unchanged.
+
+**Validation status:** replacement `fix/deterministic-real-case-smoke` Windows CI is required before closing the finding.
+
