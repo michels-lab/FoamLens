@@ -3843,3 +3843,12 @@ Branch CI is required on the final head before promotion to `main`. No release p
 Repository instructions now explicitly route logo, launcher, splash/startup and About work through the Michel-Software-Standards Product Identity Standard and Brand Adoption Playbook.
 
 The required interpretation is structural integration rather than sticker placement: replace active legacy identity, adapt canonical geometry to the existing product design language, preserve unrelated behavior, validate the build, and keep release publication separate unless explicitly authorized.
+
+
+### 2026-10-06 — Packaged launch-readiness smoke hardening
+- Windows runs `37537064322` (#870) and `37537319500` (#872) both reached successful navigation and `document.readyState=complete`, then failed the immediate `document.body.innerText.includes('FoamLens')` assertion before any scientific/runtime smoke work.
+- Source and bundle inspection confirmed that the launch surface, `#launchTitle`, app shell, closing body and inline JavaScript remained present and that the workflow rebuilt `AppBundle.zip` from the current frontend before publishing.
+- The About migration removed roughly 700 KB of embedded base64 portrait data, making frontend navigation materially faster and exposing the smoke's assumption that first layout was complete at `NavigationCompleted`.
+- The packaged smoke now waits up to 10 seconds for the actual `#launchTitle` to contain `FoamLens`, be displayed/visible, and have non-zero rendered dimensions. Failure retains diagnostic evidence for title text/display/visibility/size, body display/visibility/classes/text length, ready state and URL.
+- This is a stronger visual-readiness gate than the former one-shot body-text assertion; it does not accept a hidden or zero-size launch surface.
+- `desktop/tests/official-branding.test.cjs` protects both the bounded wait and its blank-screen diagnostics. Replacement current-head Windows CI remains required.
