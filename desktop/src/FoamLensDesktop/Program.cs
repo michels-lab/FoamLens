@@ -1434,6 +1434,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "checkForUpdates":
                     await CheckForUpdatesAsync(userInitiated: true);
                     break;
+                case "openExternal":
+                    HandleOpenExternal(root, requestId);
+                    break;
                 default:
                     Reply(requestId, false, null, $"Unknown native request: {type}");
                     break;
@@ -3043,6 +3046,19 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         if (_operations.TryGetValue(requestId, out var current) && ReferenceEquals(current, source))
             _operations.TryRemove(requestId, out _);
         source.Dispose();
+    }
+
+    private void HandleOpenExternal(JsonElement root, string requestId)
+    {
+        var uri = RequiredString(root, "uri");
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
+            (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        {
+            Reply(requestId, false, null, "Only http/https external links are allowed.");
+            return;
+        }
+        OpenExternal(parsed.ToString());
+        Reply(requestId, true, new { uri = parsed.ToString() }, null);
     }
 
     private void HandleCancelOperation(JsonElement root, string requestId)
