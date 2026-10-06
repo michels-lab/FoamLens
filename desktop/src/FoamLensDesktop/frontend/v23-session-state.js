@@ -64,12 +64,13 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
       window.FoamLensContextStore?.set?.({
         caseId:match?.id??null,
         region:requestedRegion
-      },{source:'session-restore'})
+      },{source:'session-restore',apply:false})
     }
     if(payload.field)window.FoamLensWorkspaceUx?.applyState?.(payload.field);
     const target=flSessionSafeMode(payload.activeMode);
     setAppMode(target);
-    if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true})
+    if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true});
+    try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
   }finally{flSessionRestoring=false}
   document.dispatchEvent(new CustomEvent('foamlens-session-restored',{detail:{mode:activeAppMode,context:flSessionContextSnapshot()}}));
   return true
