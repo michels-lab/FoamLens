@@ -565,8 +565,8 @@ test('Field workspace owns one central viewport plus a floating contextual Inspe
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
     'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
     "document.getElementById('fw2DHost')?.appendChild(chart)",
-    "fwMove('fieldViewPanel','fw3DHost')",
-    "fwMove('fieldViewControls','fw3DControlsHost')",
+    "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
+    "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwGrid.layout-3d .fwPlotCard{display:none}',
     'fwGrid.layout-plot .fw3DCard{display:none}'
   ])assert(workspaceSource.includes(token),'Missing central Field viewport/Inspector token: '+token);
