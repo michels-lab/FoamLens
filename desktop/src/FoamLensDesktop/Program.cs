@@ -39,9 +39,12 @@ internal sealed class FoamLensForm : Form
     private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private int _updateCheckInProgress;
+    private static string DesktopVersionText =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
+
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.6.0", "app");
+        "FoamLens", "Desktop", DesktopVersionText, "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -1161,7 +1164,7 @@ internal sealed class FoamLensForm : Form
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
-        var desktopVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
+        var desktopVersion = DesktopVersionText;
         html = html.Replace(
             "<html lang=\"en\">",
             $"<html lang=\"en\" data-desktop-version=\"{desktopVersion}\">",
