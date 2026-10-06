@@ -71,6 +71,15 @@ test('Difference labels distinguish 2D curve differences from strict 3D field di
   assert(compare.includes('Show 3D difference'));
 });
 
+test('Analysis result creation is navigation-neutral',()=>{
+  for(const src of analysisModules){
+    assert(!src.includes("setDataView('timeseries')"),'Analysis module still silently switches to Time Series.');
+    assert(!src.includes("setDataView('profile')"),'Analysis module still silently switches to Spatial Profile.');
+  }
+  assert(ribbon.includes('flRaAnalysisTimeResult'),'Explicit Time Series result action is missing.');
+  assert(ribbon.includes('flRaAnalysisProfileResult'),'Explicit Spatial Profile result action is missing.');
+});
+
 test('Analysis modules fail closed to owned hosts instead of document.body',()=>{
   for(const src of analysisModules){
     assert(!src.includes('||document.body'),'Analysis module still falls back to document.body.');
