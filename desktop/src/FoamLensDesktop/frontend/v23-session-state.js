@@ -1,7 +1,7 @@
 /* FoamLens Desktop v1.6.0 — persistent cross-workspace session state. */
 
 const flSessionKey='foamlens.session.v1';
-let flSessionRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null;
+let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false);
 
 function flSessionLoad(){
   try{
@@ -17,6 +17,15 @@ function flSessionContextSnapshot(){
     region:String(activeContextRegion||'')
   }
 }
+function flSessionFieldSelectionSnapshot(){
+  const field=document.getElementById('fvField'),component=document.getElementById('fvComponent');
+  const time=Number(fvState?.time);
+  return{
+    fieldName:String(field?.value||fvState?.fieldName||''),
+    component:String(component?.value||fvState?.component||'value'),
+    time:Number.isFinite(time)?time:null
+  }
+}
 function flSessionSnapshot(){
   return{
     schema:1,
@@ -24,11 +33,12 @@ function flSessionSnapshot(){
     activeMode:String(activeAppMode||'workspace'),
     context:flSessionContextSnapshot(),
     plots:window.FoamLensPlotSurfaces?.serialize?.()||null,
-    field:window.FoamLensWorkspaceUx?.getState?.()||null
+    field:window.FoamLensWorkspaceUx?.getState?.()||null,
+    fieldSelection:flSessionFieldSelectionSnapshot()
   }
 }
 function flSessionSaveNow(){
-  if(flSessionRestoring)return false;
+  if(flSessionRestoring||flSessionFieldRestoring)return false;
   try{localStorage.setItem(flSessionKey,JSON.stringify(flSessionSnapshot()));return true}catch{return false}
 }
 function flSessionScheduleSave(){
@@ -52,6 +62,35 @@ function flSessionSafeMode(mode){
   }
   return mode
 }
+function flSessionRestoreFieldSelection(saved){
+  if(!saved||typeof saved!=='object'||typeof fvRefreshSelectors!=='function'||typeof fvLoadFrame!=='function')return Promise.resolve(false);
+  return(async()=>{
+    flSessionFieldRestoring=true;
+    try{
+      fvRefreshSelectors(false);
+      const field=document.getElementById('fvField'),requestedField=String(saved.fieldName||'');
+      if(requestedField&&field&&[...field.options].some(o=>o.value===requestedField))field.value=requestedField;
+      const group=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null;
+      const component=document.getElementById('fvComponent');
+      if(component&&group&&typeof fvFieldComponents==='function'){
+        const requestedComponent=String(saved.component||'value');
+        component.innerHTML=fvFieldComponents(group).map(o=>'<option value="'+o.v+'">'+fvEsc(o.t)+'</option>').join('');
+        if([...component.options].some(o=>o.value===requestedComponent))component.value=requestedComponent
+      }
+      const times=(group?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+      if(!times.length)return false;
+      const requestedTime=Number(saved.time);let index=0;
+      if(Number.isFinite(requestedTime)){
+        let distance=Infinity;
+        for(let i=0;i<times.length;i++){const d=Math.abs(times[i]-requestedTime);if(d<distance){distance=d;index=i}}
+      }
+      await fvLoadFrame(index);
+      return String(fvState?.fieldName||'')===String(field?.value||'')
+    }catch(e){
+      console.warn('Session Field selection restore failed',e);return false
+    }finally{flSessionFieldRestoring=false}
+  })()
+}
 function flSessionRestoreSnapshot(payload,{force=false}={}){
   if(!payload||typeof payload!=='object')return false;
   if(!force&&!flSessionHasWorkspaceData())return false;
@@ -70,6 +109,7 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     const target=flSessionSafeMode(payload.activeMode);
     setAppMode(target);
     if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true});
+    flSessionLastRestorePromise=target==='field'&&payload.fieldSelection?flSessionRestoreFieldSelection(payload.fieldSelection):Promise.resolve(false);
     try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
   }finally{flSessionRestoring=false}
   document.dispatchEvent(new CustomEvent('foamlens-session-restored',{detail:{mode:activeAppMode,context:flSessionContextSnapshot()}}));
@@ -116,7 +156,8 @@ function flSessionInstall(){
     restoreStored:(options={})=>{const saved=flSessionLoad();return saved?flSessionRestoreSnapshot(saved,options):false},
     tryRestore:flSessionTryRestore,
     clear:flSessionClear,
-    pending:()=>!!flSessionPending
+    pending:()=>!!flSessionPending,
+    whenRestored:()=>flSessionLastRestorePromise
   };
   return true
 }
