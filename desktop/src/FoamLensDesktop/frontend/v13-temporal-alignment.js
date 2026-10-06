@@ -190,7 +190,7 @@ function taAddDerived(kind){
     field:diffField,unit:diffField.unit,dimensions:diffField.dimensions,
     temporalAlignment:{mode:r.aligned.mode,method:r.aligned.method,range:r.aligned.range,sourceA:taSeriesLabel(A),sourceB:taSeriesLabel(B),epsilon:r.epsilon}};
   series.push(d);activeId=d.id;
-  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode!=='analysis'&&typeof setDataView==='function')setDataView('timeseries')}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
+  try{refreshDatasetControls();renderList();updateMeta();if(activeAppMode==='field')draw()}catch(e){console.warn('FoamLens temporal derived curve added but refresh failed',e)}
   const st=document.getElementById('taStatus');if(st)st.textContent=diagEs()?`Se agregó la curva derivada: ${name}`:`Added derived curve: ${name}`;
 }
 function taInit(){
