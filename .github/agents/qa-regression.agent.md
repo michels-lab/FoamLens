@@ -20,3 +20,6 @@ Focus on:
 - CI that skips the real tests/build.
 
 Use current-commit evidence. Do not infer scientific validity from UI success alone. If asked only to audit, report findings with severity, evidence and exact validation needed; do not redesign the product.
+
+For UI/About changes, treat identity/About regression as a real defect: verify recognizable canonical logo geometry, product-derived scientific visual language, product → author → Michel's Lab hierarchy, canonical portrait usage, and social controls that visibly show both network icon and network name.
+
