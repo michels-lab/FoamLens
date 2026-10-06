@@ -93,45 +93,60 @@ internal sealed class FoamLensForm : Form
             var environment = await CoreWebView2Environment.CreateAsync(null, userData, options);
             await _web.EnsureCoreWebView2Async(environment);
 
-            _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                "foamlens.local", AppRoot, CoreWebView2HostResourceAccessKind.Allow);
-
-            // Serve the entry document explicitly. Assets continue through the virtual-host
-            // mapping, but index.html must never depend on an opaque mapped response because
-            // a successful 200 with an empty renderer document is indistinguishable from a
-            // healthy navigation unless the host owns the response bytes.
+            // Own the complete foamlens.local origin in the native host. WebView2 does
+            // not raise WebResourceRequested for SetVirtualHostNameToFolderMapping URLs, so
+            // using a virtual-folder mapping prevents the host from validating/overriding
+            // the actual document bytes delivered to Chromium. Serving the local HTTPS origin
+            // here preserves origin-based browser APIs while making every response explicit.
             _web.CoreWebView2.AddWebResourceRequestedFilter(
-                "https://foamlens.local/index.html*",
-                CoreWebView2WebResourceContext.Document,
-                CoreWebView2WebResourceRequestSourceKinds.Document);
+                "https://foamlens.local/*",
+                CoreWebView2WebResourceContext.All);
             _web.CoreWebView2.WebResourceRequested += (_, e) =>
             {
                 if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) ||
-                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(uri.AbsolutePath, "/index.html", StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase))
                     return;
 
                 try
                 {
-                    var indexPath = Path.Combine(AppRoot, "index.html");
-                    var bytes = File.ReadAllBytes(indexPath);
-                    var stream = new MemoryStream(bytes, writable: false);
-                    e.Response = environment.CreateWebResourceResponse(
-                        stream,
+                    var relativePath = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+                    if (string.IsNullOrWhiteSpace(relativePath)) relativePath = "index.html";
+                    relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar);
+
+                    var rootPath = Path.GetFullPath(AppRoot)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        + Path.DirectorySeparatorChar;
+                    var localPath = Path.GetFullPath(Path.Combine(AppRoot, relativePath));
+                    if (!localPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        e.Response = CreateLocalResponse(environment, 403, "Forbidden",
+                            Encoding.UTF8.GetBytes("FoamLens local resource path rejected."),
+                            "text/plain; charset=utf-8");
+                        return;
+                    }
+
+                    if (!File.Exists(localPath))
+                    {
+                        e.Response = CreateLocalResponse(environment, 404, "Not Found",
+                            Encoding.UTF8.GetBytes("FoamLens local resource not found."),
+                            "text/plain; charset=utf-8");
+                        return;
+                    }
+
+                    var bytes = File.ReadAllBytes(localPath);
+                    e.Response = CreateLocalResponse(
+                        environment,
                         200,
                         "OK",
-                        $"Content-Type: text/html; charset=utf-8\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
+                        bytes,
+                        LocalContentType(localPath));
                 }
                 catch (Exception ex)
                 {
-                    Log($"FoamLens index response construction failed: {ex}");
-                    var bytes = Encoding.UTF8.GetBytes(
-                        "<!doctype html><meta charset=\"utf-8\"><title>FoamLens startup error</title><h1>FoamLens could not load its local interface.</h1>");
-                    e.Response = environment.CreateWebResourceResponse(
-                        new MemoryStream(bytes, writable: false),
-                        500,
-                        "FoamLens local frontend error",
-                        $"Content-Type: text/html; charset=utf-8\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
+                    Log($"FoamLens local resource response failed for {e.Request.Uri}: {ex}");
+                    e.Response = CreateLocalResponse(environment, 500, "FoamLens local frontend error",
+                        Encoding.UTF8.GetBytes("FoamLens could not load its local interface."),
+                        "text/plain; charset=utf-8");
                 }
             };
 
@@ -180,6 +195,36 @@ internal sealed class FoamLensForm : Form
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
+
+    private static CoreWebView2WebResourceResponse CreateLocalResponse(
+        CoreWebView2Environment environment,
+        int statusCode,
+        string reasonPhrase,
+        byte[] bytes,
+        string contentType)
+    {
+        return environment.CreateWebResourceResponse(
+            new MemoryStream(bytes, writable: false),
+            statusCode,
+            reasonPhrase,
+            $"Content-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
+    }
+
+    private static string LocalContentType(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".html" or ".htm" => "text/html; charset=utf-8",
+            ".js" => "application/javascript; charset=utf-8",
+            ".css" => "text/css; charset=utf-8",
+            ".json" => "application/json; charset=utf-8",
+            ".txt" => "text/plain; charset=utf-8",
+            ".svg" => "image/svg+xml",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".ico" => "image/x-icon",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
 
     private async Task RunSmokeTestAsync()
     {
