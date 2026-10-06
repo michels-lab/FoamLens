@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.4.4 — top-level Field workspace with simultaneous 3D + 2D companion views. */
+/* FoamLens Desktop v1.6.0 — Field-owned 3D workspace with tabbed diagnostics and explicit Split. */
 
 const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,origins:new Map(),installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
 const fwTimeState={playing:false,timer:null};
@@ -14,6 +14,12 @@ function fwRestore(node){
 }
 function fwMove(id,targetId){
   const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;fwRemember(node);target.appendChild(node);return node
+}
+function fwAdoptFieldNode(id,targetId){
+  const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;
+  if(node.parentNode!==target)target.appendChild(node);
+  node.dataset.fwOwner='field';
+  return node
 }
 function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
@@ -549,7 +555,7 @@ function fwAdd3DView(){
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
-  fwMove('fieldViewPanel','fw3DHost');fwMove('fieldViewControls','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
+  fwAdoptFieldNode('fieldViewPanel','fw3DHost');fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
   const compare=document.getElementById('fcPanel');if(compare){compare.open=true;compare.classList.add('fwCompareConfig')}
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
@@ -568,8 +574,7 @@ function fwEnter(){
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
-  fwRestoreCompanionNodes();fwRestore(document.getElementById('fieldViewPanel'));fwRestore(document.getElementById('fieldViewControls'));
-  document.getElementById('fieldViewPanel')?.classList.remove('active');document.getElementById('fieldViewControls')?.classList.add('hidden');
+  fwRestoreCompanionNodes();
   document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false)
 }
