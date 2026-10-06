@@ -40,14 +40,18 @@ test('top-level workspaces own stable render/control trees',()=>{
   assert(plots.includes('bindPlotCanvasInteractions(canvas)'));
 });
 
-test('Field uses one explicit physical-time transport and contextual Inspector',()=>{
+test('Field uses one explicit physical-time transport and contextual sidebar',()=>{
   assert(field.includes('id="fwTimeTransport"'));
   assert(field.includes('body.appMode-field .fvTimeline'));
   assert(field.includes('body.appMode-field #profileTimeline'));
   assert(field.includes('body.appMode-field #playbackGlobal'));
   assert(field.includes('fwControlsDrawer'));
+  assert(field.includes('fwMountContextSidebar'));
+  assert(field.includes(".sidebar>.fwControlsDrawer.fwSidebarContext{position:static"));
   assert(field.includes("group3D.style.display=(view==='3d'||view==='split')?'':'none'"));
   assert(field.includes("group2D.style.display=(view==='3d')?'none':''"));
+  assert(ribbon.includes("document.getElementById('fvCacheLimit')"));
+  assert(ribbon.includes("#flRibbonPanel-field.active{flex-wrap:wrap"));
 });
 
 test('Ribbon exposes real scopes without fake Plots or Compare tabs',()=>{
