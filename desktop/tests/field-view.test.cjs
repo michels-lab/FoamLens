@@ -527,6 +527,19 @@ test('Field workspace exposes multi-case 3D controls instead of hiding compariso
   ])assert(compareSource.includes(token),'Views C/D lost independent case/region/field/component selection: '+token);
 });
 
+test('multi-view layout coalesces its render cascade instead of drawing comparison views twice',()=>{
+  for(const token of [
+    'let fcLayoutRenderFrame=0',
+    'function fcScheduleLayoutRender()',
+    'fcLayoutRenderFrame=requestAnimationFrame',
+    'const comparisonCascade=!!fvRender.__fcPatched',
+    'if(comparisonCascade)return',
+    'fcUpdateStatsGrid();fcScheduleLayoutRender()'
+  ])assert(compareSource.includes(token),'Missing multi-view render coalescing token: '+token);
+  assert(!compareSource.includes('setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)'),
+    'Multi-view layout still renders the comparison cascade twice.');
+});
+
 test('all visible synchronized 3D views remain eligible for the same exported animation',()=>{
   for(const token of [
     'vaDescriptorList','getVideoDescriptors','All synchronized 3D views are composited into the same video',
