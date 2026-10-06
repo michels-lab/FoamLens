@@ -15,14 +15,24 @@ const assets=path.join(frontend,'assets','branding');
 const portraitAsset=path.join(assets,'michel-duarte-avatar.jpg');
 const michelsLabLockup=path.join(assets,'michels-lab-lockup.png');
 const gitBlob=p=>child.execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim();
+const crc32=buf=>{
+  let crc=0xffffffff;
+  for(const byte of buf){
+    crc^=byte;
+    for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+  }
+  return (crc^0xffffffff)>>>0;
+};
 const pngStructure=p=>{
   const b=fs.readFileSync(p);
   const signature=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
   assert(b.subarray(0,8).equals(signature),'Michel\'s Lab repaired lockup is not a PNG.');
   let pos=8,width=0,height=0,hasIend=false;
   while(pos+12<=b.length){
-    const len=b.readUInt32BE(pos),type=b.toString('ascii',pos+4,pos+8),next=pos+12+len;
+    const len=b.readUInt32BE(pos),type=b.toString('ascii',pos+4,pos+8),dataEnd=pos+8+len,next=dataEnd+4;
     assert(next<=b.length,'Michel\'s Lab repaired lockup contains a truncated '+type+' chunk.');
+    const stored=b.readUInt32BE(dataEnd),calculated=crc32(b.subarray(pos+4,dataEnd));
+    assert.strictEqual(stored,calculated,'Michel\'s Lab repaired lockup has an invalid '+type+' CRC.');
     if(type==='IHDR'){width=b.readUInt32BE(pos+8);height=b.readUInt32BE(pos+12);}
     pos=next;
     if(type==='IEND'){hasIend=true;break;}
@@ -35,7 +45,7 @@ assert.strictEqual(gitBlob(path.join(assets,'official-app-icon.svg')),'9dbfa5e8f
 assert.strictEqual(gitBlob(path.join(assets,'official-mark.svg')),'6e66864f5017b21964a6a8a1e2ec3546c4f3fb6a','Official mark drifted from the Michel\'s Lab canonical blob.');
 assert.strictEqual(gitBlob(path.join(assets,'official-lockup.svg')),'88ec88d3bb3fa2d8c5d7d7dbe0817ccddc6b47dc','Official lockup drifted from the Michel\'s Lab canonical blob.');
 assert.strictEqual(gitBlob(portraitAsset),'9454e22ee91f26f98723457ad5132d950270cc36','Canonical Michel Duarte About portrait drifted from the repaired Michel\'s Lab asset registry source.');
-assert.strictEqual(gitBlob(michelsLabLockup),'962237028ef0f865339bef4c427d132b6f70afd4','Michel\'s Lab parent-brand lockup drifted from the container-repaired canonical derivative.');
+assert.strictEqual(gitBlob(michelsLabLockup),'559c1a10d3f6b9e90c73dc3f304912d770aa68b6','Michel\'s Lab parent-brand lockup drifted from the container-repaired canonical derivative.');
 assert.deepStrictEqual(pngStructure(michelsLabLockup),{width:1000,height:333},'Michel\'s Lab repaired lockup dimensions drifted from the approved 1000×333 source geometry.');
 
 for(const file of ['official-app-icon.svg','official-mark.svg','official-lockup.svg']){
