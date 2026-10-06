@@ -461,6 +461,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/section-ownership.test.cjs
 
+      - name: Test final v1.6 UX coherence audit
+        shell: pwsh
+        run: node desktop/tests/v16-final-ux-audit.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
