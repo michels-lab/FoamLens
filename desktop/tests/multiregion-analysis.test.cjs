@@ -63,6 +63,26 @@ test('base application has global Case and Region context',()=>{
   for(const token of ['globalCaseSelect','globalRegionSelect','seriesMatchesGlobalContext','activeContextRegion'])assert(index.includes(token),'Missing base multi-region token '+token);
 });
 
+test('v1.6 context state is exposed independently from selector presentation',()=>{
+  for(const token of [
+    'function mrContextSnapshot()',
+    'function mrSetContext(next={},options={})',
+    'function mrRenderContextPresentation()',
+    'function mrContextFromPresentation()',
+    'window.FoamLensContextStore',
+    'get:mrContextSnapshot',
+    "source:'presentation'",
+    "'foamlens-context-change'"
+  ])assert(mr.includes(token),'Missing context-store token '+token);
+  const matcherStart=mr.indexOf('seriesMatchesGlobalContext=function(s)');
+  const matcherEnd=mr.indexOf('refreshGlobalContext=mrRenderContextPresentation',matcherStart);
+  assert(matcherStart>=0&&matcherEnd>matcherStart,'Context-aware matcher override missing.');
+  const matcher=mr.slice(matcherStart,matcherEnd);
+  assert(matcher.includes('mrContextSnapshot()'),'Series filtering does not read the context store.');
+  assert(!matcher.includes('globalCaseSelect')&&!matcher.includes('globalRegionSelect'),
+    'Series filtering is still coupled to selector DOM.');
+});
+
 test('new v1.3 analyses obey global context',()=>{
   for(const [name,src] of [['temporal',temporal],['physical',physical],['numerical',numerical],['vector',vector]]){
     assert(src.includes('seriesMatchesGlobalContext'),name+' analysis ignores active case/region context.');
