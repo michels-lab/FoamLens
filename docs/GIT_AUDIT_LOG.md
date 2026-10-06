@@ -3410,3 +3410,61 @@ Added `.github/ISSUE_TEMPLATE/chatgpt-task.yml` so new implementation/audit task
 
 Purpose: reduce repeated context reconstruction in future ChatGPT sessions and make repository work resumable from a bounded GitHub Issue without changing product behavior.
 \n
+
+## 2026-10-06 — Deterministic real-case packaged smoke selection
+
+**Finding:** Windows build run `37434467481` passed the scientific/unit suite and packaged executable launch, but the real OpenFOAM packaged smoke failed after switching to `B13_prghPressure_airGapOF14`: the requested `metal / T / t=9.8` selection ended on `CoCell`.
+
+**Evidence:** the QuickCup/VTK regression in the same workflow confirmed `T` exists in the `metal` region. The smoke helper used `dispatchEvent('change')` for an async case-change handler and only polled for the case ID/name; that condition could become true before `fvHandleCaseChange()` finished its awaited frame load. The still-running case load could then overwrite the smoke's requested field.
+
+**Action:** the smoke-only helper now invokes and awaits `fvHandleCaseChange()` directly before applying region/field/time selection. Requested regions/fields now also fail immediately with an explicit list of available choices instead of silently retaining a default field.
+
+**Scope:** smoke-test synchronization only; normal FoamLens user interaction and scientific field-selection behavior are unchanged.
+
+**Validation status:** replacement `fix/deterministic-real-case-smoke` Windows CI is required before closing the finding.
+
+### Follow-up validation correction
+
+Replacement run `37437700568` reached the regression suite but stopped at `native-performance.test.cjs` because that source-level guard still required the obsolete polling implementation token `while(performance.now()-started<30000)`. This was test drift caused by the synchronization fix, not a product failure.
+
+The guard now requires the new deterministic contract (`await fvHandleCaseChange()`) plus explicit unavailable-region/field diagnostics. A fresh Windows CI run is required.
+
+### Validation complete
+
+Replacement Windows CI run `37438147013` completed **SUCCESS** on commit `ed113c9637af9e0d98514eec77b775cd290f18e4`.
+
+Validated in the successful run:
+- real QuickCup/OpenFOAM regression;
+- full frontend/scientific regression suite;
+- native-performance guard updated for the awaited case-switch contract;
+- portable Windows publish;
+- packaged executable real-case smoke, including requested `metal / T / t=9.8`;
+- installer build;
+- installed-application smoke test.
+
+Conclusion: the prior `CoCell` result was a smoke synchronization race, not missing `T` data. The deterministic smoke fix is validated and ready to merge. Merging is intentionally kept separate because a `main` desktop change invokes the repository's current main-branch release workflow.
+
+### Release publication guard
+
+During P0 reconciliation, the FoamLens workflow was found to publish a GitHub Release automatically for every qualifying `main` desktop push. That conflicts with the repository agent/release contract requiring explicit publication authorization and makes safe maintenance merges capable of producing unintended releases.
+
+The workflow now keeps full CI/build/portable/installer validation on `main`, but `Publish GitHub Release` runs only for:
+- an explicit `v*` tag; or
+- manual `workflow_dispatch` with `publish=true`.
+
+`auto-update.test.cjs` now guards this separation so future CI changes cannot silently restore implicit main-branch publication.
+
+### Final branch validation after release-policy guard
+
+Windows CI run `37439205812` completed **SUCCESS** on functional/workflow commit `47c9d75eb6e9866cff0dd14abef51092c17a072b`.
+
+The successful run validates the combined change set:
+- deterministic awaited real-case smoke switching;
+- updated source-level smoke regression guard;
+- full QuickCup/OpenFOAM and scientific/UI regression suite;
+- portable packaged real-case smoke;
+- installer build and installed-app smoke;
+- explicit release-publication policy regression, with ordinary `main` pushes no longer sufficient to publish a GitHub Release.
+
+The only later branch changes are documentation entries recording this evidence.
+
