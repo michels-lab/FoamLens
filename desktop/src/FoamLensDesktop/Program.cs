@@ -617,6 +617,31 @@ internal sealed class FoamLensForm : Form
                         !inspectorHiddenNode.GetBoolean())
                         throw new InvalidOperationException(
                             $"FoamLens Field workspace did not start in a true single-view 3D focus state: {realCaseJson}");
+                    if (!data.TryGetProperty("plotSurfaceCount", out var plotSurfaceCountNode) ||
+                        plotSurfaceCountNode.GetInt32() != 3 ||
+                        !data.TryGetProperty("plotSurfaceParentsStable", out var plotSurfaceParentsStableNode) ||
+                        !plotSurfaceParentsStableNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataParent", out var plotSurfaceDataParentNode) ||
+                        !string.Equals(plotSurfaceDataParentNode.GetString(), "chartViewport", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceAnalysisParent", out var plotSurfaceAnalysisParentNode) ||
+                        !string.Equals(plotSurfaceAnalysisParentNode.GetString(), "chartViewport", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceFieldParent", out var plotSurfaceFieldParentNode) ||
+                        !string.Equals(plotSurfaceFieldParentNode.GetString(), "fw2DHost", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceFieldOwnerBefore", out var plotSurfaceFieldOwnerBeforeNode) ||
+                        !string.Equals(plotSurfaceFieldOwnerBeforeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        !data.TryGetProperty("plotSurfaceDataActive", out var plotSurfaceDataActiveNode) ||
+                        !plotSurfaceDataActiveNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceAnalysisActive", out var plotSurfaceAnalysisActiveNode) ||
+                        !plotSurfaceAnalysisActiveNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataRestored", out var plotSurfaceDataRestoredNode) ||
+                        !plotSurfaceDataRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
+                        !plotSurfaceFieldRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
+                        !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
+                        throw new InvalidOperationException(
+                            $"FoamLens stable Data / Analysis / Field plot-surface runtime smoke failed: {realCaseJson}");
+
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
                         !data.TryGetProperty("fieldRibbonText", out var fieldRibbonTextNode) ||
@@ -1134,6 +1159,56 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   }
   fvCameraPreset('iso');
   fvRender();
+  let plotSurfaceSmoke=null,plotSurfaceError='';
+  try{
+    const ps=window.FoamLensPlotSurfaces;
+    if(!ps)throw new Error('PlotSurfaceController unavailable');
+    const dataSurface=ps.surface?.('data'),analysisSurface=ps.surface?.('analysis'),fieldPlotSurface=ps.surface?.('field');
+    if(!dataSurface||!analysisSurface||!fieldPlotSurface)throw new Error('Stable Data / Analysis / Field plot surfaces are incomplete');
+    const parentsBefore={
+      data:dataSurface.parentElement?.id||'',
+      analysis:analysisSurface.parentElement?.id||'',
+      field:fieldPlotSurface.parentElement?.id||''
+    };
+    const owner=()=>document.getElementById('canvas')?.closest?.('[data-fl-plot-surface]')?.dataset?.flPlotSurface||'';
+    const fieldOwnerBefore=owner();
+
+    setAppMode('data');
+    if((cases||[]).some(c=>c?.discoveryModel))setDataView('catalog');else setDataView('timeseries');
+    const requestedDataView=String(currentDataView||'');
+    const dataActive=ps.active?.()==='data'&&owner()==='data';
+
+    setAppMode('analysis');
+    setDataView('timeseries');
+    const analysisActive=ps.active?.()==='analysis'&&owner()==='analysis';
+
+    setAppMode('data');
+    const dataRestored=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
+
+    setAppMode('field');
+    const fieldRestored=ps.active?.()==='field'&&owner()==='field';
+    const parentsAfter={
+      data:dataSurface.parentElement?.id||'',
+      analysis:analysisSurface.parentElement?.id||'',
+      field:fieldPlotSurface.parentElement?.id||''
+    };
+    plotSurfaceSmoke={
+      surfaceCount:['data','analysis','field'].filter(k=>!!ps.surface?.(k)).length,
+      parentsStable:parentsBefore.data===parentsAfter.data&&parentsBefore.analysis===parentsAfter.analysis&&parentsBefore.field===parentsAfter.field,
+      dataParent:parentsAfter.data,
+      analysisParent:parentsAfter.analysis,
+      fieldParent:parentsAfter.field,
+      fieldOwnerBefore,
+      dataActive,
+      analysisActive,
+      dataRestored,
+      fieldRestored,
+      requestedDataView
+    };
+  }catch(e){
+    plotSurfaceError=String(e?.stack||e);
+    try{setAppMode('field')}catch{}
+  }
   const streamlineSeed400=typeof fvSeedPlane==='function'&&fvState.mesh?fvSeedPlane(fvState.mesh.boundsMin,fvState.mesh.boundsMax,'x',400,.5).length:0;
   const advancedStreamlineControls=['fvSeedMode','fvSeedCount','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'].every(id=>!!document.getElementById(id));
   const multiViewControlSet=['fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals','fcView2Palette','fcView2Opacity'].every(id=>!!document.getElementById(id));
@@ -1167,6 +1242,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     performanceSpeedupFactor:Number(performanceBenchmark?.speedupFactor),
     performancePercentChange:Number(performanceBenchmark?.percentChange),
     performanceBenchmarkError,
+    plotSurfaceCount:Number(plotSurfaceSmoke?.surfaceCount||0),
+    plotSurfaceParentsStable:!!plotSurfaceSmoke?.parentsStable,
+    plotSurfaceDataParent:String(plotSurfaceSmoke?.dataParent||''),
+    plotSurfaceAnalysisParent:String(plotSurfaceSmoke?.analysisParent||''),
+    plotSurfaceFieldParent:String(plotSurfaceSmoke?.fieldParent||''),
+    plotSurfaceFieldOwnerBefore:String(plotSurfaceSmoke?.fieldOwnerBefore||''),
+    plotSurfaceDataActive:!!plotSurfaceSmoke?.dataActive,
+    plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
+    plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
+    plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
+    plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
+    plotSurfaceError,
     performanceLoads:Number(performanceStats?.loads||0),
     performanceLastMs:Number(performanceStats?.lastMs||0),
     performanceAvgMs:Number(performanceStats?.avgMs||0),
