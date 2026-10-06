@@ -4484,7 +4484,7 @@ function flDerivedCatalogRows(){
   for(const s of series||[]){
     const derived=!!s?.derived||!!s?.derivedKind||s?.sourceKind==='derived'||String(s?.sourcePath||'').startsWith('derived:')||String(s?.sourcePath||'').startsWith('FoamLens ');
     if(!derived)continue;
-    const dtype=datasetTypeOf(s),physicalProfileTime=Number(s.profileTime),timeRange=dtype==='profile'?null:flSafeMinMax(s.t||[]);
+    const dtype=datasetTypeOf(s),physicalProfileTime=Number(s.profileTime),timeRange=dtype==='profile'&&Number.isFinite(physicalProfileTime)?null:flSafeMinMax(s.t||[]);
     const timeMin=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:timeRange.min;
     const timeMax=dtype==='profile'&&Number.isFinite(physicalProfileTime)?physicalProfileTime:timeRange.max;
     const dimensions=String(s?.field?.dimensions||s?.dimensions||''),unit=String(s?.field?.unit||s?.unit||'');
