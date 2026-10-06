@@ -24,9 +24,13 @@ for(const removed of ['plots','compare'])
 for(const id of [
   'flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
   'flRaSplit','flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
-  'flRaExportPng','flRaTheme'
+  'flRaAnalysisTimeResult','flRaAnalysisProfileResult','flRaExportPng','flRaTheme'
 ]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
 
+assert(source.includes("flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'))"),
+  'Analysis has no explicit Time Series result handoff.');
+assert(source.includes("flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'))"),
+  'Analysis has no explicit Spatial Profile result handoff.');
 assert(source.includes("flRibbonContextNeeded"),'Context scope policy is missing.');
 assert(source.includes("activeAppMode==='analysis'"),
   'Analysis must retain the shared Project/Case/Region context.');
