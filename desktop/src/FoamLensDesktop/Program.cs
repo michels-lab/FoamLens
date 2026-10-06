@@ -1097,7 +1097,6 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   setOverlayOpen('readyOverlay',false);
   setOverlayOpen('scanOverlay',false);
   try{setAppMode('field')}catch{}
-  setDataView('field3d');
   fvRefreshSelectors(false);
   const caseSel=document.getElementById('fvCase');
   const selectSmokeCase=async name=>{
