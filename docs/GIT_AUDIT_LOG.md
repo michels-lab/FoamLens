@@ -3789,3 +3789,29 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 - Published public release: `FoamLens v1.6.0` with portable EXE, installer EXE, and both SHA-256 checksum assets.
 - State: COMPLETE. Future FoamLens releases can be initiated directly from chat by committing an explicit `release:` change to `main`; no manual tag creation or Actions UI step is required.
 
+
+
+## 2026-10-06 — v1.6.1 Field command-surface continuation
+
+**Branch:** `development/v1.6.1-field-command-surface`.
+
+### Findings
+- Field's contextual controls already had correct permanent ownership, but were rendered as a fixed floating Inspector instead of using the application's sidebar.
+- The canonical frame-cache selector (`256 MB / 512 MB / 1 GB / 2 GB`) remained buried inside 3D controls while the canonical physical-time transport had already moved to the Ribbon.
+- The Field Ribbon still allowed horizontal overflow despite the command surface containing enough groups to require wrapping.
+- Field view/layout transitions could request both the 3D renderer and 2D plot renderer even when only one surface was visible.
+
+### Actions
+- Reused the existing canonical Field control trees and moved `fwControlsDrawer` into the real application sidebar; no mirror selectors were introduced.
+- The sidebar remains contextual: 3D/Split shows 3D controls, while Spatial Profile / Time Series / Solver Logs show their existing owned 2D controls.
+- Kept `fvCase / fvRegion / fvField / fvComponent` as the authoritative selectors inside the Field sidebar.
+- Moved the existing `fvCacheLimit` and `fvCacheReadout` beside the existing `fwTimeTransport` in the Field Ribbon.
+- Moved the existing Split companion chooser into the Ribbon and hid the now-redundant internal Field workspace bar while the Ribbon is active.
+- Field Ribbon groups now wrap instead of requiring horizontal scrolling.
+- Added requestAnimationFrame render coalescing so hidden 2D/3D surfaces are not redrawn simply because the layout changed.
+
+### Regression contract
+Updated Field workspace, Ribbon, Field View and final UX audit tests to require the contextual sidebar, canonical cache placement, wrapped Ribbon command surface and render coalescing.
+
+### Validation status
+Branch CI is required on the final head before promotion to `main`. No release publication is authorized by this entry.
