@@ -23,7 +23,6 @@ function fwAdoptFieldNode(id,targetId){
 }
 function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
-  const b=document.getElementById('modeField');if(b)b.textContent=fwUi('Field View','Vista 3D');
   const title=document.getElementById('fwTitle');if(title)title.textContent=fwUi('Field Workspace','Workspace de campos');
   const sub=document.getElementById('fwSubtitle');if(sub)sub.textContent=fwUi('3D fields and 2D diagnostics in the same workspace','Campos 3D y diagnósticos 2D en el mismo workspace');
   const add=document.getElementById('fwAdd3DView');if(add)add.textContent=fwUi('+ Add 3D View','+ Añadir vista 3D');
