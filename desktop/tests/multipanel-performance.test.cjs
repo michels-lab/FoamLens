@@ -50,6 +50,7 @@ test('multi-panel export preserves per-panel labels time and scientific ranges',
 test('3D multipanel export rerenders WebGL sources at requested pixel dimensions and restores the viewport',()=>{
   for(const token of [
     'meRender3DCanvas','FoamLensFieldView.renderAtSize','FoamLensFieldCompare.renderAtSize',
+    'FoamLensFieldCompare?.flushLayoutRender?.()',
     'sourceBefore:[oldW,oldH]','sourceDuring:[rendered.width,rendered.height]',
     'rerendered:rendered===src&&rendered.width===width&&rendered.height===height',
     'renderAtSize(oldW,oldH)','await meDrawPanel'
