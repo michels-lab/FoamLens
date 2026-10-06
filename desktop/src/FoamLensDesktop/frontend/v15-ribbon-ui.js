@@ -196,13 +196,18 @@ function flRibbonCss(){
     '.flRibbonAction.danger{color:var(--danger)}',
     '.flRibbonAction.flScopeHidden{display:none!important}',
     '.flRibbonGroup.flScopeHidden{display:none!important}',
-    '.flRibbonTimeGroup{min-width:min(520px,46vw)}',
-    '.flRibbonTimeGroup .flRibbonActions{align-items:center}',
+    '.flRibbonTimeGroup{min-width:min(650px,58vw)}',
+    '.flRibbonTimeGroup .flRibbonActions{align-items:center;min-width:0}',
+    '.flRibbonTimeRow{display:grid!important;grid-template-columns:minmax(0,1fr) 92px;gap:8px;width:100%;align-items:end}',
+    '#flRibbonTimeHost{min-width:0}',
     '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:0;width:100%;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
     '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
     '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
     '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
     '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:8px}',
+    '.flRibbonCacheField{margin:0!important;min-width:0}',
+    '.flRibbonCacheField label{font-size:7px!important;margin:0 0 3px!important;color:var(--muted)}',
+    '.flRibbonCacheField select{height:30px!important;padding:4px 5px!important;font-size:8px!important;min-width:88px!important}',
     '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
     '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
@@ -274,11 +279,14 @@ function flRibbonMountFieldTimeTransport(){
   let group=document.getElementById('flRibbonTimeGroup');
   if(!group){
     group=document.createElement('div');group.id='flRibbonTimeGroup';group.className='flRibbonGroup flRibbonTimeGroup';
-    group.innerHTML='<div class="flRibbonGroupTitle" data-ri-en="Physical time" data-ri-es="Tiempo físico">Physical time</div><div class="flRibbonActions" id="flRibbonTimeHost"></div>';
+    group.innerHTML='<div class="flRibbonGroupTitle" data-ri-en="Playback / frame cache" data-ri-es="Reproducción / caché de frames">Playback / frame cache</div><div class="flRibbonActions flRibbonTimeRow"><div id="flRibbonTimeHost"></div><div id="flRibbonCacheHost"></div></div>';
     panel.appendChild(group)
   }
   const host=document.getElementById('flRibbonTimeHost');if(host&&transport.parentElement!==host)host.appendChild(transport);
-  transport.classList.add('flRibbonTimeTransport');return true
+  transport.classList.add('flRibbonTimeTransport');
+  const cache=document.getElementById('fvCacheLimit'),cacheHost=document.getElementById('flRibbonCacheHost'),cacheField=cache?.closest('.field');
+  if(cache&&cacheHost&&cacheField&&cacheField.parentElement!==cacheHost){cacheField.classList.add('flRibbonCacheField');cacheHost.appendChild(cacheField)}
+  return true
 }
 function flRibbonClarifyDifferenceLabels(){
   const es=document.getElementById('language')?.value==='es';
