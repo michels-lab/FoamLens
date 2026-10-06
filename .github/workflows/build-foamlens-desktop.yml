@@ -1,4 +1,4 @@
-# FoamLens CI — v1.6.0 release validation
+# FoamLens CI — release validation
 # Branch CI validates candidates without publishing. A main push whose commit message starts with `release:` publishes the validated build automatically.
 name: Build FoamLens Desktop for Windows
 
