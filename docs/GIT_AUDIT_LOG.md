@@ -3789,3 +3789,9 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 - Published public release: `FoamLens v1.6.0` with portable EXE, installer EXE, and both SHA-256 checksum assets.
 - State: COMPLETE. Future FoamLens releases can be initiated directly from chat by committing an explicit `release:` change to `main`; no manual tag creation or Actions UI step is required.
 
+## 2026-10-06 — Intelligent Michel's Lab brand-adoption guidance
+
+Repository instructions now explicitly route logo, launcher, splash/startup and About work through the Michel-Software-Standards Product Identity Standard and Brand Adoption Playbook.
+
+The required interpretation is structural integration rather than sticker placement: replace active legacy identity, adapt canonical geometry to the existing product design language, preserve unrelated behavior, validate the build, and keep release publication separate unless explicitly authorized.
+
