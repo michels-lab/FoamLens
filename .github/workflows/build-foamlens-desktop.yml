@@ -1,5 +1,5 @@
 # FoamLens CI — v1.6.0 release validation
-# Reconciled with main; branch CI validates the combined release candidate without publishing.
+# Branch CI validates candidates without publishing. A main push whose commit message starts with `release:` publishes the validated build automatically.
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -692,7 +692,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

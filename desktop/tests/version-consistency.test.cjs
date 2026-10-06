@@ -31,7 +31,8 @@ assert(program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.
 assert(installer.includes('#define MyAppVersion "1.6.0"'),'Installer fallback version is not v1.6.0.');
 assert(workflow.includes('# FoamLens CI — v1.6.0 release validation'),'CI workflow identity is not v1.6.0.');
 assert(workflow.includes('FoamLens-Windows-v${{ steps.ver.outputs.version }}'),'CI artifact version is not derived from the project version.');
-assert(!workflow.includes("github.ref == 'refs/heads/main'"),'Ordinary main builds must not implicitly publish a GitHub Release.');
+assert(workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')"),'Main must support explicit chat-driven releases through a release: commit.');
+assert(!workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' }}"),'Ordinary main builds must not publish without explicit release intent.');
 assert(workflow.includes("startsWith(github.ref, 'refs/tags/')"),'Tagged builds must retain the explicit public-release path.');
 assert(workflow.includes("github.event_name == 'workflow_dispatch' && inputs.publish == true"),'Manual release publication must require workflow_dispatch with publish=true.');
 assert(workflow.includes("CHANGELOG.md")&&workflow.includes("--notes-file 'artifacts/release-notes.md'"),'GitHub Release notes are not sourced from the v1.6 changelog.');
@@ -51,4 +52,4 @@ for(const name of fs.readdirSync(frontendDir).filter(x=>/\.(?:js|html)$/i.test(x
   }
 }
 assert(provenanceUses>=5,'Expected versioned export provenance was not found.');
-console.log('Version consistency passed: Desktop v1.6.0 / frontend v51 with explicit release publication and release-normalized build identity.');
+console.log('Version consistency passed: Desktop v1.6.0 / frontend v51 with explicit tag, manual, or release:-commit publication and release-normalized build identity.');
