@@ -3860,3 +3860,11 @@ The required interpretation is structural integration rather than sticker placem
 - Fix: runtime version state now uses the isolated `data-foamlens-desktop-version` key and `flDesktopVersion()` reads `document.documentElement.dataset.foamLensDesktopVersion`. Visible launch/sidebar/footer/About labels retain `data-desktop-version`.
 - Removed the temporary `WebResourceRequested` local-origin serving experiments and restored the previously validated `SetVirtualHostNameToFolderMapping` architecture. The stronger smoke diagnostics, NavigationId binding, materialized-frontend validation and AppBundle integrity gate remain.
 - Added regression assertions that forbid `data-desktop-version` on the root `<html>` element and require the isolated runtime-version key. Current-head Windows CI is required before promotion.
+
+
+### 2026-10-06 — Packaged branding readiness follow-up
+- Windows run #896 confirmed the blank-document root cause was fixed: `#launchTitle` rendered visibly, the full DOM remained present, and the document title reported `FoamLens v51 · Desktop v1.6.0 — by Michel Duarte`.
+- The next smoke failure moved forward to the official-branding gate. The previous gate checked five images immediately after launch and could fail before hidden About assets completed image decode.
+- The host now validates that the materialized official FoamLens lockup/mark plus canonical Michel Duarte portrait and Michel's Lab lockup exist and are non-empty before WebView initialization.
+- Packaged branding smoke now waits up to 10 seconds for each required image to exist, be an `HTMLImageElement`, complete decoding, and report non-zero natural dimensions; failures preserve per-image `src`, `complete`, `naturalWidth`, and `naturalHeight`.
+- Current-head Windows CI remains required before merge/release promotion.
