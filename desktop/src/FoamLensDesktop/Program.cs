@@ -1244,7 +1244,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   try{
     const ss=window.FoamLensSessionState,ctx=window.FoamLensContextStore,ps=window.FoamLensPlotSurfaces;
     if(!ss||!ctx||!ps)throw new Error('Session persistence APIs are incomplete.');
-    ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke'});
+    ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke',apply:false});
     window.FoamLensFieldWorkspace?.setInspector?.(true);
     setAppMode('field');
     ss.save();
@@ -1255,7 +1255,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const expectedRoot=String(caseById(Number(switchedCase.id))?.rootPath||'');
 
     window.FoamLensFieldWorkspace?.setInspector?.(false);
-    ctx.set({caseId:null,region:''},{source:'session-smoke-mutate'});
+    ctx.set({caseId:null,region:''},{source:'session-smoke-mutate',apply:false});
     setAppMode('data');
     setDataView('timeseries');
     setAppMode('analysis');
