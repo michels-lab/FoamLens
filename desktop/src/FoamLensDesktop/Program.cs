@@ -170,7 +170,9 @@ internal sealed class FoamLensForm : Form
         _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         int? indexStatusCode = null;
         string indexReasonPhrase = "";
-        string indexHeaders = "";
+        string indexContentType = "";
+        string indexContentLength = "";
+        CoreWebView2WebResourceResponseView? indexResponseView = null;
         void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
         {
             if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
@@ -179,7 +181,9 @@ internal sealed class FoamLensForm : Form
             {
                 indexStatusCode = e.Response.StatusCode;
                 indexReasonPhrase = e.Response.ReasonPhrase ?? "";
-                indexHeaders = e.Response.Headers?.ToString() ?? "";
+                indexResponseView = e.Response;
+                try { indexContentType = e.Response.Headers.GetHeader("Content-Type") ?? ""; } catch { }
+                try { indexContentLength = e.Response.Headers.GetHeader("Content-Length") ?? ""; } catch { }
             }
         }
         _web.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
@@ -205,7 +209,34 @@ internal sealed class FoamLensForm : Form
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
 
             if (indexStatusCode.HasValue)
-                Log($"FoamLens index response: status={indexStatusCode.Value}; reason={indexReasonPhrase}; headers={indexHeaders}");
+            {
+                Log($"FoamLens index response: status={indexStatusCode.Value}; reason={indexReasonPhrase}; contentType={indexContentType}; contentLength={indexContentLength}");
+                if (indexResponseView is not null)
+                {
+                    try
+                    {
+                        await using var responseStream = await indexResponseView.GetContentAsync();
+                        if (responseStream is null)
+                        {
+                            Log("FoamLens index response body: null stream.");
+                        }
+                        else
+                        {
+                            using var responseCopy = new MemoryStream();
+                            await responseStream.CopyToAsync(responseCopy);
+                            var responseBytes = responseCopy.ToArray();
+                            var responseHash = Convert.ToHexString(SHA256.HashData(responseBytes)).ToLowerInvariant();
+                            var responsePrefix = Encoding.UTF8.GetString(responseBytes, 0, Math.Min(responseBytes.Length, 120))
+                                .Replace("\r", " ").Replace("\n", " ");
+                            Log($"FoamLens index response body: bytes={responseBytes.Length}; sha256={responseHash}; prefix={responsePrefix}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"FoamLens index response body inspection failed: {ex.Message}");
+                    }
+                }
+            }
             else
                 Log("FoamLens index response: no WebResourceResponseReceived event captured.");
 
