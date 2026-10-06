@@ -1285,6 +1285,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     sessionSmokeError=String(e?.stack||e);
     try{setAppMode('field')}catch{}
   }
+  // The persistence smoke intentionally opens/restores the Inspector. Reset the
+  // workspace before evaluating the final 3D-focus invariant so the smoke
+  // harness does not leak its own test state into the product-state assertion.
+  try{
+    setAppMode('field');
+    window.FoamLensFieldWorkspace?.setView?.('3d');
+    window.FoamLensFieldWorkspace?.setInspector?.(false);
+  }catch{}
   const streamlineSeed400=typeof fvSeedPlane==='function'&&fvState.mesh?fvSeedPlane(fvState.mesh.boundsMin,fvState.mesh.boundsMax,'x',400,.5).length:0;
   const advancedStreamlineControls=['fvSeedMode','fvSeedCount','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'].every(id=>!!document.getElementById(id));
   const multiViewControlSet=['fcLinkCameras','fcResyncCameras','fcFitAll','fcSyncVisuals','fcView2Palette','fcView2Opacity'].every(id=>!!document.getElementById(id));
