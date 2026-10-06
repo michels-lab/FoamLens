@@ -3825,3 +3825,14 @@ Branch CI is required on the final head before promotion to `main`. No release p
 - Fix: multi-view layout rendering now preserves the unpatched primary renderer as `fvRender.__fcBase`, renders the primary and comparison views exactly once per coalesced layout pass, and exposes `fcFlushLayoutRender()` to cancel/flush a pending layout render. Multi-panel export flushes that work before explicit high-resolution rendering.
 - Regression coverage now requires the flush/cancel path and the high-resolution export integration. The intentionally independent visual-settings smoke state (`fcSyncVisuals=false`) was confirmed not to be a failure criterion.
 - Replacement Windows CI on the final branch head remains required before merge/release promotion.
+
+
+### 2026-10-06 — v1.6.1 About / identity reconciliation
+- Replaced the legacy embedded About portrait with the canonical 2026-10-06 Michel Duarte portrait from `Michel-Software-Standards` (blob `be4d18572bec28d53783cd4db05cb6cd289a7916`) and vendored it locally so packaged FoamLens remains self-contained.
+- Added the official Michel's Lab parent-brand lockup from the canonical master asset (blob `7819ef5c7d1a5c338c67c9bbd517e5448724a5cf`) inside the author/studio block, preserving the required Product → Author → Michel's Lab → Social hierarchy.
+- Kept the existing social controls but reconciled their targets to the canonical URLs in `brand/developer-profile.json`.
+- Removed stale About literals `FoamLens · v39` and `Desktop v1.3.2`; About now exposes frontend v51 plus the shared Desktop-version label.
+- Removed the packaged-host dependency on the historical `1.4.9 → 1.6.0` HTML replacement. The Windows host now injects its assembly version as `data-desktop-version`, while the standalone frontend uses the current public Desktop version as fallback.
+- Field View's version dialog now reads the shared `flDesktopVersion()` helper instead of hard-coding `Desktop v1.6.0`.
+- Extended branding/version regressions and packaged smoke to require the canonical portrait and Michel's Lab lockup to render successfully.
+- Current-head Windows CI is required before this block is considered validated. No version bump or release publication is authorized by this entry.

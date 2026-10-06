@@ -29,9 +29,12 @@ assert(rootLicense.includes("Michel Armando Duarte Flores / Michel's Lab"),'Root
 assert(!rootLicense.includes('OpenFOAM PostPlotter'),'Legacy OpenFOAM PostPlotter naming remains in the active root license.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
-assert(fieldView.includes("Desktop v1.6.0"),'Field View module does not expose the v1.6.0 build identity.');
+assert(fieldView.includes("typeof flDesktopVersion==='function'?flDesktopVersion():'—'"),'Field View version dialog does not derive Desktop identity from the shared version helper.');
 assert(program.includes('"FoamLens", "Desktop", "1.6.0", "app"'),'Desktop app bundle root is not isolated for v1.6.0.');
-assert(program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);'),'Desktop host does not normalize embedded frontend release identity to v1.6.0.');
+assert(index.includes("function flDesktopVersion(){return document.documentElement.dataset.desktopVersion||'1.6.0'}"),'Frontend Desktop version helper is not aligned with the current public version/fallback.');
+assert(program.includes('GetName().Version?.ToString(3)')&&program.includes('data-desktop-version'), 'Desktop host does not bind the packaged frontend to assembly version metadata.');
+assert(!program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);'),'Desktop host still depends on the historical 1.4.9→1.6.0 string replacement.');
+assert(!index.includes('FoamLens · v39')&&!index.includes('Desktop v1.3.2'), 'About still contains stale version literals.');
 assert(installer.includes('#define MyAppVersion "1.6.0"'),'Installer fallback version is not v1.6.0.');
 assert(workflow.includes('# FoamLens CI — v1.6.0 release validation'),'CI workflow identity is not v1.6.0.');
 assert(workflow.includes('FoamLens-Windows-v${{ steps.ver.outputs.version }}'),'CI artifact version is not derived from the project version.');

@@ -180,7 +180,7 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
             var officialBranding = await _web.CoreWebView2.ExecuteScriptAsync(
-                "Boolean(['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo'].every(id=>{const img=document.getElementById(id);return img instanceof HTMLImageElement&&img.complete&&img.naturalWidth>0})&&document.querySelectorAll('.foamLensLogoSvg').length===0)");
+                "Boolean(['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo'].every(id=>{const img=document.getElementById(id);return img instanceof HTMLImageElement&&img.complete&&img.naturalWidth>0})&&document.querySelectorAll('.foamLensLogoSvg').length===0)");
             if (!string.Equals(officialBranding.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens official local brand assets did not render on launch/sidebar/About.");
 
@@ -1140,8 +1140,12 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
-        // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
-        html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);
+        // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
+        var desktopVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
+        html = html.Replace(
+            "<html lang=\"en\">",
+            $"<html lang=\"en\" data-desktop-version=\"{desktopVersion}\">",
+            StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);

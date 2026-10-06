@@ -12,11 +12,15 @@ const project=fs.readFileSync(path.join(root,'src','FoamLensDesktop','FoamLensDe
 const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs'),'utf8');
 const workflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
 const assets=path.join(frontend,'assets','branding');
+const portraitAsset=path.join(assets,'michel-duarte-avatar.jpg');
+const michelsLabLockup=path.join(assets,'michels-lab-lockup.png');
 const gitBlob=p=>child.execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim();
 
 assert.strictEqual(gitBlob(path.join(assets,'official-app-icon.svg')),'9dbfa5e8fd42aaf78e6fe88e81d27a35a124a62e','Official app icon drifted from the Michel\'s Lab canonical blob.');
 assert.strictEqual(gitBlob(path.join(assets,'official-mark.svg')),'6e66864f5017b21964a6a8a1e2ec3546c4f3fb6a','Official mark drifted from the Michel\'s Lab canonical blob.');
 assert.strictEqual(gitBlob(path.join(assets,'official-lockup.svg')),'88ec88d3bb3fa2d8c5d7d7dbe0817ccddc6b47dc','Official lockup drifted from the Michel\'s Lab canonical blob.');
+assert.strictEqual(gitBlob(portraitAsset),'be4d18572bec28d53783cd4db05cb6cd289a7916','Canonical Michel Duarte About portrait drifted from the Michel\'s Lab asset registry.');
+assert.strictEqual(gitBlob(michelsLabLockup),'7819ef5c7d1a5c338c67c9bbd517e5448724a5cf','Official Michel\'s Lab parent-brand lockup drifted from the canonical asset.');
 
 for(const file of ['official-app-icon.svg','official-mark.svg','official-lockup.svg']){
   assert(project.includes('frontend\\assets\\branding\\'+file),'Desktop project does not embed '+file+'.');
@@ -26,8 +30,21 @@ assert(index.includes('href="assets/branding/official-app-icon.svg"'),'Favicon d
 assert(index.includes('id="launchOfficialLogo"')&&index.includes('src="assets/branding/official-lockup.svg"'),'Launch screen does not use the official lockup.');
 assert(index.includes('id="sidebarOfficialLogo"')&&index.includes('src="assets/branding/official-mark.svg"'),'Sidebar does not use the official mark.');
 assert(index.includes('id="aboutOfficialLogo"'),'About does not use the official lockup.');
+assert(index.includes('id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg"'),'About does not use the canonical Michel Duarte portrait.');
+assert(index.includes('id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab-lockup.png"'),'About does not show the official Michel\'s Lab parent-brand lockup.');
+const productPos=index.indexOf('id="aboutOfficialLogo"'),authorPos=index.indexOf('id="aboutPortraitImg"'),studioPos=index.indexOf('id="aboutMichelsLabLogo"'),socialPos=index.indexOf('class="aboutSocials"');
+assert(productPos>=0&&authorPos>productPos&&studioPos>authorPos&&socialPos>studioPos,'About hierarchy is not Product → Author → Michel\'s Lab → Social.');
+for(const href of [
+  'https://www.instagram.com/realmichelduarte/',
+  'https://www.facebook.com/realmichelduarte',
+  'https://www.linkedin.com/in/realmichelduart/',
+  'https://github.com/realmichelduarte',
+  'mailto:realmichelduarte@gmail.com'
+])assert(index.includes('href="'+href+'"'),'About social URL drifted from canonical developer profile: '+href);
+assert(!index.includes('FoamLens · v39'),'Stale About frontend version v39 remains.');
+assert(!index.includes('Desktop v1.3.2'),'Stale About Desktop version remains.');
 assert(!index.includes('class="foamLensLogoSvg"'),'Legacy competing inline FoamLens logo remains active.');
-assert(program.includes("['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo']"),'Packaged smoke does not validate rendered official branding.');
+assert(program.includes("['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo']"),'Packaged smoke does not validate rendered official branding.');
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
 assert((workflow.match(/node desktop\/tests\/official-branding\.test\.cjs/g)||[]).length===1,'Official branding regression must run exactly once in CI.');
 
