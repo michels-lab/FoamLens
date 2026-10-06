@@ -41,7 +41,7 @@ internal sealed class FoamLensForm : Form
     private int _updateCheckInProgress;
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.5.1", "app");
+        "FoamLens", "Desktop", "1.6.0", "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -460,7 +460,7 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens standard camera presets did not mount: {fieldViewRuntimeJson}");
             }
-            Log($"FoamLens v1.4.9 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
+            Log($"FoamLens v1.6.0 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
 
             // Exercise the actual WebView2 recording primitives used by FoamLens video export.
             // ExecuteScriptAsync serializes an unresolved JavaScript Promise as {}, so the
@@ -1116,7 +1116,7 @@ internal sealed class FoamLensForm : Form
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
-        html = html.Replace("1.4.9", "1.5.1", StringComparison.Ordinal);
+        html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);
