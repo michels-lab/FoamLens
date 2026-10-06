@@ -331,7 +331,7 @@ internal sealed class FoamLensForm : Form
                     'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
-                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','uxSplitterB','hrHelpOverlay'
+                    'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','hrHelpOverlay'
                   ];
                   const missing=required.filter(id=>!document.getElementById(id));
                   const primaryCanvas=document.getElementById('canvas');
@@ -381,7 +381,7 @@ internal sealed class FoamLensForm : Form
                 if (root.TryGetProperty("missing", out var missing) &&
                     missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                     throw new InvalidOperationException(
-                        $"FoamLens v1.4.9 3D runtime controls are missing: {fieldViewRuntimeJson}");
+                        $"FoamLens v1.6.0 3D runtime controls are missing: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("extraViews", out var extraViews) ||
                     extraViews.ValueKind != JsonValueKind.Array || extraViews.GetArrayLength() != 2 ||
                     extraViews.EnumerateArray().Any(v =>
@@ -410,7 +410,7 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens 3D runtime API missing ({property}): {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("workspaceSplitterCount", out var splitterCount) ||
-                    splitterCount.GetInt32() != 2)
+                    splitterCount.GetInt32() != 1)
                     throw new InvalidOperationException(
                         $"FoamLens Field Workspace splitters did not mount correctly: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("rangeModes", out var rangeModes) ||
