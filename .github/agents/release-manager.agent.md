@@ -11,3 +11,6 @@ A FoamLens release is not complete until the relevant scientific/UI regression s
 Do not weaken tests to make a release pass. Do not publish from stale CI evidence. Do not expose fixture tokens or private research data.
 
 Publication requires explicit task authorization. Update `docs/GIT_AUDIT_LOG.md` with exact release evidence and remaining manual/external gates.
+
+For releases that touch UI/About/branding, treat the mandatory identity/About contract in `AGENTS.md` as part of release completeness. Do not present a build as visually reconciled if product identity, author/Michel's Lab hierarchy, canonical portrait, or icon + network-name social controls are knowingly missing/regressed.
+
