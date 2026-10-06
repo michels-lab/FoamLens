@@ -3468,3 +3468,19 @@ The successful run validates the combined change set:
 
 The only later branch changes are documentation entries recording this evidence.
 
+## 2026-10-06 — Official FoamLens identity adopted across active product surfaces
+
+**Source of truth:** `realmichelduarte/Michel-Software-Standards/shared-assets/product-logos/foamlens` (approved concept: 3D field/focus surface).
+
+**Migration:**
+- vendored the canonical `official-app-icon.svg`, `official-mark.svg` and `official-lockup.svg` under `desktop/src/FoamLensDesktop/frontend/assets/branding`;
+- replaced the legacy inline launch/sidebar/About marks and data-URI favicon with the canonical assets;
+- replaced `Assets/FoamLens.ico` with a seven-size (16/24/32/48/64/128/256) Windows derivative of the approved app icon, preserving the existing EXE/taskbar/shortcut/installer wiring;
+- embedded the canonical SVGs in the .NET assembly and materialized them into the local WebView app directory so packaged FoamLens remains self-contained;
+- updated the bundle workflow to vendor the assets and added `official-branding.test.cjs` plus stronger ICO-size validation;
+- extended the packaged smoke to require successful rendering of launch, sidebar and About official assets and to reject the former competing inline mark.
+
+**Scope:** product identity only. Scientific analysis, OpenFOAM parsing, workspace behavior and release version are unchanged.
+
+**Validation required:** Windows CI must pass the complete regression/build/portable/installer smoke path before Issue #14 is closed.
+
