@@ -92,11 +92,15 @@ test('Field plot controls and the 2D viewport have permanent owners',()=>{
     'Analysis stable surface is not created in the shared 2D workspace.');
 });
 
-test('Inspector is a floating drawer rather than a permanent grid column',()=>{
+test('Field Inspector is the contextual sidebar rather than a floating drawer',()=>{
   for(const token of [
-    'fwControlsDrawer','position:fixed','fwSetInspector',
-    "fwControlsDrawer hidden","aria-hidden"
-  ])assert(field.includes(token),'Missing floating Inspector token: '+token);
+    'function fwMountContextSidebar',
+    "const sidebar=document.querySelector('.sidebar')",
+    "sidebar.prepend(drawer)",
+    "drawer.classList.add('fwSidebarContext')",
+    ".sidebar>.fwControlsDrawer.fwSidebarContext{position:static",
+    "fwMountContextSidebar();fwSetInspector(true)"
+  ])assert(field.includes(token),'Missing contextual Field sidebar token: '+token);
   assert(!field.includes('grid-template-columns:minmax(0,1fr) 340px'),
     '3D focus still reserves a permanent controls column.');
 });
@@ -107,6 +111,16 @@ test('Inspector hides 3D controls outside 3D/Split and hides plot controls in pu
     "group3D.style.display=(view==='3d'||view==='split')?'':'none'",
     "group2D.style.display=(view==='3d')?'none':''"
   ])assert(field.includes(token),'Missing Inspector scope token: '+token);
+});
+
+test('Field layout changes coalesce 2D/3D rendering instead of redrawing both unconditionally',()=>{
+  for(const token of [
+    'function fwScheduleRender({threeD=false,twoD=false}={})',
+    'fwRenderFrame=requestAnimationFrame',
+    "if(do3D&&fwState.layout!=='plot')try{fvRender()}catch{}",
+    "if(do2D&&fwState.layout!=='3d')try{draw()}catch{}",
+    "fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.layout!=='3d'})"
+  ])assert(field.includes(token),'Missing render-coalescing token: '+token);
 });
 
 test('one global Field time transport replaces visible per-view primary playback',()=>{
