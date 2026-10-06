@@ -45,6 +45,17 @@ test('session waits for workspace data before restoring navigation',()=>{
   ])assert(session.includes(token),'Missing deferred restore token: '+token);
 });
 
+test('session context restore is lightweight and cannot recursively refresh Review',()=>{
+  assert(session.includes("{source:'session-restore',apply:false}"),
+    'Session restore still triggers the full context-refresh pipeline.');
+  assert(session.includes("if(currentDataView==='catalog')renderDataCatalog();else draw()"),
+    'Session restore has no lightweight final render refresh.');
+  assert(program.includes("{source:'session-smoke',apply:false}"),
+    'Packaged session smoke still triggers full context effects.');
+  assert(program.includes("{source:'session-smoke-mutate',apply:false}"),
+    'Packaged session mutation still triggers full context effects.');
+});
+
 test('Field mode restore fails safely to Data when no compatible 3D case exists',()=>{
   assert(session.includes("if(mode==='field')"));
   assert(session.includes("if(!cases.some(c=>fvCaseViewAvailable(c)))return'data'"));
