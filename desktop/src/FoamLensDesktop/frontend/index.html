@@ -5858,7 +5858,7 @@ let liveDirectoryHandle=null;
 let liveWatchTimer=null;
 let liveLastSnapshot=null;
 
-function observedCaseTimeRange(caseId){const rec=healthCaseIndex(caseId);if(rec)return {...rec.range};const vals=[];for(const s of series.filter(s=>s.caseId===Number(caseId))){if(datasetTypeOf(s)==='profile'&&Number.isFinite(s.profileTime))vals.push(Number(s.profileTime));else if(Array.isArray(s.t))for(const t of s.t)if(Number.isFinite(Number(t)))vals.push(Number(t))}if(!vals.length)return{min:NaN,max:NaN,count:0};return{min:Math.min(...vals),max:Math.max(...vals),count:vals.length}}
+function observedCaseTimeRange(caseId){const rec=healthCaseIndex(caseId);if(rec)return {...rec.range};let min=Infinity,max=-Infinity,count=0;for(const s of series.filter(s=>s.caseId===Number(caseId))){if(datasetTypeOf(s)==='profile'&&Number.isFinite(Number(s.profileTime))){const t=Number(s.profileTime);min=Math.min(min,t);max=Math.max(max,t);count++}else if(Array.isArray(s.t))for(const value of s.t){const t=Number(value);if(!Number.isFinite(t))continue;min=Math.min(min,t);max=Math.max(max,t);count++}}return count?{min,max,count}:{min:NaN,max:NaN,count:0}}
 function caseLogFamilies(caseId){const rec=healthCaseIndex(caseId);return rec?[...rec.families.keys()].filter(Boolean).sort():[...new Set(logOptionsBase().filter(s=>s.caseId===Number(caseId)).map(s=>s.logFamily).filter(Boolean))].sort()}
 function caseProfileSets(caseId){return [...new Set([...profileOptionsBase().filter(s=>s.caseId===Number(caseId)).map(s=>s.profileOutputPath).filter(Boolean),...indexedProfileSets(caseId)])].sort()}
 function addFinding(out,f){out.push({id:`finding_${out.length}_${f.caseId??'workspace'}_${String(f.title||'').replace(/\W+/g,'_')}`,...f})}

@@ -100,6 +100,21 @@ test('32 interleaved temporal parser states remain isolated',()=>{
   }
 });
 
+test('observed case time range handles 250k values without argument-spread overflow',()=>{
+  const match=index.match(/function observedCaseTimeRange\\(caseId\\)\\{[^\\n]+\\}/);
+  assert(match,'Missing observedCaseTimeRange implementation');
+  const times=Array.from({length:250000},(_,i)=>i-125000);
+  const observed=new Function('healthCaseIndex','series','datasetTypeOf',match[0]+'; return observedCaseTimeRange;')(
+    ()=>null,
+    [{caseId:7,kind:'timeseries',t:times}],
+    s=>s.kind
+  );
+  const range=observed(7);
+  assert.strictEqual(range.min,-125000);
+  assert.strictEqual(range.max,124999);
+  assert.strictEqual(range.count,250000);
+});
+
 test('stress harness stays fixture agnostic',()=>{
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt'])assert(!temporalCore.includes(banned)&&!fieldCore.includes(banned));
 });
