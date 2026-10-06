@@ -16,6 +16,7 @@ on:
       - 'integration/**'
       - 'release/**'
       - 'fix/**'
+      - 'branding/**'
     tags:
       - 'v*'
     paths:
@@ -201,6 +202,7 @@ jobs:
           New-Item -ItemType Directory -Force bundle_tmp | Out-Null
           Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
           Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force
           Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
           Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
 
@@ -318,6 +320,10 @@ jobs:
       - name: Test native Windows icon packaging
         shell: pwsh
         run: node desktop/tests/windows-icon.test.cjs
+
+      - name: Test official FoamLens product identity
+        shell: pwsh
+        run: node desktop/tests/official-branding.test.cjs
 
       - name: Guard product code from regression-fixture names
         shell: pwsh
@@ -685,7 +691,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || inputs.publish == true }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
