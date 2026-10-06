@@ -3404,3 +3404,9 @@ Purpose: move bounded implementation, regression inspection and release preparat
 
 No FoamLens scientific behavior, UI behavior, version or release artifact changed in this infrastructure-only update.
 
+## 2026-10-06 — ChatGPT-ready task intake
+
+Added `.github/ISSUE_TEMPLATE/chatgpt-task.yml` so new implementation/audit tasks can capture the desired outcome, evidence, scope, acceptance criteria, required validation and release permission up front.
+
+Purpose: reduce repeated context reconstruction in future ChatGPT sessions and make repository work resumable from a bounded GitHub Issue without changing product behavior.
+\n
