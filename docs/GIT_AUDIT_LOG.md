@@ -3809,6 +3809,8 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 - Moved the existing Split companion chooser into the Ribbon and hid the now-redundant internal Field workspace bar while the Ribbon is active.
 - Field Ribbon groups now wrap instead of requiring horizontal scrolling.
 - Added requestAnimationFrame render coalescing so hidden 2D/3D surfaces are not redrawn simply because the layout changed.
+- Removed a second multi-view render cascade: `fcUpdateLayout()` previously called the primary `fvRender()` and then rendered View B / difference / Views C-D again even though the patched primary renderer already cascades to those views.
+- Verified Views C and D retain independent `Case / Region / Field / Component` selectors and added an explicit regression contract for them.
 
 ### Regression contract
 Updated Field workspace, Ribbon, Field View and final UX audit tests to require the contextual sidebar, canonical cache placement, wrapped Ribbon command surface and render coalescing.
