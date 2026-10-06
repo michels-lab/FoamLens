@@ -3832,7 +3832,7 @@ Branch CI is required on the final head before promotion to `main`. No release p
 - Added the official Michel's Lab parent-brand lockup from the canonical master asset (blob `7819ef5c7d1a5c338c67c9bbd517e5448724a5cf`) inside the author/studio block, preserving the required Product → Author → Michel's Lab → Social hierarchy.
 - Kept the existing social controls but reconciled their targets to the canonical URLs in `brand/developer-profile.json`.
 - Removed stale About literals `FoamLens · v39` and `Desktop v1.3.2`; About now exposes frontend v51 plus the shared Desktop-version label.
-- Removed the packaged-host dependency on the historical `1.4.9 → 1.6.0` HTML replacement. The Windows host now injects its assembly version as `data-desktop-version`, while the standalone frontend uses the current public Desktop version as fallback.
+- Removed the packaged-host dependency on the historical `1.4.9 → 1.6.0` HTML replacement. The Windows host now injects its assembly version as isolated `data-foamlens-desktop-version` state on the root element, while visible version labels keep using `data-desktop-version`; the standalone frontend uses the current public Desktop version as fallback.
 - Field View's version dialog now reads the shared `flDesktopVersion()` helper instead of hard-coding `Desktop v1.6.0`.
 - Extended branding/version regressions and packaged smoke to require the canonical portrait and Michel's Lab lockup to render successfully.
 - Added `desktop/tests/findings-export.test.cjs` and wired it exactly once into Windows CI. The regression parses v22 and protects provenance fields, heavy-array exclusion, evidence-vs-inference guidance, Markdown/JSON exports, Copy for ChatGPT, GitHub issue handoff, and both Workspace/Review attachment points.
@@ -3848,7 +3848,15 @@ The required interpretation is structural integration rather than sticker placem
 ### 2026-10-06 — Packaged launch-readiness smoke hardening
 - Windows runs `37537064322` (#870) and `37537319500` (#872) both reached successful navigation and `document.readyState=complete`, then failed the immediate `document.body.innerText.includes('FoamLens')` assertion before any scientific/runtime smoke work.
 - Source and bundle inspection confirmed that the launch surface, `#launchTitle`, app shell, closing body and inline JavaScript remained present and that the workflow rebuilt `AppBundle.zip` from the current frontend before publishing.
-- The About migration removed roughly 700 KB of embedded base64 portrait data, making frontend navigation materially faster and exposing the smoke's assumption that first layout was complete at `NavigationCompleted`.
+- **Superseded diagnosis:** the initial hypothesis blamed faster navigation after removing the embedded portrait. Later DOM evidence disproved that: the smoke was correctly observing a document whose root content had been replaced.
 - The packaged smoke now waits up to 10 seconds for the actual `#launchTitle` to contain `FoamLens`, be displayed/visible, and have non-zero rendered dimensions. Failure retains diagnostic evidence for title text/display/visibility/size, body display/visibility/classes/text length, ready state and URL.
 - This is a stronger visual-readiness gate than the former one-shot body-text assertion; it does not accept a hidden or zero-size launch surface.
 - `desktop/tests/official-branding.test.cjs` protects both the bounded wait and its blank-screen diagnostics. Replacement current-head Windows CI remains required.
+
+
+### 2026-10-06 — Root cause of packaged blank document
+- Runs #870–#891 progressively proved the bundle, materialized `index.html`, requested navigation and HTTP response were all present. Run #891 finally captured `document.documentElement.outerHTML` as `<html lang="en" data-desktop-version="1.6.0">Desktop v1.6.0</html>`.
+- Root cause: the v1.6.1 version cleanup stored assembly version on the root `<html>` element using the same `data-desktop-version` attribute used by visible labels. `flSyncVersionLabels()` intentionally updates every `[data-desktop-version]` element via `textContent`; because the root element matched, it erased the complete `<head>` and `<body>`.
+- Fix: runtime version state now uses the isolated `data-foamlens-desktop-version` key and `flDesktopVersion()` reads `document.documentElement.dataset.foamLensDesktopVersion`. Visible launch/sidebar/footer/About labels retain `data-desktop-version`.
+- Removed the temporary `WebResourceRequested` local-origin serving experiments and restored the previously validated `SetVirtualHostNameToFolderMapping` architecture. The stronger smoke diagnostics, NavigationId binding, materialized-frontend validation and AppBundle integrity gate remain.
+- Added regression assertions that forbid `data-desktop-version` on the root `<html>` element and require the isolated runtime-version key. Current-head Windows CI is required before promotion.
