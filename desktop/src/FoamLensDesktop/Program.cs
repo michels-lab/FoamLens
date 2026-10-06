@@ -93,62 +93,8 @@ internal sealed class FoamLensForm : Form
             var environment = await CoreWebView2Environment.CreateAsync(null, userData, options);
             await _web.EnsureCoreWebView2Async(environment);
 
-            // Own the complete foamlens.local origin in the native host. WebView2 does
-            // not raise WebResourceRequested for SetVirtualHostNameToFolderMapping URLs, so
-            // using a virtual-folder mapping prevents the host from validating/overriding
-            // the actual document bytes delivered to Chromium. Serving the local HTTPS origin
-            // here preserves origin-based browser APIs while making every response explicit.
-            _web.CoreWebView2.AddWebResourceRequestedFilter(
-                "https://foamlens.local/*",
-                CoreWebView2WebResourceContext.All);
-            _web.CoreWebView2.WebResourceRequested += (_, e) =>
-            {
-                if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) ||
-                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase))
-                    return;
-
-                try
-                {
-                    var relativePath = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
-                    if (string.IsNullOrWhiteSpace(relativePath)) relativePath = "index.html";
-                    relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar);
-
-                    var rootPath = Path.GetFullPath(AppRoot)
-                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                        + Path.DirectorySeparatorChar;
-                    var localPath = Path.GetFullPath(Path.Combine(AppRoot, relativePath));
-                    if (!localPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        e.Response = CreateLocalResponse(environment, 403, "Forbidden",
-                            Encoding.UTF8.GetBytes("FoamLens local resource path rejected."),
-                            "text/plain; charset=utf-8");
-                        return;
-                    }
-
-                    if (!File.Exists(localPath))
-                    {
-                        e.Response = CreateLocalResponse(environment, 404, "Not Found",
-                            Encoding.UTF8.GetBytes("FoamLens local resource not found."),
-                            "text/plain; charset=utf-8");
-                        return;
-                    }
-
-                    var stream = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    e.Response = environment.CreateWebResourceResponse(
-                        stream,
-                        200,
-                        "OK",
-                        $"Content-Type: {LocalContentType(localPath)}\r\nCache-Control: no-store\r\n");
-                }
-                catch (Exception ex)
-                {
-                    Log($"FoamLens local resource response failed for {e.Request.Uri}: {ex}");
-                    e.Response = CreateLocalResponse(environment, 500, "FoamLens local frontend error",
-                        Encoding.UTF8.GetBytes("FoamLens could not load its local interface."),
-                        "text/plain; charset=utf-8");
-                }
-            };
-
+            _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "foamlens.local", AppRoot, CoreWebView2HostResourceAccessKind.Allow);
             _web.CoreWebView2.Settings.AreDevToolsEnabled = true;
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
@@ -194,36 +140,6 @@ internal sealed class FoamLensForm : Form
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
-
-    private static CoreWebView2WebResourceResponse CreateLocalResponse(
-        CoreWebView2Environment environment,
-        int statusCode,
-        string reasonPhrase,
-        byte[] bytes,
-        string contentType)
-    {
-        return environment.CreateWebResourceResponse(
-            new MemoryStream(bytes, writable: false),
-            statusCode,
-            reasonPhrase,
-            $"Content-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
-    }
-
-    private static string LocalContentType(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".html" or ".htm" => "text/html; charset=utf-8",
-            ".js" => "application/javascript; charset=utf-8",
-            ".css" => "text/css; charset=utf-8",
-            ".json" => "application/json; charset=utf-8",
-            ".txt" => "text/plain; charset=utf-8",
-            ".svg" => "image/svg+xml",
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".ico" => "image/x-icon",
-            ".webp" => "image/webp",
-            _ => "application/octet-stream"
-        };
 
     private async Task RunSmokeTestAsync()
     {
@@ -1291,7 +1207,8 @@ internal sealed class FoamLensForm : Form
         if (info.Length < 100_000 ||
             !html.Contains("<body class=\"dark appMode-workspace\">", StringComparison.Ordinal) ||
             !html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal) ||
-            !html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal))
+            !html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal) ||
+            Regex.IsMatch(html, @"<html[^>]*\sdata-desktop-version(?:\s|=|>)", RegexOptions.IgnoreCase))
             throw new InvalidOperationException(
                 $"FoamLens materialized frontend is incomplete: path={indexPath}; bytes={info.Length}; body={html.Contains("<body", StringComparison.OrdinalIgnoreCase)}; launch={html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal)}; native={html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal)}");
 
@@ -1314,7 +1231,7 @@ internal sealed class FoamLensForm : Form
         var desktopVersion = DesktopVersionText;
         html = html.Replace(
             "<html lang=\"en\">",
-            $"<html lang=\"en\" data-desktop-version=\"{desktopVersion}\">",
+            $"<html lang=\"en\" data-foamlens-desktop-version=\"{desktopVersion}\">",
             StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
