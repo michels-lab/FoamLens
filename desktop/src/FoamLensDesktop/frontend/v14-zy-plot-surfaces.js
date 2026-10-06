@@ -34,7 +34,8 @@ function flPlotSurfaceBind(surface,key){
   const clear=flPlotRole(surface,'clearPins');
   if(clear)clear.onclick=()=>{
     if(flPlotSurfaceActive!==key)flPlotSurfaceActivate(key,null,{restore:true});
-    pinnedPoints=[];draw()
+    pinnedPoints=[];draw();
+    document.dispatchEvent(new CustomEvent('foamlens-plot-state-change',{detail:{surface:key,reason:'clear-pins'}}))
   }
 }
 function flPlotSurfaceClone(key,host){
@@ -81,6 +82,43 @@ function flPlotSurfaceRestore(key){
   lastCanvasBlocks=[];
   figureHitRegions=[];
 }
+function flPlotSurfaceSeriesKey(id){
+  const item=series.find(s=>Number(s?.id)===Number(id));if(!item)return'';
+  try{return String(seriesWorkspaceKey(item)||'')}catch{return String(item.sourcePath||item.fileName||item.id||'')}
+}
+function flPlotSurfaceSeriesId(key){
+  key=String(key||'');if(!key)return null;
+  const item=series.find(s=>{try{return String(seriesWorkspaceKey(s)||'')===key}catch{return String(s.sourcePath||s.fileName||s.id||'')===key}});
+  return item?.id??null
+}
+function flPlotSurfaceSerialize(){
+  flPlotSurfaceCapture(flPlotSurfaceActive);
+  const surfaces={};
+  for(const [name,state] of flPlotSurfaceState){
+    surfaces[name]={
+      view:state.view||'timeseries',
+      pinned:(state.pinned||[]).map(p=>({seriesKey:flPlotSurfaceSeriesKey(p.seriesId),index:Number(p.index)})).filter(p=>p.seriesKey&&Number.isFinite(p.index)),
+      activeSeriesKey:flPlotSurfaceSeriesKey(state.activeId)
+    }
+  }
+  return{schema:1,active:flPlotSurfaceActive,surfaces}
+}
+function flPlotSurfaceHydrate(payload,{activate=false}={}){
+  if(!payload||typeof payload!=='object')return false;
+  const source=payload.surfaces&&typeof payload.surfaces==='object'?payload.surfaces:{};
+  for(const name of ['data','analysis','field']){
+    const saved=source[name];if(!saved||typeof saved!=='object')continue;
+    const state=flPlotSurfaceState.get(name)||{};
+    state.view=['timeseries','profile','log','catalog'].includes(saved.view)?saved.view:(name==='field'?'profile':'timeseries');
+    state.pinned=(saved.pinned||[]).map(p=>({seriesId:flPlotSurfaceSeriesId(p.seriesKey),index:Number(p.index)})).filter(p=>p.seriesId!=null&&Number.isFinite(p.index));
+    state.activeId=flPlotSurfaceSeriesId(saved.activeSeriesKey);
+    flPlotSurfaceState.set(name,state)
+  }
+  const target=['data','analysis','field'].includes(payload.active)?payload.active:flPlotSurfaceActive;
+  if(activate)flPlotSurfaceActivate(target,null,{restore:true});
+  else if(flPlotSurfaceState.has(flPlotSurfaceActive))flPlotSurfaceRestore(flPlotSurfaceActive);
+  return true
+}
 function flPlotSurfaceSwapCanonicalIds(fromKey,toKey){
   if(fromKey===toKey)return;
   const from=flPlotSurfaces.get(fromKey),to=flPlotSurfaces.get(toKey);
@@ -118,6 +156,7 @@ function flPlotSurfaceActivate(key,host=null,options={}){
     flPlotSurfaceRefresh()
   }
   document.dispatchEvent(new CustomEvent('foamlens-plot-surface-change',{detail:{surface:key,previous}}));
+  document.dispatchEvent(new CustomEvent('foamlens-plot-state-change',{detail:{surface:key,reason:'activate'}}));
   return true
 }
 function flPlotSurfaceInstall(){
@@ -143,7 +182,9 @@ function flPlotSurfaceInstall(){
     active:()=>flPlotSurfaceActive,
     surface:key=>flPlotSurfaces.get(key)||null,
     state:key=>({...flPlotSurfaceState.get(key),pinned:(flPlotSurfaceState.get(key)?.pinned||[]).map(p=>({...p}))}),
-    capture:()=>flPlotSurfaceCapture(flPlotSurfaceActive)
+    capture:()=>flPlotSurfaceCapture(flPlotSurfaceActive),
+    serialize:flPlotSurfaceSerialize,
+    hydrate:flPlotSurfaceHydrate
   };
   return true
 }
