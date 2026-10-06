@@ -53,22 +53,14 @@ assert(program.includes('NavigationStarting += OnSmokeNavigationStarting')&&prog
   'Packaged smoke does not own its NavigationStarting handler lifecycle.');
 assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&&program.includes('titleWidth')&&program.includes('titleHeight'),
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
-for(const token of [
-  'AddWebResourceRequestedFilter(',
-  '"https://foamlens.local/*"',
-  'CoreWebView2WebResourceContext.All',
-  'environment.CreateWebResourceResponse(',
-  'CreateLocalResponse(',
-  'LocalContentType(',
-  'Uri.UnescapeDataString(uri.AbsolutePath.TrimStart',
-  'localPath.StartsWith(rootPath',
-  'File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read)',
-  'Content-Type: {LocalContentType(localPath)}',
-  'Content-Type: {contentType}',
-  'Cache-Control: no-store'
-])assert(program.includes(token),'Desktop host does not explicitly own the local HTTPS resource origin: '+token);
-assert(!program.includes('SetVirtualHostNameToFolderMapping('),
-  'Desktop host still uses virtual-host folder mapping, whose resources cannot be intercepted by WebResourceRequested.');
+assert(program.includes('SetVirtualHostNameToFolderMapping(')&&program.includes('"foamlens.local", AppRoot, CoreWebView2HostResourceAccessKind.Allow'),
+  'Desktop host does not use the stable local virtual-host mapping.');
+assert(!program.includes('AddWebResourceRequestedFilter('),
+  'Desktop host still carries the temporary WebResourceRequested local-origin experiment.');
+assert(program.includes('data-foamlens-desktop-version')&&!program.includes('$"<html lang=\"en\" data-desktop-version='),
+  'Desktop host does not isolate runtime version state from visible version-label attributes.');
+assert(index.includes("dataset.foamLensDesktopVersion")&&!/<html[^>]*\\sdata-desktop-version(?:\\s|=|>)/i.test(index),
+  'Frontend version storage can still collide with visible data-desktop-version labels.');
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
 assert(workflow.includes('Verify embedded frontend bundle integrity')&&workflow.includes('AppBundle index hash mismatch'),
   'CI does not verify the embedded AppBundle index against the source frontend.');
