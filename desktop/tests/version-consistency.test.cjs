@@ -11,6 +11,7 @@ const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs
 const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
 const installer=fs.readFileSync(path.join(root,'installer','FoamLens.iss'),'utf8');
 const workflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+const rootLicense=fs.readFileSync(path.join(root,'..','LICENSE'),'utf8');
 
 assert(index.includes('<title>FoamLens v51 — by Michel Duarte</title>'),'Frontend title is not v51.');
 assert(index.includes('<span>Version</span><b>v51</b>'),'About/version dialog does not expose frontend v51.');
@@ -23,6 +24,9 @@ assert(/<AssemblyVersion>1.6.0\.0<\/AssemblyVersion>/.test(project),'AssemblyVer
 assert(/<FileVersion>1.6.0\.0<\/FileVersion>/.test(project),'FileVersion is not 1.6.0.0.');
 assert(readme.includes('The current public release is **FoamLens Desktop v1.6.0 with frontend v51**'),'Desktop README does not identify v1.6.0 as the current public release.');
 assert(readme.includes('# FoamLens Desktop v1.6.0'),'Desktop README does not identify the v1.6.0 release.');
+assert(rootLicense.startsWith('FoamLens — Proprietary Software License'),'Root license still carries a legacy product identity.');
+assert(rootLicense.includes("Michel Armando Duarte Flores / Michel's Lab"),'Root license does not carry the current FoamLens/Michel\'s Lab ownership identity.');
+assert(!rootLicense.includes('OpenFOAM PostPlotter'),'Legacy OpenFOAM PostPlotter naming remains in the active root license.');
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("Desktop v1.6.0"),'Field View module does not expose the v1.6.0 build identity.');
