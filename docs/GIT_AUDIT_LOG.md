@@ -3585,3 +3585,79 @@ Status: **fix present / final main publication validation pending**.
 
 ### Remaining structural boundary
 - The singleton interactive 2D chart remains shared by Data / Analysis / Field. Separating it requires preserving the existing hover, pins, legend drag/resize, export and plot interaction semantics; this is intentionally left as the next isolated architecture block rather than replacing safe ownership work with a fragile overlay.
+
+
+## 2026-10-06 — v1.6.0 stable 2D Plot Surface architecture validated
+
+- Development branch: `development/v1.6.0-ux-coherence`.
+- Validated product head: `48599763a1c8bdbe9b6445f5ee361c88f9c91e7b`.
+- GitHub Actions run **#792** (`37424239577`): **SUCCESS**.
+- No merge to `main` and no v1.6.0 public release were performed.
+
+### Final shared-renderer bridge removed
+- Added `v14-zy-plot-surfaces.js` with a single `FoamLensPlotSurfaces` controller.
+- Data, Analysis and Field now own three persistent `.chartwrap` surfaces:
+  - Data → `#chartViewport`;
+  - Analysis → `#chartViewport`;
+  - Field → `#fw2DHost`.
+- Surface changes no longer move a chart node between workspaces.
+- The existing scientific renderer remains single-source: `draw()`, `renderExportComposition()`, plot-state calculations and export code are reused rather than copied.
+- Legacy compatibility is maintained by switching the canonical internal IDs (`canvas`, `tooltip`, `canvasSelection`, `previewBadge`, etc.) to the active stable surface. Inactive surfaces keep scoped IDs.
+- `bindPlotCanvasInteractions(canvas)` now binds the same hover, pins, figure selection, legend drag/resize and pointer behavior to every stable surface.
+- Data / Analysis / Field preserve per-surface 2D view state, pinned points and active-series identity when switching workspaces.
+- The controller intentionally does **not** use fixed/absolute overlay portals.
+
+### Field cleanup
+- Removed the final 2D `appendChild(chart)` path.
+- Removed `fwRestoreCompanionNodes()`.
+- Removed dead `fwRemember()`, `fwRestore()` and `fwMove()` origin/reparenting helpers.
+- `fw2DHost` now receives a Field-owned plot surface once and keeps it permanently.
+
+### Runtime proof
+The packaged smoke now performs an actual workspace cycle:
+1. starts in Field and verifies the canonical canvas belongs to Field;
+2. enters Data and selects Data Catalog;
+3. enters Analysis and verifies the canonical canvas belongs to Analysis;
+4. returns to Data and verifies Data Catalog state is restored;
+5. returns to Field and verifies the canonical canvas belongs to Field again;
+6. verifies Data / Analysis / Field parent elements are unchanged throughout.
+
+### Regression prevention
+- Added `desktop/tests/plot-surfaces.test.cjs`.
+- CI now fails if:
+  - the Field workspace reintroduces chart reparenting/restoration;
+  - stable Data / Analysis / Field surfaces disappear;
+  - canvas interactions stop being reusable;
+  - the controller introduces an overlay portal;
+  - surface state preservation is removed;
+  - packaged runtime surface cycling is no longer asserted.
+- CI manifest now contains **58** test files, each executed exactly once.
+
+### Validation evidence
+- Real OpenFOAM QuickCup regression: **SUCCESS**.
+- Independent B13 VTK streamline validation: **SUCCESS**.
+- Stable 2D Plot Surface regression: **SUCCESS**.
+- Section ownership / anti-leak regression: **SUCCESS**.
+- Persistent Field Workspace UX regression: **SUCCESS**.
+- Analysis UI organization regression: **SUCCESS**.
+- Full 58-test manifest: **SUCCESS**.
+- Portable Windows executable + Data/Analysis/Field surface-cycle smoke: **SUCCESS**.
+- Installer build + installed-application surface-cycle smoke: **SUCCESS**.
+
+### Run #792 artifacts
+- `FoamLens-Windows-v1.5.1`
+  - artifact id: `11395065711`;
+  - size: `135,266,803 bytes`;
+  - digest: `sha256:cdc7dcee35bda84db3e615272ac9e97e33be232e8959a2db3b64c05567ef4051`.
+- `FoamLens-VTK-streamline-validation`
+  - artifact id: `11393949416`;
+  - size: `30,899 bytes`;
+  - digest: `sha256:5dfe071908498cca06a83b9400e8da1f31b323966e607039726c3471dbccf9f1`.
+- `QuickCup-MultiCase-Windows-runtime`
+  - artifact id: `11394231176`;
+  - size: `326,074,466 bytes`;
+  - digest: `sha256:9b075833ad5c1e00b5396fc6d544881d6f362b819cb1c906415d380535f2cb0d`.
+
+### Architecture status
+- The previous UX-07 / UX-12 singleton-chart compatibility boundary is **closed**.
+- There is no remaining intentional chart reparenting bridge between Data, Analysis and Field.
