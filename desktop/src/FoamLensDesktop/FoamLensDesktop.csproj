@@ -26,5 +26,14 @@
     <EmbeddedResource Include="AppBundle.zip">
       <LogicalName>FoamLensDesktop.AppBundle.zip</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="frontend\assets\branding\official-app-icon.svg">
+      <LogicalName>FoamLensDesktop.Branding.official-app-icon.svg</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frontend\assets\branding\official-mark.svg">
+      <LogicalName>FoamLensDesktop.Branding.official-mark.svg</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frontend\assets\branding\official-lockup.svg">
+      <LogicalName>FoamLensDesktop.Branding.official-lockup.svg</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>
