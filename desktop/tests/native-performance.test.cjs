@@ -160,6 +160,7 @@ test('packaged Windows smoke uses a real B13 fixture plus distinct complete case
     'await fvHandleCaseChange()',
     'Requested smoke region is unavailable',
     'Requested smoke field is unavailable',
+    'fvState.fieldName=options.field',
     'initialCaseId',
     'switchedCaseId',
     'caseSwitchChanged',
