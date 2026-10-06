@@ -34,6 +34,10 @@ Adaptive expression is expected:
 
 A screen can be correctly branded without displaying the full logo. Prefer integrated scientific visual language over repeated logo placement.
 
+The approved mark is the **foundation of the product-wide design system**, not just a branding asset. Its visual DNA should influence layout rhythm, panels, scientific overlays, hierarchy, focus/status states, controls, transitions, loaders, background motifs, highlights and premium moments where appropriate.
+
+**About is a primary brand showcase.** It should give the canonical mark/lockup prominent visual presence and may use richer scale, motion, material, topographic motifs and composition derived from the layered-field identity. Do not reduce About to a metadata page with a small logo.
+
 Follow `standards/PRODUCT_IDENTITY_STANDARD.md` in the master standards repository as the authority.
 
 ## Validation
