@@ -30,7 +30,9 @@ assert(!rootLicense.includes('OpenFOAM PostPlotter'),'Legacy OpenFOAM PostPlotte
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("typeof flDesktopVersion==='function'?flDesktopVersion():'—'"),'Field View version dialog does not derive Desktop identity from the shared version helper.');
-assert(program.includes('"FoamLens", "Desktop", "1.6.0", "app"'),'Desktop app bundle root is not isolated for v1.6.0.');
+assert(program.includes('"FoamLens", "Desktop", DesktopVersionText, "app"'),'Desktop app bundle root is not derived from assembly version metadata.');
+assert(program.includes('private static string DesktopVersionText'),'Desktop host does not expose one shared assembly-version source for runtime paths/UI.');
+assert(!program.includes('"FoamLens", "Desktop", "1.6.0", "app"'),'Desktop app bundle root is still pinned to v1.6.0.');
 assert(index.includes("function flDesktopVersion(){return document.documentElement.dataset.desktopVersion||'1.6.0'}"),'Frontend Desktop version helper is not aligned with the current public version/fallback.');
 assert(program.includes('GetName().Version?.ToString(3)')&&program.includes('data-desktop-version'), 'Desktop host does not bind the packaged frontend to assembly version metadata.');
 assert(!program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);'),'Desktop host still depends on the historical 1.4.9→1.6.0 string replacement.');
