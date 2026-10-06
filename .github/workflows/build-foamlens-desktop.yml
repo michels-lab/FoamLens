@@ -1,4 +1,4 @@
-# FoamLens CI — unified v1.5.0 integration validation
+# FoamLens CI — v1.6.0 release validation
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -440,6 +440,10 @@ jobs:
       - name: Test persistent Field Workspace UX
         shell: pwsh
         run: node desktop/tests/workspace-ux.test.cjs
+
+      - name: Test cross-session workspace persistence
+        shell: pwsh
+        run: node desktop/tests/session-persistence.test.cjs
 
       - name: Test contextual help and resizable workspace
         shell: pwsh
