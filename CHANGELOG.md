@@ -1,5 +1,19 @@
 # Changelog
 
+## Desktop v1.6.1 — Unreleased
+
+- Reorganized the Field command surface around a real contextual application sidebar for 3D, Spatial Profile, Time Series, Solver Logs and Split without leaking irrelevant controls across workspaces.
+- Kept Case / Region / Field / Component selection independently available for synchronized views A/B/C/D and preserved per-view scientific ownership.
+- Kept physical-time playback visible in the Ribbon, moved the canonical 256 MB / 512 MB / 1 GB / 2 GB frame-cache control beside it, and removed duplicated internal Field navigation and horizontal Ribbon scrolling.
+- Reduced unnecessary Field rendering by coalescing layout work and avoiding hidden 2D/3D redraws, while preventing duplicate B / Difference / C / D render cascades.
+- Fixed a high-resolution multi-panel export race by flushing pending layout work before explicit-size 3D rerendering; Windows packaged smoke confirms the 1800×1200 source render and 2400×1600 panel export path.
+- Added dedicated CI coverage for Findings evidence handoff, preserving provenance-rich Markdown/JSON export, Copy for ChatGPT and prefilled GitHub issue workflows without synthesizing scientific evidence.
+- Reconciled About with the canonical Michel Duarte portrait and official Michel's Lab parent-brand lockup while preserving FoamLens as the primary product identity and canonical social links.
+- Removed stale About/version literals and made packaged frontend/Desktop identity derive from assembly metadata instead of historical string replacement.
+- Reconciled the root proprietary license from the legacy OpenFOAM PostPlotter name to FoamLens / Michel's Lab.
+- Made the extracted Desktop app-root path derive from assembly version metadata so future releases do not continue using a hard-coded v1.6.0 runtime directory.
+- Hardened packaged launch smoke to require a visibly rendered FoamLens launch surface and retain useful blank-screen diagnostics before scientific/runtime smoke proceeds.
+
 ## Desktop v1.6.0 — 2026-10-06
 
 - Reworked FoamLens navigation into a coherent Ribbon-first workspace model with explicit Data, 3D / Field, Analysis, Export, and View scopes.
