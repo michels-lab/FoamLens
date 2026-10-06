@@ -1,4 +1,5 @@
 # FoamLens CI — v1.6.0 release validation
+# Reconciled with main; branch CI validates the combined release candidate without publishing.
 name: Build FoamLens Desktop for Windows
 
 on:
