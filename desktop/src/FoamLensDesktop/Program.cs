@@ -1073,12 +1073,11 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const target=(cases||[]).find(c=>String(c.name)===String(name));
     if(!target)throw new Error('Requested smoke case is unavailable: '+name);
     caseSel.value=String(target.id);
-    caseSel.dispatchEvent(new Event('change',{bubbles:true}));
-    const started=performance.now();
-    while(performance.now()-started<30000){
-      if(Number(fvState.caseId)===Number(target.id)&&String(fvCase()?.name||'')===String(target.name))break;
-      await new Promise(r=>setTimeout(r,40));
-    }
+    // The normal change handler is async. dispatchEvent() does not await it,
+    // so the smoke used to race the previous case load and could have a late
+    // default field (for example CoCell) overwrite the requested field T.
+    // Call the same handler directly and await the complete case load.
+    await fvHandleCaseChange();
     if(Number(fvState.caseId)!==Number(target.id)||String(fvCase()?.name||'')!==String(target.name))
       throw new Error('Field View case switch did not bind renderer to '+name);
     return{id:Number(target.id),name:String(target.name)};
@@ -1086,12 +1085,20 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   const initialCase=await selectSmokeCase(options.initialCase||'');
   const switchedCase=options.switchCase?await selectSmokeCase(options.switchCase):initialCase;
   const regionSel=document.getElementById('fvRegion');
-  if(options.region&&regionSel&&[...regionSel.options].some(o=>o.value===options.region)){
+  if(options.region&&regionSel){
+    const availableRegions=[...regionSel.options].map(o=>o.value);
+    if(!availableRegions.includes(options.region))
+      throw new Error('Requested smoke region is unavailable: '+options.region+'; available: '+availableRegions.join(', '));
     regionSel.value=options.region;
     fvRefreshSelectors(true);
   }
   const fieldSel=document.getElementById('fvField');
-  if(options.field&&fieldSel&&[...fieldSel.options].some(o=>o.value===options.field))fieldSel.value=options.field;
+  if(options.field&&fieldSel){
+    const availableFields=[...fieldSel.options].map(o=>o.value);
+    if(!availableFields.includes(options.field))
+      throw new Error('Requested smoke field is unavailable: '+options.field+'; available: '+availableFields.join(', '));
+    fieldSel.value=options.field;
+  }
   await fvLoadSelection();
   const requestedTime=Number(options.time);
   if(Number.isFinite(requestedTime)){
