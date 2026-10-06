@@ -449,6 +449,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
 
+      - name: Test section ownership and anti-leak boundaries
+        shell: pwsh
+        run: node desktop/tests/section-ownership.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
