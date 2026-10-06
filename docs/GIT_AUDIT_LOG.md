@@ -3478,7 +3478,17 @@ Status: **fix present / final main publication validation pending**.
 ### Validation state
 - Intermediate CI caught and corrected:
   - removal of valid Copy A→B comparison workflow;
-  - asynchronous context refresh causing Profile context to appear one tick late.
-- QuickCup / VTK regressions continue to pass on intermediate v1.6 commits.
-- Full packaged Windows smoke and installer validation are still required on the final candidate.
+  - asynchronous context refresh causing Profile context to appear one tick late;
+  - stale packaged-smoke expectations for the removed second workspace splitter.
+- Final functional candidate commit: `2bbfdcd200bcb44c411b530e403bb5e241434b41`.
+- GitHub Actions run **#743** (`37392625734`) completed **SUCCESS**.
+- Real OpenFOAM QuickCup regression: PASS.
+- Independent VTK B13 streamline validation: PASS.
+- Full regression suite, including Review/Findings export, Analysis UI organization, Ribbon/workspace scope, scientific field handling and bilingual/overflow checks: PASS.
+- Portable Windows executable smoke: PASS.
+- Installer build + install smoke: PASS.
+- Windows artifact: `FoamLens-Windows-v1.5.1`, artifact id `11381219665`, digest `sha256:ed8b3f4ea23b60ac6955b0a1815ff006e5ff7efde6afb11e7a0aa438267b1542`.
+- VTK evidence artifact: id `11381947195`, digest `sha256:8f52adc944a6e676852f19bb7dfa5d4472d7767ee61113364d0dfa1a0b2e4d55`.
+- QuickCup runtime artifact: id `11381712511`, digest `sha256:dfa2bd9ddf021d4244bbcca9ceada76c40824c60be396d41d0c8d38b9b676aca`.
+- GitHub Release publication was correctly skipped because this is a development branch.
 - **No merge to main and no v1.6.0 public release yet.**
