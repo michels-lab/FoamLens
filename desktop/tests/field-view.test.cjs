@@ -345,9 +345,10 @@ test('streamline direction and physical path-length controls are enforced',()=>{
 });
 
 test('Field View product module is wired to native mesh, transient fields and WebGL',()=>{
-  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','field3d','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
+  for(const token of ['parseOpenFOAMMesh','pmLoadFieldSet','pmComponentValues','getContext(\'webgl2\'','fvIntegrateStreamline','fvBuildVectorGlyphBuffers','fvBuildSliceGeometry','fvUpdateSlice','slicePos','fieldViewPanel','fieldViewControls','fvVectors','fvStreamlines','id="fvSlice"','id="fvSliceAxis"','id="fvSlicePosition"','id="fvSliceOpacity"','not claimed to be bit-identical to ParaView/VTK']){
     assert(source.includes(token),'Missing Field View wiring token: '+token);
   }
+  assert(!source.includes("setDataView('field3d')"),'Field View wiring regressed to the retired Data navigation path.');
 });
 
 
