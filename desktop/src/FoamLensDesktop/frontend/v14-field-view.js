@@ -930,7 +930,7 @@ function fvRefreshSelectors(preserve=true){
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),oldComp=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===oldComp))comp.value=oldComp;
   const vectorSel=document.getElementById('fvVector'),oldVector=vectorSel.value,vg=fvFieldGroups(c,region,'vector','volume');vectorSel.innerHTML=vg.length?vg.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)}</option>`).join(''):'<option value="">—</option>';if(vg.some(g=>g.name===oldVector))vectorSel.value=oldVector;
   const times=g?.times||[],slider=document.getElementById('fvTimeSlider');slider.max=String(Math.max(0,times.length-1));if(Number(slider.value)>Number(slider.max))slider.value=slider.max;
-  const readyCases=allCases.filter(fvCaseViewAvailable),tab=document.getElementById('fieldViewTab'),count=document.getElementById('fieldViewCount');if(tab){tab.disabled=false;tab.title=readyCases.length?flUi('Open 3D Field View','Abrir Vista 3D de campos'):flUi('Open Field View to see what data is missing','Abre Vista de campos para ver qué datos faltan')}if(count)count.textContent=String(readyCases.length);
+  const readyCases=allCases.filter(fvCaseViewAvailable);
   const availability=fvAvailability(c),status=document.getElementById('fvStatus');if(status&&!availability.ready){status.textContent=availability.reason;status.classList.add('error')}
 }
 async function fvHandleCaseChange(){
