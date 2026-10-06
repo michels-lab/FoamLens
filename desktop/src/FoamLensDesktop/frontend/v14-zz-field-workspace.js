@@ -35,10 +35,6 @@ function fwUpdateNavText(){
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
-  const nav=document.querySelector('.modeNav'),analysis=document.getElementById('modeAnalysis');let createdModeButton=false;
-  if(nav&&!document.getElementById('modeField')){
-    const b=document.createElement('button');b.className='modeNavBtn';b.dataset.mode='field';b.id='modeField';b.type='button';b.textContent='Field View';analysis?nav.insertBefore(b,analysis):nav.appendChild(b);createdModeButton=true
-  }
   const surface=document.createElement('section');surface.className='modeSurface fieldWorkspaceSurface';surface.id='fieldSurface';
   surface.innerHTML=`
     <div class="fwShell">
@@ -94,7 +90,6 @@ function fwCreateSurface(){
   const style=document.createElement('style');style.id='fwStyles';style.textContent=`
     body.appMode-field #workspace,body.appMode-field #workspaceOverview,body.appMode-field #reviewSurface,body.appMode-field #liveSurface{display:none!important}
     body.appMode-field #fieldSurface{display:block}
-    #fieldViewTab{display:none!important}
     .fieldWorkspaceSurface{padding:14px;overflow:auto;position:relative}
     .fwShell{display:grid;gap:12px;min-width:0}
     .fwWorkspaceBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
@@ -122,7 +117,6 @@ function fwCreateSurface(){
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:auto auto auto minmax(90px,1fr);}.fwTimeReadout,#fwTimeSpeed{grid-row:2}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
-  if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
@@ -554,7 +548,6 @@ function fwMount3D(){
   const compare=document.getElementById('fcPanel');if(compare){compare.open=true;compare.classList.add('fwCompareConfig')}
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
-  document.querySelector('.datasetTabs #fieldViewTab')?.setAttribute('aria-hidden','true');
   try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);setTimeout(()=>{fvRender();fwUpdate3DProfileOverlay()},0);return true
 }
 function fwEnter(){
@@ -575,7 +568,6 @@ function fwLeave(){
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
-  const oldFieldTab=document.getElementById('fieldViewTab');if(oldFieldTab)oldFieldTab.style.display='none';
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
   fwPrevSetDataView=setDataView;setDataView=function(mode){if(mode==='field3d'){setAppMode('field');return}return fwPrevSetDataView.apply(this,arguments)};
@@ -584,7 +576,6 @@ function fwInstall(){
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
   document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
   document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'||String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
-  if(oldFieldTab)oldFieldTab.onclick=()=>setAppMode('field');
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
