@@ -36,7 +36,8 @@ assert(program.includes('GetName().Version?.ToString(3)')&&program.includes('dat
 assert(!program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);'),'Desktop host still depends on the historical 1.4.9→1.6.0 string replacement.');
 assert(!index.includes('FoamLens · v39')&&!index.includes('Desktop v1.3.2'), 'About still contains stale version literals.');
 assert(installer.includes('#define MyAppVersion "1.6.0"'),'Installer fallback version is not v1.6.0.');
-assert(workflow.includes('# FoamLens CI — v1.6.0 release validation'),'CI workflow identity is not v1.6.0.');
+assert(workflow.includes('# FoamLens CI — release validation'),'CI workflow does not use the version-agnostic release-validation identity.');
+assert(!/FoamLens CI — v\d+\.\d+\.\d+ release validation/.test(workflow),'CI workflow identity is still pinned to a product version.');
 assert(workflow.includes('FoamLens-Windows-v${{ steps.ver.outputs.version }}'),'CI artifact version is not derived from the project version.');
 assert(workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')"),'Main must support explicit chat-driven releases through a release: commit.');
 assert(!workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' }}"),'Ordinary main builds must not publish without explicit release intent.');
