@@ -13,11 +13,13 @@ const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','i
 const animationSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-animation-export.js'),'utf8');
 const compareSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-z-field-compare.js'),'utf8');
 const workspaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zz-field-workspace.js'),'utf8');
+const ribbonSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v15-ribbon-ui.js'),'utf8');
 
 new Function(source);
 new Function(animationSource);
 new Function(compareSource);
 new Function(workspaceSource);
+new Function(ribbonSource);
 
 const begin='/* FOAMLENS_FIELD_VIEW_CORE_START */';
 const end='/* FOAMLENS_FIELD_VIEW_CORE_END */';
@@ -427,23 +429,27 @@ test('vector and streamline visualization expose independent real-resolution con
     'High-resolution 2400-glyph option is missing.');
 });
 
-test('top-level Field View navigation has a single fallback click owner',()=>{
-  assert(workspaceSource.includes('let createdModeButton=false'),
-    'Field workspace does not track fallback navigation creation.');
-  const guarded="if(createdModeButton)document.getElementById('modeField')?.addEventListener('click',()=>setAppMode('field'));";
-  assert(workspaceSource.includes(guarded),
-    'Fallback-only Field View click wiring is missing.');
-  const listenerCount=(workspaceSource.match(/addEventListener\('click',\(\)=>setAppMode\('field'\)\)/g)||[]).length;
-  assert.equal(listenerCount,1,
-    'Field workspace contains more than one Field View fallback click listener.');
+test('Field navigation is owned by the Ribbon with no legacy mode-button fallback',()=>{
+  assert(!workspaceSource.includes('createdModeButton'),
+    'Field workspace still creates a legacy modeField fallback.');
+  assert(!workspaceSource.includes("b.id='modeField'"),
+    'Field workspace still synthesizes the hidden legacy Field navigation button.');
+  assert(ribbonSource.includes("document.getElementById('modeField')?.remove()"),
+    'Ribbon does not retire the legacy Field button after mounting.');
+  assert(!ribbonSource.includes("flRibbonClick('modeField')"),
+    'Ribbon still falls back to the hidden legacy Field button.');
 });
 
-test('Field View is promoted to a top-level application mode instead of remaining a Data sub-tab',()=>{
+test('Field View is a top-level Ribbon workspace instead of a Data dataset sub-tab',()=>{
   for(const token of [
-    "b.dataset.mode='field'","b.id='modeField'","analysis?nav.insertBefore(b,analysis)",
-    "body.appMode-field #fieldSurface{display:block}","#fieldViewTab{display:none!important}",
-    "setAppMode=function(mode){if(mode==='field')","setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
+    "body.appMode-field #fieldSurface{display:block}",
+    "setAppMode=function(mode){if(mode==='field')",
+    "setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
   ])assert(workspaceSource.includes(token),'Missing top-level Field workspace token: '+token);
+  assert(!source.includes("tab.id='fieldViewTab'"),
+    'Field View still creates a legacy Data dataset tab.');
+  assert(source.includes("if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true"),
+    'Field View installation is not keyed to its owned Field UI.');
 });
 
 
@@ -574,22 +580,27 @@ test('Field workspace owns one central viewport plus a floating contextual Inspe
     '3D focus still reserves a permanent controls column.');
 });
 
-test('Field View stays discoverable as a top-level mode even when no compatible 3D case is loaded',()=>{
+test('Field View stays discoverable from Ribbon and Overview even when no compatible 3D case is loaded',()=>{
   const a=api.fvAvailability(null);
   assert.equal(a.ready,false);
   assert(/Load an OpenFOAM case/i.test(a.reason));
-  assert(index.includes('data-mode="field" id="modeField"'),'Top-level Field View mode is missing from the base navigation.');
-  assert(workspaceSource.includes('#fieldViewTab{display:none!important}'),'Legacy Data sub-tab is not retired in the Field workspace architecture.');
+  assert(ribbonSource.includes("['field','cube','3D / Field','3D / Campo']"),
+    'Official Field Ribbon tab definition is missing.');
   assert(source.includes("workspaceGoFieldView"),'Overview quick action for Field View is missing.');
+  assert(source.includes("q.onclick=()=>{try{setAppMode('field')}"),
+    'Overview Field action does not enter the Field workspace directly.');
   assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
+  assert(!source.includes("tab.id='fieldViewTab'"),'Legacy Data Field View tab still exists.');
 });
 
-test('native host injects extensions into the main FoamLens IIFE, not the last document IIFE',()=>{
+test('native host smokes the Ribbon-owned Field surface and rejects legacy navigation',()=>{
   assert(program.includes('const string mainIifeMarker = "const FOAMLENS_NATIVE=";'));
   assert(program.includes('var scriptClose = html.IndexOf("</script>", mainMarker'));
   assert(program.includes('html.LastIndexOf(iifeClose, scriptClose, StringComparison.Ordinal)'));
-  assert(program.includes("document.getElementById('modeField')"));
-  assert(program.includes('FoamLens Field View top-level mode did not mount correctly'));
+  assert(program.includes("document.getElementById('flRibbonTab-field')"));
+  assert(program.includes('legacyFieldButtonAbsent'));
+  assert(program.includes('legacyFieldDatasetTabAbsent'));
+  assert(program.includes('FoamLens v1.6 Field Ribbon/surface did not mount cleanly'));
 });
 
 
