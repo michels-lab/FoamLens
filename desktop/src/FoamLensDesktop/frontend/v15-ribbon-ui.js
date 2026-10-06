@@ -118,7 +118,7 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaAnalysisGeneral','flask','General','General'),
       flRibbonActionHtml('flRaCoupling','compare','Coupling','Acoplamiento'),
       flRibbonActionHtml('flRaFront','profile','Front track','Frente'),
-      flRibbonActionHtml('flRaDifference','delta','Difference','Diferencia')
+      flRibbonActionHtml('flRaDifference','delta','2D Curve Δ','Δ de curvas 2D')
     ]),
     flRibbonGroup('Fields','Campos',[
       flRibbonActionHtml('flRaMapping','grid','Mapping','Mapeo'),
@@ -276,6 +276,17 @@ function flRibbonMountFieldTimeTransport(){
   const host=document.getElementById('flRibbonTimeHost');if(host&&transport.parentElement!==host)host.appendChild(transport);
   transport.classList.add('flRibbonTimeTransport');return true
 }
+function flRibbonClarifyDifferenceLabels(){
+  const es=document.getElementById('language')?.value==='es';
+  const labels=[
+    ['differenceTitle','2D Curve Difference','Diferencia de curvas 2D'],
+    ['createDifference','Create 2D Δ curve','Crear curva Δ 2D']
+  ];
+  for(const [id,en,esText] of labels){
+    const el=document.getElementById(id);if(!el)continue;
+    el.dataset.flEn=en;el.dataset.flEs=esText;el.textContent=es?esText:en
+  }
+}
 function flRibbonApplyLanguage(){
   const es=document.getElementById('language')?.value==='es';
   document.querySelectorAll('#flRibbon [data-ri-en]').forEach(el=>{
@@ -283,7 +294,8 @@ function flRibbonApplyLanguage(){
     if(el.classList.contains('flRibbonAction')){const label=el.querySelector('.flRibbonLabel');if(label)label.textContent=value;el.title=value}
     else if(el.classList.contains('flRibbonTab')){const label=el.querySelector('span');if(label)label.textContent=value}
     else el.textContent=value;
-  })
+  });
+  flRibbonClarifyDifferenceLabels()
 }
 function flRibbonSyncStates(){
   const map=[
