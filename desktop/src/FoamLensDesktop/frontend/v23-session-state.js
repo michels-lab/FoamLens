@@ -66,10 +66,7 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
         region:requestedRegion
       },{source:'session-restore'})
     }
-    if(payload.field&&typeof fwState!=='undefined'){
-      if(payload.field.syncTime!=null)fwState.syncTime=payload.field.syncTime!==false;
-      if(payload.field.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!payload.field.inspector)
-    }
+    if(payload.field)window.FoamLensWorkspaceUx?.applyState?.(payload.field);
     const target=flSessionSafeMode(payload.activeMode);
     setAppMode(target);
     if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true})
