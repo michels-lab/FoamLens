@@ -179,6 +179,11 @@ internal sealed class FoamLensForm : Form
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
+            var officialBranding = await _web.CoreWebView2.ExecuteScriptAsync(
+                "Boolean(['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo'].every(id=>{const img=document.getElementById(id);return img instanceof HTMLImageElement&&img.complete&&img.naturalWidth>0})&&document.querySelectorAll('.foamLensLogoSvg').length===0)");
+            if (!string.Equals(officialBranding.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("FoamLens official local brand assets did not render on launch/sidebar/About.");
+
             // Extension integration smoke: Field View must mount through the v1.6
             // Ribbon + Field surface contract. Legacy mode/data-tab navigation
             // must not survive as a second route into the same workspace.
@@ -1104,6 +1109,26 @@ internal sealed class FoamLensForm : Form
             .GetManifestResourceStream("FoamLensDesktop.AppBundle.zip")
             ?? throw new InvalidOperationException("Embedded FoamLens AppBundle.zip was not found.");
         ZipFile.ExtractToDirectory(stream, AppRoot, overwriteFiles: true);
+        MaterializeBrandAssets();
+    }
+
+    private void MaterializeBrandAssets()
+    {
+        var brandingDir = Path.Combine(AppRoot, "assets", "branding");
+        Directory.CreateDirectory(brandingDir);
+        var assembly = Assembly.GetExecutingAssembly();
+        foreach (var asset in new[]
+        {
+            (Resource: "FoamLensDesktop.Branding.official-app-icon.svg", File: "official-app-icon.svg"),
+            (Resource: "FoamLensDesktop.Branding.official-mark.svg", File: "official-mark.svg"),
+            (Resource: "FoamLensDesktop.Branding.official-lockup.svg", File: "official-lockup.svg")
+        })
+        {
+            using var input = assembly.GetManifestResourceStream(asset.Resource)
+                ?? throw new InvalidOperationException($"Embedded FoamLens brand asset was not found: {asset.Resource}");
+            using var output = File.Create(Path.Combine(brandingDir, asset.File));
+            input.CopyTo(output);
+        }
     }
 
     private void ApplyFrontendExtensions()
@@ -1160,12 +1185,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const target=(cases||[]).find(c=>String(c.name)===String(name));
     if(!target)throw new Error('Requested smoke case is unavailable: '+name);
     caseSel.value=String(target.id);
-    caseSel.dispatchEvent(new Event('change',{bubbles:true}));
-    const started=performance.now();
-    while(performance.now()-started<30000){
-      if(Number(fvState.caseId)===Number(target.id)&&String(fvCase()?.name||'')===String(target.name))break;
-      await new Promise(r=>setTimeout(r,40));
-    }
+    await fvHandleCaseChange();
     if(Number(fvState.caseId)!==Number(target.id)||String(fvCase()?.name||'')!==String(target.name))
       throw new Error('Field View case switch did not bind renderer to '+name);
     return{id:Number(target.id),name:String(target.name)};
@@ -1173,12 +1193,20 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   const initialCase=await selectSmokeCase(options.initialCase||'');
   const switchedCase=options.switchCase?await selectSmokeCase(options.switchCase):initialCase;
   const regionSel=document.getElementById('fvRegion');
-  if(options.region&&regionSel&&[...regionSel.options].some(o=>o.value===options.region)){
+  if(options.region&&regionSel){
+    const availableRegions=[...regionSel.options].map(o=>o.value);
+    if(!availableRegions.includes(options.region))
+      throw new Error('Requested smoke region is unavailable: '+options.region+'; available: '+availableRegions.join(', '));
     regionSel.value=options.region;
     fvRefreshSelectors(true);
   }
   const fieldSel=document.getElementById('fvField');
-  if(options.field&&fieldSel&&[...fieldSel.options].some(o=>o.value===options.field))fieldSel.value=options.field;
+  if(options.field&&fieldSel){
+    const availableFields=[...fieldSel.options].map(o=>o.value);
+    if(!availableFields.includes(options.field))
+      throw new Error('Requested smoke field is unavailable: '+options.field+'; available: '+availableFields.join(', '));
+    fieldSel.value=options.field;
+  }
   await fvLoadSelection();
   const requestedTime=Number(options.time);
   if(Number.isFinite(requestedTime)){
