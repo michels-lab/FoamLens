@@ -56,6 +56,9 @@ test('legacy Field navigation cannot reappear beside the Ribbon',()=>{
   assert(!field.includes("b.id='modeField'"),'Field workspace still creates modeField.');
   assert(!fieldView.includes("tab.id='fieldViewTab'"),'Field View still creates a Data dataset tab.');
   assert(!fieldView.includes("document.getElementById('fieldViewTab')"),'Field View still depends on the retired dataset tab.');
+  assert(!fieldView.includes("setDataView=function(mode){if(mode==='field3d'"),'Field View still patches Data navigation for 3D.');
+  assert(!field.includes("setDataView=function(mode){if(mode==='field3d'"),'Field workspace still aliases 3D through Data navigation.');
+  assert(!fieldView.includes("setDataView('field3d')"),'Field View still enters 3D through Data.');
   assert(ribbon.includes("document.getElementById('modeField')?.remove()"),'Ribbon does not remove the base legacy Field button.');
   assert(!ribbon.includes("flRibbonClick('modeField')"),'Ribbon still uses modeField as a fallback.');
 });
