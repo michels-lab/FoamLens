@@ -95,6 +95,46 @@ internal sealed class FoamLensForm : Form
 
             _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "foamlens.local", AppRoot, CoreWebView2HostResourceAccessKind.Allow);
+
+            // Serve the entry document explicitly. Assets continue through the virtual-host
+            // mapping, but index.html must never depend on an opaque mapped response because
+            // a successful 200 with an empty renderer document is indistinguishable from a
+            // healthy navigation unless the host owns the response bytes.
+            _web.CoreWebView2.AddWebResourceRequestedFilter(
+                "https://foamlens.local/index.html*",
+                CoreWebView2WebResourceContext.Document,
+                CoreWebView2WebResourceRequestSourceKinds.Document);
+            _web.CoreWebView2.WebResourceRequested += (_, e) =>
+            {
+                if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) ||
+                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(uri.AbsolutePath, "/index.html", StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                try
+                {
+                    var indexPath = Path.Combine(AppRoot, "index.html");
+                    var bytes = File.ReadAllBytes(indexPath);
+                    var stream = new MemoryStream(bytes, writable: false);
+                    e.Response = environment.CreateWebResourceResponse(
+                        stream,
+                        200,
+                        "OK",
+                        $"Content-Type: text/html; charset=utf-8\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
+                }
+                catch (Exception ex)
+                {
+                    Log($"FoamLens index response construction failed: {ex}");
+                    var bytes = Encoding.UTF8.GetBytes(
+                        "<!doctype html><meta charset=\"utf-8\"><title>FoamLens startup error</title><h1>FoamLens could not load its local interface.</h1>");
+                    e.Response = environment.CreateWebResourceResponse(
+                        new MemoryStream(bytes, writable: false),
+                        500,
+                        "FoamLens local frontend error",
+                        $"Content-Type: text/html; charset=utf-8\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\n");
+                }
+            };
+
             _web.CoreWebView2.Settings.AreDevToolsEnabled = true;
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
