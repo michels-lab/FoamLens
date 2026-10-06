@@ -229,7 +229,7 @@ function flRibbonData(tabId,tabKey){
   flRibbonSelectTab(tabKey||'data');try{setAppMode('data')}catch{};requestAnimationFrame(()=>flRibbonClick(tabId))
 }
 function flRibbonField(fn,tabKey){
-  flRibbonSelectTab(tabKey||'field');try{setAppMode('field')}catch{flRibbonClick('modeField')};requestAnimationFrame(()=>{try{fn&&fn()}catch(e){console.error(e)}})
+  flRibbonSelectTab(tabKey||'field');try{setAppMode('field')}catch(e){console.error(e);return}requestAnimationFrame(()=>{try{fn&&fn()}catch(e){console.error(e)}})
 }
 function flRibbonToggleCheck(id){
   const el=document.getElementById(id);if(!el)return false;el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));return true
@@ -322,6 +322,7 @@ function flRibbonInstall(){
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
   flRibbonMountFieldTimeTransport();
+  document.getElementById('modeField')?.remove();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
   document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
@@ -397,7 +398,7 @@ function flRibbonInstall(){
 
   document.addEventListener('click',e=>{
     const id=e.target?.closest?.('[id]')?.id||'';
-    const modeMap={modeWorkspace:'home',modeData:'data',modeField:'field',modeAnalysis:'analysis',modeReview:'home',modeLive:'home'};
+    const modeMap={modeWorkspace:'home',modeData:'data',modeAnalysis:'analysis',modeReview:'home',modeLive:'home'};
     if(modeMap[id])flRibbonSelectTab(modeMap[id]);
     setTimeout(flRibbonSyncStates,0)
   },true);
