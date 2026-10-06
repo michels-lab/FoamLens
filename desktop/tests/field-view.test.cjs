@@ -474,7 +474,7 @@ test('Field workspace shows one view by default and supports explicit 3D + Spati
     "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
     "view==='split'","fwSetLayout('split')",
     "document.getElementById('fw2DHost')?.appendChild(chart)",
-    "fwMove('fieldViewPanel','fw3DHost')","fwMove('fieldViewControls','fw3DControlsHost')",
+    "fwAdoptFieldNode('fieldViewPanel','fw3DHost')","fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwSyncCompanionTime','applyProfileTimeValue'
   ])assert(workspaceSource.includes(token),'Missing explicit Field view/Split token: '+token);
   assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
