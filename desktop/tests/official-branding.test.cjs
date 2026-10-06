@@ -62,8 +62,9 @@ for(const token of [
   'LocalContentType(',
   'Uri.UnescapeDataString(uri.AbsolutePath.TrimStart',
   'localPath.StartsWith(rootPath',
+  'File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read)',
+  'Content-Type: {LocalContentType(localPath)}',
   'Content-Type: {contentType}',
-  'Content-Length: {bytes.Length}',
   'Cache-Control: no-store'
 ])assert(program.includes(token),'Desktop host does not explicitly own the local HTTPS resource origin: '+token);
 assert(!program.includes('SetVirtualHostNameToFolderMapping('),
