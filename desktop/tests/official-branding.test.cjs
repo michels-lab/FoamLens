@@ -55,14 +55,19 @@ assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
 for(const token of [
   'AddWebResourceRequestedFilter(',
-  '"https://foamlens.local/index.html*"',
-  'CoreWebView2WebResourceContext.Document',
-  'CoreWebView2WebResourceRequestSourceKinds.Document',
+  '"https://foamlens.local/*"',
+  'CoreWebView2WebResourceContext.All',
   'environment.CreateWebResourceResponse(',
-  'Content-Type: text/html; charset=utf-8',
+  'CreateLocalResponse(',
+  'LocalContentType(',
+  'Uri.UnescapeDataString(uri.AbsolutePath.TrimStart',
+  'localPath.StartsWith(rootPath',
+  'Content-Type: {contentType}',
   'Content-Length: {bytes.Length}',
   'Cache-Control: no-store'
-])assert(program.includes(token),'Desktop host does not explicitly own the local index response: '+token);
+])assert(program.includes(token),'Desktop host does not explicitly own the local HTTPS resource origin: '+token);
+assert(!program.includes('SetVirtualHostNameToFolderMapping('),
+  'Desktop host still uses virtual-host folder mapping, whose resources cannot be intercepted by WebResourceRequested.');
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
 assert(workflow.includes('Verify embedded frontend bundle integrity')&&workflow.includes('AppBundle index hash mismatch'),
   'CI does not verify the embedded AppBundle index against the source frontend.');
