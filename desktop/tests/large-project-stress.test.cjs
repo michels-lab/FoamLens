@@ -101,7 +101,7 @@ test('32 interleaved temporal parser states remain isolated',()=>{
 });
 
 test('observed case time range handles 250k values without argument-spread overflow',()=>{
-  const match=index.match(/function observedCaseTimeRange\\(caseId\\)\\{[^\\n]+\\}/);
+  const match=index.match(/function observedCaseTimeRange\(caseId\)\{[^\n]+\}/);
   assert(match,'Missing observedCaseTimeRange implementation');
   const times=Array.from({length:250000},(_,i)=>i-125000);
   const observed=new Function('healthCaseIndex','series','datasetTypeOf',match[0]+'; return observedCaseTimeRange;')(
@@ -116,7 +116,7 @@ test('observed case time range handles 250k values without argument-spread overf
 });
 
 test('safe min/max helper handles 300k finite values without call-stack expansion',()=>{
-  const match=index.match(/function flSafeMinMax\\(values,project=null\\)\\{[^\\n]+\\}/);
+  const match=index.match(/function flSafeMinMax\(values,project=null\)\{[^\n]+\}/);
   assert(match,'Missing flSafeMinMax implementation');
   const safe=new Function(match[0]+'; return flSafeMinMax;')();
   const values=Array.from({length:300000},(_,i)=>i-150000);
