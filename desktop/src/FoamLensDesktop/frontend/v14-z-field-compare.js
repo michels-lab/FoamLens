@@ -465,8 +465,21 @@ function fcSetVideoRanges(ranges){
   fcState.videoRangeOverride=ranges?.view2?.valid?ranges.view2:null;for(const s of fcExtraViews)s.videoRangeOverride=ranges?.['view'+s.id]?.valid?ranges['view'+s.id]:null;
   if(fcState.enabled&&fcState.fieldValues){const r=fcState.videoRangeOverride||fcState.range;fcUpdateDerived(r);for(const s of fcExtraViews)if(s.mesh&&s.fieldValues){const data={mesh:s.mesh,storage:s.storage,fieldValues:s.fieldValues,parsed:s.fieldParsed,range:s.range};fcExtraUpload(s,data)}}
 }
+let fcLayoutRenderFrame=0;
+function fcScheduleLayoutRender(){
+  if(fcLayoutRenderFrame)return;
+  fcLayoutRenderFrame=requestAnimationFrame(()=>{
+    fcLayoutRenderFrame=0;
+    if(typeof fvRender==='function'){
+      const comparisonCascade=!!fvRender.__fcPatched;
+      fvRender();
+      if(comparisonCascade)return
+    }
+    fcRender();fcRenderDifference();fcRenderExtras()
+  })
+}
 function fcUpdateLayout(){
-  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)
+  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
