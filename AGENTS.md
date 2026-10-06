@@ -16,44 +16,31 @@ Shared Michel's Lab rules live in `realmichelduarte/Michel-Software-Standards`.
 - The current updater/release integrity path must retain explicit approval and SHA-256 verification.
 - Never commit private fixture credentials or research data that belong outside this repository.
 
-## Official product identity — mandatory
 
-FoamLens uses the approved Michel's Lab canonical layered-field / topographic logo geometry from `realmichelduarte/Michel-Software-Standards`.
+## Fundamental visual identity and About — mandatory
 
-**Do not implement branding by simply pasting the source SVG into screens.** The logo is a design language, not a sticker.
+This is a **core FoamLens product contract**, not optional branding polish.
 
-Protected identity:
-- preserve the defining layered-field silhouette, proportions and spatial relationships;
-- do not stretch, skew, redraw into another symbol, or alter the geometry until it stops reading as the approved FoamLens mark.
+### Product-wide visual system
 
-Adaptive expression is expected:
-- color may adapt to theme/context;
-- monochrome, inverted, glow, glass, outline, translucent and animated treatments are allowed;
-- mark-only and mark + product-name compositions are allowed where appropriate;
-- the layered-field/topographic visual DNA should inform relevant contours, depth, focus states, scientific overlays and panel layering.
+The approved layered-field/topographic logo geometry is the foundation of the app's visual system. Preserve the defining silhouette, proportions and spatial relationships. Color, monochrome/inverted treatment, glow, glass, outline, translucency, material and motion may adapt to theme/context.
 
-A screen can be correctly branded without displaying the full logo. Prefer integrated scientific visual language over repeated logo placement.
+Do not satisfy branding by pasting the source SVG into unrelated screens. Translate the mark's visual DNA into contours, depth, focus states, scientific overlays, panel layering, navigation emphasis, status states, separators, highlights and motion where appropriate, while scientific correctness, readability and workspace ownership remain higher-priority constraints.
 
-The approved mark is the **foundation of the product-wide design system**, not just a branding asset. Its visual DNA should influence layout rhythm, panels, scientific overlays, hierarchy, focus/status states, controls, transitions, loaders, background motifs, highlights and premium moments where appropriate.
+### About hierarchy
 
-**About is a primary brand showcase.** It should give the canonical mark/lockup prominent visual presence and may use richer scale, motion, material, topographic motifs and composition derived from the layered-field identity. Do not reduce About to a metadata page with a small logo.
+About MUST be intentionally designed in this order:
 
-Follow `standards/PRODUCT_IDENTITY_STANDARD.md` in the master standards repository as the authority.
+1. **Product identity first** — approved FoamLens mark/lockup, product name, real current version and product-facing composition derived from the app identity.
+2. **About the author** — current canonical Michel Duarte portrait, **Michel Duarte**, and appropriate developer copy.
+3. **Michel's Lab parent brand** — official Michel's Lab mark/lockup shown as the studio/ecosystem identity without overpowering FoamLens.
+4. **Social profiles** — each visible network link shows the recognizable network icon **and** the visible network name together, using canonical URLs from the master `brand/developer-profile.json`.
 
-## About identity — mandatory
+Do not finish About with text-only social links or icon-only social buttons. Accessibility labels/tooltips supplement the visible network name; they do not replace it.
 
-About is a primary FoamLens brand surface, not a plain metadata/settings page.
+Treat this hierarchy and the product-wide logo-derived design language as part of product completeness. Visual work must not regress it.
 
-It MUST intentionally combine:
-- the approved product mark/lockup with prominent visual presence;
-- the current canonical Michel Duarte portrait;
-- Michel's Lab / developer identity;
-- social links using **both the recognizable network icon and the visible network name**.
-
-For social links, render icon + label together (for example Instagram icon + `Instagram`, GitHub icon + `GitHub`). Do not use text-only rows as the finished design, and do not use icon-only controls without a visible/accessibility label.
-
-Use the canonical URLs from the master `brand/developer-profile.json`. Treat the portrait, logo, social controls and metadata as one coherent branded composition derived from the product's visual language.
-
+Follow `standards/PRODUCT_IDENTITY_STANDARD.md` and `standards/ABOUT_STANDARD.md` in `realmichelduarte/Michel-Software-Standards`.
 
 ## Validation
 
