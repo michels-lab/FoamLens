@@ -37,6 +37,8 @@ assert(index.includes("function flDesktopVersion(){return document.documentEleme
 assert(!/<html[^>]*\sdata-desktop-version(?:\s|=|>)/i.test(index),'The root HTML element must never carry the visible data-desktop-version label attribute.');
 assert(program.includes('GetName().Version?.ToString(3)')&&program.includes('data-foamlens-desktop-version'), 'Desktop host does not bind the packaged frontend to isolated assembly-version metadata.');
 assert(!program.includes('$"<html lang=\"en\" data-desktop-version='),'Desktop host still puts the presentation label attribute on the root HTML element.');
+assert(program.includes('Regex.IsMatch(html, @"<html[^>]*\\sdata-desktop-version'),
+  'Desktop host materialization no longer rejects destructive root data-desktop-version collisions.');
 assert(!program.includes('html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);'),'Desktop host still depends on the historical 1.4.9→1.6.0 string replacement.');
 assert(!index.includes('FoamLens · v39')&&!index.includes('Desktop v1.3.2'), 'About still contains stale version literals.');
 assert(installer.includes('#define MyAppVersion "1.6.0"'),'Installer fallback version is not v1.6.0.');
