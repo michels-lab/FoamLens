@@ -27,6 +27,8 @@ function mrRegionsForContext(caseList,activeCaseId){
 }
 /* FOAMLENS_MULTI_REGION_CORE_END */
 
+let mrApplyingContextEffects=false;
+
 function mrContextSnapshot(){
   return{
     caseId:activeContextCaseId==null?null:Number(activeContextCaseId),
@@ -56,11 +58,16 @@ function mrRenderContextPresentation(){
   return mrContextSnapshot()
 }
 function mrApplyContextEffects(){
-  refreshDatasetControls();
-  if(currentDataView==='profile')refreshProfileTimes(document.getElementById('profileTime')?.value||'');
-  if(currentDataView==='log'){refreshLogSelectors();syncLogTimeNavigator()}
-  if(currentDataView==='catalog')renderDataCatalog();
-  renderList();updateMeta();if(currentDataView!=='catalog')draw();refreshWorkspaceReview()
+  if(mrApplyingContextEffects)return false;
+  mrApplyingContextEffects=true;
+  try{
+    refreshDatasetControls();
+    if(currentDataView==='profile')refreshProfileTimes(document.getElementById('profileTime')?.value||'');
+    if(currentDataView==='log'){refreshLogSelectors();syncLogTimeNavigator()}
+    if(currentDataView==='catalog')renderDataCatalog();
+    renderList();updateMeta();if(currentDataView!=='catalog')draw();
+    return true
+  }finally{mrApplyingContextEffects=false}
 }
 function mrSetContext(next={},options={}){
   const current=mrContextSnapshot(),merged={
@@ -103,6 +110,8 @@ function mrInstall(){
     get:mrContextSnapshot,
     set:(next,options={})=>mrSetContext(next,options),
     refresh:mrRenderContextPresentation,
+    apply:mrApplyContextEffects,
+    applying:()=>mrApplyingContextEffects,
     regions:()=>mrValidateContext().regions.slice()
   };
   window.FoamLensMultiRegion={mrKnownRegions,mrSeriesRegionFromMetadata,mrRegionsForContext,mrContextSnapshot,mrSetContext,mrRenderContextPresentation}
