@@ -3444,3 +3444,13 @@ Validated in the successful run:
 
 Conclusion: the prior `CoCell` result was a smoke synchronization race, not missing `T` data. The deterministic smoke fix is validated and ready to merge. Merging is intentionally kept separate because a `main` desktop change invokes the repository's current main-branch release workflow.
 
+### Release publication guard
+
+During P0 reconciliation, the FoamLens workflow was found to publish a GitHub Release automatically for every qualifying `main` desktop push. That conflicts with the repository agent/release contract requiring explicit publication authorization and makes safe maintenance merges capable of producing unintended releases.
+
+The workflow now keeps full CI/build/portable/installer validation on `main`, but `Publish GitHub Release` runs only for:
+- an explicit `v*` tag; or
+- manual `workflow_dispatch` with `publish=true`.
+
+`auto-update.test.cjs` now guards this separation so future CI changes cannot silently restore implicit main-branch publication.
+
