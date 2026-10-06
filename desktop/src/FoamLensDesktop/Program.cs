@@ -69,6 +69,7 @@ internal sealed class FoamLensForm : Form
         {
             MaterializeBundle();
             ApplyFrontendExtensions();
+            ValidateMaterializedFrontend();
             Directory.CreateDirectory(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FoamLens", "Desktop", "WebView2"));
@@ -152,6 +153,15 @@ internal sealed class FoamLensForm : Form
             completion.TrySetResult(e);
 
         _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+        CoreWebView2WebResourceResponseReceivedEventArgs? indexResponse = null;
+        void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
+        {
+            if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
+                string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(uri.AbsolutePath, "/index.html", StringComparison.OrdinalIgnoreCase))
+                indexResponse = e;
+        }
+        _web.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
         try
         {
             _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1&smoke=1");
@@ -171,6 +181,16 @@ internal sealed class FoamLensForm : Form
             if (!readyState.Contains("complete", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
+
+            if (indexResponse is not null)
+            {
+                var response = await indexResponse.GetResponseViewAsync();
+                Log($"FoamLens index response: status={response.StatusCode}; reason={response.ReasonPhrase}; headers={response.Headers}");
+            }
+            else
+            {
+                Log("FoamLens index response: no WebResourceResponseReceived event captured.");
+            }
 
             string launchStateJson = "{}";
             var launchDeadline = Stopwatch.StartNew();
@@ -1122,6 +1142,7 @@ internal sealed class FoamLensForm : Form
         finally
         {
             _web.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
+            _web.CoreWebView2.WebResourceResponseReceived -= OnWebResourceResponseReceived;
         }
     }
 
@@ -1152,6 +1173,27 @@ internal sealed class FoamLensForm : Form
             using var output = File.Create(Path.Combine(brandingDir, asset.File));
             input.CopyTo(output);
         }
+    }
+
+    private void ValidateMaterializedFrontend()
+    {
+        var indexPath = Path.Combine(AppRoot, "index.html");
+        if (!File.Exists(indexPath))
+            throw new InvalidOperationException($"FoamLens materialized frontend is missing: {indexPath}");
+
+        var info = new FileInfo(indexPath);
+        var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        if (info.Length < 100_000 ||
+            !html.Contains("<body class=\"dark appMode-workspace\">", StringComparison.Ordinal) ||
+            !html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal) ||
+            !html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"FoamLens materialized frontend is incomplete: path={indexPath}; bytes={info.Length}; body={html.Contains("<body", StringComparison.OrdinalIgnoreCase)}; launch={html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal)}; native={html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal)}");
+
+        using var sha = SHA256.Create();
+        using var stream = File.OpenRead(indexPath);
+        var hash = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        Log($"FoamLens materialized frontend validated: path={indexPath}; bytes={info.Length}; sha256={hash}");
     }
 
     private void ApplyFrontendExtensions()
