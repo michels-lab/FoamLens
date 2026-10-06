@@ -3454,3 +3454,17 @@ The workflow now keeps full CI/build/portable/installer validation on `main`, bu
 
 `auto-update.test.cjs` now guards this separation so future CI changes cannot silently restore implicit main-branch publication.
 
+### Final branch validation after release-policy guard
+
+Windows CI run `37439205812` completed **SUCCESS** on functional/workflow commit `47c9d75eb6e9866cff0dd14abef51092c17a072b`.
+
+The successful run validates the combined change set:
+- deterministic awaited real-case smoke switching;
+- updated source-level smoke regression guard;
+- full QuickCup/OpenFOAM and scientific/UI regression suite;
+- portable packaged real-case smoke;
+- installer build and installed-app smoke;
+- explicit release-publication policy regression, with ordinary `main` pushes no longer sufficient to publish a GitHub Release.
+
+The only later branch changes are documentation entries recording this evidence.
+
