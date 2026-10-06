@@ -22,6 +22,7 @@ test('session state persists top-level mode context plots and Field state',()=>{
     'context:flSessionContextSnapshot()',
     'plots:window.FoamLensPlotSurfaces?.serialize?.()',
     'field:window.FoamLensWorkspaceUx?.getState?.()',
+    'fieldSelection:flSessionFieldSelectionSnapshot()',
     'localStorage.setItem(flSessionKey'
   ])assert(session.includes(token),'Missing session persistence token: '+token);
 });
@@ -79,6 +80,21 @@ test('Field Inspector and full Field layout join the persisted session',()=>{
   assert(fieldUx.includes("setInspector?.(false)"));
   assert(fieldUx.includes('applyState:uxApplyState'));
   assert(session.includes("FoamLensWorkspaceUx?.applyState?.(payload.field)"));
+});
+
+test('3D Field selection and physical time are persisted and restored asynchronously',()=>{
+  for(const token of [
+    'function flSessionFieldSelectionSnapshot()',
+    "fieldName:String(field?.value||fvState?.fieldName||'')",
+    "component:String(component?.value||fvState?.component||'value')",
+    'time:Number.isFinite(time)?time:null',
+    'function flSessionRestoreFieldSelection(saved)',
+    'fvRefreshSelectors(false)',
+    'await fvLoadFrame(index)',
+    'whenRestored:()=>flSessionLastRestorePromise'
+  ])assert(session.includes(token),'Missing persisted 3D Field selection token: '+token);
+  assert(program.includes("if(typeof ss.whenRestored==='function')await ss.whenRestored()"),
+    'Packaged smoke validates Field state before asynchronous session restore finishes.');
 });
 
 test('packaged runtime smoke round-trips persisted session state',()=>{
