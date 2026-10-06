@@ -3429,3 +3429,18 @@ Replacement run `37437700568` reached the regression suite but stopped at `nativ
 
 The guard now requires the new deterministic contract (`await fvHandleCaseChange()`) plus explicit unavailable-region/field diagnostics. A fresh Windows CI run is required.
 
+### Validation complete
+
+Replacement Windows CI run `37438147013` completed **SUCCESS** on commit `ed113c9637af9e0d98514eec77b775cd290f18e4`.
+
+Validated in the successful run:
+- real QuickCup/OpenFOAM regression;
+- full frontend/scientific regression suite;
+- native-performance guard updated for the awaited case-switch contract;
+- portable Windows publish;
+- packaged executable real-case smoke, including requested `metal / T / t=9.8`;
+- installer build;
+- installed-application smoke test.
+
+Conclusion: the prior `CoCell` result was a smoke synchronization race, not missing `T` data. The deterministic smoke fix is validated and ready to merge. Merging is intentionally kept separate because a `main` desktop change invokes the repository's current main-branch release workflow.
+
