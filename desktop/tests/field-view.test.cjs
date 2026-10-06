@@ -741,4 +741,11 @@ test('versioned frontend extensions are loaded generically',()=>{
 });
 
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
-for(const name of passed)console.log('  ✓ '+name);
+for(const name of passed)test('Field selector remount prefers the loaded renderer field and component',()=>{
+  assert(index.includes("oldField=preserve?(fvState.fieldName||fieldSel.value):''"),
+    'Field selector remount can fall back to a stale DOM field instead of the loaded 3D field.');
+  assert(index.includes("oldComp=preserve?(fvState.component||comp.value):comp.value"),
+    'Component selector remount can fall back to a stale DOM component instead of renderer state.');
+});
+
+console.log('  ✓ '+name);
