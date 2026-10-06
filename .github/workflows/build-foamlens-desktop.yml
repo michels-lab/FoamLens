@@ -16,6 +16,7 @@ on:
       - 'integration/**'
       - 'release/**'
       - 'fix/**'
+      - 'branding/**'
     tags:
       - 'v*'
     paths:
