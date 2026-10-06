@@ -440,6 +440,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/actionable-diagnostics.test.cjs
 
+      - name: Test Findings evidence and assistant handoff
+        shell: pwsh
+        run: node desktop/tests/findings-export.test.cjs
+
       - name: Test multi-panel export and progressive performance
         shell: pwsh
         run: node desktop/tests/multipanel-performance.test.cjs

@@ -3835,4 +3835,5 @@ Branch CI is required on the final head before promotion to `main`. No release p
 - Removed the packaged-host dependency on the historical `1.4.9 → 1.6.0` HTML replacement. The Windows host now injects its assembly version as `data-desktop-version`, while the standalone frontend uses the current public Desktop version as fallback.
 - Field View's version dialog now reads the shared `flDesktopVersion()` helper instead of hard-coding `Desktop v1.6.0`.
 - Extended branding/version regressions and packaged smoke to require the canonical portrait and Michel's Lab lockup to render successfully.
+- Added `desktop/tests/findings-export.test.cjs` and wired it exactly once into Windows CI. The regression parses v22 and protects provenance fields, heavy-array exclusion, evidence-vs-inference guidance, Markdown/JSON exports, Copy for ChatGPT, GitHub issue handoff, and both Workspace/Review attachment points.
 - Current-head Windows CI is required before this block is considered validated. No version bump or release publication is authorized by this entry.
