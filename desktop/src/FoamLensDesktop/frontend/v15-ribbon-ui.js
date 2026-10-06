@@ -123,6 +123,10 @@ function flRibbonBuild(){
     flRibbonGroup('Fields','Campos',[
       flRibbonActionHtml('flRaMapping','grid','Mapping','Mapeo'),
       flRibbonActionHtml('flRaPhaseMomentum','vector','Phase / Mom.','Fase / Mom.')
+    ]),
+    flRibbonGroup('Results','Resultados',[
+      flRibbonActionHtml('flRaAnalysisTimeResult','chart','Open Time Series','Abrir Series temporales'),
+      flRibbonActionHtml('flRaAnalysisProfileResult','profile','Open Spatial Profile','Abrir Perfil espacial')
     ])
   ];
   const exp=[
@@ -372,6 +376,8 @@ function flRibbonInstall(){
   flRibbonBind('flRaDifference',()=>flRibbonAnalysis('difference','analysis'));
   flRibbonBind('flRaMapping',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmMappingNav'))});
   flRibbonBind('flRaPhaseMomentum',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmPhaseNav'))});
+  flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'));
+  flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'));
 
   flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>flRibbonToggleCheck('fcEnabled'),'field'));
   flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'field'));
