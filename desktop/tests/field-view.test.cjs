@@ -594,7 +594,7 @@ test('Field View stays discoverable from Ribbon and Overview even when no compat
     'Overview Field action does not enter the Field workspace directly.');
   assert(!source.includes("setDataView('field3d')"),
     'Overview still falls back through the retired Data field3d route.');
-  assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
+  assert(/Load an OpenFOAM case/i.test(a.reason),'Unavailable Field View does not explain its missing input.');
   assert(!source.includes("tab.id='fieldViewTab'"),'Legacy Data Field View tab still exists.');
 });
 
