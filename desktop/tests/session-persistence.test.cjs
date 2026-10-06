@@ -98,6 +98,12 @@ test('packaged runtime smoke round-trips persisted session state',()=>{
   ])assert(program.includes(token),'Missing packaged persistence smoke token: '+token);
 });
 
+test('packaged persistence smoke cleans its temporary Inspector state before final 3D focus validation',()=>{
+  const cleanup=/persistence smoke intentionally opens\/restores the Inspector[\s\S]{0,700}setView\?\.\('3d'\);[\s\S]{0,350}setInspector\?\.\(false\)/;
+  assert(cleanup.test(program),
+    'Packaged persistence smoke leaks its temporary Inspector/view state into the final 3D focus assertion.');
+});
+
 test('session saves on navigation context plot interaction and application close',()=>{
   for(const token of [
     'flSessionPatchNavigation()',
