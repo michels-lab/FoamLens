@@ -153,13 +153,19 @@ internal sealed class FoamLensForm : Form
             completion.TrySetResult(e);
 
         _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
-        CoreWebView2WebResourceResponseReceivedEventArgs? indexResponse = null;
+        int? indexStatusCode = null;
+        string indexReasonPhrase = "";
+        string indexHeaders = "";
         void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
         {
             if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
                 string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(uri.AbsolutePath, "/index.html", StringComparison.OrdinalIgnoreCase))
-                indexResponse = e;
+            {
+                indexStatusCode = e.Response.StatusCode;
+                indexReasonPhrase = e.Response.ReasonPhrase ?? "";
+                indexHeaders = e.Response.Headers?.ToString() ?? "";
+            }
         }
         _web.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
         try
@@ -182,15 +188,10 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException(
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
 
-            if (indexResponse is not null)
-            {
-                var response = await indexResponse.GetResponseViewAsync();
-                Log($"FoamLens index response: status={response.StatusCode}; reason={response.ReasonPhrase}; headers={response.Headers}");
-            }
+            if (indexStatusCode.HasValue)
+                Log($"FoamLens index response: status={indexStatusCode.Value}; reason={indexReasonPhrase}; headers={indexHeaders}");
             else
-            {
                 Log("FoamLens index response: no WebResourceResponseReceived event captured.");
-            }
 
             string launchStateJson = "{}";
             var launchDeadline = Stopwatch.StartNew();
