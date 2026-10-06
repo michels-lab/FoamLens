@@ -3499,3 +3499,18 @@ Validated in the successful run:
 
 The branch is ready to merge without a version bump or release publication.
 
+### Main-branch branding validation complete
+
+Merged PR #18 as `1b8213af89a2539e7da77cd532e389f001831c89`.
+
+Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently revalidated:
+- canonical FoamLens SVG identity and local packaging;
+- official multi-resolution Windows icon;
+- complete scientific/UI regression suite;
+- portable executable smoke;
+- installer build and installed-app smoke.
+
+`Publish GitHub Release` was **skipped**, confirming that the branding migration did not publish a new FoamLens version.
+
+**Status:** official FoamLens logo adoption is complete across the active Windows/startup/About/in-app surfaces covered by Issue #14.
+
