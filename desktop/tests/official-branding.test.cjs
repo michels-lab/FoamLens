@@ -53,6 +53,16 @@ assert(program.includes('NavigationStarting += OnSmokeNavigationStarting')&&prog
   'Packaged smoke does not own its NavigationStarting handler lifecycle.');
 assert(program.includes('bodyTextHasFoamLens')&&program.includes('bodyClasses')&&program.includes('titleWidth')&&program.includes('titleHeight'),
   'Packaged launch smoke does not preserve useful blank-screen diagnostics.');
+for(const token of [
+  'AddWebResourceRequestedFilter(',
+  '"https://foamlens.local/index.html*"',
+  'CoreWebView2WebResourceContext.Document',
+  'CoreWebView2WebResourceRequestSourceKinds.Document',
+  'environment.CreateWebResourceResponse(',
+  'Content-Type: text/html; charset=utf-8',
+  'Content-Length: {bytes.Length}',
+  'Cache-Control: no-store'
+])assert(program.includes(token),'Desktop host does not explicitly own the local index response: '+token);
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force'),'Desktop bundle does not vendor frontend brand assets.');
 assert(workflow.includes('Verify embedded frontend bundle integrity')&&workflow.includes('AppBundle index hash mismatch'),
   'CI does not verify the embedded AppBundle index against the source frontend.');
