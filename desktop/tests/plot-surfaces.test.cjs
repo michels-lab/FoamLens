@@ -9,6 +9,7 @@ const index=fs.readFileSync(path.join(base,'index.html'),'utf8');
 const surfaces=fs.readFileSync(path.join(base,'v14-zy-plot-surfaces.js'),'utf8');
 const field=fs.readFileSync(path.join(base,'v14-zz-field-workspace.js'),'utf8');
 const multipanel=fs.readFileSync(path.join(base,'v16-multipanel-export.js'),'utf8');
+const program=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8');
 
 new Function(surfaces);
 new Function(field);
@@ -81,6 +82,20 @@ test('Field no longer moves or restores the singleton chart',()=>{
   assert(!field.includes('function fwRemember('),'Field still tracks legacy DOM origins.');
   assert(!field.includes('function fwRestore('),'Field still exposes legacy DOM restore logic.');
   assert(!field.includes('function fwMove('),'Field still exposes legacy DOM move logic.');
+});
+
+test('packaged runtime smoke cycles Data Analysis and Field without moving surfaces',()=>{
+  for(const token of [
+    'plotSurfaceCount',
+    'plotSurfaceParentsStable',
+    'plotSurfaceDataActive',
+    'plotSurfaceAnalysisActive',
+    'plotSurfaceDataRestored',
+    'plotSurfaceFieldRestored',
+    "string.Equals(plotSurfaceDataParentNode.GetString(), \"chartViewport\"",
+    "string.Equals(plotSurfaceFieldParentNode.GetString(), \"fw2DHost\"",
+    'stable Data / Analysis / Field plot-surface runtime smoke failed'
+  ])assert(program.includes(token),'Missing packaged plot-surface smoke token: '+token);
 });
 
 test('exports continue through the canonical active canvas',()=>{
