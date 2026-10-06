@@ -16,6 +16,26 @@ Shared Michel's Lab rules live in `realmichelduarte/Michel-Software-Standards`.
 - The current updater/release integrity path must retain explicit approval and SHA-256 verification.
 - Never commit private fixture credentials or research data that belong outside this repository.
 
+## Official product identity — mandatory
+
+FoamLens uses the approved Michel's Lab canonical layered-field / topographic logo geometry from `realmichelduarte/Michel-Software-Standards`.
+
+**Do not implement branding by simply pasting the source SVG into screens.** The logo is a design language, not a sticker.
+
+Protected identity:
+- preserve the defining layered-field silhouette, proportions and spatial relationships;
+- do not stretch, skew, redraw into another symbol, or alter the geometry until it stops reading as the approved FoamLens mark.
+
+Adaptive expression is expected:
+- color may adapt to theme/context;
+- monochrome, inverted, glow, glass, outline, translucent and animated treatments are allowed;
+- mark-only and mark + product-name compositions are allowed where appropriate;
+- the layered-field/topographic visual DNA should inform relevant contours, depth, focus states, scientific overlays and panel layering.
+
+A screen can be correctly branded without displaying the full logo. Prefer integrated scientific visual language over repeated logo placement.
+
+Follow `standards/PRODUCT_IDENTITY_STANDARD.md` in the master standards repository as the authority.
+
 ## Validation
 
 Inspect the current workflows and use the strongest relevant current-commit regression suite for the changed surface. Desktop changes must use the repository's Windows build/smoke path when applicable. Scientific changes require tests that exercise the actual affected parser, field association, geometry, metric or analysis behavior.
