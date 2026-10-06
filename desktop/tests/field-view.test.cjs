@@ -521,6 +521,10 @@ test('Field workspace exposes multi-case 3D controls instead of hiding compariso
     'Each 3D view has its own case · region · field · component'
   ])assert((workspaceSource+'\n'+compareSource).includes(token),'Missing visible multi-case 3D token: '+token);
   assert(compareSource.includes('FC_MAX_TOTAL_VIEWS=4'),'3D comparison no longer supports four synchronized views.');
+  for(const token of [
+    "fcExtra'+id+'Case","fcExtra'+id+'Region","fcExtra'+id+'Field","fcExtra'+id+'Component",
+    "for(const suffix of ['Case','Region','Field','Component'])"
+  ])assert(compareSource.includes(token),'Views C/D lost independent case/region/field/component selection: '+token);
 });
 
 test('all visible synchronized 3D views remain eligible for the same exported animation',()=>{
