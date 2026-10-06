@@ -1,20 +1,9 @@
 /* FoamLens Desktop v1.6.0 — Field-owned 3D workspace with tabbed diagnostics and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,origins:new Map(),installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set()};
 const fwTimeState={playing:false,timer:null};
 const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
-function fwRemember(node){
-  if(!node||fwState.origins.has(node.id))return;
-  fwState.origins.set(node.id,{parent:node.parentNode,next:node.nextSibling});
-}
-function fwRestore(node){
-  if(!node)return;const o=fwState.origins.get(node.id);if(!o?.parent)return;
-  if(o.next&&o.next.parentNode===o.parent)o.parent.insertBefore(node,o.next);else o.parent.appendChild(node)
-}
-function fwMove(id,targetId){
-  const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;fwRemember(node);target.appendChild(node);return node
-}
 function fwAdoptFieldNode(id,targetId){
   const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;
   if(node.parentNode!==target)target.appendChild(node);
@@ -130,6 +119,7 @@ function fwCreateSurface(){
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  fwEnsureCompanionSurface();
   fwUpdateNavText()
 }
 function fwSetLayout(layout){
@@ -482,8 +472,14 @@ function fwInstall3DProfilePicker(){
 function fwOwnCompanionControls(){
   for(const id of ['playbackGlobal','timeSeriesControls','profileControls','logControls'])fwAdoptFieldNode(id,'fw2DControlsHost')
 }
-function fwRestoreCompanionNodes(){
-  fwRestore(document.querySelector('#fw2DHost .chartwrap'))
+function fwEnsureCompanionSurface(){
+  const host=document.getElementById('fw2DHost');if(!host)return null;
+  return window.FoamLensPlotSurfaces?.ensure?.('field',host)||null
+}
+function fwActivateCompanionSurface(){
+  const host=document.getElementById('fw2DHost');if(!host)return false;
+  fwEnsureCompanionSurface();
+  return window.FoamLensPlotSurfaces?.activate?.('field',host,{restore:false})!==false
 }
 function fwCompanionTitle(mode){
   return mode==='profile'?fwUi('Spatial Profile','Perfil espacial'):mode==='timeseries'?fwUi('Time Series','Series temporales'):mode==='log'?fwUi('Solver Logs','Logs del solver'):fwUi('No companion plot','Sin gráfica complementaria')
@@ -491,14 +487,14 @@ function fwCompanionTitle(mode){
 function fwSetCompanion(mode){
   mode=['profile','timeseries','log','none'].includes(mode)?mode:'profile';fwState.companion=mode;
   const select=document.getElementById('fwCompanion');if(select&&select.value!==mode)select.value=mode;
-  fwRestoreCompanionNodes();fwOwnCompanionControls();
+  fwOwnCompanionControls();fwActivateCompanionSurface();
   const card=document.getElementById('fwPlotCard'),group=document.getElementById('fw2DControlGroup'),empty=document.getElementById('fwPlotEmpty'),title=document.getElementById('fwPlotTitle'),controlTitle=document.getElementById('fw2DControlTitle');
   card?.classList.toggle('companion-none',mode==='none');if(group)group.style.display=mode==='none'?'none':'';
   if(title)title.textContent=fwCompanionTitle(mode);if(controlTitle)controlTitle.textContent=fwCompanionTitle(mode)+' '+fwUi('controls','controles');
   if(mode==='none'){if(empty){empty.classList.remove('hidden');empty.textContent=fwUi('3D-only workspace. Choose a companion plot at any time.','Workspace solo 3D. Elige una gráfica complementaria cuando quieras.')}return}
   const coreMode=mode==='profile'?'profile':mode==='log'?'log':'timeseries';
   try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
-  const chart=document.querySelector('#chartViewport .chartwrap')||document.querySelector('.chartwrap');if(chart){fwRemember(chart);document.getElementById('fw2DHost')?.appendChild(chart);chart.classList.remove('hidden')}
+  const chart=window.FoamLensPlotSurfaces?.surface?.('field');if(chart)chart.classList.remove('hidden','flPlotSurfaceInactive');
   fwRefreshFieldTsControls();
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
@@ -560,7 +556,6 @@ function fwEnter(){
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
-  fwRestoreCompanionNodes();
   document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false)
 }
