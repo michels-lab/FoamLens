@@ -146,12 +146,27 @@ internal sealed class FoamLensForm : Form
         RunBinaryMeshParserSelfTest();
         await RunFoamLogParserSelfTestAsync();
 
+        const string smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1";
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        ulong? smokeNavigationId = null;
 
-        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e) =>
-            completion.TrySetResult(e);
+        void OnSmokeNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (string.Equals(e.Uri, smokeUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                smokeNavigationId = e.NavigationId;
+                Log($"FoamLens smoke navigation started: id={e.NavigationId}; uri={e.Uri}");
+            }
+        }
 
+        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (smokeNavigationId.HasValue && e.NavigationId == smokeNavigationId.Value)
+                completion.TrySetResult(e);
+        }
+
+        _web.CoreWebView2.NavigationStarting += OnSmokeNavigationStarting;
         _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         int? indexStatusCode = null;
         string indexReasonPhrase = "";
@@ -170,13 +185,14 @@ internal sealed class FoamLensForm : Form
         _web.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
         try
         {
-            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1&smoke=1");
+            _web.CoreWebView2.Navigate(smokeUrl);
 
             var finished = await Task.WhenAny(
                 completion.Task,
                 Task.Delay(TimeSpan.FromSeconds(30)));
             if (finished != completion.Task)
-                throw new TimeoutException("FoamLens smoke test timed out while loading the embedded frontend.");
+                throw new TimeoutException(
+                    $"FoamLens smoke test timed out while waiting for the requested navigation id; expected={smokeNavigationId?.ToString() ?? "not-started"}; source={_web.CoreWebView2.Source}");
 
             var navigation = await completion.Task;
             if (!navigation.IsSuccess)
@@ -1142,6 +1158,7 @@ internal sealed class FoamLensForm : Form
         }
         finally
         {
+            _web.CoreWebView2.NavigationStarting -= OnSmokeNavigationStarting;
             _web.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
             _web.CoreWebView2.WebResourceResponseReceived -= OnWebResourceResponseReceived;
         }
