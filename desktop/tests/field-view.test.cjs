@@ -443,9 +443,12 @@ test('Field navigation is owned by the Ribbon with no legacy mode-button fallbac
 test('Field View is a top-level Ribbon workspace instead of a Data dataset sub-tab',()=>{
   for(const token of [
     "body.appMode-field #fieldSurface{display:block}",
-    "setAppMode=function(mode){if(mode==='field')",
-    "setDataView=function(mode){if(mode==='field3d'){setAppMode('field')"
+    "setAppMode=function(mode){if(mode==='field')"
   ])assert(workspaceSource.includes(token),'Missing top-level Field workspace token: '+token);
+  assert(!workspaceSource.includes("setDataView=function(mode){if(mode==='field3d'"),
+    'Field workspace still aliases 3D through Data navigation.');
+  assert(!source.includes("setDataView=function(mode){if(mode==='field3d'"),
+    'Field View still patches Data navigation for 3D.');
   assert(!source.includes("tab.id='fieldViewTab'"),
     'Field View still creates a legacy Data dataset tab.');
   assert(source.includes("if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true"),
@@ -589,6 +592,8 @@ test('Field View stays discoverable from Ribbon and Overview even when no compat
   assert(source.includes("workspaceGoFieldView"),'Overview quick action for Field View is missing.');
   assert(source.includes("q.onclick=()=>{try{setAppMode('field')}"),
     'Overview Field action does not enter the Field workspace directly.');
+  assert(!source.includes("setDataView('field3d')"),
+    'Overview still falls back through the retired Data field3d route.');
   assert(source.includes("Open Field View to see what data is missing"),'Unavailable Field View does not explain discoverability.');
   assert(!source.includes("tab.id='fieldViewTab'"),'Legacy Data Field View tab still exists.');
 });
