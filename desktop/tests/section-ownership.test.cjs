@@ -6,6 +6,7 @@ const assert=require('assert');
 
 const root=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const plotSurfaces=read('v14-zy-plot-surfaces.js');
 const field=read('v14-zz-field-workspace.js');
 const fieldView=read('v14-field-view.js');
 const ribbon=read('v15-ribbon-ui.js');
@@ -19,7 +20,7 @@ const analysisModules=[
   'v14-experimental-validation.js','v14-momentum-mechanisms.js'
 ].map(read);
 
-for(const src of [field,fieldView,ribbon,activity,analysisScope,compare,...analysisModules])new Function(src);
+for(const src of [plotSurfaces,field,fieldView,ribbon,activity,analysisScope,compare,...analysisModules])new Function(src);
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -34,14 +35,19 @@ test('3D and 3D comparison remain Field-owned across top-level section switches'
   assert(compare.includes("document.getElementById('fieldViewControls')"),'3D Compare no longer mounts through the Field-owned inspector tree.');
 });
 
-test('plot control trees remain Field-owned instead of leaking back into Data',()=>{
+test('plot controls and render surfaces have stable workspace ownership',()=>{
   assert(field.includes('function fwOwnCompanionControls'));
   assert(field.includes("'playbackGlobal','timeSeriesControls','profileControls','logControls'"));
   assert(field.includes("fwAdoptFieldNode(id,'fw2DControlsHost')"));
-  const start=field.indexOf('function fwRestoreCompanionNodes()'),end=field.indexOf('function fwCompanionTitle',start),restore=field.slice(start,end);
-  for(const id of ['profileControls','timeSeriesControls','logControls','playbackGlobal'])
-    assert(!restore.includes(id),'Compatibility restore reintroduced '+id+' into legacy Data ownership.');
-  assert(restore.includes("#fw2DHost .chartwrap"),'Shared chart compatibility bridge was removed before a dedicated Field renderer exists.');
+  assert(field.includes('function fwEnsureCompanionSurface'));
+  assert(field.includes("FoamLensPlotSurfaces?.ensure?.('field',host)"));
+  assert(field.includes("FoamLensPlotSurfaces?.activate?.('field',host,{restore:false})"));
+  assert(!field.includes('fwRestoreCompanionNodes'),'Legacy shared-chart restore path still exists.');
+  assert(!field.includes('appendChild(chart)'),'Field still reparents the 2D chart.');
+  assert(!field.includes('function fwRemember('),'Legacy origin bookkeeping still exists.');
+  for(const key of ['data','analysis','field'])assert(plotSurfaces.includes("'"+key+"'"),'Missing stable plot surface '+key+'.');
+  assert(plotSurfaces.includes('flPlotSurfaceSwapCanonicalIds'),'Plot surfaces do not preserve the legacy renderer through canonical-ID switching.');
+  assert(plotSurfaces.includes('bindPlotCanvasInteractions(canvas)'),'Cloned plot surfaces do not receive the shared interaction controller.');
 });
 
 test('top-level Ribbon exposes real scopes only',()=>{
