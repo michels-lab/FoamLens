@@ -3837,3 +3837,9 @@ Branch CI is required on the final head before promotion to `main`. No release p
 - Extended branding/version regressions and packaged smoke to require the canonical portrait and Michel's Lab lockup to render successfully.
 - Added `desktop/tests/findings-export.test.cjs` and wired it exactly once into Windows CI. The regression parses v22 and protects provenance fields, heavy-array exclusion, evidence-vs-inference guidance, Markdown/JSON exports, Copy for ChatGPT, GitHub issue handoff, and both Workspace/Review attachment points.
 - Current-head Windows CI is required before this block is considered validated. No version bump or release publication is authorized by this entry.
+
+## 2026-10-06 — Intelligent Michel's Lab brand-adoption guidance
+
+Repository instructions now explicitly route logo, launcher, splash/startup and About work through the Michel-Software-Standards Product Identity Standard and Brand Adoption Playbook.
+
+The required interpretation is structural integration rather than sticker placement: replace active legacy identity, adapt canonical geometry to the existing product design language, preserve unrelated behavior, validate the build, and keep release publication separate unless explicitly authorized.
