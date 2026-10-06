@@ -773,3 +773,45 @@ Examples:
 - Figure controls: keep for plot views; hide from Catalog and non-plot analysis contexts.
 - Compare controls: keep in Field/Compare context; never leak into Data.
 - Physical-time playback: keep all required algorithms, but expose one global transport UI instead of multiple competing primary controls.
+
+
+---
+
+## Implementation disposition — validated through run #782
+
+**Validated product head:** `2b0e54c31e3dc0a6fa48b2b33a5c90fa1ee9bca2`  
+**GitHub Actions:** #782 — SUCCESS
+
+The v1.6.0 implementation now materially closes the following audit findings:
+
+- **UX-01 / UX-15:** unified activity presentation prevents compact/detailed progress overlap.
+- **UX-02 / UX-17 / UX-18:** Project / Case / Region presentation is contextual and its state now lives behind `FoamLensContextStore`, independent of selector DOM.
+- **UX-03:** 3D focus uses the central workspace without a permanent controls column.
+- **UX-04:** Field uses internal 3D / Spatial Profile / Time Series / Solver Logs tabs with explicit Split.
+- **UX-05 / UX-24:** Field exposes one primary physical-time transport while specialized legacy engines remain internal.
+- **UX-06 / UX-28:** 3D is no longer a Data dataset view; `fieldViewTab`, the hidden `modeField` fallback and `setDataView('field3d')` navigation are retired.
+- **UX-08 / UX-25:** 3D comparison and Field controls remain permanently Field-owned rather than returning to Data.
+- **UX-09 / UX-26:** the fake top-level Plots alias is removed.
+- **UX-10 / UX-27:** the fake top-level Compare alias is removed; comparison remains contextual in Field.
+- **UX-14:** 2D Curve Difference / Δ and Strict 3D Δ are explicitly distinguished.
+- **UX-16 / UX-29:** audited Analysis modules no longer fall back to generic `document.body` hosts.
+- **UX-19 / UX-20 / UX-21 / UX-22:** sidebar/control presentation is scoped by active workflow; Analysis owns a stable inspector surface.
+- **UX-23:** derived Analysis output creation no longer silently switches hidden Data views; explicit Ribbon handoffs open Time Series or Spatial Profile.
+
+### Still open by design
+
+- **UX-07 / UX-12 (remaining renderer boundary):** the singleton interactive 2D `.chartwrap` is still shared across Data / Analysis / Field and is the final deliberate compatibility bridge.
+- It was not replaced with a fixed-position portal because that would introduce clipping/scroll/overlay risks.
+- It was not duplicated into a second canvas because the current renderer's hover, pinning, legend drag/resize and interaction handlers are coupled to the singleton canvas.
+- The next architecture block should extract a reusable 2D Plot Surface / interaction controller so each workspace can own a stable render surface without duplicating scientific plot logic.
+
+### Prevention
+
+The new `section-ownership.test.cjs` and updated Field/Ribbon/Analysis regressions prevent reintroduction of:
+- legacy Field navigation;
+- fake top-level aliases;
+- 3D/control-tree leakage back into Data;
+- Analysis `document.body` fallback;
+- hidden Analysis plot navigation;
+- ambiguous 2D-vs-3D Difference labels.
+
