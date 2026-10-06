@@ -73,6 +73,20 @@ test('3D Field DOM is adopted once and never restored to Data on section switch'
     'Field View controls are still restored into legacy Data ownership on leave.');
 });
 
+test('Field plot control trees are permanently owned by the Field Inspector',()=>{
+  for(const token of [
+    'function fwOwnCompanionControls',
+    "fwAdoptFieldNode(id,'fw2DControlsHost')",
+    "'playbackGlobal','timeSeriesControls','profileControls','logControls'"
+  ])assert(field.includes(token),'Missing permanent Field plot-control ownership token: '+token);
+  const start=field.indexOf('function fwRestoreCompanionNodes()'),end=field.indexOf('function fwCompanionTitle',start),restore=field.slice(start,end);
+  assert(start>=0&&end>start,'fwRestoreCompanionNodes block missing.');
+  for(const id of ['profileControls','timeSeriesControls','logControls','playbackGlobal'])
+    assert(!restore.includes(id),'Field plot control is still restored to legacy Data ownership: '+id);
+  assert(restore.includes("fwRestore(document.querySelector('#fw2DHost .chartwrap'))"),
+    'Shared chart compatibility restore was removed before Analysis owns an independent renderer.');
+});
+
 test('Inspector is a floating drawer rather than a permanent grid column',()=>{
   for(const token of [
     'fwControlsDrawer','position:fixed','fwSetInspector',
