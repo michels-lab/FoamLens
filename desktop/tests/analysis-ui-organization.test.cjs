@@ -72,7 +72,8 @@ test('derived Analysis results do not silently switch hidden Data views',()=>{
   ];
   for(const file of guardedFiles){
     const js=fs.readFileSync(path.join(base,file),'utf8');
-    assert(js.includes("activeAppMode!=='analysis'"),file+' can still mutate the hidden Data view while Analysis is active.');
+    assert(!js.includes("setDataView('timeseries')"),file+' can still silently switch to the hidden Time Series Data view.');
+    assert(!js.includes("setDataView('profile')"),file+' can still silently switch to the hidden Spatial Profile Data view.');
   }
 });
 
