@@ -12,12 +12,14 @@ const program=fs.readFileSync(programPath,'utf8');
 const index=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
 const animationSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-animation-export.js'),'utf8');
 const compareSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-z-field-compare.js'),'utf8');
+const plotSurfaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zy-plot-surfaces.js'),'utf8');
 const workspaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zz-field-workspace.js'),'utf8');
 const ribbonSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v15-ribbon-ui.js'),'utf8');
 
 new Function(source);
 new Function(animationSource);
 new Function(compareSource);
+new Function(plotSurfaceSource);
 new Function(workspaceSource);
 new Function(ribbonSource);
 
@@ -483,12 +485,19 @@ test('Field workspace shows one view by default and supports explicit 3D + Spati
     'data-fw-view="3d"','data-fw-view="profile"','data-fw-view="split"',
     "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
     "view==='split'","fwSetLayout('split')",
-    "document.getElementById('fw2DHost')?.appendChild(chart)",
+    "FoamLensPlotSurfaces?.ensure?.('field',host)",
+    "FoamLensPlotSurfaces?.activate?.('field',host,{restore:false})",
     "fwAdoptFieldNode('fieldViewPanel','fw3DHost')","fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwSyncCompanionTime','applyProfileTimeValue'
   ])assert(workspaceSource.includes(token),'Missing explicit Field view/Split token: '+token);
   assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
     'Dead/invalid canvas move remains in the Field workspace.');
+  assert(!workspaceSource.includes('appendChild(chart)'),
+    'Field workspace still reparents the shared 2D chart.');
+  assert(!workspaceSource.includes('fwRestoreCompanionNodes'),
+    'Field workspace still contains the legacy shared-chart restore path.');
+  assert(plotSurfaceSource.includes("['data',{view:currentDataView||'timeseries'"),
+    'Stable Data / Analysis / Field plot-surface state is missing.');
 });
 
 test('Field workspace Time Series can derive curves directly from selectable 3D OpenFOAM fields',()=>{
@@ -574,7 +583,7 @@ test('Field workspace owns one central viewport plus a floating contextual Inspe
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
     'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
-    "document.getElementById('fw2DHost')?.appendChild(chart)",
+    'fwEnsureCompanionSurface','fwActivateCompanionSurface',
     "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
     "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwGrid.layout-3d .fwPlotCard{display:none}',
