@@ -15,3 +15,6 @@ For scientific changes, add or update regression coverage using representative f
 Run the strongest relevant current-commit checks available. Record meaningful implementation and validation evidence in `docs/GIT_AUDIT_LOG.md`.
 
 Do not change versions or publish releases unless explicitly authorized. Return unresolved fixture/device/environment blockers instead of claiming success.
+
+Fundamental identity requirement: any visual/About work must follow `AGENTS.md`: the layered-field/topographic geometry is the product-wide design foundation; About uses product → author → Michel's Lab → social hierarchy; every social profile visibly shows icon + network name. Do not implement sticker branding or regress this contract.
+
