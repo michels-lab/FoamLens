@@ -18,6 +18,7 @@ on:
       - 'release/**'
       - 'fix/**'
       - 'branding/**'
+      - 'distribution/**'
     tags:
       - 'v*'
     paths:
@@ -356,6 +357,10 @@ jobs:
       - name: Test native automatic update path
         shell: pwsh
         run: node desktop/tests/auto-update.test.cjs
+
+      - name: Test Microsoft Store MSIX channel contract
+        shell: pwsh
+        run: node desktop/tests/store-msix.test.cjs
 
       - name: Test native Windows icon packaging
         shell: pwsh

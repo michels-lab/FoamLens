@@ -3895,3 +3895,12 @@ The required interpretation is structural integration rather than sticker placem
 - GitHub Release `v1.6.1` is stable (`draft=false`, `prerelease=false`) and is the repository's latest release.
 - Published assets: `FoamLens-Portable-v1.6.1.exe`, `FoamLens-Portable-v1.6.1.exe.sha256`, `FoamLens-Setup-v1.6.1.exe`, and `FoamLens-Setup-v1.6.1.exe.sha256`.
 - Optional Authenticode signing remains unavailable because no Windows publisher certificate is configured; this does not affect the completed checksum, packaging, install or runtime smoke gates.
+
+### 2026-10-06 — Microsoft Store MSIX channel started from live Partner Center identity
+- The user created/reserved the live FoamLens Microsoft Store product and supplied the actual Product Identity values from Partner Center.
+- Canonical Store identity is `MichelDuarte.FoamLens` / `CN=D2024BFC-8238-4063-A8DD-A91208327224` / publisher display name `Michel Duarte`, Store ID `9P0PTHSQ89LL`.
+- Added a separate `distribution/microsoft-store-msix` implementation path modeled on the proven Michel's Life Store packaging pattern without changing the public FoamLens v1.6.1 direct-release channel.
+- The Store build uses a compile-time `FOAMLENS_STORE` channel: automatic GitHub release checks are skipped, the GitHub update Ribbon action is not mounted, and a manual bridge call is guarded with a Microsoft Store update message.
+- Added a Partner Center identity source, MSIX manifest template, Store assets generator, manifest renderer, Store source smoke checks, a dedicated Store MSIX workflow, and the Store contract regression in the normal Desktop suite.
+- The dedicated Store workflow builds the same self-contained FoamLens Desktop code, smoke-tests the Store executable before packaging, creates/unpacks/verifies the x64 MSIX, validates the live Partner Center identity, creates SHA-256 evidence, and uploads the unsigned MSIX only as a CI artifact.
+- Store signing/certification/publication are intentionally not claimed here; Microsoft Store provider evidence remains pending until Partner Center accepts the package.
