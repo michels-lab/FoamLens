@@ -100,7 +100,7 @@ For any tracked Michel's Lab task, return enough machine-readable continuation c
 
 Do not list planned tests/builds/device checks as completed validation. If required validation was not performed, the task must be released/handed back with that work pending rather than described as complete.
 
-<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-07.1 -->
+<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-07.2 -->
 # Michel's Lab shared child-agent contract
 
 This managed block is cross-project policy. Repository-specific instructions may add stricter local rules outside this block, but they must not weaken or contradict it.
@@ -153,6 +153,19 @@ For tracked work, return:
 - suggested next owner/role when useful.
 
 Never list a planned build/test/device/store check as completed validation. If required validation was not performed, hand the task back with that work pending instead of claiming completion.
+
+## State truth before status/release claims
+
+Before answering or handing off any question about what is current, released, published, ready, or pending, resolve four independent dimensions from current evidence:
+
+1. **Working HEAD** — current branch/default-branch SHA and relevant PR/branch state.
+2. **Latest stable release** — actual published tag/version, publication timestamp, release commit/artifacts.
+3. **Same-SHA CI** — validation for the exact commit and affected distribution channel.
+4. **External provider state** — Store/Play/cloud/device/provider evidence such as uploaded, certified, published or delivered.
+
+Never collapse these into one status. A newer `main` does not make the latest release newer. A built MSIX/APK/installer is not a Store/Play publication. A GitHub release is not provider publication. If `main` is ahead of the stable release, say so explicitly.
+
+After a merge, release, tag or provider mutation, re-read authoritative state before the final status answer or handoff. If a generated queue/gate conflicts with newer evidence, route reconciliation instead of repeating completed product work.
 
 ## Multi-channel distribution and contract-test robustness
 
