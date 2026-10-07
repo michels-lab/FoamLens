@@ -8,7 +8,8 @@ This file records FoamLens infrastructure decisions separately from scientific f
 - Primary data model: **local-first** OpenFOAM case analysis.
 - User simulation/case data are not uploaded to a cloud backend by the application.
 - GitHub is used for source, CI, release artifacts and optional private real-fixture integration.
-- Windows builds publish portable/installer artifacts with SHA-256 checksums.
+- Windows direct builds publish portable/installer artifacts with SHA-256 checksums.
+- Microsoft Store distribution now has a separate MSIX channel bound to Partner Center Store ID `9P0PTHSQ89LL`; Store builds disable the GitHub self-updater and leave signing to Microsoft Store after submission.
 - No Google Drive, Supabase Auth, Supabase Database, or other end-user cloud sync is currently required for core operation.
 
 ## Why local-first is correct
@@ -34,3 +35,12 @@ Raw OpenFOAM case trees remain local unless the user explicitly chooses a remote
 
 ## Secret rule
 Any future provider tokens, signing keys, private fixture tokens or service credentials must live in GitHub Actions/provider secret stores, never source or frontend code.
+
+## Microsoft Store channel
+- Partner Center package identity: `MichelDuarte.FoamLens`.
+- Publisher: `CN=D2024BFC-8238-4063-A8DD-A91208327224`.
+- Publisher display name: `Michel Duarte`.
+- Store ID: `9P0PTHSQ89LL`.
+- The Store package is a separate distribution channel, not a replacement for GitHub Setup/Portable builds.
+- Store CI produces an unsigned MSIX for Partner Center; it must not be presented as a signed direct-download installer.
+- Store submission/certification/publication are manual provider evidence and remain pending until actually completed in Partner Center.

@@ -1,0 +1,126 @@
+name: Build FoamLens Microsoft Store MSIX
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'distribution/**'
+    paths:
+      - 'desktop/**'
+      - 'store/**'
+      - 'tools/render_store_manifest.py'
+      - 'tools/create_store_assets.ps1'
+      - 'tools/store_smoke_test.py'
+      - '.github/workflows/build-store-msix.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve FoamLens version
+        id: ver
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+          $v = ([string]$proj.Project.PropertyGroup.Version).Trim()
+          if ([string]::IsNullOrWhiteSpace($v)) { throw 'FoamLens version could not be resolved.' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Packaging FoamLens Microsoft Store build v$v"
+      - name: Rebuild embedded frontend bundle
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if (Test-Path $bundle) { Remove-Item $bundle -Force }
+          New-Item -ItemType Directory -Force bundle_tmp | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
+          Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
+      - name: Validate Store packaging source
+        shell: pwsh
+        run: |
+          node --check desktop/tests/store-msix.test.cjs
+          node desktop/tests/store-msix.test.cjs
+          python tools/store_smoke_test.py
+      - name: Publish unpacked Store app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/store-publish | Out-Null
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:FoamLensStoreChannel=true `
+            --no-restore `
+            -o artifacts/store-publish
+      - name: Smoke-test Store executable before packaging
+        shell: pwsh
+        run: |
+          $exe=(Resolve-Path 'artifacts/store-publish/FoamLens.exe').Path
+          $p=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $p.WaitForExit(120000)) {
+            try { $p.Kill($true) } catch {}
+            throw 'FoamLens Store executable smoke timed out.'
+          }
+          if ($p.ExitCode -ne 0) { throw "FoamLens Store executable smoke failed with exit code $($p.ExitCode)." }
+      - name: Build MSIX layout
+        shell: pwsh
+        run: |
+          $layout='artifacts/msix-layout'
+          New-Item -ItemType Directory -Force $layout | Out-Null
+          Copy-Item 'artifacts/store-publish/*' $layout -Recurse -Force
+          New-Item -ItemType Directory -Force "$layout/Assets" | Out-Null
+          pwsh -File tools/create_store_assets.ps1 `
+            -IconPath 'desktop/src/FoamLensDesktop/Assets/FoamLens.ico' `
+            -OutputDir "$layout/Assets"
+          python tools/render_store_manifest.py `
+            --template store/AppxManifest.template.xml `
+            --identity store/partner-center.json `
+            --output "$layout/AppxManifest.xml" `
+            --version '${{ steps.ver.outputs.version }}'
+      - name: Create and verify unsigned Store MSIX
+        shell: pwsh
+        run: |
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter makeappx.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $makeappx) { throw 'makeappx.exe not found on the Windows runner.' }
+          $v='${{ steps.ver.outputs.version }}'
+          $msix="artifacts/FoamLens-Store-v$v-x64.msix"
+          & $makeappx.FullName pack /d artifacts/msix-layout /p $msix /o
+          if ($LASTEXITCODE -ne 0) { throw 'MakeAppx pack failed.' }
+          Remove-Item artifacts/msix-verify -Recurse -Force -ErrorAction SilentlyContinue
+          & $makeappx.FullName unpack /p $msix /d artifacts/msix-verify /o
+          if ($LASTEXITCODE -ne 0) { throw 'MakeAppx verification unpack failed.' }
+          if (-not (Test-Path 'artifacts/msix-verify/AppxManifest.xml')) { throw 'MSIX verification manifest missing.' }
+          if (-not (Test-Path 'artifacts/msix-verify/FoamLens.exe')) { throw 'MSIX verification executable missing.' }
+          [xml]$manifest=Get-Content 'artifacts/msix-verify/AppxManifest.xml'
+          $identity=$manifest.Package.Identity
+          if ([string]$identity.Name -ne 'MichelDuarte.FoamLens') { throw "Unexpected Store package name: $($identity.Name)" }
+          if ([string]$identity.Publisher -ne 'CN=D2024BFC-8238-4063-A8DD-A91208327224') { throw "Unexpected Store publisher: $($identity.Publisher)" }
+          $hash=(Get-FileHash $msix -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  FoamLens-Store-v$v-x64.msix" | Set-Content "$msix.sha256" -Encoding ascii
+          Copy-Item artifacts/msix-layout/AppxManifest.xml artifacts/AppxManifest.Store.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-Store-v${{ steps.ver.outputs.version }}
+          path: |
+            artifacts/FoamLens-Store-v${{ steps.ver.outputs.version }}-x64.msix
+            artifacts/FoamLens-Store-v${{ steps.ver.outputs.version }}-x64.msix.sha256
+            artifacts/AppxManifest.Store.xml
+          if-no-files-found: error
+      - name: Store package note
+        shell: pwsh
+        run: |
+          Write-Host 'The uploaded CI artifact is intentionally unsigned.'
+          Write-Host 'Upload the MSIX to Partner Center product 9P0PTHSQ89LL.'
+          Write-Host 'Microsoft Store signs accepted Store packages; do not publish this unsigned MSIX as a direct-download installer.'

@@ -39,6 +39,11 @@ internal sealed class FoamLensForm : Form
     private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private int _updateCheckInProgress;
+#if FOAMLENS_STORE
+    private const bool StoreDistributionChannel = true;
+#else
+    private const bool StoreDistributionChannel = false;
+#endif
     private static string DesktopVersionText =>
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
 
@@ -123,8 +128,10 @@ internal sealed class FoamLensForm : Form
             }
             else
             {
-                _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
-                _ = CheckForUpdatesAsync(userInitiated: false);
+                var channelQuery = StoreDistributionChannel ? "&store=1" : "";
+                _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1" + channelQuery);
+                if (!StoreDistributionChannel)
+                    _ = CheckForUpdatesAsync(userInitiated: false);
             }
         }
         catch (Exception ex)
@@ -146,7 +153,8 @@ internal sealed class FoamLensForm : Form
         RunBinaryMeshParserSelfTest();
         await RunFoamLogParserSelfTestAsync();
 
-        const string smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1";
+        var smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1" +
+            (StoreDistributionChannel ? "&store=1" : "");
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         ulong? smokeNavigationId = null;
@@ -300,7 +308,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','flRaCheckUpdates'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme',...(new URLSearchParams(location.search).get('store')==='1'?[]:['flRaCheckUpdates'])];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -1784,6 +1792,13 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     HandleCancelOperation(root, requestId);
                     break;
                 case "checkForUpdates":
+                    if (StoreDistributionChannel)
+                    {
+                        MessageBox.Show(this,
+                            "This edition is installed and updated through Microsoft Store.",
+                            "FoamLens updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        break;
+                    }
                     await CheckForUpdatesAsync(userInitiated: true);
                     break;
                 case "openExternal":

@@ -18,6 +18,7 @@ on:
       - 'release/**'
       - 'fix/**'
       - 'branding/**'
+      - 'distribution/**'
     tags:
       - 'v*'
     paths:
@@ -189,7 +190,7 @@ jobs:
             $v = $env:GITHUB_REF_NAME.TrimStart('v')
           } else {
             [xml]$proj = Get-Content 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
-            $v = [string]$proj.Project.PropertyGroup.Version
+            $v = ([string]$proj.Project.PropertyGroup.Version).Trim()
           }
           if ([string]::IsNullOrWhiteSpace($v)) { throw 'FoamLens version could not be resolved.' }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
@@ -356,6 +357,12 @@ jobs:
       - name: Test native automatic update path
         shell: pwsh
         run: node desktop/tests/auto-update.test.cjs
+
+      - name: Test Microsoft Store MSIX channel contract
+        shell: pwsh
+        run: |
+          node --check desktop/tests/store-msix.test.cjs
+          node desktop/tests/store-msix.test.cjs
 
       - name: Test native Windows icon packaging
         shell: pwsh

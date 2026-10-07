@@ -16,6 +16,7 @@
     <Company>Michel's Lab</Company>
     <Authors>Michel Armando Duarte Flores</Authors>
     <Description>Native Windows host for FoamLens OpenFOAM Analysis Workspace.</Description>
+    <DefineConstants Condition="'$(FoamLensStoreChannel)' == 'true'">$(DefineConstants);FOAMLENS_STORE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
