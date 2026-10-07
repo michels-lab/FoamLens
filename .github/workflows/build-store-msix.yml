@@ -47,6 +47,7 @@ jobs:
       - name: Validate Store packaging source
         shell: pwsh
         run: |
+          node --check desktop/tests/store-msix.test.cjs
           node desktop/tests/store-msix.test.cjs
           python tools/store_smoke_test.py
       - name: Publish unpacked Store app

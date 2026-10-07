@@ -360,7 +360,9 @@ jobs:
 
       - name: Test Microsoft Store MSIX channel contract
         shell: pwsh
-        run: node desktop/tests/store-msix.test.cjs
+        run: |
+          node --check desktop/tests/store-msix.test.cjs
+          node desktop/tests/store-msix.test.cjs
 
       - name: Test native Windows icon packaging
         shell: pwsh
