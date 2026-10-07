@@ -60,6 +60,7 @@ async function meRender3DCanvas(source,w,h){
   const width=Math.max(320,Math.round(Number(w)||src.width||640)),height=Math.max(240,Math.round(Number(h)||src.height||480)),oldW=src.width,oldH=src.height;
   let rendered=null;
   try{
+    window.FoamLensFieldCompare?.flushLayoutRender?.();
     if(source.key==='primary'&&typeof window.FoamLensFieldView?.renderAtSize==='function')rendered=window.FoamLensFieldView.renderAtSize(width,height);
     else if(typeof window.FoamLensFieldCompare?.renderAtSize==='function')rendered=window.FoamLensFieldCompare.renderAtSize(source.key,width,height);
     if(!rendered)rendered=src;

@@ -3789,9 +3789,100 @@ Main-branch Windows CI run `37443720415` completed **SUCCESS** and independently
 - Published public release: `FoamLens v1.6.0` with portable EXE, installer EXE, and both SHA-256 checksum assets.
 - State: COMPLETE. Future FoamLens releases can be initiated directly from chat by committing an explicit `release:` change to `main`; no manual tag creation or Actions UI step is required.
 
+
+
+## 2026-10-06 — v1.6.1 Field command-surface continuation
+
+**Branch:** `development/v1.6.1-field-command-surface`.
+
+### Findings
+- Field's contextual controls already had correct permanent ownership, but were rendered as a fixed floating Inspector instead of using the application's sidebar.
+- The canonical frame-cache selector (`256 MB / 512 MB / 1 GB / 2 GB`) remained buried inside 3D controls while the canonical physical-time transport had already moved to the Ribbon.
+- The Field Ribbon still allowed horizontal overflow despite the command surface containing enough groups to require wrapping.
+- Field view/layout transitions could request both the 3D renderer and 2D plot renderer even when only one surface was visible.
+
+### Actions
+- Reused the existing canonical Field control trees and moved `fwControlsDrawer` into the real application sidebar; no mirror selectors were introduced.
+- The sidebar remains contextual: 3D/Split shows 3D controls, while Spatial Profile / Time Series / Solver Logs show their existing owned 2D controls.
+- Kept `fvCase / fvRegion / fvField / fvComponent` as the authoritative selectors inside the Field sidebar.
+- Moved the existing `fvCacheLimit` and `fvCacheReadout` beside the existing `fwTimeTransport` in the Field Ribbon.
+- Moved the existing Split companion chooser into the Ribbon and hid the now-redundant internal Field workspace bar while the Ribbon is active.
+- Field Ribbon groups now wrap instead of requiring horizontal scrolling.
+- Added requestAnimationFrame render coalescing so hidden 2D/3D surfaces are not redrawn simply because the layout changed.
+- Removed a second multi-view render cascade: `fcUpdateLayout()` previously called the primary `fvRender()` and then rendered View B / difference / Views C-D again even though the patched primary renderer already cascades to those views.
+- Verified Views C and D retain independent `Case / Region / Field / Component` selectors and added an explicit regression contract for them.
+
+### Regression contract
+Updated Field workspace, Ribbon, Field View and final UX audit tests to require the contextual sidebar, canonical cache placement, wrapped Ribbon command surface and render coalescing.
+
+### Validation status
+Branch CI is required on the final head before promotion to `main`. No release publication is authorized by this entry.
+
+### 2026-10-06 Windows packaged-smoke follow-up
+- Branch workflow run `37529035320` passed the scientific/UI regression suite and portable publish step, then failed specifically in `Smoke-test packaged FoamLens executable`.
+- The packaged runtime evidence showed the app, Ribbon, 3D runtime and WebView2 video smoke all started successfully. The failing assertion was `highResRerendered=false` during the 1800×1200 primary 3D export smoke.
+- Root cause: `fcUpdateLayout()` could leave a coalesced `requestAnimationFrame` pending. If high-resolution export started before that frame executed, the deferred normal-layout render could resize the primary canvas back to viewport dimensions before the export capture verified the requested pixel size.
+- Fix: multi-view layout rendering now preserves the unpatched primary renderer as `fvRender.__fcBase`, renders the primary and comparison views exactly once per coalesced layout pass, and exposes `fcFlushLayoutRender()` to cancel/flush a pending layout render. Multi-panel export flushes that work before explicit high-resolution rendering.
+- Regression coverage now requires the flush/cancel path and the high-resolution export integration. The intentionally independent visual-settings smoke state (`fcSyncVisuals=false`) was confirmed not to be a failure criterion.
+- Replacement Windows CI on the final branch head remains required before merge/release promotion.
+
+
+### 2026-10-06 — v1.6.1 About / identity reconciliation
+- Replaced the legacy embedded About portrait with the canonical 2026-10-06 Michel Duarte portrait from `Michel-Software-Standards` (blob `be4d18572bec28d53783cd4db05cb6cd289a7916`) and vendored it locally so packaged FoamLens remains self-contained.
+- Added the official Michel's Lab parent-brand lockup from the canonical master asset (blob `7819ef5c7d1a5c338c67c9bbd517e5448724a5cf`) inside the author/studio block, preserving the required Product → Author → Michel's Lab → Social hierarchy.
+- Kept the existing social controls but reconciled their targets to the canonical URLs in `brand/developer-profile.json`.
+- Removed stale About literals `FoamLens · v39` and `Desktop v1.3.2`; About now exposes frontend v51 plus the shared Desktop-version label.
+- Removed the packaged-host dependency on the historical `1.4.9 → 1.6.0` HTML replacement. The Windows host now injects its assembly version as isolated `data-foamlens-desktop-version` state on the root element, while visible version labels keep using `data-desktop-version`; the standalone frontend uses the current public Desktop version as fallback.
+- Field View's version dialog now reads the shared `flDesktopVersion()` helper instead of hard-coding `Desktop v1.6.0`.
+- Extended branding/version regressions and packaged smoke to require the canonical portrait and Michel's Lab lockup to render successfully.
+- Added `desktop/tests/findings-export.test.cjs` and wired it exactly once into Windows CI. The regression parses v22 and protects provenance fields, heavy-array exclusion, evidence-vs-inference guidance, Markdown/JSON exports, Copy for ChatGPT, GitHub issue handoff, and both Workspace/Review attachment points.
+- Current-head Windows CI is required before this block is considered validated. No version bump or release publication is authorized by this entry.
+
 ## 2026-10-06 — Intelligent Michel's Lab brand-adoption guidance
 
 Repository instructions now explicitly route logo, launcher, splash/startup and About work through the Michel-Software-Standards Product Identity Standard and Brand Adoption Playbook.
 
 The required interpretation is structural integration rather than sticker placement: replace active legacy identity, adapt canonical geometry to the existing product design language, preserve unrelated behavior, validate the build, and keep release publication separate unless explicitly authorized.
 
+
+### 2026-10-06 — Packaged launch-readiness smoke hardening
+- Windows runs `37537064322` (#870) and `37537319500` (#872) both reached successful navigation and `document.readyState=complete`, then failed the immediate `document.body.innerText.includes('FoamLens')` assertion before any scientific/runtime smoke work.
+- Source and bundle inspection confirmed that the launch surface, `#launchTitle`, app shell, closing body and inline JavaScript remained present and that the workflow rebuilt `AppBundle.zip` from the current frontend before publishing.
+- **Superseded diagnosis:** the initial hypothesis blamed faster navigation after removing the embedded portrait. Later DOM evidence disproved that: the smoke was correctly observing a document whose root content had been replaced.
+- The packaged smoke now waits up to 10 seconds for the actual `#launchTitle` to contain `FoamLens`, be displayed/visible, and have non-zero rendered dimensions. Failure retains diagnostic evidence for title text/display/visibility/size, body display/visibility/classes/text length, ready state and URL.
+- This is a stronger visual-readiness gate than the former one-shot body-text assertion; it does not accept a hidden or zero-size launch surface.
+- `desktop/tests/official-branding.test.cjs` protects both the bounded wait and its blank-screen diagnostics. Replacement current-head Windows CI remains required.
+
+
+### 2026-10-06 — Root cause of packaged blank document
+- Runs #870–#891 progressively proved the bundle, materialized `index.html`, requested navigation and HTTP response were all present. Run #891 finally captured `document.documentElement.outerHTML` as `<html lang="en" data-desktop-version="1.6.0">Desktop v1.6.0</html>`.
+- Root cause: the v1.6.1 version cleanup stored assembly version on the root `<html>` element using the same `data-desktop-version` attribute used by visible labels. `flSyncVersionLabels()` intentionally updates every `[data-desktop-version]` element via `textContent`; because the root element matched, it erased the complete `<head>` and `<body>`.
+- Fix: runtime version state now uses the isolated `data-foamlens-desktop-version` key and `flDesktopVersion()` reads `document.documentElement.dataset.foamLensDesktopVersion`. Visible launch/sidebar/footer/About labels retain `data-desktop-version`.
+- Removed the temporary `WebResourceRequested` local-origin serving experiments and restored the previously validated `SetVirtualHostNameToFolderMapping` architecture. The stronger smoke diagnostics, NavigationId binding, materialized-frontend validation and AppBundle integrity gate remain.
+- Added regression assertions that forbid `data-desktop-version` on the root `<html>` element and require the isolated runtime-version key. Current-head Windows CI is required before promotion.
+
+
+### 2026-10-06 — Packaged branding readiness follow-up
+- Windows run #896 confirmed the blank-document root cause was fixed: `#launchTitle` rendered visibly, the full DOM remained present, and the document title reported `FoamLens v51 · Desktop v1.6.0 — by Michel Duarte`.
+- The next smoke failure moved forward to the official-branding gate. The previous gate checked five images immediately after launch and could fail before hidden About assets completed image decode.
+- The host now validates that the materialized official FoamLens lockup/mark plus canonical Michel Duarte portrait and Michel's Lab lockup exist and are non-empty before WebView initialization.
+- Packaged branding smoke now waits up to 10 seconds for each required image to exist, be an `HTMLImageElement`, complete decoding, and report non-zero natural dimensions; failures preserve per-image `src`, `complete`, `naturalWidth`, and `naturalHeight`.
+- Current-head Windows CI remains required before merge/release promotion.
+
+
+### 2026-10-07 — immutable portrait and restored parent-brand authority
+- Master authority changed after the earlier v1.6.1 About work. The exact user-provided canonical Michel Duarte portrait is now `shared-assets/michel_duarte_avatar.jpg`, Git blob `18fe1a68722850c3d8f918dc0799f46ffeb6dbaf`, 1440×1920, and is immutable. Interim portrait blobs `be4d1857…` and `9454e22e…` are rejected.
+- Michel's Lab restored the physical production lockup source. FoamLens now vendors `shared-assets/michels-lab/official-lockup.png` byte-for-byte as `assets/branding/michels-lab/official-lockup.png`, Git blob `7fd48093968b31ddacd3098f5b15d962de580652`, 2172×724.
+- Removed the temporary/local repaired lockup derivative and all runtime data-URI/base64 rewriting of About raster assets. Presentation sizing/cropping remains render-time only.
+- Removed the Windows CI raster re-export/recompression diagnostic because it violated the immutable portrait contract.
+- Synced the managed Michel's Lab child-agent contract to `2026-10-06.3`.
+- About retains Product → Author → Michel's Lab → Social ordering and now exposes the QA-recognized parent-brand path.
+- Current-head Windows CI remains required before this work can be marked verified. No release publication is authorized by this entry.
+### 2026-10-07 — v1.6.1 current-head branding gate and Windows validation
+- Windows run #909 (commit `340341a9b791158a10be8800163e49aa5d568b30`) passed the real OpenFOAM / VTK job and reached the Desktop regression suite, then failed only at `desktop/tests/official-branding.test.cjs` with `Materialized frontend validation does not require michels-lab/official-lockup.png`.
+- The product host was already correct: `Program.cs` requires the canonical parent-brand asset through `Path.Combine("assets", "branding", "michels-lab", "official-lockup.png")`. The regression test incorrectly required the slash-separated path to appear as one literal source string, producing a false negative.
+- Commit `51f5517a9852327164929cc209cb580211c31791` changes only the branding regression contract so it accepts either a literal asset path or the equivalent C# `Path.Combine` expression. About layout, canonical portrait bytes, Michel's Lab lockup bytes and runtime asset handling were not changed.
+- Windows run #910 on `51f5517a9852327164929cc209cb580211c31791` completed successfully. Evidence includes real QuickCup integration, independent VTK streamline validation, Windows-safe multi-case 3D fixture generation, embedded bundle integrity, official branding, Field View / strict 3D difference coverage, Findings handoff, multi-panel performance/export, persistent Field Workspace and cross-session state, Ribbon/anti-leak/final UX gates, portable executable smoke, SHA-256 generation, installer build, installer SHA-256 generation, and actual install + installed-app smoke.
+- Optional Authenticode steps were skipped because no signing certificate is configured. GitHub Release publication was also skipped, as intended for an unpromoted development branch.
+- The older `development/v1.6.1-ui-polish` branch was reviewed before promotion. Its two unique commits only move the canonical frame-cache selector beside playback and guard that placement; the active v1.6.1 branch already contains a stronger implementation that moves the real cache selector plus cache readout beside the shared playback transport, wraps the Field Ribbon and prevents horizontal Ribbon scrolling. No redundant cherry-pick is required.
+- No version bump, merge, tag or release publication is authorized by this entry.

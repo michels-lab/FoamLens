@@ -39,9 +39,12 @@ internal sealed class FoamLensForm : Form
     private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private int _updateCheckInProgress;
+    private static string DesktopVersionText =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
+
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", "1.6.0", "app");
+        "FoamLens", "Desktop", DesktopVersionText, "app");
 
     public int SmokeTestExitCode { get; private set; }
 
@@ -66,6 +69,7 @@ internal sealed class FoamLensForm : Form
         {
             MaterializeBundle();
             ApplyFrontendExtensions();
+            ValidateMaterializedFrontend();
             Directory.CreateDirectory(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FoamLens", "Desktop", "WebView2"));
@@ -142,22 +146,55 @@ internal sealed class FoamLensForm : Form
         RunBinaryMeshParserSelfTest();
         await RunFoamLogParserSelfTestAsync();
 
+        const string smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1";
         var completion = new TaskCompletionSource<CoreWebView2NavigationCompletedEventArgs>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        ulong? smokeNavigationId = null;
 
-        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e) =>
-            completion.TrySetResult(e);
+        void OnSmokeNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (string.Equals(e.Uri, smokeUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                smokeNavigationId = e.NavigationId;
+                Log($"FoamLens smoke navigation started: id={e.NavigationId}; uri={e.Uri}");
+            }
+        }
 
+        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (smokeNavigationId.HasValue && e.NavigationId == smokeNavigationId.Value)
+                completion.TrySetResult(e);
+        }
+
+        _web.CoreWebView2.NavigationStarting += OnSmokeNavigationStarting;
         _web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+        int? indexStatusCode = null;
+        string indexReasonPhrase = "";
+        string indexContentType = "";
+        string indexContentLength = "";
+        void OnWebResourceResponseReceived(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
+        {
+            if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
+                string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(uri.AbsolutePath, "/index.html", StringComparison.OrdinalIgnoreCase))
+            {
+                indexStatusCode = e.Response.StatusCode;
+                indexReasonPhrase = e.Response.ReasonPhrase ?? "";
+                try { indexContentType = e.Response.Headers.GetHeader("Content-Type") ?? ""; } catch { }
+                try { indexContentLength = e.Response.Headers.GetHeader("Content-Length") ?? ""; } catch { }
+            }
+        }
+        _web.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
         try
         {
-            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1&smoke=1");
+            _web.CoreWebView2.Navigate(smokeUrl);
 
             var finished = await Task.WhenAny(
                 completion.Task,
                 Task.Delay(TimeSpan.FromSeconds(30)));
             if (finished != completion.Task)
-                throw new TimeoutException("FoamLens smoke test timed out while loading the embedded frontend.");
+                throw new TimeoutException(
+                    $"FoamLens smoke test timed out while waiting for the requested navigation id; expected={smokeNavigationId?.ToString() ?? "not-started"}; source={_web.CoreWebView2.Source}");
 
             var navigation = await completion.Task;
             if (!navigation.IsSuccess)
@@ -169,20 +206,66 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException(
                     $"FoamLens frontend did not reach document.readyState=complete: {readyState}");
 
-            var hasRoot = await _web.CoreWebView2.ExecuteScriptAsync(
-                "Boolean(document.body && document.body.innerText && document.body.innerText.includes('FoamLens'))");
-            if (!string.Equals(hasRoot.Trim(), "true", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("FoamLens frontend content was not visible after navigation.");
+            if (indexStatusCode.HasValue)
+                Log($"FoamLens index response: status={indexStatusCode.Value}; reason={indexReasonPhrase}; contentType={indexContentType}; contentLength={indexContentLength}");
+            else
+                Log("FoamLens index response: no WebResourceResponseReceived event captured.");
+
+            string launchStateJson = "{}";
+            var launchDeadline = Stopwatch.StartNew();
+            var launchVisible = false;
+            while (launchDeadline.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                launchStateJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "(()=>{const title=document.getElementById('launchTitle'),body=document.body;" +
+                    "const titleStyle=title?getComputedStyle(title):null,bodyStyle=body?getComputedStyle(body):null;" +
+                    "const rect=title?.getBoundingClientRect?.();" +
+                    "const titleText=title?.textContent?.trim()||'';" +
+                    "const titleVisible=!!title&&titleText.includes('FoamLens')&&titleStyle?.display!=='none'&&titleStyle?.visibility!=='hidden'&&Number(rect?.width||0)>0&&Number(rect?.height||0)>0;" +
+                    "const outer=document.documentElement?.outerHTML||'';" +
+                    "return {titleText,titleVisible,titleDisplay:titleStyle?.display||'',titleVisibility:titleStyle?.visibility||'',titleWidth:Number(rect?.width||0),titleHeight:Number(rect?.height||0),bodyDisplay:bodyStyle?.display||'',bodyVisibility:bodyStyle?.visibility||'',bodyClasses:body?.className||'',bodyTextHasFoamLens:!!body?.innerText?.includes('FoamLens'),bodyTextLength:Number(body?.innerText?.length||0),documentTitle:document.title||'',headHtmlLength:Number(document.head?.innerHTML?.length||0),bodyHtmlLength:Number(body?.innerHTML?.length||0),outerHtmlLength:Number(outer.length||0),outerHtmlPrefix:outer.slice(0,240),readyState:document.readyState,href:location.href};})()");
+                using (var launchState = JsonDocument.Parse(launchStateJson))
+                {
+                    var root = launchState.RootElement;
+                    launchVisible = root.TryGetProperty("titleVisible", out var visibleNode) && visibleNode.GetBoolean();
+                }
+                if (launchVisible) break;
+                await Task.Delay(100);
+            }
+            if (!launchVisible)
+                throw new InvalidOperationException(
+                    $"FoamLens launch surface was not visibly rendered after navigation: {launchStateJson}");
+            Log($"FoamLens launch surface smoke passed: {launchStateJson}");
 
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("FoamLens WebView2 native bridge is unavailable.");
 
-            var officialBranding = await _web.CoreWebView2.ExecuteScriptAsync(
-                "Boolean(['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo'].every(id=>{const img=document.getElementById(id);return img instanceof HTMLImageElement&&img.complete&&img.naturalWidth>0})&&document.querySelectorAll('.foamLensLogoSvg').length===0)");
-            if (!string.Equals(officialBranding.Trim(), "true", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("FoamLens official local brand assets did not render on launch/sidebar/About.");
+            string brandingStateJson = "{}";
+            var brandingDeadline = Stopwatch.StartNew();
+            var officialBrandingReady = false;
+            while (brandingDeadline.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                brandingStateJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "(()=>{const ids=['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo'];" +
+                    "const assets=ids.map(id=>{const img=document.getElementById(id);return{id,exists:!!img,isImage:img instanceof HTMLImageElement,src:img?.getAttribute?.('src')||'',complete:!!img?.complete,naturalWidth:Number(img?.naturalWidth||0),naturalHeight:Number(img?.naturalHeight||0)}});" +
+                    "const legacyCount=document.querySelectorAll('.foamLensLogoSvg').length;" +
+                    "return{ready:assets.every(x=>x.exists&&x.isImage&&x.complete&&x.naturalWidth>0&&x.naturalHeight>0)&&legacyCount===0,legacyCount,assets};})()");
+                using (var brandingState = JsonDocument.Parse(brandingStateJson))
+                {
+                    var root = brandingState.RootElement;
+                    officialBrandingReady =
+                        root.TryGetProperty("ready", out var readyNode) &&
+                        readyNode.GetBoolean();
+                }
+                if (officialBrandingReady) break;
+                await Task.Delay(100);
+            }
+            if (!officialBrandingReady)
+                throw new InvalidOperationException(
+                    $"FoamLens official local brand assets did not render on launch/sidebar/About: {brandingStateJson}");
+            Log($"FoamLens official branding smoke passed: {brandingStateJson}");
 
             // Extension integration smoke: Field View must mount through the v1.6
             // Ribbon + Field surface contract. Legacy mode/data-tab navigation
@@ -1098,7 +1181,9 @@ internal sealed class FoamLensForm : Form
         }
         finally
         {
+            _web.CoreWebView2.NavigationStarting -= OnSmokeNavigationStarting;
             _web.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
+            _web.CoreWebView2.WebResourceResponseReceived -= OnWebResourceResponseReceived;
         }
     }
 
@@ -1131,6 +1216,42 @@ internal sealed class FoamLensForm : Form
         }
     }
 
+    private void ValidateMaterializedFrontend()
+    {
+        var indexPath = Path.Combine(AppRoot, "index.html");
+        if (!File.Exists(indexPath))
+            throw new InvalidOperationException($"FoamLens materialized frontend is missing: {indexPath}");
+
+        var info = new FileInfo(indexPath);
+        var html = File.ReadAllText(indexPath, Encoding.UTF8);
+        if (info.Length < 100_000 ||
+            !html.Contains("<body class=\"dark appMode-workspace\">", StringComparison.Ordinal) ||
+            !html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal) ||
+            !html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal) ||
+            Regex.IsMatch(html, @"<html[^>]*\sdata-desktop-version(?:\s|=|>)", RegexOptions.IgnoreCase))
+            throw new InvalidOperationException(
+                $"FoamLens materialized frontend is incomplete: path={indexPath}; bytes={info.Length}; body={html.Contains("<body", StringComparison.OrdinalIgnoreCase)}; launch={html.Contains("id=\"launchTitle\">FoamLens</h1>", StringComparison.Ordinal)}; native={html.Contains("const FOAMLENS_NATIVE=", StringComparison.Ordinal)}");
+
+        foreach (var relativeAsset in new[]
+        {
+            Path.Combine("assets", "branding", "official-lockup.svg"),
+            Path.Combine("assets", "branding", "official-mark.svg"),
+            Path.Combine("assets", "branding", "michel-duarte-avatar.jpg"),
+            Path.Combine("assets", "branding", "michels-lab", "official-lockup.png")
+        })
+        {
+            var assetPath = Path.Combine(AppRoot, relativeAsset);
+            if (!File.Exists(assetPath) || new FileInfo(assetPath).Length <= 0)
+                throw new InvalidOperationException(
+                    $"FoamLens materialized brand asset is missing or empty: {assetPath}");
+        }
+
+        using var sha = SHA256.Create();
+        using var stream = File.OpenRead(indexPath);
+        var hash = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        Log($"FoamLens materialized frontend validated: path={indexPath}; bytes={info.Length}; sha256={hash}");
+    }
+
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
@@ -1140,8 +1261,12 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
-        // Desktop release identity is normalized here because index.html is a large generated frontend bundle.
-        html = html.Replace("1.4.9", "1.6.0", StringComparison.Ordinal);
+        // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
+        var desktopVersion = DesktopVersionText;
+        html = html.Replace(
+            "<html lang=\"en\">",
+            $"<html lang=\"en\" data-foamlens-desktop-version=\"{desktopVersion}\">",
+            StringComparison.Ordinal);
         const string mainIifeMarker = "const FOAMLENS_NATIVE=";
         const string iifeClose = "})();";
         var mainMarker = html.IndexOf(mainIifeMarker, StringComparison.Ordinal);

@@ -48,6 +48,22 @@ assert(source.includes("host.appendChild(transport)"),
   'Field Ribbon creates a second time controller instead of reusing the global transport.');
 assert(source.includes('flRibbonTimeHost'),
   'Field Ribbon has no physical-time transport host.');
+assert(source.includes("document.getElementById('fvCacheLimit')"),
+  'Field Ribbon does not mount the canonical frame-cache selector beside playback.');
+assert(source.includes("document.getElementById('fvCacheReadout')"),
+  'Field Ribbon does not mount the canonical cache readout beside playback.');
+assert(source.includes("cacheField.parentElement!==host"),
+  'Frame-cache control is copied instead of moved as the canonical control.');
+assert(source.includes('function flRibbonMountFieldOptions'),
+  'Field Ribbon does not own contextual Split options.');
+assert(source.includes("document.getElementById('fwSplitChooser')"),
+  'Split second-pane chooser is not available from the Field Ribbon.');
+assert(source.includes("#flRibbonPanel-field.active{flex-wrap:wrap"),
+  'Field Ribbon does not wrap its command groups.');
+assert(source.includes("#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden"),
+  'Field Ribbon can regress to a horizontal scrollbar.');
+assert(source.includes("body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}"),
+  'Duplicated internal Field navigation remains visible under the Ribbon.');
 for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
   assert(source.includes(id),'Expected scoped Field action missing: '+id);
 assert(source.includes("view==='3d'||view==='split'"),

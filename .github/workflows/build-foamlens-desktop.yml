@@ -1,4 +1,4 @@
-# FoamLens CI — v1.6.0 release validation
+# FoamLens CI — release validation
 # Branch CI validates candidates without publishing. A main push whose commit message starts with `release:` publishes the validated build automatically.
 name: Build FoamLens Desktop for Windows
 
@@ -213,6 +213,45 @@ jobs:
           if (-not (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'FoamLens v51' -Quiet)) {
             throw 'Desktop frontend is not FoamLens v51.'
           }
+
+      - name: Verify embedded frontend bundle integrity
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          $verify='bundle_verify'
+          if (Test-Path $verify) { Remove-Item $verify -Recurse -Force }
+          Expand-Archive -Path $bundle -DestinationPath $verify -Force
+          $source='desktop/src/FoamLensDesktop/frontend/index.html'
+          $packed=Join-Path $verify 'index.html'
+          if (-not (Test-Path $packed)) { throw 'AppBundle.zip does not contain root index.html.' }
+          $sourceHash=(Get-FileHash $source -Algorithm SHA256).Hash
+          $packedHash=(Get-FileHash $packed -Algorithm SHA256).Hash
+          if ($sourceHash -ne $packedHash) { throw "AppBundle index hash mismatch: source=$sourceHash packed=$packedHash" }
+          if ((Get-Item $packed).Length -lt 100000) { throw 'Packed FoamLens index.html is unexpectedly small.' }
+          if (-not (Select-String -Path $packed -Pattern 'id="launchTitle">FoamLens</h1>' -Quiet)) {
+            throw 'Packed FoamLens index.html lost the launch surface.'
+          }
+          foreach ($asset in @(
+            'assets/branding/michel-duarte-avatar.jpg',
+            'assets/branding/michels-lab/official-lockup.png',
+            'assets/branding/official-lockup.svg'
+          )) {
+            if (-not (Test-Path (Join-Path $verify $asset))) { throw "AppBundle.zip is missing $asset" }
+          }
+          $portraitSha=(git hash-object 'desktop/src/FoamLensDesktop/frontend/assets/branding/michel-duarte-avatar.jpg').Trim()
+          if ($portraitSha -ne '18fe1a68722850c3d8f918dc0799f46ffeb6dbaf') { throw "Canonical Michel portrait drifted: $portraitSha" }
+          $labSha=(git hash-object 'desktop/src/FoamLensDesktop/frontend/assets/branding/michels-lab/official-lockup.png').Trim()
+          if ($labSha -ne '7fd48093968b31ddacd3098f5b15d962de580652') { throw "Canonical Michel's Lab lockup drifted: $labSha" }
+          if (Select-String -Path 'desktop/src/FoamLensDesktop/frontend/index.html' -Pattern 'src="data:image/jpeg;base64,' -Quiet) {
+            throw 'About portrait must remain a file reference; data-URI embedding is forbidden.'
+          }
+          Write-Host "Validated AppBundle.zip root index and canonical About/product assets; index SHA-256 $packedHash"
+
+      - name: Compile Windows host before regression suite
+        shell: pwsh
+        run: |
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
+          dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true --no-restore
 
       - name: Validate FoamLens frontend JavaScript
         shell: pwsh
@@ -439,6 +478,10 @@ jobs:
       - name: Test actionable diagnostics across the app
         shell: pwsh
         run: node desktop/tests/actionable-diagnostics.test.cjs
+
+      - name: Test Findings evidence and assistant handoff
+        shell: pwsh
+        run: node desktop/tests/findings-export.test.cjs
 
       - name: Test multi-panel export and progressive performance
         shell: pwsh

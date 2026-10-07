@@ -185,6 +185,8 @@ function flRibbonCss(){
     '.flRibbonTrailHost{min-width:0;display:flex;justify-content:flex-end}.flRibbonTrailHost .contextTrail{display:block;max-width:280px;font-size:8px}',
     '.flRibbonPanels{min-height:78px;overflow:hidden}',
     '.flRibbonPanel{display:none;align-items:stretch;gap:0;min-height:78px;padding:5px 8px;overflow-x:auto;overflow-y:hidden}',
+    '#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden;overflow-y:visible;row-gap:4px}',
+    'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
     '.flRibbonPanel.active{display:flex}',
     '.flRibbonGroup{position:relative;display:flex;align-items:stretch;padding:0 8px 13px 7px;border-right:1px solid var(--line);flex:0 0 auto}',
     '.flRibbonGroup:last-child{border-right:0}',
@@ -196,13 +198,23 @@ function flRibbonCss(){
     '.flRibbonAction.danger{color:var(--danger)}',
     '.flRibbonAction.flScopeHidden{display:none!important}',
     '.flRibbonGroup.flScopeHidden{display:none!important}',
-    '.flRibbonTimeGroup{min-width:min(520px,46vw)}',
-    '.flRibbonTimeGroup .flRibbonActions{align-items:center}',
-    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:0;width:100%;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
+    '.flRibbonTimeGroup{min-width:min(760px,72vw);max-width:100%;flex:1 1 620px}',
+    '.flRibbonTimeGroup .flRibbonActions{align-items:center;display:flex;flex-wrap:wrap;gap:6px;width:100%}',
+    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:390px;flex:1 1 470px;width:auto;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
     '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
     '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
     '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
     '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:8px}',
+    '.flRibbonTimeGroup .flRibbonCacheField{display:grid;grid-template-columns:auto minmax(78px,auto);align-items:center;gap:4px;min-width:132px;margin:0!important}',
+    '.flRibbonTimeGroup .flRibbonCacheField label{font-size:7px!important;margin:0!important;color:var(--muted)}',
+    '.flRibbonTimeGroup .flRibbonCacheField select{height:30px!important;min-width:78px!important;padding:4px 6px!important;font-size:8px!important}',
+    '.flRibbonTimeGroup .flRibbonCacheReadout{font-size:7px;min-width:116px;white-space:nowrap;color:var(--muted)}',
+    '.flRibbonFieldOptionsGroup{min-width:150px}',
+    '.flRibbonFieldOptionsGroup .flRibbonActions{align-items:center}',
+    '.flRibbonFieldOptionsGroup .fwSplitChooser{margin:0;display:flex;align-items:center;gap:5px}',
+    '.flRibbonFieldOptionsGroup .fwSplitChooser.hidden{display:none!important}',
+    '.flRibbonFieldOptionsGroup .fwSplitChooser label{font-size:7px!important}',
+    '.flRibbonFieldOptionsGroup .fwSplitChooser select{height:30px!important;min-width:112px!important;padding:4px 6px!important;font-size:8px!important}',
     '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
     '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
@@ -260,6 +272,8 @@ function flRibbonUpdateFieldScope(){
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
     'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
+  flRibbonMountFieldOptions();
+  document.getElementById('flRibbonFieldOptionsGroup')?.classList.toggle('flScopeHidden',view!=='split');
   document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup').forEach(group=>{
     const actions=[...group.querySelectorAll('.flRibbonAction')];
     group.classList.toggle('flScopeHidden',actions.length>0&&actions.every(a=>a.classList.contains('flScopeHidden')))
@@ -278,7 +292,28 @@ function flRibbonMountFieldTimeTransport(){
     panel.appendChild(group)
   }
   const host=document.getElementById('flRibbonTimeHost');if(host&&transport.parentElement!==host)host.appendChild(transport);
-  transport.classList.add('flRibbonTimeTransport');return true
+  transport.classList.add('flRibbonTimeTransport');
+  const cache=document.getElementById('fvCacheLimit'),cacheField=cache?.closest?.('.field'),cacheReadout=document.getElementById('fvCacheReadout');
+  if(host&&cacheField){
+    cacheField.classList.add('flRibbonCacheField');
+    if(cacheField.parentElement!==host)host.appendChild(cacheField)
+  }
+  if(host&&cacheReadout){
+    cacheReadout.classList.add('flRibbonCacheReadout');
+    if(cacheReadout.parentElement!==host)host.appendChild(cacheReadout)
+  }
+  return true
+}
+function flRibbonMountFieldOptions(){
+  const panel=document.getElementById('flRibbonPanel-field'),chooser=document.getElementById('fwSplitChooser');if(!panel||!chooser)return false;
+  let group=document.getElementById('flRibbonFieldOptionsGroup');
+  if(!group){
+    group=document.createElement('div');group.id='flRibbonFieldOptionsGroup';group.className='flRibbonGroup flRibbonFieldOptionsGroup';
+    group.innerHTML='<div class="flRibbonGroupTitle" data-ri-en="View options" data-ri-es="Opciones de vista">View options</div><div class="flRibbonActions" id="flRibbonFieldOptionsHost"></div>';
+    panel.appendChild(group)
+  }
+  const host=document.getElementById('flRibbonFieldOptionsHost');if(host&&chooser.parentElement!==host)host.appendChild(chooser);
+  return true
 }
 function flRibbonClarifyDifferenceLabels(){
   const es=document.getElementById('language')?.value==='es';
@@ -326,6 +361,7 @@ function flRibbonInstall(){
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
   flRibbonMountFieldTimeTransport();
+  flRibbonMountFieldOptions();
   document.getElementById('modeField')?.remove();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
@@ -409,11 +445,11 @@ function flRibbonInstall(){
     setTimeout(flRibbonSyncStates,0)
   },true);
   document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
-  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
+  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonMountFieldOptions();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
   flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope();
-  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,mountTimeTransport:flRibbonMountFieldTimeTransport,isInstalled:()=>flRibbonState.installed};
+  window.FoamLensRibbon={selectTab:flRibbonSelectTab,sync:flRibbonSyncStates,updateContext:flRibbonUpdateContextVisibility,updateFieldScope:flRibbonUpdateFieldScope,mountTimeTransport:flRibbonMountFieldTimeTransport,mountFieldOptions:flRibbonMountFieldOptions,isInstalled:()=>flRibbonState.installed};
   return true
 }
 flRibbonInstall();

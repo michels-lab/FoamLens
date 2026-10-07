@@ -521,6 +521,27 @@ test('Field workspace exposes multi-case 3D controls instead of hiding compariso
     'Each 3D view has its own case · region · field · component'
   ])assert((workspaceSource+'\n'+compareSource).includes(token),'Missing visible multi-case 3D token: '+token);
   assert(compareSource.includes('FC_MAX_TOTAL_VIEWS=4'),'3D comparison no longer supports four synchronized views.');
+  for(const token of [
+    "fcExtra'+id+'Case","fcExtra'+id+'Region","fcExtra'+id+'Field","fcExtra'+id+'Component",
+    "for(const suffix of ['Case','Region','Field','Component'])"
+  ])assert(compareSource.includes(token),'Views C/D lost independent case/region/field/component selection: '+token);
+});
+
+test('multi-view layout coalesces its render cascade without racing explicit high-resolution renders',()=>{
+  for(const token of [
+    'let fcLayoutRenderFrame=0',
+    'function fcPerformLayoutRender()',
+    'const primaryRender=fvRender.__fcBase||fvRender',
+    'function fcFlushLayoutRender()',
+    'cancelAnimationFrame(fcLayoutRenderFrame)',
+    'function fcScheduleLayoutRender()',
+    'fcLayoutRenderFrame=requestAnimationFrame',
+    'fvRender.__fcBase=previous',
+    'flushLayoutRender:fcFlushLayoutRender',
+    'fcUpdateStatsGrid();fcScheduleLayoutRender()'
+  ])assert(compareSource.includes(token),'Missing multi-view render coalescing/high-resolution safety token: '+token);
+  assert(!compareSource.includes('setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)'),
+    'Multi-view layout still renders the comparison cascade twice.');
 });
 
 test('all visible synchronized 3D views remain eligible for the same exported animation',()=>{
@@ -579,16 +600,17 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
-test('Field workspace owns one central viewport plus a floating contextual Inspector',()=>{
+test('Field workspace owns one central viewport plus a contextual sidebar',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
-    'fwControlsDrawer','fwInspectorToggle','fwSetInspector',
+    'fwControlsDrawer','fwInspectorToggle','fwSetInspector','fwMountContextSidebar',
+    "sidebar.prepend(drawer)",".sidebar>.fwControlsDrawer.fwSidebarContext{position:static",
     'fwEnsureCompanionSurface','fwActivateCompanionSurface',
     "fwAdoptFieldNode('fieldViewPanel','fw3DHost')",
     "fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwGrid.layout-3d .fwPlotCard{display:none}',
     'fwGrid.layout-plot .fw3DCard{display:none}'
-  ])assert(workspaceSource.includes(token),'Missing central Field viewport/Inspector token: '+token);
+  ])assert(workspaceSource.includes(token),'Missing central Field viewport/context sidebar token: '+token);
   assert(!workspaceSource.includes('grid-template-columns:minmax(0,1fr) 340px'),
     '3D focus still reserves a permanent controls column.');
 });
