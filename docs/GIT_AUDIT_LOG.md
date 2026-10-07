@@ -3886,3 +3886,12 @@ The required interpretation is structural integration rather than sticker placem
 - Optional Authenticode steps were skipped because no signing certificate is configured. GitHub Release publication was also skipped, as intended for an unpromoted development branch.
 - The older `development/v1.6.1-ui-polish` branch was reviewed before promotion. Its two unique commits only move the canonical frame-cache selector beside playback and guard that placement; the active v1.6.1 branch already contains a stronger implementation that moves the real cache selector plus cache readout beside the shared playback transport, wraps the Field Ribbon and prevents horizontal Ribbon scrolling. No redundant cherry-pick is required.
 - No version bump, merge, tag or release publication is authorized by this entry.
+### 2026-10-06 — FoamLens Desktop v1.6.1 stable release
+- User explicitly authorized the stable v1.6.1 promotion.
+- Release-preparation commit `f41fc44c76ffdfd2bc03e33754070cfdc85adf0c` bumped Desktop, assembly/file, frontend fallback, installer fallback, README and release-contract expectations to v1.6.1 and dated the v1.6.1 changelog.
+- Candidate Windows CI run #911 (`37558931918`) completed successfully at the exact v1.6.1 candidate head, including QuickCup/VTK, the complete scientific/UI regression suite, portable smoke, installer build, checksums, actual installation and installed-app smoke.
+- PR #19 merged to `main` as release commit `45d18c43b845fafb45c9497aaa011d92c64d5b8c`.
+- Main release run #912 (`37559553035`) completed successfully and passed the `Publish GitHub Release` gate after re-running the full validation suite on the merged tree.
+- GitHub Release `v1.6.1` is stable (`draft=false`, `prerelease=false`) and is the repository's latest release.
+- Published assets: `FoamLens-Portable-v1.6.1.exe`, `FoamLens-Portable-v1.6.1.exe.sha256`, `FoamLens-Setup-v1.6.1.exe`, and `FoamLens-Setup-v1.6.1.exe.sha256`.
+- Optional Authenticode signing remains unavailable because no Windows publisher certificate is configured; this does not affect the completed checksum, packaging, install or runtime smoke gates.
