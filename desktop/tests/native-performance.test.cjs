@@ -107,9 +107,9 @@ test('runtime visual smoke checks overflow and captures a rendered PNG',()=>{
   ]) assert(program.includes(token),'Missing runtime visual smoke token '+token);
 });
 
-test('runtime smoke exercises v1.6.0 3D multi-view and video primitives inside WebView2',()=>{
+test('runtime smoke exercises version-derived 3D multi-view and video primitives inside WebView2',()=>{
   for(const token of [
-    'FoamLens v1.6.0 3D runtime UI smoke passed',
+    'FoamLens v{DesktopVersionText} 3D runtime UI smoke passed',
     "'fcExtra'+id+'Viewport'",
     "'fcExtra'+id+'Canvas'",
     "primaryCanvasPosition",
@@ -122,7 +122,7 @@ test('runtime smoke exercises v1.6.0 3D multi-view and video primitives inside W
     "videoSmokeDeadline.Elapsed < TimeSpan.FromSeconds(8)",
     "window.__foamLensVideoSmokeResult",
     "FoamLens WebView2 video runtime smoke passed"
-  ]) assert(program.includes(token),'Missing v1.6.0 runtime-smoke token '+token);
+  ]) assert(program.includes(token),'Missing version-derived runtime-smoke token '+token);
 });
 
 test('packaged runtime drives View 2 case, legend and Probe through public UI/runtime APIs',()=>{

@@ -1,4 +1,4 @@
-/* FoamLens Desktop v1.6.0 — OpenFOAM mesh/field visualization and streamline playback. */
+/* FoamLens Desktop — OpenFOAM mesh/field visualization and streamline playback. */
 
 /* FOAMLENS_FIELD_VIEW_CORE_START */
 function fvNormPath(v){return String(v||'').replace(/\\/g,'/').replace(/\/+/g,'/').replace(/^\/|\/$/g,'')}

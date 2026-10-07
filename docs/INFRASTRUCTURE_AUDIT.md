@@ -16,8 +16,8 @@ This file records FoamLens infrastructure decisions separately from scientific f
 OpenFOAM projects can be large and can contain unpublished research data. Cloud upload must never be introduced implicitly. A future cloud feature must be opt-in and must distinguish lightweight workspace metadata from raw simulation data.
 
 ## Gaps / required follow-up
-1. Automatic update path is **published in FoamLens v1.6.0** through GitHub Releases with semantic-version comparison, explicit user approval and SHA-256 installer verification. Keep current-HEAD updater and checksum regression coverage in every release gate.
-2. Root product/license naming was reconciled from the legacy `OpenFOAM PostPlotter` label to FoamLens on the v1.6.1 development branch; the packaged desktop license already used FoamLens.
+1. Automatic update path was introduced in FoamLens v1.6.0 and remains validated in the current v1.6.1 direct-release channel with semantic-version comparison, explicit user approval and SHA-256 installer verification. Keep current-HEAD updater and checksum regression coverage in every release gate.
+2. Root product/license naming is reconciled from the legacy `OpenFOAM PostPlotter` label to FoamLens in the current v1.6.1 line; the packaged desktop license uses FoamLens.
 3. Move duplicated About/developer presentation toward the shared Michel's Lab component contract while preserving the active official FoamLens product identity.
 4. Keep CI proving current HEAD rather than relying on existence of prior release artifacts.
 5. If remote project metadata is ever added, define privacy/storage limits before implementation.
@@ -44,3 +44,6 @@ Any future provider tokens, signing keys, private fixture tokens or service cred
 - The Store package is a separate distribution channel, not a replacement for GitHub Setup/Portable builds.
 - Store CI produces an unsigned MSIX for Partner Center; it must not be presented as a signed direct-download installer.
 - Store submission/certification/publication are manual provider evidence and remain pending until actually completed in Partner Center.
+
+5. Microsoft Store MSIX validation now runs on `main` as well as `distribution/**`, so shared-source changes cannot silently bypass the Store packaging contract after integration.
+6. Runtime version identity no longer falls back to a prior real release literal; missing assembly metadata fails explicitly instead of reporting stale version identity.
