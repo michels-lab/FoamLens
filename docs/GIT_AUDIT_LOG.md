@@ -3868,3 +3868,13 @@ The required interpretation is structural integration rather than sticker placem
 - The host now validates that the materialized official FoamLens lockup/mark plus canonical Michel Duarte portrait and Michel's Lab lockup exist and are non-empty before WebView initialization.
 - Packaged branding smoke now waits up to 10 seconds for each required image to exist, be an `HTMLImageElement`, complete decoding, and report non-zero natural dimensions; failures preserve per-image `src`, `complete`, `naturalWidth`, and `naturalHeight`.
 - Current-head Windows CI remains required before merge/release promotion.
+
+
+### 2026-10-07 — immutable portrait and restored parent-brand authority
+- Master authority changed after the earlier v1.6.1 About work. The exact user-provided canonical Michel Duarte portrait is now `shared-assets/michel_duarte_avatar.jpg`, Git blob `18fe1a68722850c3d8f918dc0799f46ffeb6dbaf`, 1440×1920, and is immutable. Interim portrait blobs `be4d1857…` and `9454e22e…` are rejected.
+- Michel's Lab restored the physical production lockup source. FoamLens now vendors `shared-assets/michels-lab/official-lockup.png` byte-for-byte as `assets/branding/michels-lab/official-lockup.png`, Git blob `7fd48093968b31ddacd3098f5b15d962de580652`, 2172×724.
+- Removed the temporary/local repaired lockup derivative and all runtime data-URI/base64 rewriting of About raster assets. Presentation sizing/cropping remains render-time only.
+- Removed the Windows CI raster re-export/recompression diagnostic because it violated the immutable portrait contract.
+- Synced the managed Michel's Lab child-agent contract to `2026-10-06.3`.
+- About retains Product → Author → Michel's Lab → Social ordering and now exposes the QA-recognized parent-brand path.
+- Current-head Windows CI remains required before this work can be marked verified. No release publication is authorized by this entry.

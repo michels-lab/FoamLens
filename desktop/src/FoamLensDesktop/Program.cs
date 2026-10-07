@@ -1237,7 +1237,7 @@ internal sealed class FoamLensForm : Form
             Path.Combine("assets", "branding", "official-lockup.svg"),
             Path.Combine("assets", "branding", "official-mark.svg"),
             Path.Combine("assets", "branding", "michel-duarte-avatar.jpg"),
-            Path.Combine("assets", "branding", "michels-lab-lockup.png")
+            Path.Combine("assets", "branding", "michels-lab", "official-lockup.png")
         })
         {
             var assetPath = Path.Combine(AppRoot, relativeAsset);
@@ -1252,32 +1252,6 @@ internal sealed class FoamLensForm : Form
         Log($"FoamLens materialized frontend validated: path={indexPath}; bytes={info.Length}; sha256={hash}");
     }
 
-    private string InlineRasterBrandAsset(string html, string relativePath, string mimeType)
-    {
-        var sourceToken = $"src=\"{relativePath}\"";
-        if (!html.Contains(sourceToken, StringComparison.Ordinal))
-            throw new InvalidOperationException(
-                $"FoamLens frontend does not reference the canonical raster brand asset: {relativePath}");
-
-        var localPath = Path.Combine(
-            AppRoot,
-            relativePath.Replace('/', Path.DirectorySeparatorChar));
-        if (!File.Exists(localPath))
-            throw new InvalidOperationException(
-                $"FoamLens canonical raster brand asset was not materialized: {localPath}");
-
-        var bytes = File.ReadAllBytes(localPath);
-        if (bytes.Length == 0)
-            throw new InvalidOperationException(
-                $"FoamLens canonical raster brand asset is empty: {localPath}");
-
-        var dataUri = $"data:{mimeType};base64,{Convert.ToBase64String(bytes)}";
-        return html.Replace(
-            sourceToken,
-            $"src=\"{dataUri}\"",
-            StringComparison.Ordinal);
-    }
-
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
@@ -1287,10 +1261,6 @@ internal sealed class FoamLensForm : Form
         if (extensionPaths.Length == 0) return;
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
-        html = InlineRasterBrandAsset(
-            html, "assets/branding/michel-duarte-avatar.jpg", "image/jpeg");
-        html = InlineRasterBrandAsset(
-            html, "assets/branding/michels-lab-lockup.png", "image/png");
         // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
         var desktopVersion = DesktopVersionText;
         html = html.Replace(

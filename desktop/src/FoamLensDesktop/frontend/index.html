@@ -1963,8 +1963,8 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
         <div class="aboutBio" id="aboutBio">Materials engineer and metallurgical engineering researcher.<br>Building practical tools for CFD, solidification and scientific visualization.</div>
       </div>
       <div class="aboutBrandMini" id="aboutBrandMini">
-        <img id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab-lockup.png" alt="Michel's Lab">
-        <div class="aboutBrandLabel" id="aboutBrandRelation">Part of Michel's Lab</div>
+        <img id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab/official-lockup.png" alt="Michel's Lab">
+        <div class="aboutBrandLabel">Michel's Lab</div>
         <div class="aboutBrandTag" id="aboutBrandTag">Ideas · Apps · A better tomorrow</div>
       </div>
     </div>
@@ -9230,8 +9230,8 @@ updateMeta();
   if(!openBtn||!overlay||!closeBtn)return;
 
   const copy={
-    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring data, diagnosing numerical behavior, comparing cases, reviewing evidence-based findings, and exporting scientific figures from one place.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandRelation:'Part of Michel\'s Lab',brandTag:'Ideas · Apps · A better tomorrow',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
-    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'FoamLens es un espacio de análisis de OpenFOAM que descubre resultados, explora datos, diagnostica comportamiento numérico, compara casos, revisa hallazgos basados en evidencia y exporta figuras científicas desde un solo lugar.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandRelation:'Parte de Michel\'s Lab',brandTag:'Ideas · Apps · Un mejor mañana',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
+    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring data, diagnosing numerical behavior, comparing cases, reviewing evidence-based findings, and exporting scientific figures from one place.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandTag:'Ideas · Apps · A better tomorrow',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
+    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'FoamLens es un espacio de análisis de OpenFOAM que descubre resultados, explora datos, diagnostica comportamiento numérico, compara casos, revisa hallazgos basados en evidencia y exporta figuras científicas desde un solo lugar.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandTag:'Ideas · Apps · Un mejor mañana',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
   };
 
 
@@ -9252,7 +9252,6 @@ updateMeta();
     document.getElementById('aboutQuote').textContent=t.quote;
     document.getElementById('aboutRole').textContent=t.role;
     document.getElementById('aboutBio').innerHTML=t.bio;
-    document.getElementById('aboutBrandRelation').textContent=t.brandRelation;
     document.getElementById('aboutBrandTag').textContent=t.brandTag;
     document.getElementById('aboutConnectTitle').textContent=t.connect;
     document.getElementById('aboutConnectSub').textContent=t.connectSub;
