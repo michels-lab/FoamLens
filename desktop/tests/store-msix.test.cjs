@@ -22,7 +22,7 @@ assert(project.includes("Condition=\"'$(FoamLensStoreChannel)' == 'true'\""));
 assert(project.includes('FOAMLENS_STORE'));
 assert(program.includes('private const bool StoreDistributionChannel = true;'));
 assert(program.includes('StoreDistributionChannel ? "&store=1" : ""'));
-assert(program.includes('if (!StoreDistributionChannel)\n                    _ = CheckForUpdatesAsync(userInitiated: false);'));
+assert(/if\s*\(!StoreDistributionChannel\)\s*_ = CheckForUpdatesAsync\(userInitiated: false\);/.test(program),\n  'Store package does not suppress startup GitHub update checks.');
 assert(program.includes('This edition is installed and updated through Microsoft Store.'));
 assert(updater.includes("const auStoreChannel=new URLSearchParams(location.search).get('store')==='1';"));
 assert(updater.includes("channel:'store'"));
