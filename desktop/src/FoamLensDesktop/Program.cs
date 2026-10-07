@@ -45,7 +45,8 @@ internal sealed class FoamLensForm : Form
     private const bool StoreDistributionChannel = false;
 #endif
     private static string DesktopVersionText =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.6.0";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)
+        ?? throw new InvalidOperationException("FoamLens assembly version metadata is unavailable.");
 
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -481,7 +482,7 @@ internal sealed class FoamLensForm : Form
                 if (root.TryGetProperty("missing", out var missing) &&
                     missing.ValueKind == JsonValueKind.Array && missing.GetArrayLength() > 0)
                     throw new InvalidOperationException(
-                        $"FoamLens v1.6.0 3D runtime controls are missing: {fieldViewRuntimeJson}");
+                        $"FoamLens v{DesktopVersionText} 3D runtime controls are missing: {fieldViewRuntimeJson}");
                 if (!root.TryGetProperty("extraViews", out var extraViews) ||
                     extraViews.ValueKind != JsonValueKind.Array || extraViews.GetArrayLength() != 2 ||
                     extraViews.EnumerateArray().Any(v =>
@@ -556,7 +557,7 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens standard camera presets did not mount: {fieldViewRuntimeJson}");
             }
-            Log($"FoamLens v1.6.0 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
+            Log($"FoamLens v{DesktopVersionText} 3D runtime UI smoke passed: {fieldViewRuntimeJson}");
 
             // Exercise the actual WebView2 recording primitives used by FoamLens video export.
             // ExecuteScriptAsync serializes an unresolved JavaScript Promise as {}, so the

@@ -40,6 +40,10 @@ assert(!program.includes('$"<html lang=\"en\" data-desktop-version='),'Desktop h
 assert(program.includes('Regex.IsMatch(html, @"<html[^>]*\\sdata-desktop-version'),
   'Desktop host materialization no longer rejects destructive root data-desktop-version collisions.');
 assert(!program.includes('html = html.Replace("1.4.9", "1.6.1", StringComparison.Ordinal);'),'Desktop host still depends on the historical 1.4.9→1.6.1 string replacement.');
+assert(!/\?\?\s*["']v?\d+\.\d+\.\d+(?:\.\d+)?["']/.test(program),
+  'Desktop host must not fall back to a real release version when assembly metadata is unavailable.');
+assert(program.includes('FoamLens assembly version metadata is unavailable.'),
+  'Desktop host must fail clearly instead of impersonating a historical release version.');
 assert(!index.includes('FoamLens · v39')&&!index.includes('Desktop v1.3.2'), 'About still contains stale version literals.');
 assert(installer.includes('#define MyAppVersion "1.6.1"'),'Installer fallback version is not v1.6.1.');
 assert(workflow.includes('# FoamLens CI — release validation'),'CI workflow does not use the version-agnostic release-validation identity.');
