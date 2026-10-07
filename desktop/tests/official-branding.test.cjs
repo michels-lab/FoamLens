@@ -46,8 +46,13 @@ assert(!index.includes('class="foamLensLogoSvg"'),'Legacy competing inline FoamL
 assert(program.includes("['launchOfficialLogo','sidebarOfficialLogo','aboutOfficialLogo','aboutPortraitImg','aboutMichelsLabLogo']"),'Packaged smoke does not validate rendered official branding.');
 assert(program.includes('brandingDeadline.Elapsed < TimeSpan.FromSeconds(10)')&&program.includes('brandingStateJson')&&program.includes('naturalWidth')&&program.includes('naturalHeight'),
   'Packaged branding smoke does not wait for decoded assets with per-image diagnostics.');
+const materializedAssetRequiredByHost=asset=>{
+  const segments=asset.split('/');
+  const pathCombine='Path.Combine("assets", "branding", '+segments.map(segment=>'"'+segment+'"').join(', ')+')';
+  return program.includes(asset)||program.includes(pathCombine);
+};
 for(const asset of ['official-lockup.svg','official-mark.svg','michel-duarte-avatar.jpg','michels-lab/official-lockup.png'])
-  assert(program.includes(asset),'Materialized frontend validation does not require '+asset+'.');
+  assert(materializedAssetRequiredByHost(asset),'Materialized frontend validation does not require '+asset+'.');
 assert(program.includes("document.getElementById('launchTitle')")&&program.includes("launchDeadline.Elapsed < TimeSpan.FromSeconds(10)")&&program.includes("titleVisible"),
   'Packaged smoke does not wait for a visibly rendered FoamLens launch surface.');
 assert(program.includes('CoreWebView2NavigationStartingEventArgs')&&program.includes('smokeNavigationId = e.NavigationId')&&program.includes('e.NavigationId == smokeNavigationId.Value'),
