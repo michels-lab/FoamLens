@@ -3914,3 +3914,4 @@ The required interpretation is structural integration rather than sticker placem
 - Extended `version-consistency.test.cjs` to reject any real semantic-version literal used as a null-coalescing runtime fallback.
 - Microsoft Store MSIX workflow now validates pushes to `main` as well as `distribution/**`, preventing future shared-source changes from bypassing the Store channel.
 - No release/tag/publication action is part of this hardening change.
+- CI #918 exposed one remaining test-only version pin: `native-performance.test.cjs` still required the historical literal `FoamLens v1.6.0 3D runtime UI smoke passed`. The product implementation had correctly moved to `DesktopVersionText`; the regression assertion was updated to protect the version-derived behavior rather than a historical release string.
