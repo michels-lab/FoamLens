@@ -29,7 +29,7 @@ jobs:
         shell: pwsh
         run: |
           [xml]$proj = Get-Content 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
-          $v = [string]$proj.Project.PropertyGroup.Version
+          $v = ([string]$proj.Project.PropertyGroup.Version).Trim()
           if ([string]::IsNullOrWhiteSpace($v)) { throw 'FoamLens version could not be resolved.' }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Packaging FoamLens Microsoft Store build v$v"
