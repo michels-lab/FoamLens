@@ -1,6 +1,6 @@
 # Changelog
 
-## Desktop v1.6.1 — Unreleased
+## Desktop v1.6.1 — 2026-10-06
 
 - Reorganized the Field command surface around a real contextual application sidebar for 3D, Spatial Profile, Time Series, Solver Logs and Split without leaking irrelevant controls across workspaces.
 - Kept Case / Region / Field / Component selection independently available for synchronized views A/B/C/D and preserved per-view scientific ownership.
