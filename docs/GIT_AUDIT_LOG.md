@@ -4040,3 +4040,10 @@ The required interpretation is structural integration rather than sticker placem
 
 - Reconciled the GitHub main Store pause and project audit with design branch changes without replacing the newer Windows UX fixes or canonical arc-free app icon. MSIX workflow on merged branch is the paused main version, with no `push` trigger and an unconditionally false job gate. Owner explicitly authorized integrating changes and releasing Windows, **not** Microsoft Store.
 - Windows icon source/master and on-disk ICO are synchronized; PR #35 latest pre-integration Windows CI #37816512451 and MSIX CI #37816516921 succeeded on icon-sync SHA `8ff70d1`. The next release requires *fresh* current-head Windows validation; no new Store CI is requested.
+
+## 2026-10-08 — Authorized FoamLens Desktop v1.8.0 Windows release
+
+- User explicitly authorized merging all PR #35 changes and publishing the next FoamLens release. PR #35 successfully merged into `main` in commit `dbd3a23b8071d248f2168a2b8ed8a10c5eba0cb8`.
+- Bumped assembly, installer, README, fallback version and version-consistency contract to **1.8.0**, retaining frontend v51. Wrote user-visible release notes for the corrected brand, centered Home launch, compact Field Ribbon, camera presets and case-per-view selectors.
+- Release is dispatched by a `release: FoamLens Desktop v1.8.0` commit on `main`; actual binary publication is **pending exact-release-SHA QuickCup, packaged portable/installed Windows and screenshot-to-artifact integrity gates at commit time**. Do not claim the public release exists until GitHub release API confirms tag/assets.
+- Microsoft Store MSIX auto-build, manual job, upload, signing and submission remain indefinitely **PAUSED** by explicit owner instruction. No MSIX run is required or authorized as part of v1.8.0.

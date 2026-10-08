@@ -1,5 +1,15 @@
 # Changelog
 
+## Desktop v1.8.0 — 2026-10-08
+
+- Replaced owner-rejected orbit brackets and cardinal ticks with the arc-free layered-field identity across the product mark, lockup, app SVG, and regenerated seven-size native Windows icon (launcher, installer, shortcuts and taskbar). Canonical sources are shared through Michel's Lab.
+- Enlarged and centered the Home launch logo, product name, description, action buttons and processing notice; strengthened native runtime geometry and contrast checks.
+- Reorganized the Field workspace into a compact one-row primary Ribbon plus mutually exclusive Inspect, Compare and Camera subbars, so scientific 3D views use more of the available window.
+- Restored accessible isometric, front, back, left, right, top and bottom camera presets, and moved Orbit/Pan/Zoom tools into the contextual Camera subbar.
+- Displayed independent case/region selectors for View A, View B and additional views in the 3D sidebar; default is one 3D view and additional views require explicit Compare/Add View.
+- Validated the real OpenFOAM QuickCup integration, VTK scientific references, desktop portable/installable runtime, native screenshot geometry, checksum-bound installer evidence and branding/icon consistency.
+- **Microsoft Store / MSIX generation remains indefinitely paused at the owner's request.** This release supplies only the Windows portable executable and installer, each with SHA-256. No publisher signature is implied.
+
 ## Desktop v1.7.0 — 2026-10-08
 
 - Rebuilt the FoamLens workspace interface around the official layered-field visual identity, with coherent controls and spacing throughout the app.
