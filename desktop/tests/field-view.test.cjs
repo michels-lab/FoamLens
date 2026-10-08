@@ -826,6 +826,40 @@ test('camera includes geometry bounds of all visible physically independent regi
   assert(regionCode.includes('if(!current())return; // A newer case/frame owns the WebGL canvas.'),'Stale frame must not upload buffers to new case');
 });
 
+
+test('physical regions allocate and draw distinct meshes in one shared WebGL depth context',()=>{
+  const setup=[
+    'const calls=[];',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,TRIANGLES:4,LINES:1,LEQUAL:515,',
+    'createBuffer(){const b={id:calls.filter(x=>x[0]==="make").length+1};calls.push(["make",b.id]);return b},',
+    'bindBuffer(){},bufferData(){},deleteBuffer(b){calls.push(["delete",b.id])},depthFunc(){},depthMask(){}};',
+    'const fvState={renderer:{gl},mesh:null,camera:{}};const window={};',
+    'const document={getElementById(id){if(id==="fvSurface"||id==="fvEdges")return {checked:true};if(id==="fvPalette")return {value:"viridis"};return null}};',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-8;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(9),edgePositions:new Float32Array(6)});',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(9);const fvPointSurfaceColors=()=>new Float32Array(9);',
+    'const fvBindDraw=(r,p,col,count,mode,opacity)=>calls.push(["draw",count,mode,opacity,r.gl===gl]);'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.choices.set("solid",{visible:true,opacity:1});',
+    'fvRegionScene.choices.set("fluid",{visible:true,opacity:.8});',
+    'const mesh={cellCount:1,pointCount:3};',
+    'const solid=fvRegionBuildLayer("solid",mesh,{storage:"volume",fieldValues:[2],range:{valid:true,min:0,max:3},group:{name:"T"}},{visible:true,opacity:1},1);',
+    'const fluid=fvRegionBuildLayer("fluid",mesh,{storage:"point",fieldValues:[1,2,3],range:{valid:true,min:1,max:3},group:{name:"U"}},{visible:true,opacity:.8},1);',
+    'fvRegionScene.layers.set("solid",solid);fvRegionScene.layers.set("fluid",fluid);fvRegionRenderLayers();',
+    'fvRegionReleaseLayer(solid);fvRegionReleaseLayer(fluid);',
+    'return calls;'
+  ].join('\n');
+  const calls=new Function(setup+regionCode+exercise)();
+  const draws=calls.filter(x=>x[0]==='draw');
+  assert.equal(draws.length,4);
+  assert(draws.every(x=>x[4]),'Physical layers must use the same GL context');
+  assert.equal(calls.filter(x=>x[0]==='make').length,8);
+  assert.equal(calls.filter(x=>x[0]==='delete').length,8,'Every GPU buffer must be released');
+});
+
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
