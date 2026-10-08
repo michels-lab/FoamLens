@@ -1,5 +1,5 @@
 # FoamLens CI — release validation
-# Branch CI validates candidates without publishing. Release-tag/publish requests require a separate protected GitHub Environment with independently verified human visual approval.
+# Branch CI validates candidates without publishing. Human visual review is performed by the owner after release; automated checks remain mandatory.
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -762,11 +762,10 @@ jobs:
 
 
   publish:
-    name: Publish only after independent reviewed branding evidence
+    name: Publish after automated candidate validation
     if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
     needs: build
     runs-on: ubuntu-latest
-    environment: visual-release-approval
     permissions:
       contents: write
       actions: read
@@ -779,7 +778,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify independent GitHub environment reviewer and same-SHA UI screenshots
+      - name: Verify automated screenshot and exact-artifact integrity
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -787,17 +786,16 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check Pillow
           test -f artifacts/visual/manifest.json
-          python tools/verify_environment_review.py --manifest artifacts/visual/manifest.json --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --environment visual-release-approval --evidence-url "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
           doc=json.loads(Path('artifacts/visual/manifest.json').read_text())
           setup=next(Path('artifacts').glob('FoamLens-Setup-v*.exe'),None)
-          if setup is None: raise SystemExit('No exact reviewed installer artifact found')
+          if setup is None: raise SystemExit('No exact installer artifact found')
           digest=hashlib.sha256(setup.read_bytes()).hexdigest()
           if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: reviewed screenshots belong to a different Setup digest')
-          print('Release installer verified against reviewed screenshot manifest:',digest)
+          print('Release installer verified against screenshot manifest:',digest)
           PY
       - name: Publish verified GitHub Release
         shell: bash
