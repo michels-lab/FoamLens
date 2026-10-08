@@ -808,7 +808,7 @@ test('secondary region field data uses exact physical time; other times show exp
     'fvMeshSnapshotForTime(complete[0],time)',
     'Geometry only; field unavailable at t = ',
     "frame.storage==='surface'",
-    "fvRegionStatus(item.region,item.error)"
+    "if(current())fvRegionStatus(region,String(error?.message||error))"
   ])assert(regionCode.includes(token),'Missing scientific provenance/safety: '+token);
 });
 
@@ -822,6 +822,8 @@ test('camera includes geometry bounds of all visible physically independent regi
   assert(Math.abs(bounds.diagonal-Math.sqrt(29))<1e-12);
   assert.equal(regionApi.fvRegionUnionBounds([{boundsMin:[5,5,5],boundsMax:[1,1,1]}]),null);
   assert(regionCode.includes('fvRegionReleaseLayer(layer)'),'Previous GPU buffers must be explicitly freed');
+  assert(regionCode.includes('i+=2')&&regionCode.includes('Promise.all(regions.slice(i,i+2).map(loadOne))'),'Concurrent OpenFOAM multi-region parsing must stay bounded');
+  assert(regionCode.includes('if(!current())return; // A newer case/frame owns the WebGL canvas.'),'Stale frame must not upload buffers to new case');
 });
 
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
