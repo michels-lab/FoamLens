@@ -108,9 +108,9 @@ assert(source.includes("document.getElementById('fcEnabled')?.checked")&&source.
 for(const id of ['flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom'])assert(source.includes(id),'Camera preset missing: '+id);
 assert(source.includes('flRibbonCameraTools')&&source.includes('flCameraToolsActive'),'Orbit/pan/zoom tools must live in contextual Camera subbar.');
 
-assert(source.includes("flRibbonData('timeSeriesTab','data')"),'Data Time series navigation is missing.');
-assert(source.includes("flRibbonData('profileTab','data')"),'Data spatial profiles navigation is missing.');
-assert(source.includes("flRibbonData('logTab','data')"),'Data solver logs navigation is missing.');
+assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'))")&&source.includes("setAppMode('data');setDataView(view)"),'Data Time series must use canonical Data workspace view navigation.');
+assert(source.includes("flRibbonBind('flRaDataProfiles',()=>flRibbonOpenDataView('profile'))"),'Data spatial profiles must use canonical Data workspace view navigation.');
+assert(source.includes("flRibbonBind('flRaDataLogs',()=>flRibbonOpenDataView('log'))"),'Data solver logs must use canonical Data workspace view navigation.');
 assert(source.includes('function flRibbonOpenData2DCompare()'),'Data 2D comparison entry point is missing.');
 assert(source.includes("flRibbonBind('flRaDifference',()=>flRibbonOpenData2DCompare())"),
   '2D difference button incorrectly opens advanced Analysis instead of Data.');
