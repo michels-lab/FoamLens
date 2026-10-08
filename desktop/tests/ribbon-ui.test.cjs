@@ -112,6 +112,14 @@ assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataVi
 assert(source.includes("flRibbonBind('flRaDataProfiles',()=>flRibbonOpenDataView('profile'))"),'Data spatial profiles must use canonical Data workspace view navigation.');
 assert(source.includes("flRibbonBind('flRaDataLogs',()=>flRibbonOpenDataView('log'))"),'Data solver logs must use canonical Data workspace view navigation.');
 assert(source.includes('function flRibbonOpenData2DCompare()'),'Data 2D comparison entry point is missing.');
+
+const tabHandlers=source.slice(source.indexOf("document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click'"),
+  source.indexOf("flRibbonBind('flRaOpenFiles'"));
+assert(tabHandlers.includes("else if(key==='data')try{setAppMode('data')}catch{}"),
+  'Data tab must navigate through canonical Data mode, not override the selected plot');
+assert(!tabHandlers.includes("setDataView("),
+  'Returning to Data must preserve the current Time series / Profile / Logs / Catalog view');
+
 assert(source.includes("flRibbonBind('flRaDifference',()=>flRibbonOpenData2DCompare())"),
   '2D difference button incorrectly opens advanced Analysis instead of Data.');
 
