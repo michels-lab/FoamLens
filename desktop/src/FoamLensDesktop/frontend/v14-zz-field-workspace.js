@@ -596,7 +596,7 @@ function fwPromoteViewCaseSelectors(){
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
-  fwAdoptFieldNode('fieldViewPanel','fw3DHost');fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
+  fwAdoptFieldNode('fieldViewPanel','fw3DHost');fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');fwAdoptFieldNode('fcPanel','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
   const compare=document.getElementById('fcPanel');if(compare){compare.open=false;compare.classList.add('fwCompareConfig')}
   fwPromoteViewCaseSelectors();
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
@@ -641,6 +641,7 @@ function fwInstall(){
   // controls in Data; CSS hiding could never fix that ownership error.
   if(fwFieldReady()){
     fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');
+    fwAdoptFieldNode('fcPanel','fw3DControlsHost');
     fwAdoptFieldNode('fieldViewPanel','fw3DHost');
   }
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
