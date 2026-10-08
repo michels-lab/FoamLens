@@ -609,6 +609,7 @@ internal sealed class FoamLensForm : Form
                   const a=document.getElementById('fvCase'),b=document.getElementById('fcCase');
                   const secondary=document.getElementById('fcViewport');
                   const compare=document.getElementById('fcEnabled');
+                  const compareRuntimeEnabled=window.FoamLensFieldCompare?.isEnabled?.();
                   const tools=document.querySelector('.fvViewTools');
                   const bounds=ribbon?.getBoundingClientRect();
                   const checks={
@@ -618,7 +619,7 @@ internal sealed class FoamLensForm : Form
                     subbarsInitiallyClosed:!!shelf&&shelf.classList.contains('hidden'),
                     caseSelectorsIndependent:!!caseHost&&caseHost.contains(a)&&caseHost.contains(b)&&a!==b,
                     primarySelectorVisible:!!a&&a.getBoundingClientRect().width>30,
-                    compareOffByDefault:!!compare&&!compare.checked&&typeof fcState!=='undefined'&&!fcState.enabled,
+                    compareOffByDefault:!!compare&&!compare.checked&&compareRuntimeEnabled===false,
                     secondaryCaseHidden:!!b&&getComputedStyle(b.closest('.row2')).display==='none',
                     secondaryCanvasHidden:!!secondary&&getComputedStyle(secondary).display==='none',
                     cameraControlsDocked:!!tools&&tools.parentElement===shelf,
@@ -631,7 +632,7 @@ internal sealed class FoamLensForm : Form
                   checks.presetsVisible=!!iso&&!!front&&iso.getBoundingClientRect().width>=20&&front.getBoundingClientRect().width>=20;
                   cameraTab?.click();
                   checks.cameraCloses=!!shelf&&shelf.classList.contains('hidden');
-                  return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled:typeof fcState!=='undefined'&&!!fcState.enabled,compareUserRequested:typeof fwState!=='undefined'&&!!fwState.compareUserRequested,ribbonHeight:bounds?.height||0,
+                  return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled,compareUserRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,ribbonHeight:bounds?.height||0,
                     ribbonWidth:ribbon?.clientWidth||0,ribbonScrollWidth:ribbon?.scrollWidth||0};
                 })()
                 """);
