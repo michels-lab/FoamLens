@@ -34,9 +34,18 @@ const vector=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','
 assert(!/A360|A280|M190 275|M190 750|M95 78|M95 418/.test(vector),'Windows ICO SVG source still has owner-rejected bracket arcs.');
 const generator=fs.readFileSync(path.join(root,'..','tools','generate_windows_icon.py'),'utf8');
 assert(generator.includes('assert_arc_free(markup)')&&generator.includes('resvg_py.svg_to_bytes'),'Windows icon is not reproducibly derived from the canonical SVG.');
-for(const workflow of ['build-foamlens-desktop.yml','build-store-msix.yml']){
-  const contents=fs.readFileSync(path.join(root,'..','.github','workflows',workflow),'utf8');
-  assert(contents.includes('python tools/generate_windows_icon.py --check'),'CI must verify icon parity before publishing '+workflow);
+const windowsWorkflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+assert(windowsWorkflow.includes('python tools/generate_windows_icon.py --check'),
+  'Active Windows installer release CI must verify native icon/source parity.');
+const storeWorkflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-store-msix.yml'),'utf8');
+const storePaused=!storeWorkflow.includes('\n  push:')&&
+  storeWorkflow.includes("github.event_name == 'owner-explicitly-resumed-microsoft-store-builds'");
+if(!storePaused){
+  assert(storeWorkflow.includes('python tools/generate_windows_icon.py --check'),
+    'Active Microsoft Store CI must verify source/icon parity.');
+} else {
+  assert(storeWorkflow.includes('workflow_dispatch:'),
+    'Paused Microsoft Store workflow must retain explicit owner-resumption controls.');
 }
 
 console.log('Windows native icon regression passed: EXE, window/taskbar, installer and shortcuts use FoamLens.ico.');
