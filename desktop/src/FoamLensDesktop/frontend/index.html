@@ -973,7 +973,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
 .logo{width:48px;height:48px;border-radius:16px;background:rgba(6,36,62,.82);box-shadow:0 12px 28px rgba(27,111,216,.20);position:relative;flex:0 0 auto;display:grid;place-items:center;overflow:hidden}
 .logo:before,.logo:after{display:none!important}
 .sidebarOfficialMark{width:46px;height:46px;object-fit:contain}
-.aboutMarkBox.officialAboutMark{width:min(380px,100%);height:auto;aspect-ratio:8/3;border-radius:20px;border:1px solid rgba(111,174,224,.34);padding:10px 14px;background:rgba(250,253,255,.97);box-shadow:0 18px 45px rgba(0,0,0,.18);overflow:hidden}
+.aboutMarkBox.officialAboutMark{width:154px;height:154px;aspect-ratio:1;border-radius:26px;border:1px solid rgba(111,174,224,.34);padding:12px;background:radial-gradient(circle at 50% 40%,rgba(30,121,206,.18),rgba(6,29,57,.2));box-shadow:0 15px 35px rgba(0,0,0,.18);overflow:hidden}
 .aboutMarkBox.officialAboutMark:before,.aboutMarkBox.officialAboutMark:after{display:none!important}
 .aboutOfficialLockup{width:100%;height:100%;object-fit:contain}
 </style>
@@ -1971,7 +1971,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
         <div class="aboutQuote" id="aboutQuote">From simulation data to evidence you can inspect.</div>
       </div>
       <div class="aboutProductMark" aria-label="FoamLens mark">
-        <div class="aboutMarkBox officialAboutMark"><img id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-lockup.svg" alt="FoamLens — Simulation to Insight"></div>
+        <div class="aboutMarkBox officialAboutMark"><img id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg" alt="FoamLens official field mark"></div>
         <div class="aboutProductSub">OpenFOAM analysis workspace</div>
       </div>
     </div>
@@ -9254,8 +9254,8 @@ updateMeta();
   if(!openBtn||!overlay||!closeBtn)return;
 
   const copy={
-    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring data, diagnosing numerical behavior, comparing cases, reviewing evidence-based findings, and exporting scientific figures from one place.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandTag:'Ideas · Apps · A better tomorrow',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
-    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'FoamLens es un espacio de análisis de OpenFOAM que descubre resultados, explora datos, diagnostica comportamiento numérico, compara casos, revisa hallazgos basados en evidencia y exporta figuras científicas desde un solo lugar.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandTag:'Ideas · Apps · Un mejor mañana',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
+    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring data, diagnosing numerical behavior, comparing cases, reviewing evidence-based findings, and exporting scientific figures from one place.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandTag:'TOOLS WITH IDENTITY.',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
+    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'FoamLens es un espacio de análisis de OpenFOAM que descubre resultados, explora datos, diagnostica comportamiento numérico, compara casos, revisa hallazgos basados en evidencia y exporta figuras científicas desde un solo lugar.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandTag:'TOOLS WITH IDENTITY.',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
   };
 
 
