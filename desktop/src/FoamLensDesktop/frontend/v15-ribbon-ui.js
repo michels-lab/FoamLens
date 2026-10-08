@@ -202,7 +202,7 @@ function flRibbonCss(){
     '#flRibbonPanel-field .flRibbonTimeGroup{min-width:290px;max-width:none;flex:1 1 380px}',
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 300px;grid-template-columns:auto auto auto minmax(70px,1fr) auto auto}',
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:65px}',
-    '@media(max-width:1120px){#flRibbonPanel-field .flRibbonAction .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonAction{width:32px;justify-content:center}#flRibbonPanel-field .flRibbonTimeGroup{min-width:275px}}'
+    '@media(max-width:1120px){#flRibbonPanel-field .flRibbonAction .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonAction{width:32px;justify-content:center}#flRibbonPanel-field .flRibbonTimeGroup{min-width:275px}}',
     'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{padding:7px 11px;gap:10px}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
