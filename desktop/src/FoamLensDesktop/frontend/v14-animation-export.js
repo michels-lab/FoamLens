@@ -82,4 +82,4 @@ function vaInstallUi(){
 }
 function vaInstall(){if(vaInstallUi())return;const retry=()=>{if(vaInstallUi())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
 vaInstall();
-window.FoamLensAnimationExport={exportVideo:vaExport,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList};
+window.FoamLensAnimationExport={exportVideo:vaExport,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList,isExporting:()=>vaState.exporting};
