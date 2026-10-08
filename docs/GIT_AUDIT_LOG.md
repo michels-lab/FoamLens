@@ -4093,6 +4093,11 @@ The required interpretation is structural integration rather than sticker placem
 - Connector-side syntax parsing of 10 affected JS/test modules and 9 focused integration invariants passed on the integration branch. These are structural checks only, **not** a substitute for actual Windows/QuickCup/native screenshots or installed-app functionality.
 
 
+## 2026-10-08 — 1024px Field Ribbon clipping & failed-build visual evidence
+- Packaged Windows smoke passed real Data↔Field ownership and Ribbon navigation, then caught Field toolbar overflow at 1024px: scrollWidth=1352 against clientWidth=1024. UI fault, not a testing false positive.
+- Field main Ribbon uses accessible, bounded icon-only actions under 1460px; labels remain in DOM and on hover/accessibility metadata. At <=760px redundant quick-camera icons yield to the Camera subbar. Full controls remain reachable; scientific scene is not resized or obscured by a second toolbar row.
+- CI now uploads visual screenshots and native smoke logs even on failure, without uploading duplicate binaries. Await real Windows 1024px geometry validation; do not merge/release until exact-head full checks succeed.
+
 ## 2026-10-08 — Multi-region FieldScene prototype (issue #40, development only)
 
 - **Architecture:** added actual physical-region scene layers to the existing Field WebGL canvas. Every discovered complete physical mesh region is listed and enabled by default, with per-region visibility, field selectors, opacity, Show all / Only primary buttons; primary region retains existing probe/vector/slice controls. Regions are **not** conflated with OpenFOAM processor partitions.
@@ -4134,8 +4139,7 @@ The required interpretation is structural integration rather than sticker placem
 - Neutral shell rendered translucently around colored internal faces; GPU face buffers freed on region hide, case change, timestep change or error. Invalid counts fall back to explicit neutral geometry, not synthetic data.
 - Added dynamic V8 regression for 2-face fixture, real face index mapping, draw opacity, 6 GPU buffer allocations/releases. Runtime packaged Windows and a physical multiRegion fixture still required before release.
 
-
-## 2026-10-08 — 1024px Field Ribbon clipping & failed-build visual evidence
-- Packaged Windows smoke passed Data↔Field ownership and Ribbon navigation, then caught toolbar overflow at 1024px: scrollWidth=1352 versus clientWidth=1024.
-- Field main Ribbon uses bounded accessible icon actions under 1460px. At <=760px redundant quick cameras move to the always-available Camera subbar; no extra ribbon row steals scene space.
-- CI now saves visual screenshots and smoke logs even when a packaged app test fails, without duplicate binary uploads. Windows 1024px geometry acceptance pending; no merge/release yet.
+## 2026-10-08 — Sync to validated main and unified scientific opacity
+- PR #39 merged into main after exact-head QuickCup and packaged/installed Windows CI passed. PR #41 preserved independent physical-region WebGL scene, exact-time/association field mapping, independent native smoke checks and all additional scientific regressions.
+- Opaque surfaces still write depth; translucent outer shells and fields with interior/face rendering no longer block depth for other regions in the same scene. This is standard alpha blending, NOT order-independent transparency; a future rendered multiregion fixture must still validate occlusion and exact frame consistency.
+- The integration commit has both branch head and main as parents; no release or Store publication.

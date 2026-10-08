@@ -803,7 +803,8 @@ jobs:
             artifacts/visual/
           if-no-files-found: error
 
-      # Retain screenshots and smoke logs when the packaged app fails.
+      # Keep screenshots and smoke logs accessible when the executable fails.
+      # A failed build should not erase the very evidence needed to fix it.
       - name: Preserve failed Windows UI validation evidence
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4

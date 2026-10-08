@@ -780,7 +780,7 @@ assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.
 const regionCode=source.slice(regionBegin,regionEnd);
 const regionApi=new Function(
   'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
-  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene};'
+  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
 )();
 
 test('one 3D canvas recognizes distinct physical regions without treating processor partitions as regions',()=>{
@@ -860,6 +860,17 @@ test('camera fit excludes hidden primary and secondary regions without inventing
     'Visibility changes must refit newly displayed physical regions');
 });
 
+
+test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
+  const writable=regionApi.fvSurfaceDepthWritable;
+  assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
+  assert.equal(writable(.92),false,'A translucent primary shell must not hide underlying physical regions');
+  assert.equal(writable(.8,{faceField:false}),false,'Translucent secondary regions must not occlude neighboring regions');
+  assert.equal(writable(1,{faceField:true}),false,'Neutral shell surrounding real internal faces must not hide the face field');
+  assert.equal(writable(1,{interior:true}),false,'Interior slice/iso views must not be masked by the outer shell');
+  assert(source.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}))'));
+  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}))'));
+});
 
 test('physical regions allocate and draw distinct meshes in one shared WebGL depth context',()=>{
   const setup=[
