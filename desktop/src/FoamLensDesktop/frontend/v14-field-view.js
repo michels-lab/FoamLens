@@ -673,7 +673,7 @@ async function fvRegionLoadFrame(c,time){
   const current=()=>seq===fvRegionScene.sequence&&fvRegionScene.caseId===String(c.id);
   for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
   fvRegionScene.layers.clear();fvRender();
-  const regions=fvRegionNames(c).filter(region=>region!==primary);
+  const regions=fvRegionNames(c).filter(region=>region!==primary),failedVisible=[];
   // Bound simultaneous real OpenFOAM parses to protect desktop memory.
   const loadOne=async region=>{
     if(!current())return;
@@ -700,13 +700,14 @@ async function fvRegionLoadFrame(c,time){
       const layer=fvRegionBuildLayer(region,mesh,{...data,status},choice,time);
       if(layer){fvRegionScene.layers.set(region,layer);fvRender()}
       fvRegionStatus(region,status)
-    }catch(error){if(current())fvRegionStatus(region,String(error?.message||error))}
+    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
   if(!current())return;
   if(fvRegionScene.fitPending&&fvRegionScene.layers.size){fvRegionScene.fitPending=false;fvRegionFitCamera()}
   else fvRender()
+  if(failedVisible.length&&window.FoamLensAnimationExport?.isExporting?.())throw new Error('Cannot export an incomplete multiregion frame: '+failedVisible.join('; '))
 }
 window.FoamLensRegionScene={
   regionNames:fvRegionNames,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
@@ -1006,7 +1007,7 @@ async function fvLoadFrame(index=null,options={}){
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
   if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
-  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);const regionTask=fvRegionLoadFrame(c,time);if(window.FoamLensAnimationExport?.isExporting?.())await regionTask;else regionTask.catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
+  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);const regionTask=fvRegionLoadFrame(c,time);if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}else regionTask.catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
 }
 function fvVectorArray(parsed,count){
