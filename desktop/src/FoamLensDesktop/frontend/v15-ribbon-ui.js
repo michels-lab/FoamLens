@@ -74,8 +74,14 @@ function flRibbonBuild(){
     // Product-wide About and Updates belong in permanent application chrome.
   ];
   const data=[
-    flRibbonGroup('Data','Datos',[
-      flRibbonActionHtml('flRaCatalog','database','Catalog','Catálogo'),
+    flRibbonGroup('2D results','Resultados 2D',[
+      flRibbonActionHtml('flRaDataTime','chart','Time series','Series temporales'),
+      flRibbonActionHtml('flRaDataProfiles','profile','Spatial profiles','Perfiles espaciales'),
+      flRibbonActionHtml('flRaDataLogs','log','Solver logs','Logs del solver'),
+      flRibbonActionHtml('flRaCatalog','database','Catalog','Catálogo')
+    ]),
+    flRibbonGroup('Curves','Curvas',[
+      flRibbonActionHtml('flRaDataCompare','delta','Compare 2D','Comparar 2D'),
       flRibbonActionHtml('flRaSelectAll','case','Select all','Seleccionar todo'),
       flRibbonActionHtml('flRaShowSeries','eye','Show series','Mostrar series'),
       flRibbonActionHtml('flRaClear','reset','Clear','Limpiar','','danger')
@@ -287,6 +293,20 @@ function flRibbonMode(mode,tab){
 function flRibbonData(tabId,tabKey){
   flRibbonSelectTab(tabKey||'data');try{setAppMode('data')}catch{};requestAnimationFrame(()=>flRibbonClick(tabId))
 }
+function flRibbonOpenData2DCompare(){
+  flRibbonSelectTab('data');
+  try{setAppMode('data')}catch{}
+  if(typeof currentDataView==='string'&&currentDataView==='catalog'){
+    const defaultView=document.getElementById('timeSeriesTab');
+    if(defaultView&&!defaultView.disabled)defaultView.click()
+  }
+  requestAnimationFrame(()=>{
+    const card=document.getElementById('flDataComparisonCard');
+    if(!card)return;
+    window.FoamLensSidebarSections?.sbSetCollapsed?.(card,false);
+    card.scrollIntoView?.({block:'nearest',behavior:'smooth'})
+  })
+}
 function flRibbonField(fn,tabKey){
   flRibbonSelectTab(tabKey||'field');try{setAppMode('field')}catch(e){console.error(e);return}requestAnimationFrame(()=>{try{fn&&fn()}catch(e){console.error(e)}})
 }
@@ -454,7 +474,11 @@ function flRibbonInstall(){
   flRibbonBind('flRaReview',()=>flRibbonMode('review','home'));
   flRibbonBind('flRaLive',()=>flRibbonMode('live','home'));
 
+  flRibbonBind('flRaDataTime',()=>flRibbonData('timeSeriesTab','data'));
+  flRibbonBind('flRaDataProfiles',()=>flRibbonData('profileTab','data'));
+  flRibbonBind('flRaDataLogs',()=>flRibbonData('logTab','data'));
   flRibbonBind('flRaCatalog',()=>flRibbonData('catalogTab','data'));
+  flRibbonBind('flRaDataCompare',()=>flRibbonOpenData2DCompare());
   flRibbonBind('flRaSelectAll',()=>flRibbonClick('selectAll'));
   flRibbonBind('flRaShowSeries',()=>flRibbonClick('showSeriesTop'));
   flRibbonBind('flRaClear',()=>flRibbonClick('clear'));
@@ -480,7 +504,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaAnalysisGeneral',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('generalAnalysisNav'))});
   flRibbonBind('flRaCoupling',()=>flRibbonAnalysis('coupling','analysis'));
   flRibbonBind('flRaFront',()=>flRibbonAnalysis('front','analysis'));
-  flRibbonBind('flRaDifference',()=>flRibbonAnalysis('difference','analysis'));
+  flRibbonBind('flRaDifference',()=>flRibbonOpenData2DCompare());
   flRibbonBind('flRaMapping',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmMappingNav'))});
   flRibbonBind('flRaPhaseMomentum',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmPhaseNav'))});
   flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'));

@@ -501,6 +501,67 @@ internal sealed class FoamLensForm : Form
                         $"FoamLens v1.6 Field Ribbon/surface did not mount cleanly: {fieldViewUiJson}");
             }
 
+            // Native product separation contract: Data owns only 2D time series,
+            // spatial profiles, solver logs, catalog and curve differences.
+            // Field is initialized outside the Data subtree, not CSS-hidden there.
+            var dataOwnershipJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  const fieldControls=document.getElementById('fieldViewControls');
+                  const fieldPanel=document.getElementById('fieldViewPanel');
+                  const fieldCompare=document.getElementById('fcPanel');
+                  const originalRoot=document.getElementById('flFieldBootstrapHost');
+                  const loadCard=document.getElementById('countBadge')?.closest('.card');
+                  const dataCompareCard=document.getElementById('flDataComparisonCard');
+                  const dataCompareHost=document.getElementById('flDataComparisonHost');
+                  const dataDifference=document.getElementById('differenceTools');
+                  const analysisCard=document.getElementById('flAnalysisInspectorCard');
+                  const checks={
+                    fieldOwnedRoot:!!originalRoot&&originalRoot.dataset.foamlensOwner==='field',
+                    fieldControlsNotInsideData:!!fieldControls&&!loadCard?.contains(fieldControls),
+                    fieldCanvasNotInsideData:!!fieldPanel&&!document.getElementById('chartViewport')?.contains(fieldPanel),
+                    fieldCompareNotInsideData:!!fieldCompare&&!loadCard?.contains(fieldCompare),
+                    dataDifferenceOwnedByData:!!dataCompareCard&&dataCompareCard.dataset.foamlensOwner==='data'&&!!dataCompareHost&&dataCompareHost.contains(dataDifference),
+                    dataDifferenceNotInsideAnalysis:!!analysisCard&&!analysisCard.contains(dataDifference),
+                    profileControlsPreserved:!!document.getElementById('profileLine')&&!!document.getElementById('profileTime'),
+                    logControlsPreserved:!!document.getElementById('logFamily'),
+                    timeSeriesControlsPreserved:!!document.getElementById('timeSeriesVariable'),
+                    dataNavigationComplete:['flRaDataTime','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'].every(id=>!!document.getElementById(id))
+                  };
+                  setAppMode('data');
+                  const afterData={
+                    loadUnchanged:!!loadCard&&!loadCard.contains(fieldControls)&&!loadCard.contains(fieldCompare),
+                    chartUnchanged:!document.getElementById('chartViewport')?.contains(fieldPanel),
+                    dataCompareExists:!!document.getElementById('flDataComparisonCard')
+                  };
+                  setAppMode('field');
+                  const fieldHost=document.getElementById('fw3DControlsHost');
+                  const fieldCanvasHost=document.getElementById('fw3DHost');
+                  const afterField={
+                    controlsInField:!!fieldHost&&fieldHost.contains(fieldControls),
+                    canvasInField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
+                    compareInField:!!fieldHost&&fieldHost.contains(fieldCompare)
+                  };
+                  setAppMode('data');
+                  const afterReturn={
+                    controlsStillField:!!fieldHost&&fieldHost.contains(fieldControls)&&!loadCard.contains(fieldControls),
+                    canvasStillField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
+                    compareStillField:!!fieldHost&&fieldHost.contains(fieldCompare)&&!loadCard.contains(fieldCompare),
+                    data2DStillData:!!dataCompareHost&&dataCompareHost.contains(dataDifference)
+                  };
+                  setAppMode('workspace');
+                  return {pass:[...Object.values(checks),...Object.values(afterData),...Object.values(afterField),...Object.values(afterReturn)].every(Boolean),
+                    checks,afterData,afterField,afterReturn};
+                })()
+                """);
+            using (var dataOwnership = JsonDocument.Parse(dataOwnershipJson))
+            {
+                if (!dataOwnership.RootElement.TryGetProperty("pass", out var ownershipPassed) || !ownershipPassed.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens Data 2D vs Field 3D ownership smoke failed: {dataOwnershipJson}");
+            }
+            Log($"FoamLens Data/Field lifecycle and plotting navigation ownership verified: {dataOwnershipJson}");
+
             var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{

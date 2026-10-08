@@ -489,8 +489,28 @@ function fwInstall3DProfilePicker(){
   const canvas=document.getElementById('fvCanvas');if(!canvas||canvas.dataset.fwProfilePicker)return;canvas.dataset.fwProfilePicker='1';canvas.addEventListener('click',fwHandle3DProfileClick,true)
 }
 
+// The existing 2D control DOM has one canonical Data owner; Field borrows it
+// only while active and restores exact original parents/order when leaving.
+const fwDataControlIds=['playbackGlobal','timeSeriesControls','profileControls','logControls'];
+const fwDataControlOrigins=new Map();
 function fwOwnCompanionControls(){
-  for(const id of ['playbackGlobal','timeSeriesControls','profileControls','logControls'])fwAdoptFieldNode(id,'fw2DControlsHost')
+  for(const id of fwDataControlIds){
+    const node=document.getElementById(id);
+    if(node&&!fwDataControlOrigins.has(id)){
+      fwDataControlOrigins.set(id,{parent:node.parentNode,next:node.nextSibling})
+    }
+    fwAdoptFieldNode(id,'fw2DControlsHost')
+  }
+}
+function fwReturnCompanionControlsToData(){
+  // Reverse ensures each stored next sibling is already back in its owner.
+  for(const id of [...fwDataControlIds].reverse()){
+    const node=document.getElementById(id),origin=fwDataControlOrigins.get(id);
+    if(!node||!origin?.parent?.isConnected)continue;
+    const before=origin.next?.parentNode===origin.parent?origin.next:null;
+    origin.parent.insertBefore(node,before);
+    node.dataset.fwOwner='data'
+  }
 }
 function fwEnsureCompanionSurface(){
   const host=document.getElementById('fw2DHost');if(!host)return null;
@@ -584,6 +604,7 @@ function fwMount3D(){
   try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
 }
 function fwEnter(){
+  if(!fwState.active)fwState.dataViewBeforeField=typeof currentDataView==='string'?currentDataView:'timeseries';
   fwCreateSurface();if(!fwMount3D())return;
   fwState.active=true;activeAppMode='field';
   for(const m of ['workspace','data','analysis','review','live','field'])document.body.classList.toggle('appMode-'+m,m==='field');
@@ -604,7 +625,14 @@ function fwEnter(){
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
   document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
-  try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false)
+  try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
+  fwReturnCompanionControlsToData();
+  const previous=fwState.dataViewBeforeField;
+  if(previous&&typeof currentDataView==='string'&&previous!==currentDataView){
+    currentDataView=previous;
+    try{updateDatasetViewUI()}catch(e){console.error(e)}
+  }
+  fwState.dataViewBeforeField=null
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();

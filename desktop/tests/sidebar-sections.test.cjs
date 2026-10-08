@@ -28,6 +28,7 @@ test('sidebar collapse state is sanitized to booleans',()=>{
 
 test('case management defaults collapsed while other cards default expanded',()=>{
   assert.equal(api.sbDefaultCollapsed('case-comparison'),true);
+  assert.equal(api.sbDefaultCollapsed('data-2d-comparison'),true);
   for(const key of ['load-data','figure','figure-element-editor','selected-curve','phase-change'])assert.equal(api.sbDefaultCollapsed(key),false);
 });
 
@@ -82,4 +83,10 @@ for(const name of passed)console.log('  ✓ '+name);
 
 test('Data never exposes controls for side-by-side 3D geometry',()=>{
  assert(source.includes("if(key==='case-comparison')return false"),'Data sidebar still mixes in Field 3D comparison settings.');
+});
+
+test('2D comparisons are Data-owned and scoped to graphs, not the 3D canvas',()=>{
+  assert(source.includes("if(card.id==='flDataComparisonCard')return 'data-2d-comparison'"));
+  assert(source.includes("if(key==='data-2d-comparison')return view!=='catalog'"));
+  assert(source.includes("if(mode==='field'||mode==='workspace'||mode==='review'||mode==='live')return false"));
 });
