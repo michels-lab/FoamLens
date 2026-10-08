@@ -188,14 +188,21 @@ internal sealed class FoamLensForm : Form
                       const box=x=>x?.getBoundingClientRect();
                       const visible=x=>{const r=box(x);return !!r&&r.width>30&&r.height>15};
                       const expected=['Instagram','Facebook','LinkedIn','GitHub','Email'];
-                      return {ok:overlay?.classList.contains('open')&&visible(shell)&&
-                        visible(portrait)&&portrait.complete&&portrait.naturalWidth>0&&
-                        visible(studio)&&studio.complete&&studio.naturalWidth>0&&
-                        visible(product)&&product.complete&&product.naturalWidth>0&&
-                        visible(author)&&visible(slogan)&&slogan.textContent.trim()==='TOOLS WITH IDENTITY.'&&
-                        links.length===5&&links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon'))),
+                      const checks={
+                        overlayOpen:!!overlay?.classList.contains('open'),
+                        shellVisible:visible(shell),
+                        portraitVisible:visible(portrait)&&!!portrait?.complete&&portrait.naturalWidth>0,
+                        studioVisible:visible(studio)&&!!studio?.complete&&studio.naturalWidth>0,
+                        productVisible:visible(product)&&!!product?.complete&&product.naturalWidth>0,
+                        authorVisible:visible(author),
+                        sloganVisible:visible(slogan)&&slogan.textContent.trim()==='TOOLS WITH IDENTITY.',
+                        networkCount:links.length===5,
+                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon')))
+                      };
+                      return {ok:Object.values(checks).every(Boolean),checks,
                         viewport:innerWidth,portrait:box(portrait)?.width,studio:box(studio)?.width,
-                        slogan:slogan?.textContent,scrollHeight:shell?.scrollHeight,clientHeight:shell?.clientHeight};
+                        product:box(product)?.width,slogan:slogan?.textContent,
+                        scrollHeight:shell?.scrollHeight,clientHeight:shell?.clientHeight};
                     })()
                     """);
                 if (!JsonDocument.Parse(about).RootElement.GetProperty("ok").GetBoolean())
