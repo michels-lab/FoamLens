@@ -4133,3 +4133,9 @@ The required interpretation is structural integration rather than sticker placem
 - Region compositor now triangulates actual OpenFOAM internal faces when association=surface and exact face counts match. Colors use the actual indexed `internalField` face values and region-specific video range; never color unknown boundary patches as if they were measured.
 - Neutral shell rendered translucently around colored internal faces; GPU face buffers freed on region hide, case change, timestep change or error. Invalid counts fall back to explicit neutral geometry, not synthetic data.
 - Added dynamic V8 regression for 2-face fixture, real face index mapping, draw opacity, 6 GPU buffer allocations/releases. Runtime packaged Windows and a physical multiRegion fixture still required before release.
+
+
+## 2026-10-08 — 1024px Field Ribbon clipping & failed-build visual evidence
+- Packaged Windows smoke passed Data↔Field ownership and Ribbon navigation, then caught toolbar overflow at 1024px: scrollWidth=1352 versus clientWidth=1024.
+- Field main Ribbon uses bounded accessible icon actions under 1460px. At <=760px redundant quick cameras move to the always-available Camera subbar; no extra ribbon row steals scene space.
+- CI now saves visual screenshots and smoke logs even when a packaged app test fails, without duplicate binary uploads. Windows 1024px geometry acceptance pending; no merge/release yet.

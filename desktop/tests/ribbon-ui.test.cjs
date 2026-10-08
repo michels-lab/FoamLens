@@ -135,5 +135,18 @@ assert(source.includes('.flRibbonLabel{font-size:10px')&&source.includes('.flFie
   'Ribbon buttons must have one consistent typography model');
 for(const id of ['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'])
   assert(source.includes(id),'Direct camera shortcut must remain visible: '+id);
+
+const compactCssStart=source.indexOf('function flRibbonCss()');
+const compactCssEnd=source.indexOf('function flRibbonSelectTab(',compactCssStart);
+assert(compactCssStart>0&&compactCssEnd>compactCssStart,'Ribbon CSS generator is missing');
+const compactCss=new Function(source.slice(compactCssStart,compactCssEnd)+';return flRibbonCss()')();
+assert(compactCss.includes('@media(max-width:1460px)')&&compactCss.includes('#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}'),
+  'Laptop Field mode must collapse verbose labels to semantic icon controls');
+assert(compactCss.includes('#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px'),
+  'Field icon controls need bounded button widths in a one-row Ribbon');
+assert(compactCss.includes('@media(max-width:760px)')&&compactCss.includes('.flRibbonQuickCameraGroup{display:none}'),
+  'On compact viewports, duplicate quick cameras must yield to the Camera subbar');
+assert(source.includes("aria-label=\"'+en.replace"),'Icon-only Ribbon controls need accessible names');
+
 for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
   assert(source.includes(id),'Data must expose its own plotting and compare actions: '+id);
