@@ -1,5 +1,5 @@
 # FoamLens CI — release validation
-# Branch CI validates candidates without publishing. A main push whose commit message starts with `release:` publishes the validated build automatically.
+# Branch CI validates candidates without publishing. Release-tag/publish requests require a separate protected GitHub Environment with independently verified human visual approval.
 name: Build FoamLens Desktop for Windows
 
 on:
@@ -168,6 +168,8 @@ jobs:
   build:
     needs: quickcup-regression
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -563,6 +565,7 @@ jobs:
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
           $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-launch.png'
+          $env:FOAMLENS_BRAND_EVIDENCE_DIR=Join-Path (Resolve-Path 'artifacts').Path 'visual/portable'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
             $env:FOAMLENS_SMOKE_MIN_CASES='4'
@@ -683,6 +686,7 @@ jobs:
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
           $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-launch.png'
+          $env:FOAMLENS_BRAND_EVIDENCE_DIR=Join-Path (Resolve-Path 'artifacts').Path 'visual/installed'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
             $env:FOAMLENS_SMOKE_MIN_CASES='4'
@@ -728,6 +732,16 @@ jobs:
           }
           Write-Host 'FoamLens installer installed successfully and the installed executable passed its startup smoke test.'
 
+      - name: Validate real Home and About visual evidence at two viewport sizes
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check Pillow
+          $v='${{ steps.ver.outputs.version }}'
+          python tools/make_visual_evidence.py --evidence-dir artifacts/visual/installed --artifact "artifacts/FoamLens-Setup-v$v.exe" --source-sha $env:GITHUB_SHA --platform windows --output artifacts/visual/manifest.json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not bind rendered Windows screenshots to installer SHA-256.' }
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about --capture-only
+          if ($LASTEXITCODE -ne 0) { throw 'Rendered UI evidence failed: missing, blank, stale, or incorrect screenshots.' }
+
       - name: Upload FoamLens Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -743,42 +757,69 @@ jobs:
             artifacts/FoamLens-Installed-smoke.png
             artifacts/FoamLens-Portable-smoke.log
             artifacts/FoamLens-Installed-smoke.log
+            artifacts/visual/
           if-no-files-found: error
 
-      - name: Publish GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
-        shell: pwsh
+
+  publish:
+    name: Publish only after independent reviewed branding evidence
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: visual-release-approval
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FoamLens-Windows-v${{ needs.build.outputs.version }}
+          path: artifacts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify independent GitHub environment reviewer and same-SHA UI screenshots
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          $v='${{ steps.ver.outputs.version }}'
-          if ($env:GITHUB_REF_NAME -like 'v*') { $tag=$env:GITHUB_REF_NAME } else { $tag="v$v" }
-
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release delete-asset $tag "FoamLens-Desktop-v$v.exe" --repo $env:GITHUB_REPOSITORY --yes *> $null
-            gh release delete-asset $tag "FoamLens-Desktop-v$v.exe.sha256" --repo $env:GITHUB_REPOSITORY --yes *> $null
-          }
-
-          $assets=@(
-            "artifacts/FoamLens-Portable-v$v.exe",
-            "artifacts/FoamLens-Portable-v$v.exe.sha256",
-            "artifacts/FoamLens-Setup-v$v.exe",
-            "artifacts/FoamLens-Setup-v$v.exe.sha256"
-          )
-          $changelog=Get-Content 'CHANGELOG.md' -Raw
-          $pattern='(?ms)^## Desktop v'+[regex]::Escape($v)+'\b.*?(?=^## |\z)'
-          $match=[regex]::Match($changelog,$pattern)
-          if ($match.Success) {
-            $match.Value.Trim() | Set-Content 'artifacts/release-notes.md' -Encoding utf8
-          } else {
-            "FoamLens Windows release $tag." | Set-Content 'artifacts/release-notes.md' -Encoding utf8
-          }
-
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag @assets --repo $env:GITHUB_REPOSITORY --clobber
-            gh release edit $tag --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes-file 'artifacts/release-notes.md'
-          } else {
-            gh release create $tag @assets --repo $env:GITHUB_REPOSITORY --title "FoamLens $tag" --notes-file 'artifacts/release-notes.md'
-          }
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check Pillow
+          test -f artifacts/visual/manifest.json
+          python tools/verify_environment_review.py --manifest artifacts/visual/manifest.json --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --environment visual-release-approval --evidence-url "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          doc=json.loads(Path('artifacts/visual/manifest.json').read_text())
+          setup=next(Path('artifacts').glob('FoamLens-Setup-v*.exe'),None)
+          if setup is None: raise SystemExit('No exact reviewed installer artifact found')
+          digest=hashlib.sha256(setup.read_bytes()).hexdigest()
+          if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: reviewed screenshots belong to a different Setup digest')
+          print('Release installer verified against reviewed screenshot manifest:',digest)
+          PY
+      - name: Publish verified GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          v="$VERSION"
+          if [[ "$GITHUB_REF_NAME" == v* ]]; then tag="$GITHUB_REF_NAME"; else tag="v$v"; fi
+          python - "$v" <<'PY'
+          import re,sys
+          from pathlib import Path
+          v=sys.argv[1]
+          text=Path('CHANGELOG.md').read_text(encoding='utf-8')
+          match=re.search(r'(?ms)^## Desktop v'+re.escape(v)+r'\b.*?(?=^## |\Z)',text)
+          Path('artifacts/release-notes.md').write_text(match.group(0).strip() if match else f'FoamLens Windows release v{v}.',encoding='utf-8')
+          PY
+          assets=("artifacts/FoamLens-Portable-v$v.exe" "artifacts/FoamLens-Portable-v$v.exe.sha256" "artifacts/FoamLens-Setup-v$v.exe" "artifacts/FoamLens-Setup-v$v.exe.sha256")
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
+          else
+            gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
+          fi

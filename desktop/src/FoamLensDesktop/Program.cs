@@ -149,6 +149,105 @@ internal sealed class FoamLensForm : Form
         }
     }
 
+
+    // Generated ONLY from the actual running packaged WebView2 surface.
+    // Screenshots are evidence for independent review, never automatic approval.
+    private async Task CaptureRenderedBrandEvidenceAsync()
+    {
+        var root = Environment.GetEnvironmentVariable("FOAMLENS_BRAND_EVIDENCE_DIR");
+        if (string.IsNullOrWhiteSpace(root)) return;
+        Directory.CreateDirectory(root);
+        await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.enable", "{}");
+        try
+        {
+            foreach (var size in new[] { (Width: 1140, Height: 820, Name: "wide"), (Width: 640, Height: 900, Name: "compact") })
+            {
+                var metrics = $"{{\"width\":{size.Width},\"height\":{size.Height},\"deviceScaleFactor\":1,\"mobile\":false}}";
+                await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride", metrics);
+                await Task.Delay(160);
+                var home = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "(()=>{const t=document.getElementById('launchTitle'),m=document.getElementById('launchOfficialLogo');const a=t?.getBoundingClientRect(),b=m?.getBoundingClientRect();return{ok:!!t&&!!m&&a.width>90&&b.width>65&&m.naturalWidth>0,viewport:innerWidth,title:a?.width,mark:b?.width}})()");
+                if (!JsonDocument.Parse(home).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Rendered Home identity is invalid in " + size.Name + ": " + home);
+                await CaptureCdpPngAsync(Path.Combine(root, $"home-{size.Name}.png"));
+
+                var about = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      const opener=document.getElementById('aboutDeveloperBtn');
+                      opener?.click();
+                      const overlay=document.getElementById('aboutDeveloperOverlay');
+                      const shell=overlay?.querySelector('.aboutShell');
+                      if(shell)shell.scrollTop=0;
+                      const portrait=document.getElementById('aboutPortraitImg');
+                      const studio=document.getElementById('aboutMichelsLabLogo');
+                      const product=document.getElementById('aboutOfficialLogo');
+                      const author=document.querySelector('.aboutName');
+                      const slogan=document.getElementById('aboutBrandTag');
+                      const links=[...document.querySelectorAll('#aboutDeveloperOverlay .aboutSocial')];
+                      const box=x=>x?.getBoundingClientRect();
+                      const visible=x=>{const r=box(x);return !!r&&r.width>30&&r.height>15};
+                      const expected=['Instagram','Facebook','LinkedIn','GitHub','Email'];
+                      const checks={
+                        overlayOpen:!!overlay?.classList.contains('open'),
+                        shellVisible:visible(shell),
+                        portraitVisible:visible(portrait)&&!!portrait?.complete&&portrait.naturalWidth>0,
+                        studioVisible:visible(studio)&&!!studio?.complete&&studio.naturalWidth>0,
+                        productVisible:visible(product)&&!!product?.complete&&product.naturalWidth>0,
+                        authorVisible:visible(author),
+                        sloganVisible:visible(slogan)&&slogan.textContent.trim()==='TOOLS WITH IDENTITY.',
+                        networkCount:links.length===5,
+                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon')))
+                      };
+                      return {ok:Object.values(checks).every(Boolean),checks,
+                        viewport:innerWidth,portrait:box(portrait)?.width,studio:box(studio)?.width,
+                        product:box(product)?.width,slogan:slogan?.textContent,
+                        scrollHeight:shell?.scrollHeight,clientHeight:shell?.clientHeight};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(about).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Rendered About product/author/studio/social hierarchy failed in " + size.Name + ": " + about);
+                Log("FoamLens real About bounds and identity passed: " + about);
+                await Task.Delay(100);
+                await CaptureCdpPngAsync(Path.Combine(root, $"about-{size.Name}.png"));
+                var bottom = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (()=>{
+                      const shell=document.querySelector('#aboutDeveloperOverlay .aboutShell');
+                      if(shell)shell.scrollTop=shell.scrollHeight;
+                      const socials=document.querySelector('#aboutDeveloperOverlay .aboutSocials');
+                      const sr=socials?.getBoundingClientRect(),cr=shell?.getBoundingClientRect();
+                      return {ok:!!shell&&!!socials&&sr.width>100&&sr.height>40&&
+                        sr.top<cr.bottom&&sr.bottom>cr.top,scrollTop:shell?.scrollTop};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(bottom).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("About socials are not reachable by scrolling in " + size.Name + ": " + bottom);
+                await Task.Delay(130);
+                await CaptureCdpPngAsync(Path.Combine(root, $"about-{size.Name}-bottom.png"));
+                var closed = await _web.CoreWebView2.ExecuteScriptAsync(
+                    "(()=>{document.getElementById('aboutDeveloperClose')?.click();return !document.getElementById('aboutDeveloperOverlay')?.classList.contains('open')})()");
+                if (!string.Equals(closed.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("About Close did not work in " + size.Name);
+            }
+        }
+        finally
+        {
+            await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
+        }
+        Log("FoamLens rendered Home/About evidence captured and verified across wide/compact viewports.");
+    }
+
+    private async Task CaptureCdpPngAsync(string fullPath)
+    {
+        var response = await _web.CoreWebView2.CallDevToolsProtocolMethodAsync(
+            "Page.captureScreenshot", "{\"format\":\"png\",\"captureBeyondViewport\":false}");
+        using var json = JsonDocument.Parse(response);
+        var png = Convert.FromBase64String(json.RootElement.GetProperty("data").GetString() ?? "");
+        if (png.Length < 10_000) throw new InvalidOperationException("Rendered branding PNG evidence is unexpectedly small: " + fullPath);
+        await File.WriteAllBytesAsync(fullPath, png);
+    }
+
     private async Task RunSmokeTestAsync()
     {
         RunBinaryMeshParserSelfTest();
@@ -349,6 +448,8 @@ internal sealed class FoamLensForm : Form
             }
 
 
+
+            await CaptureRenderedBrandEvidenceAsync();
 
             // Extension integration smoke: Field View must mount through the v1.6
             // Ribbon + Field surface contract. Legacy mode/data-tab navigation

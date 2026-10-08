@@ -53,7 +53,7 @@ assert(workflow.includes("github.event_name == 'push' && github.ref == 'refs/hea
 assert(!workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' }}"),'Ordinary main builds must not publish without explicit release intent.');
 assert(workflow.includes("startsWith(github.ref, 'refs/tags/')"),'Tagged builds must retain the explicit public-release path.');
 assert(workflow.includes("github.event_name == 'workflow_dispatch' && inputs.publish == true"),'Manual release publication must require workflow_dispatch with publish=true.');
-assert(workflow.includes("CHANGELOG.md")&&workflow.includes("--notes-file 'artifacts/release-notes.md'"),'GitHub Release notes are not sourced from the v1.6 changelog.');
+assert(workflow.includes("CHANGELOG.md")&&workflow.includes("--notes-file artifacts/release-notes.md")&&workflow.includes("environment: visual-release-approval"),'GitHub Release notes must be sourced from the changelog by the protected publisher.');
 assert(index.includes("function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}"),'Global export provenance identity is not derived from the Desktop version helper.');
 assert((index.match(/data-desktop-version/g)||[]).length>=3,'Desktop version is not visibly surfaced in launch/sidebar/footer.');
 assert(index.includes("document.title='FoamLens v51 · '+label+' — by Michel Duarte'"),'Window title does not expose the Desktop version.');
