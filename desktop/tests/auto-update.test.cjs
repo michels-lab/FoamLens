@@ -27,7 +27,7 @@ assert(program.includes('Arguments = "/SP-"'),
 assert(program.includes('BeginInvoke(new Action(Close))'),
   'FoamLens must close after handing off to the verified installer.');
 
-assert(updater.includes("flRaCheckUpdates"),'Ribbon update action is missing.');
+assert(updater.includes("flGlobalUpdates"),'Global, always-visible Updates action is missing.');
 assert(updater.includes("window.chrome.webview.postMessage({type:'checkForUpdates'})"),
   'Ribbon update action is not connected to the native updater.');
 assert(updater.includes('FoamLensAutoUpdate'),

@@ -103,10 +103,19 @@ console.log('Official FoamLens branding passed: canonical SVGs, launch/sidebar/A
 assert(index.includes("brandTag:'TOOLS WITH IDENTITY.'"),'Localized About copy must never overwrite the canonical Michel\'s Lab slogan.');
 assert(!index.includes("brandTag:'Ideas · Apps"),'Legacy Michel\'s Lab slogan still overrides About at runtime.');
 assert(!index.includes('.aboutMarkBox{width:min(100%,290px)!important')&&!index.includes('.aboutMarkBox{background:none!important'),'Old global About logo CSS must not override the canonical mark geometry.');
-assert(index.includes('font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#d4e5f7;line-height:1.65'),'About studio slogan must remain readable and not render as tiny type.');
+assert(index.includes('.aboutBrandTag{font-size:10px;line-height:1.35;letter-spacing:.10em'),'About studio slogan must be part of the authored design system.');
 assert(index.includes('id="aboutOfficialLogo"')&&index.includes('id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg"'),'About dark-on-dark lockup must use legible official mark.');
 assert(program.includes('CaptureRenderedBrandEvidenceAsync()')&&program.includes('about-wide-bottom.png')===false,'About rendered smoke contract unexpectedly changed.');
 assert(program.includes('about-{size.Name}-bottom.png')&&program.includes('Emulation.setDeviceMetricsOverride'),'About must be captured in real wide and compact WebView2 layouts.');
 assert(workflow.includes('environment: visual-release-approval')&&workflow.includes('verify_environment_review.py'),'A release must require GitHub protected visual approval.');
 assert(workflow.includes('visual_release_gate.py')&&workflow.includes('make_visual_evidence.py'),'A release must use the manifest-backed rendered UI validator.');
 assert(workflow.indexOf('      - name: Publish GitHub Release')===-1,'Unsafe automatic publish inside build job survived.');
+
+assert(index.includes('id="globalOfficialLogo"')&&index.includes('class="flGlobalProductName">FoamLens</strong>'),'FoamLens global product identity must persist outside the sidebar.');
+const header=index.slice(index.indexOf('<header class="top">'),index.indexOf('</header>'));
+assert(header.includes('id="aboutDeveloperBtn"')&&header.includes('id="flGlobalUpdates"'),'About and Updates must be in permanent global chrome.');
+assert(!index.includes('<button class="btn soft" id="aboutDeveloperBtn">About</button>'),'Old hidden About control survived inside local Home tools.');
+assert(index.includes('class="aboutSocials"')&&index.includes('class="aboutDeveloperCard"'),'About paired identity/social composition missing.');
+assert(program.includes('socialsVisibleWithoutScroll:links.every(inInitialViewport)'),'Actual WebView2 About smoke does not enforce all five social links above the fold.');
+assert(program.includes('pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)'),'About portrait/product/studio geometry is not checked in the opening viewport.');
+assert(index.includes('lastProgressAt=Date.now()')&&index.includes('clearInterval(fieldFeedback)')&&index.includes('popAppActivity()'),'Long native field reader can leave an indefinite 0% loading toast.');
