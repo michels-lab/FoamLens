@@ -28,7 +28,8 @@ function auInstall(){
     auRequestManualCheck()
   });
   auInstalled=true;
-  window.FoamLensAutoUpdate={check:auRequestManualCheck,isInstalled:()=>auInstalled,channel:auStoreChannel?'store':'github'};
+  if(auStoreChannel)window.FoamLensAutoUpdate={check:()=>false,isInstalled:()=>auInstalled,channel:'store'};
+  else window.FoamLensAutoUpdate={check:auRequestManualCheck,isInstalled:()=>auInstalled,channel:'github'};
   return true
 }
 (function retry(){if(auInstall())return;requestAnimationFrame(retry)})();
