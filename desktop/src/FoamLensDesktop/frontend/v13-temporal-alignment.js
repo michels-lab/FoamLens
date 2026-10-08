@@ -88,6 +88,14 @@ function taPairMetrics(t,a,b,epsilon=1e-12){
   let im=0;for(let i=1;i<abs.length;i++)if(abs[i]>abs[im])im=i;
   return{count:diffs.length,rmse:Math.sqrt(diffs.reduce((s,v)=>s+v*v,0)/diffs.length),mae:abs.reduce((s,v)=>s+v,0)/abs.length,maxAbs:abs[im],maxAbsTime:times[im],meanDifference:diffs.reduce((s,v)=>s+v,0)/diffs.length,meanRelative:rel.length?rel.reduce((s,v)=>s+v,0)/rel.length:NaN,meanPercent:pct.length?pct.reduce((s,v)=>s+v,0)/pct.length:NaN,correlation:taPearsonPairs(a,b)}
 }
+function taQuantityCompatibility(A,B){
+  const dimensions=s=>String(s?.field?.dimensions||s?.dimensions||'').replace(/\s+/g,' ').trim();
+  const units=s=>String(s?.field?.unit||s?.unit||'').trim();
+  const da=dimensions(A),db=dimensions(B),ua=units(A),ub=units(B);
+  if(da&&db&&da!==db)return{ok:false,reason:'incompatible-dimensions'};
+  if(ua&&ub&&ua!==ub)return{ok:false,reason:'incompatible-units'};
+  return{ok:true,reason:da&&db?'verified-dimensions':ua&&ub?'verified-units':'metadata-incomplete'};
+}
 /* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_END */
 
 function taSeriesVariable(s){return String(s?.field?.canonical||s?.field?.name||s?.field?.raw||s?.variable||s?.name||'Series')}
@@ -148,11 +156,18 @@ function taRunComparison(){
   const A=taSelected('taSourceA'),B=taSelected('taSourceB'),status=document.getElementById('taStatus'),result=document.getElementById('taResult');
   if(!A||!B||A===B){flSetIssue(status,'at least two temporal series are required',{analysis:'Temporal Alignment',expected:'Choose two different temporal series'});return}flClearIssue(status)
   const mode=document.getElementById('taMode')?.value||'common',method=document.getElementById('taMethod')?.value||'linear',referenceIndex=Number(document.getElementById('taReference')?.value)||0,epsilon=Number(document.getElementById('taEpsilon')?.value)||1e-12;
+  const compatibility=taQuantityCompatibility(A,B);
+  if(mode!=='native'&&!compatibility.ok){
+    taLastResult=null;
+    flSetIssue(status,'incompatible physical units or dimensions; quantitative difference unavailable',{analysis:'Temporal Alignment',expected:'Select two series with compatible physical dimensions and units'});
+    if(result)result.innerHTML='';
+    return
+  }
   const aligned=taAlignSeries([A,B],{mode,method,referenceIndex,maxPoints:2500});
   if(!aligned.valid||!aligned.range?.valid){taLastResult=null;flSetIssue(status,'no shared physical-time interval',{analysis:'Temporal Alignment'});if(result)result.innerHTML='';return}
   if(mode==='native'){taLastResult={A,B,aligned,epsilon};if(status)status.textContent=diagEs()?`El modo nativo conserva la malla temporal de cada fuente. Rango compartido: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Elige Malla temporal común o Malla del caso de referencia para diferencias cuantitativas.`:`Native mode preserves each source time grid. Shared range: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Choose Common Time Grid or Reference Case Grid for quantitative differences.`;if(result)result.innerHTML='';return}
   const m=taPairMetrics(aligned.grid,aligned.series[0].y,aligned.series[1].y,epsilon);
-  taLastResult={A,B,aligned,metrics:m,epsilon};
+  taLastResult={A,B,aligned,metrics:m,epsilon,compatibility};
   const metaCount=(arr,k)=>arr.reduce((n,x)=>n+(x?.status===k),0),ma=aligned.series[0].meta,mb=aligned.series[1].meta;
   if(status)status.textContent=diagEs()?`Solapamiento ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} puntos comparables · sin extrapolación.`:`Overlap ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} comparable points · no extrapolation.`;
   if(result)result.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
@@ -170,7 +185,8 @@ function taDownload(name,text,type){
 }
 function taExportPayload(){
   const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return null;
-  return{generatedBy:flBuildIdentity(),analysis:'temporal-alignment-difference',sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
+  if(!taQuantityCompatibility(r.A,r.B).ok)return null;
+  return{generatedBy:flBuildIdentity(),analysis:'temporal-alignment-difference',compatibility:r.compatibility||taQuantityCompatibility(r.A,r.B),sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
 }
 function taExportComparison(format){
   const p=taExportPayload();if(!p){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run a non-native aligned comparison first'});return}
@@ -182,6 +198,7 @@ function taExportComparison(format){
 }
 function taAddDerived(kind){
   const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native'){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run Common Time Grid or Reference Case Grid first'});return}
+  if(!taQuantityCompatibility(r.A,r.B).ok){flSetIssue('taStatus','incompatible physical units or dimensions; difference unavailable',{analysis:'Temporal Alignment'});return}
   const y=taDifferenceValues(r.aligned.series[0].y,r.aligned.series[1].y,kind,r.epsilon),A=r.A,B=r.B;
   const base=String(kind)==='percent'?flUi('% difference','% diferencia'):'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
   const diffField={...(A.field||{}),canonical:(kind==='percent'?'percentDifference:':'difference:')+taSeriesVariable(A),raw:name,name,displayName:name};

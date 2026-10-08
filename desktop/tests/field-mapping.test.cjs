@@ -63,6 +63,30 @@ test('distinctive dimensions can support a suggestion',()=>{
   assert.strictEqual(m.densityGradient,'fieldF');
 });
 
+test('misleading field names cannot override known physical dimensions',()=>{
+  const roles=[
+    {key:'temperature',patterns:[/^t$/]},
+    {key:'velocity',patterns:[/^u$/]}
+  ];
+  const fields=[
+    {name:'T',dimensions:'[0 1 -1 0 0 0 0]'},
+    {name:'U',dimensions:'[0 0 0 1 0 0 0]'}
+  ];
+  const m=api.fmSuggestMappingsWithMetadata(fields,roles);
+  assert.strictEqual(m.temperature,'U');
+  assert.strictEqual(m.velocity,'T');
+});
+
+test('wrong-dimension named fields are left unmapped without a valid candidate',()=>{
+  const m=api.fmSuggestMappingsWithMetadata([{name:'T',dimensions:'[1 -1 -2 0 0 0 0]'}],[{key:'temperature',patterns:[/^t$/]}]);
+  assert.strictEqual(m.temperature,'');
+});
+
+test('name-based mapping remains possible when dimensions are unavailable',()=>{
+  const m=api.fmSuggestMappingsWithMetadata([{name:'T',dimensions:''}],[{key:'temperature',patterns:[/^t$/]}]);
+  assert.strictEqual(m.temperature,'T');
+});
+
 test('ambiguous dimensionless fields are not guessed as Courant',()=>{
   const m=api.fmSuggestMappingsWithMetadata([{name:'mystery',dimensions:'[0 0 0 0 0 0 0]'}],api.FM_EXTRA_ROLES);
   assert.strictEqual(m.courant,'');

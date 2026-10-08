@@ -2,7 +2,7 @@
 
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
-> Primary branch: `main` · current public release: `v1.4.2`  
+> Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
 ## Maintenance rule
@@ -13,10 +13,10 @@ This file is the durable project bitácora. After any meaningful Git operation�
 
 | Item | State |
 |---|---|
-| Current public release | `v1.4.2` — FoamLens v1.4.2, normal release |
-| Release-time `main` / tag head | `7d4a14c1b4238d0c87dd4276219357d9bff6ebdc` — docs: record global diagnostics and test-suite audit |
-| Validated product head | `4046e498627b5e6d14cc4160f056ee35d6fa7515` — GitHub Actions run #385 SUCCESS |
-| Release assets | `FoamLens-Portable-v1.4.2.exe`, SHA-256, `FoamLens-Setup-v1.4.2.exe` |
+| Current public release at candidate start | `v1.6.1` — FoamLens v1.6.1, normal release |
+| Latest stable v1.6.1 merge head | `45d18c43b845fafb45c9497aaa011d92c64d5b8c` — v1.6.1 PR #19 |
+| Validated v1.6.1 main head at candidate start | `4c408b3d5d0b75982a1d98504cabeeb47fd4e048` — Windows CI #922 SUCCESS / Store CI #6 SUCCESS |
+| Stable v1.6.1 assets | Portable and Setup `v1.6.1.exe`, each with SHA-256 |
 | Real regression fixture | `realmichelduarte/QuickCup-Solidification@foamlens-real-fixture-b13` |
 | Latest prerelease | `v1.3.0-rc.1` — legacy prerelease retained for history |
 
@@ -3930,3 +3930,21 @@ The required interpretation is structural integration rather than sticker placem
 **Preserved intentionally:** personal developer/social links remain under `realmichelduarte`; the QuickCup research fixture remains `realmichelduarte/QuickCup-Solidification`.
 
 **Validation state:** repository transfer and admin/push access verified. Branch CI/build validation is required before merge; historical log references are preserved as historical evidence.
+
+### 2026-10-07 — Field Mapping physical-dimension guard (pending CI)
+- Audit found that `fmSuggestMappingsWithMetadata` could select a name-matched field despite conflicting explicit SI dimensions, incorrectly attributing physical meaning to the data.
+- Known-dimension roles (temperature, velocity, density, vorticity, thermal/density gradients) now reject contradictory metadata before scoring candidates. If metadata is absent, name-based suggestions remain available.
+- Added regressions for swapped names, rejected incompatible mapping, and missing-dimension fallback.
+- Scientific comparison and UI ownership are intentionally unchanged. Validation: PR CI pending; no release or `main` promotion authorized.
+
+### 2026-10-08 — Candidate closure v1.6.2 (release validation required)
+- Combined post-v1.6.1 Field Mapping dimension safety with corrected About iconography and canonical Michel's Lab slogan, keeping immutable identity assets unchanged.
+- Synchronized C# Desktop, installer, frontend fallback, README and version-contract test to candidate 1.6.2.
+- Windows CI #923–#926 passed for intermediate source commits. The new candidate commit, final merge, direct install and Store MSIX remain unverified until current-SHA CI completes.
+- No claim of Store certification, signing or release publication before actual evidence.
+
+### 2026-10-08 — Temporal comparison dimensional guard (pending final candidate CI)
+- Audited dimensional comparison paths: strict 3D delta already refuses differing field/component/association/dimensions; temporal 2D quantitative comparison did not.
+- Candidate now refuses A−B, RMSE, percent, export and derived-curve generation when source SI dimensions or explicit units contradict. Native alignment remains allowed for independent-series visualization.
+- Added regression coverage for incompatible temperature/pressure dimensions, same-dimension differently scaled/displayed units, absent metadata, and gate wiring.
+- Missing metadata remains explicitly not proof of compatibility; do not manufacture dimensions. Final Windows and Store validation still required before release.
