@@ -541,7 +541,7 @@ function fvRegionUnionBounds(meshes){
 }
 function fvRegionReleaseLayer(layer){
   const gl=layer?.gl;if(!gl)return;
-  for(const k of ['surfacePos','surfaceColor','edgePos','edgeColor'])if(layer[k])gl.deleteBuffer(layer[k])
+  for(const k of ['surfacePos','surfaceColor','edgePos','edgeColor','faceFieldPos','faceFieldColor'])if(layer[k])gl.deleteBuffer(layer[k])
 }
 function fvRegionClearLayers(){
   ++fvRegionScene.sequence;
@@ -642,18 +642,30 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
   const shape=fvBuildSurfaceBuffers(mesh),palette=document.getElementById('fvPalette')?.value||'viridis';
   const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range;
-  let colors;
-  if(storage==='volume'&&values?.length===mesh.cellCount&&paintRange?.valid)colors=fvSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);
-  else if(storage==='point'&&values?.length===mesh.pointCount&&paintRange?.valid)colors=fvPointSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);
-  else colors=fvConstantColors(shape.surfacePositions.length/3,[.42,.48,.56]);
+  let colors,colored=false;
+  if(storage==='volume'&&values?.length===mesh.cellCount&&paintRange?.valid){
+    colors=fvSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);colored=true
+  }else if(storage==='point'&&values?.length===mesh.pointCount&&paintRange?.valid){
+    colors=fvPointSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);colored=true
+  }else colors=fvConstantColors(shape.surfacePositions.length/3,[.42,.48,.56]);
+  // surfaceScalar/VectorField's internalField belongs to actual mesh FACES,
+  // not cells or boundary patches. Triangulate those faces exactly as in View 1.
+  // Never paint the outer shell with inferred or fabricated boundary values.
+  const face=(storage==='surface'&&values?.length===mesh.internalFaceCount&&paintRange?.valid)
+    ?fvBuildInternalFaceBuffers(mesh):null;
+  const faceCount=face?.positions?.length/3||0;
   const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);
   const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,paintRange,parsed:data?.parsed||null,time,
-    status:data?.status||'',colored:storage==='volume'||storage==='point',surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3};
+    status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
     layer.surfaceColor=fvRegionMakeBuffer(gl,colors);
     layer.edgePos=fvRegionMakeBuffer(gl,shape.edgePositions);
     layer.edgeColor=fvRegionMakeBuffer(gl,edgeColors);
+    if(faceCount>0){
+      layer.faceFieldPos=fvRegionMakeBuffer(gl,face.positions);
+      layer.faceFieldColor=fvRegionMakeBuffer(gl,fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette))
+    }
     return layer
   }catch(err){fvRegionReleaseLayer(layer);throw err}
 }
@@ -664,8 +676,14 @@ function fvRegionRenderLayers(){
     const surface=!!document.getElementById('fvSurface')?.checked;
     const edges=!!document.getElementById('fvEdges')?.checked;
     const opacity=fvClamp(choice.opacity,.1,1);
-    gl.depthFunc(gl.LEQUAL);gl.depthMask(true);
-    if(surface)fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,opacity);
+    gl.depthFunc(gl.LEQUAL);
+    // Translucent outer geometry is context only. Writing depth for it hides
+    // real internal-face colors and physically separate regions behind it.
+    const faceField=layer.faceFieldCount>0;
+    gl.depthMask(!faceField&&opacity>=.99);
+    if(surface)fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,faceField?Math.min(opacity,.14):opacity);
+    gl.depthMask(true);
+    if(surface&&faceField)fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity);
     if(edges)fvBindDraw(r,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
   }
   gl.depthMask(true);gl.depthFunc(gl.LEQUAL)
@@ -725,8 +743,7 @@ async function fvRegionLoadFrame(c,time){
         mesh=frame.mesh;data={...frame,group:selected};
         const unit=frame.parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(frame.parsed.dimensions):'';
         status=selected.name+' · t='+fvFmt(exact)+' s · '+fvAssociationLabel(frame.storage);
-        if(frame.storage!=='surface'&&frame.range?.valid)status+=' · '+fvFmtRange(frame.range.min,frame.range)+' … '+fvFmtRange(frame.range.max,frame.range)+(unit?' '+unit:'');
-        if(frame.storage==='surface')status+=' · '+flUi('neutral geometry (face coloring pending)','geometría neutra (coloreado por cara pendiente)')
+        if(frame.range?.valid)status+=' · '+fvFmtRange(frame.range.min,frame.range)+' … '+fvFmtRange(frame.range.max,frame.range)+(unit?' '+unit:'');
       }else{
         // Never map an unrelated field time to the requested physical time.
         mesh=await fvRegionGeometryAtTime(c,region,time);
@@ -735,7 +752,12 @@ async function fvRegionLoadFrame(c,time){
       if(!current())return; // A newer case/frame owns the WebGL canvas.
       if(data)fvRegionObserveRange(region,choice,data);
       const layer=fvRegionBuildLayer(region,mesh,{...data,status},choice,time);
-      if(layer){fvRegionScene.layers.set(region,layer);fvRender()}
+      if(data?.storage==='surface'){
+        status+=' · '+(layer?.colored
+          ?flUi('Real internal-face colors; boundary patches neutral','Colores reales de caras internas; parches de frontera neutros')
+          :flUi('No renderable internal faces; neutral geometry','Sin caras internas renderizables; geometría neutra'))
+      }
+      if(layer){layer.status=status;fvRegionScene.layers.set(region,layer);fvRender()}
       fvRegionStatus(region,status)
     }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };

@@ -925,6 +925,48 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
   assert.deepStrictEqual(observed.camera,[.5,.5,.5],'Hidden physical geometry must not affect camera fitting');
 });
 
+
+test('secondary surface fields color actual internal mesh faces and keep unknown boundaries neutral',()=>{
+  assert(regionCode.includes("fvBuildInternalFaceBuffers(mesh)"),'Face data requires real mesh face geometry');
+  assert(regionCode.includes("fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette)"),
+    'Face colors must map their exact internalFace indices, never cell or boundary indices');
+  assert(source.includes("Real internal-face colors; boundary patches neutral"),'Scientific surface-field provenance must be visible');
+  const setup=[
+    'const calls=[];const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,TRIANGLES:4,LINES:1,LEQUAL:515,',
+    'createBuffer(){const b={id:calls.filter(x=>x[0]==="make").length+1};calls.push(["make",b.id]);return b},',
+    'bindBuffer(){},bufferData(){},deleteBuffer(b){calls.push(["delete",b.id])},depthFunc(){},depthMask(){}};',
+    'const fvState={renderer:{gl},mesh:null,camera:{}};const window={};',
+    'const document={getElementById(id){if(id==="fvSurface"||id==="fvEdges")return {checked:true};if(id==="fvPalette")return {value:"viridis"};return null}};',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-8;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(9),edgePositions:new Float32Array(6)});',
+    'const fvBuildInternalFaceBuffers=()=>({positions:new Float32Array(9),triangleFaces:[1]});',
+    'const fvInternalFaceColors=(faces,vals,min,max)=>{calls.push(["faceValues",faces.map(i=>vals[i]),min,max]);return new Float32Array(9)};',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(9);const fvPointSurfaceColors=()=>new Float32Array(9);',
+    'const fvBindDraw=(r,p,col,count,mode,opacity)=>calls.push(["draw",count,mode,opacity]);'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.choices.set("fluid",{visible:true,opacity:.8});',
+    'const mesh={cellCount:1,pointCount:3,internalFaceCount:2};',
+    'const layer=fvRegionBuildLayer("fluid",mesh,{storage:"surface",fieldValues:[101,303],range:{valid:true,min:100,max:400},group:{name:"phi"}},{component:"value"},1);',
+    'fvRegionScene.layers.set("fluid",layer);fvRegionRenderLayers();',
+    'const colored=layer.colored,faceCount=layer.faceFieldCount;',
+    'fvRegionReleaseLayer(layer);return {calls,colored,faceCount};'
+  ].join('\n');
+  const {calls,colored,faceCount}=new Function(setup+regionCode+exercise)();
+  assert.equal(colored,true);
+  assert.equal(faceCount,3);
+  assert.deepStrictEqual(calls.find(x=>x[0]==='faceValues'),['faceValues',[303],100,400]);
+  assert.equal(calls.filter(x=>x[0]==='make').length,6);
+  assert.equal(calls.filter(x=>x[0]==='delete').length,6,'All internal-face GPU buffers must be released');
+  const draws=calls.filter(x=>x[0]==='draw');
+  assert.equal(draws.length,3,'Neutral shell, real colored face and edges share one GL viewport');
+  assert(draws[0][3]<=.14,'Unknown boundaries must remain neutral/translucent');
+  assert.equal(draws[1][3],.8,'Real internal-face colors use requested region opacity');
+});
+
+
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
   assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
   assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),

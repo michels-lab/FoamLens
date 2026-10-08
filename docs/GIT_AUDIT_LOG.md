@@ -4127,3 +4127,9 @@ The required interpretation is structural integration rather than sticker placem
 - All visible-region controls now go through one owned visibility manager. Hiding a physical region frees its own GPU buffers and invalidates pending loads. Showing it again requests its actual missing frame. Hidden secondary regions are not parsed or allocated at each timestep.
 - Starting a new physical frame releases old secondary layers before the new primary field arrives, preventing silent cross-time composites during asynchronous updates.
 - Added regression with mock GL allocations/deletions, checked union bounds of visible meshes only. Real packaged WebView2/QuickCup acceptance remains pending; no release.
+
+
+## 2026-10-08 — Secondary physical-region face field mapping
+- Region compositor now triangulates actual OpenFOAM internal faces when association=surface and exact face counts match. Colors use the actual indexed `internalField` face values and region-specific video range; never color unknown boundary patches as if they were measured.
+- Neutral shell rendered translucently around colored internal faces; GPU face buffers freed on region hide, case change, timestep change or error. Invalid counts fall back to explicit neutral geometry, not synthetic data.
+- Added dynamic V8 regression for 2-face fixture, real face index mapping, draw opacity, 6 GPU buffer allocations/releases. Runtime packaged Windows and a physical multiRegion fixture still required before release.
