@@ -503,6 +503,184 @@ const fvState={
   drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
 
+
+// Physical OpenFOAM regions are separate scene layers. This is NOT a processor
+// partition merge: each region retains its own mesh/field/time association.
+const fvRegionScene={caseId:null,choices:new Map(),layers:new Map(),sequence:0,fitPending:false};
+function fvRegionNames(c){
+  return [...new Set((c?.meshInventory||[]).filter(g=>g?.complete).map(g=>String(g.region||'')))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+}
+function fvRegionExactTime(times,target){
+  return (times||[]).map(Number).find(t=>fvTimeEqual(t,target))
+}
+function fvRegionUnionBounds(meshes){
+  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let n=0;
+  for(const mesh of meshes||[]){
+    if(!mesh?.boundsMin||!mesh?.boundsMax)continue;
+    if(![0,1,2].every(i=>Number.isFinite(Number(mesh.boundsMin[i]))&&Number.isFinite(Number(mesh.boundsMax[i]))&&Number(mesh.boundsMin[i])<=Number(mesh.boundsMax[i])))continue;
+    for(let i=0;i<3;i++){min[i]=Math.min(min[i],Number(mesh.boundsMin[i]));max[i]=Math.max(max[i],Number(mesh.boundsMax[i]))}n++
+  }
+  return n?{min,max,center:min.map((v,i)=>(v+max[i])/2),diagonal:Math.hypot(...max.map((v,i)=>v-min[i]))||1}:null
+}
+function fvRegionReleaseLayer(layer){
+  const gl=layer?.gl;if(!gl)return;
+  for(const k of ['surfacePos','surfaceColor','edgePos','edgeColor'])if(layer[k])gl.deleteBuffer(layer[k])
+}
+function fvRegionClearLayers(){
+  ++fvRegionScene.sequence;
+  for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
+  fvRegionScene.layers.clear()
+}
+function fvRegionEnsureCase(c){
+  const id=c?.id==null?null:String(c.id);
+  if(fvRegionScene.caseId===id)return;
+  fvRegionClearLayers();fvRegionScene.caseId=id;fvRegionScene.choices.clear();fvRegionScene.fitPending=true
+}
+function fvRegionChoice(c,region){
+  fvRegionEnsureCase(c);
+  if(!fvRegionScene.choices.has(region)){
+    const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const primaryName=document.getElementById('fvField')?.value||'';
+    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:1})
+  }
+  return fvRegionScene.choices.get(region)
+}
+function fvRegionPrimaryVisible(){
+  const c=fvCase(),region=document.getElementById('fvRegion')?.value||'';
+  return c?fvRegionChoice(c,region).visible!==false:true
+}
+function fvRegionStatus(region,message){
+  const rows=document.getElementById('fvMultiRegionRows');
+  if(!rows)return;
+  const row=[...rows.querySelectorAll('[data-fv-region-row]')].find(x=>x.dataset.fvRegionRow===region);
+  const target=row?.querySelector('.fvRegionStatus');if(target)target.textContent=String(message||'')
+}
+function fvRegionRefreshList(){
+  const root=document.getElementById('fvMultiRegionRows'),panel=document.getElementById('fvMultiRegionPanel'),c=fvCase();
+  if(!root||!panel)return;
+  fvRegionEnsureCase(c);const names=fvRegionNames(c),primary=document.getElementById('fvRegion')?.value||'';
+  panel.hidden=names.length<2;
+  if(names.length<2){root.replaceChildren();return}
+  root.innerHTML=names.map(region=>{
+    const choice=fvRegionChoice(c,region),active=region===primary,fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'"'+(choice.field===g.name?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
+    const label=fvEsc(region||flUi('Default region','Región predeterminada'));
+    return '<div class="fvRegionRow" data-fv-region-row="'+fvEsc(region)+'"><label class="inlineCheck"><input type="checkbox" data-fv-region-visible '+(choice.visible?'checked ':'')+'aria-label="'+label+'">'+label+'</label>'+
+      '<span class="fvRegionStatus">'+(active?flUi('Primary / probe region','Región principal / sonda'):flUi('Waiting for physical-time frame','Esperando frame de tiempo físico'))+'</span>'+
+      (active?'<span class="smallnote">'+flUi('Field selected above','Campo seleccionado arriba')+'</span>':
+        '<select data-fv-region-field aria-label="'+label+' field">'+(options||'<option value="">'+flUi('Geometry only','Solo geometría')+'</option>')+'</select>')+
+      (!active?'<input type="range" data-fv-region-opacity min=".1" max="1" step=".1" value="'+fvEsc(choice.opacity)+'" aria-label="'+label+' opacity">':'')+
+      '</div>'
+  }).join('')
+}
+function fvRegionInstallEvents(){
+  const root=document.getElementById('fvMultiRegionRows');if(!root||root.dataset.regionEvents)return;
+  root.dataset.regionEvents='1';
+  root.addEventListener('change',e=>{
+    const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
+    const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
+    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;fvRender();return}
+    if(e.target.matches('[data-fv-region-field]')){
+      choice.field=e.target.value;choice.component='value';
+      fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
+    }
+  });
+  root.addEventListener('input',e=>{
+    const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c||!e.target.matches('[data-fv-region-opacity]'))return;
+    fvRegionChoice(c,row.dataset.fvRegionRow).opacity=fvClamp(e.target.value,.1,1);fvRender()
+  })
+}
+function fvRegionMakeBuffer(gl,values){
+  const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,values,gl.STATIC_DRAW);return buffer
+}
+function fvRegionBuildLayer(region,mesh,data,choice,time){
+  const gl=fvState.renderer?.gl;if(!gl)return null;
+  const shape=fvBuildSurfaceBuffers(mesh),palette=document.getElementById('fvPalette')?.value||'viridis';
+  const storage=data?.storage||'',range=data?.range,values=data?.fieldValues;
+  let colors;
+  if(storage==='volume'&&values?.length===mesh.cellCount&&range?.valid)colors=fvSurfaceColors(mesh,values,range.min,range.max,palette);
+  else if(storage==='point'&&values?.length===mesh.pointCount&&range?.valid)colors=fvPointSurfaceColors(mesh,values,range.min,range.max,palette);
+  else colors=fvConstantColors(shape.surfacePositions.length/3,[.42,.48,.56]);
+  const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);
+  const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,parsed:data?.parsed||null,time,
+    status:data?.status||'',colored:storage==='volume'||storage==='point',surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3};
+  try{
+    layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
+    layer.surfaceColor=fvRegionMakeBuffer(gl,colors);
+    layer.edgePos=fvRegionMakeBuffer(gl,shape.edgePositions);
+    layer.edgeColor=fvRegionMakeBuffer(gl,edgeColors);
+    return layer
+  }catch(err){fvRegionReleaseLayer(layer);throw err}
+}
+function fvRegionRenderLayers(){
+  const r=fvState.renderer;if(!r)return;const gl=r.gl;
+  for(const [region,layer] of fvRegionScene.layers){
+    const choice=fvRegionScene.choices.get(region);if(!choice?.visible||!layer||layer.gl!==gl)continue;
+    const surface=!!document.getElementById('fvSurface')?.checked;
+    const edges=!!document.getElementById('fvEdges')?.checked;
+    const opacity=fvClamp(choice.opacity,.1,1);
+    gl.depthFunc(gl.LEQUAL);gl.depthMask(true);
+    if(surface)fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,opacity);
+    if(edges)fvBindDraw(r,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
+  }
+  gl.depthMask(true);gl.depthFunc(gl.LEQUAL)
+}
+function fvRegionFitCamera(){
+  const meshes=[fvState.mesh];
+  for(const [region,layer] of fvRegionScene.layers)if(fvRegionScene.choices.get(region)?.visible)meshes.push(layer.mesh);
+  const bounds=fvRegionUnionBounds(meshes);if(!bounds)return false;
+  fvState.camera.target=bounds.center;fvState.camera.distance=bounds.diagonal*1.65;fvRender();return true
+}
+async function fvRegionLoadFrame(c,time){
+  if(!c||!Number.isFinite(Number(time))||!fvState.renderer)return;
+  fvRegionEnsureCase(c);
+  const seq=++fvRegionScene.sequence,primary=document.getElementById('fvRegion')?.value||'';
+  for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
+  fvRegionScene.layers.clear();fvRender();
+  const regions=fvRegionNames(c).filter(region=>region!==primary);
+  const results=await Promise.all(regions.map(async region=>{
+    const choice=fvRegionChoice(c,region);
+    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));
+    const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const selected=groups.find(g=>g.name===choice.field);
+    const exact=selected?fvRegionExactTime(selected.times,time):undefined;
+    try{
+      let data=null,mesh=null,status='';
+      if(exact!==undefined){
+        const frame=await fvLoadFrameData(c,selected,region,exact,choice.component,{includeBoundary:false});
+        mesh=frame.mesh;data={...frame,group:selected};
+        status=selected.name+' · t='+fvFmt(exact)+' s · '+fvAssociationLabel(frame.storage);
+        if(frame.storage==='surface')status+=' · '+flUi('neutral geometry (face coloring pending)','geometría neutra (coloreado por cara pendiente)')
+      }else{
+        // Never map an unrelated field time to the requested physical time.
+        const complete=fvMeshes(c).filter(g=>String(g.region||'')===region&&!String(g.partition||''));
+        if(complete.length!==1)throw new Error(flUi('No unique reconstructed mesh at this time; processor reconstruction or mesh data required.','No hay malla reconstruida única para este tiempo; se requiere reconstrucción processor o datos de malla.'));
+        const snapshot=fvMeshSnapshotForTime(complete[0],time);
+        if(!snapshot)throw new Error(flUi('Mesh unavailable at requested time.','Malla no disponible en el tiempo solicitado.'));
+        mesh=await fvLoadMesh(c,snapshot);
+        status=flUi('Geometry only; field unavailable at t = ','Solo geometría; campo no disponible en t = ')+fvFmt(time)+' s'
+      }
+      return{region,mesh,data,status}
+    }catch(error){return{region,error:String(error?.message||error)}}
+  }));
+  if(seq!==fvRegionScene.sequence||fvRegionScene.caseId!==String(c.id))return;
+  for(const item of results){
+    if(item.error){fvRegionStatus(item.region,item.error);continue}
+    const choice=fvRegionChoice(c,item.region);
+    try{
+      const layer=fvRegionBuildLayer(item.region,item.mesh,{...item.data,status:item.status},choice,time);
+      if(layer)fvRegionScene.layers.set(item.region,layer);
+      fvRegionStatus(item.region,item.status)
+    }catch(error){fvRegionStatus(item.region,String(error?.message||error))}
+  }
+  if(fvRegionScene.fitPending&&fvRegionScene.layers.size){fvRegionScene.fitPending=false;fvRegionFitCamera()}
+  else fvRender()
+}
+window.FoamLensRegionScene={
+  regionNames:fvRegionNames,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
+  state:()=>fvRegionScene,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera
+};
+
 function fvEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fvFmt(v){v=Number(v);if(!Number.isFinite(v))return'—';const a=Math.abs(v);return a!==0&&(a<1e-4||a>=1e5)?v.toExponential(4):v.toLocaleString(undefined,{maximumSignificantDigits:7})}
 function fvFmtRange(v,range){
@@ -666,6 +844,7 @@ function fvSyncAssociationControls(storage){
 }
 function fvConstantColors(vertexCount,rgb){const out=new Float32Array(vertexCount*3);for(let i=0;i<vertexCount;i++){out[3*i]=rgb[0];out[3*i+1]=rgb[1];out[3*i+2]=rgb[2]}return out}
 function fvCameraFitCurrent(){
+  if(fvRegionScene.layers.size&&fvRegionFitCamera())return;
   const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1;
   fvState.camera.target=center;fvState.camera.distance=diag*1.65;fvRender()
 }
@@ -718,15 +897,15 @@ function fvUpdateSlice(range=null){
 function fvRender(exportSize=null){
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
-  const showSurface=document.getElementById('fvSurface')?.checked!==false,showEdges=document.getElementById('fvEdges')?.checked!==false,showSlice=!!document.getElementById('fvSlice')?.checked,showIso=!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
+  const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);fvBindDraw(r,r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
   if(showSlice){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
   if(showIso){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
-  if(document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
-  if(document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
-  if(r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
-  fvUpdateAxisGizmo()
+  if(primaryVisible&&document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
+  if(primaryVisible&&document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  if(primaryVisible&&r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
+  fvRegionRenderLayers();fvUpdateAxisGizmo()
 }
 function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);mesh._internalTriangleFaces=fb.triangleFaces;
@@ -795,7 +974,7 @@ async function fvLoadFrame(index=null,options={}){
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
   if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
-  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
+  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvRegionLoadFrame(c,time).catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
 }
 function fvVectorArray(parsed,count){
@@ -931,6 +1110,7 @@ function fvRefreshSelectors(preserve=true){
   const vectorSel=document.getElementById('fvVector'),oldVector=vectorSel.value,vg=fvFieldGroups(c,region,'vector','volume');vectorSel.innerHTML=vg.length?vg.map(g=>`<option value="${fvEsc(g.name)}">${fvEsc(g.name)}</option>`).join(''):'<option value="">—</option>';if(vg.some(g=>g.name===oldVector))vectorSel.value=oldVector;
   const times=g?.times||[],slider=document.getElementById('fvTimeSlider');slider.max=String(Math.max(0,times.length-1));if(Number(slider.value)>Number(slider.max))slider.value=slider.max;
   const readyCases=allCases.filter(fvCaseViewAvailable);
+  fvRegionRefreshList();
   const availability=fvAvailability(c),status=document.getElementById('fvStatus');if(status&&!availability.ready){status.textContent=availability.reason;status.classList.add('error')}
 }
 async function fvHandleCaseChange(){
@@ -939,7 +1119,7 @@ async function fvHandleCaseChange(){
   // Invalidate any frame/vector/global-range work belonging to the previous case.
   ++fvState.frameSeq;++fvState.prefetchSeq;++fvState.globalRangeSeq;
   fvState.caseId=selectedId;fvState.region='';fvState.fieldName='';fvState.fieldStorage='volume';fvState.time=NaN;
-  fvState.fieldValues=null;fvState.fieldParsed=null;fvState.surfaceBoundary=null;fvState.surfaceBoundaryGeometry=null;
+  fvRegionClearLayers();fvState.fieldValues=null;fvState.fieldParsed=null;fvState.surfaceBoundary=null;fvState.surfaceBoundaryGeometry=null;
   fvState.vectorName='';fvState.vectorValues=null;fvState.vectorTime=NaN;fvState.streamlines=[];fvState.spatialHash=null;fvState.sliceGeometry=null;
   fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';fvState.globalRange=null;fvState.globalRangeKey='';fvState.videoRangeOverride=null;
   if(typeof fpClear==='function')fpClear();
@@ -967,6 +1147,7 @@ function fvUiHtml(){
     <div class="row2"><div class="field"><label data-fl-en="Case" data-fl-es="Caso">Case</label><select id="fvCase"></select></div><div class="field"><label data-fl-en="Region" data-fl-es="Región">Region</label><select id="fvRegion"></select></div></div>
     <div class="row2"><div class="field"><label data-fl-en="Color by" data-fl-es="Colorear por">Color by</label><select id="fvField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fvComponent"></select></div></div>
     <div class="smallnote" id="fvAssociation" data-fl-en="Association: —" data-fl-es="Asociación: —">Association: —</div>
+    <details class="analysisExt" id="fvMultiRegionPanel" hidden open><summary class="analysisExtHead"><strong data-fl-en="Physical regions · same 3D scene" data-fl-es="Regiones físicas · misma escena 3D">Physical regions · same 3D scene</strong></summary><div class="extSectionBody"><div id="fvMultiRegionRows"></div><p class="smallnote" data-fl-en="All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value." data-fl-es="Todas las regiones están activas por defecto. La región principal controla las sondas. Las regiones secundarias usan tiempos físicos exactos o geometría neutra; el gris no representa valores inventados.">All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value.</p></div></details>
     <div class="row2"><div class="field"><label data-fl-en="Colormap" data-fl-es="Mapa de color">Colormap</label><select id="fvPalette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label data-fl-en="Color range" data-fl-es="Rango de color">Color range</label><select id="fvRangeMode"><option value="current" data-fl-en="Smart · current frame" data-fl-es="Inteligente · frame actual">Smart · current frame</option><option value="global" data-fl-en="Global · all times" data-fl-es="Global · todos los tiempos">Global · all times</option><option value="manual" data-fl-en="Manual" data-fl-es="Manual">Manual</option></select></div></div>
     <div class="row2 hidden" id="fvManualRange"><div class="field"><label>Min</label><input id="fvRangeMin" type="number" step="any"></div><div class="field"><label>Max</label><input id="fvRangeMax" type="number" step="any"></div></div>
     <div class="fvChecks"><label class="inlineCheck"><input id="fvSurface" type="checkbox" checked> <span data-fl-en="Surface" data-fl-es="Superficie">Surface</span></label><label class="inlineCheck"><input id="fvEdges" type="checkbox" checked> <span data-fl-en="Mesh edges" data-fl-es="Aristas de malla">Mesh edges</span></label></div>
@@ -1020,7 +1201,7 @@ function fvPanelHtml(){
   </div>`
 }
 function fvCss(){
-  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
+  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:6px 10px;align-items:center;margin:6px 0;padding:7px;border:1px solid var(--line);border-radius:10px;min-width:0}.fvRegionRow .fvRegionStatus{color:var(--muted);font-size:10px;overflow-wrap:anywhere}.fvRegionRow select,.fvRegionRow input[type=range]{width:100%;min-width:0}.fvRegionRow .inlineCheck{overflow-wrap:anywhere}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true;
@@ -1037,7 +1218,7 @@ function fvInstallUi(){
   }
   fieldRoot.insertAdjacentHTML('beforeend',fvUiHtml());
   fieldRoot.insertAdjacentHTML('beforeend',fvPanelHtml());
-  const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);fvInstallCamera();
+  const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);fvInstallCamera();fvRegionInstallEvents();
   document.getElementById('fvCase').onchange=()=>fvHandleCaseChange().catch(e=>{console.error(e);fvSetStatus(String(e?.message||e),true)});document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};
   const refreshRange=()=>{if(!fvState.fieldValues)return;const current=fvFiniteRange(fvState.surfaceBoundary?.values?.size?[...fvState.fieldValues,...fvState.surfaceBoundary.values.values()]:fvState.fieldValues),range=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,range);fvUpdateSlice(range);if(typeof fvUpdateIso==='function')fvUpdateIso(range);fvLegend(range,fvState.fieldParsed)};
