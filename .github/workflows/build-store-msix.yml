@@ -11,6 +11,7 @@ on:
     paths:
       - 'desktop/**'
       - 'tools/make_visual_evidence.py'
+      - 'tools/generate_windows_icon.py'
       - 'tools/visual_release_gate.py'
       - 'store/**'
       - 'tools/render_store_manifest.py'
@@ -30,6 +31,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Generate canonical arc-free Windows icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          python tools/generate_windows_icon.py
+          python tools/generate_windows_icon.py --check
+          node desktop/tests/windows-icon.test.cjs
       - name: Resolve FoamLens version
         id: ver
         shell: pwsh

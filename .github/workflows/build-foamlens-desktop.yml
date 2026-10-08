@@ -25,6 +25,7 @@ on:
     paths:
       - 'desktop/**'
       - 'tools/make_visual_evidence.py'
+      - 'tools/generate_windows_icon.py'
       - 'tools/visual_release_gate.py'
       - '.github/workflows/build-foamlens-desktop.yml'
 
@@ -200,6 +201,17 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($v)) { throw 'FoamLens version could not be resolved.' }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Building FoamLens v$v"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate canonical arc-free Windows icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          python tools/generate_windows_icon.py
+          python tools/generate_windows_icon.py --check
 
       - name: Rebuild embedded frontend bundle
         shell: pwsh
