@@ -9,7 +9,7 @@ const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs
 const updater=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v19-auto-update.js'),'utf8');
 const workflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
 
-assert(program.includes('https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest'),
+assert(program.includes('https://api.github.com/repos/michels-lab/FoamLens/releases/latest'),
   'Desktop updater must query the official FoamLens latest-release endpoint.');
 assert(program.includes('_ = CheckForUpdatesAsync(userInitiated: false);'),
   'Desktop must perform a non-blocking automatic update check on normal startup.');
