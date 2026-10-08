@@ -1006,7 +1006,7 @@ async function fvLoadFrame(index=null,options={}){
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
   if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
-  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);fvRegionLoadFrame(c,time).catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
+  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);const regionTask=fvRegionLoadFrame(c,time);if(window.FoamLensAnimationExport?.isExporting?.())await regionTask;else regionTask.catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
 }
 function fvVectorArray(parsed,count){
