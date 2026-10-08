@@ -506,7 +506,24 @@ const fvState={
 
 // Physical OpenFOAM regions are separate scene layers. This is NOT a processor
 // partition merge: each region retains its own mesh/field/time association.
-const fvRegionScene={caseId:null,choices:new Map(),layers:new Map(),sequence:0,fitPending:false};
+const fvRegionScene={caseId:null,choices:new Map(),layers:new Map(),sequence:0,fitPending:false,rangeScan:null,videoRanges:null};
+function fvRegionRangeKey(region,choice,data){
+  return JSON.stringify([region,data?.group?.name||'',choice?.component||'value',data?.storage||'',data?.parsed?.dimensions||null])
+}
+function fvRegionBeginVideoRangeScan(){fvRegionScene.rangeScan={};fvRegionScene.videoRanges=null}
+function fvRegionObserveRange(region,choice,data){
+  const ranges=fvRegionScene.rangeScan,r=data?.range;
+  if(!ranges||!r?.valid||!Number.isFinite(Number(r.min))||!Number.isFinite(Number(r.max)))return;
+  const key=fvRegionRangeKey(region,choice,data),old=ranges[key];
+  ranges[key]=old?{valid:true,min:Math.min(old.min,Number(r.min)),max:Math.max(old.max,Number(r.max))}:{valid:true,min:Number(r.min),max:Number(r.max)}
+}
+function fvRegionEndVideoRangeScan(){
+  const ranges=fvRegionScene.rangeScan||{};fvRegionScene.rangeScan=null;return ranges
+}
+function fvRegionSetVideoRanges(ranges){
+  fvRegionScene.videoRanges=ranges&&typeof ranges==='object'?{...ranges}:null
+}
+
 function fvRegionNames(c){
   return [...new Set((c?.meshInventory||[]).filter(g=>g?.complete).map(g=>String(g.region||'')))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
 }
@@ -607,13 +624,13 @@ function fvRegionMakeBuffer(gl,values){
 function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
   const shape=fvBuildSurfaceBuffers(mesh),palette=document.getElementById('fvPalette')?.value||'viridis';
-  const storage=data?.storage||'',range=data?.range,values=data?.fieldValues;
+  const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range;
   let colors;
-  if(storage==='volume'&&values?.length===mesh.cellCount&&range?.valid)colors=fvSurfaceColors(mesh,values,range.min,range.max,palette);
-  else if(storage==='point'&&values?.length===mesh.pointCount&&range?.valid)colors=fvPointSurfaceColors(mesh,values,range.min,range.max,palette);
+  if(storage==='volume'&&values?.length===mesh.cellCount&&paintRange?.valid)colors=fvSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);
+  else if(storage==='point'&&values?.length===mesh.pointCount&&paintRange?.valid)colors=fvPointSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);
   else colors=fvConstantColors(shape.surfacePositions.length/3,[.42,.48,.56]);
   const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);
-  const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,parsed:data?.parsed||null,time,
+  const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,paintRange,parsed:data?.parsed||null,time,
     status:data?.status||'',colored:storage==='volume'||storage==='point',surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
@@ -697,6 +714,7 @@ async function fvRegionLoadFrame(c,time){
         status=flUi('Geometry only; field unavailable at t = ','Solo geometría; campo no disponible en t = ')+fvFmt(time)+' s'
       }
       if(!current())return; // A newer case/frame owns the WebGL canvas.
+      if(data)fvRegionObserveRange(region,choice,data);
       const layer=fvRegionBuildLayer(region,mesh,{...data,status},choice,time);
       if(layer){fvRegionScene.layers.set(region,layer);fvRender()}
       fvRegionStatus(region,status)
@@ -711,7 +729,8 @@ async function fvRegionLoadFrame(c,time){
 }
 window.FoamLensRegionScene={
   regionNames:fvRegionNames,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
-  state:()=>fvRegionScene,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera
+  state:()=>fvRegionScene,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera,
+  beginVideoRangeScan:fvRegionBeginVideoRangeScan,endVideoRangeScan:fvRegionEndVideoRangeScan,setVideoRanges:fvRegionSetVideoRanges
 };
 
 function fvEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
