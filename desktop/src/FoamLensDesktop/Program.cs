@@ -675,6 +675,9 @@ internal sealed class FoamLensForm : Form
                     toggle.click()
                   }else checks.sidebarToggleDoesNotResizeRibbon=false;
 
+                  const compareToggle=document.getElementById('fcEnabled');
+                  const originalCompare=!!compareToggle?.checked;
+                  if(compareToggle){compareToggle.checked=true;compareToggle.dispatchEvent(new Event('change',{bubbles:true}))}
                   const label=document.getElementById('fcCompareLabel'),
                     secondary=document.getElementById('fcViewport'),
                     primary=document.getElementById('fcPrimaryLabel'),
@@ -682,6 +685,7 @@ internal sealed class FoamLensForm : Form
                   checks.all3DViewportsComposed=[secondary,primary?.closest('.fcComposedViewport'),...extras.filter(Boolean)]
                     .every(v=>!!v?.querySelector('.fcViewportScene')&&!!v.querySelector('.fcViewportCaption'));
                   checks.captionOwnsCompareLabel=label?.parentElement?.classList.contains('fcViewportCaption')===true;
+                  checks.actualSecondViewVisible=!!secondary&&rect(secondary)?.width>=240&&getComputedStyle(secondary).display!=='none';
                   const sRect=rect(secondary?.querySelector('.fcViewportScene')),
                     caption=rect(secondary?.querySelector('.fcViewportCaption'));
                   checks.captionBelowScene=!!sRect&&!!caption&&caption.top>=sRect.bottom-2;
@@ -698,6 +702,30 @@ internal sealed class FoamLensForm : Form
                   checks.responsiveNumericStats=!!statsStyle&&statsStyle.textContent.includes(
                     '.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))')&&
                     statsStyle.textContent.includes('overflow-wrap:anywhere;font-variant-numeric:tabular-nums');
+                  const stats=document.getElementById('fcStatsGrid');
+                  if(stats){
+                    const originalHtml=stats.innerHTML,hidden=stats.classList.contains('hidden');
+                    stats.classList.remove('hidden');
+                    stats.innerHTML='<div class="fcStatsCard"><div class="fcStatsTitle">B14_topFixedFlux_explicitRef · T · mold</div><div class="fcStatsCells">'+
+                      Array.from({length:7},(_,i)=>'<div><span>'+['Cells','Association','Min','Max','Δ','Mean','Selected'][i]+
+                        '</span><b>1.416753420123456789e+12 kelvin per second</b></div>').join('')+
+                      '</div></div><div class="fcStatsCard"><div class="fcStatsTitle">A · long case ID</div><div class="fcStatsCells">'+
+                      '<div><span>Min</span><b>0.0000123456789012345 kelvin</b></div></div></div>';
+                    const cells=[...stats.querySelectorAll('.fcStatsCells')];
+                    checks.longStatsNoOverflow=stats.scrollWidth<=stats.clientWidth+3&&cells.every(grid=>{
+                      const vals=[...grid.querySelectorAll('b')];return grid.scrollWidth<=grid.clientWidth+3&&
+                        vals.every(val=>val.scrollWidth<=val.clientWidth+3)
+                    });
+                    stats.innerHTML=originalHtml;stats.classList.toggle('hidden',hidden)
+                  }else checks.longStatsNoOverflow=false;
+                  if(compareToggle){compareToggle.checked=originalCompare;compareToggle.dispatchEvent(new Event('change',{bubbles:true}))}
+                  document.getElementById('flRibbonTab-data')?.click();
+                  const loadCard=document.getElementById('countBadge')?.closest('.card');
+                  checks.dataOwnsNo3D=!!loadCard&&!loadCard.contains(document.getElementById('fcPanel'))&&
+                    !loadCard.contains(document.getElementById('fvAnimationPanel'));
+                  checks.dataHasNativeTools=['flRaCatalog','flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare']
+                    .every(id=>document.getElementById(id)?.getBoundingClientRect().width>=20);
+                  document.getElementById('flRibbonTab-field')?.click();
                   return{ok:Object.values(checks).every(Boolean),checks,
                     headerHeight:head?.height||0,ribbonHeight:before?.height||0,
                     sidebarTop:side?.top||0,sidebarWidth:side?.width||0};
