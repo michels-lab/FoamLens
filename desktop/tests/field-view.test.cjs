@@ -861,6 +861,17 @@ test('physical regions allocate and draw distinct meshes in one shared WebGL dep
   assert.equal(calls.filter(x=>x[0]==='delete').length,8,'Every GPU buffer must be released');
 });
 
+
+test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
+  assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
+  assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),
+    'Video must not capture a frame before secondary physical-region layers complete');
+  assert(source.includes('failedVisible.push(region+'),
+    'Missing visible physical regions must be recorded as export failures');
+  assert(source.includes('Cannot export an incomplete multiregion frame:'),
+    'Video must fail closed instead of silently exporting only the primary region');
+});
+
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
