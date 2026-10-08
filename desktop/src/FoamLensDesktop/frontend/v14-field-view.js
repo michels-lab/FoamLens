@@ -1024,8 +1024,19 @@ function fvCss(){
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true;
-  const controlsAnchor=document.getElementById('catalogControls'),viewport=document.getElementById('chartViewport');if(!controlsAnchor||!viewport)return false;
-  controlsAnchor.insertAdjacentHTML('afterend',fvUiHtml());viewport.insertAdjacentHTML('beforeend',fvPanelHtml());
+  // Field elements have a permanent Field-only origin, independent of Data's
+  // catalog, plotting canvas and sidebar. Field Workspace adopts them on entry.
+  // No 3D control or viewport may ever be mounted under Data/Load Data.
+  let fieldRoot=document.getElementById('flFieldBootstrapHost');
+  if(!fieldRoot){
+    fieldRoot=document.createElement('div');
+    fieldRoot.id='flFieldBootstrapHost';
+    fieldRoot.dataset.foamlensOwner='field';
+    fieldRoot.hidden=true;
+    document.body.appendChild(fieldRoot)
+  }
+  fieldRoot.insertAdjacentHTML('beforeend',fvUiHtml());
+  fieldRoot.insertAdjacentHTML('beforeend',fvPanelHtml());
   const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);fvInstallCamera();
   document.getElementById('fvCase').onchange=()=>fvHandleCaseChange().catch(e=>{console.error(e);fvSetStatus(String(e?.message||e),true)});document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};

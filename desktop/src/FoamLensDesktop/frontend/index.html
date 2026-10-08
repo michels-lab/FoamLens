@@ -6717,11 +6717,18 @@ function refreshGeneralAnalysisHost(){
   host.style.display=visible?'':'none';if(nav)nav.classList.toggle('pmHidden',!visible)
 }
 function openAnalysisModule(kind){
+  if(kind==='difference'){
+    setAppMode('data');
+    if(currentDataView==='catalog')setDataView('timeseries');
+    const card=document.getElementById('flDataComparisonCard');
+    window.FoamLensSidebarSections?.sbSetCollapsed?.(card,false);
+    card?.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+    return
+  }
   setAppMode('analysis');
   if(kind==='coupling'){setDataView('log');if($('couplingDiagnostics'))$('couplingDiagnostics').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='front'){setDataView('profile');if($('phaseFrontPanel')){$('phaseFrontPanel').open=true;$('phaseFrontPanel').scrollIntoView({block:'start',behavior:'smooth'})}}
-  else if(kind==='difference'){if($('differenceTools'))$('differenceTools').scrollIntoView({block:'center',behavior:'smooth'})}
-  else if(kind==='general'){refreshGeneralAnalysisHost();if($('generalAnalysisTools'))$('generalAnalysisTools').scrollIntoView({block:'start',behavior:'smooth'})}
+   else if(kind==='general'){refreshGeneralAnalysisHost();if($('generalAnalysisTools'))$('generalAnalysisTools').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='mapping'){if($('fieldMappingTools'))$('fieldMappingTools').scrollIntoView({block:'start',behavior:'smooth'})}
   else if(kind==='phaseMomentum'){refreshPhaseMomentumUi();if($('phaseMomentumTools'))$('phaseMomentumTools').scrollIntoView({block:'start',behavior:'smooth'})}
 }

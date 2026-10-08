@@ -9,16 +9,28 @@ function flAnalysisScopeInstall(){
     card=document.createElement('div');card.id='flAnalysisInspectorCard';card.className='card';
     card.innerHTML='<div class="cardhead"><strong data-fl-en="Analysis tools" data-fl-es="Herramientas de análisis">Analysis tools</strong><span class="badge" data-fl-en="contextual" data-fl-es="contextual">contextual</span></div><div id="flAnalysisOwnedHost"></div>';
     const dataCard=document.getElementById('countBadge')?.closest('.card');
-    dataCard?.insertAdjacentElement('afterend',card)??sidebar.prepend(card)
+    const dataCompare=document.getElementById('flDataComparisonCard');
+    (dataCompare||dataCard)?.insertAdjacentElement('afterend',card)??sidebar.prepend(card)
   }
   const host=document.getElementById('flAnalysisOwnedHost');if(!host)return false;
-  const ordered=['generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','differenceTools','fieldMappingTools','phaseMomentumTools'];
+  const dataCard=document.getElementById('countBadge')?.closest('.card');
+  let dataCompare=document.getElementById('flDataComparisonCard');
+  if(!dataCompare&&dataCard){
+    dataCompare=document.createElement('div');dataCompare.id='flDataComparisonCard';dataCompare.className='card';
+    dataCompare.dataset.foamlensOwner='data';
+    dataCompare.innerHTML='<div class="cardhead"><strong data-fl-en="2D curve comparisons" data-fl-es="Comparaciones de curvas 2D">2D curve comparisons</strong><span class="badge">Δ</span></div><div id="flDataComparisonHost"></div>';
+    dataCard.insertAdjacentElement('afterend',dataCompare)
+  }
+  const dataCompareHost=document.getElementById('flDataComparisonHost');
+  const difference=document.getElementById('differenceTools');
+  if(dataCompareHost&&difference&&difference.parentElement!==dataCompareHost)dataCompareHost.appendChild(difference);
+  const ordered=['generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','fieldMappingTools','phaseMomentumTools'];
   for(const id of ordered){const node=document.getElementById(id);if(node&&node.parentElement!==host)host.appendChild(node)}
   try{flApplyBilingualText(card)}catch{}
   flAnalysisScopeInstalled=true;
   window.FoamLensSidebarSections?.sbInstall?.();
   window.FoamLensSidebarSections?.sbApplyContext?.();
-  window.FoamLensAnalysisScope={isInstalled:()=>flAnalysisScopeInstalled,host:()=>host};
+  window.FoamLensAnalysisScope={isInstalled:()=>flAnalysisScopeInstalled,host:()=>host,dataComparisonHost:()=>dataCompareHost};
   return true
 }
 (function retry(){if(flAnalysisScopeInstall())return;requestAnimationFrame(retry)})();
