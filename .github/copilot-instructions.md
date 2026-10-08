@@ -32,7 +32,7 @@ For any tracked Michel's Lab task, return enough machine-readable continuation c
 
 Do not list planned tests/builds/device checks as completed validation. If required validation was not performed, the task must be released/handed back with that work pending rather than described as complete.
 
-<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-08.1 -->
+<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-08.2 -->
 # Michel's Lab shared child-agent contract
 
 This managed block is cross-project policy. Repository-specific instructions may add stricter local rules outside this block, but they must not weaken or contradict it.
@@ -56,6 +56,17 @@ This managed block is cross-project policy. Repository-specific instructions may
 - Use the current canonical Michel Duarte portrait and the official Michel's Lab parent-brand assets from the master authority when implementing/updating About.
 - The canonical portrait file is immutable: child repositories must vendor it byte-for-byte. Never resize, crop, recompress, retouch, regenerate, convert or rewrite the portrait asset itself; use render-time layout/object-fit/masking only.
 - Visible social controls use recognizable network icon **and** visible network name with canonical profile URLs.
+
+
+## Brand-native design and workspace architecture (mandatory)
+
+- Product logo geometry is the source of the app's **entire UI design language**; do not paste a canonical SVG in an unrelated sticker card and call branding complete. Use shared typography, spacing, geometry, control and motion tokens from that identity.
+- Keep official mark + readable product name and global About/Updates persistently visible independent of collapsible sidebar and selected workspace. No duplicate massive lockup/heading.
+- Data shows only data ingestion/catalog/filter controls, Field only 3D tools, Analysis only scientific analysis. Prefer a single 3D view by default and explicit coherent comparison state.
+- Compact/one-at-a-time contextual subbars should preserve actual scientific canvas. No persistent overlays hiding a simulation or axis gizmo.
+- At normal desktop widths/heights, the initial About viewport must show portrait, product, studio slogan and all five recognizable social icons **with visible names without scrolling**; test viewport intersections, not just existence or scroll reachability. Review actual screenshot.
+- On large imports, progress feedback has clear preparing/loading/stalled/completed/failed states and cannot hang forever at zero progress.
+- Apply `standards/BRAND_NATIVE_INTERFACE_STANDARD.md`; never claim a cohesive redesign without actual installed-surface screenshots, scientific functional checks and human review.
 
 ## Rendered visual brand release gate — mandatory for every app
 
