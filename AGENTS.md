@@ -2,7 +2,7 @@
 
 FoamLens is a scientific OpenFOAM analysis product with a Web frontend and a Windows C#/.NET 8/WinForms/WebView2 desktop host. Before editing, read `.michelslab/project.yml`, `MICHELS_LAB_PROJECT.md`, `docs/GIT_AUDIT_LOG.md`, `docs/INFRASTRUCTURE_AUDIT.md`, and the tests/workflows that own the affected behavior.
 
-Shared Michel's Lab rules live in `realmichelduarte/Michel-Software-Standards`.
+Shared Michel's Lab rules live in `michels-lab/Michel-Software-Standards`.
 
 ## Product constraints
 
@@ -40,7 +40,7 @@ Do not finish About with text-only social links or icon-only social buttons. Acc
 
 Treat this hierarchy and the product-wide logo-derived design language as part of product completeness. Visual work must not regress it.
 
-Follow `standards/PRODUCT_IDENTITY_STANDARD.md` and `standards/ABOUT_STANDARD.md` in `realmichelduarte/Michel-Software-Standards`.
+Follow `standards/PRODUCT_IDENTITY_STANDARD.md` and `standards/ABOUT_STANDARD.md` in `michels-lab/Michel-Software-Standards`.
 
 ## Validation
 
@@ -59,7 +59,7 @@ Do not bump a version or publish a release unless explicitly assigned.
 
 When the user asks to update/adopt the app logo, icon, splash, startup or About:
 
-- use the canonical product assets from `realmichelduarte/Michel-Software-Standards/shared-assets/product-logos/`;
+- use the canonical product assets from `michels-lab/Michel-Software-Standards/shared-assets/product-logos/`;
 - follow `standards/PRODUCT_IDENTITY_STANDARD.md` and `standards/BRAND_ADOPTION_PLAYBOOK.md` from the Michel-Software-Standards repository;
 - inspect this app's current design system before placing assets;
 - replace the real active platform identity references instead of layering the new logo over legacy/generic branding;
@@ -107,7 +107,7 @@ This managed block is cross-project policy. Repository-specific instructions may
 
 ## Shared authority
 
-- Michel's Lab shared standards, product identity, governance, release and coordination rules are authoritative in `realmichelduarte/Michel-Software-Standards`.
+- Michel's Lab shared standards, product identity, governance, release and coordination rules are authoritative in `michels-lab/Michel-Software-Standards`.
 - Keep product implementation truth and product-specific audit logs in this child repository.
 - Do not silently invent a conflicting local Michel's Lab rule.
 - Never commit secrets, credentials, signing material, private tokens or passwords.

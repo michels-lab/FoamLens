@@ -1,7 +1,7 @@
 # FoamLens Git Audit Log
 
 > Living engineering log for the FoamLens repository.  
-> Repository: `realmichelduarte/FoamLens`  
+> Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · current public release: `v1.4.2`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
@@ -3915,3 +3915,18 @@ The required interpretation is structural integration rather than sticker placem
 - Microsoft Store MSIX workflow now validates pushes to `main` as well as `distribution/**`, preventing future shared-source changes from bypassing the Store channel.
 - No release/tag/publication action is part of this hardening change.
 - CI #918 exposed one remaining test-only version pin: `native-performance.test.cjs` still required the historical literal `FoamLens v1.6.0 3D runtime UI smoke passed`. The product implementation had correctly moved to `DesktopVersionText`; the regression assertion was updated to protect the version-derived behavior rather than a historical release string.
+
+
+## 2026-10-07 — Repository transferred to Michel's Lab organization
+
+**Change:** GitHub ownership moved from `realmichelduarte/FoamLens` to `michels-lab/FoamLens`.
+
+**Active references updated:**
+- `.michelslab/project.yml` now identifies `michels-lab/FoamLens` and `michels-lab/Michel-Software-Standards` as the current project and shared authority.
+- `MICHELS_LAB_PROJECT.md`, `AGENTS.md`, and `.github/copilot-instructions.md` now point to the organization-owned standards repository.
+- Desktop updater release discovery and fallback release URLs now target `michels-lab/FoamLens` directly instead of relying on GitHub's old-owner redirect.
+- Updater contract test updated to the canonical organization endpoint.
+
+**Preserved intentionally:** personal developer/social links remain under `realmichelduarte`; the QuickCup research fixture remains `realmichelduarte/QuickCup-Solidification`.
+
+**Validation state:** repository transfer and admin/push access verified. Branch CI/build validation is required before merge; historical log references are preserved as historical evidence.

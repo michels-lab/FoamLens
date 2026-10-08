@@ -1,15 +1,15 @@
 version: 1
 studio: "Michel's Lab"
 project: "FoamLens"
-repository: "realmichelduarte/FoamLens"
+repository: "michels-lab/FoamLens"
 role: "application"
 
 governance:
-  standards_repository: "realmichelduarte/Michel-Software-Standards"
+  standards_repository: "michels-lab/Michel-Software-Standards"
   reporting_mode: "polled_by_master"
   source_of_truth:
-    shared_rules: "realmichelduarte/Michel-Software-Standards"
-    project_implementation: "realmichelduarte/FoamLens"
+    shared_rules: "michels-lab/Michel-Software-Standards"
+    project_implementation: "michels-lab/FoamLens"
 
 reporting:
   project_logs:
