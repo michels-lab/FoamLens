@@ -780,7 +780,7 @@ assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.
 const regionCode=source.slice(regionBegin,regionEnd);
 const regionApi=new Function(
   'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
-  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds};'
+  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene};'
 )();
 
 test('one 3D canvas recognizes distinct physical regions without treating processor partitions as regions',()=>{
@@ -870,6 +870,30 @@ test('multiregion video waits for the exact physical frame and rejects missing v
     'Missing visible physical regions must be recorded as export failures');
   assert(source.includes('Cannot export an incomplete multiregion frame:'),
     'Video must fail closed instead of silently exporting only the primary region');
+});
+
+
+test('video color scale remains fixed per physical region, field, component, units and across timesteps',()=>{
+  const solid={group:{name:'T'},storage:'volume',parsed:{dimensions:[0,0,0,1,0,0,0]},range:{valid:true,min:300,max:500}};
+  const later={...solid,range:{valid:true,min:250,max:630}};
+  const fluid={...solid,group:{name:'U'},parsed:{dimensions:[0,1,-1,0,0,0,0]},range:{valid:true,min:0,max:12}};
+  regionApi.fvRegionBeginVideoRangeScan();
+  regionApi.fvRegionObserveRange('solid',{component:'value'},solid);
+  regionApi.fvRegionObserveRange('solid',{component:'value'},later);
+  regionApi.fvRegionObserveRange('fluid',{component:'value'},fluid);
+  const ranges=regionApi.fvRegionEndVideoRangeScan(),key=regionApi.fvRegionRangeKey('solid',{component:'value'},solid);
+  assert.equal(Object.keys(ranges).length,2);
+  assert.deepStrictEqual(ranges[key],{valid:true,min:250,max:630});
+  regionApi.fvRegionSetVideoRanges(ranges);
+  assert.equal(regionApi.fvRegionScene.videoRanges[key].max,630);
+  regionApi.fvRegionSetVideoRanges(null);
+  assert.equal(regionApi.fvRegionScene.videoRanges,null);
+  assert(animationSource.includes('ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()'),
+    'Secondary physical-region video ranges must be captured across preload frames');
+  assert(animationSource.includes('setVideoRanges?.(ranges?.regions||null)'),
+    'Final fixed physical-region range must be applied before recording');
+  assert(source.includes('paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range'),
+    'Each region must color using its own fixed video range');
 });
 
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
