@@ -276,6 +276,60 @@ internal sealed class FoamLensForm : Form
                     $"FoamLens official local brand assets did not render on launch/sidebar/About: {brandingStateJson}");
             Log($"FoamLens official branding smoke passed: {brandingStateJson}");
 
+            // A loaded SVG is not visual acceptance. Validate the actual WebView2
+            // computed geometry and text contrast in both supported color schemes.
+            var launchBrandVisualJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  const screen=document.getElementById('launchScreen');
+                  const mark=document.getElementById('launchOfficialLogo');
+                  const title=document.getElementById('launchTitle');
+                  const subtitle=document.getElementById('launchSubtitle');
+                  const eyebrow=document.getElementById('launchEyebrow');
+                  const identity=document.querySelector('#launchScreen .launchIdentity');
+                  const actions=['launchFolder','launchFiles','launchWorkspace'].map(id=>document.getElementById(id));
+                  const rgb=v=>{const m=String(v||'').match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);return m?[Number(m[1]),Number(m[2]),Number(m[3])]:null};
+                  const lum=c=>{if(!c)return 0;const a=c.map(x=>{const n=x/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return a[0]*.2126+a[1]*.7152+a[2]*.0722};
+                  const contrast=(a,b)=>{const x=lum(a),y=lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+                  const originalDark=document.body.classList.contains('dark');
+                  const measure=dark=>{
+                    document.body.classList.toggle('dark',dark);
+                    const ir=mark?.getBoundingClientRect(),tr=title?.getBoundingClientRect();
+                    const minLogo=Math.min(104,Math.max(72,innerWidth*.08));
+                    const base=dark?[7,17,29]:[247,251,255];
+                    const texts=[title,subtitle,eyebrow].map(el=>contrast(rgb(getComputedStyle(el).color),base));
+                    return{
+                      theme:dark?'dark':'light',
+                      markWidth:Number(ir?.width||0),markHeight:Number(ir?.height||0),
+                      titleWidth:Number(tr?.width||0),
+                      contrast:texts,
+                      pass:!!screen&&!!identity&&!!mark&&!!title&&
+                        mark.complete&&mark.naturalWidth>0&&
+                        mark.getAttribute('src')==='assets/branding/official-mark.svg'&&
+                        Number(ir?.width||0)>=minLogo&&Number(ir?.height||0)>=minLogo&&
+                        Number(tr?.width||0)>100&&
+                        (innerWidth<=700||Number(ir?.right||0)<Number(tr?.left||0))&&
+                        texts.every(v=>v>=4.5)&&
+                        actions.every(el=>el&&el.getBoundingClientRect().width>0)&&
+                        document.querySelectorAll('#launchScreen h1').length===1&&
+                        identity.contains(title)&&identity.contains(mark)
+                    }
+                  };
+                  let themes;
+                  try{themes=[measure(true),measure(false)]}
+                  finally{document.body.classList.toggle('dark',originalDark)}
+                  return{ok:themes.every(x=>x.pass),themes,viewport:{width:innerWidth,height:innerHeight}};
+                })()
+                """);
+            using (var launchBrandVisual = JsonDocument.Parse(launchBrandVisualJson))
+            {
+                if (!launchBrandVisual.RootElement.TryGetProperty("ok", out var visualOk) || !visualOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens rendered launch brand geometry/contrast is invalid: {launchBrandVisualJson}");
+            }
+            Log($"FoamLens visual launch contract passed (computed WebView2 dark/light): {launchBrandVisualJson}");
+
+
             // Extension integration smoke: Field View must mount through the v1.6
             // Ribbon + Field surface contract. Legacy mode/data-tab navigation
             // must not survive as a second route into the same workspace.
