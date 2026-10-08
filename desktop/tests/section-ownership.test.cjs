@@ -13,7 +13,6 @@ const ribbon=read('v15-ribbon-ui.js');
 const activity=read('v20-activity-manager.js');
 const analysisScope=read('v21-analysis-scope.js');
 const compare=read('v14-z-field-compare.js');
-const analysisScope=read('v21-analysis-scope.js');
 const dataHtml=read('index.html');
 const analysisModules=[
   'v13-flow-analysis.js','v13-numerical-performance.js','v13-physical-analysis.js',
