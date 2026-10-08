@@ -562,7 +562,16 @@ function fwPromoteViewCaseSelectors(){
   if(primary&&primary.parentElement!==host){primary.classList.add('fwViewACaseRow');const label=primary.querySelector('label');if(label){label.textContent='View A · Case';label.dataset.flEn='View A · Case';label.dataset.flEs='Vista A · Caso'}host.appendChild(primary)}
   if(compare&&compare.parentElement!==host){compare.classList.add('fwViewBCaseRow');const label=compare.querySelector('label');if(label){label.textContent='View B · Case';label.dataset.flEn='View B · Case';label.dataset.flEs='Vista B · Caso'}host.appendChild(compare)}
   const enabled=!!document.getElementById('fcEnabled')?.checked;
-  compare?.classList.toggle('hidden',!enabled);host.dataset.viewCount=enabled?'2+':'1';return !!primary
+  compare?.classList.toggle('hidden',!enabled);
+  const present=new Set();
+  if(typeof fcExtraViews!=='undefined')for(const state of fcExtraViews){
+    const id=Number(state?.id),selector=document.getElementById('fcExtra'+id+'Case'),row=selector?.closest('.row2');
+    if(!row)continue;present.add(id);row.classList.add('fwViewExtraCaseRow');row.dataset.viewId=String(id);
+    if(row.parentElement!==host){const label=row.querySelector('label');if(label){label.textContent='View '+id+' · Case';label.dataset.flEn='View '+id+' · Case';label.dataset.flEs='Vista '+id+' · Caso'}host.appendChild(row)}
+    row.classList.toggle('hidden',!enabled)
+  }
+  host.querySelectorAll('.fwViewExtraCaseRow').forEach(row=>{if(!present.has(Number(row.dataset.viewId)))row.remove()});
+  host.dataset.viewCount=enabled?String(2+present.size):'1';return !!primary
 }
 function fwMount3D(){
   if(!fwFieldReady())return false;
