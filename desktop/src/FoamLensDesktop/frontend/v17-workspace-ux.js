@@ -40,7 +40,7 @@ function uxReset(){
   try{
     const set=(id,value,event='change')=>{const e=document.getElementById(id);if(!e)return;e.value=String(value);e.dispatchEvent(new Event(event,{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
-    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
+    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcEnabled',false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
     for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}window.FoamLensWorkspaceResize?.resetSizes?.()
   }finally{uxRestoring=false}
   uxDecorateLabels();uxUpdateComparisonStatus();uxSave()
@@ -101,7 +101,12 @@ async function uxApplyState(saved){
   uxDecorateLabels();uxUpdateComparisonStatus();return true
 }
 async function uxRestore(){
-  return uxApplyState(uxLoad())
+  // An implicit startup never opens duplicated 3D views from stale localStorage.
+  // An explicitly imported Workspace may still call uxApplyState() to restore
+  // its intentional comparison, which is a user action, not a startup default.
+  const saved=uxLoad();
+  return uxApplyState({...saved,view:'3d',layout:'3d',compareEnabled:false,
+    differenceEnabled:false,viewCount:1,inspector:false})
 }
 function uxInstallUi(){
   if(document.getElementById('uxViewNamesPanel'))return;

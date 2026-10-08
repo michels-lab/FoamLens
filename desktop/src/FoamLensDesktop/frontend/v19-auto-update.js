@@ -10,20 +10,26 @@ function auRequestManualCheck(){
   }catch(e){console.error('FoamLens update check failed to start',e);return false}
 }
 function auInstall(){
-  if(auStoreChannel){
-    auInstalled=true;
-    window.FoamLensAutoUpdate={check:()=>false,isInstalled:()=>false,channel:'store'};
-    return true
-  }
-  if(auInstalled||document.getElementById('flRaCheckUpdates'))return true;
-  if(typeof flRibbonActionHtml!=='function'||typeof flRibbonBind!=='function')return false;
-  const actions=document.querySelector('#flRibbonPanel-home .flRibbonGroup:last-child .flRibbonActions');
-  if(!actions)return false;
-  actions.insertAdjacentHTML('beforeend',
-    flRibbonActionHtml('flRaCheckUpdates','reset','Updates','Actualizaciones','FoamLens'));
-  flRibbonBind('flRaCheckUpdates',auRequestManualCheck);
+  if(auInstalled)return true;
+  const button=document.getElementById('flGlobalUpdates');if(!button)return false;
+  const localize=()=>{
+    const es=document.getElementById('language')?.value==='es',label=button.querySelector('span');
+    if(label)label.textContent=es?'Actualizaciones':'Updates';
+    button.title=auStoreChannel?(es?'Las actualizaciones se administran desde Microsoft Store':'Updates are managed by Microsoft Store'):(es?'Buscar actualizaciones':'Check for updates')
+  };
+  localize();
+  document.getElementById('language')?.addEventListener('change',localize);
+  button.addEventListener('click',()=>{
+    if(auStoreChannel){
+      const status=document.getElementById('status');
+      if(status)status.textContent=document.getElementById('language')?.value==='es'?'Microsoft Store administra las actualizaciones.':'Updates are managed by Microsoft Store.';
+      return
+    }
+    auRequestManualCheck()
+  });
   auInstalled=true;
-  window.FoamLensAutoUpdate={check:auRequestManualCheck,isInstalled:()=>auInstalled,channel:'github'};
+  if(auStoreChannel)window.FoamLensAutoUpdate={check:()=>false,isInstalled:()=>auInstalled,channel:'store'};
+  else window.FoamLensAutoUpdate={check:auRequestManualCheck,isInstalled:()=>auInstalled,channel:'github'};
   return true
 }
 (function retry(){if(auInstall())return;requestAnimationFrame(retry)})();

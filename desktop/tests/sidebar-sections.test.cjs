@@ -79,3 +79,7 @@ test('sidebar sections are scoped to the active workflow instead of leaking acro
 
 console.log('FoamLens collapsible sidebar regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('Data never exposes controls for side-by-side 3D geometry',()=>{
+ assert(source.includes("if(key==='case-comparison')return false"),'Data sidebar still mixes in Field 3D comparison settings.');
+});

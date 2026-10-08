@@ -3962,3 +3962,21 @@ The required interpretation is structural integration rather than sticker placem
 - Vendored the master's fail-closed UI evidence validator and added immutable screenshot manifests bound to the exact source SHA and installer/MSIX artifact SHA-256. The Store visual capture is from the running unpacked Store executable and does **not** establish installed/signed Store-package verification.
 - Removed direct GitHub Release publication from Windows `build` and moved it behind a separate `publish` job using `visual-release-approval`; this job refuses to publish without an independent real GitHub environment approval record and same-SHA/installer screenshot evidence. Configuring at least one human required reviewer for that GitHub Environment is an external prerequisite. Until configured, automatic publication is intentionally blocked.
 - No new release was authorized; latest stable stays v1.6.2. Preserve the canonical product mark and Michel's Lab asset bytes.
+
+### 2026-10-08 — Unified FoamLens UX redesign (candidate, visual QA pending)
+- Root issue: accepted brand SVG files were placed into unrelated, oversized launch/About/sidebar cards while Data/3D/Analysis owned inconsistent toolbar, state and panel semantics. User requested a single product-native UI based on FoamLens's layered field geometry and retained usability under panel collapse.
+- Consolidated compact About product→author+studio→contacts composition, with five social icons/names above fold at normal desktop sizes and real WebView2 bounds gate, preserving official portraits/logos byte-for-byte.
+- Added fixed application identity/name and permanent About/Updates global actions; legacy collapsible sidebar branding is hidden when Ribbon shell is active; Store-channel Updates explains Microsoft Store ownership.
+- Field ribbon now uses compact primary command row and one-at-a-time Inspect/Compare/Camera subbars, with optional cache controls; all 3D navigation buttons moved to a docked toolbar outside scientific viewport; camera directions collapsed.
+- Data hides 3D case comparison sidebar settings; default startup uses single Field 3D view, explicit imported Workspace compare remains opt-in; Compare 3D reveals view-B inspector controls.
+- Native OpenFOAM large-field progress now owns a push/pop lifecycle, displays non-fabricated stalled/waiting feedback and clears its timer and toast in finally.
+- Added static regression guards, but runtime screenshots of actual Windows Data/Field/Analysis/regular About still require inspection and acceptance. This is not a new release and does not change canonical assets.
+
+## 2026-10-08 — PR #32 integration on current main (candidate, not a release)
+
+- Rebased the cohesive Field/Data design changes from `design/foamlens-cohesive-ui-20261008` onto main `ef400dcee2c221a807f889b32b17dcf1da5c9524` by constructing a two-parent reconciliation commit.
+- Retained the newer About changes from PR #34 (paired product/studio design, five named socials visible in the initial viewport) instead of restoring superseded About CSS/markup.
+- Moved About/Updates to persistent chrome, added a one-at-a-time 3D contextual ribbon, default single 3D viewport, Data sidebar scoping, OpenFOAM load feedback and global design tokens.
+- Corrected the packaged Windows runtime smoke to expect persistent `flGlobalUpdates` instead of deleted `flRaCheckUpdates`. Earlier failed Windows #37749410491 due solely to `missingActions:["flRaCheckUpdates"]` in its runtime Ribbon assertion; the real OpenFOAM fixture passed.
+- Preserved PR #33 policy: automated visual evidence and artifact integrity remain mandatory; owner visual review occurs after publication, not as a manual pre-release blocking gate.
+- Same-SHA Windows and Store CI are **pending** for the resulting integration commit. Do not declare a new release from this log entry.

@@ -52,7 +52,7 @@ assert(source.includes("document.getElementById('fvCacheLimit')"),
   'Field Ribbon does not mount the canonical frame-cache selector beside playback.');
 assert(source.includes("document.getElementById('fvCacheReadout')"),
   'Field Ribbon does not mount the canonical cache readout beside playback.');
-assert(source.includes("cacheField.parentElement!==host"),
+assert(source.includes("cacheField.parentElement!==advanced"),
   'Frame-cache control is copied instead of moved as the canonical control.');
 assert(source.includes('function flRibbonMountFieldOptions'),
   'Field Ribbon does not own contextual Split options.');
@@ -101,3 +101,8 @@ assert(source.includes("body.flRibbonReady .top .tools{display:none!important}")
 assert(source.includes('window.FoamLensRibbon'));
 
 console.log('FoamLens v1.6 Ribbon/context/activity scope audit passed:',tabs.length,'top-level tabs.');
+
+assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.classList.toggle('hidden',!enabled)"),'One-at-a-time contextual 3D subbars are missing.');
+assert(source.includes('.flRibbonTimeGroup{min-width:340px')&&source.includes('flRibbonCacheAdvanced'),'Field ribbon must be compact and cache configuration collapsible.');
+assert(!source.includes("flRibbonActionHtml('flRaAbout'"),'About must not disappear when the Home ribbon tab is not active.');
+assert(source.includes("document.getElementById('fcEnabled')?.checked")&&source.includes("setInspector?.(true)"),'Compare must reveal explicit second-view controls.');

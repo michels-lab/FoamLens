@@ -115,3 +115,12 @@ assert(program.includes('about-{size.Name}-bottom.png')&&program.includes('Emula
 assert(workflow.includes('Verify automated screenshot and exact-artifact integrity')&&workflow.includes('visual_release_gate.py'),'Every release must verify the real UI screenshot manifest and exact installer SHA before publication.');
 assert(workflow.includes('visual_release_gate.py')&&workflow.includes('make_visual_evidence.py'),'A release must use the manifest-backed rendered UI validator.');
 assert(workflow.indexOf('      - name: Publish GitHub Release')===-1,'Unsafe automatic publish inside build job survived.');
+
+// Persistent shell, compact Field and native reader lifecycle acceptance.
+assert(index.includes('id="globalOfficialLogo"')&&index.includes('class="flGlobalProductName">FoamLens</strong>'),'Persistent FoamLens name/mark is missing from the global shell.');
+const globalHeader=index.slice(index.indexOf('<header class="top">'),index.indexOf('</header>'));
+assert(globalHeader.includes('id="aboutDeveloperBtn"')&&globalHeader.includes('id="flGlobalUpdates"'),'About and Updates must remain visible outside Home.');
+assert(!index.includes('<button class="btn soft" id="aboutDeveloperBtn">About</button>'),'Hidden Home-only About control has returned.');
+assert(program.includes('socialsVisibleWithoutScroll:links.every(inInitialViewport)')&&program.includes('pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)'),'About initial-viewport geometry acceptance is missing.');
+assert(index.includes('lastProgressAt=Date.now()')&&index.includes('clearInterval(fieldFeedback)')&&index.includes('popAppActivity()'),'OpenFOAM field load feedback must terminate cleanly.');
+assert(program.includes("'aboutDeveloperBtn','flGlobalUpdates'")&&!program.includes("['flRaCheckUpdates']"),'Runtime smoke must check permanent Updates instead of obsolete Home ribbon action.');

@@ -6,6 +6,7 @@ on:
       - main
       - 'distribution/**'
       - 'fix/**'
+      - 'design/**'
       - 'fix/branding-about-release-gate-20261008'
     paths:
       - 'desktop/**'
