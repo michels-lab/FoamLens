@@ -4027,3 +4027,16 @@ The required interpretation is structural integration rather than sticker placem
 - The existing, already functional Store MSIX workflow now regenerates and validates the arc-free Windows ICO with the packaged executable, then (on `design/**` only) commits that exact generated binary to its source branch and dispatches Windows/Store checks against the resulting commit.
 - Both Windows/Store build workflows generate/verify the source-bound icon before their actual .NET packaging. This prevents both stale binaries and false claims of a corrected icon when the Git tree still includes the old one.
 - The generated binary commit, successful subsequent CI and canonical master PR merger remain **to be verified**; do not publish a new release from the design branch.
+
+## 2026-10-08 — Owner indefinitely pauses Microsoft Store builds
+
+- **Owner instruction:** stop generating FoamLens Microsoft Store versions and spending GitHub Actions resources on MSIX packages for **all future FoamLens releases** until the owner explicitly authorizes a restart. This pause includes auto-CI, manual jobs, uploads, submission and certification. Direct Windows releases continue normally.
+- Disabled `.github/workflows/build-store-msix.yml` on `main` in commit `d91b3a2df06b4d8f517c94e016727db91ffc2623`: removed push triggers, left `workflow_dispatch` for archival visibility and added an unconditionally false owner-resumption job guard, so no Store runner is allocated even if a person manually clicks Run Workflow.
+- Disabled the same Store workflow on development PR #35 (`design/foamlens-next-centered-launch-20261008`) at commit `92d59464c621f4c4f18df8dbb581bf1026410af1`. Windows CI now owns on-demand icon synchronization and only dispatches the Windows workflow, never Store.
+- Microsoft Store workflows that started **before** this explicit pause completed already; no active Store runs needed cancellation at the time of inspection. The last Store run for the arc-free ICO candidate was `37816516921`, successful on commit `8ff70d1`. This does not indicate Store submission or publication.
+- Added a durable owner-specific pause exception to master Michel's Lab policies `standards/PRIVACY_AND_STORE_STANDARD.md` and `standards/CI_CD_STANDARD.md` in `Michel-Software-Standards` commits `bf6d826`/`22473ea`. No resumption date was requested; only a **new explicit user instruction** reactivates MSIX builds.
+
+## 2026-10-08 — PR #35 branch/main integration
+
+- Reconciled the GitHub main Store pause and project audit with design branch changes without replacing the newer Windows UX fixes or canonical arc-free app icon. MSIX workflow on merged branch is the paused main version, with no `push` trigger and an unconditionally false job gate. Owner explicitly authorized integrating changes and releasing Windows, **not** Microsoft Store.
+- Windows icon source/master and on-disk ICO are synchronized; PR #35 latest pre-integration Windows CI #37816512451 and MSIX CI #37816516921 succeeded on icon-sync SHA `8ff70d1`. The next release requires *fresh* current-head Windows validation; no new Store CI is requested.
