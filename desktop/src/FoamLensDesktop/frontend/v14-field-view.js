@@ -597,17 +597,17 @@ function fvRegionInstallEvents(){
   document.getElementById('fvRegionShowAll')?.addEventListener('click',()=>{
     const c=fvCase();if(!c)return;
     for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=true;
-    fvRegionRefreshList();fvRender()
+    fvRegionRefreshList();if(!fvRegionFitCamera())fvRender()
   });
   document.getElementById('fvRegionOnlyPrimary')?.addEventListener('click',()=>{
     const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';if(!c)return;
     for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=region===primary;
-    fvRegionRefreshList();fvRender()
+    fvRegionRefreshList();if(!fvRegionFitCamera())fvRender()
   });
   root.addEventListener('change',e=>{
     const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
     const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
-    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;fvRender();return}
+    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;if(!fvRegionFitCamera())fvRender();return}
     if(e.target.matches('[data-fv-region-field]')){
       choice.field=e.target.value;choice.component='value';
       fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
@@ -654,7 +654,9 @@ function fvRegionRenderLayers(){
   gl.depthMask(true);gl.depthFunc(gl.LEQUAL)
 }
 function fvRegionFitCamera(){
-  const meshes=[fvState.mesh];
+  const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'',meshes=[];
+  // The primary mesh is no exception: hidden physical regions must not alter camera fit.
+  if(fvState.mesh&&(!c||fvRegionChoice(c,primary).visible))meshes.push(fvState.mesh);
   for(const [region,layer] of fvRegionScene.layers)if(fvRegionScene.choices.get(region)?.visible)meshes.push(layer.mesh);
   const bounds=fvRegionUnionBounds(meshes);if(!bounds)return false;
   fvState.camera.target=bounds.center;fvState.camera.distance=bounds.diagonal*1.65;fvRender();return true
@@ -896,7 +898,9 @@ function fvSyncAssociationControls(storage){
 }
 function fvConstantColors(vertexCount,rgb){const out=new Float32Array(vertexCount*3);for(let i=0;i<vertexCount;i++){out[3*i]=rgb[0];out[3*i+1]=rgb[1];out[3*i+2]=rgb[2]}return out}
 function fvCameraFitCurrent(){
-  if(fvRegionScene.layers.size&&fvRegionFitCamera())return;
+  if(fvRegionFitCamera())return;
+  const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';
+  if(c&&!fvRegionChoice(c,primary).visible)return;
   const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1;
   fvState.camera.target=center;fvState.camera.distance=diag*1.65;fvRender()
 }
