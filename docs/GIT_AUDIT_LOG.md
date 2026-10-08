@@ -4062,3 +4062,38 @@ The required interpretation is structural integration rather than sticker placem
 - Tag ref `refs/tags/v1.8.0` points to the **same exact** commit as CI head and verified `main` at publication. Public binaries contain the previously merged PR #35 centered/arc-free launch, compact Field Ribbon, camera presets and per-view case selectors.
 - **Microsoft Store remains paused indefinitely**: no MSIX build was triggered by the v1.8.0 release commit, and no Partner Center upload/submission/certification is claimed. Windows signing credentials were unavailable/unused; release does not imply Authenticode signature.
 - Owner visually reviews the downloaded v1.8.0 after publication; CI cannot guarantee subjective design acceptance beyond runtime screenshots and geometry checks. Any follow-up refinements belong to a later version, not a silent overwrite of v1.8.0 artifacts.
+
+## 2026-10-08 — Root-cause fix: Data 2D vs Field 3D ownership (next version, unreleased)
+
+- User screenshot of desktop v1.8.0 exposed `Synchronized 3D case comparison` inside `Data → Load Data` below catalog filters, burying the legitimate Data plot choices. Owner explicitly requires architecture correction, not CSS masking.
+- Root cause: `fvInstallUi()` created `fieldViewControls` *after* Data `catalogControls` inside Load Data and appended `fieldViewPanel` directly into the Data chart viewport, hoping a later first Field visit would reparent them. The 3D compare extension then mounted under those misplaced controls.
+- Replaced the cross-module ownership with a dedicated hidden `flFieldBootstrapHost` under `document.body` marked `foamlensOwner=field`; all Field 3D controls/canvas and extensions originate there, then move only to the Field workspace's `fw3DControlsHost` and `fw3DHost`. They never originate or return to Data.
+- Established explicit Data-owned `flDataComparisonCard` / `flDataComparisonHost` for 2D curve differences; advanced Analysis retains its independent scientific modules. Moved `differenceTools` out of the Analysis owner instead of duplicating its controls, preserving source/event bindings.
+- Restored primary Data Ribbon choices **Time series, Spatial profiles, Solver logs, Catalog** plus **Compare 2D**. Profile horizontal/vertical line, time selection, multiple-height comparison and log solver controls are preserved. Analysis 2D Δ entry points now navigate to the same Data-owned comparison card.
+- Added regression tests for DOM origin/ownership, sidebar state and Data Ribbon navigation; native WebView2 smoke checks the entire Data → Field → Data lifecycle, including that no Field controls/canvas ever become descendants of Data's Load Data/chart containers.
+- **Pending:** exact-head Windows scientific/portable/installed CI and real UI review. No new public release authorized. Microsoft Store remains indefinitely paused.
+
+## 2026-10-08 — v1.8.0 field comparison metadata and full-width desktop shell regression
+
+- Owner's v1.8.0 screenshot still shows the second 3D viewport's verbose case/field/path text **drawn over the WebGL canvas**, clashing with the in-canvas legend; two statistical readout cards force values and units into 4 miniature columns, truncating scientific values.
+- Root cause: `v14-z-field-compare.js` appended `.fcViewLabel` directly to each `.fvViewport` and gave it `position:absolute` / `bottom:12px`; the shared seven-value `.fcStatsCells` grid used four fixed columns with `overflow:hidden;text-overflow:ellipsis`.
+- Structural fix: `fcComposeViewport` consistently separates a stable `.fcViewportScene` (WebGL canvas, time badge, legend, probe) from a flow-layout `.fcViewportCaption` (case/field/path, diagnostics) for primary, second, difference and extra 3D views; scientific stats now use responsive two-column values that wrap and retain units; legend ticks use bounded 3-column layout.
+- New complaint: opening/resizing the settings sidebar shrinks/reflows the Field ribbon and changes font sizes; isometric and directional presets are not discoverable. Root cause: top header and Ribbon belong to the `.main` sidebar-dependent track, all tabs/actions use assorted `7/8/9/10px` typography and preset commands are buried in the Camera subbar.
+- Reorganized shared `v15-ribbon-ui.js`: full-viewport fixed header and Ribbon measured via `ResizeObserver`, sidebar and workspace both start below this immutable global chrome; compact single-row action surface with consistent 10px labels, always-visible Isometric/Front/Top/Right shortcuts and remaining camera directions in Camera context, without reducing label sizes when the sidebar opens.
+- Also repaired the initial ownership regression that exposed 3D comparison and animation blocks in Data before opening Field: `fwInstall` now mounts both Field controls and its viewport into the Field-owned DOM immediately. Data gained actual Catalog/Profiles/Time Series/Solver Logs/Compare Ribbon actions, restoring access to existing data views.
+- Added source and native WebView2 geometry checks for long labels, no overlay, 2-column statistics, global chrome width before/after toggling settings, sidebar starting under Ribbon, uniform action typography, and live camera shortcuts.
+- **Release status:** these are next-version **candidates**, not silent changes to published v1.8.0. Follow exact-head Windows CI; keep Microsoft Store indefinitely paused per owner instruction. Data-scientific enhancements and multi-region simultaneous geometry still require independent validation.
+
+
+### Integration reconciliation — 2026-10-08
+- Combined PR #37 Data-owned 2D / Field-owned 3D root-cause fix with PR #38 full-width Ribbon and non-overlapping 3D comparison captions in `integration/foamlens-data-field-viewport-20261008`. Ribbon retains #38 compact camera actions, #37 comparison panel ownership and routes both 2D Compare entrypoints to that Data-owned card.
+- Windows/WebView2 and private QuickCup scientific validations for this integration HEAD remain **pending** until CI confirms. Actual desktop screenshots and installed UX must not be presumed successful. Microsoft Store stays paused; no release triggered.
+
+- FoamLens `AGENTS.md` and Copilot instructions no longer demand a protected pre-release human screenshot approval. Automated rendered UI checks stay mandatory; owner review remains **post-release**, per the current master `RENDERED_UI_RELEASE_GATE.md`.
+- Connector-side syntax parsing of 10 affected JS/test modules and 9 focused integration invariants passed on the integration branch. These are structural checks only, **not** a substitute for actual Windows/QuickCup/native screenshots or installed-app functionality.
+
+
+## 2026-10-08 — 1024px Field Ribbon clipping & failed-build visual evidence
+- Packaged Windows smoke passed real Data↔Field ownership and Ribbon navigation, then caught Field toolbar overflow at 1024px: scrollWidth=1352 against clientWidth=1024. UI fault, not a testing false positive.
+- Field main Ribbon uses accessible, bounded icon-only actions under 1460px; labels remain in DOM and on hover/accessibility metadata. At <=760px redundant quick-camera icons yield to the Camera subbar. Full controls remain reachable; scientific scene is not resized or obscured by a second toolbar row.
+- CI now uploads visual screenshots and native smoke logs even on failure, without uploading duplicate binaries. Await real Windows 1024px geometry validation; do not merge/release until exact-head full checks succeed.

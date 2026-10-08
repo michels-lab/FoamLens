@@ -22,7 +22,7 @@ for(const removed of ['plots','compare'])
     "Obsolete top-level alias tab still present: "+removed);
 
 for(const id of [
-  'flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
+  'flRaDataTime','flRaDataProfiles','flRaDataLogs','flRaDataCompare','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
   'flRaSplit','flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
   'flRaAnalysisTimeResult','flRaAnalysisProfileResult','flRaExportPng','flRaTheme'
 ]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
@@ -101,9 +101,52 @@ assert(source.includes('window.FoamLensRibbon'));
 console.log('FoamLens v1.6 Ribbon/context/activity scope audit passed:',tabs.length,'top-level tabs.');
 
 assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.classList.toggle('hidden',!enabled)"),'One-at-a-time contextual 3D subbars are missing.');
-assert(source.includes('.flRibbonTimeGroup{min-width:340px')&&source.includes('flRibbonCacheAdvanced'),'Field ribbon must be compact and cache configuration collapsible.');
+assert(source.includes('.flRibbonTimeGroup{min-width:300px')&&source.includes('flRibbonCacheAdvanced'),'Field ribbon must be compact and cache configuration collapsible.');
 assert(!source.includes("flRibbonActionHtml('flRaAbout'"),'About must not disappear when the Home ribbon tab is not active.');
 assert(source.includes("document.getElementById('fcEnabled')?.checked")&&source.includes("setInspector?.(true)"),'Compare must reveal explicit second-view controls.');
 
 for(const id of ['flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom'])assert(source.includes(id),'Camera preset missing: '+id);
 assert(source.includes('flRibbonCameraTools')&&source.includes('flCameraToolsActive'),'Orbit/pan/zoom tools must live in contextual Camera subbar.');
+
+assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'))")&&source.includes("setAppMode('data');setDataView(view)"),'Data Time series must use canonical Data workspace view navigation.');
+assert(source.includes("flRibbonBind('flRaDataProfiles',()=>flRibbonOpenDataView('profile'))"),'Data spatial profiles must use canonical Data workspace view navigation.');
+assert(source.includes("flRibbonBind('flRaDataLogs',()=>flRibbonOpenDataView('log'))"),'Data solver logs must use canonical Data workspace view navigation.');
+assert(source.includes('function flRibbonOpenData2DCompare()'),'Data 2D comparison entry point is missing.');
+
+const tabHandlers=source.slice(source.indexOf("document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click'"),
+  source.indexOf("flRibbonBind('flRaOpenFiles'"));
+assert(tabHandlers.includes("else if(key==='data')try{setAppMode('data')}catch{}"),
+  'Data tab must navigate through canonical Data mode, not override the selected plot');
+assert(!tabHandlers.includes("setDataView("),
+  'Returning to Data must preserve the current Time series / Profile / Logs / Catalog view');
+
+assert(source.includes("flRibbonBind('flRaDifference',()=>flRibbonOpenData2DCompare())"),
+  '2D difference button incorrectly opens advanced Analysis instead of Data.');
+
+assert(source.includes('function flRibbonInstallChromeMeasurement')&&source.includes('watcher.observe(header)')&&source.includes('watcher.observe(ribbon)'),
+  'Chrome height must be measured instead of a brittle fixed pixel offset');
+assert(source.includes('body.flRibbonReady .sidebar{margin-top:calc(var(--flChromeTop) + var(--flRibbonHeight))'),
+  'Sidebar must start below global top header and ribbon');
+assert(source.includes('body.flRibbonReady .main{padding-top:calc(var(--flChromeTop) + var(--flRibbonHeight))'),
+  'Main workspace must start below global chrome');
+assert(source.includes('.flRibbon{position:fixed;left:0;right:0;top:var(--flChromeTop,58px);width:100%'),
+  'Global Ribbon must never shrink with sidebar width');
+assert(source.includes('.flRibbonLabel{font-size:10px')&&source.includes('.flFieldContextTab{padding:6px 10px'),
+  'Ribbon buttons must have one consistent typography model');
+for(const id of ['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'])
+  assert(source.includes(id),'Direct camera shortcut must remain visible: '+id);
+
+const compactCssStart=source.indexOf('function flRibbonCss()');
+const compactCssEnd=source.indexOf('function flRibbonSelectTab(',compactCssStart);
+assert(compactCssStart>0&&compactCssEnd>compactCssStart,'Ribbon CSS generator is missing');
+const compactCss=new Function(source.slice(compactCssStart,compactCssEnd)+';return flRibbonCss()')();
+assert(compactCss.includes('@media(max-width:1460px)')&&compactCss.includes('#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}'),
+  'Laptop Field mode must collapse verbose labels to semantic icon controls');
+assert(compactCss.includes('#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px'),
+  'Field icon controls need bounded button widths in a one-row Ribbon');
+assert(compactCss.includes('@media(max-width:760px)')&&compactCss.includes('.flRibbonQuickCameraGroup{display:none}'),
+  'On compact viewports, duplicate quick cameras must yield to the Camera subbar');
+assert(source.includes("aria-label=\"'+en.replace"),'Icon-only Ribbon controls need accessible names');
+
+for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
+  assert(source.includes(id),'Data must expose its own plotting and compare actions: '+id);

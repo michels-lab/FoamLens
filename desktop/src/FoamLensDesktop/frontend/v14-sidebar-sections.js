@@ -7,12 +7,13 @@ function sbNormalizeState(value){
   for(const [key,v] of Object.entries(value))if(typeof v==='boolean')out[String(key)]=v;
   return out
 }
-function sbDefaultCollapsed(key){return String(key)==='case-comparison'}
+function sbDefaultCollapsed(key){return ['case-comparison','data-2d-comparison'].includes(String(key))}
 function sbSectionKey(card,index=0){
   if(!card)return 'section-'+index;
   if(card.querySelector?.('#caseManagerTitle'))return 'case-comparison';
   if(card.id==='elementEditorCard')return 'figure-element-editor';
   if(card.id==='flAnalysisInspectorCard')return 'analysis-tools';
+  if(card.id==='flDataComparisonCard')return 'data-2d-comparison';
   if(card.querySelector?.('#countBadge'))return 'load-data';
   if(card.querySelector?.('#thesisFigureBtn'))return 'figure';
   if(card.querySelector?.('#selBadge'))return 'selected-curve';
@@ -76,6 +77,7 @@ function sbSectionVisible(key,mode=sbAppMode(),view=sbDataView()){
   if(key==='load-data')return true;
   // 3D case comparison is a Field-only workflow; Data never owns camera/view controls.
   if(key==='case-comparison')return false;
+  if(key==='data-2d-comparison')return view!=='catalog';
   if(view==='catalog')return false;
   if(key==='phase-change'||key==='reference-lines')return view==='timeseries'||view==='profile';
   return ['figure','figure-element-editor','selected-curve'].includes(key)

@@ -77,12 +77,16 @@ test('derived Analysis results do not silently switch hidden Data views',()=>{
   }
 });
 
-test('Analysis owns one stable inspector instead of borrowing Data/Profile/Log controls',()=>{
+test('Analysis owns advanced diagnostics while curve differences stay in Data',()=>{
   for(const token of [
     'flAnalysisInspectorCard','flAnalysisOwnedHost',
-    "'generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','differenceTools','fieldMappingTools','phaseMomentumTools'",
-    'host.appendChild(node)','FoamLensSidebarSections?.sbApplyContext?.()'
-  ])assert(analysisScope.includes(token),'Missing Analysis-owned surface token: '+token);
+    "'generalAnalysisTools','couplingDiagnostics','phaseFrontPanel','fieldMappingTools','phaseMomentumTools'",
+    'host.appendChild(node)','FoamLensSidebarSections?.sbApplyContext?.()',
+    "dataCompare.dataset.foamlensOwner='data'",
+    'dataCompareHost.appendChild(difference)'
+  ])assert(analysisScope.includes(token),'Missing correctly owned analysis/data surface: '+token);
+  const advanced=analysisScope.match(/const ordered=\[([^\]]+)\]/)?.[1]||'';
+  assert(!advanced.includes('differenceTools'),'Analysis must not reclaim the Data-owned 2D difference tool');
 });
 
 test('General Analysis title is bilingual',()=>{

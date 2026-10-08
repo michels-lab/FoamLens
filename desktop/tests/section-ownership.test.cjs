@@ -13,6 +13,7 @@ const ribbon=read('v15-ribbon-ui.js');
 const activity=read('v20-activity-manager.js');
 const analysisScope=read('v21-analysis-scope.js');
 const compare=read('v14-z-field-compare.js');
+const dataHtml=read('index.html');
 const analysisModules=[
   'v13-flow-analysis.js','v13-numerical-performance.js','v13-physical-analysis.js',
   'v13-solidification-analysis.js','v13-spatial-differences.js','v13-temporal-alignment.js',
@@ -28,6 +29,11 @@ function test(name,fn){fn();passed.push(name)}
 test('3D and 3D comparison remain Field-owned across top-level section switches',()=>{
   assert(field.includes("fwAdoptFieldNode('fieldViewPanel','fw3DHost')"));
   assert(field.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"));
+  // 3D Compare settings may initially be outside fieldViewControls, depending
+  // on module installation order. Reparent the actual panel on startup AND entry.
+  const compareAdoptions=field.split("fwAdoptFieldNode('fcPanel','fw3DControlsHost')").length-1;
+  assert.equal(compareAdoptions,2,
+    'Compare 3D configuration must enter the Field Inspector on bootstrap and on re-entry');
   const start=field.indexOf('function fwLeave()'),end=field.indexOf('function fwInstall()',start),leave=field.slice(start,end);
   assert(start>=0&&end>start,'fwLeave block missing.');
   assert(!leave.includes("fwRestore(document.getElementById('fieldViewPanel'))"));
@@ -102,3 +108,33 @@ test('activity ownership prevents compact progress from competing with detailed 
 
 console.log('FoamLens v1.6 section-ownership / anti-leak regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('Field mounts directly into a Field-owned staging host, never Data',()=>{
+  assert(fieldView.includes("fieldRoot.dataset.foamlensOwner='field'"));
+  assert(fieldView.includes("document.body.appendChild(fieldRoot)"));
+  assert(fieldView.includes("fieldRoot.insertAdjacentHTML('beforeend',fvUiHtml())"));
+  assert(fieldView.includes("fieldRoot.insertAdjacentHTML('beforeend',fvPanelHtml())"));
+  assert(!fieldView.includes("controlsAnchor.insertAdjacentHTML('afterend',fvUiHtml())"));
+  assert(!fieldView.includes("viewport.insertAdjacentHTML('beforeend',fvPanelHtml())"));
+  assert(field.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"));
+  assert(compare.includes("const controls=document.getElementById('fieldViewControls')"));
+});
+
+test('2D comparison belongs to Data; Analysis cannot reclaim 3D or 2D data controls',()=>{
+  assert(analysisScope.includes("dataCompare.dataset.foamlensOwner='data'"));
+  assert(analysisScope.includes("dataCompareHost.appendChild(difference)"));
+  assert(analysisScope.includes("id='flDataComparisonHost'")||analysisScope.includes('id="flDataComparisonHost"'));
+  const advanced=analysisScope.match(/const ordered=\[([^\]]+)\]/)?.[1]||'';
+  assert(!advanced.includes('differenceTools'),'2D comparisons must not be owned by Analysis');
+  assert(dataHtml.includes("function openAnalysisModule(kind)"));
+  assert(/if\(kind==='difference'\)\s*\{\s*setAppMode\('data'\);/.test(dataHtml),
+    '2D difference must switch to the canonical Data workspace.');
+});
+
+test('Data results preserve time-series, horizontal/vertical profiles, logs and catalog',()=>{
+  for(const id of ['timeSeriesTab','profileTab','logTab','catalogTab','profileLine','profileTime','logFamily','timeSeriesVariable','compareHeights'])
+    assert(dataHtml.includes('id="'+id+'"'),'Missing Data 2D control '+id);
+  for(const action of ['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'])
+    assert(ribbon.includes(action),'Missing Data Ribbon access to '+action);
+  assert(ribbon.includes("flRibbonBind('flRaDataCompare',()=>flRibbonOpenData2DCompare())"));
+});

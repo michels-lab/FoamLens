@@ -138,7 +138,7 @@ test('comparison UI exposes time badges on every viewport, generalized differenc
 test('3D comparison can add synchronized views three and four',()=>{
   for(const token of [
     'FC_MAX_TOTAL_VIEWS=4','fcExtraViews','fcExtraAdd','+ Add 3D view',
-    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(auto-fit,minmax(340px,1fr))'
+    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(auto-fit,minmax(min(100%,400px),1fr))'
   ])assert(source.includes(token),'Missing multi-view token: '+token);
 });
 
@@ -201,3 +201,7 @@ test('each 3D viewport keeps its own Probe selection and statistics table',()=>{
 
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+assert(source.includes('function fcComposeViewport('),'Multi-view scene/caption ownership missing');
+assert(source.includes('.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),
+  'Comparison scientific statistics must be legible in narrow viewports');

@@ -159,3 +159,19 @@ test('3D cases are selectable in the sidebar and comparison stays opt-in',()=>{
   assert(w.includes("compare?.classList.toggle('hidden',!enabled)"),'View B selector must hide until comparison');
   assert(w.includes('compareUserRequested:false')&&w.includes('if(!fwState.compareUserRequested)'),'No implicit comparison on Field entry');
 });
+
+test('Field 3D components are relocated out of Data before initial entry',()=>{
+  const src=fs.readFileSync(path.join(root,'v14-zz-field-workspace.js'),'utf8');
+  const block=src.slice(src.indexOf('function fwInstall(){'),src.indexOf('let fwPrevSetDataView='));
+  assert(block.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"),'Data cannot contain initial 3D controls');
+  assert(block.includes("fwAdoptFieldNode('fieldViewPanel','fw3DHost')"),'Data cannot host initial 3D viewport');
+});
+test('Data has a real Ribbon route for profiles, time series, logs and comparing curves',()=>{
+  for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
+    assert(ribbon.includes(id),'Missing Data toolbar action: '+id);
+  assert(ribbon.includes('function flRibbonOpenDataView(view)'),'2D workspace mode handler is absent');
+});
+test('Global top chrome is stable across sidebar resizing',()=>{
+  assert(ribbon.includes('flRibbonInstallChromeMeasurement')&&ribbon.includes("body.flRibbonReady .sidebar{margin-top"),
+    'Header and toolbar must be independent of the sidebar track');
+});

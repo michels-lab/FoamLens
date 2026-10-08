@@ -501,6 +501,84 @@ internal sealed class FoamLensForm : Form
                         $"FoamLens v1.6 Field Ribbon/surface did not mount cleanly: {fieldViewUiJson}");
             }
 
+            // Native product separation contract: Data owns only 2D time series,
+            // spatial profiles, solver logs, catalog and curve differences.
+            // Field is initialized outside the Data subtree, not CSS-hidden there.
+            var dataOwnershipJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  try {
+                  // Drive the exact same Ribbon navigation a user can click. The
+                  // app's setAppMode is intentionally private inside its IIFE.
+                  const activate=key=>{
+                    const button=document.getElementById('flRibbonTab-'+key);
+                    if(!button)throw new Error('Missing Ribbon tab: '+key);
+                    button.click();
+                  };
+                  const fieldControls=document.getElementById('fieldViewControls');
+                  const fieldPanel=document.getElementById('fieldViewPanel');
+                  const fieldCompare=document.getElementById('fcPanel');
+                  const originalRoot=document.getElementById('flFieldBootstrapHost');
+                  const loadCard=document.getElementById('countBadge')?.closest('.card');
+                  const dataCompareCard=document.getElementById('flDataComparisonCard');
+                  const dataCompareHost=document.getElementById('flDataComparisonHost');
+                  const dataDifference=document.getElementById('differenceTools');
+                  const analysisCard=document.getElementById('flAnalysisInspectorCard');
+                  const checks={
+                    fieldOwnedRoot:!!originalRoot&&originalRoot.dataset.foamlensOwner==='field',
+                    fieldControlsNotInsideData:!!fieldControls&&!loadCard?.contains(fieldControls),
+                    fieldCanvasNotInsideData:!!fieldPanel&&!document.getElementById('chartViewport')?.contains(fieldPanel),
+                    fieldCompareNotInsideData:!!fieldCompare&&!loadCard?.contains(fieldCompare),
+                    dataDifferenceOwnedByData:!!dataCompareCard&&dataCompareCard.dataset.foamlensOwner==='data'&&!!dataCompareHost&&dataCompareHost.contains(dataDifference),
+                    dataDifferenceNotInsideAnalysis:!!analysisCard&&!analysisCard.contains(dataDifference),
+                    profileControlsPreserved:!!document.getElementById('profileLine')&&!!document.getElementById('profileTime'),
+                    logControlsPreserved:!!document.getElementById('logFamily'),
+                    timeSeriesControlsPreserved:!!document.getElementById('timeSeriesVariable'),
+                    dataNavigationComplete:['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'].every(id=>!!document.getElementById(id))
+                  };
+                  activate('data');
+                  const afterData={
+                    loadUnchanged:!!loadCard&&!loadCard.contains(fieldControls)&&!loadCard.contains(fieldCompare),
+                    chartUnchanged:!document.getElementById('chartViewport')?.contains(fieldPanel),
+                    dataCompareExists:!!document.getElementById('flDataComparisonCard')
+                  };
+                  activate('field');
+                  const fieldHost=document.getElementById('fw3DControlsHost');
+                  const fieldCanvasHost=document.getElementById('fw3DHost');
+                  const afterField={
+                    controlsInField:!!fieldHost&&fieldHost.contains(fieldControls),
+                    canvasInField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
+                    compareInField:!!fieldHost&&fieldHost.contains(fieldCompare)
+                  };
+                  activate('data');
+                  const afterReturn={
+                    controlsStillField:!!fieldHost&&fieldHost.contains(fieldControls)&&!loadCard.contains(fieldControls),
+                    canvasStillField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
+                    compareStillField:!!fieldHost&&fieldHost.contains(fieldCompare)&&!loadCard.contains(fieldCompare),
+                    data2DStillData:!!dataCompareHost&&dataCompareHost.contains(dataDifference)
+                  };
+                  activate('home');
+                  return {pass:[...Object.values(checks),...Object.values(afterData),...Object.values(afterField),...Object.values(afterReturn)].every(Boolean),
+                    checks,afterData,afterField,afterReturn};
+                  } catch (error) {
+                    return {pass:false,error:String(error?.message||error),stack:String(error?.stack||''),
+                      currentMode:typeof activeAppMode==='string'?activeAppMode:null,
+                      documentReady:document.readyState,
+                      fieldRoot:!!document.getElementById('flFieldBootstrapHost'),
+                      fieldSurface:!!document.getElementById('fieldSurface'),
+                      ribbonReady:document.body.classList.contains('flRibbonReady')};
+                  }
+                })()
+                """);
+            using (var dataOwnership = JsonDocument.Parse(dataOwnershipJson))
+            {
+                if (dataOwnership.RootElement.ValueKind != JsonValueKind.Object ||
+                    !dataOwnership.RootElement.TryGetProperty("pass", out var ownershipPassed) || !ownershipPassed.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens Data 2D vs Field 3D ownership smoke failed: {dataOwnershipJson}");
+            }
+            Log($"FoamLens Data/Field lifecycle and plotting navigation ownership verified: {dataOwnershipJson}");
+
             var ribbonUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{
@@ -643,6 +721,101 @@ internal sealed class FoamLensForm : Form
                         $"FoamLens compact Field Ribbon/per-view selector runtime contract failed: {fieldCompactUiJson}");
             }
             Log($"FoamLens compact Field Ribbon and independent case selector smoke passed: {fieldCompactUiJson}");
+
+            // Native geometry regression: the full-window chrome must NEVER resize
+            // with the settings sidebar. Long comparison labels and values must live
+            // beneath the WebGL scene, without overlapping its legend or geometry.
+            var fieldShellGeometryJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  document.getElementById('flRibbonTab-field')?.click();
+                  const bar=document.getElementById('flRibbon'),header=document.querySelector('.main>.top'),
+                    sidebar=document.querySelector('.sidebar'),toggle=document.getElementById('sidebarToggle'),
+                    app=document.getElementById('appShell');
+                  const rect=el=>el?.getBoundingClientRect();
+                  const before=rect(bar),head=rect(header),side=rect(sidebar);
+                  const checks={
+                    fullWidthRibbon:!!before&&Math.abs(before.left)<2&&Math.abs(before.width-innerWidth)<3,
+                    fullWidthHeader:!!head&&Math.abs(head.left)<2&&Math.abs(head.width-innerWidth)<3,
+                    sidebarBelowRibbon:!!side&&!!before&&side.top>=before.bottom-3,
+                    sidebarNotOverHeader:!!side&&!!head&&side.top>=head.bottom-3,
+                    chromeMeasured:!!app&&parseFloat(app.style.getPropertyValue('--flRibbonHeight'))>=60,
+                    directCameraViews:['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'].every(id=>{
+                      const el=document.getElementById(id);return !!el&&rect(el)?.width>=25&&getComputedStyle(el).display!=='none'
+                    }),
+                    typographyUniform:['flRaQuickIso','flRaQuickTop','flRaFieldWorkspace'].every(id=>{
+                      const label=document.querySelector('#'+id+' .flRibbonLabel');
+                      return !!label&&getComputedStyle(label).fontSize==='10px'
+                    })
+                  };
+                  if(toggle){toggle.click();const after=rect(bar);
+                    checks.sidebarToggleDoesNotResizeRibbon=!!after&&Math.abs(after.width-before.width)<3;
+                    toggle.click()
+                  }else checks.sidebarToggleDoesNotResizeRibbon=false;
+
+                  const compareToggle=document.getElementById('fcEnabled');
+                  const originalCompare=!!compareToggle?.checked;
+                  if(compareToggle){compareToggle.checked=true;compareToggle.dispatchEvent(new Event('change',{bubbles:true}))}
+                  const label=document.getElementById('fcCompareLabel'),
+                    secondary=document.getElementById('fcViewport'),
+                    primary=document.getElementById('fcPrimaryLabel'),
+                    extras=[3,4].map(id=>document.getElementById('fcExtra'+id+'Viewport'));
+                  checks.all3DViewportsComposed=[secondary,primary?.closest('.fcComposedViewport'),...extras.filter(Boolean)]
+                    .every(v=>!!v?.querySelector('.fcViewportScene')&&!!v.querySelector('.fcViewportCaption'));
+                  checks.captionOwnsCompareLabel=label?.parentElement?.classList.contains('fcViewportCaption')===true;
+                  checks.actualSecondViewVisible=!!secondary&&rect(secondary)?.width>=240&&getComputedStyle(secondary).display!=='none';
+                  const sRect=rect(secondary?.querySelector('.fcViewportScene')),
+                    caption=rect(secondary?.querySelector('.fcViewportCaption'));
+                  checks.captionBelowScene=!!sRect&&!!caption&&caption.top>=sRect.bottom-2;
+                  if(label){
+                    const original=label.textContent;
+                    label.textContent='B14_topFixedFlux_explicitRef /10/mold/T · exact · '
+                      +'cases_controlled_buoyancy/'.repeat(7)+'t=10 seconds';
+                    const lr=rect(label),cr=rect(label.parentElement),sr=rect(secondary?.querySelector('.fcViewportScene'));
+                    checks.longLabelWrapsBelowScene=!!lr&&!!cr&&!!sr&&lr.top>=sr.bottom-2&&lr.right<=cr.right+3&&
+                      getComputedStyle(label).overflowWrap==='anywhere';
+                    label.textContent=original
+                  }else checks.longLabelWrapsBelowScene=false;
+                  const statsStyle=document.getElementById('fcStyles');
+                  checks.responsiveNumericStats=!!statsStyle&&statsStyle.textContent.includes(
+                    '.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))')&&
+                    statsStyle.textContent.includes('overflow-wrap:anywhere;font-variant-numeric:tabular-nums');
+                  const stats=document.getElementById('fcStatsGrid');
+                  if(stats){
+                    const originalHtml=stats.innerHTML,hidden=stats.classList.contains('hidden');
+                    stats.classList.remove('hidden');
+                    stats.innerHTML='<div class="fcStatsCard"><div class="fcStatsTitle">B14_topFixedFlux_explicitRef · T · mold</div><div class="fcStatsCells">'+
+                      Array.from({length:7},(_,i)=>'<div><span>'+['Cells','Association','Min','Max','Δ','Mean','Selected'][i]+
+                        '</span><b>1.416753420123456789e+12 kelvin per second</b></div>').join('')+
+                      '</div></div><div class="fcStatsCard"><div class="fcStatsTitle">A · long case ID</div><div class="fcStatsCells">'+
+                      '<div><span>Min</span><b>0.0000123456789012345 kelvin</b></div></div></div>';
+                    const cells=[...stats.querySelectorAll('.fcStatsCells')];
+                    checks.longStatsNoOverflow=stats.scrollWidth<=stats.clientWidth+3&&cells.every(grid=>{
+                      const vals=[...grid.querySelectorAll('b')];return grid.scrollWidth<=grid.clientWidth+3&&
+                        vals.every(val=>val.scrollWidth<=val.clientWidth+3)
+                    });
+                    stats.innerHTML=originalHtml;stats.classList.toggle('hidden',hidden)
+                  }else checks.longStatsNoOverflow=false;
+                  if(compareToggle){compareToggle.checked=originalCompare;compareToggle.dispatchEvent(new Event('change',{bubbles:true}))}
+                  document.getElementById('flRibbonTab-data')?.click();
+                  const loadCard=document.getElementById('countBadge')?.closest('.card');
+                  checks.dataOwnsNo3D=!!loadCard&&!loadCard.contains(document.getElementById('fcPanel'))&&
+                    !loadCard.contains(document.getElementById('fvAnimationPanel'));
+                  checks.dataHasNativeTools=['flRaCatalog','flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare']
+                    .every(id=>document.getElementById(id)?.getBoundingClientRect().width>=20);
+                  document.getElementById('flRibbonTab-field')?.click();
+                  return{ok:Object.values(checks).every(Boolean),checks,
+                    headerHeight:head?.height||0,ribbonHeight:before?.height||0,
+                    sidebarTop:side?.top||0,sidebarWidth:side?.width||0};
+                })()
+                """);
+            using (var fieldShell = JsonDocument.Parse(fieldShellGeometryJson))
+            {
+                if (!fieldShell.RootElement.TryGetProperty("ok", out var fieldOk) || !fieldOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens field shell and compare long-label geometry failed: {fieldShellGeometryJson}");
+            }
+            Log($"FoamLens full-width Field shell and long-label scene/caption geometry smoke passed: {fieldShellGeometryJson}");
 
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
