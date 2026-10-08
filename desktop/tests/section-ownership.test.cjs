@@ -122,13 +122,14 @@ test('2D comparison belongs to Data; Analysis cannot reclaim 3D or 2D data contr
   const advanced=analysisScope.match(/const ordered=\[([^\]]+)\]/)?.[1]||'';
   assert(!advanced.includes('differenceTools'),'2D comparisons must not be owned by Analysis');
   assert(dataHtml.includes("function openAnalysisModule(kind)"));
-  assert(dataHtml.includes("if(kind==='difference'){\n    setAppMode('data')"));
+  assert(/if\(kind==='difference'\)\s*\{\s*setAppMode\('data'\);/.test(dataHtml),
+    '2D difference must switch to the canonical Data workspace.');
 });
 
 test('Data results preserve time-series, horizontal/vertical profiles, logs and catalog',()=>{
   for(const id of ['timeSeriesTab','profileTab','logTab','catalogTab','profileLine','profileTime','logFamily','timeSeriesVariable','compareHeights'])
     assert(dataHtml.includes('id="'+id+'"'),'Missing Data 2D control '+id);
-  for(const action of ['flRaDataTime','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'])
+  for(const action of ['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'])
     assert(ribbon.includes(action),'Missing Data Ribbon access to '+action);
   assert(ribbon.includes("flRibbonBind('flRaDataCompare',()=>flRibbonOpenData2DCompare())"));
 });
