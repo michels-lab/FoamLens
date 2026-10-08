@@ -1,26 +1,14 @@
 name: Build FoamLens Microsoft Store MSIX
+# PAUSED by owner 2026-10-08: no automatic or manually runnable Store builds.
+# Reactivation requires a NEW, explicit owner request and a source change.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - 'distribution/**'
-      - 'fix/**'
-      - 'design/**'
-      - 'fix/branding-about-release-gate-20261008'
-    paths:
-      - 'desktop/**'
-      - 'tools/make_visual_evidence.py'
-      - 'tools/visual_release_gate.py'
-      - 'store/**'
-      - 'tools/render_store_manifest.py'
-      - 'tools/create_store_assets.ps1'
-      - 'tools/store_smoke_test.py'
-      - '.github/workflows/build-store-msix.yml'
+
 permissions:
   contents: read
 jobs:
   package:
+    if: ${{ github.event_name == 'owner-explicitly-resumed-microsoft-store-builds' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
