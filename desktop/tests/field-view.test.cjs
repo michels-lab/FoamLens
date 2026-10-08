@@ -774,6 +774,56 @@ test('Field selector remount prefers the loaded renderer field and component',()
     'Component selector remount can fall back to a stale DOM component instead of renderer state.');
 });
 
+
+const regionBegin=source.indexOf('const fvRegionScene='),regionEnd=source.indexOf('function fvEsc(s)',regionBegin);
+assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.');
+const regionCode=source.slice(regionBegin,regionEnd);
+const regionApi=new Function(
+  'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
+  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds};'
+)();
+
+test('one 3D canvas recognizes distinct physical regions without treating processor partitions as regions',()=>{
+  const sourceCase={meshInventory:[
+    {region:'solid',complete:true},
+    {region:'fluid',complete:true},
+    {region:'solid',complete:true,partition:'processor0'},
+    {region:'unfinished',complete:false}
+  ]};
+  assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
+  assert(regionCode.includes('fvRegionBuildLayer('));
+  assert(regionCode.includes('fvRegionRenderLayers()'));
+  assert(source.includes('fvRegionRenderLayers();fvUpdateAxisGizmo()'));
+  assert(!regionCode.includes('fvCombinePartitionMeshes('),'Physical regions must not be merged as processor partitions');
+  for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
+    assert(source.includes(token),'Missing physical region control: '+token);
+});
+
+test('secondary region field data uses exact physical time; other times show explicit neutral geometry',()=>{
+  assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.1+1e-12),.1);
+  assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.15),undefined,'Never silently take closest field time');
+  assert.equal(regionApi.fvRegionExactTime([],0),undefined);
+  for(const token of [
+    'fvLoadFrameData(c,selected,region,exact',
+    'fvMeshSnapshotForTime(complete[0],time)',
+    'Geometry only; field unavailable at t = ',
+    "frame.storage==='surface'",
+    "fvRegionStatus(item.region,item.error)"
+  ])assert(regionCode.includes(token),'Missing scientific provenance/safety: '+token);
+});
+
+test('camera includes geometry bounds of all visible physically independent regions',()=>{
+  const a={boundsMin:[0,0,0],boundsMax:[1,1,1]};
+  const b={boundsMin:[2,-1,0],boundsMax:[4,1,3]};
+  const bounds=regionApi.fvRegionUnionBounds([a,b]);
+  assert.deepStrictEqual(bounds.min,[0,-1,0]);
+  assert.deepStrictEqual(bounds.max,[4,1,3]);
+  assert.deepStrictEqual(bounds.center,[2,0,1.5]);
+  assert(Math.abs(bounds.diagonal-Math.sqrt(29))<1e-12);
+  assert.equal(regionApi.fvRegionUnionBounds([{boundsMin:[5,5,5],boundsMax:[1,1,1]}]),null);
+  assert(regionCode.includes('fvRegionReleaseLayer(layer)'),'Previous GPU buffers must be explicitly freed');
+});
+
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
