@@ -29,6 +29,11 @@ function test(name,fn){fn();passed.push(name)}
 test('3D and 3D comparison remain Field-owned across top-level section switches',()=>{
   assert(field.includes("fwAdoptFieldNode('fieldViewPanel','fw3DHost')"));
   assert(field.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"));
+  // 3D Compare settings may initially be outside fieldViewControls, depending
+  // on module installation order. Reparent the actual panel on startup AND entry.
+  const compareAdoptions=field.split("fwAdoptFieldNode('fcPanel','fw3DControlsHost')").length-1;
+  assert.equal(compareAdoptions,2,
+    'Compare 3D configuration must enter the Field Inspector on bootstrap and on re-entry');
   const start=field.indexOf('function fwLeave()'),end=field.indexOf('function fwInstall()',start),leave=field.slice(start,end);
   assert(start>=0&&end>start,'fwLeave block missing.');
   assert(!leave.includes("fwRestore(document.getElementById('fieldViewPanel'))"));
