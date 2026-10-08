@@ -25,13 +25,24 @@ def main():
     artifact_sha=hashfile(a.artifact)
     records=[]
     for viewport in ("wide","compact"):
-        for name, surface in ((f"home-{viewport}.png","home"),(f"about-{viewport}.png","about"),(f"about-{viewport}-bottom.png","about")):
+        required=((f"home-{viewport}.png","home"),(f"about-{viewport}.png","about"))
+        optional=((f"about-{viewport}-bottom.png","about"),)
+        top_about=(a.evidence_dir/f"about-{viewport}.png").resolve()
+        for name, surface in (*required,*optional):
             file=(a.evidence_dir/name).resolve()
+            if name.startswith("about-") and name.endswith("-bottom.png"):
+                # When all essential About content fits above fold, no extra scroll exists.
+                # The independently captured bottom image is then byte-identical: omit
+                # it from evidence instead of fabricating or reusing distinct pixels.
+                if not file.is_file() or hashfile(file)==hashfile(top_about):
+                    continue
             if not file.is_file(): raise SystemExit(f"Missing real screenshot: {file}")
             with Image.open(file) as img:
                 width,height=img.size
-            records.append({"platform":a.platform,"surface":surface,"viewport":viewport,"path":str(file.relative_to(root)).replace('\\','/'),
-                            "sha256":hashfile(file),"width":width,"height":height,"capture_method":a.capture_method,
+            records.append({"platform":a.platform,"surface":surface,"viewport":viewport,
+                            "path":str(file.relative_to(root)).replace(chr(92),"/"),
+                            "sha256":hashfile(file),"width":width,"height":height,
+                            "capture_method":a.capture_method,
                             "candidate_artifact_sha256":artifact_sha})
     a.output.write_text(json.dumps({"schema":"michelslab-rendered-ui-v1","source_commit":a.source_sha,
                     "artifact_sha256":{a.platform:artifact_sha},"screenshots":records},indent=2)+"\n",encoding="utf-8")

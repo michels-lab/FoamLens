@@ -52,7 +52,7 @@ assert(source.includes("document.getElementById('fvCacheLimit')"),
   'Field Ribbon does not mount the canonical frame-cache selector beside playback.');
 assert(source.includes("document.getElementById('fvCacheReadout')"),
   'Field Ribbon does not mount the canonical cache readout beside playback.');
-assert(source.includes("cacheField.parentElement!==host"),
+assert(source.includes("cacheField.parentElement!==advanced"),
   'Frame-cache control is copied instead of moved as the canonical control.');
 assert(source.includes('function flRibbonMountFieldOptions'),
   'Field Ribbon does not own contextual Split options.');
