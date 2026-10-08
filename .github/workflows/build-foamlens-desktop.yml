@@ -789,7 +789,7 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check Pillow
           test -f artifacts/visual/manifest.json
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about --capture-only
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
@@ -797,8 +797,8 @@ jobs:
           setup=next(Path('artifacts').glob('FoamLens-Setup-v*.exe'),None)
           if setup is None: raise SystemExit('No exact installer artifact found')
           digest=hashlib.sha256(setup.read_bytes()).hexdigest()
-          if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: reviewed screenshots belong to a different Setup digest')
-          print('Release installer verified against screenshot manifest:',digest)
+          if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: validated screenshots belong to a different Setup digest')
+          print('Release installer validated against screenshot manifest:',digest)
           PY
       - name: Publish verified GitHub Release
         shell: bash

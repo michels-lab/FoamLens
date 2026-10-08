@@ -3980,3 +3980,12 @@ The required interpretation is structural integration rather than sticker placem
 - Corrected the packaged Windows runtime smoke to expect persistent `flGlobalUpdates` instead of deleted `flRaCheckUpdates`. Earlier failed Windows #37749410491 due solely to `missingActions:["flRaCheckUpdates"]` in its runtime Ribbon assertion; the real OpenFOAM fixture passed.
 - Preserved PR #33 policy: automated visual evidence and artifact integrity remain mandatory; owner visual review occurs after publication, not as a manual pre-release blocking gate.
 - Same-SHA Windows and Store CI are **pending** for the resulting integration commit. Do not declare a new release from this log entry.
+
+## 2026-10-08 — Authorized FoamLens Desktop v1.7.0 release
+
+- User explicitly requested `dale release` after FoamLens PR #32 was merged into `main` at `b7def31cffbe3044e6663ae5964c11bd9661d343`.
+- Exact-HEAD Windows CI #37757447075 and Microsoft Store MSIX CI #37757447024 were both SUCCESS before the release version bump.
+- Prepared Desktop, installer, frontend fallback, README and version-contract tests for v1.7.0; v51 remains the embedded frontend version.
+- Reconciled a stale GitHub release `publish` job that still required a pre-release human approval although the owner explicitly chooses to inspect rendered visuals after release. Kept automated runtime screenshot, checksum, provenance and exact-artifact release gates mandatory.
+- Release authorization triggers a `release:` commit on main and full same-SHA Windows / QuickCup / Store workflows. **At commit time, publication is pending current release SHA checks, not yet verified.**
+- No assertion of signed binaries, Microsoft Store certification or Partner Center publication.

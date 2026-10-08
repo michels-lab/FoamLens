@@ -1,5 +1,17 @@
 # Changelog
 
+## Desktop v1.7.0 — 2026-10-08
+
+- Rebuilt the FoamLens workspace interface around the official layered-field visual identity, with coherent controls and spacing throughout the app.
+- Made the product identity and About / Updates permanently accessible in the global application shell.
+- Condensed Field / 3D tools into contextual one-at-a-time subbars, improving available scientific viewport space.
+- Restored a single default 3D viewport; secondary comparison views appear only when explicitly requested, with synchronized case selectors.
+- Kept Data discovery settings free of unrelated 3D controls and maintained Data, Field, and Analysis workspace separation.
+- Reworked the initial About viewport to show the FoamLens mark, developer portrait, Michel's Lab identity and slogan `TOOLS WITH IDENTITY.`, and five named social links without scrolling at normal desktop sizes.
+- Improved native OpenFOAM large-field import feedback with preparing, waiting/stalled and completion/error cleanup states, without fabricating measured progress.
+- Preserved real OpenFOAM QuickCup and VTK scientific regression gates, Windows portable/installed smoke tests, automated native screenshots, screenshot-to-installer SHA-256 validation, and Microsoft Store MSIX build checks.
+- Aligned release publication with owner authorization and automated exact-artifact validation; final visual review remains post-release. Microsoft Store certification and executable signing are not implied.
+
 ## Desktop v1.6.2 — 2026-10-08
 
 - Prevented incorrect Field Mapping suggestions when a plausible field name contradicts explicit OpenFOAM SI dimensions; preserved safe name-based mapping when metadata is unavailable.

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fail-closed rendered-UI evidence check for Michel's Lab shipping candidates.
 
-This verifies image integrity, coverage and source/artifact binding; a protected
-GitHub Environment human-review approval must ALSO gate actual publication.
+This verifies image integrity, coverage and source/artifact binding. Automated
+publication uses --capture-only; the owner reviews visuals after publication.
+The optional explicit human-review mode remains available for separate audits.
 """
 from __future__ import annotations
 
@@ -125,7 +126,7 @@ def main() -> int:
     parser.add_argument("--surfaces", default="home,about",
                         help="Comma-separated mandatory + changed UI surfaces")
     parser.add_argument("--capture-only", action="store_true",
-                        help="Validate captured files while manual review remains pending")
+                        help="Validate actual screenshot and candidate integrity; owner visual review follows publication")
     args = parser.parse_args()
     platforms = [p.strip() for p in args.platforms.split(",") if p.strip()]
     surfaces = [p.strip() for p in args.surfaces.split(",") if p.strip()]
@@ -139,7 +140,7 @@ def main() -> int:
         print(f"RENDERED UI RELEASE GATE: FAIL ({len(errors)} issue(s))")
         return 1
     print("RENDERED UI RELEASE GATE: PASS — image integrity/coverage confirmed."
-          " Protected Environment human approval remains independently required.")
+          + (" Owner visual review follows publication." if args.capture_only else " Human review verified."))
     return 0
 
 

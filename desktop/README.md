@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.6.2
+# FoamLens Desktop v1.7.0
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The current public release is **FoamLens Desktop v1.6.2 with frontend v51**.
+The current public release is **FoamLens Desktop v1.7.0 with frontend v51**.
 
 ## Architecture
 
