@@ -1,3 +1,4 @@
+// Organization migration: canonical release owner is michels-lab.
 'use strict';
 
 const fs=require('fs');
