@@ -187,6 +187,10 @@ internal sealed class FoamLensForm : Form
                       const links=[...document.querySelectorAll('#aboutDeveloperOverlay .aboutSocial')];
                       const box=x=>x?.getBoundingClientRect();
                       const visible=x=>{const r=box(x);return !!r&&r.width>30&&r.height>15};
+                      const inInitialViewport=x=>{
+                        const r=box(x),c=box(shell);
+                        return visible(x)&&!!c&&r.top>=c.top-2&&r.bottom<=c.bottom+2&&r.left>=c.left-2&&r.right<=c.right+2;
+                      };
                       const expected=['Instagram','Facebook','LinkedIn','GitHub','Email'];
                       const checks={
                         overlayOpen:!!overlay?.classList.contains('open'),
@@ -197,7 +201,9 @@ internal sealed class FoamLensForm : Form
                         authorVisible:visible(author),
                         sloganVisible:visible(slogan)&&slogan.textContent.trim()==='TOOLS WITH IDENTITY.',
                         networkCount:links.length===5,
-                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon')))
+                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon'))),
+                        socialsVisibleWithoutScroll:links.every(inInitialViewport),
+                        pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)
                       };
                       return {ok:Object.values(checks).every(Boolean),checks,
                         viewport:innerWidth,portrait:box(portrait)?.width,studio:box(studio)?.width,
