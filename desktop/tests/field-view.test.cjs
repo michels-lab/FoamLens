@@ -808,7 +808,7 @@ test('secondary region field data uses exact physical time; other times show exp
     'fvLoadFrameData(c,selected,region,exact',
     'fvRegionGeometryAtTime(c,region,time)',
     'Geometry only; field unavailable at t = ',
-    "frame.storage==='surface'",
+    "data?.storage==='surface'",
     "if(choice.visible)failedVisible.push(region+"
   ])assert(regionCode.includes(token),'Missing scientific provenance/safety: '+token);
 });
