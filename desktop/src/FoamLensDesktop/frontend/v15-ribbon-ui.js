@@ -512,7 +512,7 @@ function flRibbonInstall(){
   document.querySelectorAll('.flRibbonTab').forEach(b=>b.addEventListener('click',()=>{
     const key=b.dataset.ribbonTab||'home';flRibbonSelectTab(key);
     if(key==='home')try{setAppMode('workspace')}catch{}
-    else if(key==='data'){try{setAppMode('data');setDataView('catalog')}catch{}}
+    else if(key==='data')try{setAppMode('data')}catch{}
     else if(key==='field')try{setAppMode('field')}catch{}
     else if(key==='analysis')try{setAppMode('analysis')}catch{}
     setTimeout(flRibbonUpdateContextVisibility,0)
