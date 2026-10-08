@@ -17,11 +17,28 @@ const core = js.slice(a, b + end.length);
 const api = new Function(core + '\nreturn {' +
   'taAlmostEqual,taFinitePairs,taCommonTimeRange,taNearestSample,taLinearSample,' +
   'taDownsampleGrid,taCommonGrid,taReferenceGrid,taAlignOne,taAlignSeries,' +
-  'taPearsonPairs,taDifferenceValues,taPairMetrics};')();
+  'taPearsonPairs,taDifferenceValues,taPairMetrics,taQuantityCompatibility};')();
 
 const near = (x, y, tol = 1e-9) => Math.abs(x - y) <= tol;
 const passed = [];
 function test(name, fn) { fn(); passed.push(name); }
+
+test('explicit dimensions and units block misleading quantitative comparisons', () => {
+  const temperature={field:{dimensions:'[0 0 0 1 0 0 0]',unit:'K'}};
+  const pressure={field:{dimensions:'[1 -1 -2 0 0 0 0]',unit:'Pa'}};
+  assert.deepStrictEqual(api.taQuantityCompatibility(temperature,pressure),{ok:false,reason:'incompatible-dimensions'});
+  assert.deepStrictEqual(api.taQuantityCompatibility(temperature,{field:{dimensions:'[0 0 0 1 0 0 0]',unit:'degC'}}),{ok:false,reason:'incompatible-units'});
+  assert.strictEqual(api.taQuantityCompatibility(temperature,{field:{dimensions:'[0 0 0 1 0 0 0]',unit:'K'}}).ok,true);
+});
+test('incomplete quantity metadata does not invent a mismatch', () => {
+  assert.deepStrictEqual(api.taQuantityCompatibility({name:'A'},{name:'B'}),{ok:true,reason:'metadata-incomplete'});
+  assert.deepStrictEqual(api.taQuantityCompatibility({unit:'K'},{unit:'Pa'}),{ok:false,reason:'incompatible-units'});
+});
+test('UI, export and derived differences enforce quantitative compatibility', () => {
+  assert(js.includes("if(mode!=='native'&&!compatibility.ok)"));
+  assert(js.includes("if(!taQuantityCompatibility(r.A,r.B).ok)return null;"));
+  assert(js.includes("if(!taQuantityCompatibility(r.A,r.B).ok){flSetIssue"));
+});
 
 test('physical overlap only', () => {
   const A = { t:[0,1,2,3,4,5], y:[0,1,2,3,4,5] };

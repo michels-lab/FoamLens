@@ -3942,3 +3942,9 @@ The required interpretation is structural integration rather than sticker placem
 - Synchronized C# Desktop, installer, frontend fallback, README and version-contract test to candidate 1.6.2.
 - Windows CI #923–#926 passed for intermediate source commits. The new candidate commit, final merge, direct install and Store MSIX remain unverified until current-SHA CI completes.
 - No claim of Store certification, signing or release publication before actual evidence.
+
+### 2026-10-08 — Temporal comparison dimensional guard (pending final candidate CI)
+- Audited dimensional comparison paths: strict 3D delta already refuses differing field/component/association/dimensions; temporal 2D quantitative comparison did not.
+- Candidate now refuses A−B, RMSE, percent, export and derived-curve generation when source SI dimensions or explicit units contradict. Native alignment remains allowed for independent-series visualization.
+- Added regression coverage for incompatible temperature/pressure dimensions, same-dimension differently scaled/displayed units, absent metadata, and gate wiring.
+- Missing metadata remains explicitly not proof of compatibility; do not manufacture dimensions. Final Windows and Store validation still required before release.

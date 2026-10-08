@@ -4,6 +4,7 @@
 
 - Prevented incorrect Field Mapping suggestions when a plausible field name contradicts explicit OpenFOAM SI dimensions; preserved safe name-based mapping when metadata is unavailable.
 - Expanded scientific regressions for misleading field names, incompatible dimensions, and incomplete field metadata.
+- Prevented temporal A−B/RMSE/% differences and derived exports between sources with explicitly mismatched SI dimensions or units, while allowing native visualization and non-guessing behavior for unavailable metadata.
 - Completed About's recognizable Instagram/GitHub icon presentation and the Michel's Lab canonical `TOOLS WITH IDENTITY.` slogan while preserving the original approved product logo, portrait and parent-brand assets.
 - Reconciled the post-migration scientific/branding audit, prioritized open work, and retained local-first operation, existing visual layout, and read-only OpenFOAM analysis.
 - Retained validation requirements for real QuickCup/VTK regression, direct Windows portable + installer launch, and separate Microsoft Store MSIX packaging. No Microsoft Store certification or Authenticode certificate is implied.

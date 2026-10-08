@@ -55,3 +55,6 @@ Audit date: 2026-10-07. Baseline `main` `4c408b3d5d0b75982a1d98504cabeeb47fd4e04
 - Candidate target: Desktop v1.6.2. All remaining new GitHub end-user integration stays deferred.
 - Scope locked to physical-dimension mapping correction, About identity-compliant social imagery/slogan, consistent version metadata and verified packaged releases.
 - The code branch is not considered stable until same-SHA Windows CI and later main + Store CI pass.
+
+### Quantitative comparison safety
+- A second P0 correctness defect was found in temporal alignment: quantitative metrics and derived export could be computed across physically incompatible field metadata. Candidate now rejects explicit unit/dimension contradictions and tests safe operation when metadata is absent; release CI pending.
