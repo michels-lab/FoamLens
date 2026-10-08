@@ -485,6 +485,8 @@ function fcScheduleLayoutRender(){
   })
 }
 function fcUpdateLayout(){
+  // The enabled state is owned by the actual Compare checkbox, never stale frames.
+  fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleLayoutRender()
 }
 function fcInstallUi(){

@@ -591,7 +591,12 @@ function fwEnter(){
   const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');
   const trail=document.getElementById('contextTrail');if(trail)trail.textContent=fwUi('Field View','Vista 3D');
   fwMountContextSidebar();fwSetInspector(true);
-  if(!fwState.compareUserRequested){const toggle=document.getElementById('fcEnabled');if(toggle?.checked){toggle.checked=false;toggle.dispatchEvent(new Event('change',{bubbles:true}))}if(typeof fcState!=='undefined'&&fcState.enabled){fcState.enabled=false;fcUpdateLayout()}}
+  if(!fwState.compareUserRequested){
+    const toggle=document.getElementById('fcEnabled');if(toggle)toggle.checked=false;
+    if(typeof fcState!=='undefined')fcState.enabled=false;
+    if(typeof fcClearRenderer==='function')fcClearRenderer();
+    if(typeof fcUpdateLayout==='function')fcUpdateLayout()
+  }
   fwPromoteViewCaseSelectors();
   const preferred=(fwState.companion==='profile'&&profileOptionsBase().length)?'profile':fwState.companion;fwSetCompanion(preferred);
   fwActivateView(fwState.view||'3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)

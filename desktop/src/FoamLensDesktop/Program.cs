@@ -631,7 +631,7 @@ internal sealed class FoamLensForm : Form
                   checks.presetsVisible=!!iso&&!!front&&iso.getBoundingClientRect().width>=20&&front.getBoundingClientRect().width>=20;
                   cameraTab?.click();
                   checks.cameraCloses=!!shelf&&shelf.classList.contains('hidden');
-                  return{ok:Object.values(checks).every(Boolean),checks,ribbonHeight:bounds?.height||0,
+                  return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled:typeof fcState!=='undefined'&&!!fcState.enabled,compareUserRequested:typeof fwState!=='undefined'&&!!fwState.compareUserRequested,ribbonHeight:bounds?.height||0,
                     ribbonWidth:ribbon?.clientWidth||0,ribbonScrollWidth:ribbon?.scrollWidth||0};
                 })()
                 """);

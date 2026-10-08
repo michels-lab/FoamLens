@@ -93,7 +93,7 @@ async function uxApplyState(saved){
     const check=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
     set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d');if(saved.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!saved.inspector);
     check('fcLinkCameras',saved.camerasLinked);check('fcSyncVisuals',saved.visualsSynced);set('fcSync',saved.syncMode);check('fcDifference',saved.differenceEnabled);
-    if(saved.compareEnabled)check('fcEnabled',true);else if(saved.compareEnabled===false)check('fcEnabled',false);
+    if(saved.compareEnabled){window.FoamLensFieldWorkspace?.requestCompare?.();check('fcEnabled',true)}else if(saved.compareEnabled===false)check('fcEnabled',false);
     const target=Math.max(2,Math.min(4,Number(saved.viewCount)||2));if(saved.compareEnabled&&typeof fcExtraAdd==='function'&&typeof fcExtraViews!=='undefined'){while(2+fcExtraViews.length<target)fcExtraAdd();while(2+fcExtraViews.length>target&&typeof fcExtraRemove==='function')fcExtraRemove(fcExtraViews.at(-1)?.id)}
     if(saved.names)for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=String(saved.names[i]||uxDefaultNames[i]).slice(0,28)}
     if(saved.panelSizes)window.FoamLensWorkspaceResize?.applySizes?.(saved.panelSizes)
