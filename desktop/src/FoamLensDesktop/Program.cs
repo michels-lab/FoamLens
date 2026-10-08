@@ -720,6 +720,27 @@ internal sealed class FoamLensForm : Form
                   const checks={
                     fullWidthRibbon:!!before&&Math.abs(before.left)<2&&Math.abs(before.width-innerWidth)<3,
                     fullWidthHeader:!!head&&Math.abs(head.left)<2&&Math.abs(head.width-innerWidth)<3,
+                    persistentProductHeader:(()=>{
+                      const icon=document.getElementById('globalOfficialLogo'),
+                        name=document.querySelector('.flGlobalProductName'),
+                        about=document.getElementById('aboutDeveloperBtn'),
+                        updates=document.getElementById('flGlobalUpdates');
+                      return !!head&&[icon,name,about,updates].every(el=>{
+                        const b=rect(el);return !!b&&b.width>=20&&b.height>=20&&
+                          b.left>=head.left-2&&b.right<=head.right+2&&
+                          b.top>=head.top-2&&b.bottom<=head.bottom+2
+                      })&&name?.textContent?.trim()==='FoamLens'&&
+                        about?.textContent?.includes('About')&&updates?.textContent?.includes('Updates')
+                    })(),
+                    controlsOutsideScientificCanvas:(()=>{
+                      const viewport=document.querySelector('#fieldViewPanel .fvViewport'),
+                        tools=document.querySelector('#fieldViewPanel .fvViewTools');
+                      return !!viewport&&!!tools&&!viewport.contains(tools)&&
+                        !!document.getElementById('fvProbeMode')&&
+                        !!document.getElementById('fvProbeClear')&&
+                        tools.contains(document.getElementById('fvProbeMode'))&&
+                        tools.contains(document.getElementById('fvProbeClear'))
+                    })(),
                     sidebarBelowRibbon:!!side&&!!before&&side.top>=before.bottom-3,
                     sidebarNotOverHeader:!!side&&!!head&&side.top>=head.bottom-3,
                     chromeMeasured:!!app&&parseFloat(app.style.getPropertyValue('--flRibbonHeight'))>=60,
@@ -731,10 +752,15 @@ internal sealed class FoamLensForm : Form
                       return !!label&&getComputedStyle(label).fontSize==='10px'
                     })
                   };
-                  if(toggle){toggle.click();const after=rect(bar);
+                  if(toggle){toggle.click();const after=rect(bar),product=rect(document.querySelector('.flGlobalIdentity')),
+                    aboutRect=rect(document.getElementById('aboutDeveloperBtn')),
+                    updatesRect=rect(document.getElementById('flGlobalUpdates'));
                     checks.sidebarToggleDoesNotResizeRibbon=!!after&&Math.abs(after.width-before.width)<3;
+                    checks.sidebarCollapsePreservesBrandAndUtilities=!!app?.classList.contains('sidebarCollapsed')&&
+                      !!product&&product.width>80&&!!aboutRect&&aboutRect.width>30&&
+                      !!updatesRect&&updatesRect.width>30&&aboutRect.right<=innerWidth+2&&updatesRect.right<=innerWidth+2;
                     toggle.click()
-                  }else checks.sidebarToggleDoesNotResizeRibbon=false;
+                  }else {checks.sidebarToggleDoesNotResizeRibbon=false;checks.sidebarCollapsePreservesBrandAndUtilities=false;}
 
                   const compareToggle=document.getElementById('fcEnabled');
                   const originalCompare=!!compareToggle?.checked;
