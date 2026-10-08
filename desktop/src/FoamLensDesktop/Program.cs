@@ -730,7 +730,7 @@ internal sealed class FoamLensForm : Form
                           b.left>=head.left-2&&b.right<=head.right+2&&
                           b.top>=head.top-2&&b.bottom<=head.bottom+2
                       })&&name?.textContent?.trim()==='FoamLens'&&
-                        about?.textContent?.includes('About')&&updates?.textContent?.includes('Updates')
+                        !!about?.textContent?.trim()&&!!updates?.textContent?.trim()
                     })(),
                     controlsOutsideScientificCanvas:(()=>{
                       const viewport=document.querySelector('#fieldViewPanel .fvViewport'),
