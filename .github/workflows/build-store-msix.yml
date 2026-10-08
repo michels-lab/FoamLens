@@ -73,7 +73,14 @@ jobs:
             try { $p.Kill($true) } catch {}
             throw 'FoamLens Store executable smoke timed out.'
           }
-          if ($p.ExitCode -ne 0) { throw "FoamLens Store executable smoke failed with exit code $($p.ExitCode)." }
+          if ($p.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+            if (Test-Path $log) {
+              Write-Host '---- Actual packaged Store executable failure ----'
+              Get-Content $log | Select-Object -Last 100
+            }
+            throw "FoamLens Store executable smoke failed with exit code $($p.ExitCode)."
+          }
       - name: Build MSIX layout
         shell: pwsh
         run: |
