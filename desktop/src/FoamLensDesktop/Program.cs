@@ -751,8 +751,12 @@ internal sealed class FoamLensForm : Form
                     })(),
                     controlsOutsideScientificCanvas:(()=>{
                       const viewport=document.querySelector('#fieldViewPanel .fvViewport'),
-                        tools=document.querySelector('#fieldViewPanel .fvViewTools');
-                      return !!viewport&&!!tools&&!viewport.contains(tools)&&
+                        tools=document.querySelector('#flFieldContextShelf .fvViewTools'),
+                        shelf=document.getElementById('flFieldContextShelf'),
+                        ribbon=document.getElementById('flRibbon');
+                      return !!viewport&&!!tools&&!!shelf&&!!ribbon&&
+                        shelf.contains(tools)&&ribbon.contains(shelf)&&
+                        !viewport.contains(tools)&&
                         !!document.getElementById('fvProbeMode')&&
                         !!document.getElementById('fvProbeClear')&&
                         tools.contains(document.getElementById('fvProbeMode'))&&
