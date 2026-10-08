@@ -329,6 +329,26 @@ internal sealed class FoamLensForm : Form
             }
             Log($"FoamLens visual launch contract passed (computed WebView2 dark/light): {launchBrandVisualJson}");
 
+            // Capture the actual launch surface before navigating to scientific
+            // workspace smoke. This is candidate-SHA evidence for visual review.
+            var launchScreenshotPath = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_LAUNCH_SCREENSHOT");
+            if (!string.IsNullOrWhiteSpace(launchScreenshotPath))
+            {
+                var fullPath = Path.GetFullPath(launchScreenshotPath);
+                var folder = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrWhiteSpace(folder)) Directory.CreateDirectory(folder);
+                await using (var imageFile = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await _web.CoreWebView2.CapturePreviewAsync(
+                        CoreWebView2CapturePreviewImageFormat.Png, imageFile);
+                    await imageFile.FlushAsync();
+                }
+                if (new FileInfo(fullPath).Length < 10_000)
+                    throw new InvalidOperationException("FoamLens rendered launch screenshot is missing or unexpectedly small.");
+                Log($"FoamLens rendered launch screenshot captured for visual review: {fullPath}");
+            }
+
+
 
             // Extension integration smoke: Field View must mount through the v1.6
             // Ribbon + Field surface contract. Legacy mode/data-tab navigation
