@@ -507,6 +507,7 @@ internal sealed class FoamLensForm : Form
             var dataOwnershipJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{
+                  try {
                   const fieldControls=document.getElementById('fieldViewControls');
                   const fieldPanel=document.getElementById('fieldViewPanel');
                   const fieldCompare=document.getElementById('fcPanel');
@@ -552,11 +553,20 @@ internal sealed class FoamLensForm : Form
                   setAppMode('workspace');
                   return {pass:[...Object.values(checks),...Object.values(afterData),...Object.values(afterField),...Object.values(afterReturn)].every(Boolean),
                     checks,afterData,afterField,afterReturn};
+                  } catch (error) {
+                    return {pass:false,error:String(error?.message||error),stack:String(error?.stack||''),
+                      currentMode:typeof activeAppMode==='string'?activeAppMode:null,
+                      documentReady:document.readyState,
+                      fieldRoot:!!document.getElementById('flFieldBootstrapHost'),
+                      fieldSurface:!!document.getElementById('fieldSurface'),
+                      ribbonReady:document.body.classList.contains('flRibbonReady')};
+                  }
                 })()
                 """);
             using (var dataOwnership = JsonDocument.Parse(dataOwnershipJson))
             {
-                if (!dataOwnership.RootElement.TryGetProperty("pass", out var ownershipPassed) || !ownershipPassed.GetBoolean())
+                if (dataOwnership.RootElement.ValueKind != JsonValueKind.Object ||
+                    !dataOwnership.RootElement.TryGetProperty("pass", out var ownershipPassed) || !ownershipPassed.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens Data 2D vs Field 3D ownership smoke failed: {dataOwnershipJson}");
             }
