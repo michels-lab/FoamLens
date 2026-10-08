@@ -36,7 +36,7 @@ internal sealed class FoamLensForm : Form
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
-    private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/realmichelduarte/FoamLens/releases/latest");
+    private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/michels-lab/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private int _updateCheckInProgress;
 #if FOAMLENS_STORE
@@ -1675,8 +1675,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
             throw new InvalidOperationException($"GitHub returned an invalid FoamLens release tag: {tag}");
 
         var htmlUrl = root.TryGetProperty("html_url", out var htmlNode)
-            ? htmlNode.GetString() ?? "https://github.com/realmichelduarte/FoamLens/releases"
-            : "https://github.com/realmichelduarte/FoamLens/releases";
+            ? htmlNode.GetString() ?? "https://github.com/michels-lab/FoamLens/releases"
+            : "https://github.com/michels-lab/FoamLens/releases";
         var normalized = $"{version.Major}.{version.Minor}.{Math.Max(0, version.Build)}";
         var installerName = $"FoamLens-Setup-v{normalized}.exe";
         var checksumName = installerName + ".sha256";
