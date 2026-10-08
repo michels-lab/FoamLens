@@ -73,7 +73,9 @@ function sbSectionVisible(key,mode=sbAppMode(),view=sbDataView()){
   if(mode==='field'||mode==='workspace'||mode==='review'||mode==='live')return false;
   if(mode==='analysis')return key==='analysis-tools';
   if(mode!=='data')return true;
-  if(key==='load-data'||key==='case-comparison')return true;
+  if(key==='load-data')return true;
+  // 3D case comparison is a Field-only workflow; Data never owns camera/view controls.
+  if(key==='case-comparison')return false;
   if(view==='catalog')return false;
   if(key==='phase-change'||key==='reference-lines')return view==='timeseries'||view==='profile';
   return ['figure','figure-element-editor','selected-curve'].includes(key)
