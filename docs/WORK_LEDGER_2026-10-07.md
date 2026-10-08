@@ -42,3 +42,11 @@ Audit date: 2026-10-07. Baseline `main` `4c408b3d5d0b75982a1d98504cabeeb47fd4e04
 ## Immediate gate
 - PR #26 contains the Field Mapping dimensional guard and targeted regression cases; draft until current-head CI validates it.
 - Follow with a focused end-to-end field/unit compatibility audit and then benchmark-defined performance work, not speculative rewrites.
+
+## Closure pass (2026-10-07)
+- Field Mapping dimension contradiction guard: implemented on this branch; intermediate scientific CI #923 and #924 passed, but the combined final SHA still requires CI.
+- About: replaced misleading Instagram/GitHub typographic placeholders with recognizable inline SVG icons and adopted the official parent-brand slogan `Tools with identity.`; preserved canonical portrait and logos unchanged. Updated official-branding regression.
+- Agents: `AGENTS.md` and Copilot instructions carry shared contract `2026-10-07.2`; master policy consulted; no active FoamLens conflict in master claim file at review.
+- No `.michelslab/identity-sync.json` exists in the FoamLens main tree; do not invent a state or enforce replacement without master-governance instruction. Master product logo manifest includes stale historical owner field (`realmichelduarte/Michel-Software-Standards`); separate governance reconciliation, not a blocker for FoamLens product identity already validated via hashes.
+- Historical PR #7 is an old, diverged v1.5.0 candidate with 313 commits behind main; do not merge it wholesale over current stable version. Requires an intentional archival/unique-diff review rather than blind merge.
+- CI, installed smoke, and MSIX for final combined head not yet verified. Do not publish release or merge before same-SHA evidence.
