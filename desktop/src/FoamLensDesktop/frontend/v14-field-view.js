@@ -590,6 +590,23 @@ function fvRegionRefreshList(){
       '</div>'
   }).join('')
 }
+function fvRegionApplyVisibility(c){
+  if(!c)return;
+  // Invalidate in-flight field reads first: stale hidden regions must not
+  // consume GPU buffers after the user has explicitly removed them.
+  ++fvRegionScene.sequence;
+  for(const [region,layer] of fvRegionScene.layers){
+    if(fvRegionChoice(c,region).visible)continue;
+    fvRegionReleaseLayer(layer);
+    fvRegionScene.layers.delete(region)
+  }
+  const primary=document.getElementById('fvRegion')?.value||'';
+  const missing=fvRegionNames(c).some(region=>region!==primary&&fvRegionChoice(c,region).visible&&!fvRegionScene.layers.has(region));
+  fvRegionRefreshList();
+  if(missing&&Number.isFinite(Number(fvState.time))){
+    fvRegionLoadFrame(c,fvState.time).catch(err=>fvSetStatus(String(err?.message||err),true))
+  }else if(!fvRegionFitCamera())fvRender()
+}
 function fvRegionInstallEvents(){
   const root=document.getElementById('fvMultiRegionRows');if(!root||root.dataset.regionEvents)return;
   root.dataset.regionEvents='1';
@@ -597,17 +614,17 @@ function fvRegionInstallEvents(){
   document.getElementById('fvRegionShowAll')?.addEventListener('click',()=>{
     const c=fvCase();if(!c)return;
     for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=true;
-    fvRegionRefreshList();if(!fvRegionFitCamera())fvRender()
+    fvRegionApplyVisibility(c)
   });
   document.getElementById('fvRegionOnlyPrimary')?.addEventListener('click',()=>{
     const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';if(!c)return;
     for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=region===primary;
-    fvRegionRefreshList();if(!fvRegionFitCamera())fvRender()
+    fvRegionApplyVisibility(c)
   });
   root.addEventListener('change',e=>{
     const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
     const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
-    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;if(!fvRegionFitCamera())fvRender();return}
+    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;fvRegionApplyVisibility(c);return}
     if(e.target.matches('[data-fv-region-field]')){
       choice.field=e.target.value;choice.component='value';
       fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
@@ -692,7 +709,7 @@ async function fvRegionLoadFrame(c,time){
   const current=()=>seq===fvRegionScene.sequence&&fvRegionScene.caseId===String(c.id);
   for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
   fvRegionScene.layers.clear();fvRender();
-  const regions=fvRegionNames(c).filter(region=>region!==primary),failedVisible=[];
+  const regions=fvRegionNames(c).filter(region=>region!==primary&&fvRegionChoice(c,region).visible),failedVisible=[];
   // Bound simultaneous real OpenFOAM parses to protect desktop memory.
   const loadOne=async region=>{
     if(!current())return;
@@ -1020,7 +1037,7 @@ async function fvComputeGlobalRange(){
 async function fvLoadFrame(index=null,options={}){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup();if(!c||!g)return;if(typeof fpClear==='function')fpClear();
   const times=(g.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
-  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';fvRegionClearLayers();fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
   const data=await fvLoadFrameData(c,g,region,time,component,{includeBoundary:true});if(seq!==fvState.frameSeq)return;
   const {layout,meshInfo,mesh,storage,parsed,fieldValues,surfaceBoundary,range}=data;
   if(fvState.meshCacheKey!==meshInfo.key||fvState.mesh!==mesh){fvState.mesh=mesh;fvState.meshSnapshot=meshInfo.snapshot;fvState.meshCacheKey=meshInfo.key;fvUpdateMeshBuffers(mesh,!!options.resetCamera)}else fvState.meshSnapshot=meshInfo.snapshot;

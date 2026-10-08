@@ -4119,3 +4119,11 @@ The required interpretation is structural integration rather than sticker placem
 - **Corrections:** both PR branches now use the canonical Data action ID flRaDataTimeSeries in native ownership smoke and robust section ownership assertions; Ribbon checks the new canonical Data view navigation; the iso suite honors primary region visibility. All three complete regression suites were executed against fetched GitHub source with JS module mocks and passed (Ribbon, six iso checks, eight ownership checks).
 - **Native acceptance expanded:** WebView2 smoke now checks persistent FoamLens product mark/name, About and Updates inside the full-width global header even after sidebar collapse; Probe/Clear must be docked in tools outside scientific viewport. Canonical branding unchanged.
 - **Limits:** exact-head Windows Actions are still processing; no packaged native screenshot/real scientific fixture/large dataset usability may be claimed on the basis of JS checks. Microsoft Store remains paused; no release; Michel's human review is post-release, not a manual pre-release gate.
+
+
+## 2026-10-08 — Multiregion visibility and frame resource ownership
+
+- Corrected visible-only camera fit (hidden primary no longer expands bounds); targeted regression passed.
+- All visible-region controls now go through one owned visibility manager. Hiding a physical region frees its own GPU buffers and invalidates pending loads. Showing it again requests its actual missing frame. Hidden secondary regions are not parsed or allocated at each timestep.
+- Starting a new physical frame releases old secondary layers before the new primary field arrives, preventing silent cross-time composites during asynchronous updates.
+- Added regression with mock GL allocations/deletions, checked union bounds of visible meshes only. Real packaged WebView2/QuickCup acceptance remains pending; no release.

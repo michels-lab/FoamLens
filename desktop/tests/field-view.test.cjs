@@ -895,6 +895,36 @@ test('physical regions allocate and draw distinct meshes in one shared WebGL dep
 });
 
 
+test('hidden physical regions release GPU layers and are never eagerly loaded',()=>{
+  assert(regionCode.includes('function fvRegionApplyVisibility(c)'),'Visibility must be owned by one region manager');
+  assert(regionCode.includes('++fvRegionScene.sequence;'),'Visibility changes must invalidate stale field reads');
+  assert(regionCode.includes('fvRegionReleaseLayer(layer);'),'Invisible region buffers must be freed');
+  assert(regionCode.includes('region!==primary&&fvRegionChoice(c,region).visible'),'Never parse fields for hidden secondary regions');
+  assert(regionCode.includes('!fvRegionScene.layers.has(region)'),'Re-enabling a hidden region must request its missing layer');
+  assert(source.includes('fvRegionClearLayers();fvSetStatus('),'Old physical-time layers must be released BEFORE the next primary frame loads');
+  const setup=[
+    'const window={};',
+    'const calls=[];const gl={deleteBuffer:b=>calls.push(b)};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"solid"}:null};',
+    'const c={id:1,meshInventory:[{region:"solid",complete:true},{region:"fluid",complete:true}]};',
+    'const fvCase=()=>c;const fvTimeEqual=(a,b)=>a===b;',
+    'const fvState={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},renderer:{gl},time:0,camera:{target:[],distance:1}};',
+    'const fvRender=()=>{};'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.caseId="1";',
+    'fvRegionScene.choices.set("solid",{visible:true});',
+    'fvRegionScene.choices.set("fluid",{visible:false});',
+    'fvRegionScene.layers.set("fluid",{gl,surfacePos:1,surfaceColor:2,edgePos:3,edgeColor:4,mesh:{boundsMin:[-9,0,0],boundsMax:[-8,1,1]}});',
+    'fvRegionApplyVisibility(c);',
+    'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
+  ].join('\n');
+  const observed=new Function(setup+regionCode+exercise)();
+  assert.equal(observed.remaining,0,'Hidden secondary geometry must not remain in memory');
+  assert.deepStrictEqual(observed.deletions,[1,2,3,4],'Every hidden layer GL buffer must be released');
+  assert.deepStrictEqual(observed.camera,[.5,.5,.5],'Hidden physical geometry must not affect camera fitting');
+});
+
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
   assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
   assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),
