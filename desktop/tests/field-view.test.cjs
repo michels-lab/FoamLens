@@ -794,7 +794,8 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   assert(regionCode.includes('fvRegionBuildLayer('));
   assert(regionCode.includes('fvRegionRenderLayers()'));
   assert(source.includes('fvRegionRenderLayers();fvUpdateAxisGizmo()'));
-  assert(!regionCode.includes('fvCombinePartitionMeshes('),'Physical regions must not be merged as processor partitions');
+  assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
+  assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
   for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
     assert(source.includes(token),'Missing physical region control: '+token);
 });
@@ -805,7 +806,7 @@ test('secondary region field data uses exact physical time; other times show exp
   assert.equal(regionApi.fvRegionExactTime([],0),undefined);
   for(const token of [
     'fvLoadFrameData(c,selected,region,exact',
-    'fvMeshSnapshotForTime(complete[0],time)',
+    'fvRegionGeometryAtTime(c,region,time)',
     'Geometry only; field unavailable at t = ',
     "frame.storage==='surface'",
     "if(current())fvRegionStatus(region,String(error?.message||error))"
