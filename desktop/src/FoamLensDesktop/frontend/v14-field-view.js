@@ -602,7 +602,7 @@ function fvRegionInstallEvents(){
   })
 }
 function fvRegionMakeBuffer(gl,values){
-  const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,values,gl.STATIC_DRAW);return buffer
+  const buffer=gl.createBuffer();if(!buffer)throw new Error('WebGL region buffer allocation failed');gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,values,gl.STATIC_DRAW);return buffer
 }
 function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
