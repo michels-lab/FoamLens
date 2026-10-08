@@ -1,5 +1,10 @@
 # FoamLens — Agent Contract
 
+
+## Desktop About placement (mandatory)
+
+Every desktop application must display a clearly labeled, usable **About** action in its **fixed top application header** from initial launch and in every workspace. It must remain visible when the window is compact/high-DPI, the body is scrolled or a sidebar is collapsed; footer-only, Home-only, offscreen or hidden-overflow About is forbidden. Keep the header outside the scroll container and validate its actual rendered visibility and click bounds. Source of truth: `michels-lab/Michel-Software-Standards/standards/BRAND_NATIVE_INTERFACE_STANDARD.md`.
+
 FoamLens is a scientific OpenFOAM analysis product with a Web frontend and a Windows C#/.NET 8/WinForms/WebView2 desktop host. Before editing, read `.michelslab/project.yml`, `MICHELS_LAB_PROJECT.md`, `docs/GIT_AUDIT_LOG.md`, `docs/INFRASTRUCTURE_AUDIT.md`, and the tests/workflows that own the affected behavior.
 
 Shared Michel's Lab rules live in `michels-lab/Michel-Software-Standards`.

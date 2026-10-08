@@ -1,5 +1,10 @@
 # Copilot instructions — FoamLens
 
+
+## Desktop About placement (mandatory)
+
+Every desktop application must display a clearly labeled, usable **About** action in its **fixed top application header** from initial launch and in every workspace. It must remain visible when the window is compact/high-DPI, the body is scrolled or a sidebar is collapsed; footer-only, Home-only, offscreen or hidden-overflow About is forbidden. Keep the header outside the scroll container and validate its actual rendered visibility and click bounds. Source of truth: `michels-lab/Michel-Software-Standards/standards/BRAND_NATIVE_INTERFACE_STANDARD.md`.
+
 Read `AGENTS.md`, `docs/GIT_AUDIT_LOG.md` and the relevant workflow/tests before modifying FoamLens.
 
 Keep scientific evidence and provenance explicit. Never invent OpenFOAM values, associations, topology compatibility or causal interpretation.
