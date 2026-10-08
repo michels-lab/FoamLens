@@ -26,7 +26,17 @@ for(const file of ['official-app-icon.svg','official-mark.svg','official-lockup.
   assert(program.includes('FoamLensDesktop.Branding.'+file),'Desktop host does not materialize '+file+'.');
 }
 assert(index.includes('href="assets/branding/official-app-icon.svg"'),'Favicon does not use the official app icon.');
-assert(index.includes('id="launchOfficialLogo"')&&index.includes('src="assets/branding/official-lockup.svg"'),'Launch screen does not use the official lockup.');
+assert(index.includes('id="launchOfficialLogo"')&&index.includes('src="assets/branding/official-mark.svg"'),'Launch must use the canonical mark, not a duplicate dark-lettered lockup.');
+const launch=index.slice(index.indexOf('<section id="launchScreen"'),index.indexOf('<div class="app" id="appShell">'));
+assert(launch.includes('class="launchIdentity"')&&launch.includes('id="launchTitle">FoamLens</h1>'),'Launch mark and product name must share one intentional visual hierarchy.');
+assert(!launch.includes('src="assets/branding/official-lockup.svg"'),'Do not repeat lockup text plus a giant product title.');
+assert((launch.match(/<h1\b/g)||[]).length===1,'Launch must contain a single product-name heading.');
+assert(!index.includes('.launchMark{width:248px!important'),'Stale !important launch width still overrides branding layout.');
+assert(index.includes('repeating-radial-gradient(ellipse at 81% 13%'),'Launch must integrate layered field contours into its composition.');
+assert(program.includes('FoamLens visual launch contract passed (computed WebView2 dark/light)'),'Packaged smoke is not validating computed launch design in both themes.');
+assert(program.includes('FoamLens rendered launch brand geometry/contrast is invalid'),'Visual smoke must reject legibility/geometry regressions.');
+assert(program.includes("texts.every(v=>v>=4.5)")&&program.includes("document.querySelectorAll('#launchScreen h1').length===1"),'Visual smoke must check contrast and duplicate product identity.');
+
 assert(index.includes('id="sidebarOfficialLogo"')&&index.includes('src="assets/branding/official-mark.svg"'),'Sidebar does not use the official mark.');
 assert(index.includes('id="aboutOfficialLogo"'),'About does not use the official lockup.');
 assert(index.includes('id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg"'),'About does not use the canonical Michel Duarte portrait.');
