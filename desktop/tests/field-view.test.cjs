@@ -828,6 +828,39 @@ test('camera includes geometry bounds of all visible physically independent regi
 });
 
 
+
+test('camera fit excludes hidden primary and secondary regions without inventing bounds',()=>{
+  const setup=[
+    'const window={};',
+    'const c={id:1};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"solid"}:null};',
+    'const fvCase=()=>c;',
+    'const fvState={mesh:{boundsMin:[-500,-500,-500],boundsMax:[500,500,500]},camera:{target:null,distance:0}};',
+    'const fvRender=()=>{};',
+    'const fvTimeEqual=(a,b)=>a===b;'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.caseId="1";',
+    'fvRegionScene.choices.set("solid",{visible:false});',
+    'fvRegionScene.choices.set("fluid",{visible:true});',
+    'fvRegionScene.layers.set("fluid",{mesh:{boundsMin:[2,0,0],boundsMax:[4,2,2]}});',
+    'const fit=fvRegionFitCamera(),target=fvState.camera.target.slice(),distance=fvState.camera.distance;',
+    'fvRegionScene.choices.get("fluid").visible=false;',
+    'const none=fvRegionFitCamera();',
+    'return {fit,target,distance,none};'
+  ].join('\n');
+  const observed=new Function(setup+regionCode+exercise)();
+  assert.equal(observed.fit,true,'A visible non-primary region must define the camera');
+  assert.deepStrictEqual(observed.target,[3,1,1],'Hidden primary geometry must not affect framing');
+  assert(Math.abs(observed.distance-Math.sqrt(12)*1.65)<1e-12);
+  assert.equal(observed.none,false,'Nothing visible means there is no camera bound to fit');
+  assert(source.includes("if(c&&!fvRegionChoice(c,primary).visible)return;"),
+    'Single-region fallback must not refit a hidden primary mesh');
+  assert(regionCode.includes("if(!fvRegionFitCamera())fvRender()"),
+    'Visibility changes must refit newly displayed physical regions');
+});
+
+
 test('physical regions allocate and draw distinct meshes in one shared WebGL depth context',()=>{
   const setup=[
     'const calls=[];',
