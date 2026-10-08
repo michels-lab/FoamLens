@@ -3989,3 +3989,11 @@ The required interpretation is structural integration rather than sticker placem
 - Reconciled a stale GitHub release `publish` job that still required a pre-release human approval although the owner explicitly chooses to inspect rendered visuals after release. Kept automated runtime screenshot, checksum, provenance and exact-artifact release gates mandatory.
 - Release authorization triggers a `release:` commit on main and full same-SHA Windows / QuickCup / Store workflows. **At commit time, publication is pending current release SHA checks, not yet verified.**
 - No assertion of signed binaries, Microsoft Store certification or Partner Center publication.
+
+### 2026-10-08 — v1.7.0 publication verified (post-release audit)
+
+- Authorized release commit: `2f8ec4af09e679af889f6b5d8ca4936a9ae519bc` (`release: FoamLens Desktop v1.7.0`).
+- Exact release-SHA Windows Actions run `37807950228` completed **SUCCESS**: real QuickCup regression, frontend/scientific tests, portable execution, installer installation/launch, and exact-artifact Home/About screenshot integrity validation. Separate `publish` job completed **SUCCESS**.
+- Exact release-SHA Microsoft Store MSIX Actions run `37807949937` completed **SUCCESS**; artifact `FoamLens-Store-v1.7.0` produced. Store acceptance/Partner Center publication remains **not verified**; package is unsigned for Store submission and is not a direct-download installer.
+- GitHub stable release `v1.7.0` published at `2026-10-08T16:27:17Z`: https://github.com/michels-lab/FoamLens/releases/tag/v1.7.0 . Assets: `FoamLens-Portable-v1.7.0.exe` + `.sha256` and `FoamLens-Setup-v1.7.0.exe` + `.sha256`.
+- Owner's visual review is post-release; CI screenshot-based gating remained mandatory. No Authenticode signature or Microsoft Store certification is implied.
