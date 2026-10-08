@@ -645,10 +645,13 @@ async function fvRegionLoadFrame(c,time){
   if(!c||!Number.isFinite(Number(time))||!fvState.renderer)return;
   fvRegionEnsureCase(c);
   const seq=++fvRegionScene.sequence,primary=document.getElementById('fvRegion')?.value||'';
+  const current=()=>seq===fvRegionScene.sequence&&fvRegionScene.caseId===String(c.id);
   for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
   fvRegionScene.layers.clear();fvRender();
   const regions=fvRegionNames(c).filter(region=>region!==primary);
-  const results=await Promise.all(regions.map(async region=>{
+  // Bound simultaneous real OpenFOAM parses to protect desktop memory.
+  const loadOne=async region=>{
+    if(!current())return;
     const choice=fvRegionChoice(c,region);
     fvRegionStatus(region,flUi('Loading region…','Cargando región…'));
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
@@ -672,19 +675,15 @@ async function fvRegionLoadFrame(c,time){
         mesh=await fvLoadMesh(c,snapshot);
         status=flUi('Geometry only; field unavailable at t = ','Solo geometría; campo no disponible en t = ')+fvFmt(time)+' s'
       }
-      return{region,mesh,data,status}
-    }catch(error){return{region,error:String(error?.message||error)}}
-  }));
-  if(seq!==fvRegionScene.sequence||fvRegionScene.caseId!==String(c.id))return;
-  for(const item of results){
-    if(item.error){fvRegionStatus(item.region,item.error);continue}
-    const choice=fvRegionChoice(c,item.region);
-    try{
-      const layer=fvRegionBuildLayer(item.region,item.mesh,{...item.data,status:item.status},choice,time);
-      if(layer)fvRegionScene.layers.set(item.region,layer);
-      fvRegionStatus(item.region,item.status)
-    }catch(error){fvRegionStatus(item.region,String(error?.message||error))}
-  }
+      if(!current())return; // A newer case/frame owns the WebGL canvas.
+      const layer=fvRegionBuildLayer(region,mesh,{...data,status},choice,time);
+      if(layer){fvRegionScene.layers.set(region,layer);fvRender()}
+      fvRegionStatus(region,status)
+    }catch(error){if(current())fvRegionStatus(region,String(error?.message||error))}
+  };
+  for(let i=0;i<regions.length&&current();i+=2)
+    await Promise.all(regions.slice(i,i+2).map(loadOne));
+  if(!current())return;
   if(fvRegionScene.fitPending&&fvRegionScene.layers.size){fvRegionScene.fitPending=false;fvRegionFitCamera()}
   else fvRender()
 }
