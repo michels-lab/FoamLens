@@ -538,8 +538,13 @@ test('multi-view layout coalesces its render cascade without racing explicit hig
     'fcLayoutRenderFrame=requestAnimationFrame',
     'fvRender.__fcBase=previous',
     'flushLayoutRender:fcFlushLayoutRender',
-    'fcUpdateStatsGrid();fcScheduleLayoutRender()'
+    'fcUpdateStatsGrid()',
+    'window.FoamLensFieldWorkspace?.promoteCaseSelectors?.()',
+    'fcScheduleLayoutRender()'
   ])assert(compareSource.includes(token),'Missing multi-view render coalescing/high-resolution safety token: '+token);
+  const updateLayout=compareSource.match(/function fcUpdateLayout\(\)\{([\s\S]*?)\n\}/)?.[1]||'';
+  assert(updateLayout.indexOf('fcUpdateStatsGrid()')>=0&&updateLayout.indexOf('fcScheduleLayoutRender()')>updateLayout.indexOf('fcUpdateStatsGrid()'),
+    'Field comparison stats must be refreshed before the single coalesced layout render.');
   assert(!compareSource.includes('setTimeout(()=>{fvRender();fcRender();fcRenderDifference();fcRenderExtras()},0)'),
     'Multi-view layout still renders the comparison cascade twice.');
 });
