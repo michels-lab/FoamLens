@@ -3998,6 +3998,36 @@ The required interpretation is structural integration rather than sticker placem
 - GitHub stable release `v1.7.0` published at `2026-10-08T16:27:17Z`: https://github.com/michels-lab/FoamLens/releases/tag/v1.7.0 . Assets: `FoamLens-Portable-v1.7.0.exe` + `.sha256` and `FoamLens-Setup-v1.7.0.exe` + `.sha256`.
 - Owner's visual review is post-release; CI screenshot-based gating remained mandatory. No Authenticode signature or Microsoft Store certification is implied.
 
+## 2026-10-08 — Next-version FoamLens visual regression candidate (not released)
+
+- User screenshots from v1.7.0 show a small launch logo, unapproved circular arcs/ticks in the purported canonical mark, uncentered launch composition, stacked/crowded Field Ribbon, hidden camera direction presets, two 3D viewports perceived as default, and inaccessible per-view case selectors in the sidebar.
+- Master Michel's Lab draft PR #28 removes rejected arcs/ticks from three FoamLens SVGs; the wave/field concept remains. **Not approved or merged to master.** The Windows ICO derivative still needs regeneration and visual validation before any next release.
+- FoamLens branch `design/foamlens-next-centered-launch-20261008` contains a candidate: large centered launch mark, centered content, arc-free brand source SVGs, compact single-row Field Ribbon, exclusive Inspect/Compare/Camera subbars, visible Front/Back/Left/Right/Top/Bottom/Isometric commands, and reparented orbit/pan/zoom tools so the canvas is not covered by a second toolbar.
+- Field inspector exposes Case/Region choices for View A and optionally View B at the top; B remains hidden until explicit Compare. 3D comparison must not open on first Field entry due to implicit saved flags; scientific comparison and user's deliberate multi-view control remain available.
+- Static visual checks and native geometry checks strengthened. **Candidate validation pending exact-head Windows / Store CI, owner review and Windows icon update.** Keep v1.7.0 unchanged; no new public release authorized.
+
+### 2026-10-08 — Next UI candidate: exact-code CI verification
+
+- Source candidate commit `c6489d741987d457b38d47b6bca4ce6397f1d63f` in draft FoamLens PR #35 passed the Windows CI run [#37813484567](https://github.com/michels-lab/FoamLens/actions/runs/37813484567): real QuickCup/VTK, scientific and JavaScript regression tests, packaged portable runtime smoke, actual Windows installation/runtime smoke, native Home/About screenshot evidence and artifact validation. The publication job correctly skipped because this is a design branch, not an authorized release.
+- Same source candidate commit passed unsigned Microsoft Store MSIX build/smoke/evidence in CI [#37813484605](https://github.com/michels-lab/FoamLens/actions/runs/37813484605). Neither Microsoft Store publication nor signing is implied.
+- Runtime visual checks measured a single-line Field Ribbon at 50px high with no primary-row overflow, mutually exclusive Inspect/Compare/Camera subbars, visible front/isometric camera presets, independent sidebar case/region selectors per view, a single 3D view by default, and the secondary canvas/selector hidden when comparison is off. Centered splash/launch dimensions and dark/light text contrast were validated with native WebView2.
+- Earlier candidate CI failures were investigated and fixed: a missing generated CSS-array comma prevented Ribbon mounting; native smoke initially accessed an unexposed lexical variable instead of the official comparison API; and one existing Field View regression asserted a fragile adjacent source string rather than render order.
+- **Next-release blockers:** Windows ICO is a stale raster derivative still potentially showing the owner-rejected arcs and must be regenerated from the corrected design, and Michel's Lab canonical branding PR #28 remains draft pending owner visual feedback. PR #35 remains draft; do not merge or release without resolving these items and explicit release authorization.
+
+### 2026-10-08 — Regenerate rejected Windows/Store icon from the canonical source
+
+- Resolved the remaining derivative drift: `tools/generate_windows_icon.py` now rasterizes the arc-free `official-app-icon.svg` using pinned `resvg_py==0.5.0` into seven lossless PNG-encoded Windows ICO sizes (16,24,32,48,64,128,256). Generated icon has neither circular-orbit brackets nor cardinal tick marks.
+- Windows and Store packaging CI regenerate the ICO **before** compiling and run `--check` to ensure exact source parity. `windows-icon.test.cjs` validates all seven embedded PNG frames, dimensions, offsets and installer/desktop icon wiring; obsolete opaque `>100 KB` size assumption removed.
+- Added candidate-only `sync-foamlens-icon.yml` to commit the generated ICO binary back into the FoamLens branch, then dispatch exact-current-head Windows and MSIX validation after the binary commit; a release never triggers from this design branch.
+- Master Michel's Lab branding PR #28 is still under integration at the time of writing. Actual icon-sync workflow results and fresh CI remain **pending** until GitHub completes them; do not claim signed executables, Store approval or a new release.
+
+### 2026-10-08 — ICO sync orchestration correction
+
+- Initial stand-alone `sync-foamlens-icon.yml` run #37815926542 ended in a no-job workflow failure, so it is not a proven synchronization path and is removed to prevent false-green branding claims.
+- The existing, already functional Store MSIX workflow now regenerates and validates the arc-free Windows ICO with the packaged executable, then (on `design/**` only) commits that exact generated binary to its source branch and dispatches Windows/Store checks against the resulting commit.
+- Both Windows/Store build workflows generate/verify the source-bound icon before their actual .NET packaging. This prevents both stale binaries and false claims of a corrected icon when the Git tree still includes the old one.
+- The generated binary commit, successful subsequent CI and canonical master PR merger remain **to be verified**; do not publish a new release from the design branch.
+
 ## 2026-10-08 — Owner indefinitely pauses Microsoft Store builds
 
 - **Owner instruction:** stop generating FoamLens Microsoft Store versions and spending GitHub Actions resources on MSIX packages for **all future FoamLens releases** until the owner explicitly authorizes a restart. This pause includes auto-CI, manual jobs, uploads, submission and certification. Direct Windows releases continue normally.
@@ -4005,3 +4035,8 @@ The required interpretation is structural integration rather than sticker placem
 - Disabled the same Store workflow on development PR #35 (`design/foamlens-next-centered-launch-20261008`) at commit `92d59464c621f4c4f18df8dbb581bf1026410af1`. Windows CI now owns on-demand icon synchronization and only dispatches the Windows workflow, never Store.
 - Microsoft Store workflows that started **before** this explicit pause completed already; no active Store runs needed cancellation at the time of inspection. The last Store run for the arc-free ICO candidate was `37816516921`, successful on commit `8ff70d1`. This does not indicate Store submission or publication.
 - Added a durable owner-specific pause exception to master Michel's Lab policies `standards/PRIVACY_AND_STORE_STANDARD.md` and `standards/CI_CD_STANDARD.md` in `Michel-Software-Standards` commits `bf6d826`/`22473ea`. No resumption date was requested; only a **new explicit user instruction** reactivates MSIX builds.
+
+## 2026-10-08 — PR #35 branch/main integration
+
+- Reconciled the GitHub main Store pause and project audit with design branch changes without replacing the newer Windows UX fixes or canonical arc-free app icon. MSIX workflow on merged branch is the paused main version, with no `push` trigger and an unconditionally false job gate. Owner explicitly authorized integrating changes and releasing Windows, **not** Microsoft Store.
+- Windows icon source/master and on-disk ICO are synchronized; PR #35 latest pre-integration Windows CI #37816512451 and MSIX CI #37816516921 succeeded on icon-sync SHA `8ff70d1`. The next release requires *fresh* current-head Windows validation; no new Store CI is requested.

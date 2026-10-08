@@ -58,10 +58,8 @@ assert(source.includes('function flRibbonMountFieldOptions'),
   'Field Ribbon does not own contextual Split options.');
 assert(source.includes("document.getElementById('fwSplitChooser')"),
   'Split second-pane chooser is not available from the Field Ribbon.');
-assert(source.includes("#flRibbonPanel-field.active{flex-wrap:wrap"),
-  'Field Ribbon does not wrap its command groups.');
-assert(source.includes("#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden"),
-  'Field Ribbon can regress to a horizontal scrollbar.');
+assert(source.includes("#flRibbonPanel-field.active{display:flex;align-items:center;flex-wrap:nowrap"),'Field Ribbon must remain one compact primary row.');
+assert(source.includes("document.getElementById('flRibbon')?.appendChild(shelf)"),'Field subbars must live outside the primary command row.');
 assert(source.includes("body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}"),
   'Duplicated internal Field navigation remains visible under the Ribbon.');
 for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
@@ -106,3 +104,6 @@ assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.
 assert(source.includes('.flRibbonTimeGroup{min-width:340px')&&source.includes('flRibbonCacheAdvanced'),'Field ribbon must be compact and cache configuration collapsible.');
 assert(!source.includes("flRibbonActionHtml('flRaAbout'"),'About must not disappear when the Home ribbon tab is not active.');
 assert(source.includes("document.getElementById('fcEnabled')?.checked")&&source.includes("setInspector?.(true)"),'Compare must reveal explicit second-view controls.');
+
+for(const id of ['flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom'])assert(source.includes(id),'Camera preset missing: '+id);
+assert(source.includes('flRibbonCameraTools')&&source.includes('flCameraToolsActive'),'Orbit/pan/zoom tools must live in contextual Camera subbar.');

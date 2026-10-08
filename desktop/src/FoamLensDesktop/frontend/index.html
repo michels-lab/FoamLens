@@ -110,24 +110,25 @@ body:not(.hasWorkspaceData) #workspacePopulated{display:none}
 #launchScreen::before{content:"";pointer-events:none;position:fixed;inset:-24% -18%;z-index:-1;background:repeating-radial-gradient(ellipse at 81% 13%,transparent 0 50px,rgba(56,139,217,.075) 51px 52px,transparent 53px 84px);opacity:.63}
 body.hasWorkspaceData #launchScreen{display:none}
 body:not(.hasWorkspaceData) #appShell{visibility:hidden;pointer-events:none}
-.launchShell{width:min(940px,100%);display:grid;gap:14px;text-align:left}
-.launchHero{width:100%;padding:clamp(22px,3.2vw,36px);border:1px solid rgba(80,157,220,.26);border-radius:19px;background:linear-gradient(120deg,rgba(13,38,63,.83),rgba(8,26,44,.7));box-shadow:0 24px 58px rgba(0,0,0,.15);position:relative;overflow:hidden}
+.launchShell{width:min(940px,100%);display:grid;gap:14px;text-align:center}
+.launchHero{width:100%;padding:clamp(22px,3.2vw,36px);border:1px solid rgba(80,157,220,.26);border-radius:19px;background:linear-gradient(120deg,rgba(13,38,63,.83),rgba(8,26,44,.7));box-shadow:0 24px 58px rgba(0,0,0,.15);position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center}
 .launchHero::before{content:"";position:absolute;inset:-75px -90px auto 52%;height:270px;pointer-events:none;background:repeating-radial-gradient(ellipse at 80% 40%,transparent 0 14px,rgba(52,169,240,.17) 15px 16px,transparent 17px 29px);opacity:.6;transform:rotate(-18deg)}
-.launchIdentity{display:grid;grid-template-columns:clamp(90px,11vw,128px) minmax(0,1fr);align-items:center;gap:clamp(17px,2.6vw,27px);position:relative}
+.launchIdentity{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.4vw,13px);position:relative;width:100%}
+.launchIdentityCopy{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:0}
 .launchBrand{display:flex;align-items:center;justify-content:center;min-width:0;margin:0}
-.launchMark{display:grid;place-items:center;width:100%;height:auto;aspect-ratio:1;background:transparent;border:0;border-radius:0}
-.launchOfficialMark{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 11px 16px rgba(16,108,214,.26))}
+.launchMark{display:flex;align-items:center;justify-content:center;width:clamp(210px,28vw,330px);height:auto;aspect-ratio:714/436;flex:none;background:transparent;border:0;border-radius:0}
+.launchOfficialMark{display:block;width:100%;height:auto;max-width:100%;aspect-ratio:714/436;object-fit:contain;filter:drop-shadow(0 11px 16px rgba(16,108,214,.26))}
 .launchEyebrow{display:inline-flex;align-items:center;color:#91d5ff;font-size:11px;font-weight:820;letter-spacing:.12em;text-transform:uppercase}
 .launchHero h1{margin:4px 0 2px;font-size:clamp(38px,5vw,57px);font-weight:840;letter-spacing:-.06em;line-height:1;color:#f5fbff}
 .launchHero h2{margin:3px 0;font-size:clamp(15px,1.8vw,20px);font-weight:550;letter-spacing:-.02em;color:#bcdaf0}
-.launchHero p{max-width:670px;margin:18px 0 0;font-size:12.5px;line-height:1.62;color:#bbd4ea;position:relative}
-.launchActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px;position:relative}
+.launchHero p{width:100%;max-width:740px;margin:18px auto 0;font-size:13px;line-height:1.62;color:#bbd4ea;position:relative;text-align:center}
+.launchActions{display:flex;justify-content:center;align-items:center;gap:9px;flex-wrap:wrap;margin-top:22px;position:relative;width:100%}
 .launchActions .btn{min-height:42px;padding:9px 16px;border-radius:10px;font-size:12px;font-weight:780}
 .launchPrimary{box-shadow:0 9px 24px rgba(27,111,216,.2)}
-.launchPrivacy{display:flex;align-items:center;gap:9px;margin-top:15px;font-size:10px;color:#96bedc;position:relative}
+.launchPrivacy{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:15px;font-size:10px;color:#96bedc;position:relative;text-align:center;max-width:100%}
 .launchPrivacyDot{width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:#36b77b;box-shadow:0 0 0 4px rgba(54,183,123,.12)}
 .launchCapabilities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:0;overflow:hidden;border:1px solid rgba(82,155,211,.23);border-radius:15px;background:rgba(9,27,45,.65)}
-.launchCapability{min-width:0;padding:15px 17px;text-align:left;background:transparent;border:0;border-right:1px solid rgba(85,154,211,.18)}
+.launchCapability{min-width:0;padding:15px 17px;text-align:center;background:transparent;border:0;border-right:1px solid rgba(85,154,211,.18)}
 .launchCapability:last-child{border-right:0}
 .launchCapability b{display:block;font-size:12px;color:#ebf7ff;margin-bottom:5px}
 .launchCapability span{display:block;color:#a9c9e3;font-size:11px;line-height:1.5}
@@ -141,7 +142,7 @@ body:not(.dark) .launchHero p,body:not(.dark) .launchCapability span{color:#4365
 body:not(.dark) .launchCapabilities{background:rgba(255,255,255,.65);border-color:rgba(51,124,185,.2)}
 body:not(.dark) .launchCapability{border-right-color:rgba(51,124,185,.2)}
 body:not(.dark) .launchPrivacy,body:not(.dark) .launchFooter{color:#476e8c}
-@media(max-width:700px){#launchScreen{padding:13px}.launchShell{gap:10px}.launchHero{padding:21px 17px}.launchIdentity{grid-template-columns:76px minmax(0,1fr);gap:12px}.launchHero h1{font-size:clamp(37px,8vw,46px)}.launchHero h2{font-size:14px}.launchEyebrow{font-size:9px}.launchHero p{font-size:11px;margin-top:14px}.launchActions{margin-top:15px}.launchActions .btn{font-size:11px}.launchCapabilities{grid-template-columns:1fr}.launchCapability{border-right:0;border-bottom:1px solid rgba(84,160,220,.18);padding:9px 12px}.launchCapability:last-child{border:0}}
+@media(max-width:700px){#launchScreen{padding:13px;place-items:safe center}.launchShell{gap:10px}.launchHero{padding:21px 17px}.launchIdentity{gap:9px}.launchMark{width:clamp(180px,46vw,236px)}.launchHero h1{font-size:clamp(37px,8vw,46px)}.launchHero h2{font-size:14px}.launchEyebrow{font-size:9px}.launchHero p{font-size:11px;margin-top:14px}.launchActions{margin-top:15px}.launchActions .btn{font-size:11px}.launchCapabilities{grid-template-columns:1fr}.launchCapability{border-right:0;border-bottom:1px solid rgba(84,160,220,.18);padding:9px 12px}.launchCapability:last-child{border:0}}
 .surfaceGrid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.8fr);gap:14px}
 .surfaceStack{display:grid;gap:14px;align-content:start}
 .surfaceCard{border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:var(--shadow);overflow:hidden}

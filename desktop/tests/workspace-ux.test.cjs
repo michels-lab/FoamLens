@@ -152,3 +152,10 @@ test('comparison status remains synchronized after the workspace refactor',()=>{
 
 console.log('FoamLens v1.6 persistent workspace UX regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('3D cases are selectable in the sidebar and comparison stays opt-in',()=>{
+  const w=fs.readFileSync(path.join(root,'v14-zz-field-workspace.js'),'utf8');
+  assert(w.includes('fwPromoteViewCaseSelectors')&&w.includes("getElementById('fvCase')?.closest('.row2')")&&w.includes("getElementById('fcCase')?.closest('.row2')"),'Independent A/B case selectors not promoted');
+  assert(w.includes("compare?.classList.toggle('hidden',!enabled)"),'View B selector must hide until comparison');
+  assert(w.includes('compareUserRequested:false')&&w.includes('if(!fwState.compareUserRequested)'),'No implicit comparison on Field entry');
+});

@@ -51,7 +51,7 @@ test('Field uses one explicit physical-time transport and contextual sidebar',()
   assert(field.includes("group3D.style.display=(view==='3d'||view==='split')?'':'none'"));
   assert(field.includes("group2D.style.display=(view==='3d')?'none':''"));
   assert(ribbon.includes("document.getElementById('fvCacheLimit')"));
-  assert(ribbon.includes("#flRibbonPanel-field.active{flex-wrap:wrap"));
+  assert(ribbon.includes("#flRibbonPanel-field.active{display:flex;align-items:center;flex-wrap:nowrap"));
 });
 
 test('Ribbon exposes real scopes without fake Plots or Compare tabs',()=>{
