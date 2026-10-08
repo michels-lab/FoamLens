@@ -2,6 +2,12 @@
 # Branch CI validates candidates without publishing. Human visual review is performed by the owner after release; automated checks remain mandatory.
 name: Build FoamLens Desktop for Windows
 
+# Cancel superseded branch CI instead of running outdated Windows builds in parallel.
+# Never cancel a release tag or main's protected validation run.
+concurrency:
+  group: foamlens-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
 on:
   workflow_dispatch:
     inputs:
