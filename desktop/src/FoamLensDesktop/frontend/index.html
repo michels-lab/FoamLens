@@ -743,106 +743,57 @@ body.dark .caseFileRow{
 .smartImportSummary{font-size:11px;color:var(--muted);margin-top:8px}
 @media(max-width:650px){.smartImportDialog{padding:16px}.smartCaseTop{grid-template-columns:1fr}.smartImportActions{justify-content:stretch}.smartImportActions .btn{flex:1}.smartCasePath{white-space:normal}}
 
-/* v20 — About the Developer, rebuilt from the approved Michel's Life base with full embedded portrait */
-.aboutOverlay{
-  position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center;
-  padding:28px; background:rgba(2,8,20,.76); backdrop-filter:blur(14px);
-}
+/* FoamLens About — one deliberate science-product identity, not sticker cards. */
+.aboutOverlay{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:10px;background:rgba(3,12,24,.83);backdrop-filter:blur(12px)}
 .aboutOverlay.open{display:flex}
-.aboutShell{
-  width:min(1140px,96vw); max-height:92vh; overflow:auto; position:relative;
-  border:1px solid rgba(110,156,219,.36); border-radius:32px;
-  background:
-    linear-gradient(180deg,rgba(18,48,98,.20),rgba(10,27,57,.14)),
-    radial-gradient(circle at 14% 16%,rgba(114,189,255,.12),transparent 20%),
-    radial-gradient(circle at 88% 12%,rgba(61,115,207,.18),transparent 24%),
-    radial-gradient(circle at 78% 82%,rgba(15,54,120,.16),transparent 30%),
-    linear-gradient(145deg,rgba(7,24,53,.98),rgba(5,19,42,.985) 56%,rgba(8,30,67,.985));
-  color:#eef6ff; box-shadow:0 36px 90px rgba(0,0,0,.56); padding:26px;
-}
-.aboutShell:before{
-  content:""; position:absolute; inset:0; pointer-events:none; opacity:.30; border-radius:inherit;
-  background-image:
-    radial-gradient(circle at 10% 20%,#fff 0 1px,transparent 1.6px),
-    radial-gradient(circle at 30% 80%,#fff 0 1px,transparent 1.5px),
-    radial-gradient(circle at 72% 26%,#fff 0 1px,transparent 1.5px),
-    radial-gradient(circle at 88% 68%,#fff 0 1px,transparent 1.5px),
-    radial-gradient(circle at 56% 62%,#fff 0 1px,transparent 1.3px);
-  background-size:160px 160px,190px 190px,210px 210px,175px 175px,230px 230px;
-}
-.aboutClose{
-  position:absolute; right:18px; top:18px; z-index:3; width:40px; height:40px; border-radius:12px;
-  border:1px solid rgba(154,191,235,.28); background:rgba(4,15,35,.78); color:#e8f3ff;
-  font-size:21px; line-height:1; display:grid; place-items:center;
-}
-.aboutClose:hover{border-color:#e5b84f;color:#ffd875}
-.aboutHero{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);gap:28px;align-items:center;padding:6px 10px 20px}
-.aboutEyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#efbd52;font-weight:800}
-.aboutHero h2{margin:8px 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.05;color:#fff}
-.aboutLead{font-size:20px;color:#f0bf53;margin:0 0 12px}
-.aboutCopy{max-width:700px;color:#c9d9eb;line-height:1.64;font-size:14px;margin:0}
-.aboutQuote{display:flex;align-items:center;gap:14px;margin-top:18px;color:#f0bd4f;font-family:Georgia,'Times New Roman',serif;font-size:18px;font-style:italic}
-.aboutQuote:before,.aboutQuote:after{content:"";height:1px;background:linear-gradient(90deg,transparent,#dba63b);flex:1;max-width:100px}
-.aboutQuote:after{background:linear-gradient(90deg,#dba63b,transparent)}
-.aboutProductMark{
-  display:grid; place-items:center; text-align:center; min-height:200px; padding:18px;
-  border:1px solid rgba(121,173,230,.28); border-radius:24px;
-  background:linear-gradient(135deg,rgba(9,36,77,.62),rgba(6,25,55,.48));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
-}
-.aboutMarkBox{width:120px;height:120px;border-radius:30px;border:2px solid #e6b745;display:grid;place-items:center;background:linear-gradient(145deg,rgba(26,67,116,.84),rgba(6,23,51,.92));box-shadow:0 0 32px rgba(222,172,58,.12) inset,0 18px 45px rgba(0,0,0,.25);position:relative;overflow:hidden}
-.aboutMarkBox:before,.aboutMarkBox:after{content:"";position:absolute;background:#f3c24f;border-radius:999px;height:6px;box-shadow:0 0 12px rgba(243,194,79,.28)}
-.aboutMarkBox:before{width:52px;transform:rotate(-18deg) translateY(-13px)}
-.aboutMarkBox:after{width:43px;transform:rotate(14deg) translateY(16px)}
-.aboutProductName{font-family:Georgia,'Times New Roman',serif;color:#f3c24f;font-weight:800;font-size:20px;letter-spacing:.06em;margin-top:14px}
-.aboutProductSub{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#d5e1ef;margin-top:3px}
-.aboutDeveloperCard,.aboutConnectCard{position:relative;z-index:1;border:1px solid rgba(121,173,230,.30);border-radius:22px;background:linear-gradient(135deg,rgba(9,36,77,.72),rgba(6,25,55,.58));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
-.aboutDeveloperCard{display:grid;grid-template-columns:240px 1fr 220px;gap:22px;align-items:center;padding:20px 22px;margin-bottom:12px}
-.aboutAvatar{
-  width:220px;height:304px;border-radius:28px;border:2px solid rgba(241,193,77,.92);overflow:hidden;
-  background:linear-gradient(145deg,#254d7f,#0a1d3d 55%,#050d1c);
-  box-shadow:0 12px 30px rgba(0,0,0,.28),0 0 0 1px rgba(255,213,111,.18) inset;
-  position:relative;display:grid;place-items:center;justify-self:start;
-}
-.aboutPortraitImg{width:100%;height:100%;object-fit:contain;object-position:center center;display:block;background:rgba(4,12,26,.55)}
-.aboutPortraitFallback{
-  display:none;position:absolute;inset:0;place-items:center;
-  font-family:Georgia,'Times New Roman',serif;font-size:72px;font-weight:800;
-  color:#f1c14d;background:radial-gradient(circle at 30% 20%,#2a5589,#0d2248 60%,#071226);
-}
+.aboutShell{width:min(1180px,calc(100vw - 20px));max-height:calc(100dvh - 20px);overflow:auto;position:relative;color:#edf7ff;border:1px solid rgba(81,158,221,.30);border-radius:22px;padding:18px;background:radial-gradient(ellipse at 18% 12%,rgba(27,109,190,.18),transparent 46%),repeating-radial-gradient(ellipse at 89% 12%,transparent 0 60px,rgba(41,133,205,.043) 61px 62px,transparent 63px 95px),#081626;box-shadow:0 32px 80px rgba(0,0,0,.45)}
+.aboutClose{position:absolute;right:11px;top:11px;z-index:6;width:34px;height:34px;display:grid;place-items:center;border-radius:9px;border:1px solid rgba(135,188,233,.3);color:#edf8ff;background:#102338;font-size:20px}
+.aboutClose:hover{border-color:#7cceff}
+.aboutHero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px;align-items:stretch;margin:0 0 12px;padding:0}
+.aboutProductMark,.aboutDeveloperCard{min-width:0;border:1px solid rgba(84,155,218,.22);border-radius:16px;background:linear-gradient(125deg,rgba(11,35,62,.77),rgba(9,29,50,.59));}
+.aboutProductMark{display:flex;flex-direction:column;justify-content:center;gap:10px;padding:16px}
+.aboutProductIdentity{display:flex;align-items:center;gap:13px}
+.aboutMarkBox.officialAboutMark{width:99px;height:99px;flex:0 0 99px;border-radius:19px;display:grid;place-items:center;padding:6px;border:1px solid rgba(87,170,231,.23);background:radial-gradient(circle,rgba(44,128,211,.15),transparent 76%);box-shadow:none;aspect-ratio:1}
+.aboutMarkBox.officialAboutMark:before,.aboutMarkBox.officialAboutMark:after{display:none}
+.aboutOfficialLockup{width:100%;height:100%;object-fit:contain}
+.aboutEyebrow,.aboutRole{font-size:10px;letter-spacing:.12em;color:#84cfff;text-transform:uppercase;font-weight:800}
+.aboutHero h2{margin:4px 0;font-family:inherit;font-size:clamp(27px,3vw,37px);font-weight:830;line-height:1.05;letter-spacing:-.045em;color:#f3f9ff}
+.aboutProductSub{font-size:11px;color:#9abbd5;letter-spacing:.04em}
+.aboutLead{font-size:13px;font-weight:680;line-height:1.35;color:#c5e6ff;margin:0}
+.aboutCopy{font-size:11px;line-height:1.45;color:#b1cae2;margin:0}
+.aboutQuote{font-size:10px;color:#84b8df;font-style:italic;border-left:2px solid #5bb0ee;padding-left:9px;margin:0;line-height:1.35}
+.aboutDeveloperCard{display:grid;grid-template-columns:115px minmax(0,1fr) minmax(118px, .8fr);gap:14px;align-items:center;padding:13px}
+.aboutAvatar{display:grid;place-items:center;position:relative;min-width:0;width:115px;height:160px;border-radius:13px;overflow:hidden;border:1px solid rgba(93,179,240,.44);background:rgba(7,26,46,.7)}
+.aboutPortraitImg{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.aboutPortraitFallback{display:none;position:absolute;inset:0;place-items:center;font-size:40px;color:#9bdafa}
 .aboutAvatar.fallback .aboutPortraitFallback{display:grid}
-.aboutRole{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#efbd52;font-weight:800}
-.aboutName{font-family:Georgia,'Times New Roman',serif;font-size:29px;line-height:1.05;margin:6px 0 8px;color:#fff}
-.aboutBio{color:#c9d9eb;font-size:14px;line-height:1.58}
-.aboutBrandMini{
-  border:1px solid rgba(121,173,230,.24);border-radius:18px;padding:18px 16px;
-  background:rgba(5,18,41,.36); text-align:center;
-}
-.aboutMichelsLabLogo{display:block;width:min(100%,180px);height:auto;max-height:78px;object-fit:contain;margin:0 auto 12px}
-.aboutBrandMini .aboutBrandLabel{
-  font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#f1c14d;font-weight:800;margin-bottom:9px;
-}
-.aboutBrandMini .aboutBrandTag{
-  font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#d4e5f7;line-height:1.65;
-}
-.aboutConnectCard{padding:14px 16px 16px}
-.aboutConnectTitle{font-size:17px;font-weight:800;margin-bottom:3px}
-.aboutConnectSub{font-size:12px;color:#b7c9dd;margin-bottom:12px}
-.aboutSocials{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.aboutSocial{display:grid;grid-template-columns:40px minmax(0,1fr);gap:9px;align-items:center;text-decoration:none;color:#eef6ff;border:1px solid rgba(133,179,229,.28);border-radius:14px;padding:8px;background:rgba(4,18,42,.48);transition:.16s}
-.aboutSocial:hover{transform:translateY(-2px);border-color:#e6b745;background:rgba(11,35,72,.76)}
-.aboutIcon{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-weight:900;font-size:16px;color:white;background:linear-gradient(145deg,#243d62,#15233b);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.aboutIcon.ig{background:radial-gradient(circle at 68% 72%,#ffdc80 0 13%,#fcaf45 14% 23%,#f77737 24% 39%,#e1306c 40% 58%,#c13584 59% 74%,#833ab4 75%)}
-.aboutIcon.fb{background:#1877f2;font-size:24px;font-family:Arial}.aboutIcon.in{background:#0a66c2;font-size:18px}.aboutIcon.gh{background:#0a0c10}.aboutIcon.mail{background:linear-gradient(145deg,#6e8099,#35445a);font-size:20px}
-.aboutSocial b{font-size:11px;display:block;white-space:nowrap}.aboutSocial span{font-size:9px;color:#b9cbe0;display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.aboutFooter{position:relative;z-index:1;display:flex;justify-content:space-between;gap:18px;align-items:center;padding:14px 4px 0;color:#90a8c3;font-size:11px}
-.aboutFooter .motto{border-left:2px solid #e4b448;padding-left:15px}
-.aboutVersion{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(229,184,79,.35);border-radius:999px;padding:4px 8px;color:#e9c56d;margin-left:8px}
-body:not(.dark) .aboutOverlay{background:rgba(20,31,47,.48)}
-@media(max-width:950px){
-  .aboutHero{grid-template-columns:1fr}.aboutProductMark{display:flex;flex-direction:column;justify-content:center;min-height:130px;padding:12px}.aboutMarkBox.officialAboutMark{width:108px;height:108px}.aboutDeveloperCard{grid-template-columns:190px 1fr}.aboutAvatar{width:170px;height:235px}.aboutBrandMini{grid-column:1/-1}.aboutSocials{grid-template-columns:1fr 1fr}.aboutFooter{flex-direction:column;align-items:flex-start}.aboutFooter .motto{border-left:0;padding-left:0}.aboutShell{padding:20px}}
-@media(max-width:580px){.aboutOverlay{padding:10px}.aboutDeveloperCard{grid-template-columns:1fr;text-align:center}.aboutAvatar{width:min(100%,240px);height:auto;aspect-ratio:1109/1536;margin:auto}.aboutSocials{grid-template-columns:1fr}.aboutHero h2{font-size:28px}}
-
+.aboutAuthorDetails{min-width:0}
+.aboutName{font-size:clamp(20px,2.2vw,26px);font-weight:790;letter-spacing:-.035em;color:#f2f8ff;line-height:1.05;margin:5px 0 9px}
+.aboutBio{font-size:11px;line-height:1.55;color:#b5cde3}
+.aboutBrandMini{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;padding:14px 10px;border-left:1px solid rgba(91,160,224,.24);height:100%}
+.aboutMichelsLabLogo{display:block;object-fit:contain;width:100%;height:57px;max-width:145px;margin:0}
+.aboutBrandLabel{font-size:11px;font-weight:750;color:#e6f4ff}
+.aboutBrandTag{font-size:10px;line-height:1.35;letter-spacing:.10em;text-transform:uppercase;color:#9edbff;font-weight:800}
+.aboutConnectCard{padding:12px 13px 13px;border:1px solid rgba(89,166,223,.26);border-radius:16px;background:rgba(9,28,49,.64)}
+.aboutConnectTitle{font-size:13px;font-weight:780;color:#eef8ff;margin:0}
+.aboutConnectSub{font-size:10px;color:#aac9e1;margin:3px 0 10px}
+.aboutSocials{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+.aboutSocial{display:flex;align-items:center;gap:7px;min-width:0;min-height:54px;border:1px solid rgba(91,165,224,.27);border-radius:11px;background:rgba(5,23,41,.72);padding:7px;text-decoration:none;color:#eff8ff;transition:background .15s,border-color .15s}
+.aboutSocial:hover,.aboutSocial:focus-visible{border-color:#7bcfff;background:#173a59}
+.aboutIcon{flex:0 0 33px;width:33px;height:33px;display:grid;place-items:center;color:white;border-radius:9px;font-size:17px;font-weight:800;background:#244466}
+.aboutIcon.ig{background:radial-gradient(circle at 65% 67%,#ffdc80 0 14%,#f77737 18% 34%,#e1306c 35% 54%,#833ab4 77%)}
+.aboutIcon.fb{background:#1877f2}.aboutIcon.in{background:#0a66c2}.aboutIcon.gh{background:#111b27}.aboutIcon.mail{background:#35516d}
+.aboutSocial b{font-size:11px;display:block;white-space:nowrap}
+.aboutSocial span{display:block;font-size:9px;color:#b4cee4;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;margin-top:2px}
+.aboutSocialText{min-width:0}
+.aboutMetaActions{display:flex;justify-content:flex-end;gap:7px;margin-top:8px}
+.aboutMetaActions .btn{font-size:10px;padding:6px 9px}
+.aboutFooter{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:6px 3px 0;font-size:10px;color:#96b4ca}
+.aboutFooter .motto{display:none}
+.aboutVersion{color:#b0d7f2;white-space:nowrap}
+body:not(.dark) .aboutOverlay{background:rgba(19,41,65,.72)}
+@media(max-width:930px){.aboutHero{grid-template-columns:1fr;gap:9px}.aboutProductMark{padding:9px 12px;gap:5px}.aboutProductIdentity{gap:10px}.aboutMarkBox.officialAboutMark{width:65px;height:65px;flex-basis:65px;border-radius:13px}.aboutHero h2{font-size:28px}.aboutQuote{display:none}.aboutDeveloperCard{grid-template-columns:100px minmax(0,1fr) minmax(100px,.75fr);padding:9px;gap:10px}.aboutAvatar{width:100px;height:138px}.aboutSocial span{display:none}.aboutSocial{min-height:46px}.aboutIcon{width:29px;height:29px;flex-basis:29px}}
+@media(max-width:600px){.aboutShell{padding:10px;width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}.aboutHero{gap:7px}.aboutDeveloperCard{grid-template-columns:88px minmax(0,1fr);row-gap:5px}.aboutAvatar{width:88px;height:123px;grid-row:1/3}.aboutBrandMini{grid-column:2;flex-direction:row;justify-content:flex-start;border-left:0;border-top:1px solid rgba(91,160,224,.24);padding:5px 0 0;height:auto;text-align:left}.aboutMichelsLabLogo{width:94px;height:34px}.aboutBrandLabel{display:none}.aboutBrandTag{font-size:9px}.aboutSocials{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.aboutSocial{min-height:40px;padding:5px;gap:4px}.aboutIcon{width:24px;height:24px;flex-basis:24px}.aboutSocial b{font-size:10px}.aboutBio{font-size:10px}.aboutFooter{font-size:9px}.aboutProductSub{font-size:10px}}
 
 /* FoamLens v51 */
 .foamLensLogoSvg{width:100%;height:100%;display:block;overflow:visible}
@@ -973,7 +924,7 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
 .logo{width:48px;height:48px;border-radius:16px;background:rgba(6,36,62,.82);box-shadow:0 12px 28px rgba(27,111,216,.20);position:relative;flex:0 0 auto;display:grid;place-items:center;overflow:hidden}
 .logo:before,.logo:after{display:none!important}
 .sidebarOfficialMark{width:46px;height:46px;object-fit:contain}
-.aboutMarkBox.officialAboutMark{width:154px;height:154px;aspect-ratio:1;border-radius:26px;border:1px solid rgba(111,174,224,.34);padding:12px;background:radial-gradient(circle at 50% 40%,rgba(30,121,206,.18),rgba(6,29,57,.2));box-shadow:0 15px 35px rgba(0,0,0,.18);overflow:hidden}
+
 .aboutMarkBox.officialAboutMark:before,.aboutMarkBox.officialAboutMark:after{display:none!important}
 .aboutOfficialLockup{width:100%;height:100%;object-fit:contain}
 </style>
@@ -1963,45 +1914,39 @@ body.catalogView .workspace{grid-template-columns:minmax(0,1fr)}
     <button class="aboutClose" id="aboutDeveloperClose" aria-label="Close">×</button>
 
     <div class="aboutHero">
-      <div>
-        <div class="aboutEyebrow" id="aboutEyebrow">About the project</div>
-        <h2 id="aboutDeveloperTitle">About FoamLens</h2>
+      <div class="aboutProductMark">
+        <div class="aboutProductIdentity">
+          <div class="aboutMarkBox officialAboutMark"><img id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg" alt="FoamLens official simulation field mark"></div>
+          <div><div class="aboutEyebrow" id="aboutEyebrow">About the project</div><h2 id="aboutDeveloperTitle">About FoamLens</h2>
+            <div class="aboutProductSub">OpenFOAM analysis workspace · <span data-desktop-version>Desktop v—</span></div></div>
+        </div>
         <div class="aboutLead" id="aboutLead">OpenFOAM analysis, diagnostics and scientific visualization.</div>
-        <p class="aboutCopy" id="aboutCopy">FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring scientific data, diagnosing numerical behavior, comparing cases, reviewing findings, and producing publication-ready figures from one place.</p>
+        <p class="aboutCopy" id="aboutCopy">Explore OpenFOAM results, compare simulations and produce reliable scientific figures.</p>
         <div class="aboutQuote" id="aboutQuote">From simulation data to evidence you can inspect.</div>
       </div>
-      <div class="aboutProductMark" aria-label="FoamLens mark">
-        <div class="aboutMarkBox officialAboutMark"><img id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg" alt="FoamLens official field mark"></div>
-        <div class="aboutProductSub">OpenFOAM analysis workspace</div>
+      <div class="aboutDeveloperCard">
+        <div class="aboutAvatar" aria-label="Michel Duarte developer portrait" id="aboutAvatarFrame">
+          <img id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg" alt="Michel Duarte portrait" referrerpolicy="no-referrer">
+          <div class="aboutPortraitFallback" aria-hidden="true">M</div>
+        </div>
+        <div class="aboutAuthorDetails"><div class="aboutRole" id="aboutRole">Developer / Creator</div>
+          <div class="aboutName">Michel Duarte</div>
+          <div class="aboutBio" id="aboutBio">Materials engineer and metallurgical engineering researcher.<br>Building tools for CFD and scientific visualization.</div></div>
+        <div class="aboutBrandMini" id="aboutBrandMini">
+          <img id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab/official-lockup.png" alt="Michel's Lab">
+          <div class="aboutBrandCopy"><div class="aboutBrandLabel">Michel's Lab</div><div class="aboutBrandTag" id="aboutBrandTag">TOOLS WITH IDENTITY.</div></div>
+        </div>
       </div>
     </div>
-
-    <div class="aboutDeveloperCard">
-      <div class="aboutAvatar" aria-label="Michel Duarte developer portrait" id="aboutAvatarFrame">
-        <img id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg" alt="Michel Duarte portrait" referrerpolicy="no-referrer">
-        <div class="aboutPortraitFallback" aria-hidden="true">M</div>
-      </div>
-      <div>
-        <div class="aboutRole" id="aboutRole">Developer / Creator</div>
-        <div class="aboutName">Michel Duarte</div>
-        <div class="aboutBio" id="aboutBio">Materials engineer and metallurgical engineering researcher.<br>Building practical tools for CFD, solidification and scientific visualization.</div>
-      </div>
-      <div class="aboutBrandMini" id="aboutBrandMini">
-        <img id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab/official-lockup.png" alt="Michel's Lab">
-        <div class="aboutBrandLabel">Michel's Lab</div>
-        <div class="aboutBrandTag" id="aboutBrandTag">TOOLS WITH IDENTITY.</div>
-      </div>
-    </div>
-
     <div class="aboutConnectCard">
       <div class="aboutConnectTitle" id="aboutConnectTitle">Connect with me</div>
       <div class="aboutConnectSub" id="aboutConnectSub">Follow the work, see updates and say hello.</div>
       <div class="aboutSocials">
-        <a class="aboutSocial" href="https://www.instagram.com/realmichelduarte/" target="_blank" rel="noopener"><div class="aboutIcon ig" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="6"/><circle cx="12" cy="12" r="4"/><circle cx="18" cy="6" r="1" fill="currentColor" stroke="none"/></svg></div><div><b>Instagram</b><span>@realmichelduarte</span></div></a>
-        <a class="aboutSocial" href="https://www.facebook.com/realmichelduarte" target="_blank" rel="noopener"><div class="aboutIcon fb">f</div><div><b>Facebook</b><span>realmichelduarte</span></div></a>
-        <a class="aboutSocial" href="https://www.linkedin.com/in/realmichelduart/" target="_blank" rel="noopener"><div class="aboutIcon in">in</div><div><b>LinkedIn</b><span>/in/realmichelduart</span></div></a>
-        <a class="aboutSocial" href="https://github.com/realmichelduarte" target="_blank" rel="noopener"><div class="aboutIcon gh" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.82c.56.1.76-.24.76-.54v-2.1c-3.09.67-3.74-1.31-3.74-1.31-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.7 2.59 1.21 3.22.93.1-.72.39-1.21.7-1.49-2.46-.28-5.05-1.23-5.05-5.49 0-1.21.43-2.2 1.14-2.98-.11-.28-.49-1.41.11-2.94 0 0 .93-.3 3.08 1.14a10.7 10.7 0 0 1 5.6 0c2.14-1.44 3.08-1.14 3.08-1.14.6 1.53.22 2.66.11 2.94.71.78 1.14 1.77 1.14 2.98 0 4.27-2.6 5.21-5.07 5.48.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.77.54A11.2 11.2 0 0 0 12 .8Z"/></svg></div><div><b>GitHub</b><span>realmichelduarte</span></div></a>
-        <a class="aboutSocial" href="mailto:realmichelduarte@gmail.com"><div class="aboutIcon mail">✉</div><div><b>Email</b><span>realmichelduarte@gmail.com</span></div></a>
+        <a class="aboutSocial" href="https://www.instagram.com/realmichelduarte/" target="_blank" rel="noopener"><div class="aboutIcon ig" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="6"/><circle cx="12" cy="12" r="4"/><circle cx="18" cy="6" r="1" fill="currentColor" stroke="none"/></svg></div><div class="aboutSocialText"><b>Instagram</b><span>@realmichelduarte</span></div></a>
+        <a class="aboutSocial" href="https://www.facebook.com/realmichelduarte" target="_blank" rel="noopener"><div class="aboutIcon fb">f</div><div class="aboutSocialText"><b>Facebook</b><span>realmichelduarte</span></div></a>
+        <a class="aboutSocial" href="https://www.linkedin.com/in/realmichelduart/" target="_blank" rel="noopener"><div class="aboutIcon in">in</div><div class="aboutSocialText"><b>LinkedIn</b><span>/in/realmichelduart</span></div></a>
+        <a class="aboutSocial" href="https://github.com/realmichelduarte" target="_blank" rel="noopener"><div class="aboutIcon gh" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.82c.56.1.76-.24.76-.54v-2.1c-3.09.67-3.74-1.31-3.74-1.31-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.7 2.59 1.21 3.22.93.1-.72.39-1.21.7-1.49-2.46-.28-5.05-1.23-5.05-5.49 0-1.21.43-2.2 1.14-2.98-.11-.28-.49-1.41.11-2.94 0 0 .93-.3 3.08 1.14a10.7 10.7 0 0 1 5.6 0c2.14-1.44 3.08-1.14 3.08-1.14.6 1.53.22 2.66.11 2.94.71.78 1.14 1.77 1.14 2.98 0 4.27-2.6 5.21-5.07 5.48.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.77.54A11.2 11.2 0 0 0 12 .8Z"/></svg></div><div class="aboutSocialText"><b>GitHub</b><span>realmichelduarte</span></div></a>
+        <a class="aboutSocial" href="mailto:realmichelduarte@gmail.com"><div class="aboutIcon mail">✉</div><div class="aboutSocialText"><b>Email</b><span>realmichelduarte@gmail.com</span></div></a>
       </div>
     </div>
 
@@ -9254,8 +9199,8 @@ updateMeta();
   if(!openBtn||!overlay||!closeBtn)return;
 
   const copy={
-    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'FoamLens is a browser-based OpenFOAM analysis workspace for discovering simulation outputs, exploring data, diagnosing numerical behavior, comparing cases, reviewing evidence-based findings, and exporting scientific figures from one place.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandTag:'TOOLS WITH IDENTITY.',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
-    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'FoamLens es un espacio de análisis de OpenFOAM que descubre resultados, explora datos, diagnostica comportamiento numérico, compara casos, revisa hallazgos basados en evidencia y exporta figuras científicas desde un solo lugar.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandTag:'TOOLS WITH IDENTITY.',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
+    en:{button:'About',eyebrow:'About the project',title:'About FoamLens',lead:'OpenFOAM analysis, diagnostics and scientific visualization.',copy:'Explore OpenFOAM results, compare simulations and produce reliable scientific figures.',quote:'From simulation data to evidence you can inspect.',role:'Developer / Creator',bio:'Materials engineer and metallurgical engineering researcher.<br>Creating practical tools for CFD, solidification and scientific visualization.',brandTag:'TOOLS WITH IDENTITY.',connect:'Connect with me',connectSub:'Follow the work, see updates and say hello.',motto:'Simulation data in. Clear evidence out.',close:'Close'},
+    es:{button:'Acerca de',eyebrow:'Acerca del proyecto',title:'Acerca de FoamLens',lead:'Análisis, diagnóstico y visualización científica de OpenFOAM.',copy:'Explora resultados OpenFOAM, compara simulaciones y produce figuras científicas confiables.',quote:'De los datos de simulación a evidencia que puedes inspeccionar.',role:'Desarrollador / Creador',bio:'Ingeniero en Materiales e investigador en ingeniería metalúrgica.<br>Creando herramientas prácticas para CFD, solidificación y visualización científica.',brandTag:'TOOLS WITH IDENTITY.',connect:'Conecta conmigo',connectSub:'Sigue el trabajo, mira actualizaciones o escríbeme.',motto:'Datos de simulación adentro. Evidencia clara afuera.',close:'Cerrar'}
   };
 
 
