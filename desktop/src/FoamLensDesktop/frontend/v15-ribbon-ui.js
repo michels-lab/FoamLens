@@ -195,7 +195,7 @@ function flRibbonCss(){
     'body.flRibbonReady .sidebarToggle{top:calc(var(--flChromeTop) + var(--flRibbonHeight) + 10px);z-index:430}',
     'body.flRibbonReady .app.sidebarCollapsed .sidebarToggle{top:calc(var(--flChromeTop) + var(--flRibbonHeight) + 11px);left:10px;transform:none;position:fixed}',
     'body.flRibbonReady .sidebar,.main>.top,#flRibbon{transition:none}',
-    '.flRibbon{position:fixed;left:0;right:0;top:58px;width:100%;box-sizing:border-box;z-index:390;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 4px 18px rgba(18,32,51,.045);min-width:0}',
+    '.flRibbon{position:fixed;left:0;right:0;top:var(--flChromeTop,58px);width:100%;box-sizing:border-box;z-index:390;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 4px 18px rgba(18,32,51,.045);min-width:0}',
     'body.dark .flRibbon{box-shadow:0 4px 18px rgba(0,0,0,.18)}',
     '.flRibbonTabRow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel2)}',
     '.flRibbonTabs{display:flex;align-items:stretch;gap:1px;overflow-x:auto;scrollbar-width:thin;min-width:0}',
@@ -235,10 +235,10 @@ function flRibbonCss(){
     '.flRibbonTimeGroup{min-width:300px;max-width:100%;flex:0 0 auto}',
     '.flRibbonTimeGroup .flRibbonActions{align-items:center;display:flex;flex-wrap:nowrap;gap:6px;width:100%}',
     '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:300px;flex:0 0 320px;width:320px;grid-template-columns:auto auto auto minmax(70px,1fr) auto auto;gap:5px}',
-    '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:10px}',
     '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
-    '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
-    '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:8px}',
+    '.flRibbonTimeGroup .fwTimeReadout{font-size:10px}',
+    '.flRibbonTimeGroup .fwTimeTransport select{min-width:58px;height:30px;padding:4px 5px;font-size:10px}',
     '.flRibbonTimeGroup .flRibbonCacheField{display:grid;grid-template-columns:auto minmax(78px,auto);align-items:center;gap:4px;min-width:132px;margin:0!important}',
     '.flRibbonTimeGroup .flRibbonCacheField label{font-size:7px!important;margin:0!important;color:var(--muted)}',
     '.flRibbonTimeGroup .flRibbonCacheField select{height:30px!important;min-width:78px!important;padding:4px 6px!important;font-size:8px!important}',
@@ -331,7 +331,8 @@ function flRibbonUpdateFieldScope(){
   const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
     'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
-    'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom'];
+    'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom',
+    'flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
   flRibbonMountFieldOptions();
   document.getElementById('flRibbonFieldOptionsGroup')?.classList.toggle('flScopeHidden',view!=='split');
