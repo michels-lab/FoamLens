@@ -4006,11 +4006,22 @@ function pmLargeFieldHeader(text,sourcePath=''){
 /* FOAMLENS_INCREMENTAL_FIELD_CORE_END */
 
 async function pmParseNativeOpenFOAMField(file,sourcePath=''){
+  let lastProgressAt=Date.now(),lastBytes=0;
   const op=foamLensNativeOperation('parseOpenFOAMField',{token:file._nativeToken},m=>{
     const done=Number(m.completedBytes)||0,total=Number(m.totalBytes)||Number(file.size)||0;
+    lastProgressAt=Date.now();lastBytes=done;
     if(total>0)updateAppActivity(diagEs()?'Leyendo campo OpenFOAM grande':'Reading large OpenFOAM field',`${file.name} · ${Math.max(0,Math.min(100,100*done/total)).toFixed(0)}% · ${done.toLocaleString()} / ${total.toLocaleString()} bytes`)
   });
   foamLensActiveFieldRequests.add(op.requestId);setActivityCancelVisible(true);
+  pushAppActivity(diagEs()?'Preparando campo OpenFOAM':'Preparing OpenFOAM field',
+    String(file?.name||sourcePath||'field')+' · '+(diagEs()?'iniciando lector local':'starting local reader'));
+  const fieldFeedback=setInterval(()=>{
+    if(!foamLensActiveFieldRequests.has(op.requestId))return;
+    const waiting=Date.now()-lastProgressAt;
+    if(waiting>10000)updateAppActivity(diagEs()?'Procesando campo OpenFOAM':'Processing OpenFOAM field',
+      String(file?.name||sourcePath||'field')+' · '+(lastBytes?lastBytes.toLocaleString()+' bytes · ':'')+
+      (waiting>30000?(diagEs()?'sin progreso reciente, puedes cancelar':'no recent progress, you can cancel'):(diagEs()?'esperando al lector':'waiting for local reader')));
+  },4000);
   try{
     const data=await op.promise,kind=String(data?.kind||'unknown'),componentCount=Number(data?.componentCount)||pmFieldComponentCount(kind);
     const uniformValue=data?.uniform?(kind==='scalar'?Number(data?.uniformScalar):kind==='vector'?(data?.uniformVector||[]).map(Number):(data?.uniformComponents||[]).map(Number)):undefined;
@@ -4023,8 +4034,10 @@ async function pmParseNativeOpenFOAMField(file,sourcePath=''){
       loadMeta:{incremental:true,nativeStreaming:true,sourceBytes:Number(data?.sourceBytes)||Number(file?.size)||0,bytesRead:Number(data?.bytesRead)||0,closed:!!data?.closed}
     }
   }finally{
+    clearInterval(fieldFeedback);
     foamLensActiveFieldRequests.delete(op.requestId);
-    if(!foamLensActiveTemporalRequests.size&&!foamLensActiveFieldRequests.size)setActivityCancelVisible(false)
+    if(!foamLensActiveTemporalRequests.size&&!foamLensActiveFieldRequests.size)setActivityCancelVisible(false);
+    popAppActivity()
   }
 }
 
