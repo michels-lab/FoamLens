@@ -508,6 +508,13 @@ internal sealed class FoamLensForm : Form
                 """
                 (()=>{
                   try {
+                  // Drive the exact same Ribbon navigation a user can click. The
+                  // app's setAppMode is intentionally private inside its IIFE.
+                  const activate=key=>{
+                    const button=document.getElementById('flRibbonTab-'+key);
+                    if(!button)throw new Error('Missing Ribbon tab: '+key);
+                    button.click();
+                  };
                   const fieldControls=document.getElementById('fieldViewControls');
                   const fieldPanel=document.getElementById('fieldViewPanel');
                   const fieldCompare=document.getElementById('fcPanel');
@@ -529,13 +536,13 @@ internal sealed class FoamLensForm : Form
                     timeSeriesControlsPreserved:!!document.getElementById('timeSeriesVariable'),
                     dataNavigationComplete:['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'].every(id=>!!document.getElementById(id))
                   };
-                  setAppMode('data');
+                  activate('data');
                   const afterData={
                     loadUnchanged:!!loadCard&&!loadCard.contains(fieldControls)&&!loadCard.contains(fieldCompare),
                     chartUnchanged:!document.getElementById('chartViewport')?.contains(fieldPanel),
                     dataCompareExists:!!document.getElementById('flDataComparisonCard')
                   };
-                  setAppMode('field');
+                  activate('field');
                   const fieldHost=document.getElementById('fw3DControlsHost');
                   const fieldCanvasHost=document.getElementById('fw3DHost');
                   const afterField={
@@ -543,14 +550,14 @@ internal sealed class FoamLensForm : Form
                     canvasInField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
                     compareInField:!!fieldHost&&fieldHost.contains(fieldCompare)
                   };
-                  setAppMode('data');
+                  activate('data');
                   const afterReturn={
                     controlsStillField:!!fieldHost&&fieldHost.contains(fieldControls)&&!loadCard.contains(fieldControls),
                     canvasStillField:!!fieldCanvasHost&&fieldCanvasHost.contains(fieldPanel),
                     compareStillField:!!fieldHost&&fieldHost.contains(fieldCompare)&&!loadCard.contains(fieldCompare),
                     data2DStillData:!!dataCompareHost&&dataCompareHost.contains(dataDifference)
                   };
-                  setAppMode('workspace');
+                  activate('home');
                   return {pass:[...Object.values(checks),...Object.values(afterData),...Object.values(afterField),...Object.values(afterReturn)].every(Boolean),
                     checks,afterData,afterField,afterReturn};
                   } catch (error) {
