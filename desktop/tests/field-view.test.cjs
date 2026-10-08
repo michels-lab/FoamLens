@@ -776,3 +776,22 @@ test('Field selector remount prefers the loaded renderer field and component',()
 
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('comparison view metadata lives under scenes and long numeric values are responsive',()=>{
+  const source=fs.readFileSync(path.join(root,'v14-z-field-compare.js'),'utf8');
+  assert(source.includes('function fcComposeViewport('),'Scene/caption split missing');
+  assert(source.includes("caption.className='fcViewportCaption'"),'Metadata caption must be outside WebGL scene');
+  assert(source.includes("scene.className='fcViewportScene'"),'3D canvas must have its own scene container');
+  assert(source.includes('fcComposeViewport(viewport)')&&source.includes('fcComposeViewport(primary)')===false,
+    'Every newly added viewport must share a structural scene/caption solution');
+  assert(source.includes('for(const viewport of [primary,second,diff])fcComposeViewport(viewport)'),
+    'Primary, secondary and difference scenes must share one layout policy');
+  assert(source.includes('.fcViewLabel{position:static;display:block'),
+    'Long case path must never be absolutely positioned over the 3D canvas');
+  assert(source.includes('.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),
+    '2-view statistics must not compress seven numeric statistics into 4 narrow columns');
+  assert(source.includes('overflow-wrap:anywhere;font-variant-numeric:tabular-nums'),
+    'Scientific values must remain readable instead of being clipped by ellipsis');
+  assert(source.includes('.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))'),
+    'Legend tick values must not overlap in narrow comparison viewports');
+});
