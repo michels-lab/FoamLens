@@ -112,6 +112,6 @@ assert(index.includes('font-size:12px;letter-spacing:.12em;text-transform:upperc
 assert(index.includes('id="aboutOfficialLogo"')&&index.includes('id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg"'),'About dark-on-dark lockup must use legible official mark.');
 assert(program.includes('CaptureRenderedBrandEvidenceAsync()')&&program.includes('about-wide-bottom.png')===false,'About rendered smoke contract unexpectedly changed.');
 assert(program.includes('about-{size.Name}-bottom.png')&&program.includes('Emulation.setDeviceMetricsOverride'),'About must be captured in real wide and compact WebView2 layouts.');
-assert(workflow.includes('environment: visual-release-approval')&&workflow.includes('verify_environment_review.py'),'A release must require GitHub protected visual approval.');
+assert(workflow.includes('Verify automated screenshot and exact-artifact integrity')&&workflow.includes('visual_release_gate.py'),'Every release must verify the real UI screenshot manifest and exact installer SHA before publication.');
 assert(workflow.includes('visual_release_gate.py')&&workflow.includes('make_visual_evidence.py'),'A release must use the manifest-backed rendered UI validator.');
 assert(workflow.indexOf('      - name: Publish GitHub Release')===-1,'Unsafe automatic publish inside build job survived.');
