@@ -71,7 +71,7 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaReview','eye','Review','Revisar'),
       flRibbonActionHtml('flRaLive','pulse','Live','En vivo')
     ]),
-    flRibbonGroup('FoamLens','FoamLens',[flRibbonActionHtml('flRaAbout','info','About','Acerca de')])
+    // Product-wide About and Updates belong in permanent application chrome.
   ];
   const data=[
     flRibbonGroup('Data','Datos',[
@@ -183,16 +183,16 @@ function flRibbonCss(){
     '.flRibbonTab:hover{background:var(--panel);color:var(--text)}',
     '.flRibbonTab.active{color:var(--accent);background:var(--panel);border-bottom-color:var(--accent)}',
     '.flRibbonTrailHost{min-width:0;display:flex;justify-content:flex-end}.flRibbonTrailHost .contextTrail{display:block;max-width:280px;font-size:8px}',
-    '.flRibbonPanels{min-height:78px;overflow:hidden}',
-    '.flRibbonPanel{display:none;align-items:stretch;gap:0;min-height:78px;padding:5px 8px;overflow-x:auto;overflow-y:hidden}',
-    '#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden;overflow-y:visible;row-gap:4px}',
+    '.flRibbonPanels{min-height:47px;overflow:visible}',
+    '.flRibbonPanel{display:none;align-items:stretch;gap:0;min-height:47px;padding:3px 7px;overflow-x:auto;overflow-y:hidden}',
+    '#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden;overflow-y:visible;row-gap:3px}',
     'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
     '.flRibbonPanel.active{display:flex}',
     '.flRibbonGroup{position:relative;display:flex;align-items:stretch;padding:0 8px 13px 7px;border-right:1px solid var(--line);flex:0 0 auto}',
     '.flRibbonGroup:last-child{border-right:0}',
     '.flRibbonActions{display:flex;align-items:stretch;gap:3px}',
     '.flRibbonGroupLabel{position:absolute;left:7px;right:8px;bottom:1px;text-align:center;color:var(--muted);font-size:7px;font-weight:760;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.flRibbonAction{min-width:50px;max-width:70px;min-height:58px;padding:4px 5px 3px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.05}',
+    '.flRibbonAction{min-width:46px;max-width:62px;min-height:39px;padding:3px 5px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.05}',
     '.flRibbonAction:hover{border-color:var(--line);background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.active{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));background:var(--accentSoft);color:var(--accent)}',
     '.flRibbonAction.danger{color:var(--danger)}',
@@ -209,14 +209,22 @@ function flRibbonCss(){
     '.flRibbonTimeGroup .flRibbonCacheField label{font-size:7px!important;margin:0!important;color:var(--muted)}',
     '.flRibbonTimeGroup .flRibbonCacheField select{height:30px!important;min-width:78px!important;padding:4px 6px!important;font-size:8px!important}',
     '.flRibbonTimeGroup .flRibbonCacheReadout{font-size:7px;min-width:116px;white-space:nowrap;color:var(--muted)}',
+
+    '.flFieldContextTabs{display:flex;align-items:center;gap:4px;margin:0 5px;padding:3px 0;flex:0 0 auto}',
+    '.flFieldContextTab{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);font-size:10px;font-weight:780;color:var(--text)}',
+    '.flFieldContextTab.active{background:var(--accentSoft);color:var(--accent);border-color:var(--accent)}',
+    '.flFieldContextShelf{display:flex;align-items:center;gap:5px;flex:1 0 100%;min-width:0;padding:4px 2px 1px;border-top:1px solid var(--line)}',
+    '.flFieldContextShelf.hidden{display:none!important}',
+    '.flFieldContextShelf>.flRibbonGroup{display:none!important;border-right:0}',
+    '.flFieldContextShelf>.flRibbonGroup.flSubbarActive{display:flex!important}',
     '.flRibbonFieldOptionsGroup{min-width:150px}',
     '.flRibbonFieldOptionsGroup .flRibbonActions{align-items:center}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser{margin:0;display:flex;align-items:center;gap:5px}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser.hidden{display:none!important}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser label{font-size:7px!important}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser select{height:30px!important;min-width:112px!important;padding:4px 6px!important;font-size:8px!important}',
-    '.flRibbonIcon{width:21px;height:21px;display:block;flex:none}',
-    '.flRibbonLabel{font-size:8px;font-weight:720;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
+    '.flRibbonIcon{width:17px;height:17px;display:block;flex:none}',
+    '.flRibbonLabel{font-size:8.5px;font-weight:750;text-align:center;white-space:normal;max-width:64px;line-height:1.08}',
     '.flRibbonContextHost{border-top:1px solid var(--line);padding:3px 10px;background:var(--panel2);min-height:27px;display:flex;align-items:center;overflow-x:auto}',
     '.flRibbonContextHost.hidden{display:none!important}',
     '.flRibbonContextHost .globalContextBar{width:100%;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;min-height:0!important}',
@@ -224,7 +232,7 @@ function flRibbonCss(){
     '.flRibbonContextHost .contextProject b{font-size:9px!important}',
     '.flRibbonContextHost select{padding:4px 7px!important;font-size:8px!important;min-height:25px!important}',
     '.flRibbonContextHost .contextActions .btn{padding:4px 7px!important;font-size:8px!important;border-radius:7px!important}',
-    '@media(max-width:980px){.flRibbonTrailHost{display:none}.flRibbonAction{min-width:46px}.flRibbonLabel{font-size:7.5px}.flRibbonPanel{min-height:74px}.flRibbonPanels{min-height:74px}}',
+    '@media(max-width:980px){.flRibbonTrailHost{display:none}.flRibbonAction{min-width:46px}.flRibbonLabel{font-size:7.5px}.flRibbonPanel{min-height:46px}.flRibbonPanels{min-height:46px}}',
     '@media(max-width:640px){.flRibbonContextHost{display:none}.flRibbonAction{min-width:43px;padding-inline:3px}.flRibbonIcon{width:19px;height:19px}.flRibbonTab{padding-inline:7px}}'
   ].join('');
 }
@@ -352,6 +360,29 @@ function flRibbonSyncStates(){
 function flRibbonBind(id,fn){
   document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();fn();setTimeout(flRibbonSyncStates,0)})
 }
+function flRibbonFieldSubbars(){
+  const panel=document.getElementById('flRibbonPanel-field');if(!panel||document.getElementById('flFieldContextTabs'))return false;
+  const targets={inspect:'flRaProbe',compare:'flRaCompare3D',camera:'flRaLinkCameras'};
+  const shelf=document.createElement('div');shelf.id='flFieldContextShelf';shelf.className='flFieldContextShelf hidden';
+  const groups={};
+  for(const [key,id] of Object.entries(targets)){
+    const group=document.getElementById(id)?.closest('.flRibbonGroup');if(!group)return false;
+    groups[key]=group;shelf.appendChild(group)
+  }
+  const tabs=document.createElement('div');tabs.id='flFieldContextTabs';tabs.className='flFieldContextTabs';
+  for(const [key,en,es] of [['inspect','Inspect','Inspeccionar'],['compare','Compare','Comparar'],['camera','Camera','Cámara']]){
+    const button=document.createElement('button');button.type='button';button.className='flFieldContextTab';
+    button.dataset.flSubbar=key;button.dataset.riEn=en;button.dataset.riEs=es;button.textContent=en;
+    button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','flFieldContextShelf');
+    button.addEventListener('click',()=>{
+      const enabled=!button.classList.contains('active');
+      tabs.querySelectorAll('button').forEach(b=>{const yes=enabled&&b===button;b.classList.toggle('active',yes);b.setAttribute('aria-expanded',String(yes))});
+      Object.entries(groups).forEach(([name,g])=>g.classList.toggle('flSubbarActive',enabled&&name===key));
+      shelf.classList.toggle('hidden',!enabled)
+    });tabs.appendChild(button)
+  }
+  panel.appendChild(tabs);panel.appendChild(shelf);return true
+}
 function flRibbonInstall(){
   if(flRibbonState.installed||document.getElementById('flRibbon'))return true;
   const top=document.querySelector('.main > .top');if(!top)return false;
@@ -362,6 +393,7 @@ function flRibbonInstall(){
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
   flRibbonMountFieldTimeTransport();
   flRibbonMountFieldOptions();
+  flRibbonFieldSubbars();
   document.getElementById('modeField')?.remove();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
 
@@ -382,7 +414,6 @@ function flRibbonInstall(){
   flRibbonBind('flRaCases',()=>flRibbonClick('caseQuickBtn'));
   flRibbonBind('flRaReview',()=>flRibbonMode('review','home'));
   flRibbonBind('flRaLive',()=>flRibbonMode('live','home'));
-  flRibbonBind('flRaAbout',()=>flRibbonClick('aboutDeveloperBtn'));
 
   flRibbonBind('flRaCatalog',()=>flRibbonData('catalogTab','data'));
   flRibbonBind('flRaSelectAll',()=>flRibbonClick('selectAll'));
