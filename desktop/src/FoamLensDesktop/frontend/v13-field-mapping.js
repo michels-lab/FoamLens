@@ -30,7 +30,16 @@ function fmSuggestMappingsWithMetadata(descriptors,roleDefs){
   const roles=roleDefs||[],out={},used=new Set(),ds=(descriptors||[]).filter(d=>d?.name);
   for(const role of roles.filter(r=>r.key!=='userDefined')){
     let best=null,bestScore=0;
-    for(const d of ds){if(used.has(d.name))continue;const ns=fmNameScore(d.name,role),dim=fmDimensionCompatibility(role.key,d.dimensions),score=ns+(ns>0&&dim>0?25:0)+(ns===0?dim:0);if(score>bestScore){best=d;bestScore=score}}
+    for(const d of ds){
+      if(used.has(d.name))continue;
+      const ns=fmNameScore(d.name,role),dim=fmDimensionCompatibility(role.key,d.dimensions);
+      // Reject known SI-dimension contradictions even when a filename looks correct.
+      // Unknown/missing dimensions remain eligible for name-based suggestions.
+      const expected={temperature:'[0 0 0 1 0 0 0]',velocity:'[0 1 -1 0 0 0 0]',density:'[1 -3 0 0 0 0 0]',vorticity:'[0 0 -1 0 0 0 0]',thermalGradient:'[0 -1 0 1 0 0 0]',densityGradient:'[1 -4 0 0 0 0 0]'}[role.key];
+      if(expected&&fmNormDimensions(d.dimensions)&&!dim)continue;
+      const score=ns+(ns>0&&dim>0?25:0)+(ns===0?dim:0);
+      if(score>bestScore){best=d;bestScore=score}
+    }
     // Dimension-only mapping is accepted only for roles with highly distinctive SI dimensions.
     // Dimensionless and acceleration/enthalpy cases remain name-driven because they are ambiguous.
     const dimensionOnlyAllowed=['temperature','velocity','density','vorticity','thermalGradient','densityGradient'].includes(role.key);
