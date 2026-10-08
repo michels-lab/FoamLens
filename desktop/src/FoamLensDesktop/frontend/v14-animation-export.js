@@ -55,10 +55,11 @@ function vaMime(format){
 function vaDelay(ms){return new Promise(r=>setTimeout(r,ms))}
 async function vaPreload(start,end,step){
   const ranges={};let count=0,total=Math.floor((end-start)/step)+1;
-  vaApplyRanges(null);window.FoamLensRegionScene?.beginVideoRangeScan?.();
-  for(let i=start;i<=end;i+=step){await fvLoadFrame(i);vaAccumulateRanges(ranges,vaDescriptorList());count++;vaSetStatus(vaUi('Preparing frames','Preparando frames')+' · '+count+'/'+total+' · '+vaUi('global ranges','rangos globales'));await vaDelay(0)}
-  ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()||{};
-  return ranges
+  vaApplyRanges(null);window.FoamLensRegionScene?.beginVideoRangeScan?.();let finished=false;
+  try{
+    for(let i=start;i<=end;i+=step){await fvLoadFrame(i);vaAccumulateRanges(ranges,vaDescriptorList());count++;vaSetStatus(vaUi('Preparing frames','Preparando frames')+' · '+count+'/'+total+' · '+vaUi('global ranges','rangos globales'));await vaDelay(0)}
+    ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()||{};finished=true;return ranges
+  }finally{if(!finished)window.FoamLensRegionScene?.endVideoRangeScan?.()}
 }
 async function vaExport(){
   if(vaState.exporting)return;const times=vaTimes();if(!times.length){vaSetStatus(vaUi('No Field View timeline is available.','No hay una línea temporal disponible en Vista 3D.'),true);return}
