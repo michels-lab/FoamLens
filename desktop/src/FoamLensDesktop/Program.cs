@@ -596,6 +596,53 @@ internal sealed class FoamLensForm : Form
             }
             Log($"FoamLens ribbon runtime UI smoke passed: {ribbonUiJson}");
 
+            // Run real WebView2 geometry/interaction checks for the compact
+            // Field command surface. A green static test is not visual acceptance.
+            var fieldCompactUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (()=>{
+                  document.getElementById('flRibbonTab-field')?.click();
+                  const ribbon=document.getElementById('flRibbonPanel-field');
+                  const shelf=document.getElementById('flFieldContextShelf');
+                  const tabs=document.getElementById('flFieldContextTabs');
+                  const caseHost=document.getElementById('fw3DViewCases');
+                  const a=document.getElementById('fvCase'),b=document.getElementById('fcCase');
+                  const secondary=document.getElementById('fcViewport');
+                  const compare=document.getElementById('fcEnabled');
+                  const tools=document.querySelector('.fvViewTools');
+                  const bounds=ribbon?.getBoundingClientRect();
+                  const checks={
+                    fieldActive:document.body.classList.contains('appMode-field'),
+                    oneRow:!!ribbon&&getComputedStyle(ribbon).flexWrap==='nowrap'&&Number(bounds?.height||0)<=92,
+                    noClippedPrimaryRow:!!ribbon&&ribbon.scrollWidth<=ribbon.clientWidth+8,
+                    subbarsInitiallyClosed:!!shelf&&shelf.classList.contains('hidden'),
+                    caseSelectorsIndependent:!!caseHost&&caseHost.contains(a)&&caseHost.contains(b)&&a!==b,
+                    primarySelectorVisible:!!a&&a.getBoundingClientRect().width>30,
+                    compareOffByDefault:!!compare&&!compare.checked&&typeof fcState!=='undefined'&&!fcState.enabled,
+                    secondaryCaseHidden:!!b&&getComputedStyle(b.closest('.row2')).display==='none',
+                    secondaryCanvasHidden:!!secondary&&getComputedStyle(secondary).display==='none',
+                    cameraControlsDocked:!!tools&&tools.parentElement===shelf,
+                    subbarsPresent:!!tabs&&tabs.querySelectorAll('button[data-fl-subbar]').length===3
+                  };
+                  const cameraTab=tabs?.querySelector('[data-fl-subbar="camera"]');
+                  cameraTab?.click();
+                  const iso=document.getElementById('flRaCameraIso'),front=document.getElementById('flRaCameraFront');
+                  checks.cameraOpens=!!shelf&&!shelf.classList.contains('hidden')&&shelf.classList.contains('flCameraToolsActive');
+                  checks.presetsVisible=!!iso&&!!front&&iso.getBoundingClientRect().width>=20&&front.getBoundingClientRect().width>=20;
+                  cameraTab?.click();
+                  checks.cameraCloses=!!shelf&&shelf.classList.contains('hidden');
+                  return{ok:Object.values(checks).every(Boolean),checks,ribbonHeight:bounds?.height||0,
+                    ribbonWidth:ribbon?.clientWidth||0,ribbonScrollWidth:ribbon?.scrollWidth||0};
+                })()
+                """);
+            using (var compactField = JsonDocument.Parse(fieldCompactUiJson))
+            {
+                if (!compactField.RootElement.TryGetProperty("ok", out var compactOk) || !compactOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        $"FoamLens compact Field Ribbon/per-view selector runtime contract failed: {fieldCompactUiJson}");
+            }
+            Log($"FoamLens compact Field Ribbon and independent case selector smoke passed: {fieldCompactUiJson}");
+
             var duplicateIdsJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 "(()=>{const ids=[...document.querySelectorAll('[id]')].map(x=>x.id);return [...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))]})()");
             using (var duplicateIds = JsonDocument.Parse(duplicateIdsJson))
