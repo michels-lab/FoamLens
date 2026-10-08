@@ -446,7 +446,13 @@ function flRibbonInstall(){
   flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'));
   flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'));
 
-  flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>flRibbonToggleCheck('fcEnabled'),'field'));
+  flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>{
+    flRibbonToggleCheck('fcEnabled');
+    if(document.getElementById('fcEnabled')?.checked){
+      window.FoamLensFieldWorkspace?.setInspector?.(true);
+      const panel=document.getElementById('fcPanel');if(panel)panel.open=true;
+    }
+  },'field'));
   flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'field'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.setInspector?.(true);const p=document.getElementById('fcPanel');if(p)p.open=true},'field'));
   flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'field'));
