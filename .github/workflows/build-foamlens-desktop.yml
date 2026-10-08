@@ -562,6 +562,7 @@ jobs:
           $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-smoke.png'
+          $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Portable-launch.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
             $env:FOAMLENS_SMOKE_MIN_CASES='4'
@@ -681,6 +682,7 @@ jobs:
           $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
           if (Test-Path $log) { Remove-Item $log -Force }
           $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-smoke.png'
+          $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Resolve-Path 'artifacts').Path 'FoamLens-Installed-launch.png'
           if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
             $env:FOAMLENS_SMOKE_OPENFOAM_CASE=(Resolve-Path 'quickcup-runtime-fixture').Path
             $env:FOAMLENS_SMOKE_MIN_CASES='4'
@@ -736,6 +738,8 @@ jobs:
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Portable-smoke.png
+            artifacts/FoamLens-Portable-launch.png
+            artifacts/FoamLens-Installed-launch.png
             artifacts/FoamLens-Installed-smoke.png
             artifacts/FoamLens-Portable-smoke.log
             artifacts/FoamLens-Installed-smoke.log
