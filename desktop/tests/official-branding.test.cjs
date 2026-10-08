@@ -44,7 +44,12 @@ assert(index.includes('id="aboutOfficialLogo"'),'About does not use the official
 assert(index.includes('id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg"'),'About does not use the canonical Michel Duarte portrait.');
 assert(index.includes('id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab/official-lockup.png"'),'About does not show the official Michel\'s Lab parent-brand lockup.');
 const productPos=index.indexOf('id="aboutOfficialLogo"'),authorPos=index.indexOf('id="aboutPortraitImg"'),studioPos=index.indexOf('id="aboutMichelsLabLogo"'),socialPos=index.indexOf('class="aboutSocials"');
-assert(productPos>=0&&authorPos>productPos&&studioPos>authorPos&&socialPos>studioPos,'About hierarchy is not Product → Author → Michel\'s Lab → Social.');
+assert(productPos>=0&&studioPos>productPos&&authorPos>studioPos&&socialPos>authorPos,'About must display FoamLens + Michel\'s Lab side by side, then Author and visible Social links.');
+const aboutSurface=index.slice(index.indexOf('<div class="aboutOverlay" id="aboutDeveloperOverlay"'),index.indexOf('<div class="legalOverlay"'));
+assert(aboutSurface.includes('class="aboutBrandPair"')&&aboutSurface.includes('id="aboutBrandTag">TOOLS WITH IDENTITY.'),'About logo pair and studio slogan must share the first screen.');
+assert(index.includes('.aboutStudioUnit .aboutBrandTag{font-size:12px;font-weight:700;line-height:1.5;'),'About slogan must be legible in the responsive logo pair.');
+assert(index.includes('.aboutIcon{width:34px;height:34px'),'All five About social icons must be independently readable.');
+assert(!index.includes('.aboutProductMark{display:none}'),'Responsive About layout must not hide product identity.');
 for(const href of [
   'https://www.instagram.com/realmichelduarte/',
   'https://www.facebook.com/realmichelduarte',
