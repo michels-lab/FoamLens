@@ -608,6 +608,13 @@ function fwLeave(){
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
+  // Own the 3D controls immediately, even before the user first opens Field.
+  // Leaving them under Data's Load Data card exposed comparison and animation
+  // controls in Data; CSS hiding could never fix that ownership error.
+  if(fwFieldReady()){
+    fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');
+    fwAdoptFieldNode('fieldViewPanel','fw3DHost');
+  }
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
