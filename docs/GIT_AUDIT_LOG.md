@@ -3971,3 +3971,12 @@ The required interpretation is structural integration rather than sticker placem
 - Data hides 3D case comparison sidebar settings; default startup uses single Field 3D view, explicit imported Workspace compare remains opt-in; Compare 3D reveals view-B inspector controls.
 - Native OpenFOAM large-field progress now owns a push/pop lifecycle, displays non-fabricated stalled/waiting feedback and clears its timer and toast in finally.
 - Added static regression guards, but runtime screenshots of actual Windows Data/Field/Analysis/regular About still require inspection and acceptance. This is not a new release and does not change canonical assets.
+
+## 2026-10-08 — PR #32 integration on current main (candidate, not a release)
+
+- Rebased the cohesive Field/Data design changes from `design/foamlens-cohesive-ui-20261008` onto main `ef400dcee2c221a807f889b32b17dcf1da5c9524` by constructing a two-parent reconciliation commit.
+- Retained the newer About changes from PR #34 (paired product/studio design, five named socials visible in the initial viewport) instead of restoring superseded About CSS/markup.
+- Moved About/Updates to persistent chrome, added a one-at-a-time 3D contextual ribbon, default single 3D viewport, Data sidebar scoping, OpenFOAM load feedback and global design tokens.
+- Corrected the packaged Windows runtime smoke to expect persistent `flGlobalUpdates` instead of deleted `flRaCheckUpdates`. Earlier failed Windows #37749410491 due solely to `missingActions:["flRaCheckUpdates"]` in its runtime Ribbon assertion; the real OpenFOAM fixture passed.
+- Preserved PR #33 policy: automated visual evidence and artifact integrity remain mandatory; owner visual review occurs after publication, not as a manual pre-release blocking gate.
+- Same-SHA Windows and Store CI are **pending** for the resulting integration commit. Do not declare a new release from this log entry.

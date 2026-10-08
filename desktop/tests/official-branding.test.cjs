@@ -44,7 +44,12 @@ assert(index.includes('id="aboutOfficialLogo"'),'About does not use the official
 assert(index.includes('id="aboutPortraitImg" class="aboutPortraitImg" src="assets/branding/michel-duarte-avatar.jpg"'),'About does not use the canonical Michel Duarte portrait.');
 assert(index.includes('id="aboutMichelsLabLogo" class="aboutMichelsLabLogo" src="assets/branding/michels-lab/official-lockup.png"'),'About does not show the official Michel\'s Lab parent-brand lockup.');
 const productPos=index.indexOf('id="aboutOfficialLogo"'),authorPos=index.indexOf('id="aboutPortraitImg"'),studioPos=index.indexOf('id="aboutMichelsLabLogo"'),socialPos=index.indexOf('class="aboutSocials"');
-assert(productPos>=0&&authorPos>productPos&&studioPos>authorPos&&socialPos>studioPos,'About hierarchy is not Product → Author → Michel\'s Lab → Social.');
+assert(productPos>=0&&studioPos>productPos&&authorPos>studioPos&&socialPos>authorPos,'About must display FoamLens + Michel\'s Lab side by side, then Author and visible Social links.');
+const aboutSurface=index.slice(index.indexOf('<div class="aboutOverlay" id="aboutDeveloperOverlay"'),index.indexOf('<div class="legalOverlay"'));
+assert(aboutSurface.includes('class="aboutBrandPair"')&&aboutSurface.includes('id="aboutBrandTag">TOOLS WITH IDENTITY.'),'About logo pair and studio slogan must share the first screen.');
+assert(index.includes('.aboutStudioUnit .aboutBrandTag{font-size:12px;font-weight:700;line-height:1.5;'),'About slogan must be legible in the responsive logo pair.');
+assert(index.includes('.aboutIcon{width:34px;height:34px'),'All five About social icons must be independently readable.');
+assert(!index.includes('.aboutProductMark{display:none}'),'Responsive About layout must not hide product identity.');
 for(const href of [
   'https://www.instagram.com/realmichelduarte/',
   'https://www.facebook.com/realmichelduarte',
@@ -103,19 +108,19 @@ console.log('Official FoamLens branding passed: canonical SVGs, launch/sidebar/A
 assert(index.includes("brandTag:'TOOLS WITH IDENTITY.'"),'Localized About copy must never overwrite the canonical Michel\'s Lab slogan.');
 assert(!index.includes("brandTag:'Ideas · Apps"),'Legacy Michel\'s Lab slogan still overrides About at runtime.');
 assert(!index.includes('.aboutMarkBox{width:min(100%,290px)!important')&&!index.includes('.aboutMarkBox{background:none!important'),'Old global About logo CSS must not override the canonical mark geometry.');
-assert(index.includes('.aboutBrandTag{font-size:11.5px;line-height:1.55;letter-spacing:.085em'),'About studio slogan must remain visibly readable.');
+assert(index.includes('font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#d4e5f7;line-height:1.65'),'About studio slogan must remain readable and not render as tiny type.');
 assert(index.includes('id="aboutOfficialLogo"')&&index.includes('id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg"'),'About dark-on-dark lockup must use legible official mark.');
 assert(program.includes('CaptureRenderedBrandEvidenceAsync()')&&program.includes('about-wide-bottom.png')===false,'About rendered smoke contract unexpectedly changed.');
 assert(program.includes('about-{size.Name}-bottom.png')&&program.includes('Emulation.setDeviceMetricsOverride'),'About must be captured in real wide and compact WebView2 layouts.');
-assert(workflow.includes('environment: visual-release-approval')&&workflow.includes('verify_environment_review.py'),'A release must require GitHub protected visual approval.');
+assert(workflow.includes('Verify automated screenshot and exact-artifact integrity')&&workflow.includes('visual_release_gate.py'),'Every release must verify the real UI screenshot manifest and exact installer SHA before publication.');
 assert(workflow.includes('visual_release_gate.py')&&workflow.includes('make_visual_evidence.py'),'A release must use the manifest-backed rendered UI validator.');
 assert(workflow.indexOf('      - name: Publish GitHub Release')===-1,'Unsafe automatic publish inside build job survived.');
 
-assert(index.includes('id="globalOfficialLogo"')&&index.includes('class="flGlobalProductName">FoamLens</strong>'),'FoamLens global product identity must persist outside the sidebar.');
-const header=index.slice(index.indexOf('<header class="top">'),index.indexOf('</header>'));
-assert(header.includes('id="aboutDeveloperBtn"')&&header.includes('id="flGlobalUpdates"'),'About and Updates must be in permanent global chrome.');
-assert(!index.includes('<button class="btn soft" id="aboutDeveloperBtn">About</button>'),'Old hidden About control survived inside local Home tools.');
-assert(index.includes('class="aboutSocials"')&&index.includes('class="aboutDeveloperCard"'),'About paired identity/social composition missing.');
-assert(program.includes('socialsVisibleWithoutScroll:links.every(inInitialViewport)'),'Actual WebView2 About smoke does not enforce all five social links above the fold.');
-assert(program.includes('pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)'),'About portrait/product/studio geometry is not checked in the opening viewport.');
-assert(index.includes('lastProgressAt=Date.now()')&&index.includes('clearInterval(fieldFeedback)')&&index.includes('popAppActivity()'),'Long native field reader can leave an indefinite 0% loading toast.');
+// Persistent shell, compact Field and native reader lifecycle acceptance.
+assert(index.includes('id="globalOfficialLogo"')&&index.includes('class="flGlobalProductName">FoamLens</strong>'),'Persistent FoamLens name/mark is missing from the global shell.');
+const globalHeader=index.slice(index.indexOf('<header class="top">'),index.indexOf('</header>'));
+assert(globalHeader.includes('id="aboutDeveloperBtn"')&&globalHeader.includes('id="flGlobalUpdates"'),'About and Updates must remain visible outside Home.');
+assert(!index.includes('<button class="btn soft" id="aboutDeveloperBtn">About</button>'),'Hidden Home-only About control has returned.');
+assert(program.includes('socialsVisibleWithoutScroll:links.every(inInitialViewport)')&&program.includes('pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)'),'About initial-viewport geometry acceptance is missing.');
+assert(index.includes('lastProgressAt=Date.now()')&&index.includes('clearInterval(fieldFeedback)')&&index.includes('popAppActivity()'),'OpenFOAM field load feedback must terminate cleanly.');
+assert(program.includes("'aboutDeveloperBtn','flGlobalUpdates'")&&!program.includes("['flRaCheckUpdates']"),'Runtime smoke must check permanent Updates instead of obsolete Home ribbon action.');

@@ -203,7 +203,13 @@ internal sealed class FoamLensForm : Form
                         networkCount:links.length===5,
                         iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon'))),
                         socialsVisibleWithoutScroll:links.every(inInitialViewport),
-                        pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)
+                        pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport),
+                        socialLinksInitiallyVisible:(()=>{
+                          const socialList=overlay?.querySelector('.aboutSocials');
+                          const outer=box(shell),inner=box(socialList);
+                          return !!outer&&!!inner&&inner.width>0&&inner.height>0&&
+                            inner.top>=outer.top&&inner.bottom<=outer.bottom-3;
+                        })()
                       };
                       return {ok:Object.values(checks).every(Boolean),checks,
                         viewport:innerWidth,portrait:box(portrait)?.width,studio:box(studio)?.width,
@@ -490,7 +496,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme',...(new URLSearchParams(location.search).get('store')==='1'?[]:['flRaCheckUpdates'])];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','aboutDeveloperBtn','flGlobalUpdates'];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
