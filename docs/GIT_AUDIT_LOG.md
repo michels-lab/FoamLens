@@ -4020,3 +4020,10 @@ The required interpretation is structural integration rather than sticker placem
 - Windows and Store packaging CI regenerate the ICO **before** compiling and run `--check` to ensure exact source parity. `windows-icon.test.cjs` validates all seven embedded PNG frames, dimensions, offsets and installer/desktop icon wiring; obsolete opaque `>100 KB` size assumption removed.
 - Added candidate-only `sync-foamlens-icon.yml` to commit the generated ICO binary back into the FoamLens branch, then dispatch exact-current-head Windows and MSIX validation after the binary commit; a release never triggers from this design branch.
 - Master Michel's Lab branding PR #28 is still under integration at the time of writing. Actual icon-sync workflow results and fresh CI remain **pending** until GitHub completes them; do not claim signed executables, Store approval or a new release.
+
+### 2026-10-08 — ICO sync orchestration correction
+
+- Initial stand-alone `sync-foamlens-icon.yml` run #37815926542 ended in a no-job workflow failure, so it is not a proven synchronization path and is removed to prevent false-green branding claims.
+- The existing, already functional Store MSIX workflow now regenerates and validates the arc-free Windows ICO with the packaged executable, then (on `design/**` only) commits that exact generated binary to its source branch and dispatches Windows/Store checks against the resulting commit.
+- Both Windows/Store build workflows generate/verify the source-bound icon before their actual .NET packaging. This prevents both stale binaries and false claims of a corrected icon when the Git tree still includes the old one.
+- The generated binary commit, successful subsequent CI and canonical master PR merger remain **to be verified**; do not publish a new release from the design branch.

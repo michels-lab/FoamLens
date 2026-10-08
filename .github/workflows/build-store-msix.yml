@@ -19,7 +19,8 @@ on:
       - 'tools/store_smoke_test.py'
       - '.github/workflows/build-store-msix.yml'
 permissions:
-  contents: read
+  contents: write
+  actions: write
 jobs:
   package:
     runs-on: windows-latest
@@ -158,3 +159,25 @@ jobs:
           Write-Host 'The uploaded CI artifact is intentionally unsigned.'
           Write-Host 'Upload the MSIX to Partner Center product 9P0PTHSQ89LL.'
           Write-Host 'Microsoft Store signs accepted Store packages; do not publish this unsigned MSIX as a direct-download installer.'
+      - name: Sync generated ICO to design branch and validate exact new HEAD
+        if: ${{ startsWith(github.ref, 'refs/heads/design/') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          icon='desktop/src/FoamLensDesktop/Assets/FoamLens.ico'
+          python tools/generate_windows_icon.py --check
+          if git diff --quiet -- "$icon"; then
+            echo 'Canonical SVG and committed Windows ICO already match.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$icon"
+          git commit -m 'build(branding): sync FoamLens.ico from arc-free source SVG'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo 'The corrected ICO is now committed to the FoamLens design branch.'
+          gh workflow run build-foamlens-desktop.yml --ref "${GITHUB_REF_NAME}"
+          gh workflow run build-store-msix.yml --ref "${GITHUB_REF_NAME}"
+
