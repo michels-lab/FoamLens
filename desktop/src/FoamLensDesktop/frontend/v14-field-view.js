@@ -562,11 +562,11 @@ function fvRegionRefreshList(){
   panel.hidden=names.length<2;
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
-    const choice=fvRegionChoice(c,region),active=region===primary,fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const choice=fvRegionChoice(c,region),active=region===primary,fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),layer=fvRegionScene.layers.get(region);
     const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'"'+(choice.field===g.name?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
     const label=fvEsc(region||flUi('Default region','Región predeterminada'));
     return '<div class="fvRegionRow" data-fv-region-row="'+fvEsc(region)+'"><label class="inlineCheck"><input type="checkbox" data-fv-region-visible '+(choice.visible?'checked ':'')+'aria-label="'+label+'">'+label+'</label>'+
-      '<span class="fvRegionStatus">'+(active?flUi('Primary / probe region','Región principal / sonda'):flUi('Waiting for physical-time frame','Esperando frame de tiempo físico'))+'</span>'+
+      '<span class="fvRegionStatus">'+(active?flUi('Primary / probe region','Región principal / sonda'):(layer?.status||flUi('Waiting for physical-time frame','Esperando frame de tiempo físico')))+'</span>'+
       (active?'<span class="smallnote">'+flUi('Field selected above','Campo seleccionado arriba')+'</span>':
         '<select data-fv-region-field aria-label="'+label+' field">'+(options||'<option value="">'+flUi('Geometry only','Solo geometría')+'</option>')+'</select>')+
       (!active?'<input type="range" data-fv-region-opacity min=".1" max="1" step=".1" value="'+fvEsc(choice.opacity)+'" aria-label="'+label+' opacity">':'')+
@@ -576,6 +576,7 @@ function fvRegionRefreshList(){
 function fvRegionInstallEvents(){
   const root=document.getElementById('fvMultiRegionRows');if(!root||root.dataset.regionEvents)return;
   root.dataset.regionEvents='1';
+  document.addEventListener('foamlens-language-change',fvRegionRefreshList);
   document.getElementById('fvRegionShowAll')?.addEventListener('click',()=>{
     const c=fvCase();if(!c)return;
     for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=true;
