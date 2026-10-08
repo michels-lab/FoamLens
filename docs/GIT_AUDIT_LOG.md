@@ -3997,3 +3997,11 @@ The required interpretation is structural integration rather than sticker placem
 - Exact release-SHA Microsoft Store MSIX Actions run `37807949937` completed **SUCCESS**; artifact `FoamLens-Store-v1.7.0` produced. Store acceptance/Partner Center publication remains **not verified**; package is unsigned for Store submission and is not a direct-download installer.
 - GitHub stable release `v1.7.0` published at `2026-10-08T16:27:17Z`: https://github.com/michels-lab/FoamLens/releases/tag/v1.7.0 . Assets: `FoamLens-Portable-v1.7.0.exe` + `.sha256` and `FoamLens-Setup-v1.7.0.exe` + `.sha256`.
 - Owner's visual review is post-release; CI screenshot-based gating remained mandatory. No Authenticode signature or Microsoft Store certification is implied.
+
+## 2026-10-08 — Next-version FoamLens visual regression candidate (not released)
+
+- User screenshots from v1.7.0 show a small launch logo, unapproved circular arcs/ticks in the purported canonical mark, uncentered launch composition, stacked/crowded Field Ribbon, hidden camera direction presets, two 3D viewports perceived as default, and inaccessible per-view case selectors in the sidebar.
+- Master Michel's Lab draft PR #28 removes rejected arcs/ticks from three FoamLens SVGs; the wave/field concept remains. **Not approved or merged to master.** The Windows ICO derivative still needs regeneration and visual validation before any next release.
+- FoamLens branch `design/foamlens-next-centered-launch-20261008` contains a candidate: large centered launch mark, centered content, arc-free brand source SVGs, compact single-row Field Ribbon, exclusive Inspect/Compare/Camera subbars, visible Front/Back/Left/Right/Top/Bottom/Isometric commands, and reparented orbit/pan/zoom tools so the canvas is not covered by a second toolbar.
+- Field inspector exposes Case/Region choices for View A and optionally View B at the top; B remains hidden until explicit Compare. 3D comparison must not open on first Field entry due to implicit saved flags; scientific comparison and user's deliberate multi-view control remain available.
+- Static visual checks and native geometry checks strengthened. **Candidate validation pending exact-head Windows / Store CI, owner review and Windows icon update.** Keep v1.7.0 unchanged; no new public release authorized.

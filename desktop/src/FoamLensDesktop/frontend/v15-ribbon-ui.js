@@ -110,7 +110,14 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaResyncCameras','reset','Re-sync','Re-sincronizar'),
       flRibbonActionHtml('flRaVisualSync','sliders','Visual sync','Sync visual'),
       flRibbonActionHtml('flRaFitAll','fit','Fit all','Ajustar todas'),
-      flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer')
+      flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer'),
+      flRibbonActionHtml('flRaCameraIso','cube','Isometric','Isométrica'),
+      flRibbonActionHtml('flRaCameraFront','eye','Front','Frontal'),
+      flRibbonActionHtml('flRaCameraBack','eye','Back','Posterior'),
+      flRibbonActionHtml('flRaCameraLeft','eye','Left','Izquierda'),
+      flRibbonActionHtml('flRaCameraRight','eye','Right','Derecha'),
+      flRibbonActionHtml('flRaCameraTop','eye','Top','Superior'),
+      flRibbonActionHtml('flRaCameraBottom','eye','Bottom','Inferior')
     ])
   ];
   const analysis=[
@@ -185,8 +192,21 @@ function flRibbonCss(){
     '.flRibbonTrailHost{min-width:0;display:flex;justify-content:flex-end}.flRibbonTrailHost .contextTrail{display:block;max-width:280px;font-size:8px}',
     '.flRibbonPanels{min-height:47px;overflow:visible}',
     '.flRibbonPanel{display:none;align-items:stretch;gap:0;min-height:47px;padding:3px 7px;overflow-x:auto;overflow-y:hidden}',
-    '#flRibbonPanel-field.active{flex-wrap:wrap;align-content:flex-start;overflow-x:hidden;overflow-y:visible;row-gap:3px}',
+    '#flRibbonPanel-field.active{display:flex;align-items:center;flex-wrap:nowrap;align-content:center;overflow-x:auto;overflow-y:hidden;row-gap:0;min-height:43px;padding:4px 8px;gap:5px}',
+    '#flRibbonPanel-field .flRibbonGroup{padding:0 7px 0 0;border:0;min-height:34px;align-items:center}',
+    '#flRibbonPanel-field .flRibbonGroupLabel{display:none}',
+    '#flRibbonPanel-field .flRibbonActions{gap:2px;align-items:center}',
+    '#flRibbonPanel-field .flRibbonAction{flex-direction:row;gap:4px;min-width:0;max-width:none;min-height:31px;padding:4px 7px;white-space:nowrap}',
+    '#flRibbonPanel-field .flRibbonIcon{width:14px;height:14px}',
+    '#flRibbonPanel-field .flRibbonLabel{font-size:9px;max-width:none;white-space:nowrap}',
+    '#flRibbonPanel-field .flRibbonTimeGroup{min-width:290px;max-width:none;flex:1 1 380px}',
+    '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 300px;grid-template-columns:auto auto auto minmax(70px,1fr) auto auto}',
+    '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:65px}',
+    '@media(max-width:1120px){#flRibbonPanel-field .flRibbonAction .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonAction{width:32px;justify-content:center}#flRibbonPanel-field .flRibbonTimeGroup{min-width:275px}}'
     'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
+    'body.flRibbonReady.appMode-field .fwHeader{padding:7px 11px;gap:10px}',
+    'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
+    'body.flRibbonReady.appMode-field .fwHeader p{display:none}',
     '.flRibbonPanel.active{display:flex}',
     '.flRibbonGroup{position:relative;display:flex;align-items:stretch;padding:0 8px 13px 7px;border-right:1px solid var(--line);flex:0 0 auto}',
     '.flRibbonGroup:last-child{border-right:0}',
@@ -210,13 +230,24 @@ function flRibbonCss(){
     '.flRibbonTimeGroup .flRibbonCacheField select{height:30px!important;min-width:78px!important;padding:4px 6px!important;font-size:8px!important}',
     '.flRibbonTimeGroup .flRibbonCacheReadout{font-size:7px;min-width:116px;white-space:nowrap;color:var(--muted)}',
 
-    '.flFieldContextTabs{display:flex;align-items:center;gap:4px;margin:0 5px;padding:3px 0;flex:0 0 auto}',
-    '.flFieldContextTab{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);font-size:10px;font-weight:780;color:var(--text)}',
+    '.flFieldContextTabs{display:flex;align-items:center;gap:3px;margin:0 1px;padding:0;flex:0 0 auto}',
+    '.flFieldContextTab{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:9px;font-weight:780;color:var(--text)}',
     '.flFieldContextTab.active{background:var(--accentSoft);color:var(--accent);border-color:var(--accent)}',
-    '.flFieldContextShelf{display:flex;align-items:center;gap:5px;flex:1 0 100%;min-width:0;padding:4px 2px 1px;border-top:1px solid var(--line)}',
+    '.flFieldContextShelf{display:flex;align-items:center;gap:5px;min-width:0;padding:5px 12px;border-top:1px solid var(--line);max-height:76px;overflow-x:auto;overflow-y:hidden}',
+    'body:not(.appMode-field) .flFieldContextShelf{display:none!important}',
     '.flFieldContextShelf.hidden{display:none!important}',
     '.flFieldContextShelf>.flRibbonGroup{display:none!important;border-right:0}',
-    '.flFieldContextShelf>.flRibbonGroup.flSubbarActive{display:flex!important}',
+    '.flFieldContextShelf>.flRibbonGroup.flSubbarActive{display:flex!important;align-items:center;flex:0 0 auto;padding:0;max-height:67px}',
+    '.flFieldContextShelf .flRibbonGroupLabel{display:none}',
+    '.flFieldContextShelf .flRibbonActions{gap:3px;align-items:center}',
+    '.flFieldContextShelf .flRibbonAction{flex-direction:row;min-width:0;max-width:none;min-height:30px;padding:4px 8px;gap:4px}',
+    '.flFieldContextShelf .flRibbonIcon{width:14px;height:14px}',
+    '.flFieldContextShelf .flRibbonLabel{font-size:9px;max-width:none;white-space:nowrap}',
+    '#flFieldContextShelf .flRibbonCameraTools{display:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;max-width:none;flex:0 0 auto}',
+    '#flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools{display:flex}',
+    '#flFieldContextShelf .flRibbonCameraTools .fvToolRow{flex-wrap:nowrap}',
+    '#flFieldContextShelf .flRibbonCameraTools .btn{font-size:9px;min-height:30px;padding:4px 7px}',
+    '#flFieldContextShelf .flRibbonCameraTools .fvNavPresets{display:none}',
     '.flRibbonCacheAdvanced{position:relative;flex:0 0 auto;align-self:center}',
     '.flRibbonCacheAdvanced>summary{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-size:9px;cursor:pointer}',
     '.flRibbonCacheAdvanced[open]{flex:1 0 100%;display:flex;align-items:center;gap:9px;padding:5px}',
@@ -281,11 +312,12 @@ function flRibbonUpdateFieldScope(){
   const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=view==='3d'||view==='split';
   const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
-    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera'];
+    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
+    'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
   flRibbonMountFieldOptions();
   document.getElementById('flRibbonFieldOptionsGroup')?.classList.toggle('flScopeHidden',view!=='split');
-  document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup').forEach(group=>{
+  document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup, #flFieldContextShelf .flRibbonGroup').forEach(group=>{
     const actions=[...group.querySelectorAll('.flRibbonAction')];
     group.classList.toggle('flScopeHidden',actions.length>0&&actions.every(a=>a.classList.contains('flScopeHidden')))
   })
@@ -377,12 +409,14 @@ function flRibbonFieldSubbars(){
     button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','flFieldContextShelf');
     button.addEventListener('click',()=>{
       const enabled=!button.classList.contains('active');
+      shelf.classList.toggle('flCameraToolsActive',enabled&&key==='camera');
       tabs.querySelectorAll('button').forEach(b=>{const yes=enabled&&b===button;b.classList.toggle('active',yes);b.setAttribute('aria-expanded',String(yes))});
       Object.entries(groups).forEach(([name,g])=>g.classList.toggle('flSubbarActive',enabled&&name===key));
       shelf.classList.toggle('hidden',!enabled)
     });tabs.appendChild(button)
   }
-  panel.appendChild(tabs);panel.appendChild(shelf);return true
+  panel.appendChild(tabs);document.getElementById('flRibbon')?.appendChild(shelf);
+  const tools=document.querySelector('#fieldViewPanel .fvViewTools');if(tools){tools.classList.add('flRibbonCameraTools');shelf.appendChild(tools)}return true
 }
 function flRibbonInstall(){
   if(flRibbonState.installed||document.getElementById('flRibbon'))return true;
@@ -437,6 +471,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaVisualSync',()=>flRibbonField(()=>flRibbonToggleCheck('fcSyncVisuals'),'field'));
   flRibbonBind('flRaFitAll',()=>flRibbonField(()=>flRibbonClick('fcFitAll'),'field'));
   flRibbonBind('flRaResetCamera',()=>flRibbonField(()=>flRibbonClick('fvResetCamera'),'field'));
+  for(const [id,preset] of [['flRaCameraIso','iso'],['flRaCameraFront','front'],['flRaCameraBack','back'],['flRaCameraLeft','left'],['flRaCameraRight','right'],['flRaCameraTop','top'],['flRaCameraBottom','bottom']])flRibbonBind(id,()=>flRibbonField(()=>document.querySelector('[data-fv-view="'+preset+'"]')?.click(),'field'));
 
   flRibbonBind('flRaAnalysisGeneral',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('generalAnalysisNav'))});
   flRibbonBind('flRaCoupling',()=>flRibbonAnalysis('coupling','analysis'));
@@ -448,13 +483,14 @@ function flRibbonInstall(){
   flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'));
 
   flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>{
+    window.FoamLensFieldWorkspace?.requestCompare?.();
     flRibbonToggleCheck('fcEnabled');
     if(document.getElementById('fcEnabled')?.checked){
       window.FoamLensFieldWorkspace?.setInspector?.(true);
       const panel=document.getElementById('fcPanel');if(panel)panel.open=true;
     }
   },'field'));
-  flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>flRibbonClick('fcAddView'),'field'));
+  flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.requestCompare?.();flRibbonClick('fcAddView')},'field'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.setInspector?.(true);const p=document.getElementById('fcPanel');if(p)p.open=true},'field'));
   flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'field'));
   flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'field'));

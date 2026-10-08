@@ -15,12 +15,16 @@ const assets=path.join(frontend,'assets','branding');
 const portraitAsset=path.join(assets,'michel-duarte-avatar.jpg');
 const michelsLabLockup=path.join(assets,'michels-lab','official-lockup.png');
 const gitBlob=p=>child.execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim();
-assert.strictEqual(gitBlob(path.join(assets,'official-app-icon.svg')),'9dbfa5e8fd42aaf78e6fe88e81d27a35a124a62e','Official app icon drifted from the Michel\'s Lab canonical blob.');
-assert.strictEqual(gitBlob(path.join(assets,'official-mark.svg')),'6e66864f5017b21964a6a8a1e2ec3546c4f3fb6a','Official mark drifted from the Michel\'s Lab canonical blob.');
-assert.strictEqual(gitBlob(path.join(assets,'official-lockup.svg')),'88ec88d3bb3fa2d8c5d7d7dbe0817ccddc6b47dc','Official lockup drifted from the Michel\'s Lab canonical blob.');
+assert.strictEqual(gitBlob(path.join(assets,'official-app-icon.svg')),'e6872fe2da6bbcf45b904f6564c8d4a6fc415acc','Official app icon drifted from the Michel\'s Lab canonical blob.');
+assert.strictEqual(gitBlob(path.join(assets,'official-mark.svg')),'660319463cc06c6c2a782f71c1ead33960ad02d3','Official mark drifted from the Michel\'s Lab canonical blob.');
+assert.strictEqual(gitBlob(path.join(assets,'official-lockup.svg')),'79556bcdf66a53b7ca44974833c71797474a5085','Official lockup drifted from the Michel\'s Lab canonical blob.');
 assert.strictEqual(gitBlob(portraitAsset),'18fe1a68722850c3d8f918dc0799f46ffeb6dbaf','Canonical Michel Duarte About portrait is not the immutable master upload.');
 assert.strictEqual(gitBlob(michelsLabLockup),'7fd48093968b31ddacd3098f5b15d962de580652','Michel\'s Lab parent-brand lockup does not match the restored canonical master source.');
 
+for(const name of ['official-app-icon.svg','official-mark.svg','official-lockup.svg']){
+  const svg=fs.readFileSync(path.join(assets,name),'utf8');
+  assert(!/A360|A280|M190 275|M190 750|M95 78|M95 418|<rect x="500" y="175"|<rect x="500" y="779"/.test(svg),'Rejected circular brackets/tick marks remain in '+name);
+}
 for(const file of ['official-app-icon.svg','official-mark.svg','official-lockup.svg']){
   assert(project.includes('frontend\\assets\\branding\\'+file),'Desktop project does not embed '+file+'.');
   assert(program.includes('FoamLensDesktop.Branding.'+file),'Desktop host does not materialize '+file+'.');
@@ -124,3 +128,6 @@ assert(!index.includes('<button class="btn soft" id="aboutDeveloperBtn">About</b
 assert(program.includes('socialsVisibleWithoutScroll:links.every(inInitialViewport)')&&program.includes('pairedIdentityVisible:[portrait,product,studio].every(inInitialViewport)'),'About initial-viewport geometry acceptance is missing.');
 assert(index.includes('lastProgressAt=Date.now()')&&index.includes('clearInterval(fieldFeedback)')&&index.includes('popAppActivity()'),'OpenFOAM field load feedback must terminate cleanly.');
 assert(program.includes("'aboutDeveloperBtn','flGlobalUpdates'")&&!program.includes("['flRaCheckUpdates']"),'Runtime smoke must check permanent Updates instead of obsolete Home ribbon action.');
+
+assert(index.includes('.launchShell{width:min(940px,100%);display:grid;gap:14px;text-align:center}'),'Launch content is not centered.');
+assert(program.includes('const centered=drift.every'),'Visual smoke must detect launch center drift.');

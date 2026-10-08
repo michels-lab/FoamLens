@@ -398,6 +398,12 @@ internal sealed class FoamLensForm : Form
                   const subtitle=document.getElementById('launchSubtitle');
                   const eyebrow=document.getElementById('launchEyebrow');
                   const identity=document.querySelector('#launchScreen .launchIdentity');
+                  const hero=document.querySelector('#launchScreen .launchHero');
+                  const brand=document.querySelector('#launchScreen .launchMark');
+                  const description=document.getElementById('launchCopy');
+                  const actionRow=document.querySelector('#launchScreen .launchActions');
+                  const privacy=document.querySelector('#launchScreen .launchPrivacy');
+                  const capabilities=document.querySelector('#launchScreen .launchCapabilities');
                   const actions=['launchFolder','launchFiles','launchWorkspace'].map(id=>document.getElementById(id));
                   const rgb=v=>{const m=String(v||'').match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);return m?[Number(m[1]),Number(m[2]),Number(m[3])]:null};
                   const lum=c=>{if(!c)return 0;const a=c.map(x=>{const n=x/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return a[0]*.2126+a[1]*.7152+a[2]*.0722};
@@ -406,20 +412,24 @@ internal sealed class FoamLensForm : Form
                   const measure=dark=>{
                     document.body.classList.toggle('dark',dark);
                     const ir=mark?.getBoundingClientRect(),tr=title?.getBoundingClientRect();
-                    const minLogo=Math.min(104,Math.max(72,innerWidth*.08));
+                    const br=brand?.getBoundingClientRect(),er=eyebrow?.getBoundingClientRect(),hr=hero?.getBoundingClientRect();
+                    const minLogo=Math.min(240,Math.max(180,innerWidth*.18));
+                    const centerOf=r=>r?(r.left+r.right)/2:NaN;
+                    const drift=[brand,eyebrow,title,subtitle,description,actionRow,privacy,capabilities].map(el=>Math.abs(centerOf(el?.getBoundingClientRect())-centerOf(hr)));
+                    const centered=drift.every(d=>Number.isFinite(d)&&d<=12);
                     const base=dark?[7,17,29]:[247,251,255];
                     const texts=[title,subtitle,eyebrow].map(el=>contrast(rgb(getComputedStyle(el).color),base));
                     return{
                       theme:dark?'dark':'light',
-                      markWidth:Number(ir?.width||0),markHeight:Number(ir?.height||0),
+                      markWidth:Number(ir?.width||0),markHeight:Number(ir?.height||0),centerDrift:drift,
                       titleWidth:Number(tr?.width||0),
                       contrast:texts,
-                      pass:!!screen&&!!identity&&!!mark&&!!title&&
+                      pass:!!screen&&!!identity&&!!hero&&!!brand&&!!mark&&!!title&&
                         mark.complete&&mark.naturalWidth>0&&
                         mark.getAttribute('src')==='assets/branding/official-mark.svg'&&
-                        Number(ir?.width||0)>=minLogo&&Number(ir?.height||0)>=minLogo&&
+                        Number(ir?.width||0)>=minLogo&&Number(ir?.height||0)>=105&&centered&&
                         Number(tr?.width||0)>100&&
-                        (innerWidth<=700||Number(ir?.right||0)<Number(tr?.left||0))&&
+                        Number(ir?.bottom||0)<=Number(er?.top||0)+2&&
                         texts.every(v=>v>=4.5)&&
                         actions.every(el=>el&&el.getBoundingClientRect().width>0)&&
                         document.querySelectorAll('#launchScreen h1').length===1&&
