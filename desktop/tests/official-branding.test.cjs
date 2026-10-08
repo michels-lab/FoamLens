@@ -102,6 +102,8 @@ console.log('Official FoamLens branding passed: canonical SVGs, launch/sidebar/A
 
 assert(index.includes("brandTag:'TOOLS WITH IDENTITY.'"),'Localized About copy must never overwrite the canonical Michel\'s Lab slogan.');
 assert(!index.includes("brandTag:'Ideas · Apps"),'Legacy Michel\'s Lab slogan still overrides About at runtime.');
+assert(!index.includes('.aboutMarkBox{width:min(100%,290px)!important')&&!index.includes('.aboutMarkBox{background:none!important'),'Old global About logo CSS must not override the canonical mark geometry.');
+assert(index.includes('font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#d4e5f7;line-height:1.65'),'About studio slogan must remain readable and not render as tiny type.');
 assert(index.includes('id="aboutOfficialLogo"')&&index.includes('id="aboutOfficialLogo" class="officialBrandAsset aboutOfficialLockup" src="assets/branding/official-mark.svg"'),'About dark-on-dark lockup must use legible official mark.');
 assert(program.includes('CaptureRenderedBrandEvidenceAsync()')&&program.includes('about-wide-bottom.png')===false,'About rendered smoke contract unexpectedly changed.');
 assert(program.includes('about-{size.Name}-bottom.png')&&program.includes('Emulation.setDeviceMetricsOverride'),'About must be captured in real wide and compact WebView2 layouts.');
