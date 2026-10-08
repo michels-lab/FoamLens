@@ -3930,3 +3930,9 @@ The required interpretation is structural integration rather than sticker placem
 **Preserved intentionally:** personal developer/social links remain under `realmichelduarte`; the QuickCup research fixture remains `realmichelduarte/QuickCup-Solidification`.
 
 **Validation state:** repository transfer and admin/push access verified. Branch CI/build validation is required before merge; historical log references are preserved as historical evidence.
+
+### 2026-10-07 — Field Mapping physical-dimension guard (pending CI)
+- Audit found that `fmSuggestMappingsWithMetadata` could select a name-matched field despite conflicting explicit SI dimensions, incorrectly attributing physical meaning to the data.
+- Known-dimension roles (temperature, velocity, density, vorticity, thermal/density gradients) now reject contradictory metadata before scoring candidates. If metadata is absent, name-based suggestions remain available.
+- Added regressions for swapped names, rejected incompatible mapping, and missing-dimension fallback.
+- Scientific comparison and UI ownership are intentionally unchanged. Validation: PR CI pending; no release or `main` promotion authorized.
