@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'distribution/**'
+      - 'fix/branding-about-release-gate-20261008'
     paths:
       - 'desktop/**'
       - 'store/**'
