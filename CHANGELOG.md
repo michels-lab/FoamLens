@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.6.2 — 2026-10-08
+
+- Prevented incorrect Field Mapping suggestions when a plausible field name contradicts explicit OpenFOAM SI dimensions; preserved safe name-based mapping when metadata is unavailable.
+- Expanded scientific regressions for misleading field names, incompatible dimensions, and incomplete field metadata.
+- Completed About's recognizable Instagram/GitHub icon presentation and the Michel's Lab canonical `TOOLS WITH IDENTITY.` slogan while preserving the original approved product logo, portrait and parent-brand assets.
+- Reconciled the post-migration scientific/branding audit, prioritized open work, and retained local-first operation, existing visual layout, and read-only OpenFOAM analysis.
+- Retained validation requirements for real QuickCup/VTK regression, direct Windows portable + installer launch, and separate Microsoft Store MSIX packaging. No Microsoft Store certification or Authenticode certificate is implied.
+
 ## Desktop v1.6.1 — 2026-10-06
 
 - Reorganized the Field command surface around a real contextual application sidebar for 3D, Spatial Profile, Time Series, Solver Logs and Split without leaking irrelevant controls across workspaces.

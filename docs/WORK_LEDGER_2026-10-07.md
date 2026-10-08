@@ -50,3 +50,8 @@ Audit date: 2026-10-07. Baseline `main` `4c408b3d5d0b75982a1d98504cabeeb47fd4e04
 - No `.michelslab/identity-sync.json` exists in the FoamLens main tree; do not invent a state or enforce replacement without master-governance instruction. Master product logo manifest includes stale historical owner field (`realmichelduarte/Michel-Software-Standards`); separate governance reconciliation, not a blocker for FoamLens product identity already validated via hashes.
 - Historical PR #7 is an old, diverged v1.5.0 candidate with 313 commits behind main; do not merge it wholesale over current stable version. Requires an intentional archival/unique-diff review rather than blind merge.
 - CI, installed smoke, and MSIX for final combined head not yet verified. Do not publish release or merge before same-SHA evidence.
+
+## Final targeted release candidate
+- Candidate target: Desktop v1.6.2. All remaining new GitHub end-user integration stays deferred.
+- Scope locked to physical-dimension mapping correction, About identity-compliant social imagery/slogan, consistent version metadata and verified packaged releases.
+- The code branch is not considered stable until same-SHA Windows CI and later main + Store CI pass.

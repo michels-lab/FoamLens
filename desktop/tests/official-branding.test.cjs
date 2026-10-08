@@ -40,7 +40,7 @@ for(const href of [
   'https://github.com/realmichelduarte',
   'mailto:realmichelduarte@gmail.com'
 ])assert(index.includes('href="'+href+'"'),'About social URL drifted from canonical developer profile: '+href);
-assert(index.includes('Tools with identity.'),'About does not use the official Michel\'s Lab studio slogan.');
+assert(index.includes('TOOLS WITH IDENTITY.'),'About does not use the official Michel\'s Lab studio slogan.');
 assert(!index.includes('aboutIcon ig">◎')&&!index.includes('aboutIcon gh">⌘'),'About still uses ambiguous Instagram/GitHub placeholders.');
 assert(/class="aboutIcon ig"[^>]*><svg[^>]*viewBox="0 0 24 24"/.test(index),'Instagram lacks a recognizable scalable icon.');
 assert(/class="aboutIcon gh"[^>]*><svg[^>]*viewBox="0 0 24 24"/.test(index),'GitHub lacks a recognizable scalable icon.');
