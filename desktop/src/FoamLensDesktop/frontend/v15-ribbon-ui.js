@@ -76,6 +76,10 @@ function flRibbonBuild(){
   const data=[
     flRibbonGroup('Data','Datos',[
       flRibbonActionHtml('flRaCatalog','database','Catalog','Catálogo'),
+      flRibbonActionHtml('flRaDataProfiles','profile','Profiles','Perfiles'),
+      flRibbonActionHtml('flRaDataTimeSeries','chart','Time series','Series'),
+      flRibbonActionHtml('flRaDataLogs','log','Solver logs','Logs solver'),
+      flRibbonActionHtml('flRaDataCompare','compare','Compare curves','Comparar curvas'),
       flRibbonActionHtml('flRaSelectAll','case','Select all','Seleccionar todo'),
       flRibbonActionHtml('flRaShowSeries','eye','Show series','Mostrar series'),
       flRibbonActionHtml('flRaClear','reset','Clear','Limpiar','','danger')
@@ -298,6 +302,11 @@ function flRibbonMode(mode,tab){
   if(tab)flRibbonSelectTab(tab);
   try{setAppMode(mode)}catch{flRibbonClick('mode'+String(mode).charAt(0).toUpperCase()+String(mode).slice(1))}
 }
+function flRibbonOpenDataView(view){
+  flRibbonSelectTab('data');
+  try{setAppMode('data');setDataView(view)}catch(error){console.error(error)}
+  flRibbonSyncStates();
+}
 function flRibbonData(tabId,tabKey){
   flRibbonSelectTab(tabKey||'data');try{setAppMode('data')}catch{};requestAnimationFrame(()=>flRibbonClick(tabId))
 }
@@ -407,7 +416,10 @@ function flRibbonSyncStates(){
     ['flRaLinkCameras',document.getElementById('fcLinkCameras')?.checked!==false],
     ['flRaVisualSync',document.getElementById('fcSyncVisuals')?.checked!==false]
   ];
-  for(const [id,on] of map)document.getElementById(id)?.classList.toggle('active',!!on)
+  for(const [id,on] of map)document.getElementById(id)?.classList.toggle('active',!!on);
+  const dataView=typeof currentDataView==='string'?currentDataView:'timeseries';
+  for(const [id,view] of [['flRaCatalog','catalog'],['flRaDataProfiles','profile'],['flRaDataTimeSeries','timeseries'],['flRaDataLogs','log']])
+    document.getElementById(id)?.classList.toggle('active',document.body.classList.contains('appMode-data')&&dataView===view)
 }
 function flRibbonBind(id,fn){
   document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();fn();setTimeout(flRibbonSyncStates,0)})
@@ -487,7 +499,15 @@ function flRibbonInstall(){
   flRibbonBind('flRaReview',()=>flRibbonMode('review','home'));
   flRibbonBind('flRaLive',()=>flRibbonMode('live','home'));
 
-  flRibbonBind('flRaCatalog',()=>flRibbonData('catalogTab','data'));
+  flRibbonBind('flRaCatalog',()=>flRibbonOpenDataView('catalog'));
+  flRibbonBind('flRaDataProfiles',()=>flRibbonOpenDataView('profile'));
+  flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'));
+  flRibbonBind('flRaDataLogs',()=>flRibbonOpenDataView('log'));
+  flRibbonBind('flRaDataCompare',()=>{
+    flRibbonSelectTab('data');try{setAppMode('data')}catch{}
+    const panel=document.getElementById('differenceTools');
+    if(panel){panel.hidden=false;panel.classList.remove('hidden');panel.scrollIntoView({block:'nearest',behavior:'smooth'})}
+  });
   flRibbonBind('flRaSelectAll',()=>flRibbonClick('selectAll'));
   flRibbonBind('flRaShowSeries',()=>flRibbonClick('showSeriesTop'));
   flRibbonBind('flRaClear',()=>flRibbonClick('clear'));
