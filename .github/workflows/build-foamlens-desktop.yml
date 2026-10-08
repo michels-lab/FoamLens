@@ -803,6 +803,20 @@ jobs:
             artifacts/visual/
           if-no-files-found: error
 
+      # Keep screenshots and smoke logs accessible when the executable fails.
+      # A failed build should not erase the very evidence needed to fix it.
+      - name: Preserve failed Windows UI validation evidence
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-Windows-failed-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/visual/
+            artifacts/*smoke.log
+            artifacts/*smoke.png
+            artifacts/*launch.png
+          if-no-files-found: warn
+          retention-days: 14
 
   publish:
     name: Publish after automated candidate validation

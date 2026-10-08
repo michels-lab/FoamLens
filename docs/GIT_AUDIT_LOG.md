@@ -4091,3 +4091,9 @@ The required interpretation is structural integration rather than sticker placem
 
 - FoamLens `AGENTS.md` and Copilot instructions no longer demand a protected pre-release human screenshot approval. Automated rendered UI checks stay mandatory; owner review remains **post-release**, per the current master `RENDERED_UI_RELEASE_GATE.md`.
 - Connector-side syntax parsing of 10 affected JS/test modules and 9 focused integration invariants passed on the integration branch. These are structural checks only, **not** a substitute for actual Windows/QuickCup/native screenshots or installed-app functionality.
+
+
+## 2026-10-08 — 1024px Field Ribbon clipping & failed-build visual evidence
+- Packaged Windows smoke passed real Data↔Field ownership and Ribbon navigation, then caught Field toolbar overflow at 1024px: scrollWidth=1352 against clientWidth=1024. UI fault, not a testing false positive.
+- Field main Ribbon uses accessible, bounded icon-only actions under 1460px; labels remain in DOM and on hover/accessibility metadata. At <=760px redundant quick-camera icons yield to the Camera subbar. Full controls remain reachable; scientific scene is not resized or obscured by a second toolbar row.
+- CI now uploads visual screenshots and native smoke logs even on failure, without uploading duplicate binaries. Await real Windows 1024px geometry validation; do not merge/release until exact-head full checks succeed.
