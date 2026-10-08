@@ -41,10 +41,10 @@ function flRibbonIcon(name){
   return '<svg class="flRibbonIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.info)+'</svg>';
 }
 function flRibbonActionHtml(id,icon,en,es,group,extraClass){
-  return '<button class="flRibbonAction '+(extraClass||'')+'" id="'+id+'" type="button" data-ri-en="'+en.replace(/"/g,'&quot;')+'" data-ri-es="'+es.replace(/"/g,'&quot;')+'" title="'+en+'">'+flRibbonIcon(icon)+'<span class="flRibbonLabel">'+en+'</span></button>';
+  return '<button class="flRibbonAction '+(extraClass||'')+'" id="'+id+'" type="button" data-ri-en="'+en.replace(/"/g,'&quot;')+'" data-ri-es="'+es.replace(/"/g,'&quot;')+'" title="'+en.replace(/"/g,'&quot;')+'" aria-label="'+en.replace(/"/g,'&quot;')+'">'+flRibbonIcon(icon)+'<span class="flRibbonLabel">'+en+'</span></button>';
 }
 function flRibbonGroup(labelEn,labelEs,actions){
-  return '<div class="flRibbonGroup"><div class="flRibbonActions">'+actions.join('')+'</div><div class="flRibbonGroupLabel" data-ri-en="'+labelEn+'" data-ri-es="'+labelEs+'">'+labelEn+'</div></div>';
+  return '<div class="flRibbonGroup'+(labelEn==='Camera shortcuts'?' flRibbonQuickCameraGroup':'')+'"><div class="flRibbonActions">'+actions.join('')+'</div><div class="flRibbonGroupLabel" data-ri-en="'+labelEn+'" data-ri-es="'+labelEs+'">'+labelEn+'</div></div>';
 }
 function flRibbonTabHtml(key,icon,en,es){
   return '<button class="flRibbonTab'+(key==='home'?' active':'')+'" id="flRibbonTab-'+key+'" type="button" role="tab" data-ribbon-tab="'+key+'" aria-selected="'+(key==='home'?'true':'false')+'" data-ri-en="'+en+'" data-ri-es="'+es+'">'+flRibbonIcon(icon)+'<span>'+en+'</span></button>';
@@ -220,7 +220,11 @@ function flRibbonCss(){
     '#flRibbonPanel-field .flRibbonTimeGroup{min-width:290px;max-width:none;flex:1 1 380px}',
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 300px;grid-template-columns:auto auto auto minmax(70px,1fr) auto auto}',
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:65px}',
-    '@media(max-width:1120px){#flRibbonPanel-field .flRibbonAction{min-width:0;padding:5px 6px}#flRibbonPanel-field .flRibbonTimeGroup{min-width:250px;flex-basis:300px}}',
+    // Keep all controls accessible within the main row. Under laptop widths,
+    // turn Field actions into labeled-on-hover icons; Camera shortcuts stay
+    // visible down to tablet widths, then live in the Camera subbar.
+    '@media(max-width:1460px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}#flRibbonPanel-field .flRibbonGroup{padding-right:4px}#flRibbonPanel-field .flRibbonActions{gap:1px}#flRibbonPanel-field .flRibbonTimeGroup{min-width:210px;flex:1 1 240px}#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 210px;gap:3px;grid-template-columns:auto auto auto minmax(42px,1fr) auto auto}#flFieldContextTabs .flFieldContextTab{padding:5px 7px}}',
+    '@media(max-width:760px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none}#flRibbonPanel-field .flRibbonTimeGroup{min-width:180px;flex:1 1 180px}#flFieldContextTabs .flFieldContextTab{font-size:9px;padding:5px 5px}}',
     'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
