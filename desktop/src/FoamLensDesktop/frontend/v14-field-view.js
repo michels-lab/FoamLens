@@ -641,6 +641,30 @@ function fvRegionFitCamera(){
   const bounds=fvRegionUnionBounds(meshes);if(!bounds)return false;
   fvState.camera.target=bounds.center;fvState.camera.distance=bounds.diagonal*1.65;fvRender();return true
 }
+// Geometry-only fallback may combine processor partitions WITHIN ONE physical
+// region. Never flatten two physical regions into a fake field/mesh association.
+async function fvRegionGeometryAtTime(c,region,time){
+  const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region);
+  const reconstructed=inventory.filter(g=>!String(g.partition||''));
+  if(reconstructed.length===1){
+    const snap=fvMeshSnapshotForTime(reconstructed[0],time);
+    if(!snap)throw new Error('Mesh unavailable at requested physical time');
+    return fvLoadMesh(c,snap)
+  }
+  if(reconstructed.length>1)throw new Error('Ambiguous reconstructed meshes for physical region '+region);
+  const partitions=inventory.filter(g=>String(g.partition||''));
+  if(!partitions.length)throw new Error('No mesh for physical region '+region);
+  const loaded=[];
+  for(const group of partitions){
+    const snap=fvMeshSnapshotForTime(group,time);
+    if(!snap)throw new Error('Missing processor mesh '+group.partition+' at requested physical time');
+    loaded.push({partition:String(group.partition),mesh:await fvLoadMesh(c,snap)})
+  }
+  const assembled=fvCombinePartitionMeshes(loaded);
+  if(!assembled?.supported)throw new Error('Processor-only region geometry unavailable: '+String(assembled?.reason||'unknown'));
+  return assembled
+}
+
 async function fvRegionLoadFrame(c,time){
   if(!c||!Number.isFinite(Number(time))||!fvState.renderer)return;
   fvRegionEnsureCase(c);
@@ -668,11 +692,7 @@ async function fvRegionLoadFrame(c,time){
         if(frame.storage==='surface')status+=' · '+flUi('neutral geometry (face coloring pending)','geometría neutra (coloreado por cara pendiente)')
       }else{
         // Never map an unrelated field time to the requested physical time.
-        const complete=fvMeshes(c).filter(g=>String(g.region||'')===region&&!String(g.partition||''));
-        if(complete.length!==1)throw new Error(flUi('No unique reconstructed mesh at this time; processor reconstruction or mesh data required.','No hay malla reconstruida única para este tiempo; se requiere reconstrucción processor o datos de malla.'));
-        const snapshot=fvMeshSnapshotForTime(complete[0],time);
-        if(!snapshot)throw new Error(flUi('Mesh unavailable at requested time.','Malla no disponible en el tiempo solicitado.'));
-        mesh=await fvLoadMesh(c,snapshot);
+        mesh=await fvRegionGeometryAtTime(c,region,time);
         status=flUi('Geometry only; field unavailable at t = ','Solo geometría; campo no disponible en t = ')+fvFmt(time)+' s'
       }
       if(!current())return; // A newer case/frame owns the WebGL canvas.
