@@ -29,7 +29,7 @@ function vaAccumulateRanges(target,descriptors){
   return target
 }
 function vaApplyRanges(ranges){
-  vaState.ranges=ranges||null;try{window.FoamLensFieldView?.setVideoRangeOverride?.(ranges?.primary||null)}catch{}try{window.FoamLensFieldCompare?.setVideoRanges?.(ranges||null)}catch{}
+  vaState.ranges=ranges||null;try{window.FoamLensFieldView?.setVideoRangeOverride?.(ranges?.primary||null)}catch{}try{window.FoamLensFieldCompare?.setVideoRanges?.(ranges||null)}catch{}try{window.FoamLensRegionScene?.setVideoRanges?.(ranges?.regions||null)}catch{}
 }
 function vaPaletteCssStops(){
   try{const name=document.getElementById('fvPalette')?.value||'viridis';return fvPaletteStops(name)}catch{return[[0,[.267,.005,.329]],[1,[.993,.906,.144]]]}
@@ -55,8 +55,9 @@ function vaMime(format){
 function vaDelay(ms){return new Promise(r=>setTimeout(r,ms))}
 async function vaPreload(start,end,step){
   const ranges={};let count=0,total=Math.floor((end-start)/step)+1;
-  vaApplyRanges(null);
+  vaApplyRanges(null);window.FoamLensRegionScene?.beginVideoRangeScan?.();
   for(let i=start;i<=end;i+=step){await fvLoadFrame(i);vaAccumulateRanges(ranges,vaDescriptorList());count++;vaSetStatus(vaUi('Preparing frames','Preparando frames')+' · '+count+'/'+total+' · '+vaUi('global ranges','rangos globales'));await vaDelay(0)}
+  ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()||{};
   return ranges
 }
 async function vaExport(){
