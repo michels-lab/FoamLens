@@ -576,6 +576,16 @@ function fvRegionRefreshList(){
 function fvRegionInstallEvents(){
   const root=document.getElementById('fvMultiRegionRows');if(!root||root.dataset.regionEvents)return;
   root.dataset.regionEvents='1';
+  document.getElementById('fvRegionShowAll')?.addEventListener('click',()=>{
+    const c=fvCase();if(!c)return;
+    for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=true;
+    fvRegionRefreshList();fvRender()
+  });
+  document.getElementById('fvRegionOnlyPrimary')?.addEventListener('click',()=>{
+    const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';if(!c)return;
+    for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=region===primary;
+    fvRegionRefreshList();fvRender()
+  });
   root.addEventListener('change',e=>{
     const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
     const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
@@ -649,7 +659,9 @@ async function fvRegionLoadFrame(c,time){
       if(exact!==undefined){
         const frame=await fvLoadFrameData(c,selected,region,exact,choice.component,{includeBoundary:false});
         mesh=frame.mesh;data={...frame,group:selected};
+        const unit=frame.parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(frame.parsed.dimensions):'';
         status=selected.name+' · t='+fvFmt(exact)+' s · '+fvAssociationLabel(frame.storage);
+        if(frame.storage!=='surface'&&frame.range?.valid)status+=' · '+fvFmtRange(frame.range.min,frame.range)+' … '+fvFmtRange(frame.range.max,frame.range)+(unit?' '+unit:'');
         if(frame.storage==='surface')status+=' · '+flUi('neutral geometry (face coloring pending)','geometría neutra (coloreado por cara pendiente)')
       }else{
         // Never map an unrelated field time to the requested physical time.
@@ -1147,7 +1159,7 @@ function fvUiHtml(){
     <div class="row2"><div class="field"><label data-fl-en="Case" data-fl-es="Caso">Case</label><select id="fvCase"></select></div><div class="field"><label data-fl-en="Region" data-fl-es="Región">Region</label><select id="fvRegion"></select></div></div>
     <div class="row2"><div class="field"><label data-fl-en="Color by" data-fl-es="Colorear por">Color by</label><select id="fvField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fvComponent"></select></div></div>
     <div class="smallnote" id="fvAssociation" data-fl-en="Association: —" data-fl-es="Asociación: —">Association: —</div>
-    <details class="analysisExt" id="fvMultiRegionPanel" hidden open><summary class="analysisExtHead"><strong data-fl-en="Physical regions · same 3D scene" data-fl-es="Regiones físicas · misma escena 3D">Physical regions · same 3D scene</strong></summary><div class="extSectionBody"><div id="fvMultiRegionRows"></div><p class="smallnote" data-fl-en="All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value." data-fl-es="Todas las regiones están activas por defecto. La región principal controla las sondas. Las regiones secundarias usan tiempos físicos exactos o geometría neutra; el gris no representa valores inventados.">All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value.</p></div></details>
+    <details class="analysisExt" id="fvMultiRegionPanel" hidden open><summary class="analysisExtHead"><strong data-fl-en="Physical regions · same 3D scene" data-fl-es="Regiones físicas · misma escena 3D">Physical regions · same 3D scene</strong></summary><div class="extSectionBody"><div class="fvToolRow" style="margin-bottom:8px"><button type="button" class="btn tiny" id="fvRegionShowAll" data-fl-en="Show all" data-fl-es="Mostrar todas">Show all</button><button type="button" class="btn tiny" id="fvRegionOnlyPrimary" data-fl-en="Only primary" data-fl-es="Solo principal">Only primary</button></div><div id="fvMultiRegionRows"></div><p class="smallnote" data-fl-en="All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value." data-fl-es="Todas las regiones están activas por defecto. La región principal controla las sondas. Las regiones secundarias usan tiempos físicos exactos o geometría neutra; el gris no representa valores inventados.">All mesh regions are enabled by default. Primary region owns probing. Secondary regions use exact physical times or a neutral geometry-only shell; gray is not a fabricated field value.</p></div></details>
     <div class="row2"><div class="field"><label data-fl-en="Colormap" data-fl-es="Mapa de color">Colormap</label><select id="fvPalette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label data-fl-en="Color range" data-fl-es="Rango de color">Color range</label><select id="fvRangeMode"><option value="current" data-fl-en="Smart · current frame" data-fl-es="Inteligente · frame actual">Smart · current frame</option><option value="global" data-fl-en="Global · all times" data-fl-es="Global · todos los tiempos">Global · all times</option><option value="manual" data-fl-en="Manual" data-fl-es="Manual">Manual</option></select></div></div>
     <div class="row2 hidden" id="fvManualRange"><div class="field"><label>Min</label><input id="fvRangeMin" type="number" step="any"></div><div class="field"><label>Max</label><input id="fvRangeMax" type="number" step="any"></div></div>
     <div class="fvChecks"><label class="inlineCheck"><input id="fvSurface" type="checkbox" checked> <span data-fl-en="Surface" data-fl-es="Superficie">Surface</span></label><label class="inlineCheck"><input id="fvEdges" type="checkbox" checked> <span data-fl-en="Mesh edges" data-fl-es="Aristas de malla">Mesh edges</span></label></div>
@@ -1219,10 +1231,10 @@ function fvInstallUi(){
   fieldRoot.insertAdjacentHTML('beforeend',fvUiHtml());
   fieldRoot.insertAdjacentHTML('beforeend',fvPanelHtml());
   const style=document.createElement('style');style.id='fvStyles';style.textContent=fvCss();document.head.appendChild(style);flApplyBilingualText(document);fvInstallCamera();fvRegionInstallEvents();
-  document.getElementById('fvCase').onchange=()=>fvHandleCaseChange().catch(e=>{console.error(e);fvSetStatus(String(e?.message||e),true)});document.getElementById('fvRegion').onchange=()=>{fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
+  document.getElementById('fvCase').onchange=()=>fvHandleCaseChange().catch(e=>{console.error(e);fvSetStatus(String(e?.message||e),true)});document.getElementById('fvRegion').onchange=()=>{fvRegionClearLayers();fvRegionScene.fitPending=true;fvRefreshSelectors(true);fvLoadSelection()};document.getElementById('fvField').onchange=()=>fvSyncComponent();
   document.getElementById('fvComponent').onchange=()=>{fvState.globalRange=null;fvState.globalRangeKey='';fvLoadFrame().catch(e=>fvSetStatus(String(e?.message||e),true))};
   const refreshRange=()=>{if(!fvState.fieldValues)return;const current=fvFiniteRange(fvState.surfaceBoundary?.values?.size?[...fvState.fieldValues,...fvState.surfaceBoundary.values.values()]:fvState.fieldValues),range=fvDisplayRange(current);fvUpdateSurfaceColors(fvState.fieldValues,range);fvUpdateSlice(range);if(typeof fvUpdateIso==='function')fvUpdateIso(range);fvLegend(range,fvState.fieldParsed)};
-  document.getElementById('fvPalette').onchange=refreshRange;
+  document.getElementById('fvPalette').onchange=()=>{refreshRange();fvRegionLoadFrame(fvCase(),fvState.time).catch(e=>console.warn('Multi-region colors:',e))};
   document.getElementById('fvRangeMode').onchange=()=>{fvState.rangeMode=fvCurrentRangeMode();document.getElementById('fvManualRange')?.classList.toggle('hidden',fvState.rangeMode!=='manual');fvState.globalRange=null;fvState.globalRangeKey='';refreshRange();if(fvState.rangeMode==='global')fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))};
   for(const id of ['fvRangeMin','fvRangeMax'])document.getElementById(id).addEventListener('input',refreshRange);
   document.getElementById('fvCacheLimit').onchange=e=>fvSetCacheLimitMb(e.target.value);
