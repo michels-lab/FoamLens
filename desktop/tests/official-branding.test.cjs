@@ -35,6 +35,8 @@ assert(!index.includes('.launchMark{width:248px!important'),'Stale !important la
 assert(index.includes('repeating-radial-gradient(ellipse at 81% 13%'),'Launch must integrate layered field contours into its composition.');
 assert(program.includes('FoamLens visual launch contract passed (computed WebView2 dark/light)'),'Packaged smoke is not validating computed launch design in both themes.');
 assert(program.includes('FoamLens rendered launch brand geometry/contrast is invalid'),'Visual smoke must reject legibility/geometry regressions.');
+assert(program.includes('FOAMLENS_SMOKE_LAUNCH_SCREENSHOT')&&program.includes('FoamLens rendered launch screenshot captured for visual review'),'Portable/installed smoke must capture actual branded launch PNGs.');
+for(const path of ['FoamLens-Portable-launch.png','FoamLens-Installed-launch.png'])assert(workflow.includes(path),'Workflow does not preserve launch screenshot artifact: '+path);
 assert(program.includes("texts.every(v=>v>=4.5)")&&program.includes("document.querySelectorAll('#launchScreen h1').length===1"),'Visual smoke must check contrast and duplicate product identity.');
 
 assert(index.includes('id="sidebarOfficialLogo"')&&index.includes('src="assets/branding/official-mark.svg"'),'Sidebar does not use the official mark.');

@@ -3948,3 +3948,10 @@ The required interpretation is structural integration rather than sticker placem
 - Candidate now refuses A−B, RMSE, percent, export and derived-curve generation when source SI dimensions or explicit units contradict. Native alignment remains allowed for independent-series visualization.
 - Added regression coverage for incompatible temperature/pressure dimensions, same-dimension differently scaled/displayed units, absent metadata, and gate wiring.
 - Missing metadata remains explicitly not proof of compatibility; do not manufacture dimensions. Final Windows and Store validation still required before release.
+
+### 2026-10-08 — FoamLens launch visual-regression incident and cross-app prevention
+- User screenshot of stable v1.6.2 revealed visually incorrect startup identity despite green packaged CI. Root causes: competing `.launchMark` rules including an older `248px!important` forced a tiny lockup, canonical lockup SVG contains dark wordmark text on a dark surface, and a second oversized `FoamLens` h1 duplicated the product name.
+- Candidate branch `fix/launch-brand-visual-gate` replaces startup lockup with canonical mark + one readable semantic h1 and themed, contour-derived hero layout; does not modify canonical SVG/portrait/logo bytes or analysis logic.
+- Added actual WebView2 rendered dark/light contrast, mark size and hierarchy checks; portable and installed launcher screenshots are now mandatory CI artifacts for **human review**, not automatically treated as visually approved.
+- Main `michels-lab/Michel-Software-Standards` has versioned cross-app rendered-brand acceptance rules and QA/Agent/Release Governor gates; child agent contract is synchronized on the FoamLens fix branch.
+- Current stable v1.6.2 is unchanged; no new release is authorized. Validation/evidence of candidate screenshot review remains pending until CI completes and output is inspected.
