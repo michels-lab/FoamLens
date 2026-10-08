@@ -198,9 +198,9 @@ function flRibbonCss(){
     '.flRibbonAction.danger{color:var(--danger)}',
     '.flRibbonAction.flScopeHidden{display:none!important}',
     '.flRibbonGroup.flScopeHidden{display:none!important}',
-    '.flRibbonTimeGroup{min-width:min(760px,72vw);max-width:100%;flex:1 1 620px}',
+    '.flRibbonTimeGroup{min-width:340px;max-width:100%;flex:1 1 420px}',
     '.flRibbonTimeGroup .flRibbonActions{align-items:center;display:flex;flex-wrap:wrap;gap:6px;width:100%}',
-    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:390px;flex:1 1 470px;width:auto;grid-template-columns:auto auto auto minmax(110px,1fr) auto auto;gap:5px}',
+    '.flRibbonTimeGroup .fwTimeTransport{margin:0;min-width:0;flex:1 1 330px;width:auto;grid-template-columns:auto auto auto minmax(90px,1fr) auto auto;gap:5px}',
     '.flRibbonTimeGroup .fwTimeTransport .btn{min-height:30px;padding:4px 7px;font-size:8px}',
     '.flRibbonTimeGroup .fwTimeTransport input[type="range"]{min-width:110px}',
     '.flRibbonTimeGroup .fwTimeReadout{font-size:8px}',
@@ -217,6 +217,9 @@ function flRibbonCss(){
     '.flFieldContextShelf.hidden{display:none!important}',
     '.flFieldContextShelf>.flRibbonGroup{display:none!important;border-right:0}',
     '.flFieldContextShelf>.flRibbonGroup.flSubbarActive{display:flex!important}',
+    '.flRibbonCacheAdvanced{position:relative;flex:0 0 auto;align-self:center}',
+    '.flRibbonCacheAdvanced>summary{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-size:9px;cursor:pointer}',
+    '.flRibbonCacheAdvanced[open]{flex:1 0 100%;display:flex;align-items:center;gap:9px;padding:5px}',
     '.flRibbonFieldOptionsGroup{min-width:150px}',
     '.flRibbonFieldOptionsGroup .flRibbonActions{align-items:center}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser{margin:0;display:flex;align-items:center;gap:5px}',
@@ -303,12 +306,10 @@ function flRibbonMountFieldTimeTransport(){
   transport.classList.add('flRibbonTimeTransport');
   const cache=document.getElementById('fvCacheLimit'),cacheField=cache?.closest?.('.field'),cacheReadout=document.getElementById('fvCacheReadout');
   if(host&&cacheField){
-    cacheField.classList.add('flRibbonCacheField');
-    if(cacheField.parentElement!==host)host.appendChild(cacheField)
-  }
-  if(host&&cacheReadout){
-    cacheReadout.classList.add('flRibbonCacheReadout');
-    if(cacheReadout.parentElement!==host)host.appendChild(cacheReadout)
+    let advanced=document.getElementById('flRibbonCacheAdvanced');
+    if(!advanced){advanced=document.createElement('details');advanced.className='flRibbonCacheAdvanced';advanced.id='flRibbonCacheAdvanced';advanced.innerHTML='<summary>Cache</summary>';host.appendChild(advanced)}
+    cacheField.classList.add('flRibbonCacheField');if(cacheField.parentElement!==advanced)advanced.appendChild(cacheField);
+    if(cacheReadout){cacheReadout.classList.add('flRibbonCacheReadout');if(cacheReadout.parentElement!==advanced)advanced.appendChild(cacheReadout)}
   }
   return true
 }
