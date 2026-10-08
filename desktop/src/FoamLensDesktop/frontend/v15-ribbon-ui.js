@@ -231,6 +231,7 @@ function flRibbonCss(){
     '.flRibbonTimeGroup .flRibbonCacheReadout{font-size:7px;min-width:116px;white-space:nowrap;color:var(--muted)}',
 
     '.flFieldContextTabs{display:flex;align-items:center;gap:3px;margin:0 1px;padding:0;flex:0 0 auto}',
+    '.flFieldContextTabs.flScopeHidden{display:none!important}',
     '.flFieldContextTab{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:9px;font-weight:780;color:var(--text)}',
     '.flFieldContextTab.active{background:var(--accentSoft);color:var(--accent);border-color:var(--accent)}',
     '.flFieldContextShelf{display:flex;align-items:center;gap:5px;min-width:0;padding:5px 12px;border-top:1px solid var(--line);max-height:76px;overflow-x:auto;overflow-y:hidden}',
@@ -310,6 +311,9 @@ function flRibbonUpdateContextVisibility(){
 }
 function flRibbonUpdateFieldScope(){
   const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=view==='3d'||view==='split';
+  const subTabs=document.getElementById('flFieldContextTabs'),shelf=document.getElementById('flFieldContextShelf');
+  subTabs?.classList.toggle('flScopeHidden',!show3D);
+  if(!show3D){shelf?.classList.add('hidden');shelf?.classList.remove('flCameraToolsActive');subTabs?.querySelectorAll('button').forEach(el=>{el.classList.remove('active');el.setAttribute('aria-expanded','false')})}
   const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
     'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
