@@ -4088,3 +4088,6 @@ The required interpretation is structural integration rather than sticker placem
 ### Integration reconciliation — 2026-10-08
 - Combined PR #37 Data-owned 2D / Field-owned 3D root-cause fix with PR #38 full-width Ribbon and non-overlapping 3D comparison captions in `integration/foamlens-data-field-viewport-20261008`. Ribbon retains #38 compact camera actions, #37 comparison panel ownership and routes both 2D Compare entrypoints to that Data-owned card.
 - Windows/WebView2 and private QuickCup scientific validations for this integration HEAD remain **pending** until CI confirms. Actual desktop screenshots and installed UX must not be presumed successful. Microsoft Store stays paused; no release triggered.
+
+- FoamLens `AGENTS.md` and Copilot instructions no longer demand a protected pre-release human screenshot approval. Automated rendered UI checks stay mandatory; owner review remains **post-release**, per the current master `RENDERED_UI_RELEASE_GATE.md`.
+- Connector-side syntax parsing of 10 affected JS/test modules and 9 focused integration invariants passed on the integration branch. These are structural checks only, **not** a substitute for actual Windows/QuickCup/native screenshots or installed-app functionality.
