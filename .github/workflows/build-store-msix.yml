@@ -5,9 +5,12 @@ on:
     branches:
       - main
       - 'distribution/**'
+      - 'fix/**'
       - 'fix/branding-about-release-gate-20261008'
     paths:
       - 'desktop/**'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/visual_release_gate.py'
       - 'store/**'
       - 'tools/render_store_manifest.py'
       - 'tools/create_store_assets.ps1'

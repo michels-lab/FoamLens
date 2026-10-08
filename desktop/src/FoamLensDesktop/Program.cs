@@ -197,7 +197,13 @@ internal sealed class FoamLensForm : Form
                         authorVisible:visible(author),
                         sloganVisible:visible(slogan)&&slogan.textContent.trim()==='TOOLS WITH IDENTITY.',
                         networkCount:links.length===5,
-                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon')))
+                        iconAndNetworkNames:links.every((link,i)=>link.textContent.includes(expected[i])&&visible(link.querySelector('.aboutIcon'))),
+                        socialLinksInitiallyVisible:(()=>{
+                          const socialList=overlay?.querySelector('.aboutSocials');
+                          const outer=box(shell),inner=box(socialList);
+                          return !!outer&&!!inner&&inner.width>0&&inner.height>0&&
+                            inner.top>=outer.top&&inner.bottom<=outer.bottom-3;
+                        })()
                       };
                       return {ok:Object.values(checks).every(Boolean),checks,
                         viewport:innerWidth,portrait:box(portrait)?.width,studio:box(studio)?.width,

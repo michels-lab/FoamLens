@@ -23,6 +23,8 @@ on:
       - 'v*'
     paths:
       - 'desktop/**'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/visual_release_gate.py'
       - '.github/workflows/build-foamlens-desktop.yml'
 
 permissions:
