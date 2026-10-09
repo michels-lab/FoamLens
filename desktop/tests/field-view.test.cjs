@@ -978,6 +978,16 @@ test('secondary surface fields color actual internal mesh faces and keep unknown
 });
 
 
+test('native packaged Windows smoke validates real metal and mold physical meshes in ONE WebGL scene',()=>{
+  assert(program.includes('FOAMLENS_SMOKE_EXPECT_REGIONS'),'Real OpenFOAM multiregion requirement must be forwarded to native smoke');
+  assert(program.includes('await api.load(c,fvState.time)'),'Packaged smoke must await actual secondary OpenFOAM mesh/field loading');
+  assert(program.includes("scene.layers.get(name)"),'Packaged smoke must inspect each real secondary region');
+  assert(program.includes("s.field==='T'&&s.exactTime&&s.cells>0"),'Do not accept geometry-only or mismatched physical-time rendering');
+  assert(program.includes('layer?.gl===gl'),'All real regions must share the primary WebGL renderer');
+  assert(program.includes('field-real-multiregion.png'),'Save real composite pixels for visual audit');
+  assert(program.includes('FoamLens real physical multiregion WebGL smoke passed'),'Installed smoke must report validated composite scene');
+});
+
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
   assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
   assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),

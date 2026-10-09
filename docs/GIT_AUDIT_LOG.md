@@ -4143,3 +4143,9 @@ The required interpretation is structural integration rather than sticker placem
 - PR #39 merged into main after exact-head QuickCup and packaged/installed Windows CI passed. PR #41 preserved independent physical-region WebGL scene, exact-time/association field mapping, independent native smoke checks and all additional scientific regressions.
 - Opaque surfaces still write depth; translucent outer shells and fields with interior/face rendering no longer block depth for other regions in the same scene. This is standard alpha blending, NOT order-independent transparency; a future rendered multiregion fixture must still validate occlusion and exact frame consistency.
 - The integration commit has both branch head and main as parents; no release or Store publication.
+
+
+## 2026-10-09 — Real packaged scientific multiregion acceptance
+- Verified the private B13 QuickCup OpenFOAM fixture has BOTH `constant/metal/polyMesh` and `constant/mold/polyMesh` with complete points/faces/owner/neighbour, plus genuine `9.8/mold/T`; not synthetic meshes, not duplicated case identities.
+- Windows portable and installed smoke now require `metal;mold` physical regions in the SAME case and single WebGL context. The smoke-only helper awaits all secondary real fields at the primary physical time, checks the T field, exact time, finite range, mesh ownership, positive cell/triangle counts, distinct meshes and shared GL context, failing closed if an imported region is missing or drawn as geometry-only. Actual composited pixels are saved as `visual/{portable,installed}/field-real-multiregion.png` for visual review.
+- Added permanent regression to ensure this runtime fixture requirement cannot silently be removed. Full exact-head Windows CI pending; PR #41 remains draft; no release.
