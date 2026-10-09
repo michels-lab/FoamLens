@@ -800,6 +800,22 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
     assert(source.includes(token),'Missing physical region control: '+token);
 });
 
+test('split multi-region inventories ignore archived unsplit root polyMesh without its own fields',()=>{
+  const fixture={meshInventory:[
+    {region:'',complete:true},{region:'metal',complete:true},{region:'mold',complete:true}
+  ],discoveryModel:{fields:[
+    {region:'metal',name:'T',storage:'volume',times:[0,9.8]},
+    {region:'mold',name:'T',storage:'volume',times:[0,9.8]}
+  ]}};
+  assert.deepStrictEqual(regionApi.fvRegionNames(fixture),['metal','mold'],
+    'Unsplit root mesh is not a third physical region when it has no physical field');
+  fixture.discoveryModel.fields.push({region:'',name:'T',storage:'volume',times:[0,9.8]});
+  assert.deepStrictEqual(regionApi.fvRegionNames(fixture),['','metal','mold'],
+    'A genuinely field-bearing default region remains a selectable physical layer');
+  assert(program.includes("canvas.getContext('webgl2')===gl"),
+    'Native physical-region smoke must recognize the actual WebGL2 renderer');
+});
+
 test('secondary region field data uses exact physical time; other times show explicit neutral geometry',()=>{
   assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.1+1e-12),.1);
   assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.15),undefined,'Never silently take closest field time');

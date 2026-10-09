@@ -1981,10 +1981,11 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const loaded=secondary.every(s=>s.colored&&s.field==='T'&&s.exactTime&&s.cells>0&&
       s.surfaceVertices>0&&s.sameWebGL&&s.distinctMesh&&s.validRange);
     physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,
-      oneCanvas:!!canvas&&canvas.getContext('webgl')===gl,
+      oneCanvas:!!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl),
       secondaryCount:scene.layers.size,glError:gl?gl.getError():-1,
       ok:loaded&&secondary.length===expected.length-1&&scene.layers.size===expected.length-1&&
-        primaryCells>0&&!!fvState.fieldValues?.length};
+        primaryCells>0&&!!fvState.fieldValues?.length&&
+        !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene))
   }
   const range=fvFiniteRange(fvState.fieldValues);

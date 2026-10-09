@@ -525,7 +525,16 @@ function fvRegionSetVideoRanges(ranges){
 }
 
 function fvRegionNames(c){
-  return [...new Set((c?.meshInventory||[]).filter(g=>g?.complete).map(g=>String(g.region||'')))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+  const names=[...new Set((c?.meshInventory||[]).filter(g=>g?.complete).map(g=>String(g.region||'')))];
+  // OpenFOAM splitMeshRegions often leaves the unsplit root polyMesh as an
+  // importable mesh. It is not an additional physical solid/fluid region when
+  // fields exist only beneath explicitly named region directories.
+  const named=names.some(name=>name!=='');
+  const rootHasPhysicalFields=(c?.discoveryModel?.fields||[]).some(f=>
+    !String(f?.region||'')&&['volume','surface','point'].includes(String(f?.storage||''))&&
+    Array.isArray(f?.times)&&f.times.length>0);
+  const physical=named&&!rootHasPhysicalFields?names.filter(name=>name!==''):names;
+  return physical.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
 }
 function fvRegionExactTime(times,target){
   return (times||[]).map(Number).find(t=>fvTimeEqual(t,target))

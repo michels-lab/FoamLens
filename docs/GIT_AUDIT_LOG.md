@@ -4149,3 +4149,9 @@ The required interpretation is structural integration rather than sticker placem
 - Verified the private B13 QuickCup OpenFOAM fixture has BOTH `constant/metal/polyMesh` and `constant/mold/polyMesh` with complete points/faces/owner/neighbour, plus genuine `9.8/mold/T`; not synthetic meshes, not duplicated case identities.
 - Windows portable and installed smoke now require `metal;mold` physical regions in the SAME case and single WebGL context. The smoke-only helper awaits all secondary real fields at the primary physical time, checks the T field, exact time, finite range, mesh ownership, positive cell/triangle counts, distinct meshes and shared GL context, failing closed if an imported region is missing or drawn as geometry-only. Actual composited pixels are saved as `visual/{portable,installed}/field-real-multiregion.png` for visual review.
 - Added permanent regression to ensure this runtime fixture requirement cannot silently be removed. Full exact-head Windows CI pending; PR #41 remains draft; no release.
+
+
+## 2026-10-09 — Unsplitted parent mesh is not an extra physical region
+- Verified the real private B13 QuickCup case contains `constant/polyMesh` of its unsplit source and `constant/metal/polyMesh`, `constant/mold/polyMesh`. Only metal/mold have `0/` and `9.8/` physical fields; the unsplit parent is NOT a third simultaneous physical region.
+- Region inventory now omits that root mesh only if named real regions exist AND root has no independent field-bearing time-series. It preserves genuinely field-bearing default regions. Added dynamic discovery test for both scenarios.
+- Native installed-runtime multiregion acceptance checks both WebGL2 and WebGL context types, rather than rejecting an otherwise valid WebGL2 renderer. Re-run exact-head Windows fixture smoke; no release.
