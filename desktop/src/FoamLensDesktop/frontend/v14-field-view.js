@@ -567,7 +567,10 @@ function fvRegionChoice(c,region){
   if(!fvRegionScene.choices.has(region)){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const primaryName=document.getElementById('fvField')?.value||'';
-    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:1})
+    // A transparent default for secondary layers keeps adjacent/encasing
+    // solid regions inspectable together (e.g. metal inside mold).
+    const primaryRegion=document.getElementById('fvRegion')?.value||'';
+    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48})
   }
   return fvRegionScene.choices.get(region)
 }

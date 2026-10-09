@@ -800,6 +800,25 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
     assert(source.includes(token),'Missing physical region control: '+token);
 });
 
+test('default secondary physical-region opacity exposes an encasing mold while retaining primary visibility',()=>{
+  const scene=new Function([
+    'const window={};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:id==="fvField"?{value:"T"}:null};',
+    'const fvFieldGroups=(c,region)=>[{name:"T",kind:"scalar",storage:"volume"}];',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-9;',
+    regionCode,
+    'const c={id:1};',
+    'return {primary:fvRegionChoice(c,"metal"),secondary:fvRegionChoice(c,"mold")};'
+  ].join('\n'))();
+  assert.equal(scene.primary.visible,true);
+  assert.equal(scene.secondary.visible,true);
+  assert.equal(scene.primary.opacity,1);
+  assert(scene.secondary.opacity>0&&scene.secondary.opacity<.65,
+    'The enclosing mold must not default to an opaque wall hiding the metal');
+  assert.equal(scene.primary.field,'T');
+  assert.equal(scene.secondary.field,'T');
+});
+
 test('split multi-region inventories ignore archived unsplit root polyMesh without its own fields',()=>{
   const fixture={meshInventory:[
     {region:'',complete:true},{region:'metal',complete:true},{region:'mold',complete:true}
@@ -1001,7 +1020,7 @@ test('native packaged Windows smoke validates real metal and mold physical meshe
   assert(program.includes("s.field==='T'&&s.exactTime&&s.cells>0"),'Do not accept geometry-only or mismatched physical-time rendering');
   assert(program.includes('layer?.gl===gl'),'All real regions must share the primary WebGL renderer');
   assert(program.includes('field-real-multiregion.png'),'Save real composite pixels for visual audit');
-  assert(program.includes('FoamLens real physical multiregion WebGL smoke passed'),'Installed smoke must report validated composite scene');
+  assert(program.includes('FoamLens real OpenFOAM physical multiregion WebGL smoke passed'),'Installed smoke must report validated composite scene');
 });
 
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{

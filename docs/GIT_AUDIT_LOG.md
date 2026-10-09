@@ -4155,3 +4155,9 @@ The required interpretation is structural integration rather than sticker placem
 - Verified the real private B13 QuickCup case contains `constant/polyMesh` of its unsplit source and `constant/metal/polyMesh`, `constant/mold/polyMesh`. Only metal/mold have `0/` and `9.8/` physical fields; the unsplit parent is NOT a third simultaneous physical region.
 - Region inventory now omits that root mesh only if named real regions exist AND root has no independent field-bearing time-series. It preserves genuinely field-bearing default regions. Added dynamic discovery test for both scenarios.
 - Native installed-runtime multiregion acceptance checks both WebGL2 and WebGL context types, rather than rejecting an otherwise valid WebGL2 renderer. Re-run exact-head Windows fixture smoke; no release.
+
+
+## 2026-10-09 — Visible outer mold and native test contract
+- Fixed a stale regression assertion: Windows unit test expected a different native multiregion success-log string from the actual C# emission. The smoke itself had NOT run at that failed revision; no false scientific PASS claimed.
+- Physical secondary layers now start visible but translucent (opacity 0.48) so a surrounding mold does not by default occlude the selected primary metal region. Primary opacity remains 1 and every user-edited region opacity remains independent. A dynamic V8 regression verifies both initially visible and correct alpha selection.
+- Re-run installed portable + installer smoke requiring real B13 metal/mold fields, shared GL and captured composition. CI pending, PR #41 draft and unreleased.
