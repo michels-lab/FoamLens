@@ -737,6 +737,31 @@ internal sealed class FoamLensForm : Form
                   const checks={
                     fullWidthRibbon:!!before&&Math.abs(before.left)<2&&Math.abs(before.width-innerWidth)<3,
                     fullWidthHeader:!!head&&Math.abs(head.left)<2&&Math.abs(head.width-innerWidth)<3,
+                    persistentProductHeader:(()=>{
+                      const icon=document.getElementById('globalOfficialLogo'),
+                        name=document.querySelector('.flGlobalProductName'),
+                        about=document.getElementById('aboutDeveloperBtn'),
+                        updates=document.getElementById('flGlobalUpdates');
+                      return !!head&&[icon,name,about,updates].every(el=>{
+                        const b=rect(el);return !!b&&b.width>=20&&b.height>=20&&
+                          b.left>=head.left-2&&b.right<=head.right+2&&
+                          b.top>=head.top-2&&b.bottom<=head.bottom+2
+                      })&&name?.textContent?.trim()==='FoamLens'&&
+                        !!about?.textContent?.trim()&&!!updates?.textContent?.trim()
+                    })(),
+                    controlsOutsideScientificCanvas:(()=>{
+                      const viewport=document.querySelector('#fieldViewPanel .fvViewport'),
+                        tools=document.querySelector('#flFieldContextShelf .fvViewTools'),
+                        shelf=document.getElementById('flFieldContextShelf'),
+                        ribbon=document.getElementById('flRibbon');
+                      return !!viewport&&!!tools&&!!shelf&&!!ribbon&&
+                        shelf.contains(tools)&&ribbon.contains(shelf)&&
+                        !viewport.contains(tools)&&
+                        !!document.getElementById('fvProbeMode')&&
+                        !!document.getElementById('fvProbeClear')&&
+                        tools.contains(document.getElementById('fvProbeMode'))&&
+                        tools.contains(document.getElementById('fvProbeClear'))
+                    })(),
                     sidebarBelowRibbon:!!side&&!!before&&side.top>=before.bottom-3,
                     sidebarNotOverHeader:!!side&&!!head&&side.top>=head.bottom-3,
                     chromeMeasured:!!app&&parseFloat(app.style.getPropertyValue('--flRibbonHeight'))>=60,
@@ -748,10 +773,15 @@ internal sealed class FoamLensForm : Form
                       return !!label&&getComputedStyle(label).fontSize==='10px'
                     })
                   };
-                  if(toggle){toggle.click();const after=rect(bar);
+                  if(toggle){toggle.click();const after=rect(bar),product=rect(document.querySelector('.flGlobalIdentity')),
+                    aboutRect=rect(document.getElementById('aboutDeveloperBtn')),
+                    updatesRect=rect(document.getElementById('flGlobalUpdates'));
                     checks.sidebarToggleDoesNotResizeRibbon=!!after&&Math.abs(after.width-before.width)<3;
+                    checks.sidebarCollapsePreservesBrandAndUtilities=!!app?.classList.contains('sidebarCollapsed')&&
+                      !!product&&product.width>80&&!!aboutRect&&aboutRect.width>30&&
+                      !!updatesRect&&updatesRect.width>30&&aboutRect.right<=innerWidth+2&&updatesRect.right<=innerWidth+2;
                     toggle.click()
-                  }else checks.sidebarToggleDoesNotResizeRibbon=false;
+                  }else {checks.sidebarToggleDoesNotResizeRibbon=false;checks.sidebarCollapsePreservesBrandAndUtilities=false;}
 
                   const compareToggle=document.getElementById('fcEnabled');
                   const originalCompare=!!compareToggle?.checked;
@@ -1058,6 +1088,8 @@ internal sealed class FoamLensForm : Form
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_FIELD") ?? "";
                 var preferredTime =
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIME") ?? "";
+                var expectedPhysicalRegions = (Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_EXPECT_REGIONS") ?? "")
+                    .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var minimumFieldSpanText =
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_MIN_FIELD_SPAN") ?? "";
                 var minimumCasesText =
@@ -1072,6 +1104,7 @@ internal sealed class FoamLensForm : Form
                         region = preferredRegion,
                         field = preferredField,
                         time = preferredTime,
+                        expectedRegions = expectedPhysicalRegions,
                         initialCase = initialCaseName,
                         switchCase = switchCaseName
                     }, _json);
@@ -1109,6 +1142,19 @@ internal sealed class FoamLensForm : Form
                     if (!root.TryGetProperty("data", out var data))
                         throw new InvalidOperationException(
                             $"FoamLens real OpenFOAM runtime smoke returned no data: {realCaseJson}");
+                    if (expectedPhysicalRegions.Length > 1)
+                    {
+                        if (!data.TryGetProperty("physicalScene", out var physicalScene) ||
+                            physicalScene.ValueKind != JsonValueKind.Object ||
+                            !physicalScene.TryGetProperty("ok", out var physicalOk) || !physicalOk.GetBoolean() ||
+                            !physicalScene.TryGetProperty("oneCanvas", out var sameCanvas) || !sameCanvas.GetBoolean() ||
+                            !physicalScene.TryGetProperty("glError", out var compositeGlError) || compositeGlError.GetInt32() != 0 ||
+                            !physicalScene.TryGetProperty("secondaryCount", out var compositeCount) ||
+                            compositeCount.GetInt32() != expectedPhysicalRegions.Length - 1)
+                            throw new InvalidOperationException(
+                                $"FoamLens real physical multiregion scene did not render together: {realCaseJson}");
+                        Log($"FoamLens real OpenFOAM physical multiregion WebGL smoke passed: {physicalScene}");
+                    }
                     if (!data.TryGetProperty("ready", out var ready) || !ready.GetBoolean() ||
                         !data.TryGetProperty("cells", out var cells) || cells.GetInt32() <= 0 ||
                         !data.TryGetProperty("values", out var values) || values.GetInt32() <= 0 ||
@@ -1317,6 +1363,19 @@ internal sealed class FoamLensForm : Form
                             spanNode.GetDouble() < minimumFieldSpan)
                             throw new InvalidOperationException(
                                 $"FoamLens real-case smoke field span is below the required {minimumFieldSpanText}: {realCaseJson}");
+                    }
+                }
+
+                if (expectedPhysicalRegions.Length > 1)
+                {
+                    var evidence = Environment.GetEnvironmentVariable("FOAMLENS_BRAND_EVIDENCE_DIR");
+                    if (!string.IsNullOrWhiteSpace(evidence))
+                    {
+                        Directory.CreateDirectory(evidence);
+                        await Task.Delay(150);
+                        var compositePng = Path.Combine(evidence, "field-real-multiregion.png");
+                        await CaptureCdpPngAsync(compositePng);
+                        Log($"FoamLens real two-region Field screenshot: {compositePng}");
                     }
                 }
 
@@ -1893,9 +1952,46 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
   try{
     if(typeof window.FoamLensPerformance?.runBenchmark==='function')performanceBenchmark=await window.FoamLensPerformance.runBenchmark({frames:3,rounds:2,settleMs:100});
   }catch(e){performanceBenchmarkError=String(e?.stack||e)}
+  // True installed-runtime scientific acceptance: assert the SAME imported
+  // OpenFOAM case renders physical solid/mold regions together, not 2 case views.
+  // This check is smoke-only and uses actual native OpenFOAM field/mesh parsers.
+  let physicalScene=null;
+  if(Array.isArray(options.expectedRegions)&&options.expectedRegions.length>1){
+    const c=fvCase(),api=window.FoamLensRegionScene,expected=options.expectedRegions.map(String);
+    if(!api||!c)throw new Error('Physical-region scene API or imported case missing');
+    const discovered=api.regionNames(c),primary=String(document.getElementById('fvRegion')?.value||'');
+    if(expected.some(name=>!discovered.includes(name)))
+      throw new Error('OpenFOAM physical-region inventory mismatch: '+JSON.stringify({expected,discovered}));
+    if(!expected.includes(primary))throw new Error('The loaded primary region is not in the real physical-region fixture: '+primary);
+    for(const region of expected)fvRegionChoice(c,region).visible=true;
+    await api.load(c,fvState.time);
+    fvCameraFitCurrent();fvRender();
+    const scene=api.state(),gl=fvState.renderer?.gl,canvas=document.getElementById('fvCanvas');
+    const secondary=expected.filter(name=>name!==primary).map(name=>{
+      const layer=scene.layers.get(name);
+      return{name,field:layer?.field||'',storage:layer?.storage||'',colored:layer?.colored===true,
+        exactTime:layer?fvTimeEqual(layer.time,fvState.time):false,
+        time:Number(layer?.time),cells:Number(layer?.mesh?.cellCount||0),
+        surfaceVertices:Number(layer?.surfaceCount||0),sameWebGL:!!gl&&layer?.gl===gl,
+        distinctMesh:!!layer?.mesh&&layer.mesh!==fvState.mesh,
+        validRange:!!layer?.range?.valid,status:String(layer?.status||'')}
+    });
+    const primaryCells=Number(fvState.mesh?.cellCount||0);
+    const frameTime=Number(fvState.time);
+    const loaded=secondary.every(s=>s.colored&&s.field==='T'&&s.exactTime&&s.cells>0&&
+      s.surfaceVertices>0&&s.sameWebGL&&s.distinctMesh&&s.validRange);
+    physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,
+      oneCanvas:!!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl),
+      secondaryCount:scene.layers.size,glError:gl?gl.getError():-1,
+      ok:loaded&&secondary.length===expected.length-1&&scene.layers.size===expected.length-1&&
+        primaryCells>0&&!!fvState.fieldValues?.length&&
+        !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
+    if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene))
+  }
   const range=fvFiniteRange(fvState.fieldValues);
   const gl=fvState.renderer?.gl||null,performanceStats=window.FoamLensPerformance?.stats?.()||null;
   return{
+    physicalScene,
     performanceBenchmarkSchema:String(performanceBenchmark?.schema||''),
     performanceBenchmarkFinite:!!performanceBenchmark?.finite,
     performanceBenchmarkFrames:Number(performanceBenchmark?.frames||0),

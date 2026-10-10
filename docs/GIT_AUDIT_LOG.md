@@ -4097,3 +4097,73 @@ The required interpretation is structural integration rather than sticker placem
 - Packaged Windows smoke passed real Data↔Field ownership and Ribbon navigation, then caught Field toolbar overflow at 1024px: scrollWidth=1352 against clientWidth=1024. UI fault, not a testing false positive.
 - Field main Ribbon uses accessible, bounded icon-only actions under 1460px; labels remain in DOM and on hover/accessibility metadata. At <=760px redundant quick-camera icons yield to the Camera subbar. Full controls remain reachable; scientific scene is not resized or obscured by a second toolbar row.
 - CI now uploads visual screenshots and native smoke logs even on failure, without uploading duplicate binaries. Await real Windows 1024px geometry validation; do not merge/release until exact-head full checks succeed.
+
+## 2026-10-08 — Multi-region FieldScene prototype (issue #40, development only)
+
+- **Architecture:** added actual physical-region scene layers to the existing Field WebGL canvas. Every discovered complete physical mesh region is listed and enabled by default, with per-region visibility, field selectors, opacity, Show all / Only primary buttons; primary region retains existing probe/vector/slice controls. Regions are **not** conflated with OpenFOAM processor partitions.
+- **Data integrity:** each secondary region loads its own mesh and field through the existing OpenFOAM association/time parser. Only explicitly matching physical frame times are colored; an unavailable secondary field renders a visibly labeled neutral geometry-only shell if a single reconstructed mesh exists. Unreconstructed processor-only fallback does not fabricate a surface and reports the gap. Surface-face data deliberately use neutral shells pending separate boundary-aware material support rather than falsely coloring by cells.
+- **Rendering:** each region allocates independent position/color/edge WebGL buffers in the SAME canvas and depth buffer; GPU buffers are released on scene changes. Camera fit computes the union of visible physical meshes. Transparency currently follows the existing WebGL alpha/depth behavior and is **not** order-independent transparency; true translucent interface compositing remains a separate validation item.
+- **Unit/integration scope:** checked JS syntax, six pure-model invariants for deduplicated physical regions, exact physical times, missing time, camera union and invalid bounds. Added three Node regression tests exercising scene identity, exact time and union fit. These are **not** native Windows screenshots, scientific OpenFOAM case validation or proof of installed-app usability.
+- **Integration:** this development branch is stacked on PR #39. Do not merge it directly into main until #39 is incorporated and native CI checks this exact multi-region HEAD. No Store build or release requested.
+- **Remaining:** build/launch/functional and actual multiregion OpenFOAM fixture tests; robust internal face coloring for surface associations; occlusion/transparency and probe selection across all regions; export/video exact-frame and per-region controls; large case memory/performance and cancellation. No assertion that all issue #40 acceptance criteria are satisfied.
+
+- **Subsequent hardening:** limit asynchronous region parsers to two at a time, publish independent region layers progressively, and cancel stale uploads by case/frame generation checks. GPU allocation now fails explicitly; user-visible per-region readouts survive UI/language refresh.
+- **Within-region processor fallback:** a missing field at a physical frame may show neutral geometry composed from processor partitions belonging to **that same physical region only**; duplicate reconstructed meshes, absent partition snapshots and invalid topology are reported rather than guessed.
+- **Additional executed checks:** mock WebGL rendered two separate region layers in one GL context (four draw calls) and released all eight GPU buffers; a partition-only geometry mock reconstructed exactly the two `solid` processors without including a `fluid` processor. Source syntax rechecked after each change. These are model/mock checks, not native/physical-fixture acceptance.
+- The stacked PR remains draft until exact-head Windows install/launch/Field smoke and realistic multi-region OpenFOAM tests pass. No release triggered.
+
+- **Animation integrity hardening:** video exporter now waits for all physical-region layers of each frame; an unavailable visible region aborts export instead of silently delivering an incomplete image. Frame preload scans and fixes **independent per-region, per-field, per-component and per-dimension** color ranges across time, restoring interactive per-frame ranges afterward; failure cleanup resets scan state.
+- **Verification:** six new, isolated multiregion regression tests were actually executed through a JS source/test harness and passed; frontend, animation module and test syntax compiled successfully. Additional mock WebGL and processor-region isolation checks passed. Full Node suite, real OpenFOAM data, packaged WebView2 visual pixel checks, installed Windows smoke, memory/occlusion and real video playback remain unverified; do not promote this PR from draft or claim the feature finished from these tests alone.
+
+
+## 2026-10-08 — Owner's full unresolved UI/UX bug batch reopened and audited
+
+- **Tracking:** issue #30 now lists ten acceptance conditions D01/D02/F01/F02/F03/R01/S01/A01/U01/Q01 for Data 2D/time profiles/probes/logs, physical 3D regions, second comparison view, toolbar/chrome, logo, About, social links and visual consistency.
+- **Owner's screenshots override stale closure notes:** implementation or isolated JS tests do not prove a visible regression is fixed. PR #39 is unmerged; PR #41 is a draft stacked on #39.
+- **Actual CI root causes:** the integration Windows job failed ribbon-ui.test.cjs due to outdated legacy Data click expectations; the Field branch failed isosurface.test.cjs due to a stale condition that ignored region visibility; section-ownership.test.cjs subsequently failed by matching whitespace/formatting instead of the real Data difference navigation behavior.
+- **Corrections:** both PR branches now use the canonical Data action ID flRaDataTimeSeries in native ownership smoke and robust section ownership assertions; Ribbon checks the new canonical Data view navigation; the iso suite honors primary region visibility. All three complete regression suites were executed against fetched GitHub source with JS module mocks and passed (Ribbon, six iso checks, eight ownership checks).
+- **Native acceptance expanded:** WebView2 smoke now checks persistent FoamLens product mark/name, About and Updates inside the full-width global header even after sidebar collapse; Probe/Clear must be docked in tools outside scientific viewport. Canonical branding unchanged.
+- **Limits:** exact-head Windows Actions are still processing; no packaged native screenshot/real scientific fixture/large dataset usability may be claimed on the basis of JS checks. Microsoft Store remains paused; no release; Michel's human review is post-release, not a manual pre-release gate.
+
+
+## 2026-10-08 — Multiregion visibility and frame resource ownership
+
+- Corrected visible-only camera fit (hidden primary no longer expands bounds); targeted regression passed.
+- All visible-region controls now go through one owned visibility manager. Hiding a physical region frees its own GPU buffers and invalidates pending loads. Showing it again requests its actual missing frame. Hidden secondary regions are not parsed or allocated at each timestep.
+- Starting a new physical frame releases old secondary layers before the new primary field arrives, preventing silent cross-time composites during asynchronous updates.
+- Added regression with mock GL allocations/deletions, checked union bounds of visible meshes only. Real packaged WebView2/QuickCup acceptance remains pending; no release.
+
+
+## 2026-10-08 — Secondary physical-region face field mapping
+- Region compositor now triangulates actual OpenFOAM internal faces when association=surface and exact face counts match. Colors use the actual indexed `internalField` face values and region-specific video range; never color unknown boundary patches as if they were measured.
+- Neutral shell rendered translucently around colored internal faces; GPU face buffers freed on region hide, case change, timestep change or error. Invalid counts fall back to explicit neutral geometry, not synthetic data.
+- Added dynamic V8 regression for 2-face fixture, real face index mapping, draw opacity, 6 GPU buffer allocations/releases. Runtime packaged Windows and a physical multiRegion fixture still required before release.
+
+## 2026-10-08 — Sync to validated main and unified scientific opacity
+- PR #39 merged into main after exact-head QuickCup and packaged/installed Windows CI passed. PR #41 preserved independent physical-region WebGL scene, exact-time/association field mapping, independent native smoke checks and all additional scientific regressions.
+- Opaque surfaces still write depth; translucent outer shells and fields with interior/face rendering no longer block depth for other regions in the same scene. This is standard alpha blending, NOT order-independent transparency; a future rendered multiregion fixture must still validate occlusion and exact frame consistency.
+- The integration commit has both branch head and main as parents; no release or Store publication.
+
+
+## 2026-10-09 — Real packaged scientific multiregion acceptance
+- Verified the private B13 QuickCup OpenFOAM fixture has BOTH `constant/metal/polyMesh` and `constant/mold/polyMesh` with complete points/faces/owner/neighbour, plus genuine `9.8/mold/T`; not synthetic meshes, not duplicated case identities.
+- Windows portable and installed smoke now require `metal;mold` physical regions in the SAME case and single WebGL context. The smoke-only helper awaits all secondary real fields at the primary physical time, checks the T field, exact time, finite range, mesh ownership, positive cell/triangle counts, distinct meshes and shared GL context, failing closed if an imported region is missing or drawn as geometry-only. Actual composited pixels are saved as `visual/{portable,installed}/field-real-multiregion.png` for visual review.
+- Added permanent regression to ensure this runtime fixture requirement cannot silently be removed. Full exact-head Windows CI pending; PR #41 remains draft; no release.
+
+
+## 2026-10-09 — Unsplitted parent mesh is not an extra physical region
+- Verified the real private B13 QuickCup case contains `constant/polyMesh` of its unsplit source and `constant/metal/polyMesh`, `constant/mold/polyMesh`. Only metal/mold have `0/` and `9.8/` physical fields; the unsplit parent is NOT a third simultaneous physical region.
+- Region inventory now omits that root mesh only if named real regions exist AND root has no independent field-bearing time-series. It preserves genuinely field-bearing default regions. Added dynamic discovery test for both scenarios.
+- Native installed-runtime multiregion acceptance checks both WebGL2 and WebGL context types, rather than rejecting an otherwise valid WebGL2 renderer. Re-run exact-head Windows fixture smoke; no release.
+
+
+## 2026-10-09 — Visible outer mold and native test contract
+- Fixed a stale regression assertion: Windows unit test expected a different native multiregion success-log string from the actual C# emission. The smoke itself had NOT run at that failed revision; no false scientific PASS claimed.
+- Physical secondary layers now start visible but translucent (opacity 0.48) so a surrounding mold does not by default occlude the selected primary metal region. Primary opacity remains 1 and every user-edited region opacity remains independent. A dynamic V8 regression verifies both initially visible and correct alpha selection.
+- Re-run installed portable + installer smoke requiring real B13 metal/mold fields, shared GL and captured composition. CI pending, PR #41 draft and unreleased.
+
+## 2026-10-09 — Explicit Windows CI coverage for multiregion contract
+- Added the new `desktop/tests/multiregion-release-contract.test.cjs` as an explicit `build` job step in `.github/workflows/build-foamlens-desktop.yml` (commit `2b00756`). Previously the test was committed but not executed by the workflow.
+- Static readback confirmed the step exists immediately before the existing 3D Field View suite. Actual exact-head Windows run has **not** been observed or validated in this session.
+- Connector `fetch_commit_workflow_runs` reports only pull-request-triggered runs; this workflow uses push and manual dispatch. An empty connector result must **not** be treated as proof that no push CI ran. Check Actions UI/API with unrestricted workflow run listing before claiming a CI block or PASS.
+- `main` received separate shared-agent policy PR #42 after this branch's base; reconcile before merge. No merge or release performed.

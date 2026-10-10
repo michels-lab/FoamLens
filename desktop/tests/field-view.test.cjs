@@ -774,6 +774,289 @@ test('Field selector remount prefers the loaded renderer field and component',()
     'Component selector remount can fall back to a stale DOM component instead of renderer state.');
 });
 
+
+const regionBegin=source.indexOf('const fvRegionScene='),regionEnd=source.indexOf('function fvEsc(s)',regionBegin);
+assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.');
+const regionCode=source.slice(regionBegin,regionEnd);
+const regionApi=new Function(
+  'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
+  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
+)();
+
+test('one 3D canvas recognizes distinct physical regions without treating processor partitions as regions',()=>{
+  const sourceCase={meshInventory:[
+    {region:'solid',complete:true},
+    {region:'fluid',complete:true},
+    {region:'solid',complete:true,partition:'processor0'},
+    {region:'unfinished',complete:false}
+  ]};
+  assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
+  assert(regionCode.includes('fvRegionBuildLayer('));
+  assert(regionCode.includes('fvRegionRenderLayers()'));
+  assert(source.includes('fvRegionRenderLayers();fvUpdateAxisGizmo()'));
+  assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
+  assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
+  for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
+    assert(source.includes(token),'Missing physical region control: '+token);
+});
+
+test('default secondary physical-region opacity exposes an encasing mold while retaining primary visibility',()=>{
+  const scene=new Function([
+    'const window={};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:id==="fvField"?{value:"T"}:null};',
+    'const fvFieldGroups=(c,region)=>[{name:"T",kind:"scalar",storage:"volume"}];',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-9;',
+    regionCode,
+    'const c={id:1};',
+    'return {primary:fvRegionChoice(c,"metal"),secondary:fvRegionChoice(c,"mold")};'
+  ].join('\n'))();
+  assert.equal(scene.primary.visible,true);
+  assert.equal(scene.secondary.visible,true);
+  assert.equal(scene.primary.opacity,1);
+  assert(scene.secondary.opacity>0&&scene.secondary.opacity<.65,
+    'The enclosing mold must not default to an opaque wall hiding the metal');
+  assert.equal(scene.primary.field,'T');
+  assert.equal(scene.secondary.field,'T');
+});
+
+test('split multi-region inventories ignore archived unsplit root polyMesh without its own fields',()=>{
+  const fixture={meshInventory:[
+    {region:'',complete:true},{region:'metal',complete:true},{region:'mold',complete:true}
+  ],discoveryModel:{fields:[
+    {region:'metal',name:'T',storage:'volume',times:[0,9.8]},
+    {region:'mold',name:'T',storage:'volume',times:[0,9.8]}
+  ]}};
+  assert.deepStrictEqual(regionApi.fvRegionNames(fixture),['metal','mold'],
+    'Unsplit root mesh is not a third physical region when it has no physical field');
+  fixture.discoveryModel.fields.push({region:'',name:'T',storage:'volume',times:[0,9.8]});
+  assert.deepStrictEqual(regionApi.fvRegionNames(fixture),['','metal','mold'],
+    'A genuinely field-bearing default region remains a selectable physical layer');
+  assert(program.includes("canvas.getContext('webgl2')===gl"),
+    'Native physical-region smoke must recognize the actual WebGL2 renderer');
+});
+
+test('secondary region field data uses exact physical time; other times show explicit neutral geometry',()=>{
+  assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.1+1e-12),.1);
+  assert.equal(regionApi.fvRegionExactTime([0,.1,.2],.15),undefined,'Never silently take closest field time');
+  assert.equal(regionApi.fvRegionExactTime([],0),undefined);
+  for(const token of [
+    'fvLoadFrameData(c,selected,region,exact',
+    'fvRegionGeometryAtTime(c,region,time)',
+    'Geometry only; field unavailable at t = ',
+    "data?.storage==='surface'",
+    "if(choice.visible)failedVisible.push(region+"
+  ])assert(regionCode.includes(token),'Missing scientific provenance/safety: '+token);
+});
+
+test('camera includes geometry bounds of all visible physically independent regions',()=>{
+  const a={boundsMin:[0,0,0],boundsMax:[1,1,1]};
+  const b={boundsMin:[2,-1,0],boundsMax:[4,1,3]};
+  const bounds=regionApi.fvRegionUnionBounds([a,b]);
+  assert.deepStrictEqual(bounds.min,[0,-1,0]);
+  assert.deepStrictEqual(bounds.max,[4,1,3]);
+  assert.deepStrictEqual(bounds.center,[2,0,1.5]);
+  assert(Math.abs(bounds.diagonal-Math.sqrt(29))<1e-12);
+  assert.equal(regionApi.fvRegionUnionBounds([{boundsMin:[5,5,5],boundsMax:[1,1,1]}]),null);
+  assert(regionCode.includes('fvRegionReleaseLayer(layer)'),'Previous GPU buffers must be explicitly freed');
+  assert(regionCode.includes('i+=2')&&regionCode.includes('Promise.all(regions.slice(i,i+2).map(loadOne))'),'Concurrent OpenFOAM multi-region parsing must stay bounded');
+  assert(regionCode.includes('if(!current())return; // A newer case/frame owns the WebGL canvas.'),'Stale frame must not upload buffers to new case');
+});
+
+
+
+test('camera fit excludes hidden primary and secondary regions without inventing bounds',()=>{
+  const setup=[
+    'const window={};',
+    'const c={id:1};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"solid"}:null};',
+    'const fvCase=()=>c;',
+    'const fvState={mesh:{boundsMin:[-500,-500,-500],boundsMax:[500,500,500]},camera:{target:null,distance:0}};',
+    'const fvRender=()=>{};',
+    'const fvTimeEqual=(a,b)=>a===b;'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.caseId="1";',
+    'fvRegionScene.choices.set("solid",{visible:false});',
+    'fvRegionScene.choices.set("fluid",{visible:true});',
+    'fvRegionScene.layers.set("fluid",{mesh:{boundsMin:[2,0,0],boundsMax:[4,2,2]}});',
+    'const fit=fvRegionFitCamera(),target=fvState.camera.target.slice(),distance=fvState.camera.distance;',
+    'fvRegionScene.choices.get("fluid").visible=false;',
+    'const none=fvRegionFitCamera();',
+    'return {fit,target,distance,none};'
+  ].join('\n');
+  const observed=new Function(setup+regionCode+exercise)();
+  assert.equal(observed.fit,true,'A visible non-primary region must define the camera');
+  assert.deepStrictEqual(observed.target,[3,1,1],'Hidden primary geometry must not affect framing');
+  assert(Math.abs(observed.distance-Math.sqrt(12)*1.65)<1e-12);
+  assert.equal(observed.none,false,'Nothing visible means there is no camera bound to fit');
+  assert(source.includes("if(c&&!fvRegionChoice(c,primary).visible)return;"),
+    'Single-region fallback must not refit a hidden primary mesh');
+  assert(regionCode.includes("if(!fvRegionFitCamera())fvRender()"),
+    'Visibility changes must refit newly displayed physical regions');
+});
+
+
+test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
+  const writable=regionApi.fvSurfaceDepthWritable;
+  assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
+  assert.equal(writable(.92),false,'A translucent primary shell must not hide underlying physical regions');
+  assert.equal(writable(.8,{faceField:false}),false,'Translucent secondary regions must not occlude neighboring regions');
+  assert.equal(writable(1,{faceField:true}),false,'Neutral shell surrounding real internal faces must not hide the face field');
+  assert.equal(writable(1,{interior:true}),false,'Interior slice/iso views must not be masked by the outer shell');
+  assert(source.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}))'));
+  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}))'));
+});
+
+test('physical regions allocate and draw distinct meshes in one shared WebGL depth context',()=>{
+  const setup=[
+    'const calls=[];',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,TRIANGLES:4,LINES:1,LEQUAL:515,',
+    'createBuffer(){const b={id:calls.filter(x=>x[0]==="make").length+1};calls.push(["make",b.id]);return b},',
+    'bindBuffer(){},bufferData(){},deleteBuffer(b){calls.push(["delete",b.id])},depthFunc(){},depthMask(){}};',
+    'const fvState={renderer:{gl},mesh:null,camera:{}};const window={};',
+    'const document={getElementById(id){if(id==="fvSurface"||id==="fvEdges")return {checked:true};if(id==="fvPalette")return {value:"viridis"};return null}};',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-8;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(9),edgePositions:new Float32Array(6)});',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(9);const fvPointSurfaceColors=()=>new Float32Array(9);',
+    'const fvBindDraw=(r,p,col,count,mode,opacity)=>calls.push(["draw",count,mode,opacity,r.gl===gl]);'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.choices.set("solid",{visible:true,opacity:1});',
+    'fvRegionScene.choices.set("fluid",{visible:true,opacity:.8});',
+    'const mesh={cellCount:1,pointCount:3};',
+    'const solid=fvRegionBuildLayer("solid",mesh,{storage:"volume",fieldValues:[2],range:{valid:true,min:0,max:3},group:{name:"T"}},{visible:true,opacity:1},1);',
+    'const fluid=fvRegionBuildLayer("fluid",mesh,{storage:"point",fieldValues:[1,2,3],range:{valid:true,min:1,max:3},group:{name:"U"}},{visible:true,opacity:.8},1);',
+    'fvRegionScene.layers.set("solid",solid);fvRegionScene.layers.set("fluid",fluid);fvRegionRenderLayers();',
+    'fvRegionReleaseLayer(solid);fvRegionReleaseLayer(fluid);',
+    'return calls;'
+  ].join('\n');
+  const calls=new Function(setup+regionCode+exercise)();
+  const draws=calls.filter(x=>x[0]==='draw');
+  assert.equal(draws.length,4);
+  assert(draws.every(x=>x[4]),'Physical layers must use the same GL context');
+  assert.equal(calls.filter(x=>x[0]==='make').length,8);
+  assert.equal(calls.filter(x=>x[0]==='delete').length,8,'Every GPU buffer must be released');
+});
+
+
+test('hidden physical regions release GPU layers and are never eagerly loaded',()=>{
+  assert(regionCode.includes('function fvRegionApplyVisibility(c)'),'Visibility must be owned by one region manager');
+  assert(regionCode.includes('++fvRegionScene.sequence;'),'Visibility changes must invalidate stale field reads');
+  assert(regionCode.includes('fvRegionReleaseLayer(layer);'),'Invisible region buffers must be freed');
+  assert(regionCode.includes('region!==primary&&fvRegionChoice(c,region).visible'),'Never parse fields for hidden secondary regions');
+  assert(regionCode.includes('!fvRegionScene.layers.has(region)'),'Re-enabling a hidden region must request its missing layer');
+  assert(source.includes('fvRegionClearLayers();fvSetStatus('),'Old physical-time layers must be released BEFORE the next primary frame loads');
+  const setup=[
+    'const window={};',
+    'const calls=[];const gl={deleteBuffer:b=>calls.push(b)};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"solid"}:null};',
+    'const c={id:1,meshInventory:[{region:"solid",complete:true},{region:"fluid",complete:true}]};',
+    'const fvCase=()=>c;const fvTimeEqual=(a,b)=>a===b;',
+    'const fvState={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},renderer:{gl},time:0,camera:{target:[],distance:1}};',
+    'const fvRender=()=>{};'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.caseId="1";',
+    'fvRegionScene.choices.set("solid",{visible:true});',
+    'fvRegionScene.choices.set("fluid",{visible:false});',
+    'fvRegionScene.layers.set("fluid",{gl,surfacePos:1,surfaceColor:2,edgePos:3,edgeColor:4,mesh:{boundsMin:[-9,0,0],boundsMax:[-8,1,1]}});',
+    'fvRegionApplyVisibility(c);',
+    'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
+  ].join('\n');
+  const observed=new Function(setup+regionCode+exercise)();
+  assert.equal(observed.remaining,0,'Hidden secondary geometry must not remain in memory');
+  assert.deepStrictEqual(observed.deletions,[1,2,3,4],'Every hidden layer GL buffer must be released');
+  assert.deepStrictEqual(observed.camera,[.5,.5,.5],'Hidden physical geometry must not affect camera fitting');
+});
+
+
+test('secondary surface fields color actual internal mesh faces and keep unknown boundaries neutral',()=>{
+  assert(regionCode.includes("fvBuildInternalFaceBuffers(mesh)"),'Face data requires real mesh face geometry');
+  assert(regionCode.includes("fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette)"),
+    'Face colors must map their exact internalFace indices, never cell or boundary indices');
+  assert(source.includes("Real internal-face colors; boundary patches neutral"),'Scientific surface-field provenance must be visible');
+  const setup=[
+    'const calls=[];const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,TRIANGLES:4,LINES:1,LEQUAL:515,',
+    'createBuffer(){const b={id:calls.filter(x=>x[0]==="make").length+1};calls.push(["make",b.id]);return b},',
+    'bindBuffer(){},bufferData(){},deleteBuffer(b){calls.push(["delete",b.id])},depthFunc(){},depthMask(){}};',
+    'const fvState={renderer:{gl},mesh:null,camera:{}};const window={};',
+    'const document={getElementById(id){if(id==="fvSurface"||id==="fvEdges")return {checked:true};if(id==="fvPalette")return {value:"viridis"};return null}};',
+    'const fvTimeEqual=(a,b)=>Math.abs(Number(a)-Number(b))<1e-8;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(9),edgePositions:new Float32Array(6)});',
+    'const fvBuildInternalFaceBuffers=()=>({positions:new Float32Array(9),triangleFaces:[1]});',
+    'const fvInternalFaceColors=(faces,vals,min,max)=>{calls.push(["faceValues",faces.map(i=>vals[i]),min,max]);return new Float32Array(9)};',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(9);const fvPointSurfaceColors=()=>new Float32Array(9);',
+    'const fvBindDraw=(r,p,col,count,mode,opacity)=>calls.push(["draw",count,mode,opacity]);'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.choices.set("fluid",{visible:true,opacity:.8});',
+    'const mesh={cellCount:1,pointCount:3,internalFaceCount:2};',
+    'const layer=fvRegionBuildLayer("fluid",mesh,{storage:"surface",fieldValues:[101,303],range:{valid:true,min:100,max:400},group:{name:"phi"}},{component:"value"},1);',
+    'fvRegionScene.layers.set("fluid",layer);fvRegionRenderLayers();',
+    'const colored=layer.colored,faceCount=layer.faceFieldCount;',
+    'fvRegionReleaseLayer(layer);return {calls,colored,faceCount};'
+  ].join('\n');
+  const {calls,colored,faceCount}=new Function(setup+regionCode+exercise)();
+  assert.equal(colored,true);
+  assert.equal(faceCount,3);
+  assert.deepStrictEqual(calls.find(x=>x[0]==='faceValues'),['faceValues',[303],100,400]);
+  assert.equal(calls.filter(x=>x[0]==='make').length,6);
+  assert.equal(calls.filter(x=>x[0]==='delete').length,6,'All internal-face GPU buffers must be released');
+  const draws=calls.filter(x=>x[0]==='draw');
+  assert.equal(draws.length,3,'Neutral shell, real colored face and edges share one GL viewport');
+  assert(draws[0][3]<=.14,'Unknown boundaries must remain neutral/translucent');
+  assert.equal(draws[1][3],.8,'Real internal-face colors use requested region opacity');
+});
+
+
+test('native packaged Windows smoke validates real metal and mold physical meshes in ONE WebGL scene',()=>{
+  assert(program.includes('FOAMLENS_SMOKE_EXPECT_REGIONS'),'Real OpenFOAM multiregion requirement must be forwarded to native smoke');
+  assert(program.includes('await api.load(c,fvState.time)'),'Packaged smoke must await actual secondary OpenFOAM mesh/field loading');
+  assert(program.includes("scene.layers.get(name)"),'Packaged smoke must inspect each real secondary region');
+  assert(program.includes("s.field==='T'&&s.exactTime&&s.cells>0"),'Do not accept geometry-only or mismatched physical-time rendering');
+  assert(program.includes('layer?.gl===gl'),'All real regions must share the primary WebGL renderer');
+  assert(program.includes('field-real-multiregion.png'),'Save real composite pixels for visual audit');
+  assert(program.includes('FoamLens real OpenFOAM physical multiregion WebGL smoke passed'),'Installed smoke must report validated composite scene');
+});
+
+test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
+  assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
+  assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),
+    'Video must not capture a frame before secondary physical-region layers complete');
+  assert(source.includes('failedVisible.push(region+'),
+    'Missing visible physical regions must be recorded as export failures');
+  assert(source.includes('Cannot export an incomplete multiregion frame:'),
+    'Video must fail closed instead of silently exporting only the primary region');
+});
+
+
+test('video color scale remains fixed per physical region, field, component, units and across timesteps',()=>{
+  const solid={group:{name:'T'},storage:'volume',parsed:{dimensions:[0,0,0,1,0,0,0]},range:{valid:true,min:300,max:500}};
+  const later={...solid,range:{valid:true,min:250,max:630}};
+  const fluid={...solid,group:{name:'U'},parsed:{dimensions:[0,1,-1,0,0,0,0]},range:{valid:true,min:0,max:12}};
+  regionApi.fvRegionBeginVideoRangeScan();
+  regionApi.fvRegionObserveRange('solid',{component:'value'},solid);
+  regionApi.fvRegionObserveRange('solid',{component:'value'},later);
+  regionApi.fvRegionObserveRange('fluid',{component:'value'},fluid);
+  const ranges=regionApi.fvRegionEndVideoRangeScan(),key=regionApi.fvRegionRangeKey('solid',{component:'value'},solid);
+  assert.equal(Object.keys(ranges).length,2);
+  assert.deepStrictEqual(ranges[key],{valid:true,min:250,max:630});
+  regionApi.fvRegionSetVideoRanges(ranges);
+  assert.equal(regionApi.fvRegionScene.videoRanges[key].max,630);
+  regionApi.fvRegionSetVideoRanges(null);
+  assert.equal(regionApi.fvRegionScene.videoRanges,null);
+  assert(animationSource.includes('ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()'),
+    'Secondary physical-region video ranges must be captured across preload frames');
+  assert(animationSource.includes('setVideoRanges?.(ranges?.regions||null)'),
+    'Final fixed physical-region range must be applied before recording');
+  assert(source.includes('paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range'),
+    'Each region must color using its own fixed video range');
+});
+
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 

@@ -9,6 +9,15 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'desktop/**'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/generate_windows_icon.py'
+      - 'tools/visual_release_gate.py'
+      - '.github/workflows/build-foamlens-desktop.yml'
   workflow_dispatch:
     inputs:
       publish:
@@ -442,6 +451,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/native-field-streaming.test.cjs
 
+      - name: Guard real multiregion release contract
+        shell: pwsh
+        run: node desktop/tests/multiregion-release-contract.test.cjs
+
       - name: Test 3D OpenFOAM Field View
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
@@ -594,6 +607,7 @@ jobs:
             $env:FOAMLENS_SMOKE_INITIAL_CASE='SmokeCase_A'
             $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
+            $env:FOAMLENS_SMOKE_EXPECT_REGIONS='metal;mold'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
@@ -715,6 +729,7 @@ jobs:
             $env:FOAMLENS_SMOKE_INITIAL_CASE='SmokeCase_A'
             $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
+            $env:FOAMLENS_SMOKE_EXPECT_REGIONS='metal;mold'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'

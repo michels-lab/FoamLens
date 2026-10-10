@@ -29,7 +29,7 @@ function vaAccumulateRanges(target,descriptors){
   return target
 }
 function vaApplyRanges(ranges){
-  vaState.ranges=ranges||null;try{window.FoamLensFieldView?.setVideoRangeOverride?.(ranges?.primary||null)}catch{}try{window.FoamLensFieldCompare?.setVideoRanges?.(ranges||null)}catch{}
+  vaState.ranges=ranges||null;try{window.FoamLensFieldView?.setVideoRangeOverride?.(ranges?.primary||null)}catch{}try{window.FoamLensFieldCompare?.setVideoRanges?.(ranges||null)}catch{}try{window.FoamLensRegionScene?.setVideoRanges?.(ranges?.regions||null)}catch{}
 }
 function vaPaletteCssStops(){
   try{const name=document.getElementById('fvPalette')?.value||'viridis';return fvPaletteStops(name)}catch{return[[0,[.267,.005,.329]],[1,[.993,.906,.144]]]}
@@ -55,9 +55,11 @@ function vaMime(format){
 function vaDelay(ms){return new Promise(r=>setTimeout(r,ms))}
 async function vaPreload(start,end,step){
   const ranges={};let count=0,total=Math.floor((end-start)/step)+1;
-  vaApplyRanges(null);
-  for(let i=start;i<=end;i+=step){await fvLoadFrame(i);vaAccumulateRanges(ranges,vaDescriptorList());count++;vaSetStatus(vaUi('Preparing frames','Preparando frames')+' · '+count+'/'+total+' · '+vaUi('global ranges','rangos globales'));await vaDelay(0)}
-  return ranges
+  vaApplyRanges(null);window.FoamLensRegionScene?.beginVideoRangeScan?.();let finished=false;
+  try{
+    for(let i=start;i<=end;i+=step){await fvLoadFrame(i);vaAccumulateRanges(ranges,vaDescriptorList());count++;vaSetStatus(vaUi('Preparing frames','Preparando frames')+' · '+count+'/'+total+' · '+vaUi('global ranges','rangos globales'));await vaDelay(0)}
+    ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()||{};finished=true;return ranges
+  }finally{if(!finished)window.FoamLensRegionScene?.endVideoRangeScan?.()}
 }
 async function vaExport(){
   if(vaState.exporting)return;const times=vaTimes();if(!times.length){vaSetStatus(vaUi('No Field View timeline is available.','No hay una línea temporal disponible en Vista 3D.'),true);return}
@@ -82,4 +84,4 @@ function vaInstallUi(){
 }
 function vaInstall(){if(vaInstallUi())return;const retry=()=>{if(vaInstallUi())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
 vaInstall();
-window.FoamLensAnimationExport={exportVideo:vaExport,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList};
+window.FoamLensAnimationExport={exportVideo:vaExport,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList,isExporting:()=>vaState.exporting};
