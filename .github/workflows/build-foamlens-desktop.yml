@@ -442,6 +442,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/native-field-streaming.test.cjs
 
+      - name: Guard real multiregion release contract
+        shell: pwsh
+        run: node desktop/tests/multiregion-release-contract.test.cjs
+
       - name: Test 3D OpenFOAM Field View
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
