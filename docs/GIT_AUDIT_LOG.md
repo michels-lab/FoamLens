@@ -4161,3 +4161,9 @@ The required interpretation is structural integration rather than sticker placem
 - Fixed a stale regression assertion: Windows unit test expected a different native multiregion success-log string from the actual C# emission. The smoke itself had NOT run at that failed revision; no false scientific PASS claimed.
 - Physical secondary layers now start visible but translucent (opacity 0.48) so a surrounding mold does not by default occlude the selected primary metal region. Primary opacity remains 1 and every user-edited region opacity remains independent. A dynamic V8 regression verifies both initially visible and correct alpha selection.
 - Re-run installed portable + installer smoke requiring real B13 metal/mold fields, shared GL and captured composition. CI pending, PR #41 draft and unreleased.
+
+## 2026-10-09 — Explicit Windows CI coverage for multiregion contract
+- Added the new `desktop/tests/multiregion-release-contract.test.cjs` as an explicit `build` job step in `.github/workflows/build-foamlens-desktop.yml` (commit `2b00756`). Previously the test was committed but not executed by the workflow.
+- Static readback confirmed the step exists immediately before the existing 3D Field View suite. Actual exact-head Windows run has **not** been observed or validated in this session.
+- Connector `fetch_commit_workflow_runs` reports only pull-request-triggered runs; this workflow uses push and manual dispatch. An empty connector result must **not** be treated as proof that no push CI ran. Check Actions UI/API with unrestricted workflow run listing before claiming a CI block or PASS.
+- `main` received separate shared-agent policy PR #42 after this branch's base; reconcile before merge. No merge or release performed.
