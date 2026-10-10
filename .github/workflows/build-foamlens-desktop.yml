@@ -9,6 +9,15 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'desktop/**'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/generate_windows_icon.py'
+      - 'tools/visual_release_gate.py'
+      - '.github/workflows/build-foamlens-desktop.yml'
   workflow_dispatch:
     inputs:
       publish:
