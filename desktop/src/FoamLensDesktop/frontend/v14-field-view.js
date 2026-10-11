@@ -600,6 +600,7 @@ function fvRegionRefreshList(){
   const root=document.getElementById('fvMultiRegionRows'),panel=document.getElementById('fvMultiRegionPanel'),c=fvCase();
   if(!root||!panel)return;
   fvRegionEnsureCase(c);const names=fvRegionNames(c),primary=document.getElementById('fvRegion')?.value||'';
+  window.FoamLensFieldProbe?.refreshRegions?.();
   panel.hidden=names.length<2;
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
@@ -679,7 +680,10 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
     ?fvBuildInternalFaceBuffers(mesh):null;
   const faceCount=face?.positions?.length/3||0;
   const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);
-  const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,paintRange,parsed:data?.parsed||null,time,
+  // Keep the exact region's CPU field association for scientific probing.
+  // This references the same parsed array: no fabricated values, no second
+  // copy of a potentially huge OpenFOAM field.
+  const layer={gl,region,mesh,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
     status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
