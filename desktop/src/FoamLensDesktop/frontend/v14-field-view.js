@@ -707,7 +707,7 @@ function fvRegionRenderLayers(){
   const r=fvState.renderer;if(!r)return;const gl=r.gl;
   // Transparent regions share a real depth buffer. Draw secondary shells
   // far-to-near so insertion/discovery order cannot decide their appearance.
-  const camera=fvState.camera,eye=camera?[
+  const camera=fvState.camera,eye=camera?.target?.length===3&&Number.isFinite(camera.distance)&&Number.isFinite(camera.pitch)&&Number.isFinite(camera.yaw)?[
     camera.target[0]+camera.distance*Math.cos(camera.pitch)*Math.sin(camera.yaw),
     camera.target[1]+camera.distance*Math.sin(camera.pitch),
     camera.target[2]+camera.distance*Math.cos(camera.pitch)*Math.cos(camera.yaw)
