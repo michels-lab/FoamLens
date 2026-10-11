@@ -1032,6 +1032,53 @@ test('region rendering never fabricates physical t=0 from missing OpenFOAM time 
     'A genuine field-bearing root region with explicit t=0 must still be kept');
 });
 
+test('real multi-region frame loader rejects missing clock metadata before releasing valid WebGL layers',()=>{
+  const a=source.indexOf('async function fvRegionLoadFrame(c,time){');
+  const b=source.indexOf('window.FoamLensRegionScene=',a);
+  assert(a>=0&&b>a,'Actual physical-region async loader must be extracted');
+  const physicalTimeStart=source.indexOf('function fvRegionPhysicalTime(raw){');
+  const physicalTimeEnd=source.indexOf('function fvRegionExactTime(',physicalTimeStart);
+  assert(physicalTimeStart>=0&&physicalTimeEnd>physicalTimeStart);
+  const harness=new Function([
+    'const events=[];',
+    'const fvState={renderer:{gl:{}},time:9.8};',
+    'const fvRegionScene={caseId:"fixture",layers:new Map(),choices:new Map(),sequence:0,fitPending:false};',
+    'const c={id:"fixture"};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:null};',
+    'const fvRegionEnsureCase=()=>events.push("ensure-case");',
+    'const fvRegionReleaseLayer=layer=>events.push("release:"+layer.label);',
+    'const fvRender=()=>events.push("draw");',
+    'const fvRegionNames=()=>["metal"];',
+    'const fvRegionChoice=()=>({visible:true});',
+    'const fvRegionFitCamera=()=>true;',
+    'const window={};',
+    source.slice(physicalTimeStart,physicalTimeEnd),
+    source.slice(a,b),
+    'return {events,scene:fvRegionScene,run:(value)=>{',
+    '  fvRegionScene.layers.set("mold",{label:"valid-9.8"});',
+    '  const before=fvRegionScene.sequence, at=events.length;',
+    '  const promise=fvRegionLoadFrame(c,value);',
+    '  promise.catch(err=>{throw err});',
+    '  return {sequenceChanged:fvRegionScene.sequence!==before,layerSurvived:fvRegionScene.layers.has("mold"),',
+    '    operations:events.slice(at)};',
+    '}};'
+  ].join('\n'))();
+  for(const invalid of [null,undefined,'', '  ', false, true, NaN, Infinity, 'not-a-physical-time']){
+    const result=harness.run(invalid);
+    assert.equal(result.sequenceChanged,false,'Invalid '+String(invalid)+' may not invalidate current frame');
+    assert.equal(result.layerSurvived,true,'Invalid '+String(invalid)+' must not evict valid OpenFOAM GPU layer');
+    assert.deepStrictEqual(result.operations,[],'Invalid frame may not trigger rendering or mesh loading');
+  }
+  for(const valid of [0,'0',9.8,'9.8']){
+    const result=harness.run(valid);
+    assert.equal(result.sequenceChanged,true,'Genuine physical time '+valid+' must remain loadable');
+    assert.equal(result.layerSurvived,false,'A real frame refresh must replace old layer data');
+    assert(result.operations.includes('release:valid-9.8'),'Valid frame must clean prior GPU data');
+  }
+  assert(regionCode.includes('if(missing&&Number.isFinite(fvRegionPhysicalTime(fvState.time)))'),
+    'Region visibility must never translate a missing selected time into t=0 on reload');
+});
+
 test('camera includes geometry bounds of all visible physically independent regions',()=>{
   const a={boundsMin:[0,0,0],boundsMax:[1,1,1]};
   const b={boundsMin:[2,-1,0],boundsMax:[4,1,3]};

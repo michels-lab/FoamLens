@@ -681,7 +681,7 @@ function fvRegionApplyVisibility(c){
   const primary=document.getElementById('fvRegion')?.value||'';
   const missing=fvRegionNames(c).some(region=>region!==primary&&fvRegionChoice(c,region).visible&&!fvRegionScene.layers.has(region));
   fvRegionRefreshList();
-  if(missing&&Number.isFinite(Number(fvState.time))){
+  if(missing&&Number.isFinite(fvRegionPhysicalTime(fvState.time))){
     fvRegionLoadFrame(c,fvState.time).catch(err=>fvSetStatus(String(err?.message||err),true))
   }else if(!fvRegionFitCamera())fvRender()
 }
@@ -838,7 +838,11 @@ async function fvRegionGeometryAtTime(c,region,time){
 }
 
 async function fvRegionLoadFrame(c,time){
-  if(!c||!Number.isFinite(Number(time))||!fvState.renderer)return;
+  // Missing/blank/boolean metadata are NOT physical t=0. Reject the request
+  // before invalidating valid layers or allocating secondary OpenFOAM meshes.
+  const physicalTime=fvRegionPhysicalTime(time);
+  if(!c||!Number.isFinite(physicalTime)||!fvState.renderer)return;
+  time=physicalTime;
   fvRegionEnsureCase(c);
   const seq=++fvRegionScene.sequence,primary=document.getElementById('fvRegion')?.value||'';
   const current=()=>seq===fvRegionScene.sequence&&fvRegionScene.caseId===String(c.id);
