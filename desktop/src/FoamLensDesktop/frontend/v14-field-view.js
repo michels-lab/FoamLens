@@ -774,10 +774,14 @@ function fvRegionRenderLayers(pass='all',drawPrimary=null){
     camera.target[1]+camera.distance*Math.sin(camera.pitch),
     camera.target[2]+camera.distance*Math.cos(camera.pitch)*Math.cos(camera.yaw)
   ]:null;
+  const forward=eye?camera.target.map((v,i)=>Number(v)-eye[i]):null;
+  const length=forward?Math.hypot(...forward):0;
   const layerDepth=layer=>{
-    const m=layer?.mesh;if(!eye||!m?.boundsMin||!m?.boundsMax)return 0;
+    const m=layer?.mesh;if(!eye||!(length>0)||!m?.boundsMin||!m?.boundsMax)return 0;
     const center=[0,1,2].map(i=>(Number(m.boundsMin[i])+Number(m.boundsMax[i]))/2);
-    return Math.hypot(...center.map((v,i)=>v-eye[i]))
+    // View-axis depth, not radial distance: a laterally displaced mold must
+    // not be sorted behind metal merely because its Euclidean distance grows.
+    return center.reduce((sum,v,i)=>sum+(v-eye[i])*forward[i]/length,0)
   };
   const sorted=[...fvRegionScene.layers].filter(([region,layer])=>
     fvRegionScene.choices.get(region)?.visible&&layer?.gl===gl);
