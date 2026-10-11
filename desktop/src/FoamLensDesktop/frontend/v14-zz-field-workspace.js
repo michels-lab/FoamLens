@@ -15,6 +15,17 @@ function fwScheduleRender({threeD=false,twoD=false}={}){
 }
 const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
+// Data/Field histories must use real OpenFOAM physical-time metadata.
+// JS Number(null), Number('') and Number(false) are 0 but not measurements.
+function fwPhysicalTime(raw){
+  const resolver=window.FoamLensRegionScene?.physicalTime;
+  if(typeof resolver==='function')return resolver(raw);
+  if((typeof raw!=='number'&&typeof raw!=='string')||String(raw).trim()==='')return NaN;
+  const time=Number(raw);return Number.isFinite(time)?time:NaN
+}
+function fwPhysicalTimes(raw){
+  return [...new Set((raw||[]).map(fwPhysicalTime).filter(Number.isFinite))].sort((a,b)=>a-b)
+}
 function fwAdoptFieldNode(id,targetId){
   const node=document.getElementById(id),target=document.getElementById(targetId);if(!node||!target)return null;
   if(node.parentNode!==target)target.appendChild(node);
@@ -389,7 +400,8 @@ async function fwBuildProbeFieldHistory(slot,seq){
   if(!fwProbeMatchesFieldSource(probe,c,region))
     throw new Error(fwUi('The pinned Probe belongs to a different physical case or region. Select its exact case and region first.',
       'El Probe fijado pertenece a otro caso o región física. Selecciona primero su caso y región exactos.'));
-  const times=(group.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),x=[],y=[];let parsed0=null,maxDistance=0;
+  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null,maxDistance=0;
+  if(!times.length)throw new Error(fwUi('No valid OpenFOAM physical times for this Probe history.','No hay tiempos físicos OpenFOAM válidos para esta historia de Probe.'));
   for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}if(i%3===2)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected Probe position does not intersect usable field data through time.','La posición del Probe seleccionado no intersecta datos utilizables del campo a través del tiempo.'));
   const xyz=probe.point.map(v=>Number(v).toPrecision(8)).join(','),key=['field3d-probe-history',c.id,region,group.name,component,probeId,xyz].join('|'),base=fwFieldTsField(group,component,'mean',parsed0),field={...base,canonical:'probe:'+fwFieldTsCanonical(group,component,probeId),display:String(group.name)+(component!=='value'?' · '+component:'')+' · Probe '+String(probe.view),quantity:'field3d_probe_'+group.name+'_'+component,original:'OpenFOAM 3D field sampled at fixed XYZ'};
@@ -400,8 +412,8 @@ async function fwBuildProbeFieldHistory(slot,seq){
 async function fwBuildProfileHistory(slot,seq){
   const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
   if(!Number.isFinite(q.position))throw new Error(fwUi('Enter a valid position on the spatial profile before sampling its time history.','Introduce una posición válida en el perfil espacial antes de construir su historia temporal.'));
-  const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).sort((a,b)=>Number(a.profileTime)-Number(b.profileTime));if(!rows.length)return null;
-  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=Number(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
+  const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).filter(s=>Number.isFinite(fwPhysicalTime(s.profileTime))).sort((a,b)=>fwPhysicalTime(a.profileTime)-fwPhysicalTime(b.profileTime));if(!rows.length)return null;
+  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
   const base=rows[0],unit=base.profileCoordUnit||'',key=['profile-history',q.caseId,q.set,q.field,q.line,Number(q.position).toPrecision(12)].join('|'),field={...base.field,canonical:'profile:'+base.field.canonical+':'+q.line+':'+Number(q.position).toPrecision(8),display:localizedFieldName(base.field)+' · '+(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:''),original:'Spatial profile sampled at fixed coordinate over physical time'};
   let s=(series||[]).find(s=>s.fieldHistoryKey===key);const caseObj=caseById(base.caseId),loc=(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:'');
@@ -413,7 +425,8 @@ async function fwBuildOneFieldHistory(slot,seq){
   const source=fwFieldTsSource(slot);if(source==='probe')return fwBuildProbeFieldHistory(slot,seq);if(source==='profile')return fwBuildProfileHistory(slot,seq);
   const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),group=fwFieldTsGroup(slot),component=document.getElementById('fwTsComponent'+slot)?.value||'value',stat=document.getElementById('fwTsStat'+slot)?.value||'mean';
   if(!c||!group)return null;
-  const times=(group.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),x=[],y=[];let parsed0=null;
+  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null;
+  if(!times.length)throw new Error(fwUi('No valid OpenFOAM physical times for the selected field.','No hay tiempos físicos OpenFOAM válidos para el campo seleccionado.'));
   for(let i=0;i<times.length;i++){
     if(seq!==fwState.fieldTsSeq)return null;
     const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;
