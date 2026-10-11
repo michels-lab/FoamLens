@@ -270,6 +270,10 @@ internal sealed class FoamLensForm : Form
                     """
                     (() => {
                       document.getElementById('flRibbonTab-field')?.click();
+                      // The physical-region controls are in the real Field
+                      // inspector. Open it rather than asserting that a
+                      // deliberately collapsed inspector has visible legends.
+                      window.FoamLensFieldWorkspace?.setInspector?.(true);
                       // Camera controls are deliberately docked in the Ribbon's
                       // expandable shelf, NOT over the scientific 3D viewport.
                       // Exercise the actual Camera button before measuring it.
