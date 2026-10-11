@@ -9,6 +9,7 @@ const probePath=path.join(root,'src','FoamLensDesktop','frontend','v14-probe-pic
 const fieldPath=path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js');
 const source=fs.readFileSync(probePath,'utf8');
 const fieldSource=fs.readFileSync(fieldPath,'utf8');
+const workspaceSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-zz-field-workspace.js'),'utf8');
 new Function(source);
 new Function(fieldSource);
 
@@ -193,4 +194,21 @@ test('same-WebGL metal/mold probes use region-specific physical values and never
   assert(source.includes("fpRefreshRegions();"),'Physical-region list must be refreshed after discovery');
   assert(source.includes("'Region','Región'"),'Readout must identify the physical region');
   assert(fieldSource.includes('fieldValues:values||null'),'Region layers must retain the actual independent field array');
+});
+
+test('probe time histories cannot silently mix OpenFOAM cases or metal/mold regions',()=>{
+  const start=workspaceSource.indexOf('function fwProbeMatchesFieldSource(');
+  const end=workspaceSource.indexOf('async function fwBuildProbeFieldHistory(',start);
+  assert(start>=0&&end>start,'Exact physical-probe ownership guard missing');
+  const verify=new Function(workspaceSource.slice(start,end)+';return fwProbeMatchesFieldSource;')();
+  const c={id:17};
+  assert.equal(verify({caseId:17,region:'metal'},c,'metal'),true);
+  assert.equal(verify({caseId:'17',region:'mold'},c,'mold'),true);
+  assert.equal(verify({caseId:17,region:'mold'},c,'metal'),false,'Must not borrow mold measurements for metal');
+  assert.equal(verify({caseId:18,region:'metal'},c,'metal'),false,'Must not borrow another simulation');
+  assert.equal(verify(null,c,'metal'),false,'Missing probe cannot be accepted');
+  assert(workspaceSource.includes('if(!fwProbeMatchesFieldSource(probe,c,region))'),
+    'Physical source match must be enforced before loading OpenFOAM frames');
+  assert(workspaceSource.includes('region:primary.region??fvState.region'),
+    'Field histories must use the pinned measured region, not the selected primary');
 });
