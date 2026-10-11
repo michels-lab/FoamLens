@@ -1238,6 +1238,7 @@ internal sealed class FoamLensForm : Form
                         var regionProbeJson = await _web.CoreWebView2.ExecuteScriptAsync(
                             """
                             (() => {
+                              try {
                               const scene=window.FoamLensRegionScene?.state?.();
                               const probe=window.FoamLensFieldProbe;
                               const target=document.getElementById('fvProbeRegion');
@@ -1273,12 +1274,16 @@ internal sealed class FoamLensForm : Form
                                 cell:hit?.cell,face:hit?.face,measuredValue:hit?.value,
                                 sourceValue:observed,time:hit?.time,caseId:hit?.caseId,
                                 selectorPresent:[...target.options].some(o=>o.value==='region:'+name)};
+                              } catch (error) {
+                                return {ok:false,error:String(error?.stack||error),stage:'real-region-probe'};
+                              }
                             })()
                             """);
                         using (var measuredProbe = JsonDocument.Parse(regionProbeJson))
                         {
                             var probeData = measuredProbe.RootElement;
-                            if (!probeData.TryGetProperty("ok", out var probeOk) || !probeOk.GetBoolean() ||
+                            if (probeData.ValueKind != JsonValueKind.Object ||
+                                !probeData.TryGetProperty("ok", out var probeOk) || !probeOk.GetBoolean() ||
                                 !probeData.TryGetProperty("selectorPresent", out var probeSelector) ||
                                 !probeSelector.GetBoolean())
                                 throw new InvalidOperationException(
