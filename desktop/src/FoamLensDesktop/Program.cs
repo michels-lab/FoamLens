@@ -2228,6 +2228,33 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
+    // In the real imported OpenFOAM metal/mold WebGL context, draw both
+    // measured physical surfaces fully opaque. Their shared interface may
+    // contain coincident raster depths. The temporary tie-bias must never
+    // remain enabled during transparent passes, probes or later frames.
+    const mainAlpha=document.getElementById('fvOpacity');
+    const moldName=expected.find(name=>name!==primary);
+    const moldChoice=fvRegionChoice(c,moldName);
+    if(!mainAlpha||!moldChoice)throw new Error('Opaque interface smoke controls unavailable');
+    const savedMainAlpha=mainAlpha.value,savedMoldAlpha=moldChoice.opacity;
+    let opaqueDepth=null;
+    try{
+      mainAlpha.value='1';moldChoice.opacity=1;fvRender();
+      opaqueDepth={surfaceEnabled:!!document.getElementById('fvSurface')?.checked,
+        regionCount:api.state().layers.size,allOpaque:!!mainAlpha&&moldChoice.opacity===1,
+        polygonOffsetEnabled:gl.isEnabled(gl.POLYGON_OFFSET_FILL),
+        polygonOffsetFactor:gl.getParameter(gl.POLYGON_OFFSET_FACTOR),
+        polygonOffsetUnits:gl.getParameter(gl.POLYGON_OFFSET_UNITS),
+        webglError:gl.getError()};
+      if(!opaqueDepth.surfaceEnabled||!opaqueDepth.allOpaque||
+        opaqueDepth.regionCount!==expected.length-1||
+        opaqueDepth.polygonOffsetEnabled||opaqueDepth.polygonOffsetFactor!==0||
+        opaqueDepth.polygonOffsetUnits!==0||opaqueDepth.webglError!==0)
+        throw new Error('Real OpenFOAM opaque interface raster state leak: '+JSON.stringify(opaqueDepth))
+    }finally{
+      mainAlpha.value=savedMainAlpha;moldChoice.opacity=savedMoldAlpha;fvRender()
+    }
+    physicalScene.opaqueInterfaceDepthPolicy=opaqueDepth;
     // Native scientific negative fixture: use the ACTUAL imported OpenFOAM
     // geometry while temporarily restricting the discovery metadata to times
     // truly present in this same region (excluding this frame). No field

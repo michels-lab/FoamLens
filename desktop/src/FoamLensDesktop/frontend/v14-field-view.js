@@ -789,6 +789,16 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
   // other physical regions that share the same scientific 3D scene.
   return Number.isFinite(alpha)&&alpha>=.99&&!interior&&!faceField
 }
+function fvRegionWithOpaqueTieOffset(gl,region,draw){
+  const available=gl?.POLYGON_OFFSET_FILL!==undefined&&typeof gl.enable==='function'&&
+    typeof gl.disable==='function'&&typeof gl.polygonOffset==='function';
+  if(!available){draw();return}
+  const names=[...fvRegionScene.layers.keys()].sort((a,b)=>a.localeCompare(b));
+  const units=1+Math.min(Math.max(0,names.indexOf(region)),7);
+  gl.enable(gl.POLYGON_OFFSET_FILL);
+  try{gl.polygonOffset(1,units);draw()}
+  finally{gl.disable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(0,0)}
+}
 function fvRegionRenderLayers(pass='all',drawPrimary=null){
   const r=fvState.renderer;if(!r)return;const gl=r.gl;
   // An opaque mesh must establish the shared depth buffer BEFORE translucent
@@ -826,11 +836,13 @@ function fvRegionRenderLayers(pass='all',drawPrimary=null){
     const shouldDraw=alpha=>pass==='all'||(pass==='opaque')===fvSurfaceDepthWritable(alpha);
     if(surface&&shouldDraw(shellAlpha)){
       gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
-      fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha)
+      const draw=()=>fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha);
+      if(fvSurfaceDepthWritable(shellAlpha))fvRegionWithOpaqueTieOffset(gl,region,draw);else draw()
     }
     if(surface&&faceField&&shouldDraw(opacity)){
       gl.depthMask(fvSurfaceDepthWritable(opacity));
-      fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
+      const draw=()=>fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity);
+      if(fvSurfaceDepthWritable(opacity))fvRegionWithOpaqueTieOffset(gl,region,draw);else draw()
     }
     // Wireframes annotate topology; never create invisible occluding depth.
     if(edges&&pass!=='opaque'){
