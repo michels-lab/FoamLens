@@ -1309,6 +1309,27 @@ test('secondary surface fields color actual internal mesh faces and keep unknown
 });
 
 
+test('native OpenFOAM smoke removes only discovered timestamps and verifies geometry-only fallback recovery',()=>{
+  const start=program.indexOf('const missingRegion=expected.find(name=>name!==primary);');
+  const end=program.indexOf('physicalScene.missingFrame=missingFrame',start);
+  assert(start>0&&end>start,'Exact packaged multi-region negative-frame acceptance is missing');
+  const native=program.slice(start,end);
+  for(const required of [
+    'const originalTimes=selectedGroup.times;',
+    'const valid=api.physicalTime(raw);',
+    '!fvTimeEqual(valid,fvState.time)',
+    'await api.load(c,fvState.time);',
+    'geometryOnly:unavailable?.geometryOnly===true',
+    'sourceTime:unavailable?.sourceTime??null',
+    'hasScale=!!row?.querySelector',
+    'sameWebGL:unavailable?.gl===gl',
+    'selectedGroup.times=originalTimes;',
+    'missingFrame.restoredMeasured='
+  ])assert(native.includes(required),'Missing native physical-geometry acceptance '+required);
+  assert(!native.includes('times=[0]')&&!native.includes('times=[9.8]'),
+    'Native missing-field test must not fabricate availability timestamps or measured values');
+});
+
 test('native packaged Windows smoke validates real metal and mold physical meshes in ONE WebGL scene',()=>{
   assert(program.includes('FOAMLENS_SMOKE_EXPECT_REGIONS'),'Real OpenFOAM multiregion requirement must be forwarded to native smoke');
   assert(program.includes('await api.load(c,fvState.time)'),'Packaged smoke must await actual secondary OpenFOAM mesh/field loading');
