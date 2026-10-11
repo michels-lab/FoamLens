@@ -566,7 +566,9 @@ function fvRegionReleaseLayer(layer){
     if(layer[k]){gl.deleteBuffer(layer[k]);layer[k]=null}
   }
   // Bytes describe uploaded typed-array payload, never total driver VRAM.
-  layer.gpuPayloadBytes=0
+  layer.gpuPayloadBytes=0;
+  layer.surfaceCpuPos=null;layer.surfaceCpuColor=null;
+  layer.faceCpuPos=null;layer.faceCpuColor=null
 }
 function fvRegionGpuPayloadStats(){
   let regionCount=0,payloadBytes=0;
@@ -642,13 +644,15 @@ function fvRegionRecolorLayer(layer,choice){
     colors=fvPointSurfaceColors(mesh,values,min,max,palette);
   if(colors&&layer.surfaceColor){
     gl.bindBuffer(gl.ARRAY_BUFFER,layer.surfaceColor);
-    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW);
+    if(layer.surfaceCpuPos)layer.surfaceCpuColor=colors
   }
   if(layer.storage==='surface'&&values.length===mesh.internalFaceCount&&
     layer.faceFieldColor&&layer.faceTriangleFaces?.length){
     colors=fvInternalFaceColors(layer.faceTriangleFaces,values,min,max,palette);
     gl.bindBuffer(gl.ARRAY_BUFFER,layer.faceFieldColor);
-    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW);
+    if(layer.faceCpuPos)layer.faceCpuColor=colors
   }
   if(!colors)return false;
   layer.palette=palette;return true
@@ -778,7 +782,16 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
     layer.edgeColor=fvRegionMakeBuffer(gl,edgeColors,layer);
     if(faceCount>0){
       layer.faceFieldPos=fvRegionMakeBuffer(gl,face.positions,layer);
-      layer.faceFieldColor=fvRegionMakeBuffer(gl,fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette),layer)
+      const faceColors=fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette);
+      layer.faceFieldColor=fvRegionMakeBuffer(gl,faceColors,layer);
+      if(face.positions.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9){
+        layer.faceCpuPos=face.positions;layer.faceCpuColor=faceColors
+      }
+    }
+    // Bounded CPU-side references are needed for global per-triangle alpha
+    // sorting. Never retain a duplicate of an arbitrarily large mesh.
+    if(shape.surfacePositions.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9){
+      layer.surfaceCpuPos=shape.surfacePositions;layer.surfaceCpuColor=colors
     }
     return layer
   }catch(err){fvRegionReleaseLayer(layer);throw err}
@@ -788,6 +801,127 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
   // Translucent or internal-view surfaces must not write depth and hide
   // other physical regions that share the same scientific 3D scene.
   return Number.isFinite(alpha)&&alpha>=.99&&!interior&&!faceField
+}
+// Small scenes can composite intersecting *region bounds* more accurately by
+// ordering individual translucent triangles across ALL visible physical
+// regions, rather than sorting entire metal/mold objects by their centers.
+// Triangle-centroid sorting is not per-fragment OIT; intersecting triangles
+// and exact coplanar alpha surfaces still need a dedicated OIT technique.
+const FV_TRANSPARENT_TRIANGLE_LIMIT=4096;
+function fvTransparentTriangleSort(sources,camera){
+  const items=[],target=camera?.target||[],d=Number(camera?.distance),
+    yaw=Number(camera?.yaw),pitch=Number(camera?.pitch);
+  if(target.length!==3||!Number.isFinite(d)||!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
+  const cp=Math.cos(pitch),forward=[-cp*Math.sin(yaw),-Math.sin(pitch),-cp*Math.cos(yaw)];
+  for(const src of sources){
+    const pos=src.positions,col=src.colors,count=Number(src.count),alpha=Number(src.alpha);
+    if(!Number.isInteger(count)||count<0||count%3||!Number.isFinite(alpha)||!(alpha>0)||
+      !pos||!col||pos.length<count*3||col.length<count*3)return null;
+    for(let vertex=0;vertex<count;vertex+=3){
+      const base=vertex*3,center=[
+        (pos[base]+pos[base+3]+pos[base+6])/3,
+        (pos[base+1]+pos[base+4]+pos[base+7])/3,
+        (pos[base+2]+pos[base+5]+pos[base+8])/3
+      ];
+      if(!center.every(Number.isFinite))return null;
+      items.push({src,base,depth:center.reduce((sum,p,i)=>sum+(p-target[i])*forward[i],0)});
+      if(items.length>FV_TRANSPARENT_TRIANGLE_LIMIT)return null
+    }
+  }
+  if(!items.length)return null;
+  // Far-to-near sort; ties are deterministic and independent of parse order.
+  items.sort((a,b)=>b.depth-a.depth||
+    String(a.src.key).localeCompare(String(b.src.key))||a.base-b.base);
+  const positions=new Float32Array(items.length*9),
+    colors=new Float32Array(items.length*9),alpha=new Float32Array(items.length*3);
+  for(let i=0;i<items.length;i++){
+    const item=items[i],dst=i*9;
+    positions.set(item.src.positions.subarray(item.base,item.base+9),dst);
+    colors.set(item.src.colors.subarray(item.base,item.base+9),dst);
+    alpha.fill(item.src.alpha,i*3,i*3+3)
+  }
+  return {positions,colors,alpha,triangles:items.length}
+}
+function fvTransparentSources(r,options){
+  const sources=[],add=(key,positions,colors,count,alpha)=>{
+    if(!(count>0)||fvSurfaceDepthWritable(alpha))return;
+    sources.push({key,positions,colors,count,alpha})
+  };
+  const cp=r.transparentCpu||{};
+  if(options.primaryVisible){
+    if(options.showSurface){
+      const face=String(fvState.fieldStorage)==='surface',
+        shell=face?Math.min(options.opacity,.16):
+          (options.interiorActive?Math.min(options.opacity,.28):options.opacity);
+      add('0-primary-shell',cp.surfacePos,cp.surfaceColor,r.surfaceCount,shell);
+      if(face){
+        add('0-primary-faces',cp.faceFieldPos,cp.faceFieldColor,r.faceFieldCount,options.opacity);
+        add('0-primary-boundary',cp.boundaryFieldPos,cp.boundaryFieldColor,r.boundaryFieldCount,options.opacity)
+      }
+    }
+    if(options.showSlice)add('0-primary-slice',cp.slicePos,cp.sliceColor,r.sliceCount,options.sliceOpacity);
+    if(options.showIso)add('0-primary-iso',cp.isoPos,cp.isoColor,r.isoCount,options.isoOpacity)
+  }
+  if(document.getElementById('fvSurface')?.checked){
+    for(const [region,layer] of fvRegionScene.layers){
+      if(!fvRegionScene.choices.get(region)?.visible||layer?.gl!==r.gl)continue;
+      const choice=fvRegionScene.choices.get(region),
+        opacity=fvClamp(choice.opacity,.1,1),face=layer.faceFieldCount>0,
+        shell=face?Math.min(opacity,.14):opacity;
+      add('1-'+region+'-shell',layer.surfaceCpuPos,layer.surfaceCpuColor,layer.surfaceCount,shell);
+      if(face)add('1-'+region+'-faces',layer.faceCpuPos,layer.faceCpuColor,layer.faceFieldCount,opacity)
+    }
+  }
+  return sources
+}
+function fvEnsureTransparentBatchRenderer(r){
+  const gl=r.gl;if(r.transparentBatch)return r.transparentBatch;
+  if(typeof gl.createShader!=='function'||typeof gl.createBuffer!=='function')return null;
+  const program=fvProgram(gl,
+    'attribute vec3 aPos;attribute vec3 aColor;attribute float aAlpha;uniform mat4 uMVP;varying vec3 vColor;varying float vAlpha;void main(){vColor=aColor;vAlpha=aAlpha;gl_Position=uMVP*vec4(aPos,1.0);}',
+    'precision mediump float;varying vec3 vColor;varying float vAlpha;void main(){gl_FragColor=vec4(vColor,vAlpha);}');
+  const buffers=[];
+  try{
+    for(let i=0;i<3;i++){const b=gl.createBuffer();if(!b)throw new Error('Sorted transparency buffer allocation failed');buffers.push(b)}
+    return r.transparentBatch={program,buffers,
+      pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),
+      alpha:gl.getAttribLocation(program,'aAlpha'),mvp:gl.getUniformLocation(program,'uMVP')}
+  }catch(error){
+    for(const b of buffers)gl.deleteBuffer(b);
+    gl.deleteProgram(program);
+    throw error
+  }
+}
+function fvDrawGlobalTransparentTriangles(r,options){
+  const sources=fvTransparentSources(r,options);
+  // Single-region scenes, oversized/missing CPU sources or unsupported GL
+  // use the existing camera-axis region-center blending fallback.
+  if(fvRegionScene.layers.size<1||!sources.length)return false;
+  const ordered=fvTransparentTriangleSort(sources,fvState.camera);
+  if(!ordered)return false;
+  const gl=r.gl;
+  if(typeof gl.createShader!=='function'||typeof gl.disableVertexAttribArray!=='function')return false;
+  const batch=fvEnsureTransparentBatchRenderer(r);if(!batch)return false;
+  const canvas=document.getElementById('fvCanvas');
+  gl.useProgram(batch.program);gl.uniformMatrix4fv(batch.mvp,false,fvMvp(canvas));
+  gl.depthMask(false);
+  try{
+    for(const [i,data,location,components] of [
+      [0,ordered.positions,batch.pos,3],[1,ordered.colors,batch.color,3],
+      [2,ordered.alpha,batch.alpha,1]]){
+      gl.bindBuffer(gl.ARRAY_BUFFER,batch.buffers[i]);
+      gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(location);
+      gl.vertexAttribPointer(location,components,gl.FLOAT,false,0,0)
+    }
+    gl.drawArrays(gl.TRIANGLES,0,ordered.triangles*3);
+    batch.lastTriangles=ordered.triangles;
+    return true
+  }finally{
+    gl.depthMask(true);
+    for(const loc of [batch.pos,batch.color,batch.alpha])gl.disableVertexAttribArray(loc);
+    gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas))
+  }
 }
 function fvRegionWithOpaqueTieOffset(gl,region,draw){
   const available=gl?.POLYGON_OFFSET_FILL!==undefined&&typeof gl.enable==='function'&&
@@ -799,7 +933,7 @@ function fvRegionWithOpaqueTieOffset(gl,region,draw){
   try{gl.polygonOffset(1,units);draw()}
   finally{gl.disable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(0,0)}
 }
-function fvRegionRenderLayers(pass='all',drawPrimary=null){
+function fvRegionRenderLayers(pass='all',drawPrimary=null,{skipTransparentTriangles=false}={}){
   const r=fvState.renderer;if(!r)return;const gl=r.gl;
   // An opaque mesh must establish the shared depth buffer BEFORE translucent
   // geometry is blended. Sorting only secondary shells after drawing the
@@ -834,12 +968,12 @@ function fvRegionRenderLayers(pass='all',drawPrimary=null){
     const faceField=layer.faceFieldCount>0;
     const shellAlpha=faceField?Math.min(opacity,.14):opacity;
     const shouldDraw=alpha=>pass==='all'||(pass==='opaque')===fvSurfaceDepthWritable(alpha);
-    if(surface&&shouldDraw(shellAlpha)){
+    if(surface&&shouldDraw(shellAlpha)&&!(skipTransparentTriangles&&!fvSurfaceDepthWritable(shellAlpha))){
       gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
       const draw=()=>fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha);
       if(fvSurfaceDepthWritable(shellAlpha))fvRegionWithOpaqueTieOffset(gl,region,draw);else draw()
     }
-    if(surface&&faceField&&shouldDraw(opacity)){
+    if(surface&&faceField&&shouldDraw(opacity)&&!(skipTransparentTriangles&&!fvSurfaceDepthWritable(opacity))){
       gl.depthMask(fvSurfaceDepthWritable(opacity));
       const draw=()=>fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity);
       if(fvSurfaceDepthWritable(opacity))fvRegionWithOpaqueTieOffset(gl,region,draw);else draw()
@@ -1070,7 +1204,22 @@ function fvCreateRenderer(canvas){
   const program=fvProgram(gl,'attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor; void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}','precision mediump float; varying vec3 vColor; uniform float uOpacity; void main(){gl_FragColor=vec4(vColor,uOpacity);}');
   return{gl,program,pos:gl.getAttribLocation(program,'aPos'),color:gl.getAttribLocation(program,'aColor'),mvp:gl.getUniformLocation(program,'uMVP'),opacity:gl.getUniformLocation(program,'uOpacity'),surfacePos:null,surfaceColor:null,surfaceCount:0,faceFieldPos:null,faceFieldColor:null,faceFieldCount:0,boundaryFieldPos:null,boundaryFieldColor:null,boundaryFieldCount:0,edgePos:null,edgeColor:null,edgeCount:0,slicePos:null,sliceColor:null,sliceCount:0,isoPos:null,isoColor:null,isoCount:0,vectorPos:null,vectorColor:null,vectorCount:0,linePos:null,lineColor:null,lineCount:0,probePos:null,probeColor:null,probeCount:0}
 }
-function fvUploadBuffer(r,key,data,usage){const gl=r.gl;if(r[key])gl.deleteBuffer(r[key]);const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW);r[key]=b}
+function fvUploadBuffer(r,key,data,usage){
+  const gl=r.gl;
+  // Keep only bounded lightweight transparent source arrays for WebGL
+  // transparency order; large simulations use the documented fallback.
+  if(['surfacePos','surfaceColor','faceFieldPos','faceFieldColor',
+      'boundaryFieldPos','boundaryFieldColor','slicePos','sliceColor',
+      'isoPos','isoColor'].includes(key)){
+    (r.transparentCpu||(r.transparentCpu={}))[key]=
+      data?.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9?data:null
+  }
+  if(r[key])gl.deleteBuffer(r[key]);
+  const b=gl.createBuffer();if(!b)throw new Error('Field View WebGL buffer allocation failed');
+  try{gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW)}
+  catch(error){try{gl.deleteBuffer(b)}catch{}throw error}
+  r[key]=b
+}
 function fvBuildSurfaceBuffers(mesh){
   const tri=mesh.surfaceTriangles||[],pts=mesh.points||[],pos=new Float32Array(tri.length*3);
   for(let v=0;v<tri.length;v++){const pi=tri[v];pos[3*v]=Number(pts[3*pi])||0;pos[3*v+1]=Number(pts[3*pi+1])||0;pos[3*v+2]=Number(pts[3*pi+2])||0}
@@ -1198,7 +1347,11 @@ function fvRender(exportSize=null){
   };
   drawPrimarySurface('opaque');
   fvRegionRenderLayers('opaque');
-  fvRegionRenderLayers('transparent',()=>drawPrimarySurface('transparent'));
+  const triangleSorted=fvDrawGlobalTransparentTriangles(r,{
+    primaryVisible,showSurface,showSlice,showIso,opacity,sliceOpacity,isoOpacity,interiorActive
+  });
+  fvRegionRenderLayers('transparent',triangleSorted?null:()=>drawPrimarySurface('transparent'),
+    {skipTransparentTriangles:triangleSorted});
   // Overlay annotations after the actual physical region composite.
   // These must remain non-occluding and should not establish fake depths.
   gl.depthMask(false);gl.depthFunc(gl.LEQUAL);
