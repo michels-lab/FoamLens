@@ -893,6 +893,7 @@ function fvEnsureTransparentBatchRenderer(r){
   }
 }
 function fvDrawGlobalTransparentTriangles(r,options){
+  r.transparentBatchLastActive=false;
   if(r.transparentBatchDisabled)return false;
   const sources=fvTransparentSources(r,options);
   // Oversized scenes, incomplete measured buffers and older WebGL drivers
@@ -921,6 +922,7 @@ function fvDrawGlobalTransparentTriangles(r,options){
     gl.drawArrays(gl.TRIANGLES,0,ordered.triangles*3);
     batch.lastTriangles=ordered.triangles;
     batch.lastPayloadBytes=ordered.positions.byteLength+ordered.colors.byteLength+ordered.alpha.byteLength;
+    r.transparentBatchLastActive=true;
     return true
   }catch(error){
     // A driver upload failure must not blank the viewport or leave half a
@@ -1219,17 +1221,18 @@ function fvUploadBuffer(r,key,data,usage){
   const gl=r.gl;
   // Keep only bounded lightweight transparent source arrays for WebGL
   // transparency order; large simulations use the documented fallback.
-  if(['surfacePos','surfaceColor','faceFieldPos','faceFieldColor',
-      'boundaryFieldPos','boundaryFieldColor','slicePos','sliceColor',
-      'isoPos','isoColor'].includes(key)){
-    (r.transparentCpu||(r.transparentCpu={}))[key]=
-      data?.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9?data:null
-  }
+  const isTransparentSource=['surfacePos','surfaceColor','faceFieldPos','faceFieldColor',
+    'boundaryFieldPos','boundaryFieldColor','slicePos','sliceColor',
+    'isoPos','isoColor'].includes(key);
+  const boundedCpu=isTransparentSource&&data?.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9?data:null;
   const previous=r[key];
   const b=gl.createBuffer();if(!b)throw new Error('Field View WebGL buffer allocation failed');
   try{gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW)}
   catch(error){try{gl.deleteBuffer(b)}catch{}throw error}
   r[key]=b;
+  // Match the CPU-visible scientific colors to the GPU buffer only AFTER the
+  // replacement upload succeeds; failed uploads retain the valid old pair.
+  if(isTransparentSource)(r.transparentCpu||(r.transparentCpu={}))[key]=boundedCpu;
   if(previous)gl.deleteBuffer(previous)
 }
 function fvBuildSurfaceBuffers(mesh){
