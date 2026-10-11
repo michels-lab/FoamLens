@@ -695,7 +695,7 @@ function fvRegionApplyVisibility(c){
   const missing=fvRegionNames(c).some(region=>region!==primary&&fvRegionChoice(c,region).visible&&!fvRegionScene.layers.has(region));
   fvRegionRefreshList();
   if(missing&&Number.isFinite(fvRegionPhysicalTime(fvState.time))){
-    fvRegionLoadFrame(c,fvState.time).catch(err=>fvSetStatus(String(err?.message||err),true))
+    fvRegionLoadFrame(c,fvState.time,{preserveLoaded:true}).catch(err=>fvSetStatus(String(err?.message||err),true))
   }else if(!fvRegionFitCamera())fvRender()
 }
 function fvRegionInstallEvents(){
@@ -873,7 +873,7 @@ async function fvRegionGeometryAtTime(c,region,time){
   return assembled
 }
 
-async function fvRegionLoadFrame(c,time){
+async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   // Missing/blank/boolean metadata are NOT physical t=0. Reject the request
   // before invalidating valid layers or allocating secondary OpenFOAM meshes.
   const physicalTime=fvRegionPhysicalTime(time);
@@ -882,9 +882,18 @@ async function fvRegionLoadFrame(c,time){
   fvRegionEnsureCase(c);
   const seq=++fvRegionScene.sequence,primary=document.getElementById('fvRegion')?.value||'';
   const current=()=>seq===fvRegionScene.sequence&&fvRegionScene.caseId===String(c.id);
-  for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
-  fvRegionScene.layers.clear();fvRender();
-  const regions=fvRegionNames(c).filter(region=>region!==primary&&fvRegionChoice(c,region).visible),failedVisible=[];
+  // When ONLY visibility changes, preserve existing measured or explicitly
+  // geometry-only layers on the exact physical frame and current GL context.
+  // Playback/case/field changes still replace the whole scene.
+  const canPreserve=!!preserveLoaded&&[...fvRegionScene.layers].every(([region,layer])=>
+    !!layer&&layer.gl===fvState.renderer.gl&&fvRegionScene.choices.get(region)?.visible&&
+    fvTimeEqual(fvRegionPhysicalTime(layer.time),time));
+  if(!canPreserve){
+    for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
+    fvRegionScene.layers.clear();fvRender()
+  }
+  const regions=fvRegionNames(c).filter(region=>region!==primary&&fvRegionChoice(c,region).visible&&
+    (!canPreserve||!fvRegionScene.layers.has(region))),failedVisible=[];
   // Bound simultaneous real OpenFOAM parses to protect desktop memory.
   const loadOne=async region=>{
     if(!current())return;
@@ -921,8 +930,9 @@ async function fvRegionLoadFrame(c,time){
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
   if(!current())return;
-  if(fvRegionScene.fitPending&&fvRegionScene.layers.size){fvRegionScene.fitPending=false;fvRegionFitCamera()}
-  else fvRender()
+  if(fvRegionScene.layers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
+    fvRegionScene.fitPending=false;fvRegionFitCamera()
+  }else fvRender()
   if(failedVisible.length&&window.FoamLensAnimationExport?.isExporting?.())throw new Error('Cannot export an incomplete multiregion frame: '+failedVisible.join('; '))
 }
 window.FoamLensRegionScene={
