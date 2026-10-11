@@ -1214,11 +1214,12 @@ function fvUploadBuffer(r,key,data,usage){
     (r.transparentCpu||(r.transparentCpu={}))[key]=
       data?.length<=FV_TRANSPARENT_TRIANGLE_LIMIT*9?data:null
   }
-  if(r[key])gl.deleteBuffer(r[key]);
+  const previous=r[key];
   const b=gl.createBuffer();if(!b)throw new Error('Field View WebGL buffer allocation failed');
   try{gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage||gl.STATIC_DRAW)}
   catch(error){try{gl.deleteBuffer(b)}catch{}throw error}
-  r[key]=b
+  r[key]=b;
+  if(previous)gl.deleteBuffer(previous)
 }
 function fvBuildSurfaceBuffers(mesh){
   const tri=mesh.surfaceTriangles||[],pts=mesh.points||[],pos=new Float32Array(tri.length*3);
