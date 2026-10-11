@@ -383,6 +383,7 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
   // field read exits nonzero and can never be mistaken for a passed sync test.
   const {execFileSync}=require('node:child_process');
   const runner='const assert=require("node:assert/strict");'+
+    'const code='+JSON.stringify(code)+';'+
     'const run='+run.toString()+';'+
     '(async()=>{'+
     'const bad=await run("error");'+
