@@ -476,7 +476,7 @@ function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
 function fvReadyRegions(caseObj){
   const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=(caseObj?.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
   const regions=[...new Set(meshes.map(g=>String(g.region||'')))];
-  return regions.filter(region=>meshes.filter(m=>String(m.region||'')===region).some(mesh=>fields.some(f=>String(f?.region||'')===region&&f.times.some(t=>Number.isFinite(fvRegionPhysicalTime(t))&&!!fvMeshSnapshotForTime(mesh,t)))))
+  return regions.filter(region=>meshes.filter(m=>String(m.region||'')===region).some(mesh=>fields.some(f=>String(f?.region||'')===region&&f.times.some(t=>(typeof t==='number'||typeof t==='string')&&String(t).trim()!==''&&Number.isFinite(Number(t))&&!!fvMeshSnapshotForTime(mesh,t)))))
 }
 function fvCaseViewAvailable(caseObj){
   return fvReadyRegions(caseObj).length>0
