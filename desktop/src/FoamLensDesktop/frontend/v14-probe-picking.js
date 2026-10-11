@@ -117,7 +117,7 @@ function fpRefreshRegions(){
 }
 function fpSecondaryRegionPick(ray,layer){
   if(!layer?.mesh)return null;
-  const mesh=layer.mesh,values=layer.fieldValues,storage=String(layer.storage||''),positions=fpSurfacePositions(mesh);
+  const mesh=layer.mesh,values=layer.fieldValues,storage=String(layer.storage||''),positions=layer.probePositions||fpSurfacePositions(mesh);
   let hit=null;
   if(storage==='surface'&&values?.length===mesh.internalFaceCount){
     const faces=fpInternalFaceGeometry(mesh);
