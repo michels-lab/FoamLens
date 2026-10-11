@@ -1209,6 +1209,9 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens real-case smoke folder does not exist: {fullCasePath}");
 
+                // Actual Windows host-process memory measured before native OpenFOAM import.
+                // WebView2 child processes and graphics-driver VRAM are not included.
+                var smokeHostWorkingSetBefore = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;
                 var smokeRefs = BuildSmokeNativeFileRefs(fullCasePath);
                 if (smokeRefs.Count < 4)
                     throw new InvalidOperationException(
@@ -1288,6 +1291,11 @@ internal sealed class FoamLensForm : Form
                             compositeCount.GetInt32() != expectedPhysicalRegions.Length - 1)
                             throw new InvalidOperationException(
                                 $"FoamLens real physical multiregion scene did not render together: {realCaseJson}");
+                        if (!physicalScene.TryGetProperty("transparentPixelProof", out var pixelProof) ||
+                            pixelProof.ValueKind != JsonValueKind.Object ||
+                            !pixelProof.TryGetProperty("ok", out var pixelOk) || !pixelOk.GetBoolean())
+                            throw new InvalidOperationException(
+                                $"FoamLens real WebGL alpha pixel-composition regression failed: {realCaseJson}");
                         Log($"FoamLens real OpenFOAM physical multiregion WebGL smoke passed: {physicalScene}");
                         if (!string.IsNullOrWhiteSpace(asymmetricCaseName))
                         {
@@ -1589,6 +1597,15 @@ internal sealed class FoamLensForm : Form
                         await CaptureCdpPngAsync(compositePng);
                         Log($"FoamLens real two-region Field screenshot: {compositePng}");
                     }
+                }
+
+                // Real resident-memory observation for the imported physical
+                // QuickCup case; log the host scope and exclude unmeasured GPU VRAM.
+                using (var host = System.Diagnostics.Process.GetCurrentProcess())
+                {
+                    host.Refresh();
+                    var working = host.WorkingSet64;
+                    Log($"FoamLens real OpenFOAM memory [host-only]: workingSetBeforeBytes={smokeHostWorkingSetBefore}, workingSetAfterBytes={working}, deltaBytes={working-smokeHostWorkingSetBefore}, peakWorkingSetBytes={host.PeakWorkingSet64}, privateBytes={host.PrivateMemorySize64}; WebView2 child processes and GPU VRAM excluded.");
                 }
 
                 // Validate the exact multi-view defects reported by the user:
@@ -2228,6 +2245,65 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
+    // Pixel-backed native WebView2 check: a real offscreen GPU canvas draws
+    // two overlapping physical-region triangles in deliberately WRONG input
+    // order. The production global triangle sorter must reorder them before
+    // alpha blending. This is a controlled graphics fixture, not OpenFOAM
+    // measurement data and not proof of per-fragment order-independent OIT.
+    let transparentPixelProof=null;
+    {
+      const offscreen=document.createElement('canvas');offscreen.width=32;offscreen.height=32;
+      const ctx=offscreen.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true});
+      if(!ctx)throw new Error('Native WebView2 offscreen WebGL pixel-composition proof unavailable');
+      const triangle=z=>new Float32Array([-.9,-.9,z,.9,-.9,z,0,.9,z]);
+      const color=(red,blue)=>new Float32Array([red,0,blue,red,0,blue,red,0,blue]);
+      const ordered=fvTransparentTriangleSort([
+        {key:'0-metal',positions:triangle(.5),colors:color(1,0),count:3,alpha:.5},
+        {key:'1-mold',positions:triangle(-.5),colors:color(0,1),count:3,alpha:.5}
+      ],{target:[0,0,0],distance:5,pitch:0,yaw:0});
+      if(ordered?.triangles!==2)throw new Error('Global transparent triangle ordering failed for overlap fixture');
+      const p=fvProgram(ctx,
+        'attribute vec3 aPos;attribute vec3 aColor;attribute float aAlpha;varying vec3 vColor;varying float vAlpha;void main(){vColor=aColor;vAlpha=aAlpha;gl_Position=vec4(aPos,1.0);}',
+        'precision mediump float;varying vec3 vColor;varying float vAlpha;void main(){gl_FragColor=vec4(vColor,vAlpha);}');
+      ctx.viewport(0,0,32,32);ctx.clearColor(0,0,0,1);ctx.clear(ctx.COLOR_BUFFER_BIT);
+      ctx.disable(ctx.DEPTH_TEST);ctx.enable(ctx.BLEND);
+      ctx.blendFunc(ctx.SRC_ALPHA,ctx.ONE_MINUS_SRC_ALPHA);ctx.useProgram(p);
+      const buffers=[];
+      try{
+        for(const [name,values,parts] of [
+          ['aPos',ordered.positions,3],['aColor',ordered.colors,3],['aAlpha',ordered.alpha,1]]){
+          const buffer=ctx.createBuffer(),loc=ctx.getAttribLocation(p,name);
+          if(!buffer||loc<0)throw new Error('Offscreen WebGL attribute unavailable: '+name);
+          buffers.push(buffer);ctx.bindBuffer(ctx.ARRAY_BUFFER,buffer);
+          ctx.bufferData(ctx.ARRAY_BUFFER,values,ctx.STATIC_DRAW);
+          ctx.enableVertexAttribArray(loc);ctx.vertexAttribPointer(loc,parts,ctx.FLOAT,false,0,0)
+        }
+        ctx.drawArrays(ctx.TRIANGLES,0,6);
+        const pixel=new Uint8Array(4);
+        ctx.readPixels(16,16,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,pixel);
+        const error=ctx.getError();
+        // Far blue 50% then near red 50%, over opaque black:
+        // expected RGB ~= [128,0,64] with a reasonable 8-bit GPU tolerance.
+        transparentPixelProof={
+          ok:error===0&&Math.abs(pixel[0]-128)<=12&&pixel[1]<=12&&
+            Math.abs(pixel[2]-64)<=12&&pixel[3]===255,
+          rgba:Array.from(pixel),expectedRgb:[128,0,64],glError:error,
+          triangles:ordered.triangles,scope:'controlled offscreen WebGL alpha overlap; not per-pixel OIT'
+        };
+        if(!transparentPixelProof.ok)
+          throw new Error('Native GPU transparent overlap pixel mismatch: '+JSON.stringify(transparentPixelProof))
+      }finally{
+        for(const buffer of buffers)ctx.deleteBuffer(buffer);
+        ctx.deleteProgram(p)
+      }
+    }
+    physicalScene.transparentPixelProof=transparentPixelProof;
+    const alphaBatch=fvState.renderer?.transparentBatch;
+    const batchActive=fvState.renderer?.transparentBatchLastActive===true;
+    physicalScene.transparentBatch={active:batchActive,
+      sortedTriangles:batchActive?Number(alphaBatch?.lastTriangles||0):0,
+      scratchPayloadBytes:batchActive?Number(alphaBatch?.lastPayloadBytes||0):0,
+      scope:'sorted upload payload, not graphics-driver VRAM'};
     // In the real imported OpenFOAM metal/mold WebGL context, draw both
     // measured physical surfaces fully opaque. Their shared interface may
     // contain coincident raster depths. The temporary tie-bias must never

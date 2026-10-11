@@ -934,7 +934,8 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   ]};
   assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
   assert(regionCode.includes('fvRegionBuildLayer('));
-  assert(regionCode.includes("function fvRegionRenderLayers(pass='all',drawPrimary=null)"));
+  assert(regionCode.includes("function fvRegionRenderLayers(pass='all',drawPrimary=null,{skipTransparentTriangles=false}={})"),
+    'Real renderer must allow omitting already batched alpha triangles without double blending');
   assert(source.includes("fvRegionRenderLayers('opaque')")&&source.includes("fvRegionRenderLayers('transparent'")&&source.includes('fvUpdateAxisGizmo()'),'Opaque and translucent physical passes must share the Field scene and XYZ gizmo');
   assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
   assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
@@ -1200,6 +1201,163 @@ test('production renderer applies deterministic coplanar depth tie-offset only t
     'Even a failing WebGL draw must restore shared polygon offset state');
 });
 
+test('actual cross-region transparent triangle sorting handles camera reversal, ties and memory ceiling',()=>{
+  const start=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',start);
+  assert(start>0&&end>start);
+  const kernel=source.slice(start,end);
+  const api=new Function(kernel+';return {fvTransparentTriangleSort,FV_TRANSPARENT_TRIANGLE_LIMIT}')();
+  const triangle=z=>new Float32Array([0,0,z,1,0,z,0,1,z]);
+  const color=c=>new Float32Array([c,0,0,c,0,0,c,0,0]);
+  const camera={target:[0,0,0],distance:10,pitch:0,yaw:0};
+  const primary={key:'0-metal',positions:triangle(2),colors:color(.2),count:3,alpha:.6};
+  const mold={key:'1-mold',positions:triangle(-2),colors:color(.9),count:3,alpha:.35};
+  const sorted=api.fvTransparentTriangleSort([primary,mold],camera);
+  assert.equal(sorted.triangles,2);
+  assert.deepStrictEqual([...sorted.positions.slice(0,9)], [...mold.positions]);
+  assert.deepStrictEqual([...sorted.positions.slice(9)], [...primary.positions]);
+  for(const [i,expected] of [.35,.35,.35,.6,.6,.6].entries())near(sorted.alpha[i],expected,1e-6);
+  assert.deepStrictEqual([...sorted.colors.slice(0,9)],[...mold.colors]);
+  const reversed=api.fvTransparentTriangleSort([mold,primary],{...camera,yaw:Math.PI});
+  assert.deepStrictEqual([...reversed.positions.slice(0,9)],[...primary.positions]);
+  const tie=api.fvTransparentTriangleSort([
+    {...mold,positions:triangle(0)},{...primary,positions:triangle(0)}
+  ],camera);
+  assert.deepStrictEqual([...tie.colors.slice(0,9)],[...primary.colors],
+    'Co-planar alpha triangles must use deterministic region IDs, not import order');
+  const max=api.FV_TRANSPARENT_TRIANGLE_LIMIT;
+  assert.equal(max,65536,'Production cap must fit the documented real 23,112-triangle QuickCup mold');
+  assert.equal(api.fvTransparentTriangleSort([{
+    key:'huge',positions:new Float32Array((max+1)*9),
+    colors:new Float32Array((max+1)*9),count:(max+1)*3,alpha:.5
+  }],camera),null,'No unbounded transparent CPU sort for large meshes');
+  assert.equal(api.fvTransparentTriangleSort([{...primary,colors:null}],camera),null,
+    'A missing measured color buffer must not be fabricated');
+});
+
+test('production GPU alpha-batch reuses three buffers and restores primary program and depth',()=>{
+  const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
+  const kernel=source.slice(begin,end);
+  const setup=[
+    'const events=[],buffers=[],original={id:"primary"};',
+    'const gl={ARRAY_BUFFER:34962,DYNAMIC_DRAW:35048,TRIANGLES:4,FLOAT:5126,',
+    'createShader(){return {}},createBuffer(){const b={id:buffers.length};buffers.push(b);return b},',
+    'getAttribLocation(p,n){return {aPos:0,aColor:1,aAlpha:2}[n]},getUniformLocation(){return {}},',
+    'useProgram(p){events.push(["program",p.id])},uniformMatrix4fv(){},',
+    'depthMask(v){events.push(["depth",v])},bindBuffer(){},',
+    'bufferData(t,d){events.push(["upload",d.byteLength])},',
+    'enableVertexAttribArray(){},disableVertexAttribArray(x){events.push(["disable",x])},',
+    'vertexAttribPointer(){},drawArrays(m,s,c){events.push(["draw",c])}};',
+    'const fvProgram=()=>({id:"transparent"}),fvMvp=()=>new Float32Array(16);',
+    'const fvSurfaceDepthWritable=alpha=>Number(alpha)>=.99;',
+    'const fvClamp=(v,l,h)=>Math.max(l,Math.min(h,Number(v)));',
+    'const document={getElementById:id=>id==="fvSurface"?{checked:true}:id==="fvCanvas"?{}:null};',
+    'const fvState={camera:{target:[0,0,0],distance:10,pitch:0,yaw:0},fieldStorage:"volume"};',
+    'const pos=z=>new Float32Array([0,0,z,1,0,z,0,1,z]);',
+    'const col=c=>new Float32Array([c,0,0,c,0,0,c,0,0]);',
+    'const renderer={gl,program:original,mvp:{},surfaceCount:3,',
+    'transparentCpu:{surfacePos:pos(2),surfaceColor:col(.2)}};',
+    'const mold={gl,surfaceCount:3,surfaceCpuPos:pos(-2),surfaceCpuColor:col(.9),faceFieldCount:0};',
+    'const fvRegionScene={layers:new Map([["mold",mold]]),choices:new Map([["mold",{visible:true,opacity:.45}]])};'
+  ].join('\n');
+  const exercise=[
+    'const worked=fvDrawGlobalTransparentTriangles(renderer,{',
+    'primaryVisible:true,showSurface:true,showSlice:false,showIso:false,',
+    'opacity:.7,interiorActive:false});',
+    'return {worked,events,batch:renderer.transparentBatch,buffers:buffers.length}'
+  ].join('\n');
+  const result=new Function(setup+kernel+exercise)();
+  assert.equal(result.worked,true);
+  assert.deepStrictEqual(result.events.filter(x=>x[0]==='draw'),[['draw',6]]);
+  assert.equal(result.buffers,3);
+  assert.equal(result.batch.lastTriangles,2);
+  assert.deepStrictEqual(result.events.filter(x=>x[0]==='upload').map(x=>x[1]),[72,72,24]);
+  assert.equal(result.events[result.events.length-1][1],'primary');
+  assert(result.events.some(x=>x[0]==='depth'&&x[1]===false));
+  assert(result.events.some(x=>x[0]==='depth'&&x[1]===true));
+  for(const x of [0,1,2])assert(result.events.some(e=>e[0]==='disable'&&e[1]===x));
+  assert(source.includes('skipTransparentTriangles:triangleSorted'),
+    'Successful triangle batching must not double-blend old region-center draws');
+});
+
+test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
+  const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
+  const sort=new Function(source.slice(begin,end)+';return fvTransparentTriangleSort')();
+  const count=1000000,before=process.memoryUsage().rss;
+  const positions=new Float32Array(count*9),colors=new Float32Array(count*9);
+  // Touch each OS page to make RSS observation meaningful; these are controlled
+  // geometry buffers, not invented measurements from OpenFOAM.
+  for(let i=0;i<positions.length;i+=1024){positions[i]=1;colors[i]=.5}
+  const allocatedRss=process.memoryUsage().rss;
+  const result=sort([{key:'million-triangle-synthetic-load',
+    positions,colors,count:count*3,alpha:.5}],{
+    target:[0,0,0],distance:10,yaw:0,pitch:0
+  });
+  assert.equal(result,null,'A 1M triangle synthetic load may not create an unbounded global GPU sort');
+  assert.equal(positions.byteLength+colors.byteLength,72000000);
+  assert(allocatedRss>0&&before>0);
+  console.log('  measured Node RSS bytes before=' + before +
+    ' after allocation=' + allocatedRss +
+    ' (host JS process only; synthetic geometry; not VRAM and not real OpenFOAM RAM)');
+});
+
+test('installed WebView2 uses actual GPU pixel readback and logs scoped process memory',()=>{
+  for(const phrase of [
+    "const ordered=fvTransparentTriangleSort([",
+    "offscreen.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true})",
+    'ctx.readPixels(16,16,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,pixel)',
+    'Math.abs(pixel[0]-128)<=12',
+    'Math.abs(pixel[2]-64)<=12',
+    'physicalScene.transparentPixelProof=transparentPixelProof',
+    'physicalScene.transparentBatch={active:',
+    'glError:error',
+    'scope:'
+  ])assert(program.includes(phrase),'Missing native true WebGL pixel verification: '+phrase);
+  assert(program.includes('pixelProof.TryGetProperty("ok"'),
+    'Native host must reject an incorrect GPU overlap pixel result');
+  for(const phrase of [
+    'smokeHostWorkingSetBefore',
+    'host.WorkingSet64',
+    'host.PeakWorkingSet64',
+    'host.PrivateMemorySize64',
+    'workingSetBeforeBytes=',
+    'WebView2 child processes and GPU VRAM excluded'
+  ])assert(program.includes(phrase),'Resident-process memory evidence scope missing: '+phrase);
+  assert(source.includes('batch.lastPayloadBytes=ordered.positions.byteLength+'),
+    'GPU scratch upload accounting must be explicit and must not claim driver VRAM');
+});
+
+test('primary GPU failed replacement preserves previous measured buffer and matching CPU colors',()=>{
+  const begin=source.indexOf('function fvUploadBuffer(r,key,data,usage){');
+  const end=source.indexOf('function fvBuildSurfaceBuffers(',begin);
+  assert(begin>0&&end>begin,'Real primary buffer upload code must be extractable');
+  const code=source.slice(begin,end);
+  const result=new Function([
+    'const FV_TRANSPARENT_TRIANGLE_LIMIT=65536;',
+    'const old={id:"old"},fresh={id:"new"},removed=[];let fail=true;',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,',
+    'createBuffer(){return fresh},bindBuffer(){},',
+    'bufferData(){if(fail)throw Error("simulated GPU memory failure")},',
+    'deleteBuffer(b){removed.push(b.id)}};',
+    'const measured=new Float32Array([.1,.2,.3]),next=new Float32Array([.9,.8,.7]);',
+    'const r={gl,surfaceColor:old,transparentCpu:{surfaceColor:measured}};',
+    code,
+    'let error="";try{fvUploadBuffer(r,"surfaceColor",next)}catch(e){error=e.message}',
+    'const failed={error,keptGPU:r.surfaceColor===old,keptCPU:r.transparentCpu.surfaceColor===measured,',
+    'removed:removed.slice()};',
+    'fail=false;fvUploadBuffer(r,"surfaceColor",next);',
+    'return{failed,recoveredGPU:r.surfaceColor===fresh,recoveredCPU:r.transparentCpu.surfaceColor===next,removed}'
+  ].join('\n'))();
+  assert.deepStrictEqual(result.failed,{
+    error:'simulated GPU memory failure',keptGPU:true,keptCPU:true,removed:['new']});
+  assert.equal(result.recoveredGPU,true);
+  assert.equal(result.recoveredCPU,true);
+  assert.deepStrictEqual(result.removed,['new','old'],
+    'Original valid buffer must only be released once after successful replacement');
+});
+
 test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
   const writable=regionApi.fvSurfaceDepthWritable;
   assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
@@ -1263,6 +1421,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
     'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
+    'const fvDrawGlobalTransparentTriangles=()=>false;',
     'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     implementation,
