@@ -684,6 +684,7 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   // This references the same parsed array: no fabricated values, no second
   // copy of a potentially huge OpenFOAM field.
   const layer={gl,region,mesh,probePositions:shape.surfacePositions,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
+    sourceTime:Number.isFinite(data?.sourceTime)?data.sourceTime:null,geometryOnly:!data?.fieldValues,
     status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
@@ -798,7 +799,7 @@ async function fvRegionLoadFrame(c,time){
       }
       if(!current())return; // A newer case/frame owns the WebGL canvas.
       if(data)fvRegionObserveRange(region,choice,data);
-      const layer=fvRegionBuildLayer(region,mesh,{...data,status},choice,time);
+      const layer=fvRegionBuildLayer(region,mesh,{...data,status,sourceTime:exact===undefined?null:exact},choice,time);
       if(data?.storage==='surface'){
         status+=' · '+(layer?.colored
           ?flUi('Real internal-face colors; boundary patches neutral','Colores reales de caras internas; parches de frontera neutros')

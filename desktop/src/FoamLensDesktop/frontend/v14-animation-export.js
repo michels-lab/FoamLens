@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.4.3 — synchronized scientific 3D animation/video export. */
 
-const vaState={exporting:false,ranges:null};
+const vaState={exporting:false,ranges:null,lastExportProvenance:null};
 function vaUi(en,es){try{return flUi(en,es)}catch{return en}}
 function vaEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
 function vaFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
@@ -61,17 +61,55 @@ async function vaPreload(start,end,step){
     ranges.regions=window.FoamLensRegionScene?.endVideoRangeScan?.()||{};finished=true;return ranges
   }finally{if(!finished)window.FoamLensRegionScene?.endVideoRangeScan?.()}
 }
+// Per-frame provenance separates measured fields from neutral geometry-only
+// regions; no nearest-time interpolation is fabricated for a missing field.
+function vaFrameEvidence(physicalTime,primary,scene,primaryRegion=''){
+  if((typeof physicalTime!=='number'&&typeof physicalTime!=='string')||String(physicalTime).trim()==='')throw new Error('Missing physical time for scientific frame provenance.');
+  const requested=Number(physicalTime);
+  if(!Number.isFinite(requested))throw new Error('Missing physical time for scientific frame provenance.');
+  const equal=t=>typeof t==='number'&&Number.isFinite(t)&&Math.abs(t-requested)<=Math.max(1e-10,Math.max(Math.abs(t),Math.abs(requested),1)*1e-10);
+  if(!primary||!equal(primary.time))throw new Error('Primary field frame does not match requested physical time.');
+  if(!scene?.choices||!scene?.layers)throw new Error('Physical-region scene unavailable for scientific video provenance.');
+  const regions=[];
+  for(const region of [...scene.choices.keys()].sort((a,b)=>String(a).localeCompare(String(b)))){
+    const choice=scene.choices.get(region),visible=choice?.visible!==false;
+    if(region===primaryRegion){
+      regions.push({region,visible,state:visible?'field':'hidden',field:visible?(primary.fieldName||''):null,
+        sourceTime:visible?primary.time:null,dimensions:visible?(primary.dimensions||null):null,
+        opacity:choice?.opacity??1});
+      continue
+    }
+    if(!visible){regions.push({region,visible:false,state:'hidden',field:null,sourceTime:null,dimensions:null,opacity:choice?.opacity??null});continue}
+    const layer=scene.layers.get(region);
+    if(!layer)throw new Error('Visible OpenFOAM region missing from scientific video frame: '+region);
+    const t=layer.sourceTime,hasField=layer.fieldValues?.length>0&&!layer.geometryOnly;
+    const measured=hasField&&equal(t);
+    if(hasField&&!measured)throw new Error('Physical-region field time mismatch: '+region);
+    regions.push({region,visible:true,state:measured?'field':'geometry-only',
+      field:measured?(layer.field||''):null,sourceTime:measured?t:null,
+      storage:measured?(layer.storage||null):null,dimensions:measured?(layer.parsed?.dimensions||null):null,
+      opacity:choice?.opacity??null})
+  }
+  if(!regions.some(r=>r.region===primaryRegion))throw new Error('Primary OpenFOAM region missing from scientific video provenance.');
+  return {physicalTime:requested,caseId:scene.caseId??null,regions}
+}
+function vaDownloadProvenance(){
+  const report=vaState.lastExportProvenance;if(!report)return false;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=report.videoFileName.replace(/\.[^.]+$/,'.provenance.json');
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);return true
+}
 async function vaExport(){
   if(vaState.exporting)return;const times=vaTimes();if(!times.length){vaSetStatus(vaUi('No Field View timeline is available.','No hay una línea temporal disponible en Vista 3D.'),true);return}
   const start=Math.max(0,Math.min(times.length-1,Number(document.getElementById('fvVideoStart')?.value)||0)),end=Math.max(start,Math.min(times.length-1,Number(document.getElementById('fvVideoEnd')?.value)||times.length-1)),step=Math.max(1,Math.round(Number(document.getElementById('fvVideoStep')?.value)||1)),fps=Math.max(1,Math.min(60,Number(document.getElementById('fvVideoFps')?.value)||30)),res=String(document.getElementById('fvVideoResolution')?.value||'1920x1080').split('x').map(Number),width=res[0]||1920,height=res[1]||1080,format=document.getElementById('fvVideoFormat')?.value||'auto',mime=vaMime(format);
   if(typeof HTMLCanvasElement==='undefined'||!HTMLCanvasElement.prototype.captureStream||typeof MediaRecorder==='undefined'||mime===null){vaSetStatus(vaUi('Video encoding is unavailable in this WebView runtime.','La codificación de video no está disponible en este runtime de WebView.'),true);return}
-  const button=document.getElementById('fvVideoExport'),originalIndex=Number(document.getElementById('fvTimeSlider')?.value)||0;vaState.exporting=true;if(button)button.disabled=true;try{
+  const button=document.getElementById('fvVideoExport'),reportButton=document.getElementById('fvVideoProvenance'),originalIndex=Number(document.getElementById('fvTimeSlider')?.value)||0;vaState.exporting=true;vaState.lastExportProvenance=null;if(button)button.disabled=true;if(reportButton)reportButton.disabled=true;try{
     if(typeof fvStopPlayback==='function')fvStopPlayback();const ranges=await vaPreload(start,end,step);vaApplyRanges(ranges);await fvLoadFrame(start);
     const composite=document.createElement('canvas'),initial=vaDescriptorList();if(!initial.length)throw new Error(vaUi('No visible 3D viewport is available to record.','No hay un viewport 3D visible para grabar.'));vaDrawComposite(composite,width,height,initial);
     const stream=composite.captureStream(fps),chunks=[],recorder=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:Math.max(4000000,Math.round(width*height*fps*.08))}:{videoBitsPerSecond:Math.max(4000000,Math.round(width*height*fps*.08))});
     recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};const stopped=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('MediaRecorder error'))});recorder.start(500);await vaDelay(100);
-    let frame=0,total=Math.floor((end-start)/step)+1;for(let i=start;i<=end;i+=step){const begun=performance.now();await fvLoadFrame(i);const descriptors=vaDescriptorList();vaDrawComposite(composite,width,height,descriptors);frame++;vaSetStatus(vaUi('Rendering video','Renderizando video')+' · '+frame+'/'+total+' · '+fps+' fps · '+width+'×'+height);const spent=performance.now()-begun;await vaDelay(Math.max(1,1000/fps-spent))}
-    await vaDelay(Math.max(80,1000/fps));recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());const type=recorder.mimeType||mime||'video/webm',ext=/mp4/i.test(type)?'mp4':'webm',blob=new Blob(chunks,{type}),url=URL.createObjectURL(blob),a=document.createElement('a'),caseName=(typeof fvCase==='function'?fvCase()?.name:'FoamLens')||'FoamLens',field=(typeof fvState!=='undefined'?fvState.fieldName:'field')||'field';a.href=url;a.download=(caseName+'_'+field+'_'+vaFmt(times[start])+'-'+vaFmt(times[end])+'s.'+ext).replace(/[^a-z0-9._-]+/gi,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);vaSetStatus(vaUi('Video exported','Video exportado')+' · '+ext.toUpperCase()+' · '+frame+' '+vaUi('frames','frames'))
+    let frame=0,total=Math.floor((end-start)/step)+1;const physicalFrames=[];for(let i=start;i<=end;i+=step){const begun=performance.now();await fvLoadFrame(i);const descriptors=vaDescriptorList();const evidence=vaFrameEvidence(times[i],descriptors.find(d=>d.key==='primary'),window.FoamLensRegionScene?.state?.(),document.getElementById('fvRegion')?.value||'');physicalFrames.push({frameIndex:frame,...evidence});vaDrawComposite(composite,width,height,descriptors);frame++;vaSetStatus(vaUi('Rendering video','Renderizando video')+' · '+frame+'/'+total+' · '+fps+' fps · '+width+'×'+height);const spent=performance.now()-begun;await vaDelay(Math.max(1,1000/fps-spent))}
+    await vaDelay(Math.max(80,1000/fps));recorder.stop();await stopped;stream.getTracks().forEach(t=>t.stop());const type=recorder.mimeType||mime||'video/webm',ext=/mp4/i.test(type)?'mp4':'webm',blob=new Blob(chunks,{type}),url=URL.createObjectURL(blob),a=document.createElement('a'),caseName=(typeof fvCase==='function'?fvCase()?.name:'FoamLens')||'FoamLens',field=(typeof fvState!=='undefined'?fvState.fieldName:'field')||'field';a.href=url;a.download=(caseName+'_'+field+'_'+vaFmt(times[start])+'-'+vaFmt(times[end])+'s.'+ext).replace(/[^a-z0-9._-]+/gi,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);vaState.lastExportProvenance={schema:'foamlens-physical-region-video-v1',generatedAt:new Date().toISOString(),videoFileName:a.download,caseName,field,fps,resolution:{width,height},step,frames:physicalFrames};if(reportButton)reportButton.disabled=false;vaSetStatus(vaUi('Video exported; download frame provenance JSON for real/geometry-only fields.','Video exportado; descarga procedencia JSON de campos reales/solo geometría.')+' · '+ext.toUpperCase()+' · '+frame+' '+vaUi('frames','frames'))
   }catch(e){console.error(e);vaSetStatus(String(e?.message||e),true)}finally{vaApplyRanges(null);try{await fvLoadFrame(originalIndex)}catch{}vaState.exporting=false;if(button)button.disabled=false}
 }
 function vaInstallUi(){
@@ -80,8 +118,8 @@ function vaInstallUi(){
   '<div class="row2"><div class="field"><label data-fl-en="Frame step" data-fl-es="Paso de frames">Frame step</label><input id="fvVideoStep" type="number" min="1" max="100" step="1" value="1"></div><div class="field"><label>FPS</label><select id="fvVideoFps"><option>24</option><option selected>30</option><option>60</option></select></div></div>'+
   '<div class="row2"><div class="field"><label data-fl-en="Resolution" data-fl-es="Resolución">Resolution</label><select id="fvVideoResolution"><option value="1280x720">720p</option><option value="1920x1080" selected>1080p</option><option value="2560x1440">1440p</option><option value="3840x2160">4K</option></select></div><div class="field"><label data-fl-en="Format" data-fl-es="Formato">Format</label><select id="fvVideoFormat"><option value="auto" data-fl-en="Auto · MP4 if supported" data-fl-es="Auto · MP4 si está disponible">Auto · MP4 if supported</option><option value="mp4">MP4</option><option value="webm">WebM</option></select></div></div>'+
   '<div class="smallnote" data-fl-en="FoamLens first preloads the selected times and fixes an independent global color range for every visible viewport. All synchronized 3D views are composited into the same video." data-fl-es="FoamLens primero precarga los tiempos seleccionados y fija un rango de color global independiente para cada viewport visible. Todas las vistas 3D sincronizadas se componen en el mismo video.">FoamLens first preloads the selected times and fixes an independent global color range for every visible viewport. All synchronized 3D views are composited into the same video.</div>'+
-  '<div class="fvTimelineActions"><button class="btn soft" id="fvVideoExport" type="button" data-fl-en="Export video" data-fl-es="Exportar video">Export video</button></div><div class="extStatus" id="fvVideoStatus"></div></div>';status.insertAdjacentElement('beforebegin',box);try{flApplyBilingualText(box)}catch{}document.getElementById('fvVideoExport').addEventListener('click',vaExport);box.addEventListener('toggle',()=>{if(box.open)vaRefreshTimeSelectors()});for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(vaRefreshTimeSelectors,0));vaRefreshTimeSelectors();return true
+  '<div class="fvTimelineActions"><button class="btn soft" id="fvVideoExport" type="button" data-fl-en="Export video" data-fl-es="Exportar video">Export video</button><button class="btn soft" id="fvVideoProvenance" type="button" disabled data-fl-en="Download frame provenance JSON" data-fl-es="Descargar procedencia de frames JSON">Download frame provenance JSON</button></div><div class="extStatus" id="fvVideoStatus"></div></div>';status.insertAdjacentElement('beforebegin',box);try{flApplyBilingualText(box)}catch{}document.getElementById('fvVideoExport').addEventListener('click',vaExport);document.getElementById('fvVideoProvenance').addEventListener('click',vaDownloadProvenance);box.addEventListener('toggle',()=>{if(box.open)vaRefreshTimeSelectors()});for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(vaRefreshTimeSelectors,0));vaRefreshTimeSelectors();return true
 }
 function vaInstall(){if(vaInstallUi())return;const retry=()=>{if(vaInstallUi())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
 vaInstall();
-window.FoamLensAnimationExport={exportVideo:vaExport,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList,isExporting:()=>vaState.exporting};
+window.FoamLensAnimationExport={exportVideo:vaExport,downloadProvenance:vaDownloadProvenance,getLastProvenance:()=>vaState.lastExportProvenance,frameEvidence:vaFrameEvidence,refresh:vaRefreshTimeSelectors,descriptorList:vaDescriptorList,isExporting:()=>vaState.exporting};

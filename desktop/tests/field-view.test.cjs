@@ -605,6 +605,41 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
+test('OpenFOAM video frame provenance distinguishes measured, missing, hidden and stale regions',()=>{
+  const start=animationSource.indexOf('function vaFrameEvidence('),end=animationSource.indexOf('function vaDownloadProvenance()',start);
+  assert(start>0&&end>start,'Missing executable per-frame provenance function');
+  const capture=new Function(animationSource.slice(start,end)+';return vaFrameEvidence;')();
+  const main={time:9.8,fieldName:'T',dimensions:'[0 0 0 1 0 0 0]'};
+  const choices=new Map([['metal',{visible:true,opacity:1}],['mold',{visible:true,opacity:.48}]]);
+  const original={sourceTime:9.8,fieldValues:[303.063],geometryOnly:false,field:'T',storage:'volume',
+    parsed:{dimensions:'[0 0 0 1 0 0 0]'}};
+  const scene={caseId:'1',choices,layers:new Map([['mold',original]])};
+  const frame=capture(9.8,main,scene,'metal');
+  assert.deepStrictEqual(frame.regions.map(r=>r.state),['field','field']);
+  assert.equal(frame.regions[1].sourceTime,9.8);
+  assert.equal(frame.regions[1].region,'mold');
+  scene.layers.set('mold',{fieldValues:null,sourceTime:null,geometryOnly:true});
+  const missing=capture(9.8,main,scene,'metal');
+  assert.equal(missing.regions[1].state,'geometry-only');
+  assert.equal(missing.regions[1].sourceTime,null);
+  assert.equal(missing.regions[1].field,null);
+  choices.get('mold').visible=false;
+  assert.equal(capture(9.8,main,scene,'metal').regions[1].state,'hidden');
+  choices.get('mold').visible=true;
+  scene.layers.delete('mold');
+  assert.throws(()=>capture(9.8,main,scene,'metal'),/visible OpenFOAM region missing/);
+  scene.layers.set('mold',{...original,sourceTime:7});
+  assert.throws(()=>capture(9.8,main,scene,'metal'),/time mismatch/);
+  assert.throws(()=>capture(9.8,{...main,time:0},scene,'metal'),/Primary field frame/);
+  assert.throws(()=>capture(null,main,scene,'metal'),/Missing physical time/);
+  assert(animationSource.includes('physicalFrames.push({frameIndex:frame,...evidence})'),
+    'One provenance record per encoded frame is required');
+  assert(animationSource.includes('fvVideoProvenance')&&animationSource.includes('vaDownloadProvenance'),
+    'User must be able to download the per-video provenance sidecar');
+  assert(source.includes('sourceTime:exact===undefined?null:exact'),
+    'Secondary provenance source time must come from the actual matched OpenFOAM field');
+});
+
 test('Field workspace owns one central viewport plus a contextual sidebar',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwPlotTitle','fw3DControlsHost','fw2DControlsHost',
