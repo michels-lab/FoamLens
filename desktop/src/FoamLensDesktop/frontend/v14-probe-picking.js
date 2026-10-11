@@ -80,7 +80,7 @@ function fpInternalFaceGeometry(mesh){
 function fpBoundaryPointValues(mesh,values){
   return (mesh?.surfaceTriangles||[]).map(pi=>Number(values?.[pi]))
 }
-function fpRenderedPick(ray){
+function fpPickPrimaryRendered(ray){
   const mesh=fvState.mesh;if(!mesh||!fvState.fieldValues)return null;const storage=String(fvState.fieldStorage||'volume'),interior=[];
   if(storage==='volume'&&document.getElementById('fvIso')?.checked&&fvState.isoGeometry?.positions?.length){
     const iso=Number(fvState.isoGeometry.isoValue);interior.push(fpPickTriangles(ray.origin,ray.dir,fvState.isoGeometry.positions,{constantValue:iso,kind:'iso'}))
@@ -103,6 +103,61 @@ function fpRenderedPick(ray){
   }
   return null
 }
+// Each click must pick real triangles and their own OpenFOAM field values
+// from ONE shared WebGL scene, without reading the primary region's array.
+function fpRefreshRegions(){
+  const select=document.getElementById('fvProbeRegion');if(!select)return;
+  const current=select.value||'auto',c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';
+  const regions=window.FoamLensRegionScene?.regionNames?.(c)||[primary];
+  select.replaceChildren();
+  const option=(value,label)=>{const o=document.createElement('option');o.value=value;o.textContent=label;select.appendChild(o)};
+  option('auto',fpUi('Auto · nearest visible region','Auto · región visible más próxima'));
+  for(const region of regions)option('region:'+region,region||fpUi('Default region','Región predeterminada'));
+  if([...select.options].some(o=>o.value===current))select.value=current;
+}
+function fpSecondaryRegionPick(ray,layer){
+  if(!layer?.mesh)return null;
+  const mesh=layer.mesh,values=layer.fieldValues,storage=String(layer.storage||''),positions=fpSurfacePositions(mesh);
+  let hit=null;
+  if(storage==='surface'&&values?.length===mesh.internalFaceCount){
+    const faces=fpInternalFaceGeometry(mesh);
+    if(faces?.positions?.length){
+      hit=fpPickTriangles(ray.origin,ray.dir,faces.positions,{kind:'internalFace',faceIds:faces.triangleFaces});
+      if(hit&&hit.face!=null)hit.value=Number(values[hit.face])
+    }
+    // Unmeasured boundary faces never inherit neighboring cell/face values.
+    if(!hit&&positions?.length)hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'geometry'});
+  }else if(storage==='point'&&values?.length===mesh.pointCount){
+    hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'pointSurface',values:fpBoundaryPointValues(mesh,values)})
+  }else if(storage==='volume'&&values?.length===mesh.cellCount){
+    hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'surface',cellIds:mesh.surfaceOwners||[]});
+    if(hit&&hit.cell!=null)hit.value=Number(values[hit.cell])
+  }else if(positions?.length)hit=fpPickTriangles(ray.origin,ray.dir,positions,{kind:'geometry'});
+  if(!hit)return null;
+  return{...hit,region:layer.region,fieldName:layer.field,storage,parsed:layer.parsed,time:layer.time,
+    caseId:window.FoamLensRegionScene?.state?.()?.caseId??null,geometryOnly:!Number.isFinite(hit.value)}
+}
+function fpRenderedPick(ray){
+  const target=document.getElementById('fvProbeRegion')?.value||'auto',
+    region=document.getElementById('fvRegion')?.value||'',hits=[],
+    scene=window.FoamLensRegionScene?.state?.();
+  const selected=key=>target==='auto'||target==='region:'+key;
+  if(selected(region)&&scene?.choices?.get(region)?.visible!==false){
+    const primary=fpPickPrimaryRendered(ray);
+    if(primary)hits.push({...primary,region,caseId:fvState.caseId??scene?.caseId??null,
+      fieldName:fvState.fieldName||'',storage:fvState.fieldStorage||'',parsed:fvState.fieldParsed||null,
+      time:fvState.time,geometryOnly:!Number.isFinite(primary.value)})
+  }
+  if(document.getElementById('fvSurface')?.checked!==false){
+    for(const [name,layer] of scene?.layers||[]){
+      if(!selected(name)||scene?.choices?.get(name)?.visible===false)continue;
+      const hit=fpSecondaryRegionPick(ray,layer);if(hit)hits.push(hit)
+    }
+  }
+  hits.sort((a,b)=>a.t-b.t);
+  return hits[0]||null
+}
+
 function fpMarkerScale(){
   return fpState.markerSize==='small'?.012:fpState.markerSize==='large'?.038:.024
 }
@@ -140,17 +195,23 @@ function fpUpdateMarker(hit){
   const pos=fpMarkerBuffers(hit.point);fvUploadBuffer(r,'probePos',pos,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'probeColor',fvConstantColors(pos.length/3,[1,.72,.15]),r.gl.DYNAMIC_DRAW);r.probeCount=pos.length/3;fpUpdateOverlayPosition();fvRender()
 }
 function fpSourceLabel(kind){
+  if(kind==='geometry')return fpUi('Geometry only · no measured field','Solo geometría · sin campo medido');
   if(kind==='iso')return fpUi('Iso-surface','Iso-superficie');if(kind==='slice')return fpUi('Interior slice','Corte interior');if(kind==='internalFace')return fpUi('Internal mesh face','Cara interna de malla');if(kind==='boundaryFace')return fpUi('Boundary mesh face · explicit patch value','Cara de frontera · valor explícito de patch');if(kind==='pointSurface')return fpUi('Boundary surface · point interpolation','Superficie de frontera · interpolación de puntos');return fpUi('Boundary surface · owner cell','Superficie de frontera · celda owner')
 }
 function fpRenderReadout(hit){
   const box=document.getElementById('fvProbeReadout');if(!box)return;if(!hit){box.innerHTML='<span>'+fpUi('Click rendered geometry to inspect a value.','Haz clic en la geometría renderizada para inspeccionar un valor.')+'</span>';return}
-  const storage=String(fvState.fieldStorage||'volume'),nearest=hit.cell!=null?{index:hit.cell,distance:0}:fpNearestCell(hit.point),unit=fvState.fieldParsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(fvState.fieldParsed.dimensions):'',elementLabel=hit.face!=null?fpUi('Face','Cara'):hit.cell!=null?fpUi('Cell','Celda'):storage==='point'?fpUi('Point data','Datos de punto'):fpUi('Nearest cell','Celda más cercana'),elementText=hit.face!=null?String(hit.face):hit.cell!=null?String(hit.cell):storage==='point'?fpUi('triangle interpolation','interpolación triangular'):(nearest?String(nearest.index):'—');
+  const storage=String(hit.storage||fvState.fieldStorage||''),parsed=hit.parsed||null,
+    nearest=hit.cell!=null?{index:hit.cell,distance:0}:hit.region===(document.getElementById('fvRegion')?.value||'')?fpNearestCell(hit.point):null,
+    unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',
+    elementLabel=hit.face!=null?fpUi('Face','Cara'):hit.cell!=null?fpUi('Cell','Celda'):storage==='point'?fpUi('Point data','Datos de punto'):fpUi('Nearest cell','Celda más cercana'),
+    elementText=hit.face!=null?String(hit.face):hit.cell!=null?String(hit.cell):storage==='point'?fpUi('triangle interpolation','interpolación triangular'):(nearest?String(nearest.index):'—');
   box.innerHTML='<div class="fpGrid">'+
+    '<div><span>'+fpUi('Region','Región')+'</span><b>'+fvEsc(hit.region||fpUi('Default','Predeterminada'))+'</b></div>'+
     '<div><span>'+fpUi('Source','Fuente')+'</span><b>'+fvEsc(fpSourceLabel(hit.kind))+'</b></div>'+
-    '<div><span>'+fpUi('Field','Campo')+'</span><b>'+fvEsc(fvState.fieldName||'—')+'</b></div>'+
-    '<div><span>'+fpUi('Association','Asociación')+'</span><b>'+fvEsc(typeof fvAssociationLabel==='function'?fvAssociationLabel(storage):storage)+'</b></div>'+
-    '<div><span>'+fpUi('Value','Valor')+'</span><b>'+fvEsc(fpFmt(hit.value)+(unit?' '+unit:''))+'</b></div>'+
-    '<div><span>'+fpUi('Time','Tiempo')+'</span><b>'+fvEsc(fpFmt(fvState.time))+' s</b></div>'+
+    '<div><span>'+fpUi('Field','Campo')+'</span><b>'+fvEsc(hit.fieldName||fpUi('No measured field','Sin campo medido'))+'</b></div>'+
+    '<div><span>'+fpUi('Association','Asociación')+'</span><b>'+fvEsc(storage&&typeof fvAssociationLabel==='function'?fvAssociationLabel(storage):storage||'—')+'</b></div>'+
+    '<div><span>'+fpUi('Value','Valor')+'</span><b>'+fvEsc(hit.geometryOnly?fpUi('Not available (geometry only)','No disponible (solo geometría)'):fpFmt(hit.value)+(unit?' '+unit:''))+'</b></div>'+
+    '<div><span>'+fpUi('Time','Tiempo')+'</span><b>'+fvEsc(fpFmt(hit.time))+' s</b></div>'+
     '<div><span>X</span><b>'+fvEsc(fpFmt(hit.point[0]))+'</b></div><div><span>Y</span><b>'+fvEsc(fpFmt(hit.point[1]))+'</b></div><div><span>Z</span><b>'+fvEsc(fpFmt(hit.point[2]))+'</b></div>'+
     '<div><span>'+fvEsc(elementLabel)+'</span><b>'+fvEsc(elementText)+'</b></div></div>'
 }
@@ -176,10 +237,13 @@ function fpInstallUi(){
   const clear=document.createElement('button');clear.className='btn tiny';clear.id='fvProbeClear';clear.type='button';clear.textContent=fpUi('Clear probe','Limpiar sonda');clear.setAttribute('data-fl-en','Clear probe');clear.setAttribute('data-fl-es','Limpiar sonda');
   const size=document.createElement('select');size.id='fvProbeSize';size.className='fpProbeSize';size.innerHTML='<option value="small">Probe S</option><option value="medium" selected>Probe M</option><option value="large">Probe L</option>';
   const pill=document.createElement('span');pill.id='fvProbeStatePill';pill.className='fpProbeStatePill';pill.textContent=fpUi('Probe OFF','Sonda INACTIVA');
-  tools.appendChild(mode);tools.appendChild(clear);tools.appendChild(size);tools.appendChild(pill);
+  const regionSelect=document.createElement('select');regionSelect.id='fvProbeRegion';regionSelect.className='fpProbeRegion';regionSelect.setAttribute('aria-label',fpUi('Physical region to probe','Región física para la sonda'));
+  tools.appendChild(mode);tools.appendChild(clear);tools.appendChild(size);tools.appendChild(regionSelect);tools.appendChild(pill);
+  fpRefreshRegions();
   fpEnsureOverlay();fpEnsureAimOverlay();
   const read=document.createElement('div');read.id='fvProbeReadout';read.className='fvProbeReadout smallnote';stats.insertAdjacentElement('afterend',read);fpRenderReadout(null);
-  if(!document.getElementById('fvProbeStyle')){const st=document.createElement('style');st.id='fvProbeStyle';st.textContent='.fvViewTools{display:flex;gap:6px;flex-wrap:wrap}.fpProbeSize{width:auto;min-width:76px;padding:4px 6px;border-radius:8px}.fpProbeStatePill{display:inline-flex;align-items:center;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--muted);font-size:8px;font-weight:850}.fpProbeStatePill.on{color:#ffd66b;border-color:rgba(255,190,55,.5);background:rgba(255,190,55,.12)}.fvProbeMarkerOverlay{position:absolute;z-index:18;transform:translate(-50%,-50%);border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.55),0 0 16px 4px rgba(255,201,61,.55);pointer-events:none}.fvProbeMarkerOverlay:before,.fvProbeMarkerOverlay:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;box-shadow:0 0 3px #000;transform:translate(-50%,-50%)}.fvProbeMarkerOverlay:before{width:150%;height:2px}.fvProbeMarkerOverlay:after{width:2px;height:150%}.fpProbeDot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #111}.fvProbeMarkerOverlay.hidden{display:none}.fvProbeAimOverlay{position:absolute;z-index:17;transform:translate(-50%,-50%);border:1px dashed #fff3b0;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 10px rgba(255,211,77,.4);pointer-events:none}.fvProbeAimOverlay:before,.fvProbeAimOverlay:after{content:"";position:absolute;left:50%;top:50%;background:#ffd34d;transform:translate(-50%,-50%);box-shadow:0 0 2px #000}.fvProbeAimOverlay:before{width:170%;height:1px}.fvProbeAimOverlay:after{width:1px;height:170%}.fvProbeAimOverlay span{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#ffd34d;transform:translate(-50%,-50%)}.fvProbeAimOverlay.hidden{display:none}.fvProbeReadout{margin-top:9px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fpGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.fpGrid>div{min-width:0}.fpGrid span{display:block;color:var(--muted);font-size:8px}.fpGrid b{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}@media(max-width:780px){.fpGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}';document.head.appendChild(st)}
+  if(!document.getElementById('fvProbeStyle')){const st=document.createElement('style');st.id='fvProbeStyle';st.textContent='.fvViewTools{display:flex;gap:6px;flex-wrap:wrap}.fpProbeSize{width:auto;min-width:76px;padding:4px 6px;border-radius:8px}.fpProbeRegion{width:auto;max-width:230px;min-width:125px;padding:4px 6px;border-radius:8px}.fpProbeStatePill{display:inline-flex;align-items:center;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--muted);font-size:8px;font-weight:850}.fpProbeStatePill.on{color:#ffd66b;border-color:rgba(255,190,55,.5);background:rgba(255,190,55,.12)}.fvProbeMarkerOverlay{position:absolute;z-index:18;transform:translate(-50%,-50%);border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.55),0 0 16px 4px rgba(255,201,61,.55);pointer-events:none}.fvProbeMarkerOverlay:before,.fvProbeMarkerOverlay:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;box-shadow:0 0 3px #000;transform:translate(-50%,-50%)}.fvProbeMarkerOverlay:before{width:150%;height:2px}.fvProbeMarkerOverlay:after{width:2px;height:150%}.fpProbeDot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #111}.fvProbeMarkerOverlay.hidden{display:none}.fvProbeAimOverlay{position:absolute;z-index:17;transform:translate(-50%,-50%);border:1px dashed #fff3b0;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 10px rgba(255,211,77,.4);pointer-events:none}.fvProbeAimOverlay:before,.fvProbeAimOverlay:after{content:"";position:absolute;left:50%;top:50%;background:#ffd34d;transform:translate(-50%,-50%);box-shadow:0 0 2px #000}.fvProbeAimOverlay:before{width:170%;height:1px}.fvProbeAimOverlay:after{width:1px;height:170%}.fvProbeAimOverlay span{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#ffd34d;transform:translate(-50%,-50%)}.fvProbeAimOverlay.hidden{display:none}.fvProbeReadout{margin-top:9px;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fpGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.fpGrid>div{min-width:0}.fpGrid span{display:block;color:var(--muted);font-size:8px}.fpGrid b{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}@media(max-width:780px){.fpGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}';document.head.appendChild(st)}
+  regionSelect.addEventListener('change',fpClear);
   mode.addEventListener('click',()=>fpSetEnabled(!fpState.enabled));clear.addEventListener('click',fpClear);size.addEventListener('change',()=>{fpState.markerSize=size.value||'medium';if(fpState.enabled&&fpState.last)fpUpdateMarker(fpState.last);else fpUpdateOverlayPosition()});
   canvas.addEventListener('pointermove',e=>{if(fpState.enabled)fpMoveAimOverlay(e)});
   canvas.addEventListener('pointerenter',e=>{if(fpState.enabled)fpMoveAimOverlay(e)});
@@ -191,7 +255,7 @@ function fpInstallUi(){
 function fpInstall(){
   const mount=()=>fpInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
   if(typeof fvRender==='function'&&!fvRender.__fpOverlayPatched){const previous=fvRender;fvRender=function(...args){const out=previous.apply(this,args);fpUpdateOverlayPosition();return out};fvRender.__fpOverlayPatched=true}
-  document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),cl=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(cl)cl.textContent=fpUi('Clear probe','Limpiar sonda');fpRenderReadout(fpState.last)});
+  document.addEventListener('foamlens-language-change',()=>{const b=document.getElementById('fvProbeMode'),cl=document.getElementById('fvProbeClear');if(b)fpSetEnabled(fpState.enabled);if(cl)cl.textContent=fpUi('Clear probe','Limpiar sonda');fpRefreshRegions();fpRenderReadout(fpState.last)});
 }
 fpInstall();
-window.FoamLensFieldProbe={fpMat4Invert,fpTransform4,fpPerspectiveDivide,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpCanvasRay,fpPickAtEvent,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay,isEnabled:()=>fpState.enabled,getLast:()=>fpState.last};
+window.FoamLensFieldProbe={fpMat4Invert,fpTransform4,fpPerspectiveDivide,fpRayTriangle,fpPickTriangles,fpRenderedPick,fpSecondaryRegionPick,fpRefreshRegions,fpCanvasRay,fpPickAtEvent,fpClear,fpSetEnabled,fpUpdateOverlayPosition,fpMoveAimOverlay,fpHideAimOverlay,isEnabled:()=>fpState.enabled,getLast:()=>fpState.last};
