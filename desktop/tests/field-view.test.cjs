@@ -942,6 +942,28 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
     assert(source.includes(token),'Missing physical region control: '+token);
 });
 
+test('native Windows QuickCup exercises actual independent mold legend without covering 3D data',()=>{
+  const begin=program.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()');
+  const end=program.indexOf('private async Task CaptureCdpPngAsync(',begin);
+  assert(begin>=0&&end>begin,'Native scientific evidence workflow missing');
+  const actual=program.slice(begin,end);
+  for(const required of [
+    "window.FoamLensFieldWorkspace?.setInspector?.(true)",
+    "regionRow?.querySelector('[data-fv-region-palette]')",
+    "regionRow?.querySelector('.fvRegionLegend')",
+    "colorBar.getBoundingClientRect().width>70",
+    "regionPalette.dispatchEvent(new Event('change',{bubbles:true}))",
+    "updated?.palette===next",
+    "primaryPalette?.value===primaryPaletteBefore",
+    "regionLegendMeasured&&independentRegionPalette",
+    'field-{size.Name}.png'
+  ])assert(actual.includes(required),'Missing actual OpenFOAM Win32 UI evidence: '+required);
+  assert(source.includes("fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);"),
+    'The previous physical frame scale must vanish immediately on asynchronous frame changes');
+  assert(source.includes("fvRegionStatus(region,problem);fvRegionUpdateLegend(region);"),
+    'An OpenFOAM read failure must not leave stale numerical legend values visible');
+});
+
 test('default secondary physical-region opacity exposes an encasing mold while retaining primary visibility',()=>{
   const scene=new Function([
     'const window={};',
