@@ -1246,7 +1246,9 @@ internal sealed class FoamLensForm : Form
                               const layer=name!=null?scene.layers.get(name):null;
                               if(!layer||!probe?.fpRenderedPick||!target||!layer.fieldValues?.length)
                                 return {ok:false,error:'Region Probe controls or measured OpenFOAM layer unavailable'};
-                              const shapes=fvBuildSurfaceBuffers(layer.mesh).surfacePositions;
+                              // Reuse the exact CPU triangles already uploaded to this region's WebGL layer.
+                              const shapes=layer.probePositions;
+                              if(!shapes?.length)return {ok:false,error:'Measured layer has no preserved pickable triangles'};
                               const vector=(a,b)=>a.map((v,i)=>v-b[i]);
                               const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
                               let ray=null;
