@@ -82,6 +82,8 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
         if not isinstance(rel, str) or not rel or not file.is_relative_to(base):
             errors.append(f"{prefix}: invalid/out-of-root screenshot path")
             continue
+        if require_portable and platform == "windows" and Path(rel).parts[0] != variant:
+            errors.append(f"{prefix}: {variant} screenshot path outside its runtime directory")
         try:
             data = file.read_bytes()
             actual = hashlib.sha256(data).hexdigest()
