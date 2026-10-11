@@ -1293,7 +1293,7 @@ test('secondary WebGL GPU payload accounting releases every buffer after repeate
     '  if(stats.regionCount!==1||stats.payloadBytes!==layer.gpuPayloadBytes)throw Error("miscount");',
     '  if(stats.payloadBytes!==2*(90000+12000)*4)throw Error("unexpected buffer bytes");',
     '  expected=stats.payloadBytes;',
-    '  fvRegionReleaseLayer(layer);fvRegionScene.layers.clear();',
+    '  fvRegionReleaseLayer(layer);fvRegionReleaseLayer(layer);fvRegionScene.layers.clear();',
     '  if(fvRegionGpuPayloadStats().payloadBytes!==0)throw Error("stale bytes");',
     '}',
     'return {created,deleted,remaining:live.size,peakBytes,expected,uploads:uploads.length,stats:fvRegionGpuPayloadStats()};'
@@ -1376,6 +1376,26 @@ test('secondary surface fields color actual internal mesh faces and keep unknown
   assert.equal(draws[1][3],.8,'Real internal-face colors use requested region opacity');
 });
 
+
+test('packaged Windows real metal-mold smoke reports bounded secondary GPU upload payload, not claimed VRAM',()=>{
+  const start=program.indexOf("const initialGpu=api.gpuPayloadStats?.();");
+  const end=program.indexOf("physicalScene.missingFrame=missingFrame",start);
+  assert(start>0&&end>start,'Real native GPU-payload acceptance must remain reachable');
+  const native=program.slice(start,end);
+  for(const required of [
+    "secondaryGpuPayloadBytes:Number(initialGpu?.payloadBytes||0)",
+    "secondaryGpuRegions:Number(initialGpu?.regionCount||0)",
+    "initialGpu?.regionCount===expected.length-1",
+    "Number(initialGpu?.payloadBytes)>0",
+    "restoredGpu=api.gpuPayloadStats?.()",
+    "missingFrame.restoredGpuPayloadBytes=Number(restoredGpu?.payloadBytes||0)",
+    "missingFrame.restoredGpuPayloadBytes!==physicalScene.secondaryGpuPayloadBytes"
+  ])assert(native.includes(required),'Missing installed WebView2 evidence: '+required);
+  assert(regionCode.includes('gpuPayloadStats:fvRegionGpuPayloadStats'),
+    'Per-region payload stats API must be available to real native smoke');
+  assert(regionCode.includes('excludes primary renderer and driver allocations'),
+    'Do not mislabel upload bytes as physical GPU VRAM');
+});
 
 test('native OpenFOAM smoke removes only discovered timestamps and verifies geometry-only fallback recovery',()=>{
   const start=program.indexOf('const missingRegion=expected.find(name=>name!==primary);');
