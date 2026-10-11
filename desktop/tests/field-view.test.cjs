@@ -934,7 +934,7 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   ]};
   assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
   assert(regionCode.includes('fvRegionBuildLayer('));
-  assert(regionCode.includes('fvRegionRenderLayers()'));
+  assert(regionCode.includes("function fvRegionRenderLayers(pass='all',drawPrimary=null)"));
   assert(source.includes("fvRegionRenderLayers('opaque')")&&source.includes("fvRegionRenderLayers('transparent'")&&source.includes('fvUpdateAxisGizmo()'),'Opaque and translucent physical passes must share the Field scene and XYZ gizmo');
   assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
   assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
