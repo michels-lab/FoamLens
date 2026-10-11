@@ -4273,3 +4273,9 @@ The required interpretation is structural integration rather than sticker placem
 - **Correction:** Field mesh+field readiness and frame navigation now use `fvRegionPhysicalTime` and reject a field with no valid times. Expose this physical-time resolver to the animation UI, which also validates safely if the region API is absent. Preserve valid strings `"0"` and `"9.8"` exactly, without nearest-time scientific fabrication.
 - **Automated regression candidate:** executed-function video timestamp test distinguishes null, empty, boolean, NaN and invalid text from 0 and 9.8 seconds, including missing runtime API. Full PR exact-head Windows CI **pending**.
 - **Scope:** PR #50, separate from the earlier certified PR #49/main. No release publication, Store work, or human pre-release wait condition.
+
+## 2026-10-11 UTC — QuickCup isolated parser scope regression fixed (PR #50)
+
+- **Failed exact-HEAD evidence:** PR #50 workflow 38118456443 aborted at Linux QuickCup `Test real OpenFOAM fixture integration` with `ReferenceError: fvRegionPhysicalTime is not defined` inside the `FOAMLENS_FIELD_VIEW_CORE_START/END` test-extracted subset. The new ready-region guard referenced a helper declared outside that intentionally isolated core segment. Build, installer and native UI tests did not run on this SHA.
+- **Root fix:** the readiness predicate performs the same strict numeric/string, nonempty, finite OpenFOAM physical time validation directly inside the isolated core, without reaching into the non-core renderer API. Video and primary-frame paths still use the shared exported field-time resolver where the full Field runtime is present. Regression assertions now protect this extraction boundary.
+- **Status:** after fix, new exact-head QuickCup plus packaged Windows acceptance must rerun; no merge, release or manual approval before actual results.
