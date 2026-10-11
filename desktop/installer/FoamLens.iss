@@ -17,6 +17,8 @@ OutputBaseFilename=FoamLens-Setup-v{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+DisableWelcomePage=no
+LicenseFile=..\LICENSE.txt
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequiredOverridesAllowed=dialog
@@ -24,6 +26,7 @@ SetupIconFile=..\src\FoamLensDesktop\Assets\FoamLens.ico
 UninstallDisplayIcon={app}\FoamLens.exe
 
 [Files]
+Source: "TaskbarPinning.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PublishDir}\FoamLens.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
@@ -35,3 +38,4 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\FoamLens.exe"; Description: "Launch FoamLens"; Flags: nowait postinstall skipifsilent
+Filename: "{sys}\notepad.exe"; Parameters: """{app}\TaskbarPinning.txt"""; Description: "Show how to pin FoamLens to the taskbar"; Flags: nowait postinstall skipifsilent unchecked

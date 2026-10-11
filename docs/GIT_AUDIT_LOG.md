@@ -4426,3 +4426,8 @@ The required interpretation is structural integration rather than sticker placem
 - **Fix:** strict numeric or decimal/scientific-notation text conversion in source-executed temporal alignment and 3D compare; preserve genuine zero and numeric OpenFOAM timestamps, reject blank/boolean/missing values, guard spatial comparison and interpolation; Pearson is evaluated only on the exact valid physical-time pairs used by metrics. No invented or interpolated missing field data.
 - **Tests:** add production-core regression cases to `desktop/tests/temporal-alignment.test.cjs` and `desktop/tests/field-compare.test.cjs`. Local V8 production-function spot checks passed for 13 targeted cases; full current-commit Node suite, real OpenFOAM Windows QuickCup and installed/portable UI evidence **not yet run at time of this entry**. Require exact PR-head green CI before merge. B2 remains **IN PROGRESS**.
 - **Release:** not authorized; do not publish or change version. Scope issue #30; #40 stays open for hardware/transparent-interface acceptance.
+
+## 2026-10-11 — Windows installer acceptance and shortcut choices (shared Michel's Lab owner request)
+- Native Inno Setup candidate gains explicit Welcome and full existing `desktop/LICENSE.txt` acceptance page; never shorten/replace existing FoamLens proprietary rights.
+- Existing unchecked desktop shortcut remains optional. Adds unchecked post-install Notepad helper with bilingual taskbar pinning steps; not a silent pin or claim of completed OS action (Microsoft requires app/user interaction).
+- Adds actual installer-source regression test to `desktop/tests/windows-icon.test.cjs`. Source/CI candidate pending exact-head Windows compile + real interactive wizard visual proof. No version bump or release.
