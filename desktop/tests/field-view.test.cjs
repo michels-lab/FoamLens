@@ -605,6 +605,20 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
+test('Field and video reject false zero timestamps from empty OpenFOAM metadata',()=>{
+  const a=animationSource.indexOf('function vaTimes()'),b=animationSource.indexOf('function vaRefreshTimeSelectors()',a);
+  assert(a>=0&&b>a);
+  const snippet=animationSource.slice(a,b);
+  const mk=(times,window)=>new Function('vaPrimaryGroup','window',snippet+';return vaTimes()')(
+    ()=>({times}),window);
+  const valid=t=>(typeof t==='number'||typeof t==='string')&&String(t).trim()!==''&&Number.isFinite(Number(t))?Number(t):NaN;
+  assert.deepStrictEqual(mk([null,'',false,undefined,NaN,'invalid','0',9.8],{FoamLensRegionScene:{physicalTime:valid}}),[0,9.8]);
+  assert.deepStrictEqual(mk([null,false,'',3],{}),[3]);
+  assert(source.includes("(g.times||[]).map(fvRegionPhysicalTime).filter(Number.isFinite)"));
+  assert(source.includes("if(!times.length)throw new Error('Selected OpenFOAM field has no valid physical timestamps."));
+  assert(source.includes('Number.isFinite(fvRegionPhysicalTime(t))&&!!fvMeshSnapshotForTime(mesh,t)'));
+});
+
 test('OpenFOAM video frame provenance distinguishes measured, missing, hidden and stale regions',()=>{
   const start=animationSource.indexOf('function vaFrameEvidence('),end=animationSource.indexOf('function vaDownloadProvenance()',start);
   assert(start>0&&end>start,'Missing executable per-frame provenance function');
