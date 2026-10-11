@@ -893,19 +893,23 @@ function fvEnsureTransparentBatchRenderer(r){
   }
 }
 function fvDrawGlobalTransparentTriangles(r,options){
+  if(r.transparentBatchDisabled)return false;
   const sources=fvTransparentSources(r,options);
-  // Single-region scenes, oversized/missing CPU sources or unsupported GL
-  // use the existing camera-axis region-center blending fallback.
+  // Oversized scenes, incomplete measured buffers and older WebGL drivers
+  // retain the existing camera-axis region composite without extra GPU RAM.
   if(fvRegionScene.layers.size<1||!sources.length)return false;
   const ordered=fvTransparentTriangleSort(sources,fvState.camera);
   if(!ordered)return false;
   const gl=r.gl;
   if(typeof gl.createShader!=='function'||typeof gl.disableVertexAttribArray!=='function')return false;
-  const batch=fvEnsureTransparentBatchRenderer(r);if(!batch)return false;
+  let batch=null;
+  try{batch=fvEnsureTransparentBatchRenderer(r)}
+  catch(error){r.transparentBatchDisabled=String(error?.message||error);return false}
+  if(!batch)return false;
   const canvas=document.getElementById('fvCanvas');
-  gl.useProgram(batch.program);gl.uniformMatrix4fv(batch.mvp,false,fvMvp(canvas));
-  gl.depthMask(false);
   try{
+    gl.useProgram(batch.program);gl.uniformMatrix4fv(batch.mvp,false,fvMvp(canvas));
+    gl.depthMask(false);
     for(const [i,data,location,components] of [
       [0,ordered.positions,batch.pos,3],[1,ordered.colors,batch.color,3],
       [2,ordered.alpha,batch.alpha,1]]){
@@ -918,9 +922,15 @@ function fvDrawGlobalTransparentTriangles(r,options){
     batch.lastTriangles=ordered.triangles;
     batch.lastPayloadBytes=ordered.positions.byteLength+ordered.colors.byteLength+ordered.alpha.byteLength;
     return true
+  }catch(error){
+    // A driver upload failure must not blank the viewport or leave half a
+    // framebuffer. Disable the fast path for this renderer and use the
+    // previous CPU-bounded region-average fallback on subsequent draws.
+    r.transparentBatchDisabled=String(error?.message||error);
+    return false
   }finally{
     gl.depthMask(true);
-    for(const loc of [batch.pos,batch.color,batch.alpha])gl.disableVertexAttribArray(loc);
+    for(const loc of [batch.pos,batch.color,batch.alpha])if(loc>=0)gl.disableVertexAttribArray(loc);
     gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas))
   }
 }
