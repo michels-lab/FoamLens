@@ -4258,3 +4258,35 @@ The required interpretation is structural integration rather than sticker placem
 - **Finding:** opening Camera scrolls to the horizontal toolbar on a compact WebView2, but an already-open Camera tab can remain active while Windows switches widths; in that case a click-only scroll handler does not run.
 - **Correction:** refine Ribbon scroll to leave fully visible wide controls alone, left-align controls that run off either side of the shelf and register a viewport resize handler for the already-open Camera tab. Keep existing horizontal scroll and no-canvas-overlap structure.
 - **Validation:** real helper-source execution checked offscreen right, offscreen left, and already-visible cases. The exact-head packaged Windows evidence must still verify Camera bounds at both widths, QuickCup science, portable and installed behaviors. No release.
+
+## 2026-10-11 UTC — Physical-region video provenance and asynchronous scientific frame auditing
+
+- **Problem:** real Field video could render both metal and mold but did not export a per-frame record distinguishing exact measured secondary-region fields from neutral geometry-only fallback at mismatched times. That makes an otherwise accurate visualization difficult to audit.
+- **Root-level candidate:** each WebGL secondary layer records actual OpenFOAM `sourceTime` only if an exact field was read, null for geometry. The video encoder validates primary physical time and every visible layer, rejects missing/stale/mismatched frames, and retains per-frame states `field`, `geometry-only`, or `hidden`, region identity, exact source time, scalar dimensions, and opacity. Geometry-only has **no fabricated field/temperature/time**.
+- **Export:** after successful recording, a separately clickable **Download frame provenance JSON** button produces a sidecar identified by the video filename and physical frame indices. This explicit user interaction avoids browsers silently blocking two automatic downloads.
+- **Regressions:** actual exported function tested with measured metal+mold at 9.8 s, field missing at that time, hidden mold, absent visible layer, stale mold time, stale primary time, missing requested time. Existing native QuickCup and packaged Windows smoke still required.
+- **Status:** exact SHA Windows CI and final installed/executable tests pending; no release or Store submission. #29/#30/#40 remain open for broader acceptance.
+
+## 2026-10-11 UTC — Primary/video physical timestamp normalization
+
+- **Root scientific finding:** some primary 3D Field and video timeline paths still used `map(Number)`, which turns `null`, empty strings, or booleans into a false physical `t=0`. Secondary-region exact-time lookup already rejected those values.
+- **Correction:** Field mesh+field readiness and frame navigation now use `fvRegionPhysicalTime` and reject a field with no valid times. Expose this physical-time resolver to the animation UI, which also validates safely if the region API is absent. Preserve valid strings `"0"` and `"9.8"` exactly, without nearest-time scientific fabrication.
+- **Automated regression candidate:** executed-function video timestamp test distinguishes null, empty, boolean, NaN and invalid text from 0 and 9.8 seconds, including missing runtime API. Full PR exact-head Windows CI **pending**.
+- **Scope:** PR #50, separate from the earlier certified PR #49/main. No release publication, Store work, or human pre-release wait condition.
+
+## 2026-10-11 UTC — QuickCup isolated parser scope regression fixed (PR #50)
+
+- **Failed exact-HEAD evidence:** PR #50 workflow 38118456443 aborted at Linux QuickCup `Test real OpenFOAM fixture integration` with `ReferenceError: fvRegionPhysicalTime is not defined` inside the `FOAMLENS_FIELD_VIEW_CORE_START/END` test-extracted subset. The new ready-region guard referenced a helper declared outside that intentionally isolated core segment. Build, installer and native UI tests did not run on this SHA.
+- **Root fix:** the readiness predicate performs the same strict numeric/string, nonempty, finite OpenFOAM physical time validation directly inside the isolated core, without reaching into the non-core renderer API. Video and primary-frame paths still use the shared exported field-time resolver where the full Field runtime is present. Regression assertions now protect this extraction boundary.
+- **Status:** after fix, new exact-head QuickCup plus packaged Windows acceptance must rerun; no merge, release or manual approval before actual results.
+
+## 2026-10-11 UTC — Single-region video provenance compatibility
+
+- **Edge case caught before merge:** the new video evidence iterator initially required a populated multi-region choice map. For a legitimate single-physical-region case, that map can be empty because the multiregion chooser is intentionally hidden. The video must still record the primary measured field.
+- **Correction:** provenance builds the set union of the current primary region and explicitly known physical region choices, without inventing extra regions or fields. The primary is directly sourced from its actual video descriptor. Two-region behavior and missing-layer rejection remain unchanged.
+- **Regression:** execute the real frame evidence function with empty region-choice/layer maps and a single primary field, plus the existing measured metal/mold, missing-time, hidden, stale and absent-region cases. Current-head CI pending.
+
+## 2026-10-11 UTC — PR #50 exact-head Windows regression diagnostic case
+
+- **Evidence:** Windows Action 38118648201 passed real QuickCup, Linux VTK and 44 preceding Windows checks, but the new Field View frame-provenance test failed. Runtime correctly threw `Visible OpenFOAM region missing from scientific video frame: mold` for a visible region with no loaded physical mesh. The assertion used a lowercase `/visible OpenFOAM region missing/` expression and thus rejected its own expected fail-closed result.
+- **Correction:** preserve the actual strict missing-region exception, adjust assertion to exact capitalized error text; no scientific check relaxed, no production logic changed. Re-run exact-head CI, portable, installed and visual gates before merge.
