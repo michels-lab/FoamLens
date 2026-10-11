@@ -4266,3 +4266,10 @@ The required interpretation is structural integration rather than sticker placem
 - **Export:** after successful recording, a separately clickable **Download frame provenance JSON** button produces a sidecar identified by the video filename and physical frame indices. This explicit user interaction avoids browsers silently blocking two automatic downloads.
 - **Regressions:** actual exported function tested with measured metal+mold at 9.8 s, field missing at that time, hidden mold, absent visible layer, stale mold time, stale primary time, missing requested time. Existing native QuickCup and packaged Windows smoke still required.
 - **Status:** exact SHA Windows CI and final installed/executable tests pending; no release or Store submission. #29/#30/#40 remain open for broader acceptance.
+
+## 2026-10-11 UTC — Primary/video physical timestamp normalization
+
+- **Root scientific finding:** some primary 3D Field and video timeline paths still used `map(Number)`, which turns `null`, empty strings, or booleans into a false physical `t=0`. Secondary-region exact-time lookup already rejected those values.
+- **Correction:** Field mesh+field readiness and frame navigation now use `fvRegionPhysicalTime` and reject a field with no valid times. Expose this physical-time resolver to the animation UI, which also validates safely if the region API is absent. Preserve valid strings `"0"` and `"9.8"` exactly, without nearest-time scientific fabrication.
+- **Automated regression candidate:** executed-function video timestamp test distinguishes null, empty, boolean, NaN and invalid text from 0 and 9.8 seconds, including missing runtime API. Full PR exact-head Windows CI **pending**.
+- **Scope:** PR #50, separate from the earlier certified PR #49/main. No release publication, Store work, or human pre-release wait condition.
