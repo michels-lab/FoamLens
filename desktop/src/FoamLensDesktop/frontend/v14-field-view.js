@@ -840,7 +840,7 @@ async function fvRegionLoadFrame(c,time){
   const loadOne=async region=>{
     if(!current())return;
     const choice=fvRegionChoice(c,region);
-    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));
+    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const selected=groups.find(g=>g.name===choice.field);
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
@@ -867,7 +867,7 @@ async function fvRegionLoadFrame(c,time){
       }
       if(layer){layer.status=status;fvRegionScene.layers.set(region,layer);fvRender()}
       fvRegionStatus(region,status);fvRegionUpdateLegend(region)
-    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
+    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);fvRegionUpdateLegend(region);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
