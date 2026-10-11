@@ -1155,6 +1155,59 @@ internal sealed class FoamLensForm : Form
                             throw new InvalidOperationException(
                                 $"FoamLens real physical multiregion scene did not render together: {realCaseJson}");
                         Log($"FoamLens real OpenFOAM physical multiregion WebGL smoke passed: {physicalScene}");
+
+                        // Exercise real mold/metal face/cell associations through
+                        // the installed UI's region-specific Probe selector.
+                        var regionProbeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                            """
+                            (() => {
+                              const scene=window.FoamLensRegionScene?.state?.();
+                              const probe=window.FoamLensFieldProbe;
+                              const target=document.getElementById('fvProbeRegion');
+                              const name=scene?.layers?.keys?.().next?.().value;
+                              const layer=name!=null?scene.layers.get(name):null;
+                              if(!layer||!probe?.fpRenderedPick||!target||!layer.fieldValues?.length)
+                                return {ok:false,error:'Region Probe controls or measured OpenFOAM layer unavailable'};
+                              const shapes=fvBuildSurfaceBuffers(layer.mesh).surfacePositions;
+                              const vector=(a,b)=>a.map((v,i)=>v-b[i]);
+                              const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+                              let ray=null;
+                              for(let i=0;i+8<shapes.length&&i<1800;i+=9){
+                                const a=[...shapes.slice(i,i+3)],b=[...shapes.slice(i+3,i+6)],c=[...shapes.slice(i+6,i+9)];
+                                const n=cross(vector(b,a),vector(c,a)),len=Math.hypot(...n);
+                                if(!Number.isFinite(len)||len<1e-14)continue;
+                                const unit=n.map(v=>v/len),ctr=a.map((v,k)=>(v+b[k]+c[k])/3),
+                                  scale=Math.max(1e-5,Math.hypot(...layer.mesh.boundsMax.map((v,k)=>v-layer.mesh.boundsMin[k])));
+                                ray={origin:ctr.map((v,k)=>v+unit[k]*scale),dir:unit.map(v=>-v)};break;
+                              }
+                              if(!ray)return {ok:false,error:'No nondegenerate physical triangles to probe'};
+                              const original=target.value;
+                              let hit;
+                              try{target.value='region:'+name;hit=probe.fpRenderedPick(ray)}
+                              finally{target.value=original}
+                              const observed=hit?.cell!=null?Number(layer.fieldValues[hit.cell]):
+                                hit?.face!=null?Number(layer.fieldValues[hit.face]):NaN;
+                              const ok=!!hit&&hit.region===name&&hit.fieldName===layer.field&&
+                                hit.caseId!=null&&String(hit.caseId)===String(scene.caseId)&&
+                                Number.isFinite(hit.value)&&Number.isFinite(observed)&&
+                                Math.abs(hit.value-observed)<=Math.max(1e-9,Math.abs(observed)*1e-8)&&
+                                fvTimeEqual(hit.time,fvState.time);
+                              return {ok,region:name,field:hit?.fieldName,storage:hit?.storage,
+                                cell:hit?.cell,face:hit?.face,measuredValue:hit?.value,
+                                sourceValue:observed,time:hit?.time,caseId:hit?.caseId,
+                                selectorPresent:[...target.options].some(o=>o.value==='region:'+name)};
+                            })()
+                            """);
+                        using (var measuredProbe = JsonDocument.Parse(regionProbeJson))
+                        {
+                            var probeData = measuredProbe.RootElement;
+                            if (!probeData.TryGetProperty("ok", out var probeOk) || !probeOk.GetBoolean() ||
+                                !probeData.TryGetProperty("selectorPresent", out var probeSelector) ||
+                                !probeSelector.GetBoolean())
+                                throw new InvalidOperationException(
+                                    $"FoamLens measured multiregion Probe failed: {regionProbeJson}");
+                        }
+                        Log("FoamLens exact physical-region Probe smoke passed: " + regionProbeJson);
                     }
                     if (!data.TryGetProperty("ready", out var ready) || !ready.GetBoolean() ||
                         !data.TryGetProperty("cells", out var cells) || cells.GetInt32() <= 0 ||
