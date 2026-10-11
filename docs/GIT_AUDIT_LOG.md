@@ -4172,3 +4172,16 @@ The required interpretation is structural integration rather than sticker placem
 - Issue #30 review found `desktop/tests/ribbon-ui.test.cjs` asserted retired identifier `flRaDataTime` using `source.includes`. That assertion passed accidentally because the real `flRaDataTimeSeries` contains the old string as a prefix.
 - Updated the test to check the canonical `flRaDataTimeSeries` command, its actual Data Ribbon HTML creation and the `flRibbonOpenDataView('timeseries')` navigation binding. Also explicitly reject rebinding the retired command.
 - Scope is regression-test hardening only; no UI or science implementation has changed. Exact-head Windows/QuickCup CI and native interactions remain pending. No release.
+
+## 2026-10-10 — Data/Field plot-view restoration root fix (issue #30)
+- Found a lifecycle ordering bug: `fwLeave()` overwrote `currentDataView` with `dataViewBeforeField` before `FoamLensPlotSurfaces.activate()` captured the outgoing Field surface. This could persist the Data tab as the Field plot view, losing Field's own profile/time-series/log selection when navigating back.
+- Keep the Field view intact for the independent surface manager's capture, and retain the previous Data view fallback only when no Field plot surface is active. Do not move controls or change the approved UI.
+- A focused executed JavaScript mock verified the old function incorrectly changed Field's `profile` to Data's `timeseries`; the corrected function preserves `profile` for active Field surfaces and restores `timeseries` in legacy fallback. The permanent Node `section-ownership.test.cjs` suite now includes this regression.
+- Pending: exact-head Windows Actions + real Data → Field (profile/time series/log) → Data → Field native interaction, packaging and screenshots. No version bump or release.
+
+## 2026-10-10 — Native Compare A/B swap failure traced to Field selector remount (issue #30)
+- CI Windows installed-app smoke failed twice on original PR #44 HEAD, despite a passing portable smoke. Both executions reported `swapApplied=false` and `swapRestored=false` while real multi-region QuickCup passed.
+- A third diagnostic run preserved exact UI selector evidence: before swap `fvCase=1`, `fcCase=2`; `swapPrimaryCompare()` returned true twice, but after both swaps the UI selectors were `fvCase=1`, `fcCase=1`. This is a genuine case-selection regression, not a failing synthetic assertion.
+- Root cause candidate identified in `fvInstallIntegration`: recurring metadata and `refreshDatasetControls` callbacks invoked `mount()`, which unconditionally called `fvRefreshSelectors(false)` and reset the primary selected case to context/default. Redundant follow-up refreshes amplified the race.
+- Fix: initialization now performs non-preserving selection only if the primary case selector is empty; later metadata/dataset refreshes preserve the current valid selection and do not repeat the refresh. Added executable Node regression checking both selector states, plus existing native true A/B swap contract remains a mandatory release gate.
+- Pending a new exact-head Windows run (QuickCup, portable and installed runtime) to confirm both the Data/Field state fix and A/B swap. No merge or release until validated.

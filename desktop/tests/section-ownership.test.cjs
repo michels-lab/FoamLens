@@ -138,3 +138,24 @@ test('Data results preserve time-series, horizontal/vertical profiles, logs and 
     assert(ribbon.includes(action),'Missing Data Ribbon access to '+action);
   assert(ribbon.includes("flRibbonBind('flRaDataCompare',()=>flRibbonOpenData2DCompare())"));
 });
+
+
+test('leaving Field preserves the outgoing plot snapshot until the surface manager captures it',()=>{
+  const start=field.indexOf('function fwLeave()'),end=field.indexOf('function fwInstall()',start);
+  assert(start>=0&&end>start,'Missing Field leave function');
+  const leave=field.slice(start,end);
+  const simulate=surface=>{
+    const state={active:true,fieldTsSeq:0,dataViewBeforeField:'timeseries'};
+    const mockWindow={FoamLensPlotSurfaces:{active:()=>surface}};
+    const mocks=[state,mockWindow,{getElementById:()=>null},()=>{},()=>{},()=>{},()=>{},()=>{}];
+    return new Function(
+      'fwState','window','document','fvStopPlayback','fwTimeStop',
+      'fwSetInspector','fwReturnCompanionControlsToData','updateDatasetViewUI',
+      "let currentDataView='profile';"+leave+";fwLeave();return {view:currentDataView,active:fwState.active};"
+    )(...mocks)
+  };
+  assert.deepStrictEqual(simulate('field'),{view:'profile',active:false},
+    'Field must be captured with its own selected plot, not Data previous view');
+  assert.deepStrictEqual(simulate(null),{view:'timeseries',active:false},
+    'Legacy fallback must still restore Data when no plot-surface manager exists');
+});

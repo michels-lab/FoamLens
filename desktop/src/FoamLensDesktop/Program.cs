@@ -1198,6 +1198,12 @@ internal sealed class FoamLensForm : Form
                         !plotSurfaceDataRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
                         !plotSurfaceFieldRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldPlotCaptured", out var plotSurfaceFieldPlotCapturedNode) ||
+                        !plotSurfaceFieldPlotCapturedNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataAfterFieldRoundTrip", out var plotSurfaceDataAfterFieldRoundTripNode) ||
+                        !plotSurfaceDataAfterFieldRoundTripNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldPlotRestored", out var plotSurfaceFieldPlotRestoredNode) ||
+                        !plotSurfaceFieldPlotRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
                         !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
                         throw new InvalidOperationException(
@@ -1518,10 +1524,12 @@ internal sealed class FoamLensForm : Form
                         const primaryCaseBeforeSwap=String(document.getElementById('fvCase')?.value||'');
                         const comparisonCaseBeforeSwap=String(document.getElementById('fcCase')?.value||'');
                         const firstSwap=await api.swapPrimaryCompare();
+                        const afterFirstSwap={primary:String(document.getElementById('fvCase')?.value||''),comparison:String(document.getElementById('fcCase')?.value||'')};
                         const swapApplied=firstSwap===true&&
                           String(document.getElementById('fvCase')?.value||'')===comparisonCaseBeforeSwap&&
                           String(document.getElementById('fcCase')?.value||'')===primaryCaseBeforeSwap;
                         const secondSwap=await api.swapPrimaryCompare();
+                        const afterSecondSwap={primary:String(document.getElementById('fvCase')?.value||''),comparison:String(document.getElementById('fcCase')?.value||'')};
                         const swapRestored=secondSwap===true&&
                           String(document.getElementById('fvCase')?.value||'')===primaryCaseBeforeSwap&&
                           String(document.getElementById('fcCase')?.value||'')===comparisonCaseBeforeSwap;
@@ -1533,6 +1541,12 @@ internal sealed class FoamLensForm : Form
                           copySettingsApplied,
                           swapApplied,
                           swapRestored,
+                          firstSwap,
+                          secondSwap,
+                          primaryCaseBeforeSwap,
+                          comparisonCaseBeforeSwap,
+                          afterFirstSwap,
+                          afterSecondSwap,
                           expectedCase:expectedCaseName,
                           secondaryCase:view2?.caseName||'',
                           secondaryField:view2?.fieldName||'',
@@ -1861,6 +1875,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     setAppMode('field');
     const fieldRestored=ps.active?.()==='field'&&owner()==='field';
+    // Exercise a real Data -> Field time-series -> Data -> Field round trip.
+    // The outgoing Field view must be captured before Data restores its own
+    // independent catalog/plot choice. This caught a previously silent bug.
+    window.FoamLensFieldWorkspace?.setView?.('timeseries');
+    const requestedFieldPlotView=String(currentDataView||'');
+    setAppMode('data');
+    const fieldPlotCaptured=ps.state?.('field')?.view===requestedFieldPlotView;
+    const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
+    setAppMode('field');
+    const fieldPlotRestored=ps.active?.()==='field'&&owner()==='field'&&String(currentDataView||'')===requestedFieldPlotView&&requestedFieldPlotView==='timeseries';
+    // Leave subsequent scientific smoke in its required 3D-focused state.
+    window.FoamLensFieldWorkspace?.setView?.('3d');
     const parentsAfter={
       data:dataSurface.parentElement?.id||'',
       analysis:analysisSurface.parentElement?.id||'',
@@ -1877,6 +1903,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       analysisActive,
       dataRestored,
       fieldRestored,
+      fieldPlotCaptured,
+      dataAfterFieldRoundTrip,
+      fieldPlotRestored,
+      requestedFieldPlotView,
       requestedDataView
     };
   }catch(e){
@@ -2017,6 +2047,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
     plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
+    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.fieldPlotCaptured,
+    plotSurfaceDataAfterFieldRoundTrip:!!plotSurfaceSmoke?.dataAfterFieldRoundTrip,
+    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.fieldPlotRestored,
+    plotSurfaceRequestedFieldPlotView:String(plotSurfaceSmoke?.requestedFieldPlotView||''),
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
     sessionRestored:!!sessionSmoke?.restored,

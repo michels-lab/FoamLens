@@ -627,8 +627,13 @@ function fwLeave(){
   document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
+  // The plot-surface manager captures the outgoing Field view *after* this
+  // handler returns. Do not overwrite currentDataView beforehand or the Field
+  // snapshot inherits Data's previous view (and loses its own plot selection).
+  // Without independent plot surfaces, keep the legacy Data fallback.
   const previous=fwState.dataViewBeforeField;
-  if(previous&&typeof currentDataView==='string'&&previous!==currentDataView){
+  const independentFieldSurface=window.FoamLensPlotSurfaces?.active?.()==='field';
+  if(!independentFieldSurface&&previous&&typeof currentDataView==='string'&&previous!==currentDataView){
     currentDataView=previous;
     try{updateDatasetViewUI()}catch(e){console.error(e)}
   }
