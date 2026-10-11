@@ -616,7 +616,7 @@ test('Field and video reject false zero timestamps from empty OpenFOAM metadata'
   assert.deepStrictEqual(mk([null,false,'',3],{}),[3]);
   assert(source.includes("(g.times||[]).map(fvRegionPhysicalTime).filter(Number.isFinite)"));
   assert(source.includes("if(!times.length)throw new Error('Selected OpenFOAM field has no valid physical timestamps."));
-  assert(source.includes('Number.isFinite(fvRegionPhysicalTime(t))&&!!fvMeshSnapshotForTime(mesh,t)'));
+  assert(source.includes("(typeof t==='number'||typeof t==='string')&&String(t).trim()!==''&&Number.isFinite(Number(t))&&!!fvMeshSnapshotForTime(mesh,t)"));
 });
 
 test('OpenFOAM video frame provenance distinguishes measured, missing, hidden and stale regions',()=>{
