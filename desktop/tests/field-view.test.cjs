@@ -848,6 +848,26 @@ test('secondary region field data uses exact physical time; other times show exp
   ])assert(regionCode.includes(token),'Missing scientific provenance/safety: '+token);
 });
 
+test('region rendering never fabricates physical t=0 from missing OpenFOAM time metadata',()=>{
+  assert.equal(regionApi.fvRegionExactTime([null,'',false,undefined,NaN,'not-a-time'],0),undefined,
+    'Absent/malformed region times must NEVER color a physically nonexistent t=0 field');
+  assert.equal(regionApi.fvRegionExactTime(['0',null],0),0,'A real numeric-string t=0 must be preserved');
+  assert.equal(regionApi.fvRegionExactTime([0,'9.8'],9.8),9.8);
+  assert.equal(regionApi.fvRegionExactTime([0,9.8],null),undefined,'Missing target frame is not a physical timestamp');
+  assert.equal(regionApi.fvRegionExactTime([0,9.8],false),undefined,'Boolean target frame cannot mean 0 s');
+  const specimen={meshInventory:[{region:'',complete:true},{region:'metal',complete:true},{region:'mold',complete:true}],
+    discoveryModel:{fields:[
+      {region:'',name:'T',storage:'volume',times:[null,'',false]},
+      {region:'metal',name:'T',storage:'volume',times:[0,9.8]},
+      {region:'mold',name:'T',storage:'volume',times:[0,9.8]}
+    ]}};
+  assert.deepStrictEqual(regionApi.fvRegionNames(specimen),['metal','mold'],
+    'Archived unsplit parent mesh with missing times must not become an extra physical region');
+  specimen.discoveryModel.fields[0].times=['0'];
+  assert.deepStrictEqual(regionApi.fvRegionNames(specimen),['','metal','mold'],
+    'A genuine field-bearing root region with explicit t=0 must still be kept');
+});
+
 test('camera includes geometry bounds of all visible physically independent regions',()=>{
   const a={boundsMin:[0,0,0],boundsMax:[1,1,1]};
   const b={boundsMin:[2,-1,0],boundsMax:[4,1,3]};
