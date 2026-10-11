@@ -764,10 +764,11 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
   // other physical regions that share the same scientific 3D scene.
   return Number.isFinite(alpha)&&alpha>=.99&&!interior&&!faceField
 }
-function fvRegionRenderLayers(){
+function fvRegionRenderLayers(pass='all',drawPrimary=null){
   const r=fvState.renderer;if(!r)return;const gl=r.gl;
-  // Transparent regions share a real depth buffer. Draw secondary shells
-  // far-to-near so insertion/discovery order cannot decide their appearance.
+  // An opaque mesh must establish the shared depth buffer BEFORE translucent
+  // geometry is blended. Sorting only secondary shells after drawing the
+  // primary first makes the result physically wrong for metal inside a mold.
   const camera=fvState.camera,eye=camera?.target?.length===3&&Number.isFinite(camera.distance)&&Number.isFinite(camera.pitch)&&Number.isFinite(camera.yaw)?[
     camera.target[0]+camera.distance*Math.cos(camera.pitch)*Math.sin(camera.yaw),
     camera.target[1]+camera.distance*Math.sin(camera.pitch),
@@ -778,26 +779,32 @@ function fvRegionRenderLayers(){
     const center=[0,1,2].map(i=>(Number(m.boundsMin[i])+Number(m.boundsMax[i]))/2);
     return Math.hypot(...center.map((v,i)=>v-eye[i]))
   };
-  const sorted=[...fvRegionScene.layers].sort((a,b)=>layerDepth(b[1])-layerDepth(a[1]));
+  const sorted=[...fvRegionScene.layers].filter(([region,layer])=>
+    fvRegionScene.choices.get(region)?.visible&&layer?.gl===gl);
+  // Sort the PRIMARY physical region together with SECONDARY ones during
+  // blending: "primary first" is not a camera/depth-based compositing rule.
+  if(pass==='transparent'&&typeof drawPrimary==='function'&&fvState.mesh)
+    sorted.push(['\u0000primary',{mesh:fvState.mesh,primary:true}]);
+  sorted.sort((a,b)=>layerDepth(b[1])-layerDepth(a[1])||a[0].localeCompare(b[0]));
+  const surface=!!document.getElementById('fvSurface')?.checked;
+  const edges=!!document.getElementById('fvEdges')?.checked;
   for(const [region,layer] of sorted){
-    const choice=fvRegionScene.choices.get(region);if(!choice?.visible||!layer||layer.gl!==gl)continue;
-    const surface=!!document.getElementById('fvSurface')?.checked;
-    const edges=!!document.getElementById('fvEdges')?.checked;
-    const opacity=fvClamp(choice.opacity,.1,1);
+    if(layer.primary){drawPrimary();continue}
+    const choice=fvRegionScene.choices.get(region),opacity=fvClamp(choice.opacity,.1,1);
     gl.depthFunc(gl.LEQUAL);
-    // Translucent outer geometry is context only. Writing depth for it hides
-    // real internal-face colors and physically separate regions behind it.
     const faceField=layer.faceFieldCount>0;
-    gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}));
-    if(surface)fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,faceField?Math.min(opacity,.14):opacity);
-    // Actual internal-face data may occlude only when fully opaque. A translucent
-    // face must never write invisible depth that hides a second physical region.
-    if(surface&&faceField){
+    const shellAlpha=faceField?Math.min(opacity,.14):opacity;
+    const shouldDraw=alpha=>pass==='all'||(pass==='opaque')===fvSurfaceDepthWritable(alpha);
+    if(surface&&shouldDraw(shellAlpha)){
+      gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
+      fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha)
+    }
+    if(surface&&faceField&&shouldDraw(opacity)){
       gl.depthMask(fvSurfaceDepthWritable(opacity));
       fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
     }
-    // Mesh edges are visual aids, not solid barriers in the depth buffer.
-    if(edges){
+    // Wireframes annotate topology; never create invisible occluding depth.
+    if(edges&&pass!=='opaque'){
       gl.depthMask(false);
       fvBindDraw(r,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
     }
@@ -1114,15 +1121,40 @@ function fvRender(exportSize=null){
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
-  if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}));fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);fvBindDraw(r,r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
-  if(showSlice){gl.depthFunc(gl.LEQUAL);gl.depthMask(fvSurfaceDepthWritable(sliceOpacity));fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity);gl.depthMask(true)}
-  if(showIso){gl.depthFunc(gl.LEQUAL);gl.depthMask(fvSurfaceDepthWritable(isoOpacity));fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity);gl.depthMask(true)}
-  // Mesh wireframes, vectors and streamlines must not silently occlude other
-  // physical regions rendered later into the same OpenFOAM depth buffer.
-  if(showEdges){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));gl.depthMask(true)}
-  if(primaryVisible&&document.getElementById('fvVectors')?.checked){gl.depthMask(false);fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);gl.depthMask(true)}
-  if(primaryVisible&&document.getElementById('fvStreamlines')?.checked){gl.depthMask(false);fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);gl.depthMask(true)}
-  fvRegionRenderLayers();
+  // One shared WebGL scene: write opaque physical geometry to depth first,
+  // then composite transparent primary/secondary regions back-to-front.
+  // This preserves the primary mesh's real field association and GPU buffers.
+  const drawPrimarySurface=pass=>{
+    if(!primaryVisible)return;
+    const draw=(pos,col,count,mode,alpha)=>{
+      if((pass==='opaque')!==fvSurfaceDepthWritable(alpha))return;
+      gl.depthFunc(gl.LEQUAL);gl.depthMask(fvSurfaceDepthWritable(alpha));
+      fvBindDraw(r,pos,col,count,mode,alpha);gl.depthMask(true)
+    };
+    if(showSurface){
+      const faceAssoc=fvState.fieldStorage==='surface';
+      const shellAlpha=faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity);
+      draw(r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,shellAlpha);
+      // Only real, explicitly measured internal and boundary faces receive
+      // colors. Neutral shell geometry is never mistaken for measured values.
+      if(faceAssoc){
+        draw(r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);
+        draw(r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity)
+      }
+    }
+    if(showSlice)draw(r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity);
+    if(showIso)draw(r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)
+  };
+  drawPrimarySurface('opaque');
+  fvRegionRenderLayers('opaque');
+  fvRegionRenderLayers('transparent',()=>drawPrimarySurface('transparent'));
+  // Overlay annotations after the actual physical region composite.
+  // These must remain non-occluding and should not establish fake depths.
+  gl.depthMask(false);gl.depthFunc(gl.LEQUAL);
+  if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  if(primaryVisible&&document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
+  if(primaryVisible&&document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  gl.depthMask(true);
   // A pin may belong to any physical region, including a mold behind an
   // enclosing translucent shell. Draw its scientific marker after ALL regions.
   if(r.probeCount){gl.depthFunc(gl.ALWAYS);gl.depthMask(false);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1);gl.depthMask(true);gl.depthFunc(gl.LEQUAL)}
