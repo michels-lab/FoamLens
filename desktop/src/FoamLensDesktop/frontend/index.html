@@ -2627,9 +2627,10 @@ function refreshTimeSeriesControls(){
   if(secondVars.some(f=>f.canonical===oldSecond))sSel.value=oldSecond;
   else sSel.value='';
   sSel.disabled=!vSel.value||secondVars.length===0;
+  if(sSel.disabled)sSel.value='';
   const byVar=ts.filter(s=>!vSel.value||s.field.canonical===vSel.value||(!!sSel.value&&s.field.canonical===sSel.value));
   const probeEntries=[...new Set(byVar.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
-  pSel.innerHTML='<option value="">All probes</option>'+probeEntries.map(v=>`<option value="${esc(v)}">${esc(tr('probe'))} ${esc(v)}</option>`).join('');
+  pSel.innerHTML='<option value="">'+flUi('All probes','Todas las sondas')+'</option>'+probeEntries.map(v=>`<option value="${esc(v)}">${esc(tr('probe'))} ${esc(v)}</option>`).join('');
   if(probeEntries.some(v=>String(v)===String(oldP)))pSel.value=String(oldP);
   else if(!pSel.dataset.autoinit&&probeEntries.length){pSel.value=String(probeEntries[0]);pSel.dataset.autoinit='1'}
   else pSel.value='';
@@ -9225,7 +9226,7 @@ $('profileSet').addEventListener('change',()=>{resetProfilePlaybackState();anima
 $('timeSeriesVariable').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesProbe').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesFamily').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
-$('timeSeriesVariable2').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
+$('timeSeriesVariable2').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;const probe=$('timeSeriesProbe');probe.value='';probe.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesResetFilters').addEventListener('click',()=>{const v=$('timeSeriesVariable'),v2=$('timeSeriesVariable2'),p=$('timeSeriesProbe'),f=$('timeSeriesFamily');v.value='';v2.value='';p.value='';f.value='';v.dataset.autoinit='1';p.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesShowAllVars').addEventListener('click',()=>{const v=$('timeSeriesVariable');v.value='';$('timeSeriesVariable2').value='';v.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 
