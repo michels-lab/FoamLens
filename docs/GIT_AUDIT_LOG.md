@@ -4224,3 +4224,8 @@ The required interpretation is structural integration rather than sticker placem
 - **Status:** branch implementation prepared; full exact-head Windows CI and packaged screenshot evidence pending. No version bump or release yet.
 
 - **Immutable release safety:** closing issue #29 also uncovered a publisher branch that used `gh release upload --clobber` / `gh release edit` for an already-published version. The release job now fails closed if the tag already has a GitHub Release and requires a new versioned candidate. This preserves prior installer SHA-256, screenshots and owner post-release feedback without silent overwrites.
+
+### CI troubleshooting — real QuickCup secondary-region Probe
+- Windows Actions #1112 passed full QuickCup and scientific JS/C# build, but its first portable WebView2 smoke returned null in the newly introduced secondary-region probe script. Actions #1113 added fail-closed JavaScript diagnostics; the actual error was `ReferenceError: fvBuildSurfaceBuffers is not defined` from native ExecuteScriptAsync (the bundler deliberately scopes that helper privately), **not** bad metal/mold field data.
+- Root correction: `fvRegionBuildLayer` now keeps a reference to the exact `shape.surfacePositions` already triangulated and sent to WebGL as `probePositions`. CPU raycasting and native probe smoke consume those same real triangles directly, eliminating an out-of-scope private-function reference and avoiding duplicate large-mesh triangulation. The dynamic regression now fails if the picker tries to regenerate geometry.
+- Both failed native runs are preserved, not treated as validation. New exact-HEAD Windows QuickCup / portable / installed gate is required before merge.
