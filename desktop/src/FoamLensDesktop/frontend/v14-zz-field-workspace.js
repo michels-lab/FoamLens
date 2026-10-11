@@ -385,7 +385,8 @@ async function fwBuildProbeFieldHistory(slot,seq){
   fwState.fieldTsKeys.add(key);return s
 }
 async function fwBuildProfileHistory(slot,seq){
-  const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line||!Number.isFinite(q.position))return null;
+  const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
+  if(!Number.isFinite(q.position))throw new Error(fwUi('Enter a valid position on the spatial profile before sampling its time history.','Introduce una posición válida en el perfil espacial antes de construir su historia temporal.'));
   const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).sort((a,b)=>Number(a.profileTime)-Number(b.profileTime));if(!rows.length)return null;
   const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=Number(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
