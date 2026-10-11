@@ -534,6 +534,7 @@ internal sealed class FoamLensForm : Form
                     profileControlsPreserved:!!document.getElementById('profileLine')&&!!document.getElementById('profileTime'),
                     logControlsPreserved:!!document.getElementById('logFamily'),
                     timeSeriesControlsPreserved:!!document.getElementById('timeSeriesVariable'),
+                    secondTimeSeriesVariablePreserved:!!document.getElementById('timeSeriesVariable2'),
                     dataNavigationComplete:['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'].every(id=>!!document.getElementById(id))
                   };
                   activate('data');
