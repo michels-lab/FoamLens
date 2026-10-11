@@ -270,8 +270,15 @@ internal sealed class FoamLensForm : Form
                     """
                     (() => {
                       document.getElementById('flRibbonTab-field')?.click();
+                      // Camera controls are deliberately docked in the Ribbon's
+                      // expandable shelf, NOT over the scientific 3D viewport.
+                      // Exercise the actual Camera button before measuring it.
+                      const cameraTab=document.querySelector('#flFieldContextTabs [data-fl-subbar="camera"]');
+                      if(cameraTab&&!cameraTab.classList.contains('active'))cameraTab.click();
                       const canvas=document.getElementById('fvCanvas');
-                      const tools=document.querySelector('#fieldViewPanel .fvViewTools');
+                      const shelf=document.getElementById('flFieldContextShelf');
+                      const ribbon=document.getElementById('flRibbon');
+                      const tools=shelf?.querySelector('.fvViewTools');
                       const panel=document.getElementById('fieldViewPanel');
                       const physical=window.FoamLensRegionScene?.state?.();
                       const probe=document.getElementById('fvProbeRegion');
@@ -281,12 +288,16 @@ internal sealed class FoamLensForm : Form
                         Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
                       const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
                       const hasField=!!primary?.range?.valid;
-                      const ok=!!canvas&&!!tools&&!!panel&&!!probe&&
+                      const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
+                        !!shelf&&!shelf.classList.contains('hidden')&&
+                        ribbon?.contains(shelf)&&shelf.contains(tools)&&tools?.contains(probe);
+                      const ok=!!canvas&&!!tools&&!!panel&&!!probe&&cameraDocked&&
                         !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
+                        b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
-                        toolbarHeight:b?.height,toolbarCanvasOverlap:overlap,
+                        cameraDocked,toolbarHeight:b?.height,toolbarCanvasOverlap:overlap,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                     })()
