@@ -891,8 +891,7 @@ jobs:
           PY
           assets=("artifacts/FoamLens-Portable-v$v.exe" "artifacts/FoamLens-Portable-v$v.exe.sha256" "artifacts/FoamLens-Setup-v$v.exe" "artifacts/FoamLens-Setup-v$v.exe.sha256")
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
-          else
-            gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
+            echo "::error::BLOCKED: $tag already exists. Published release artifacts and owner review evidence are immutable; bump the version and validate a new candidate instead."
+            exit 1
           fi
+          gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
