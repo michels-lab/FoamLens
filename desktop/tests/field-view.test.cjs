@@ -1268,6 +1268,72 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
 });
 
 
+test('visible same-time physical layers survive independent region activation without reload or GPU destruction',()=>{
+  const begin=source.indexOf('async function fvRegionLoadFrame(c,time,');
+  const end=source.indexOf('window.FoamLensRegionScene=',begin);
+  const parseStart=source.indexOf('function fvRegionPhysicalTime(raw){');
+  const parseEnd=source.indexOf('function fvRegionExactTime(',parseStart);
+  assert(begin>0&&end>begin&&parseStart>0&&parseEnd>parseStart);
+  const asyncScript=[
+    'const assert=require("node:assert/strict");',
+    'const events=[],gl={},c={id:1};',
+    'const fvState={renderer:{gl},time:9.8};',
+    'const fvRegionScene={caseId:"1",sequence:0,choices:new Map(),layers:new Map(),fitPending:false};',
+    'const choices=new Map([["metal",{visible:true,field:"T"}],["mold",{visible:true,field:"T"}],["fluid",{visible:false,field:"T"}]]);',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:null};',
+    'const fvTimeEqual=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<1e-9;',
+    'const fvRegionEnsureCase=()=>{};',
+    'const fvRegionNames=()=>["metal","mold","fluid"];',
+    'const fvRegionChoice=(c,region)=>choices.get(region);',
+    'const fvRegionReleaseLayer=layer=>events.push("delete:"+layer.region);',
+    'const fvRender=()=>events.push("render");',
+    'const fvRegionFitCamera=()=>{events.push("fit");return true};',
+    'const fvRegionStatus=()=>{};const fvRegionUpdateLegend=()=>{};',
+    'const fvSetStatus=()=>{};const flUi=x=>x;const fvFmt=String;',
+    'const fvAssociationLabel=()=> "volume";const fvFmtRange=String;',
+    'const fvRegionObserveRange=()=>{};',
+    'const fvFieldGroups=(c,r)=>[{name:"T",kind:"scalar",times:[9.8],storage:"volume"}];',
+    'const fvLoadFrameData=async(c,g,region,time)=>{events.push("read:"+region);return {mesh:{region},storage:"volume",fieldValues:[300],range:{valid:true,min:299,max:301}}};',
+    'const fvRegionBuildLayer=(r,m,d,choice,time)=>({gl,region:r,time,mesh:m,fieldValues:d.fieldValues,sourceTime:d.sourceTime});',
+    'const fvRegionRefreshList=()=>{};',
+    source.slice(parseStart,parseEnd),
+    source.slice(begin,end),
+    'async function main(){',
+    '  const existing={gl,region:"mold",time:9.8,fieldValues:[301]};',
+    '  fvRegionScene.layers.set("mold",existing);choices.get("fluid").visible=true;',
+    '  await fvRegionLoadFrame(c,9.8,{preserveLoaded:true});',
+    '  assert.equal(fvRegionScene.layers.get("mold"),existing,"mold must retain its actual GPU layer");',
+    '  assert.equal(fvRegionScene.layers.get("fluid").sourceTime,9.8);',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("read:")),["read:fluid"]);',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("delete:")),[]);',
+    '  assert(events.includes("fit"),"newly shown region must refit the physical union");',
+    '  const fluid=fvRegionScene.layers.get("fluid");events.length=0;',
+    '  await fvRegionLoadFrame(c,9.8,{preserveLoaded:true});',
+    '  assert.equal(fvRegionScene.layers.get("mold"),existing);',
+    '  assert.equal(fvRegionScene.layers.get("fluid"),fluid);',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("read:")||e.startsWith("delete:")),[],',
+    '    "showing a region already loaded must not consume more OpenFOAM or GPU resources");',
+    '  events.length=0;await fvRegionLoadFrame(c,9.8);',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("delete:")).sort(),["delete:fluid","delete:mold"]);',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("read:")).sort(),["read:fluid","read:mold"]);',
+    '  assert.notEqual(fvRegionScene.layers.get("mold"),existing);',
+    '  fvRegionScene.layers.get("mold").time=0;events.length=0;',
+    '  await fvRegionLoadFrame(c,9.8,{preserveLoaded:true});',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("delete:")).sort(),["delete:fluid","delete:mold"],',
+    '    "a stale physical-time layer must force a full refresh, never reuse measurements");',
+    '  assert.deepEqual(events.filter(e=>e.startsWith("read:")).sort(),["read:fluid","read:mold"]);',
+    '  console.log("Field 3D exact-frame layer preservation and fallback PASS");',
+    '}',
+    'main().catch(err=>{console.error(err);process.exitCode=1});'
+  ].join('\n');
+  const {spawnSync}=require('node:child_process');
+  const result=spawnSync(process.execPath,['-e',asyncScript],{encoding:'utf8',timeout:15000});
+  assert.equal(result.status,0,result.stderr||result.stdout);
+  assert(result.stdout.includes('layer preservation and fallback PASS'));
+  assert(regionCode.includes('fvRegionLoadFrame(c,fvState.time,{preserveLoaded:true})'),
+    'Actual visibility switch must opt into preserving only exact-frame loaded regions');
+});
+
 test('secondary WebGL GPU payload accounting releases every buffer after repeated large-frame replacements',()=>{
   const setup=[
     'const live=new Map(),uploads=[];let created=0,deleted=0,peakBytes=0;',
