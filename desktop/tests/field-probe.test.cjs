@@ -141,7 +141,7 @@ test('same-WebGL metal/mold probes use region-specific physical values and never
   const triangles=new Float32Array([0,0,0,1,0,0,0,1,0]);
   const mesh={surfaceOwners:[0],pointCount:3,cellCount:1,internalFaceCount:2,trianglePositions:triangles,
     surfaceTriangles:[0,1,2],facePositions:triangles,points:[0,0,0,1,0,0,0,1,0]};
-  const layer={region:'mold',mesh,storage:'volume',field:'T',time:9.8,
+  const layer={region:'mold',mesh,probePositions:triangles,storage:'volume',field:'T',time:9.8,
     parsed:{dimensions:[0,0,0,1,0,0,0]},fieldValues:[1542.8]};
   const scene={caseId:'17',choices:new Map([['metal',{visible:true}],['mold',{visible:true}]]),
     layers:new Map([['mold',layer]])};
@@ -151,7 +151,7 @@ test('same-WebGL metal/mold probes use region-specific physical values and never
     "const document={getElementById:id=>id==='fvProbeRegion'?{get value(){return targetFn()}}:id==='fvRegion'?{value:'metal'}:id==='fvSurface'?{get checked(){return surfaceFn()}}:null};",
     'const fvState={caseId:17,fieldName:"T",fieldStorage:"volume",fieldParsed:{dimensions:[0,0,0,1,0,0,0]},time:9.8};',
     'const fpPickTriangles=core.fpPickTriangles;',
-    'const fpSurfacePositions=mesh=>mesh.trianglePositions;',
+    'const fpSurfacePositions=mesh=>{throw Error("Region picking must reuse pre-triangulated geometry")};',
     'const fpInternalFaceGeometry=mesh=>({positions:mesh.facePositions,triangleFaces:[1]});',
     'const fpBoundaryPointValues=(mesh,values)=>mesh.surfaceTriangles.map(i=>Number(values[i]));',
     'const fpPickPrimaryRendered=ray=>({t:2,point:[.2,.2,-1],triangle:0,cell:0,face:null,value:1300,kind:"surface"});',
@@ -194,6 +194,7 @@ test('same-WebGL metal/mold probes use region-specific physical values and never
   assert(source.includes("fpRefreshRegions();"),'Physical-region list must be refreshed after discovery');
   assert(source.includes("'Region','Región'"),'Readout must identify the physical region');
   assert(fieldSource.includes('fieldValues:values||null'),'Region layers must retain the actual independent field array');
+  assert(fieldSource.includes('probePositions:shape.surfacePositions'),'Region Probe must share exact CPU triangles with GPU upload');
 });
 
 test('probe time histories cannot silently mix OpenFOAM cases or metal/mold regions',()=>{
