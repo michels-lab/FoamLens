@@ -1268,6 +1268,74 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
 });
 
 
+test('secondary WebGL GPU payload accounting releases every buffer after repeated large-frame replacements',()=>{
+  const setup=[
+    'const live=new Map(),uploads=[];let created=0,deleted=0,peakBytes=0;',
+    'let bound=null;',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,',
+    'createBuffer(){return {id:++created}},bindBuffer(type,b){bound=b},',
+    'bufferData(type,values){const bytes=values.byteLength;live.set(bound,bytes);uploads.push(bytes);',
+    'peakBytes=Math.max(peakBytes,[...live.values()].reduce((a,b)=>a+b,0))},',
+    'deleteBuffer(b){if(!live.has(b))throw Error("double-delete or never-uploaded buffer");live.delete(b);deleted++}};',
+    'const fvState={renderer:{gl}};const window={};',
+    'const document={getElementById:()=>null};',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(90000),edgePositions:new Float32Array(12000)});',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(90000);',
+    'const fvPointSurfaceColors=()=>new Float32Array(90000);'
+  ].join('\n');
+  const exercise=[
+    'const mesh={cellCount:1,pointCount:1,internalFaceCount:0};let expected=0;',
+    'for(let n=0;n<40;n++){',
+    '  const layer=fvRegionBuildLayer("mold",mesh,null,{palette:"viridis"},n);',
+    '  fvRegionScene.layers.set("mold",layer);',
+    '  const stats=fvRegionGpuPayloadStats();',
+    '  if(stats.regionCount!==1||stats.payloadBytes!==layer.gpuPayloadBytes)throw Error("miscount");',
+    '  if(stats.payloadBytes!==2*(90000+12000)*4)throw Error("unexpected buffer bytes");',
+    '  expected=stats.payloadBytes;',
+    '  fvRegionReleaseLayer(layer);fvRegionScene.layers.clear();',
+    '  if(fvRegionGpuPayloadStats().payloadBytes!==0)throw Error("stale bytes");',
+    '}',
+    'return {created,deleted,remaining:live.size,peakBytes,expected,uploads:uploads.length,stats:fvRegionGpuPayloadStats()};'
+  ].join('\n');
+  const result=new Function(setup+regionCode+exercise)();
+  assert.equal(result.remaining,0,'No WebGL resource may survive 40 frame replacements');
+  assert.equal(result.created,result.deleted,'Every created region buffer must be released');
+  assert.equal(result.uploads,40*4);
+  assert.equal(result.peakBytes,result.expected,'Live GPU payload must remain bounded by one physical frame');
+  assert.equal(result.stats.regionCount,0);
+  assert.equal(result.stats.payloadBytes,0);
+  assert(result.stats.scope.includes('excludes primary renderer'),
+    'Measurement must never claim to be total GPU-driver VRAM');
+});
+
+test('secondary WebGL upload failure frees its untracked buffer and already-uploaded region buffers exactly once',()=>{
+  const setup=[
+    'const allocated=new Set(),released=[];let bound=null,created=0,attempts=0;',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,',
+    'createBuffer(){const b={id:++created};allocated.add(b);return b},',
+    'bindBuffer(type,b){bound=b},',
+    'bufferData(){if(++attempts===4)throw Error("simulated GPU upload failure")},',
+    'deleteBuffer(b){if(!allocated.delete(b))throw Error("double-delete");released.push(b.id)}};',
+    'const fvState={renderer:{gl}};const window={};',
+    'const document={getElementById:()=>null};',
+    'const fvBuildSurfaceBuffers=()=>({surfacePositions:new Float32Array(9),edgePositions:new Float32Array(6)});',
+    'const fvConstantColors=n=>new Float32Array(n*3);',
+    'const fvSurfaceColors=()=>new Float32Array(9);',
+    'const fvPointSurfaceColors=()=>new Float32Array(9);'
+  ].join('\n');
+  const exercise=[
+    'let problem="";try{fvRegionBuildLayer("mold",{cellCount:1},null,{palette:"viridis"},9.8)}',
+    'catch(error){problem=error.message}',
+    'return {problem,created,remaining:allocated.size,released};'
+  ].join('\n');
+  const result=new Function(setup+regionCode+exercise)();
+  assert.equal(result.problem,'simulated GPU upload failure');
+  assert.equal(result.created,4,'The fourth buffer fails during upload after allocation');
+  assert.equal(result.remaining,0,'Failing untracked buffer and three tracked buffers must all be freed');
+  assert.deepStrictEqual(result.released.slice().sort((a,b)=>a-b),[1,2,3,4]);
+});
+
 test('secondary surface fields color actual internal mesh faces and keep unknown boundaries neutral',()=>{
   assert(regionCode.includes("fvBuildInternalFaceBuffers(mesh)"),'Face data requires real mesh face geometry');
   assert(regionCode.includes("fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette)"),
