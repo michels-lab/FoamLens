@@ -213,3 +213,32 @@ test('Data difference selects only mutually available probes and fields and pres
   assert.equal(fields.differenceProbe.value,'5','Restore the shared probe when compatible cases return');
   assert.equal(fields.createDifference.disabled,false);
 });
+
+
+test('Data Time Series can filter two physical variables without inventing or hiding curves',()=>{
+  assert(dataHtml.includes('id="timeSeriesVariable2"'),'Data is missing its second-variable selector');
+  assert(dataHtml.includes("timeSeriesVariable2').addEventListener('change'"),'Variable 2 must redraw the actual Data plot');
+  const start=dataHtml.indexOf('function timeSeriesMatchesSelection(');
+  const end=dataHtml.indexOf('function refreshTimeSeriesControls(',start);
+  assert(start>=0&&end>start,'Time-series filter function missing');
+  const values={timeSeriesVariable:'T',timeSeriesVariable2:'alpha1',timeSeriesProbe:'',timeSeriesFamily:''};
+  const matches=new Function('$','datasetTypeOf',dataHtml.slice(start,end)+';return timeSeriesMatchesSelection;')(
+    id=>({value:values[id]}),s=>s.datasetType||'timeseries');
+  const make=(field,probe=0,caseId=1)=>({datasetType:'timeseries',field:{canonical:field},probe,caseId});
+  assert(matches(make('T')),'Primary temperature curve must remain visible');
+  assert(matches(make('alpha1')),'Independent second liquid-fraction curve must appear simultaneously');
+  assert(!matches(make('U')),'Unselected third variable must stay hidden');
+  values.timeSeriesProbe='5';
+  assert(!matches(make('alpha1',0)),'A manually selected probe must still filter second-variable curves');
+  assert(matches(make('alpha1',5)),'A matching second-variable probe must be visible');
+  values.timeSeriesProbe='';
+  values.timeSeriesVariable2='';
+  assert(!matches(make('alpha1')),'Clearing Variable 2 must restore single-variable focus');
+  values.timeSeriesVariable='';
+  assert(matches(make('alpha1')),'All variables must still show genuine additional quantities');
+  assert(field.includes("probe.dataset.autoinit='1'"),'Field must not auto-filter away a second generated history');
+  const controls=dataHtml.slice(dataHtml.indexOf('function refreshTimeSeriesControls('),dataHtml.indexOf('function profileMatchesSelection('));
+  assert(controls.includes("const secondVars=vars.filter(f=>f.canonical!==vSel.value)"),'Variable 2 must exclude selected primary');
+  assert(controls.includes("sSel.disabled=!vSel.value||secondVars.length===0"),'Variable 2 must be optional');
+  assert(controls.includes("s.field.canonical===sSel.value"),'Selected second variable must enter the actual plot set');
+});
