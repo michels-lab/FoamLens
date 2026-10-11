@@ -2203,12 +2203,16 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     });
     const primaryCells=Number(fvState.mesh?.cellCount||0);
     const frameTime=Number(fvState.time);
+    const initialGpu=api.gpuPayloadStats?.();
     const loaded=secondary.every(s=>s.colored&&s.field==='T'&&s.exactTime&&s.cells>0&&
       s.surfaceVertices>0&&s.sameWebGL&&s.distinctMesh&&s.validRange);
     physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,
       oneCanvas:!!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl),
       secondaryCount:scene.layers.size,glError:gl?gl.getError():-1,
+      secondaryGpuPayloadBytes:Number(initialGpu?.payloadBytes||0),
+      secondaryGpuRegions:Number(initialGpu?.regionCount||0),
       ok:loaded&&secondary.length===expected.length-1&&scene.layers.size===expected.length-1&&
+        initialGpu?.regionCount===expected.length-1&&Number(initialGpu?.payloadBytes)>0&&
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
@@ -2249,11 +2253,17 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       selectedGroup.times=originalTimes;
       await api.load(c,fvState.time)
     }
-    const restored=api.state().layers.get(missingRegion);
+    const restored=api.state().layers.get(missingRegion),restoredGpu=api.gpuPayloadStats?.();
     missingFrame.restoredMeasured=!!restored?.fieldValues?.length&&restored.geometryOnly===false&&
       fvTimeEqual(restored.sourceTime,fvState.time);
-    if(!missingFrame.restoredMeasured)
-      throw new Error('Real measured region did not recover after missing-frame test: '+JSON.stringify(missingFrame));
+    missingFrame.restoredGpuPayloadBytes=Number(restoredGpu?.payloadBytes||0);
+    missingFrame.restoredGpuRegions=Number(restoredGpu?.regionCount||0);
+    // Repeated measured → missing → measured frames must not accumulate
+    // extra WebGL uploads. Both passes retain the same physical geometry.
+    if(!missingFrame.restoredMeasured||
+      missingFrame.restoredGpuRegions!==physicalScene.secondaryGpuRegions||
+      missingFrame.restoredGpuPayloadBytes!==physicalScene.secondaryGpuPayloadBytes)
+      throw new Error('Real measured region or GPU payload not restored after missing-frame test: '+JSON.stringify(missingFrame));
     physicalScene.missingFrame=missingFrame
   }
   const range=fvFiniteRange(fvState.fieldValues);
