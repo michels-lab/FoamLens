@@ -21,10 +21,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--evidence-dir", type=Path, required=True,
                         help="Screenshots captured by the installed Windows app")
-    parser.add_argument("--portable-evidence-dir", type=Path, required=True,
+    parser.add_argument("--portable-evidence-dir", type=Path,
                         help="Screenshots captured by the portable Windows app")
     parser.add_argument("--artifact", type=Path, required=True)
-    parser.add_argument("--portable-artifact", type=Path, required=True)
+    parser.add_argument("--portable-artifact", type=Path)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--platform", required=True)
     parser.add_argument("--capture-method", default="installed-windows-desktop")
@@ -33,19 +33,24 @@ def main():
 
     if not re.fullmatch(r"[0-9a-fA-F]{40}", args.source_sha):
         raise SystemExit("Source SHA must be a complete 40-character hexadecimal Git commit")
-    if not args.artifact.is_file() or not args.portable_artifact.is_file():
-        raise SystemExit("Both Setup and Portable candidate artifacts must exist")
+    if not args.artifact.is_file():
+        raise SystemExit("Candidate artifact must exist")
+    direct_windows = args.platform == "windows"
+    if direct_windows and (args.portable_artifact is None or not args.portable_artifact.is_file()
+                           or args.portable_evidence_dir is None):
+        raise SystemExit("Direct Windows requires both portable binary and separate runtime evidence")
+    if not direct_windows and (args.portable_artifact is not None or args.portable_evidence_dir is not None):
+        raise SystemExit("Nonportable channels must not claim a portable Windows variant")
 
     root = args.output.parent.resolve()
     root.mkdir(parents=True, exist_ok=True)
     installer_sha = hashfile(args.artifact)
-    portable_sha = hashfile(args.portable_artifact)
+    portable_sha = hashfile(args.portable_artifact) if direct_windows else None
     records = []
 
-    candidates = (
-        ("installed", args.evidence_dir, installer_sha, args.capture_method),
-        ("portable", args.portable_evidence_dir, portable_sha, "running-desktop-app"),
-    )
+    candidates = [("installed", args.evidence_dir, installer_sha, args.capture_method)]
+    if direct_windows:
+        candidates.append(("portable", args.portable_evidence_dir, portable_sha, "running-desktop-app"))
     for variant, evidence_dir, candidate_sha, capture_method in candidates:
         for viewport in ("wide", "compact"):
             opening_about_hash = None
@@ -82,17 +87,18 @@ def main():
                     "candidate_artifact_sha256": candidate_sha,
                 })
 
-    args.output.write_text(
-        json.dumps({
-            "schema": "michelslab-rendered-ui-v1",
-            "source_commit": args.source_sha,
-            "artifact_sha256": {args.platform: installer_sha},
-            "portable_artifact_sha256": {args.platform: portable_sha},
-            "screenshots": records,
-        }, indent=2) + "\n", encoding="utf-8")
+    manifest = {
+        "schema": "michelslab-rendered-ui-v1",
+        "source_commit": args.source_sha,
+        "artifact_sha256": {args.platform: installer_sha},
+        "screenshots": records,
+    }
+    if direct_windows:
+        manifest["portable_artifact_sha256"] = {args.platform: portable_sha}
+    args.output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     by_variant = {variant: sum(shot["runtime_variant"] == variant for shot in records)
-                  for variant in ("installed", "portable")}
-    print(f"Recorded {by_variant} real Windows screenshots; setup={installer_sha}; portable={portable_sha}")
+                  for variant, _, _, _ in candidates}
+    print(f"Recorded {by_variant} candidate UI screenshots; artifact={installer_sha}; portable={portable_sha}")
 
 
 if __name__ == "__main__":
