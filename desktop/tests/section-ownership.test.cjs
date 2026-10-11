@@ -302,6 +302,8 @@ test('Profile histories reject blank XYZ coordinates and missing physical times'
   assert.equal(controls.selection(1).position,0.25);
   position='not-a-coordinate';
   assert(Number.isNaN(controls.selection(1).position),'Invalid coordinate must not produce a curve');
+  assert(field.includes("if(!Number.isFinite(q.position))throw new Error(fwUi("),
+    'Missing spatial coordinate must report an actionable error instead of an empty plot');
   assert(field.includes('if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i])'),
     'Profile history time-axis must reject nonfinite time entries before sampling');
 });
