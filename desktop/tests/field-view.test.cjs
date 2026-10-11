@@ -1328,6 +1328,35 @@ test('installed WebView2 uses actual GPU pixel readback and logs scoped process 
     'GPU scratch upload accounting must be explicit and must not claim driver VRAM');
 });
 
+test('primary GPU failed replacement preserves previous measured buffer and matching CPU colors',()=>{
+  const begin=source.indexOf('function fvUploadBuffer(r,key,data,usage){');
+  const end=source.indexOf('function fvBuildSurfaceBuffers(',begin);
+  assert(begin>0&&end>begin,'Real primary buffer upload code must be extractable');
+  const code=source.slice(begin,end);
+  const result=new Function([
+    'const FV_TRANSPARENT_TRIANGLE_LIMIT=65536;',
+    'const old={id:"old"},fresh={id:"new"},removed=[];let fail=true;',
+    'const gl={ARRAY_BUFFER:34962,STATIC_DRAW:35044,',
+    'createBuffer(){return fresh},bindBuffer(){},',
+    'bufferData(){if(fail)throw Error("simulated GPU memory failure")},',
+    'deleteBuffer(b){removed.push(b.id)}};',
+    'const measured=new Float32Array([.1,.2,.3]),next=new Float32Array([.9,.8,.7]);',
+    'const r={gl,surfaceColor:old,transparentCpu:{surfaceColor:measured}};',
+    code,
+    'let error="";try{fvUploadBuffer(r,"surfaceColor",next)}catch(e){error=e.message}',
+    'const failed={error,keptGPU:r.surfaceColor===old,keptCPU:r.transparentCpu.surfaceColor===measured,',
+    'removed:removed.slice()};',
+    'fail=false;fvUploadBuffer(r,"surfaceColor",next);',
+    'return{failed,recoveredGPU:r.surfaceColor===fresh,recoveredCPU:r.transparentCpu.surfaceColor===next,removed}'
+  ].join('\n'))();
+  assert.deepStrictEqual(result.failed,{
+    error:'simulated GPU memory failure',keptGPU:true,keptCPU:true,removed:['new']});
+  assert.equal(result.recoveredGPU,true);
+  assert.equal(result.recoveredCPU,true);
+  assert.deepStrictEqual(result.removed,['new','old'],
+    'Original valid buffer must only be released once after successful replacement');
+});
+
 test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
   const writable=regionApi.fvSurfaceDepthWritable;
   assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
