@@ -1280,6 +1280,7 @@ test('visible same-time physical layers survive independent region activation wi
     'const fvState={renderer:{gl},time:9.8};',
     'const fvRegionScene={caseId:"1",sequence:0,choices:new Map(),layers:new Map(),fitPending:false};',
     'const choices=new Map([["metal",{visible:true,field:"T"}],["mold",{visible:true,field:"T"}],["fluid",{visible:false,field:"T"}]]);',
+    'fvRegionScene.choices=choices;',
     'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:null};',
     'const fvTimeEqual=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<1e-9;',
     'const fvRegionEnsureCase=()=>{};',
