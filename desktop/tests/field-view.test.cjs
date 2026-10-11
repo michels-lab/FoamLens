@@ -1225,6 +1225,7 @@ test('actual cross-region transparent triangle sorting handles camera reversal, 
   assert.deepStrictEqual([...tie.colors.slice(0,9)],[...primary.colors],
     'Co-planar alpha triangles must use deterministic region IDs, not import order');
   const max=api.FV_TRANSPARENT_TRIANGLE_LIMIT;
+  assert.equal(max,65536,'Production cap must fit the documented real 23,112-triangle QuickCup mold');
   assert.equal(api.fvTransparentTriangleSort([{
     key:'huge',positions:new Float32Array((max+1)*9),
     colors:new Float32Array((max+1)*9),count:(max+1)*3,alpha:.5
