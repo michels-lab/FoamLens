@@ -1322,8 +1322,20 @@ test('installed WebView2 uses actual GPU pixel readback and logs scoped process 
     'host.WorkingSet64',
     'host.PeakWorkingSet64',
     'host.PrivateMemorySize64',
-    'workingSetBeforeBytes=',
-    'WebView2 child processes and GPU VRAM excluded'
+    'SampleWebView2Resident()',
+    '_web.CoreWebView2.Environment.GetProcessInfos()',
+    'if (!seen.Add(info.ProcessId)) continue',
+    'privateBytes = checked(privateBytes + process.PrivateMemorySize64)',
+    'smokeWebViewBefore = SampleWebView2Resident()',
+    'afterWeb = SampleWebView2Resident()',
+    'residentWorkingSetBeforeBytes = totalBefore',
+    'residentWorkingSetAfterBytes = totalAfter',
+    'webView2ProcessesBefore = smokeWebViewBefore.Observed',
+    'webView2ProcessesAfter = afterWeb.Observed',
+    'webView2UnreadableBefore = smokeWebViewBefore.Unreadable',
+    'webView2UnreadableAfter = afterWeb.Unreadable',
+    'includesGpuDriverVram = false',
+    'crashpad and GPU driver VRAM excluded'
   ])assert(program.includes(phrase),'Resident-process memory evidence scope missing: '+phrase);
   assert(source.includes('batch.lastPayloadBytes=ordered.positions.byteLength+'),
     'GPU scratch upload accounting must be explicit and must not claim driver VRAM');
