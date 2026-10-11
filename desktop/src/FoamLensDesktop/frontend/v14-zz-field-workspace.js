@@ -405,9 +405,12 @@ async function fwBuildProbeFieldHistory(slot,seq){
   for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}if(i%3===2)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected Probe position does not intersect usable field data through time.','La posición del Probe seleccionado no intersecta datos utilizables del campo a través del tiempo.'));
   const xyz=probe.point.map(v=>Number(v).toPrecision(8)).join(','),key=['field3d-probe-history',c.id,region,group.name,component,probeId,xyz].join('|'),base=fwFieldTsField(group,component,'mean',parsed0),field={...base,canonical:'probe:'+fwFieldTsCanonical(group,component,probeId),display:String(group.name)+(component!=='value'?' · '+component:'')+' · Probe '+String(probe.view),quantity:'field3d_probe_'+group.name+'_'+component,original:'OpenFOAM 3D field sampled at fixed XYZ'};
-  let s=(series||[]).find(s=>s.fieldHistoryKey===key);const loc='XYZ '+probe.point.map(fvFmt).join(', ');
-  if(!s){s={id:nextId++,datasetType:'timeseries',caseId:c.id,caseName:c.name,fileName:'3D Probe field history',sourcePath:'derived:'+key,field,probe:'View '+probe.view,location:loc,t:x,y,visible:true,color:null,width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field_history_workspace',fieldHistoryKey:key,probePoint:[...probe.point]};s.color=automaticSeriesColor(s);series.push(s)}else Object.assign(s,{caseId:c.id,caseName:c.name,field,probe:'View '+probe.view,location:loc,t:x,y,visible:true,probePoint:[...probe.point]});
-  fwState.fieldTsKeys.add(key);return s
+  const existing=(series||[]).find(s=>s.fieldHistoryKey===key),loc='XYZ '+probe.point.map(fvFmt).join(', ');
+  const update={caseId:c.id,caseName:c.name,field,probe:'View '+probe.view,location:loc,t:x,y,visible:true,probePoint:[...probe.point]};
+  return existing?{...existing,...update}:
+    {datasetType:'timeseries',fileName:'3D Probe field history',sourcePath:'derived:'+key,
+      color:null,width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',
+      derivedKind:'field_history_workspace',fieldHistoryKey:key,...update}
 }
 async function fwBuildProfileHistory(slot,seq){
   const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
@@ -416,9 +419,13 @@ async function fwBuildProfileHistory(slot,seq){
   const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
   const base=rows[0],unit=base.profileCoordUnit||'',key=['profile-history',q.caseId,q.set,q.field,q.line,Number(q.position).toPrecision(12)].join('|'),field={...base.field,canonical:'profile:'+base.field.canonical+':'+q.line+':'+Number(q.position).toPrecision(8),display:localizedFieldName(base.field)+' · '+(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:''),original:'Spatial profile sampled at fixed coordinate over physical time'};
-  let s=(series||[]).find(s=>s.fieldHistoryKey===key);const caseObj=caseById(base.caseId),loc=(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:'');
-  if(!s){s={id:nextId++,datasetType:'timeseries',caseId:base.caseId,caseName:caseObj?.name||base.caseName||'',fileName:'Profile time history',sourcePath:'derived:'+key,field,probe:null,location:loc,t:x,y,visible:true,color:null,width:2.2,dash:caseObj?.dash||base.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field_history_workspace',fieldHistoryKey:key,profileHistory:true};s.color=automaticSeriesColor(s);series.push(s)}else Object.assign(s,{caseId:base.caseId,caseName:caseObj?.name||base.caseName||'',field,location:loc,t:x,y,visible:true});
-  fwState.fieldTsKeys.add(key);return s
+  const existing=(series||[]).find(s=>s.fieldHistoryKey===key),caseObj=caseById(base.caseId),
+    loc=(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:'');
+  const update={caseId:base.caseId,caseName:caseObj?.name||base.caseName||'',field,location:loc,t:x,y,visible:true};
+  return existing?{...existing,...update}:
+    {datasetType:'timeseries',fileName:'Profile time history',sourcePath:'derived:'+key,probe:null,
+      color:null,width:2.2,dash:caseObj?.dash||base.dash||'solid',opacity:1,axis:'Auto',
+      customLabel:'',derivedKind:'field_history_workspace',fieldHistoryKey:key,profileHistory:true,...update}
 }
 async function fwBuildOneFieldHistory(slot,seq){
   if(slot===2&&!document.getElementById('fwTsEnable2')?.checked)return null;
@@ -434,19 +441,53 @@ async function fwBuildOneFieldHistory(slot,seq){
     if(i%3===2)await new Promise(r=>setTimeout(r,0))
   }
   if(!x.length)throw new Error(fwUi('No finite 3D field-history values were produced.','No se produjeron valores finitos para la historia temporal 3D.'));
-  const key=fwFieldTsSourceKey(c,region,group,component,stat),field=fwFieldTsField(group,component,stat,parsed0);let s=(series||[]).find(s=>s.fieldHistoryKey===key);
-  if(!s){
-    s={id:nextId++,datasetType:'timeseries',caseId:c.id,caseName:c.name,fileName:'3D field history',sourcePath:'derived:'+key,field,probe:null,location:region||'',t:x,y,visible:true,color:null,width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field_history_workspace',fieldHistoryKey:key};
-    s.color=automaticSeriesColor(s);series.push(s)
-  }else{Object.assign(s,{caseId:c.id,caseName:c.name,field,t:x,y,visible:true,location:region||'',dash:c.dash||s.dash||'solid'})}
-  fwState.fieldTsKeys.add(key);return s
+  const key=fwFieldTsSourceKey(c,region,group,component,stat),field=fwFieldTsField(group,component,stat,parsed0);
+  const existing=(series||[]).find(s=>s.fieldHistoryKey===key);
+  const update={caseId:c.id,caseName:c.name,field,t:x,y,visible:true,location:region||'',dash:c.dash||existing?.dash||'solid'};
+  return existing?{...existing,...update}:
+    {datasetType:'timeseries',fileName:'3D field history',sourcePath:'derived:'+key,probe:null,
+      color:null,width:2.2,opacity:1,axis:'Auto',customLabel:'',
+      derivedKind:'field_history_workspace',fieldHistoryKey:key,...update}
+}
+// Prepare all derived series before changing the visible chart. A failing
+// second Probe or cancelled case load must not erase earlier valid curves.
+function fwCommitFieldHistoryDrafts(drafts){
+  const unique=new Map();
+  for(const draft of drafts||[])if(draft?.fieldHistoryKey)unique.set(draft.fieldHistoryKey,draft);
+  if(!unique.size)return [];
+  let assignedId=nextId;
+  const ready=[];
+  // Stage new colors and identifiers without mutating chart state.
+  for(const [key,draft] of unique){
+    const old=(series||[]).find(s=>s.fieldHistoryKey===key);
+    const candidate={...draft,visible:true};
+    if(old){candidate.id=old.id;candidate.color=old.color||candidate.color}
+    else {candidate.id=assignedId++;candidate.color=candidate.color||automaticSeriesColor(candidate)}
+    ready.push({key,old,candidate})
+  }
+  // This section contains no await and cannot leave half-loaded data visible.
+  for(const item of series||[])if(item.derivedKind==='field_history_workspace')item.visible=false;
+  for(const {key,old,candidate} of ready){
+    if(old)Object.assign(old,candidate);
+    else series.push(candidate);
+    fwState.fieldTsKeys.add(key)
+  }
+  nextId=assignedId;
+  const byKey=new Map(ready.map(({key,old,candidate})=>[key,old||candidate]));
+  return drafts.map(draft=>byKey.get(draft.fieldHistoryKey)).filter(Boolean)
 }
 async function fwBuildFieldTimeSeries(){
   if(!fwState.active||fwState.companion!=='timeseries')return;
   const seq=++fwState.fieldTsSeq;fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
-  for(const s of series||[])if(s.derivedKind==='field_history_workspace')s.visible=false;
-  const built=[];for(const slot of [1,2]){const s=await fwBuildOneFieldHistory(slot,seq);if(seq!==fwState.fieldTsSeq)return;if(s)built.push(s)}
-  if(seq!==fwState.fieldTsSeq)return;if(!built.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  const drafts=[];
+  for(const slot of [1,2]){
+    const draft=await fwBuildOneFieldHistory(slot,seq);
+    if(seq!==fwState.fieldTsSeq)return;
+    if(draft)drafts.push(draft)
+  }
+  if(seq!==fwState.fieldTsSeq)return;
+  if(!drafts.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  const built=fwCommitFieldHistoryDrafts(drafts);
   try{refreshDatasetControls()}catch{};try{refreshTimeSeriesControls()}catch{}
   const p=document.getElementById('timeSeriesVariable'),s2=document.getElementById('timeSeriesVariable2'),probe=document.getElementById('timeSeriesProbe'),family=document.getElementById('timeSeriesFamily');
   if(p){delete p.dataset.showAll;if([...p.options].some(o=>o.value===built[0].field.canonical))p.value=built[0].field.canonical}
