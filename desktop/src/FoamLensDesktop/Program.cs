@@ -2211,7 +2211,50 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       ok:loaded&&secondary.length===expected.length-1&&scene.layers.size===expected.length-1&&
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
-    if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene))
+    if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
+    // Native scientific negative fixture: use the ACTUAL imported OpenFOAM
+    // geometry while temporarily restricting the discovery metadata to times
+    // truly present in this same region (excluding this frame). No field
+    // values or synthetic physical time are ever introduced.
+    const missingRegion=expected.find(name=>name!==primary);
+    const selectedGroup=(c.discoveryModel?.fields||[]).find(g=>
+      String(g?.region||'')===missingRegion&&g?.name==='T'&&Array.isArray(g.times));
+    if(!selectedGroup)throw new Error('Real OpenFOAM secondary T group unavailable for missing-frame test');
+    const originalTimes=selectedGroup.times;
+    let missingFrame=null;
+    try{
+      selectedGroup.times=originalTimes.filter(raw=>{
+        const valid=api.physicalTime(raw);
+        return Number.isFinite(valid)&&!fvTimeEqual(valid,fvState.time)
+      });
+      await api.load(c,fvState.time);
+      const unavailable=api.state().layers.get(missingRegion);
+      const row=[...(document.getElementById('fvMultiRegionRows')?.querySelectorAll('[data-fv-region-row]')||[])]
+        .find(el=>el.dataset.fvRegionRow===missingRegion);
+      const legend=row?.querySelector('.fvRegionLegend');
+      const hasScale=!!legend?.querySelector('.fvRegionLegendBar');
+      const explicitMissing=!!legend&&/Geometry only|Solo geometría/i.test(legend.textContent||'');
+      missingFrame={region:missingRegion,legendPresent:!!legend,explicitMissing,
+        sourceTime:unavailable?.sourceTime??null,
+        geometryOnly:unavailable?.geometryOnly===true,
+        measuredColors:unavailable?.colored===true,
+        cellCount:Number(unavailable?.mesh?.cellCount||0),
+        sameWebGL:unavailable?.gl===gl,hasScale,
+        remainingTimes:selectedGroup.times.map(api.physicalTime),
+        originalTimes:originalTimes.map(api.physicalTime)};
+      if(!missingFrame.geometryOnly||missingFrame.measuredColors||missingFrame.sourceTime!==null||
+        !(missingFrame.cellCount>0)||!missingFrame.sameWebGL||hasScale||!missingFrame.explicitMissing)
+        throw new Error('Real geometry-only physical frame contract failed: '+JSON.stringify(missingFrame))
+    }finally{
+      selectedGroup.times=originalTimes;
+      await api.load(c,fvState.time)
+    }
+    const restored=api.state().layers.get(missingRegion);
+    missingFrame.restoredMeasured=!!restored?.fieldValues?.length&&restored.geometryOnly===false&&
+      fvTimeEqual(restored.sourceTime,fvState.time);
+    if(!missingFrame.restoredMeasured)
+      throw new Error('Real measured region did not recover after missing-frame test: '+JSON.stringify(missingFrame));
+    physicalScene.missingFrame=missingFrame
   }
   const range=fvFiniteRange(fvState.fieldValues);
   const gl=fvState.renderer?.gl||null,performanceStats=window.FoamLensPerformance?.stats?.()||null;

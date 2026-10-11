@@ -934,8 +934,8 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   ]};
   assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
   assert(regionCode.includes('fvRegionBuildLayer('));
-  assert(regionCode.includes('fvRegionRenderLayers()'));
-  assert(source.includes('fvRegionRenderLayers();')&&source.includes('fvUpdateAxisGizmo()'),'Physical layers and XYZ gizmo must render together');
+  assert(regionCode.includes("function fvRegionRenderLayers(pass='all',drawPrimary=null)"));
+  assert(source.includes("fvRegionRenderLayers('opaque')")&&source.includes("fvRegionRenderLayers('transparent'")&&source.includes('fvUpdateAxisGizmo()'),'Opaque and translucent physical passes must share the Field scene and XYZ gizmo');
   assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
   assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
   for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
@@ -1134,8 +1134,8 @@ test('transparent primary and secondary regions share a non-occluding depth poli
   assert.equal(writable(.8,{faceField:false}),false,'Translucent secondary regions must not occlude neighboring regions');
   assert.equal(writable(1,{faceField:true}),false,'Neutral shell surrounding real internal faces must not hide the face field');
   assert.equal(writable(1,{interior:true}),false,'Interior slice/iso views must not be masked by the outer shell');
-  assert(source.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}))'));
-  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}))'));
+  assert(source.includes('const shellAlpha=faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity)'));
+  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(shellAlpha))'));
 });
 
 test('real physical region renderer never lets translucent faces or wireframes write depth',()=>{
@@ -1190,7 +1190,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
     'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
-    'const fvRegionRenderLayers=()=>draws.push({pos:"region-pass",depth});const fvUpdateAxisGizmo=()=>{};',
+    'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     implementation,
     'fvRender();return {draws,depth};'
@@ -1309,6 +1309,28 @@ test('secondary surface fields color actual internal mesh faces and keep unknown
 });
 
 
+test('native OpenFOAM smoke removes only discovered timestamps and verifies geometry-only fallback recovery',()=>{
+  const start=program.indexOf('const missingRegion=expected.find(name=>name!==primary);');
+  const end=program.indexOf('physicalScene.missingFrame=missingFrame',start);
+  assert(start>0&&end>start,'Exact packaged multi-region negative-frame acceptance is missing');
+  const native=program.slice(start,end);
+  for(const required of [
+    'const originalTimes=selectedGroup.times;',
+    'const valid=api.physicalTime(raw);',
+    '!fvTimeEqual(valid,fvState.time)',
+    'await api.load(c,fvState.time);',
+    'geometryOnly:unavailable?.geometryOnly===true',
+    'sourceTime:unavailable?.sourceTime??null',
+    'hasScale=!!legend?.querySelector',
+    'explicitMissing=!!legend&&/Geometry only|Solo geometría/',
+    'sameWebGL:unavailable?.gl===gl',
+    'selectedGroup.times=originalTimes;',
+    'missingFrame.restoredMeasured='
+  ])assert(native.includes(required),'Missing native physical-geometry acceptance '+required);
+  assert(!native.includes('times=[0]')&&!native.includes('times=[9.8]'),
+    'Native missing-field test must not fabricate availability timestamps or measured values');
+});
+
 test('native packaged Windows smoke validates real metal and mold physical meshes in ONE WebGL scene',()=>{
   assert(program.includes('FOAMLENS_SMOKE_EXPECT_REGIONS'),'Real OpenFOAM multiregion requirement must be forwarded to native smoke');
   assert(program.includes('await api.load(c,fvState.time)'),'Packaged smoke must await actual secondary OpenFOAM mesh/field loading');
@@ -1398,14 +1420,66 @@ test('field case selector keeps explicit A-case on metadata refresh and Compare 
 });
 
 
+test('actual Field renderer composites opaque physical regions before transparent metal and mold',()=>{
+  const renderBegin=source.indexOf('function fvRender(exportSize=null){');
+  const renderEnd=source.indexOf('function fvUpdateMeshBuffers(',renderBegin);
+  const regionBegin=regionCode.indexOf('function fvSurfaceDepthWritable(');
+  const regionEnd=regionCode.indexOf('function fvRegionFitCamera()',regionBegin);
+  assert(renderBegin>0&&renderEnd>renderBegin&&regionBegin>0&&regionEnd>regionBegin);
+  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold','primaryX','moldX',[
+    'const draws=[];let depth=true;',
+    'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,COLOR_BUFFER_BIT:16384,DEPTH_BUFFER_BIT:256,DEPTH_TEST:2929,BLEND:3042,',
+    'SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,viewport(){},clearColor(){},clear(){},enable(){},blendFunc(){},',
+    'useProgram(){},uniformMatrix4fv(){},depthFunc(){},depthMask(v){depth=!!v}};',
+    'const canvas={width:0,height:0,getBoundingClientRect(){return {width:750,height:450}}};',
+    'const checks=new Map([["fvSurface",true],["fvEdges",false],["fvSlice",false],["fvIso",false],["fvVectors",false],["fvStreamlines",false]]);',
+    'const document={getElementById(id){return id==="fvCanvas"?canvas:checks.has(id)?{checked:checks.get(id)}:id==="fvOpacity"?{value:primaryOpacity}:null}};',
+    'const window={devicePixelRatio:1};',
+    'const bounds=(z,x=0)=>({boundsMin:[x-.2,-.2,z],boundsMax:[x+.2,.2,z+1]});',
+    'const r={gl,program:1,mvp:2,surfacePos:"metal",surfaceColor:"metal-col",surfaceCount:3,probeCount:0};',
+    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth,primaryX||0),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
+    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:bounds(moldDepth,moldX||0),surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
+    'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
+    'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
+    regionCode.slice(regionBegin,regionEnd),
+    source.slice(renderBegin,renderEnd),
+    'fvRender();return {draws,depth};'
+  ].join('\n'));
+  const summarize=x=>x.draws.filter(d=>d.pos==='metal'||d.pos==='mold');
+  const opaqueMold=summarize(harness(.65,1,2,7,true));
+  assert.deepStrictEqual(opaqueMold.map(d=>d.pos),['mold','metal'],
+    'Opaque measured mold must establish the depth buffer before translucent metal blending');
+  assert.deepStrictEqual(opaqueMold.map(d=>d.depth),[true,false],
+    'Only opaque layer may write the depth buffer');
+  const metalFar=summarize(harness(.65,.48,1,6,true));
+  assert.deepStrictEqual(metalFar.map(d=>d.pos),['metal','mold'],
+    'Far metal must blend before near translucent mold even though the selected region is primary');
+  const moldFar=summarize(harness(.65,.48,7,1,true));
+  assert.deepStrictEqual(moldFar.map(d=>d.pos),['mold','metal'],
+    'Far translucent mold must blend before near selected metal');
+  assert.deepStrictEqual(moldFar.map(d=>d.depth),[false,false]);
+  const lateralMold=summarize(harness(.65,.48,1,6,true,0,100));
+  assert.deepStrictEqual(lateralMold.map(d=>d.pos),['metal','mold'],
+    'Camera-axis depth must defeat misleading radial distance when a physically near mold is far off-center');
+  const opaqueMetal=summarize(harness(1,.48,1,6,true));
+  assert.deepStrictEqual(opaqueMetal.map(d=>d.pos),['metal','mold'],
+    'Opaque metal draws before a translucent enclosing mold, independent of distance');
+  assert.deepStrictEqual(opaqueMetal.map(d=>d.depth),[true,false]);
+  const isolated=summarize(harness(.65,.48,1,6,false));
+  assert.deepStrictEqual(isolated.map(d=>d.pos),['metal'],
+    'Hidden physical regions must never draw, even if their buffers remain allocated');
+});
+
 test('field marker renders after all physical layers; translucent shells sort by depth rather than import order',()=>{
   const start=source.indexOf('function fvRender(exportSize=null){');
   const end=source.indexOf('function fvUpdateMeshBuffers(',start);
   const render=source.slice(start,end);
-  assert(render.indexOf('fvRegionRenderLayers();')>=0);
-  assert(render.indexOf('fvRegionRenderLayers();')<render.indexOf('if(r.probeCount){gl.depthFunc(gl.ALWAYS)'),
+  assert(render.indexOf("fvRegionRenderLayers('opaque');")>=0);
+  assert(render.indexOf("fvRegionRenderLayers('transparent'")<render.indexOf('if(r.probeCount){gl.depthFunc(gl.ALWAYS)'),
     'The pinned probe must remain visible after translucent physical shells render');
-  assert(regionCode.includes('const sorted=[...fvRegionScene.layers].sort('),
+  assert(regionCode.includes('sorted.sort((a,b)=>layerDepth(b[1])-layerDepth(a[1])'),
     'Unsorted translucent regions must not depend on discovery order');
   assert(render.includes('gl.depthMask(false);fvBindDraw(r,r.probePos'),
     'Probe overlay must not corrupt the scientific depth buffer');
