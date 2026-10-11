@@ -378,12 +378,15 @@ function fwRefreshFieldTsControls(){
   fwRefreshFieldTsSlot(1,true);fwRefreshFieldTsSlot(2,true)
 }
 
+function fwProbeMatchesFieldSource(probe,c,region){
+  return !!probe&&!!c&&String(probe.caseId)===String(c.id)&&String(probe.region||'')===String(region||'')
+}
 async function fwBuildProbeFieldHistory(slot,seq){
   const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),group=fwFieldTsGroup(slot),component=document.getElementById('fwTsComponent'+slot)?.value||'value',probeId=document.getElementById('fwTsProbe'+slot)?.value||'',probe=fwProbeChoices().find(d=>d.id===probeId);
   if(!c||!group) return null;if(!probe)throw new Error(fwUi('Select a pinned 3D Probe first.','Selecciona primero un Probe 3D fijado.'));
   // A point from the neighboring mold/metal must never be silently sampled
   // against a different OpenFOAM region or case merely because XYZ overlaps.
-  if(String(probe.caseId)!==String(c.id)||String(probe.region||'')!==String(region||''))
+  if(!fwProbeMatchesFieldSource(probe,c,region))
     throw new Error(fwUi('The pinned Probe belongs to a different physical case or region. Select its exact case and region first.',
       'El Probe fijado pertenece a otro caso o región física. Selecciona primero su caso y región exactos.'));
   const times=(group.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),x=[],y=[];let parsed0=null,maxDistance=0;
