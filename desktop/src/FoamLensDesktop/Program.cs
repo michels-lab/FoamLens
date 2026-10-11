@@ -2299,9 +2299,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     }
     physicalScene.transparentPixelProof=transparentPixelProof;
     const alphaBatch=fvState.renderer?.transparentBatch;
-    physicalScene.transparentBatch={active:!!alphaBatch?.lastTriangles,
-      sortedTriangles:Number(alphaBatch?.lastTriangles||0),
-      scratchPayloadBytes:Number(alphaBatch?.lastPayloadBytes||0),
+    const batchActive=fvState.renderer?.transparentBatchLastActive===true;
+    physicalScene.transparentBatch={active:batchActive,
+      sortedTriangles:batchActive?Number(alphaBatch?.lastTriangles||0):0,
+      scratchPayloadBytes:batchActive?Number(alphaBatch?.lastPayloadBytes||0):0,
       scope:'sorted upload payload, not graphics-driver VRAM'};
     // In the real imported OpenFOAM metal/mold WebGL context, draw both
     // measured physical surfaces fully opaque. Their shared interface may
