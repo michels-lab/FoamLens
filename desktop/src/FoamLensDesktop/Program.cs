@@ -1230,6 +1230,8 @@ internal sealed class FoamLensForm : Form
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_INITIAL_CASE") ?? "";
                 var switchCaseName =
                     Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_SWITCH_CASE") ?? "";
+                var asymmetricCaseName =
+                    Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_ASYMMETRIC_CASE") ?? "";
                 var refsJson = JsonSerializer.Serialize(smokeRefs, _json);
                 var optionsJson = JsonSerializer.Serialize(
                     new {
@@ -1238,7 +1240,8 @@ internal sealed class FoamLensForm : Form
                         time = preferredTime,
                         expectedRegions = expectedPhysicalRegions,
                         initialCase = initialCaseName,
-                        switchCase = switchCaseName
+                        switchCase = switchCaseName,
+                        asymmetricCase = asymmetricCaseName
                     }, _json);
 
                 await _web.CoreWebView2.ExecuteScriptAsync(
@@ -1286,6 +1289,15 @@ internal sealed class FoamLensForm : Form
                             throw new InvalidOperationException(
                                 $"FoamLens real physical multiregion scene did not render together: {realCaseJson}");
                         Log($"FoamLens real OpenFOAM physical multiregion WebGL smoke passed: {physicalScene}");
+                        if (!string.IsNullOrWhiteSpace(asymmetricCaseName))
+                        {
+                            if (!physicalScene.TryGetProperty("asymmetric", out var asymmetric) ||
+                                asymmetric.ValueKind != JsonValueKind.Object ||
+                                !asymmetric.TryGetProperty("ok", out var unevenOk) || !unevenOk.GetBoolean())
+                                throw new InvalidOperationException(
+                                    $"FoamLens on-disk asymmetric OpenFOAM physical-time case failed: {realCaseJson}");
+                            Log($"FoamLens real on-disk asymmetric region-time smoke passed: {asymmetric}");
+                        }
 
                         // Exercise real mold/metal face/cell associations through
                         // the installed UI's region-specific Probe selector.
@@ -2264,7 +2276,67 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       missingFrame.restoredGpuRegions!==physicalScene.secondaryGpuRegions||
       missingFrame.restoredGpuPayloadBytes!==physicalScene.secondaryGpuPayloadBytes)
       throw new Error('Real measured region or GPU payload not restored after missing-frame test: '+JSON.stringify(missingFrame));
-    physicalScene.missingFrame=missingFrame
+    physicalScene.missingFrame=missingFrame;
+    if(options.asymmetricCase){
+      // A fifth independent copy of the REAL QuickCup case omits the actual
+      // 9.8/mold/T file on disk while retaining 0/mold/T and 9.8/metal/T.
+      // Validate discovery, physical time, geometry, legend and restoration
+      // in the real packaged native frontend without manufacturing values.
+      const previous={caseName:String(fvCase()?.name||''),region:primary,
+        field:String(document.getElementById('fvField')?.value||''),time:frameTime};
+      let asymmetric=null;
+      try{
+        await selectSmokeCase(options.asymmetricCase);
+        const c2=fvCase();
+        const regionControl=document.getElementById('fvRegion');
+        if(regionControl.value!==primary){regionControl.value=primary;fvRefreshSelectors(true)}
+        const fieldControl=document.getElementById('fvField');
+        fieldControl.value='T';fvState.fieldName='T';
+        await fvLoadSelection();
+        const metalGroup=fvFieldGroups(c2,primary,null,'any').find(g=>g.name==='T');
+        const moldName=expected.find(name=>name!==primary);
+        const moldGroup=fvFieldGroups(c2,moldName,null,'any').find(g=>g.name==='T');
+        const metalTimes=(metalGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
+        const moldTimes=(moldGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
+        const targetIndex=(metalGroup?.times||[]).findIndex(t=>
+          fvTimeEqual(api.physicalTime(t),previous.time));
+        if(targetIndex<0||!moldTimes.length||moldTimes.some(t=>fvTimeEqual(t,previous.time))||
+          !metalTimes.some(t=>fvTimeEqual(t,previous.time)))
+          throw new Error('Asymmetric on-disk OpenFOAM T discovery is inconsistent: '+
+            JSON.stringify({metalTimes,moldTimes,targetTime:previous.time}));
+        await fvLoadFrame(targetIndex);
+        await api.load(c2,fvState.time);
+        const layer=api.state().layers.get(moldName),sameGl=fvState.renderer?.gl;
+        const row=[...(document.getElementById('fvMultiRegionRows')?.querySelectorAll('[data-fv-region-row]')||[])]
+          .find(el=>el.dataset.fvRegionRow===moldName);
+        const legend=row?.querySelector('.fvRegionLegend');
+        const noScale=!legend?.querySelector('.fvRegionLegendBar');
+        const notice=!!legend&&/Geometry only|Solo geometría/i.test(legend.textContent||'');
+        asymmetric={ok:!!layer&&layer.geometryOnly===true&&layer.sourceTime===null&&
+          !layer.colored&&layer.gl===sameGl&&layer.mesh?.cellCount>0&&
+          !!fvState.fieldValues?.length&&fvTimeEqual(fvState.time,previous.time)&&
+          noScale&&notice&&api.gpuPayloadStats().regionCount===1,
+          caseName:String(c2.name||''),metalTimes,moldTimes,targetTime:previous.time,
+          moldGeometryOnly:layer?.geometryOnly===true,moldMeasuredTime:layer?.sourceTime??null,
+          moldCells:Number(layer?.mesh?.cellCount||0),sameWebGL:layer?.gl===sameGl,
+          noScale,notice,secondaryGpuPayloadBytes:api.gpuPayloadStats().payloadBytes};
+        if(!asymmetric.ok)throw new Error('Actual on-disk asymmetric metal/mold scene failed: '+JSON.stringify(asymmetric))
+      }finally{
+        // Don't leave the test itself switched away from the owner's real
+        // B13 scene; downstream native probe/case assertions still apply.
+        await selectSmokeCase(previous.caseName);
+        const regionControl=document.getElementById('fvRegion');
+        if(regionControl.value!==previous.region){regionControl.value=previous.region;fvRefreshSelectors(true)}
+        const fieldControl=document.getElementById('fvField');
+        fieldControl.value=previous.field;fvState.fieldName=previous.field;
+        await fvLoadSelection();
+        const restoredTimes=fvCurrentFieldGroup()?.times||[];
+        const restoreIndex=restoredTimes.findIndex(t=>fvTimeEqual(api.physicalTime(t),previous.time));
+        if(restoreIndex<0)throw new Error('Could not restore real selected OpenFOAM physical frame');
+        await fvLoadFrame(restoreIndex);await api.load(fvCase(),fvState.time)
+      }
+      physicalScene.asymmetric=asymmetric
+    }
   }
   const range=fvFiniteRange(fvState.fieldValues);
   const gl=fvState.renderer?.gl||null,performanceStats=window.FoamLensPerformance?.stats?.()||null;
