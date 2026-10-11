@@ -448,6 +448,18 @@ function flRibbonSyncStates(){
 function flRibbonBind(id,fn){
   document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();fn();setTimeout(flRibbonSyncStates,0)})
 }
+// Camera lives in a horizontally scrollable Ribbon shelf, not inside the 3D
+// canvas. When compact, show the real control group after the user opens Camera;
+// otherwise the control group can remain entirely beyond the shelf's right edge.
+function flRibbonRevealCameraTools(shelf){
+  const tools=shelf?.querySelector('.flRibbonCameraTools');
+  if(!tools)return false;
+  const host=shelf.getBoundingClientRect(),dock=tools.getBoundingClientRect();
+  if(!(host.width>0&&dock.width>0))return false;
+  const beyond=Math.max(0,dock.left-host.left);
+  if(beyond>0)shelf.scrollLeft+=beyond;
+  return true
+}
 function flRibbonFieldSubbars(){
   const panel=document.getElementById('flRibbonPanel-field');if(!panel||document.getElementById('flFieldContextTabs'))return false;
   const targets={inspect:'flRaProbe',compare:'flRaCompare3D',camera:'flRaLinkCameras'};
@@ -467,7 +479,8 @@ function flRibbonFieldSubbars(){
       shelf.classList.toggle('flCameraToolsActive',enabled&&key==='camera');
       tabs.querySelectorAll('button').forEach(b=>{const yes=enabled&&b===button;b.classList.toggle('active',yes);b.setAttribute('aria-expanded',String(yes))});
       Object.entries(groups).forEach(([name,g])=>g.classList.toggle('flSubbarActive',enabled&&name===key));
-      shelf.classList.toggle('hidden',!enabled)
+      shelf.classList.toggle('hidden',!enabled);
+      if(enabled&&key==='camera')flRibbonRevealCameraTools(shelf)
     });tabs.appendChild(button)
   }
   panel.appendChild(tabs);document.getElementById('flRibbon')?.appendChild(shelf);

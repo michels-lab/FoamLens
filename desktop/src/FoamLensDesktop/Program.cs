@@ -297,7 +297,10 @@ internal sealed class FoamLensForm : Form
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
-                        cameraDocked,toolbarHeight:b?.height,toolbarCanvasOverlap:overlap,
+                        cameraDocked,toolbarHeight:b?.height,toolbarWidth:b?.width,
+                        toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
+                        shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
+                        shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                     })()

@@ -156,6 +156,27 @@ assert(scientificCapture.includes("document.querySelector('#flFieldContextTabs [
 assert(!scientificCapture.includes("document.querySelector('#fieldViewPanel .fvViewTools')"),
   'Scientific screenshot validation must not search for Camera controls in their obsolete viewport parent.');
 
+// Real DOM interaction: compact Camera must scroll the Ribbon shelf to the
+// docked controls instead of leaving them beyond the right viewport edge.
+const revealStart=source.indexOf('function flRibbonRevealCameraTools(');
+const revealEnd=source.indexOf('function flRibbonFieldSubbars()',revealStart);
+assert(revealStart>=0&&revealEnd>revealStart,
+  'Missing compact Camera shelf reveal helper.');
+const revealCamera=new Function(source.slice(revealStart,revealEnd)+';return flRibbonRevealCameraTools;')();
+const cameraDock={getBoundingClientRect:()=>({left:830,right:1130,width:300})};
+const compactShelf={scrollLeft:0,querySelector:selector=>selector==='.flRibbonCameraTools'?cameraDock:null,
+  getBoundingClientRect:()=>({left:0,right:640,width:640})};
+assert.equal(revealCamera(compactShelf),true);
+assert.equal(compactShelf.scrollLeft,830,'Compact Camera should automatically reveal its docked toolbar.');
+const visibleDock={getBoundingClientRect:()=>({left:50,right:300,width:250})};
+const wideShelf={scrollLeft:0,querySelector:()=>visibleDock,
+  getBoundingClientRect:()=>({left:0,right:1140,width:1140})};
+assert.equal(revealCamera(wideShelf),true);
+assert.equal(wideShelf.scrollLeft,50,'Camera should align tools without hiding them.');
+assert.equal(revealCamera({querySelector:()=>null}),false,'Missing tools must fail safely.');
+assert(source.includes("if(enabled&&key==='camera')flRibbonRevealCameraTools(shelf)"),
+  'Opening Camera must invoke its compact scroll-to-controls behavior.');
+
 const compactCssStart=source.indexOf('function flRibbonCss()');
 const compactCssEnd=source.indexOf('function flRibbonSelectTab(',compactCssStart);
 assert(compactCssStart>0&&compactCssEnd>compactCssStart,'Ribbon CSS generator is missing');
