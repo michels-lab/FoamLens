@@ -1321,7 +1321,8 @@ test('native OpenFOAM smoke removes only discovered timestamps and verifies geom
     'await api.load(c,fvState.time);',
     'geometryOnly:unavailable?.geometryOnly===true',
     'sourceTime:unavailable?.sourceTime??null',
-    'hasScale=!!row?.querySelector',
+    'hasScale=!!legend?.querySelector',
+    'explicitMissing=!!legend&&/Geometry only|Solo geometría/',
     'sameWebGL:unavailable?.gl===gl',
     'selectedGroup.times=originalTimes;',
     'missingFrame.restoredMeasured='
