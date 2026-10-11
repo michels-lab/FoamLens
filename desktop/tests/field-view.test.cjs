@@ -865,6 +865,66 @@ const regionApi=new Function(
   regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
 )();
 
+test('physical OpenFOAM region colormaps use independent measured field legends and GPU buffers',()=>{
+  const begin=regionCode.indexOf('function fvRegionPalette(');
+  const end=regionCode.indexOf('function fvRegionStatus(',begin);
+  assert(begin>=0&&end>begin,'Missing independent region palette + legend pipeline');
+  const used=[],gl={ARRAY_BUFFER:34962,DYNAMIC_DRAW:35048,
+    bindBuffer:(type,id)=>used.push(['bind',id]),
+    bufferData:(type,values,usage)=>used.push(['upload',Array.from(values),usage])};
+  const palette='coolwarm';
+  const helpers=new Function('flUi','fvEsc','fvFmt','fvFmtRange','fvAssociationLabel',
+    'fvLegendGradient','pmUnitFromDimensions','fvSurfaceColors','fvPointSurfaceColors','fvInternalFaceColors',
+    regionCode.slice(begin,end)+
+    ';return {fvRegionPalette,fvRegionLegendMarkup,fvRegionRecolorLayer}')(
+      english=>english,s=>String(s).replace(/</g,'&lt;'),String,String,s=>s,
+      name=>'linear-gradient(90deg, '+name+', #fff)',
+      ()=> 'K',
+      (...args)=>{used.push(['volumePalette',args.at(-1)]);return new Float32Array([.1,.2,.3])},
+      (...args)=>{used.push(['pointPalette',args.at(-1)]);return new Float32Array([.4,.5,.6])},
+      (...args)=>{used.push(['facePalette',args.at(-1)]);return new Float32Array([.7,.8,.9])});
+  const choice={visible:true,palette};
+  const layer={gl,region:'mold',storage:'volume',mesh:{cellCount:1,pointCount:3,internalFaceCount:1},
+    field:'T',fieldValues:new Float64Array([303.063]),sourceTime:9.8,time:9.8,geometryOnly:false,colored:true,
+    paintRange:{valid:true,min:300,max:1000},parsed:{dimensions:'[0 0 0 1 0 0 0]'},surfaceColor:{id:'mold-surface'}};
+  const primaryPalette='viridis';
+  assert.equal(helpers.fvRegionRecolorLayer(layer,choice),true);
+  assert(used.some(x=>x[0]==='volumePalette'&&x[1]===palette));
+  assert(used.some(x=>x[0]==='bind'&&x[1]===layer.surfaceColor));
+  assert.equal(layer.palette,palette);
+  assert.equal(primaryPalette,'viridis','Secondary map must not mutate primary color controls');
+  const legend=helpers.fvRegionLegendMarkup(layer,choice);
+  assert(legend.includes('linear-gradient(90deg, coolwarm'));
+  assert(legend.includes('300 K')&&legend.includes('1000 K'));
+  assert(legend.includes('T · t=9.8 s'));
+  assert(!legend.includes('&lt;script'));
+  const before=used.length;
+  assert.equal(helpers.fvRegionRecolorLayer({...layer,geometryOnly:true,sourceTime:null},choice),false);
+  assert.equal(used.length,before,'Geometry-only meshes must not be recolored as measured data');
+  assert(!helpers.fvRegionLegendMarkup({...layer,geometryOnly:true,sourceTime:null},choice).includes('fvRegionLegendBar'));
+  assert(!helpers.fvRegionLegendMarkup({...layer,sourceTime:null},choice).includes('fvRegionLegendBar'));
+  assert(!helpers.fvRegionLegendMarkup({...layer,paintRange:{valid:false}},choice).includes('fvRegionLegendBar'));
+  assert(!helpers.fvRegionLegendMarkup({...layer,paintRange:{valid:true,min:NaN,max:500}},choice).includes('fvRegionLegendBar'));
+  assert(!helpers.fvRegionLegendMarkup(layer,{...choice,visible:false}).includes('fvRegionLegendBar'));
+  assert.equal(helpers.fvRegionPalette({palette:'untrusted'}),'viridis');
+
+  used.length=0;
+  const point={...layer,storage:'point',fieldValues:new Float64Array([1,2,3]),surfaceColor:{id:'point-color'}};
+  assert.equal(helpers.fvRegionRecolorLayer(point,{visible:true,palette:'turbo'}),true);
+  assert(used.some(x=>x[0]==='pointPalette'&&x[1]==='turbo'));
+  used.length=0;
+  const surface={...layer,storage:'surface',fieldValues:new Float64Array([303.063]),
+    faceFieldColor:{id:'face-color'},faceTriangleFaces:[0,0],surfaceColor:null};
+  assert.equal(helpers.fvRegionRecolorLayer(surface,{visible:true,palette:'coolwarm'}),true);
+  assert(used.some(x=>x[0]==='facePalette'&&x[1]==='coolwarm'));
+  assert(used.some(x=>x[0]==='bind'&&x[1]===surface.faceFieldColor));
+  assert(regionCode.includes("e.target.matches('[data-fv-region-palette]')"),
+    'Changing a secondary palette must update its own layer rather than the global primary control');
+  assert(regionCode.includes('fvRegionUpdateLegend(region)'),'Loaded regions must refresh their own measured legend');
+  assert(source.includes('.fvRegionRow .fvRegionLegend{grid-column:1/-1'),
+    'Legend must be allocated inside the inspector rather than overlaying the scientific canvas');
+});
+
 test('one 3D canvas recognizes distinct physical regions without treating processor partitions as regions',()=>{
   const sourceCase={meshInventory:[
     {region:'solid',complete:true},
