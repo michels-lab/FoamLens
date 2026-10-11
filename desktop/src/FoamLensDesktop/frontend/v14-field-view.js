@@ -476,7 +476,7 @@ function fvBuildSliceGeometry(mesh,cellValues,axis='x',position=.5){
 function fvReadyRegions(caseObj){
   const meshes=(caseObj?.meshInventory||[]).filter(g=>g?.complete),fields=(caseObj?.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
   const regions=[...new Set(meshes.map(g=>String(g.region||'')))];
-  return regions.filter(region=>meshes.filter(m=>String(m.region||'')===region).some(mesh=>fields.some(f=>String(f?.region||'')===region&&f.times.some(t=>!!fvMeshSnapshotForTime(mesh,t)))))
+  return regions.filter(region=>meshes.filter(m=>String(m.region||'')===region).some(mesh=>fields.some(f=>String(f?.region||'')===region&&f.times.some(t=>Number.isFinite(fvRegionPhysicalTime(t))&&!!fvMeshSnapshotForTime(mesh,t)))))
 }
 function fvCaseViewAvailable(caseObj){
   return fvReadyRegions(caseObj).length>0
@@ -817,7 +817,7 @@ async function fvRegionLoadFrame(c,time){
   if(failedVisible.length&&window.FoamLensAnimationExport?.isExporting?.())throw new Error('Cannot export an incomplete multiregion frame: '+failedVisible.join('; '))
 }
 window.FoamLensRegionScene={
-  regionNames:fvRegionNames,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
+  regionNames:fvRegionNames,physicalTime:fvRegionPhysicalTime,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
   state:()=>fvRegionScene,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera,
   beginVideoRangeScan:fvRegionBeginVideoRangeScan,endVideoRangeScan:fvRegionEndVideoRangeScan,setVideoRanges:fvRegionSetVideoRanges
 };
@@ -1109,7 +1109,7 @@ async function fvComputeGlobalRange(){
 }
 async function fvLoadFrame(index=null,options={}){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup();if(!c||!g)return;if(typeof fpClear==='function')fpClear();
-  const times=(g.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
+  const times=(g.times||[]).map(fvRegionPhysicalTime).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');if(!times.length)throw new Error('Selected OpenFOAM field has no valid physical timestamps.');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
   const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';fvRegionClearLayers();fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
   const data=await fvLoadFrameData(c,g,region,time,component,{includeBoundary:true});if(seq!==fvState.frameSeq)return;
   const {layout,meshInfo,mesh,storage,parsed,fieldValues,surfaceBoundary,range}=data;
