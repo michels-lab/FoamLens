@@ -1127,6 +1127,25 @@ test('camera fit excludes hidden primary and secondary regions without inventing
 });
 
 
+test('real Windows native smoke forces coincident metal and mold into opaque WebGL and checks offset cleanup',()=>{
+  const from=program.indexOf('const mainAlpha=document.getElementById(');
+  const to=program.indexOf('physicalScene.opaqueInterfaceDepthPolicy=opaqueDepth',from);
+  assert(from>0&&to>from,'Native opaque-interface acceptance is missing');
+  const check=program.slice(from,to);
+  for(const token of [
+    "mainAlpha.value='1';moldChoice.opacity=1;fvRender();",
+    'gl.isEnabled(gl.POLYGON_OFFSET_FILL)',
+    'gl.getParameter(gl.POLYGON_OFFSET_FACTOR)',
+    'gl.getParameter(gl.POLYGON_OFFSET_UNITS)',
+    'gl.getError()',
+    'opaqueDepth.polygonOffsetEnabled||opaqueDepth.polygonOffsetFactor!==0',
+    'opaqueDepth.polygonOffsetUnits!==0||opaqueDepth.webglError!==0',
+    'mainAlpha.value=savedMainAlpha;moldChoice.opacity=savedMoldAlpha;fvRender()'
+  ])assert(check.includes(token),'Native real OpenFOAM GL state acceptance must check '+token);
+  assert(source.includes('if(opaque)')===false||source.includes('fvSurfaceDepthWritable(shellAlpha)'),
+    'Must not apply opaque GL polygon offset to translucent physical surfaces');
+});
+
 test('production renderer applies deterministic coplanar depth tie-offset only to opaque secondary triangles',()=>{
   const begin=regionCode.indexOf('function fvSurfaceDepthWritable(');
   const end=regionCode.indexOf('function fvRegionFitCamera()',begin);
