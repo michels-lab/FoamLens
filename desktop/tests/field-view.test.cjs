@@ -1279,6 +1279,54 @@ test('production GPU alpha-batch reuses three buffers and restores primary progr
     'Successful triangle batching must not double-blend old region-center draws');
 });
 
+test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
+  const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
+  const sort=new Function(source.slice(begin,end)+';return fvTransparentTriangleSort')();
+  const count=1000000,before=process.memoryUsage().rss;
+  const positions=new Float32Array(count*9),colors=new Float32Array(count*9);
+  // Touch each OS page to make RSS observation meaningful; these are controlled
+  // geometry buffers, not invented measurements from OpenFOAM.
+  for(let i=0;i<positions.length;i+=1024){positions[i]=1;colors[i]=.5}
+  const allocatedRss=process.memoryUsage().rss;
+  const result=sort([{key:'million-triangle-synthetic-load',
+    positions,colors,count:count*3,alpha:.5}],{
+    target:[0,0,0],distance:10,yaw:0,pitch:0
+  });
+  assert.equal(result,null,'A 1M triangle synthetic load may not create an unbounded global GPU sort');
+  assert.equal(positions.byteLength+colors.byteLength,72000000);
+  assert(allocatedRss>0&&before>0);
+  console.log('  measured Node RSS bytes before=' + before +
+    ' after allocation=' + allocatedRss +
+    ' (host JS process only; synthetic geometry; not VRAM and not real OpenFOAM RAM)');
+});
+
+test('installed WebView2 uses actual GPU pixel readback and logs scoped process memory',()=>{
+  for(const phrase of [
+    "const ordered=fvTransparentTriangleSort([",
+    "offscreen.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true})",
+    'ctx.readPixels(16,16,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,pixel)',
+    'Math.abs(pixel[0]-128)<=12',
+    'Math.abs(pixel[2]-64)<=12',
+    'physicalScene.transparentPixelProof=transparentPixelProof',
+    'physicalScene.transparentBatch={active:',
+    'glError:error',
+    'scope:'
+  ])assert(program.includes(phrase),'Missing native true WebGL pixel verification: '+phrase);
+  assert(program.includes('pixelProof.TryGetProperty("ok"'),
+    'Native host must reject an incorrect GPU overlap pixel result');
+  for(const phrase of [
+    'smokeHostWorkingSetBefore',
+    'host.WorkingSet64',
+    'host.PeakWorkingSet64',
+    'host.PrivateMemorySize64',
+    'workingSetBeforeBytes=',
+    'WebView2 child processes and GPU VRAM excluded'
+  ])assert(program.includes(phrase),'Resident-process memory evidence scope missing: '+phrase);
+  assert(source.includes('batch.lastPayloadBytes=ordered.positions.byteLength+'),
+    'GPU scratch upload accounting must be explicit and must not claim driver VRAM');
+});
+
 test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
   const writable=regionApi.fvSurfaceDepthWritable;
   assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
