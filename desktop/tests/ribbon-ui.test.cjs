@@ -140,6 +140,51 @@ assert(source.includes('.flRibbonLabel{font-size:10px')&&source.includes('.flFie
 for(const id of ['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'])
   assert(source.includes(id),'Direct camera shortcut must remain visible: '+id);
 
+// Native screenshot capture must exercise the actual Ribbon Camera shelf.
+// The 3D canvas does not own controls after flRibbonFieldSubbars() reparents them.
+const nativeHost=fs.readFileSync(path.join(repoRoot,'desktop','src','FoamLensDesktop','Program.cs'),'utf8');
+assert(source.includes("shelf.appendChild(tools)")&&source.includes("const tools=document.querySelector('#fieldViewPanel .fvViewTools')"),
+  'Camera toolbar must be moved from the 3D viewport into the Ribbon shelf.');
+const scientificCapture=nativeHost.slice(nativeHost.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()'),
+  nativeHost.indexOf('private async Task CaptureCdpPngAsync(',nativeHost.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()')));
+assert(scientificCapture.includes("document.querySelector('#flFieldContextTabs [data-fl-subbar=\"camera\"]')")&&
+  scientificCapture.includes("shelf?.querySelector('.fvViewTools')")&&
+  scientificCapture.includes('cameraTab.click()')&&
+  scientificCapture.includes('cameraDocked')&&
+  scientificCapture.includes('overlap<1'),
+  'Exact-head Windows screenshot must expand the real Ribbon Camera shelf and verify no 3D canvas overlap.');
+assert(!scientificCapture.includes("document.querySelector('#fieldViewPanel .fvViewTools')"),
+  'Scientific screenshot validation must not search for Camera controls in their obsolete viewport parent.');
+
+// Real DOM interaction: compact Camera must scroll the Ribbon shelf to the
+// docked controls instead of leaving them beyond the right viewport edge.
+const revealStart=source.indexOf('function flRibbonRevealCameraTools(');
+const revealEnd=source.indexOf('function flRibbonFieldSubbars()',revealStart);
+assert(revealStart>=0&&revealEnd>revealStart,
+  'Missing compact Camera shelf reveal helper.');
+const revealCamera=new Function(source.slice(revealStart,revealEnd)+';return flRibbonRevealCameraTools;')();
+const cameraDock={getBoundingClientRect:()=>({left:830,right:1130,width:300})};
+const compactShelf={scrollLeft:0,querySelector:selector=>selector==='.flRibbonCameraTools'?cameraDock:null,
+  getBoundingClientRect:()=>({left:0,right:640,width:640})};
+assert.equal(revealCamera(compactShelf),true);
+assert.equal(compactShelf.scrollLeft,830,'Compact Camera should automatically reveal its docked toolbar.');
+const visibleDock={getBoundingClientRect:()=>({left:50,right:300,width:250})};
+const wideShelf={scrollLeft:0,querySelector:()=>visibleDock,
+  getBoundingClientRect:()=>({left:0,right:1140,width:1140})};
+assert.equal(revealCamera(wideShelf),true);
+assert.equal(wideShelf.scrollLeft,0,'Already-visible wide Camera tools must not force horizontal scrolling.');
+const leftClippedDock={getBoundingClientRect:()=>({left:-80,right:160,width:240})};
+const clippedShelf={scrollLeft:100,querySelector:()=>leftClippedDock,
+  getBoundingClientRect:()=>({left:0,right:640,width:640})};
+assert.equal(revealCamera(clippedShelf),true);
+assert.equal(clippedShelf.scrollLeft,20,'Resizing wider must restore left-clipped Camera controls.');
+assert.equal(revealCamera({querySelector:()=>null}),false,'Missing tools must fail safely.');
+assert(source.includes("if(enabled&&key==='camera')flRibbonRevealCameraTools(shelf)"),
+  'Opening Camera must invoke its compact scroll-to-controls behavior.');
+assert(source.includes("window.addEventListener('resize',()=>{")&&
+  source.includes("if(camera?.classList.contains('active')&&!shelf.classList.contains('hidden'))"),
+  'Keeping Camera open during wide/compact window changes must re-reveal its docked controls.');
+
 const compactCssStart=source.indexOf('function flRibbonCss()');
 const compactCssEnd=source.indexOf('function flRibbonSelectTab(',compactCssStart);
 assert(compactCssStart>0&&compactCssEnd>compactCssStart,'Ribbon CSS generator is missing');

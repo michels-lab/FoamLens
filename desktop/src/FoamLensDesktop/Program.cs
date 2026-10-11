@@ -250,6 +250,98 @@ internal sealed class FoamLensForm : Form
         Log("FoamLens rendered Home/About evidence captured and verified across wide/compact viewports.");
     }
 
+
+    // Scientific rendered-evidence contract: capture the actual imported
+    // QuickCup Data/Field workspaces from portable AND installed WebView2.
+    // Toolbars must allocate real layout space rather than mask the 3D canvas.
+    private async Task CaptureScientificWorkspaceEvidenceAsync()
+    {
+        var root = Environment.GetEnvironmentVariable("FOAMLENS_BRAND_EVIDENCE_DIR");
+        if (string.IsNullOrWhiteSpace(root)) return;
+        Directory.CreateDirectory(root);
+        await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.enable", "{}");
+        try
+        {
+            foreach (var size in new[] { (Width: 1140, Height: 820, Name: "wide"), (Width: 640, Height: 900, Name: "compact") })
+            {
+                var metrics = $"{{\"width\":{size.Width},\"height\":{size.Height},\"deviceScaleFactor\":1,\"mobile\":false}}";
+                await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride", metrics);
+                var fieldState = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRibbonTab-field')?.click();
+                      // Camera controls are deliberately docked in the Ribbon's
+                      // expandable shelf, NOT over the scientific 3D viewport.
+                      // Exercise the actual Camera button before measuring it.
+                      const cameraTab=document.querySelector('#flFieldContextTabs [data-fl-subbar="camera"]');
+                      if(cameraTab&&!cameraTab.classList.contains('active'))cameraTab.click();
+                      const canvas=document.getElementById('fvCanvas');
+                      const shelf=document.getElementById('flFieldContextShelf');
+                      const ribbon=document.getElementById('flRibbon');
+                      const tools=shelf?.querySelector('.fvViewTools');
+                      const panel=document.getElementById('fieldViewPanel');
+                      const physical=window.FoamLensRegionScene?.state?.();
+                      const probe=document.getElementById('fvProbeRegion');
+                      const rect=x=>x?.getBoundingClientRect();
+                      const a=rect(canvas),b=rect(tools),v=rect(panel);
+                      const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+                        Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
+                      const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
+                      const hasField=!!primary?.range?.valid;
+                      const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
+                        !!shelf&&!shelf.classList.contains('hidden')&&
+                        ribbon?.contains(shelf)&&shelf.contains(tools)&&tools?.contains(probe);
+                      const ok=!!canvas&&!!tools&&!!panel&&!!probe&&cameraDocked&&
+                        !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
+                        b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
+                        !!v&&v.width>180&&overlap<1&&hasField&&
+                        physical?.layers?.size>0;
+                      return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
+                        cameraDocked,toolbarHeight:b?.height,toolbarWidth:b?.width,
+                        toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
+                        shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
+                        shelfClientWidth:shelf?.clientWidth,
+                        primaryField:primary?.fieldName||'',primaryTime:primary?.time,
+                        secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
+                await Task.Delay(180);
+                await CaptureCdpPngAsync(Path.Combine(root, $"field-{size.Name}.png"));
+
+                var dataState = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRibbonTab-data')?.click();
+                      const panel=document.getElementById('fieldViewPanel');
+                      const compare=document.getElementById('flDataComparisonCard');
+                      const tools=['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'];
+                      const own=tools.every(id=>!!document.getElementById(id));
+                      const fieldRect=panel?.getBoundingClientRect();
+                      const fieldHidden=!fieldRect||fieldRect.width<1||getComputedStyle(panel).display==='none';
+                      const chart=document.getElementById('chartViewport');
+                      const rect=chart?.getBoundingClientRect();
+                      const ok=own&&!!compare&&!!chart&&!!rect&&rect.width>180&&
+                        fieldHidden&&!chart.contains(panel);
+                      return {ok,viewport:innerWidth,dataTools:tools.length,fieldHidden,
+                        chartWidth:rect?.width,chartHeight:rect?.height,comparisonCard:!!compare};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(dataState).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Real Data scientific 2D surface evidence failed in " + size.Name + ": " + dataState);
+                await Task.Delay(140);
+                await CaptureCdpPngAsync(Path.Combine(root, $"data-{size.Name}.png"));
+                Log("FoamLens real Data/Field screenshot geometry passed: field=" + fieldState + " data=" + dataState);
+            }
+        }
+        finally
+        {
+            await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
+            await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
     private async Task CaptureCdpPngAsync(string fullPath)
     {
         var response = await _web.CoreWebView2.CallDevToolsProtocolMethodAsync(
@@ -1155,6 +1247,68 @@ internal sealed class FoamLensForm : Form
                             throw new InvalidOperationException(
                                 $"FoamLens real physical multiregion scene did not render together: {realCaseJson}");
                         Log($"FoamLens real OpenFOAM physical multiregion WebGL smoke passed: {physicalScene}");
+
+                        // Exercise real mold/metal face/cell associations through
+                        // the installed UI's region-specific Probe selector.
+                        var regionProbeJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                            """
+                            (() => {
+                              try {
+                              const scene=window.FoamLensRegionScene?.state?.();
+                              const probe=window.FoamLensFieldProbe;
+                              const target=document.getElementById('fvProbeRegion');
+                              const name=scene?.layers?.keys?.().next?.().value;
+                              const layer=name!=null?scene.layers.get(name):null;
+                              if(!layer||!probe?.fpRenderedPick||!target||!layer.fieldValues?.length)
+                                return {ok:false,error:'Region Probe controls or measured OpenFOAM layer unavailable'};
+                              // Reuse the exact CPU triangles already uploaded to this region's WebGL layer.
+                              const shapes=layer.probePositions;
+                              if(!shapes?.length)return {ok:false,error:'Measured layer has no preserved pickable triangles'};
+                              const vector=(a,b)=>a.map((v,i)=>v-b[i]);
+                              const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+                              let ray=null;
+                              for(let i=0;i+8<shapes.length&&i<1800;i+=9){
+                                const a=[...shapes.slice(i,i+3)],b=[...shapes.slice(i+3,i+6)],c=[...shapes.slice(i+6,i+9)];
+                                const n=cross(vector(b,a),vector(c,a)),len=Math.hypot(...n);
+                                if(!Number.isFinite(len)||len<1e-14)continue;
+                                const unit=n.map(v=>v/len),ctr=a.map((v,k)=>(v+b[k]+c[k])/3),
+                                  scale=Math.max(1e-5,Math.hypot(...layer.mesh.boundsMax.map((v,k)=>v-layer.mesh.boundsMin[k])));
+                                ray={origin:ctr.map((v,k)=>v+unit[k]*scale),dir:unit.map(v=>-v)};break;
+                              }
+                              if(!ray)return {ok:false,error:'No nondegenerate physical triangles to probe'};
+                              const original=target.value;
+                              let hit;
+                              try{target.value='region:'+name;hit=probe.fpRenderedPick(ray)}
+                              finally{target.value=original}
+                              const observed=hit?.cell!=null?Number(layer.fieldValues[hit.cell]):
+                                hit?.face!=null?Number(layer.fieldValues[hit.face]):NaN;
+                              const ok=!!hit&&hit.region===name&&hit.fieldName===layer.field&&
+                                hit.caseId!=null&&String(hit.caseId)===String(scene.caseId)&&
+                                Number.isFinite(hit.value)&&Number.isFinite(observed)&&
+                                Math.abs(hit.value-observed)<=Math.max(1e-9,Math.abs(observed)*1e-8)&&
+                                Number.isFinite(Number(hit.time))&&Number.isFinite(Number(layer.time))&&
+                                Math.abs(Number(hit.time)-Number(layer.time))<=
+                                  Math.max(1e-8,Math.abs(Number(layer.time))*1e-8);
+                              return {ok,region:name,field:hit?.fieldName,storage:hit?.storage,
+                                cell:hit?.cell,face:hit?.face,measuredValue:hit?.value,
+                                sourceValue:observed,time:hit?.time,caseId:hit?.caseId,
+                                selectorPresent:[...target.options].some(o=>o.value==='region:'+name)};
+                              } catch (error) {
+                                return {ok:false,error:String(error?.stack||error),stage:'real-region-probe'};
+                              }
+                            })()
+                            """);
+                        using (var measuredProbe = JsonDocument.Parse(regionProbeJson))
+                        {
+                            var probeData = measuredProbe.RootElement;
+                            if (probeData.ValueKind != JsonValueKind.Object ||
+                                !probeData.TryGetProperty("ok", out var probeOk) || !probeOk.GetBoolean() ||
+                                !probeData.TryGetProperty("selectorPresent", out var probeSelector) ||
+                                !probeSelector.GetBoolean())
+                                throw new InvalidOperationException(
+                                    $"FoamLens measured multiregion Probe failed: {regionProbeJson}");
+                        }
+                        Log("FoamLens exact physical-region Probe smoke passed: " + regionProbeJson);
                     }
                     if (!data.TryGetProperty("ready", out var ready) || !ready.GetBoolean() ||
                         !data.TryGetProperty("cells", out var cells) || cells.GetInt32() <= 0 ||
@@ -1635,6 +1789,7 @@ internal sealed class FoamLensForm : Form
                 await _web.CoreWebView2.ExecuteScriptAsync(
                     "delete window.__foamLensRealCaseSmokeResult;");
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
+                await CaptureScientificWorkspaceEvidenceAsync();
             }
 
             // Verify that JavaScript work continues while the native window is minimized.

@@ -40,6 +40,7 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
     if not isinstance(shots, list) or not shots:
         return errors + ["No rendered-app screenshots supplied"]
     coverage = defaultdict(set)
+    coverage_by_viewport = defaultdict(set)
     viewport_sizes = defaultdict(set)
     hashes = set()
     base = manifest.parent.resolve()
@@ -96,10 +97,13 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
             errors.append(f"{prefix}: image decode/validation failed: {exc}")
             continue
         coverage[platform].add(surface)
+        coverage_by_viewport[(platform,surface)].add(shot.get("viewport"))
     for platform in required_platforms:
         for surface in required_surfaces:
             if surface not in coverage[platform]:
                 errors.append(f"{platform}: missing rendered {surface} screenshot")
+            if not {"wide","compact"}.issubset(coverage_by_viewport[(platform,surface)]):
+                errors.append(f"{platform}: missing wide/compact capture coverage for rendered {surface}")
         if len(viewport_sizes[platform]) < 2:
             errors.append(f"{platform}: at least two distinct viewport-size screenshots required")
     if require_review:

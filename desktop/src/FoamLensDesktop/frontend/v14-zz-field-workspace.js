@@ -248,7 +248,12 @@ function fwFieldTsField(group,component,stat,parsed){
 function fwFieldTsSource(slot){return document.getElementById('fwTsSource'+slot)?.value||'global'}
 function fwProbeChoices(){
   const out=[],primary=window.FoamLensFieldProbe?.getLast?.();
-  if(primary?.point?.length===3)out.push({id:'view1',view:1,caseId:Number(fvState.caseId),caseName:fvCase()?.name||'',region:fvState.region||'',field:fvState.fieldName||'',component:fvState.component||'value',point:primary.point.map(Number),cell:primary.cell??null,face:primary.face??null,value:Number(primary.value)});
+  if(primary?.point?.length===3&&!primary.geometryOnly&&Number.isFinite(Number(primary.value)))out.push({
+    id:'view1',view:1,caseId:primary.caseId??fvState.caseId,caseName:fvCase()?.name||'',
+    region:primary.region??fvState.region??'',field:primary.fieldName||fvState.fieldName||'',
+    component:fvState.component||'value',point:primary.point.map(Number),
+    cell:primary.cell??null,face:primary.face??null,value:Number(primary.value)
+  });
   for(const d of window.FoamLensFieldCompare?.getProbeDescriptors?.()||[])if(d?.point?.length===3&&!out.some(x=>x.id===d.id))out.push({...d,point:d.point.map(Number)});
   return out
 }
@@ -373,9 +378,17 @@ function fwRefreshFieldTsControls(){
   fwRefreshFieldTsSlot(1,true);fwRefreshFieldTsSlot(2,true)
 }
 
+function fwProbeMatchesFieldSource(probe,c,region){
+  return !!probe&&!!c&&String(probe.caseId)===String(c.id)&&String(probe.region||'')===String(region||'')
+}
 async function fwBuildProbeFieldHistory(slot,seq){
   const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),group=fwFieldTsGroup(slot),component=document.getElementById('fwTsComponent'+slot)?.value||'value',probeId=document.getElementById('fwTsProbe'+slot)?.value||'',probe=fwProbeChoices().find(d=>d.id===probeId);
   if(!c||!group) return null;if(!probe)throw new Error(fwUi('Select a pinned 3D Probe first.','Selecciona primero un Probe 3D fijado.'));
+  // A point from the neighboring mold/metal must never be silently sampled
+  // against a different OpenFOAM region or case merely because XYZ overlaps.
+  if(!fwProbeMatchesFieldSource(probe,c,region))
+    throw new Error(fwUi('The pinned Probe belongs to a different physical case or region. Select its exact case and region first.',
+      'El Probe fijado pertenece a otro caso o región física. Selecciona primero su caso y región exactos.'));
   const times=(group.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b),x=[],y=[];let parsed0=null,maxDistance=0;
   for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}if(i%3===2)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected Probe position does not intersect usable field data through time.','La posición del Probe seleccionado no intersecta datos utilizables del campo a través del tiempo.'));

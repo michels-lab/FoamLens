@@ -600,6 +600,7 @@ function fvRegionRefreshList(){
   const root=document.getElementById('fvMultiRegionRows'),panel=document.getElementById('fvMultiRegionPanel'),c=fvCase();
   if(!root||!panel)return;
   fvRegionEnsureCase(c);const names=fvRegionNames(c),primary=document.getElementById('fvRegion')?.value||'';
+  window.FoamLensFieldProbe?.fpRefreshRegions?.();
   panel.hidden=names.length<2;
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
@@ -679,7 +680,10 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
     ?fvBuildInternalFaceBuffers(mesh):null;
   const faceCount=face?.positions?.length/3||0;
   const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);
-  const layer={gl,region,mesh,field:data?.group?.name||'',storage,range,paintRange,parsed:data?.parsed||null,time,
+  // Keep the exact region's CPU field association for scientific probing.
+  // This references the same parsed array: no fabricated values, no second
+  // copy of a potentially huge OpenFOAM field.
+  const layer={gl,region,mesh,probePositions:shape.surfacePositions,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
     status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
@@ -701,7 +705,20 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
 }
 function fvRegionRenderLayers(){
   const r=fvState.renderer;if(!r)return;const gl=r.gl;
-  for(const [region,layer] of fvRegionScene.layers){
+  // Transparent regions share a real depth buffer. Draw secondary shells
+  // far-to-near so insertion/discovery order cannot decide their appearance.
+  const camera=fvState.camera,eye=camera?.target?.length===3&&Number.isFinite(camera.distance)&&Number.isFinite(camera.pitch)&&Number.isFinite(camera.yaw)?[
+    camera.target[0]+camera.distance*Math.cos(camera.pitch)*Math.sin(camera.yaw),
+    camera.target[1]+camera.distance*Math.sin(camera.pitch),
+    camera.target[2]+camera.distance*Math.cos(camera.pitch)*Math.cos(camera.yaw)
+  ]:null;
+  const layerDepth=layer=>{
+    const m=layer?.mesh;if(!eye||!m?.boundsMin||!m?.boundsMax)return 0;
+    const center=[0,1,2].map(i=>(Number(m.boundsMin[i])+Number(m.boundsMax[i]))/2);
+    return Math.hypot(...center.map((v,i)=>v-eye[i]))
+  };
+  const sorted=[...fvRegionScene.layers].sort((a,b)=>layerDepth(b[1])-layerDepth(a[1]));
+  for(const [region,layer] of sorted){
     const choice=fvRegionScene.choices.get(region);if(!choice?.visible||!layer||layer.gl!==gl)continue;
     const surface=!!document.getElementById('fvSurface')?.checked;
     const edges=!!document.getElementById('fvEdges')?.checked;
@@ -1029,8 +1046,11 @@ function fvRender(exportSize=null){
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(primaryVisible&&document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(primaryVisible&&document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
-  if(primaryVisible&&r.probeCount){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1)}
-  fvRegionRenderLayers();fvUpdateAxisGizmo()
+  fvRegionRenderLayers();
+  // A pin may belong to any physical region, including a mold behind an
+  // enclosing translucent shell. Draw its scientific marker after ALL regions.
+  if(r.probeCount){gl.depthFunc(gl.ALWAYS);gl.depthMask(false);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1);gl.depthMask(true);gl.depthFunc(gl.LEQUAL)}
+  fvUpdateAxisGizmo()
 }
 function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);mesh._internalTriangleFaces=fb.triangleFaces;

@@ -793,7 +793,7 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
   assert(regionCode.includes('fvRegionBuildLayer('));
   assert(regionCode.includes('fvRegionRenderLayers()'));
-  assert(source.includes('fvRegionRenderLayers();fvUpdateAxisGizmo()'));
+  assert(source.includes('fvRegionRenderLayers();')&&source.includes('fvUpdateAxisGizmo()'),'Physical layers and XYZ gizmo must render together');
   assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
   assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
   for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
@@ -1119,4 +1119,18 @@ test('field case selector keeps explicit A-case on metadata refresh and Compare 
     'Existing 3D case selection must survive metadata/dataset refresh and Swap A/B');
   assert(!source.includes('setTimeout(()=>{mount();fvRefreshSelectors(true)},0)'),
     'Duplicate refresh must not rebuild or reselect A after asynchronous updates');
+});
+
+
+test('field marker renders after all physical layers; translucent shells sort by depth rather than import order',()=>{
+  const start=source.indexOf('function fvRender(exportSize=null){');
+  const end=source.indexOf('function fvUpdateMeshBuffers(',start);
+  const render=source.slice(start,end);
+  assert(render.indexOf('fvRegionRenderLayers();')>=0);
+  assert(render.indexOf('fvRegionRenderLayers();')<render.indexOf('if(r.probeCount){gl.depthFunc(gl.ALWAYS)'),
+    'The pinned probe must remain visible after translucent physical shells render');
+  assert(regionCode.includes('const sorted=[...fvRegionScene.layers].sort('),
+    'Unsorted translucent regions must not depend on discovery order');
+  assert(render.includes('gl.depthMask(false);fvBindDraw(r,r.probePos'),
+    'Probe overlay must not corrupt the scientific depth buffer');
 });
