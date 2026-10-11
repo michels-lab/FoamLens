@@ -308,6 +308,33 @@ test('Profile histories reject blank XYZ coordinates and missing physical times'
     'Profile history time-axis must reject nonfinite time entries before sampling');
 });
 
+test('Data field histories reject false OpenFOAM t=0 in Probe, statistics and spatial-profile curves',()=>{
+  const begin=field.indexOf('function fwPhysicalTime('),end=field.indexOf('function fwAdoptFieldNode(',begin);
+  assert(begin>=0&&end>begin,'Canonical Data physical-time validator missing');
+  const actual=new Function('window',field.slice(begin,end)+';return {one:fwPhysicalTime,times:fwPhysicalTimes};')({});
+  assert(Number.isNaN(actual.one(null)));
+  assert(Number.isNaN(actual.one('')));
+  assert(Number.isNaN(actual.one(false)));
+  assert(Number.isNaN(actual.one(undefined)));
+  assert(Number.isNaN(actual.one('not-a-time')));
+  assert.equal(actual.one('0'),0,'Explicit OpenFOAM t=0 must remain usable');
+  assert.equal(actual.one('9.8'),9.8);
+  assert.deepStrictEqual(actual.times([null,'',false,undefined,NaN,'bad','0',9.8,'9.8',3,3]),[0,3,9.8],
+    'Missing, duplicate and malformed physical timestamps must never add fictitious chart points');
+  const runtime=new Function('window',field.slice(begin,end)+';return fwPhysicalTimes;')({
+    FoamLensRegionScene:{physicalTime:v=>v==='valid'?4.2:NaN}});
+  assert.deepStrictEqual(runtime(['bad','valid',null]),[4.2],
+    'Data must consume the same public OpenFOAM physical-time resolver as Field when available');
+  const occurrences=field.split('fwPhysicalTimes(group.times)').length-1;
+  assert.equal(occurrences,2,'Probe histories and overall 3D field time series must both use strict time validation');
+  assert(field.includes('Number.isFinite(fwPhysicalTime(s.profileTime))'),
+    'Profile history discovery must filter missing/invalid physical timestamps');
+  assert(field.includes('const t=fwPhysicalTime(rows[i].profileTime)'),
+    'Profile history sampling must not coerce null or empty time metadata to zero');
+  assert(field.includes('if(!times.length)throw new Error(fwUi('),
+    'Missing OpenFOAM physical times must produce a meaningful error rather than an empty plotted curve');
+});
+
 test('Temperature-at-probe sampling uses correct cell values and finite geometric bounds',()=>{
   const start=field.indexOf('function fwNearestFlatIndex('),end=field.indexOf('function fwProfileSeriesAll()',start);
   assert(start>=0&&end>start,'Physical field sampling path missing');
