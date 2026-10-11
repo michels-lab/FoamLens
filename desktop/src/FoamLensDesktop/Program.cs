@@ -1198,6 +1198,12 @@ internal sealed class FoamLensForm : Form
                         !plotSurfaceDataRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
                         !plotSurfaceFieldRestoredNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldPlotCaptured", out var plotSurfaceFieldPlotCapturedNode) ||
+                        !plotSurfaceFieldPlotCapturedNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceDataAfterFieldRoundTrip", out var plotSurfaceDataAfterFieldRoundTripNode) ||
+                        !plotSurfaceDataAfterFieldRoundTripNode.GetBoolean() ||
+                        !data.TryGetProperty("plotSurfaceFieldPlotRestored", out var plotSurfaceFieldPlotRestoredNode) ||
+                        !plotSurfaceFieldPlotRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
                         !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
                         throw new InvalidOperationException(
@@ -1861,6 +1867,16 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     setAppMode('field');
     const fieldRestored=ps.active?.()==='field'&&owner()==='field';
+    // Exercise a real Data -> Field time-series -> Data -> Field round trip.
+    // The outgoing Field view must be captured before Data restores its own
+    // independent catalog/plot choice. This caught a previously silent bug.
+    window.FoamLensFieldWorkspace?.setView?.('timeseries');
+    const requestedFieldPlotView=String(currentDataView||'');
+    setAppMode('data');
+    const fieldPlotCaptured=ps.state?.('field')?.view===requestedFieldPlotView;
+    const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
+    setAppMode('field');
+    const fieldPlotRestored=ps.active?.()==='field'&&owner()==='field'&&String(currentDataView||'')===requestedFieldPlotView&&requestedFieldPlotView==='timeseries';
     const parentsAfter={
       data:dataSurface.parentElement?.id||'',
       analysis:analysisSurface.parentElement?.id||'',
@@ -1877,6 +1893,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       analysisActive,
       dataRestored,
       fieldRestored,
+      fieldPlotCaptured,
+      dataAfterFieldRoundTrip,
+      fieldPlotRestored,
+      requestedFieldPlotView,
       requestedDataView
     };
   }catch(e){
@@ -2017,6 +2037,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
     plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
+    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.fieldPlotCaptured,
+    plotSurfaceDataAfterFieldRoundTrip:!!plotSurfaceSmoke?.dataAfterFieldRoundTrip,
+    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.fieldPlotRestored,
+    plotSurfaceRequestedFieldPlotView:String(plotSurfaceSmoke?.requestedFieldPlotView||''),
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
     sessionRestored:!!sessionSmoke?.restored,
