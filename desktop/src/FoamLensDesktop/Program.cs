@@ -1877,6 +1877,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
     setAppMode('field');
     const fieldPlotRestored=ps.active?.()==='field'&&owner()==='field'&&String(currentDataView||'')===requestedFieldPlotView&&requestedFieldPlotView==='timeseries';
+    // Leave subsequent scientific smoke in its required 3D-focused state.
+    window.FoamLensFieldWorkspace?.setView?.('3d');
     const parentsAfter={
       data:dataSurface.parentElement?.id||'',
       analysis:analysisSurface.parentElement?.id||'',
