@@ -23,7 +23,8 @@ BOT = ("bot", "agent", "automation", "copilot", "chatgpt", "gpt-")
 
 
 def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str],
-                   required_surfaces: list[str], require_review: bool = True) -> list[str]:
+                   required_surfaces: list[str], require_review: bool = True,
+                   require_portable: bool = False) -> list[str]:
     errors = []
     if not re.fullmatch(r"[0-9a-fA-F]{40}", source_sha):
         return ["Source SHA must be a full 40-character commit hash"]
@@ -36,25 +37,32 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
     if doc.get("source_commit", "").lower() != source_sha.lower():
         errors.append("Visual evidence is not bound to exact candidate commit")
     artifacts = doc.get("artifact_sha256") or {}
+    portable_artifacts = doc.get("portable_artifact_sha256") or {}
     shots = doc.get("screenshots") or []
     if not isinstance(shots, list) or not shots:
         return errors + ["No rendered-app screenshots supplied"]
     coverage = defaultdict(set)
     coverage_by_viewport = defaultdict(set)
     viewport_sizes = defaultdict(set)
-    hashes = set()
+    hashes = defaultdict(set)
     base = manifest.parent.resolve()
     for platform in required_platforms:
         if not HEX.fullmatch(str(artifacts.get(platform, ""))):
             errors.append(f"Missing real candidate artifact SHA-256 for {platform}")
+        if require_portable and not HEX.fullmatch(str(portable_artifacts.get(platform, ""))):
+            errors.append(f"Missing real portable candidate SHA-256 for {platform}")
     for idx, shot in enumerate(shots):
         prefix = f"screenshot[{idx}]"
         if not isinstance(shot, dict):
             errors.append(f"{prefix}: must be an object")
             continue
         platform, surface = shot.get("platform"), shot.get("surface")
+        variant = shot.get("runtime_variant", "installed")
         if not isinstance(platform, str) or not isinstance(surface, str):
             errors.append(f"{prefix}: platform/surface missing")
+            continue
+        if variant not in ("installed", "portable"):
+            errors.append(f"{prefix}: invalid Windows runtime variant {variant!r}")
             continue
         if shot.get("capture_method") not in (
             "installed-android-emulator", "installed-android-device",
@@ -62,21 +70,28 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
             "running-browser", "installed-ios-simulator", "installed-ios-device",
         ):
             errors.append(f"{prefix}: screenshot capture must originate from running app")
-        if shot.get("candidate_artifact_sha256") != artifacts.get(platform):
-            errors.append(f"{prefix}: screenshot not tied to release artifact digest")
+        expected_digest = (portable_artifacts if variant == "portable" else artifacts).get(platform)
+        if shot.get("candidate_artifact_sha256") != expected_digest or not HEX.fullmatch(str(expected_digest or "")):
+            errors.append(f"{prefix}: {variant} screenshot not tied to its own candidate artifact digest")
+        if require_portable and platform == "windows":
+            expected_method = "running-desktop-app" if variant == "portable" else "installed-windows-desktop"
+            if shot.get("capture_method") != expected_method:
+                errors.append(f"{prefix}: {variant} screenshot has incorrect runtime capture method")
         rel = shot.get("path", "")
         file = (base / rel).resolve() if isinstance(rel, str) else base
         if not isinstance(rel, str) or not rel or not file.is_relative_to(base):
             errors.append(f"{prefix}: invalid/out-of-root screenshot path")
             continue
+        if require_portable and platform == "windows" and Path(rel).parts[0] != variant:
+            errors.append(f"{prefix}: {variant} screenshot path outside its runtime directory")
         try:
             data = file.read_bytes()
             actual = hashlib.sha256(data).hexdigest()
             if actual != str(shot.get("sha256", "")).lower():
                 errors.append(f"{prefix}: screenshot checksum mismatch")
-            if actual in hashes:
-                errors.append(f"{prefix}: duplicate screenshot bytes; likely reused surface/viewport")
-            hashes.add(actual)
+            if actual in hashes[(platform, variant)]:
+                errors.append(f"{prefix}: duplicate {variant} screenshot bytes; likely reused surface/viewport")
+            hashes[(platform, variant)].add(actual)
             if len(data) < 3000:
                 errors.append(f"{prefix}: screenshot is implausibly small")
             with Image.open(file) as raw:
@@ -92,20 +107,22 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
                     errors.append(f"{prefix}: visually near-uniform/blank screenshot")
                 if (shot.get("width"), shot.get("height")) != (width, height):
                     errors.append(f"{prefix}: declared dimensions differ from actual image")
-                viewport_sizes[platform].add((width, height))
+                viewport_sizes[(platform, variant)].add((width, height))
         except (OSError, UnidentifiedImageError, ValueError) as exc:
             errors.append(f"{prefix}: image decode/validation failed: {exc}")
             continue
-        coverage[platform].add(surface)
-        coverage_by_viewport[(platform,surface)].add(shot.get("viewport"))
+        coverage[(platform, variant)].add(surface)
+        coverage_by_viewport[(platform, variant, surface)].add(shot.get("viewport"))
     for platform in required_platforms:
-        for surface in required_surfaces:
-            if surface not in coverage[platform]:
-                errors.append(f"{platform}: missing rendered {surface} screenshot")
-            if not {"wide","compact"}.issubset(coverage_by_viewport[(platform,surface)]):
-                errors.append(f"{platform}: missing wide/compact capture coverage for rendered {surface}")
-        if len(viewport_sizes[platform]) < 2:
-            errors.append(f"{platform}: at least two distinct viewport-size screenshots required")
+        required_variants = ("installed", "portable") if require_portable else ("installed",)
+        for variant in required_variants:
+            for surface in required_surfaces:
+                if surface not in coverage[(platform, variant)]:
+                    errors.append(f"{platform}/{variant}: missing rendered {surface} screenshot")
+                if not {"wide", "compact"}.issubset(coverage_by_viewport[(platform, variant, surface)]):
+                    errors.append(f"{platform}/{variant}: missing wide/compact rendered {surface} coverage")
+            if len(viewport_sizes[(platform, variant)]) < 2:
+                errors.append(f"{platform}/{variant}: at least two distinct viewport sizes required")
     if require_review:
         review = doc.get("human_visual_review") or {}
         name = str(review.get("reviewer", "")).strip()
@@ -131,13 +148,16 @@ def main() -> int:
                         help="Comma-separated mandatory + changed UI surfaces")
     parser.add_argument("--capture-only", action="store_true",
                         help="Validate actual screenshot and candidate integrity; owner visual review follows publication")
+    parser.add_argument("--require-portable", action="store_true",
+                        help="Require separately captured portable and installed UI evidence at both viewport sizes")
     args = parser.parse_args()
     platforms = [p.strip() for p in args.platforms.split(",") if p.strip()]
     surfaces = [p.strip() for p in args.surfaces.split(",") if p.strip()]
     if not platforms or not {"home", "about"}.issubset(surfaces):
         parser.error("Must declare shipped platforms and include home,about")
     errors = check_evidence(args.manifest, args.source_sha, platforms, surfaces,
-                            require_review=not args.capture_only)
+                            require_review=not args.capture_only,
+                            require_portable=args.require_portable)
     for problem in errors:
         print("::error::" + problem, file=sys.stderr)
     if errors:
