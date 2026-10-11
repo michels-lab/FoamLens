@@ -4167,3 +4167,8 @@ The required interpretation is structural integration rather than sticker placem
 - Static readback confirmed the step exists immediately before the existing 3D Field View suite. Actual exact-head Windows run has **not** been observed or validated in this session.
 - Connector `fetch_commit_workflow_runs` reports only pull-request-triggered runs; this workflow uses push and manual dispatch. An empty connector result must **not** be treated as proof that no push CI ran. Check Actions UI/API with unrestricted workflow run listing before claiming a CI block or PASS.
 - `main` received separate shared-agent policy PR #42 after this branch's base; reconcile before merge. No merge or release performed.
+
+## 2026-10-10 — Data Time Series Ribbon regression guard
+- Issue #30 review found `desktop/tests/ribbon-ui.test.cjs` asserted retired identifier `flRaDataTime` using `source.includes`. That assertion passed accidentally because the real `flRaDataTimeSeries` contains the old string as a prefix.
+- Updated the test to check the canonical `flRaDataTimeSeries` command, its actual Data Ribbon HTML creation and the `flRibbonOpenDataView('timeseries')` navigation binding. Also explicitly reject rebinding the retired command.
+- Scope is regression-test hardening only; no UI or science implementation has changed. Exact-head Windows/QuickCup CI and native interactions remain pending. No release.

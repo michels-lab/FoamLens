@@ -22,10 +22,14 @@ for(const removed of ['plots','compare'])
     "Obsolete top-level alias tab still present: "+removed);
 
 for(const id of [
-  'flRaDataTime','flRaDataProfiles','flRaDataLogs','flRaDataCompare','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
+  'flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaDataCompare','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs',
   'flRaSplit','flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
   'flRaAnalysisTimeResult','flRaAnalysisProfileResult','flRaExportPng','flRaTheme'
 ]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
+
+assert(source.includes("flRibbonActionHtml('flRaDataTimeSeries'"),'Time Series must appear as an actual Data Ribbon action.');
+assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'))"),'Time Series must navigate to its real Data view.');
+assert(!source.includes("flRibbonBind('flRaDataTime',"),'Retired Time Series command must not reappear.');
 
 assert(source.includes("flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'))"),
   'Analysis has no explicit Time Series result handoff.');
