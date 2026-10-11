@@ -130,3 +130,67 @@ test('probe module stays generic and contains no thesis fixture names',()=>{
 
 console.log('FoamLens 3D Field Probe regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+
+test('same-WebGL metal/mold probes use region-specific physical values and never borrow primary units',()=>{
+  const begin=source.indexOf('function fpSecondaryRegionPick(');
+  const end=source.indexOf('function fpMarkerScale()',begin);
+  assert(begin>0&&end>begin,'Independent region picking module missing');
+  const regionCode=source.slice(begin,end);
+  const triangles=new Float32Array([0,0,0,1,0,0,0,1,0]);
+  const mesh={surfaceOwners:[0],pointCount:3,cellCount:1,internalFaceCount:2,trianglePositions:triangles,
+    surfaceTriangles:[0,1,2],facePositions:triangles,points:[0,0,0,1,0,0,0,1,0]};
+  const layer={region:'mold',mesh,storage:'volume',field:'T',time:9.8,
+    parsed:{dimensions:[0,0,0,1,0,0,0]},fieldValues:[1542.8]};
+  const scene={caseId:'17',choices:new Map([['metal',{visible:true}],['mold',{visible:true}]]),
+    layers:new Map([['mold',layer]])};
+  let target='auto',surface=true;
+  const picker=new Function('scene','mesh','targetFn','surfaceFn','core',[
+    'const window={FoamLensRegionScene:{state:()=>scene}};',
+    "const document={getElementById:id=>id==='fvProbeRegion'?{get value(){return targetFn()}}:id==='fvRegion'?{value:'metal'}:id==='fvSurface'?{get checked(){return surfaceFn()}}:null};",
+    'const fvState={caseId:17,fieldName:"T",fieldStorage:"volume",fieldParsed:{dimensions:[0,0,0,1,0,0,0]},time:9.8};',
+    'const fpPickTriangles=core.fpPickTriangles;',
+    'const fpSurfacePositions=mesh=>mesh.trianglePositions;',
+    'const fpInternalFaceGeometry=mesh=>({positions:mesh.facePositions,triangleFaces:[1]});',
+    'const fpBoundaryPointValues=(mesh,values)=>mesh.surfaceTriangles.map(i=>Number(values[i]));',
+    'const fpPickPrimaryRendered=ray=>({t:2,point:[.2,.2,-1],triangle:0,cell:0,face:null,value:1300,kind:"surface"});',
+    regionCode,
+    'return {rendered:fpRenderedPick,secondary:fpSecondaryRegionPick};'
+  ].join('\n'))(scene,mesh,()=>target,()=>surface,api);
+  const ray={origin:[.25,.25,1],dir:[0,0,-1]};
+  let hit=picker.rendered(ray);
+  assert(hit,'Mold should be selectable on the same canvas');
+  assert.equal(hit.region,'mold');
+  assert.equal(hit.caseId,'17');
+  assert.equal(hit.fieldName,'T');
+  assert.equal(hit.time,9.8);
+  assert.equal(hit.value,1542.8,'Mold must use its own OpenFOAM cell, not primary metal');
+  target='region:metal';hit=picker.rendered(ray);
+  assert.equal(hit.region,'metal');
+  assert.equal(hit.value,1300,'Explicit primary selection must still work behind the enclosing mold');
+  target='region:mold';
+  layer.fieldValues=[1200,1500,1800];layer.storage='point';
+  hit=picker.rendered(ray);
+  near(hit.value,1425,1e-9);
+  assert.equal(hit.storage,'point');
+  layer.fieldValues=[999,1234];layer.storage='surface';
+  hit=picker.rendered(ray);
+  assert.equal(hit.kind,'internalFace');
+  assert.equal(hit.face,1);
+  assert.equal(hit.value,1234,'Face association must use exact OpenFOAM internal-face index');
+  layer.fieldValues=null;layer.storage='';
+  hit=picker.rendered(ray);
+  assert.equal(hit.region,'mold');
+  assert.equal(hit.geometryOnly,true);
+  assert(Number.isNaN(hit.value),'Geometry-only region must not fabricate scientific value');
+  scene.choices.get('mold').visible=false;
+  assert.equal(picker.rendered(ray),null,'Hidden region must not be picked');
+  target='auto';
+  hit=picker.rendered(ray);
+  assert.equal(hit.region,'metal','Auto mode must skip hidden mold geometry');
+  assert.equal(hit.value,1300);
+  assert(source.includes("id='fvProbeRegion'"),'User must have an explicit same-scene region selector');
+  assert(source.includes("fpRefreshRegions();"),'Physical-region list must be refreshed after discovery');
+  assert(source.includes("'Region','Región'"),'Readout must identify the physical region');
+  assert(fieldSource.includes('fieldValues:values||null'),'Region layers must retain the actual independent field array');
+});
