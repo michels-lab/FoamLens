@@ -242,3 +242,83 @@ test('Data Time Series can filter two physical variables without inventing or hi
   assert(controls.includes("sSel.disabled=!vSel.value||secondVars.length===0"),'Variable 2 must be optional');
   assert(controls.includes("s.field.canonical===sSel.value"),'Selected second variable must enter the actual plot set');
 });
+
+
+test('Solver Logs retain real curves when time/subiteration playback has too few samples',()=>{
+  const start=dataHtml.indexOf('function startLogPlayback(mode){');
+  const end=dataHtml.indexOf('function alphaProfileSeries(){',start);
+  assert(start>=0&&end>start,'Solver Logs playback implementation missing');
+  const source=dataHtml.slice(start,end);
+  const run=new Function('mode','times','members',[
+    "let logAnimationPlaying=false,logAnimationMode=null,logEvolutionActive=true,logEvolutionSeries=['stale'],logEvolutionMemberLimit=3,activeId=11,pinnedPoints=['p'];",
+    "let issue='',draws=0;",
+    "const stopLogAnimation=()=>{logAnimationPlaying=false;logAnimationMode=null},stopProfileAnimation=()=>{},logAvailableTimes=()=>times,logAvailableMembers=()=>members,",
+    "flSetIssue=(target,key)=>{issue=key},flClearIssue=()=>{},renderList=()=>{},updateMeta=()=>{},draw=()=>{draws++},renderDiagnosticCurrent=()=>{},",
+    "syncLogTimeNavigator=()=>{},rebuildLogEvolutionSeries=()=>{logEvolutionSeries=['valid-frame']},startLogAnimationTimer=()=>{},tr=s=>s,$=()=>({value:'1',textContent:''});",
+    source,
+    "startLogPlayback(mode);return {active:logEvolutionActive,series:logEvolutionSeries,issue,draws,playing:logAnimationPlaying,mode:logAnimationMode};"
+  ].join('\n'));
+  for(const [mode,times,members] of [['time',[9.8],[0,1]],['subiter',[0,9.8],[0]]]){
+    const result=run(mode,times,members);
+    assert.equal(result.active,false,mode+' insufficient-sample playback must not hide raw log curves');
+    assert.deepStrictEqual(result.series,[],mode+' cannot retain a stale synthetic log evolution');
+    assert.equal(result.issue,'insufficient-samples');
+    assert.equal(result.draws,1,'The original log view must redraw when playback is rejected');
+    assert.equal(result.playing,false);
+    assert.equal(result.mode,null);
+  }
+  const valid=run('time',[0,9.8],[0,1]);
+  assert.equal(valid.active,true,'Valid physical-time log playback must remain available');
+  assert.equal(valid.playing,true);
+  assert.deepStrictEqual(valid.series,['valid-frame']);
+  const memberStart=dataHtml.indexOf('function logAvailableMembers(){');
+  const memberEnd=dataHtml.indexOf('function syncLogNavigator(){',memberStart);
+  assert(memberStart>=0&&memberEnd>memberStart,'Log member inference missing');
+  const members=new Function('logPlaybackSourceSeries',dataHtml.slice(memberStart,memberEnd)+';return logAvailableMembers();')(
+    ()=>[{caseId:1,logSubIter:null},{caseId:2,logSubIter:''}]);
+  assert.deepStrictEqual(members,[],'Missing subiteration metadata must not become invented member zero');
+});
+
+test('Profile histories reject blank XYZ coordinates and missing physical times',()=>{
+  const start=field.indexOf('function fwProfileSeriesAll(){'),end=field.indexOf('function fwRefreshProfileTsSlot(',start);
+  assert(start>=0&&end>start,'Field profile time-history selectors missing');
+  const data=[
+    {datasetType:'profile',profileTime:0},{datasetType:'profile',profileTime:9.8},
+    {datasetType:'profile',profileTime:null},{datasetType:'profile',profileTime:''},
+    {datasetType:'profile',profileTime:NaN},{datasetType:'log',profileTime:1}
+  ];
+  let position='';
+  const controls=new Function('series','datasetTypeOf','document',field.slice(start,end)+
+    ';return {getProfiles:fwProfileSeriesAll,selection:fwProfileTsSelection};')(
+    data,s=>s.datasetType,
+    {getElementById:id=>({value:id==='fwTsProfilePosition1'?position:id==='fwTsProfileCase1'?'1':id==='fwTsProfileSet1'?'set':id==='fwTsProfileField1'?'T':'line'})}
+  );
+  assert.deepStrictEqual(controls.getProfiles().map(s=>s.profileTime),[0,9.8],
+    'Absent physical time must not be mistaken for an OpenFOAM t=0 field');
+  assert(Number.isNaN(controls.selection(1).position),'Blank sampled profile position must fail closed');
+  position='0';
+  assert.equal(controls.selection(1).position,0,'Real physical position zero must remain selectable');
+  position='0.25';
+  assert.equal(controls.selection(1).position,0.25);
+  position='not-a-coordinate';
+  assert(Number.isNaN(controls.selection(1).position),'Invalid coordinate must not produce a curve');
+  assert(field.includes("if(!Number.isFinite(q.position))throw new Error(fwUi("),
+    'Missing spatial coordinate must report an actionable error instead of an empty plot');
+  assert(field.includes('if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i])'),
+    'Profile history time-axis must reject nonfinite time entries before sampling');
+});
+
+test('Temperature-at-probe sampling uses correct cell values and finite geometric bounds',()=>{
+  const start=field.indexOf('function fwNearestFlatIndex('),end=field.indexOf('function fwProfileSeriesAll()',start);
+  assert(start>=0&&end>start,'Physical field sampling path missing');
+  const sample=new Function('fvInsideBounds','fvMeshFacePoints',field.slice(start,end)+';return fwSampleFieldAtPoint;')(
+    (p,min,max)=>p.every((v,i)=>v>=min[i]&&v<=max[i]),()=>[]);
+  const mesh={boundsMin:[0,0,0],boundsMax:[1,1,1],cellCount:2,
+    cellCenters:[0.2,0.2,0.2,0.8,0.8,0.8],pointCount:2,points:[0,0,0,1,1,1]};
+  const data={mesh,storage:'volume',fieldValues:[1417.57,1481.9]};
+  assert.equal(sample(data,[0.15,0.15,0.15]).value,1417.57);
+  assert.equal(sample(data,[0.9,0.9,0.9]).value,1481.9);
+  assert(Number.isNaN(sample(data,[1.5,0.5,0.5]).value),
+    'A probe outside the physical region must not fabricate a temperature');
+  assert.equal(sample({...data,storage:'point',fieldValues:[1200,1300]},[0.9,0.9,0.9]).value,1300);
+});

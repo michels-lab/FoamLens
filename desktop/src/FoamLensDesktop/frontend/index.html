@@ -7011,7 +7011,7 @@ function logAvailableMembers(){
   for(const s of logs){
     const key=s.caseId!=null?`id:${s.caseId}`:`name:${s.caseName}`;
     if(!groups.has(key))groups.set(key,new Set());
-    if(Number.isFinite(Number(s.logSubIter)))groups.get(key).add(Number(s.logSubIter))
+    if(s.logSubIter!=null&&String(s.logSubIter).trim()!==''&&Number.isFinite(Number(s.logSubIter)))groups.get(key).add(Number(s.logSubIter))
   }
   const sets=[...groups.values()];if(!sets.length)return [];
   const ref=[...sets.reduce((best,s)=>s.size<best.size?s:best,sets[0])].sort((a,b)=>a-b);
@@ -7058,11 +7058,19 @@ function startLogAnimationTimer(){
 }
 function startLogPlayback(mode){
   if(logAnimationPlaying&&logAnimationMode===mode){stopLogAnimation();return}
-  stopLogAnimation();stopProfileAnimation();logAnimationMode=mode;logEvolutionActive=true;
-  if(mode==='time'){
-    if(logAvailableTimes().length<2){flSetIssue('logMeta','insufficient-samples',{view:'Solver Logs',expected:'at least two common physical times'});return}flClearIssue('logMeta');logEvolutionMemberLimit=null;syncLogTimeNavigator();rebuildLogEvolutionSeries();$('logPlayTime').textContent=`❚❚ ${tr('pause')}`
+  // Verify playback feasibility before hiding the original solver curves.
+  // A rejected playback must never leave logEvolutionActive on with no valid frame.
+  const timeMode=mode==='time',available=timeMode?logAvailableTimes():logAvailableMembers();
+  if(available.length<2){
+    stopLogAnimation();logEvolutionActive=false;logEvolutionSeries=[];logEvolutionMemberLimit=null;
+    flSetIssue('logMeta','insufficient-samples',{view:'Solver Logs',expected:timeMode?'at least two common physical times':'at least two common sub-iterations'});
+    activeId=null;pinnedPoints=[];renderList();updateMeta();draw();return
+  }
+  stopLogAnimation();stopProfileAnimation();logAnimationMode=mode;logEvolutionActive=true;flClearIssue('logMeta');
+  if(timeMode){
+    logEvolutionMemberLimit=null;syncLogTimeNavigator();rebuildLogEvolutionSeries();$('logPlayTime').textContent=`❚❚ ${tr('pause')}`
   }else{
-    const members=logAvailableMembers();if(members.length<2){flSetIssue('logMeta','insufficient-samples',{view:'Solver Logs',expected:'at least two common sub-iterations'});return}flClearIssue('logMeta');syncLogTimeNavigator();let i=members.findIndex(v=>String(v)===String($('logMember').value));if(i<0)i=0;logEvolutionMemberLimit=members[i];rebuildLogEvolutionSeries();$('logPlaySubIter').textContent=`❚❚ ${tr('pause')}`
+    syncLogTimeNavigator();let i=available.findIndex(v=>String(v)===String($('logMember').value));if(i<0)i=0;logEvolutionMemberLimit=available[i];rebuildLogEvolutionSeries();$('logPlaySubIter').textContent=`❚❚ ${tr('pause')}`
   }
   logAnimationPlaying=true;activeId=null;pinnedPoints=[];renderList();updateMeta();renderDiagnosticCurrent();draw();startLogAnimationTimer()
 }

@@ -271,14 +271,15 @@ function fwSampleFieldAtPoint(data,point){
   }
   const q=fwNearestFlatIndex(mesh.cellCenters||[],Number(mesh.cellCount)||Math.floor((mesh.cellCenters?.length||0)/3),point);return{value:Number(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
 }
-function fwProfileSeriesAll(){return (series||[]).filter(s=>datasetTypeOf(s)==='profile'&&Number.isFinite(Number(s.profileTime)))}
+function fwProfileSeriesAll(){return (series||[]).filter(s=>datasetTypeOf(s)==='profile'&&s.profileTime!=null&&String(s.profileTime).trim()!==''&&Number.isFinite(Number(s.profileTime)))}
 function fwProfileTsSelection(slot){
   return{
     caseId:document.getElementById('fwTsProfileCase'+slot)?.value||'',
     set:document.getElementById('fwTsProfileSet'+slot)?.value||'',
     field:document.getElementById('fwTsProfileField'+slot)?.value||'',
     line:document.getElementById('fwTsProfileLine'+slot)?.value||'',
-    position:Number(document.getElementById('fwTsProfilePosition'+slot)?.value)
+    // An untouched/cleared coordinate is NOT physical position zero.
+    position:(()=>{const raw=String(document.getElementById('fwTsProfilePosition'+slot)?.value??'').trim();return raw===''?NaN:Number(raw)})()
   }
 }
 function fwRefreshProfileTsSlot(slot,preserve=true){
@@ -384,9 +385,10 @@ async function fwBuildProbeFieldHistory(slot,seq){
   fwState.fieldTsKeys.add(key);return s
 }
 async function fwBuildProfileHistory(slot,seq){
-  const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line||!Number.isFinite(q.position))return null;
+  const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
+  if(!Number.isFinite(q.position))throw new Error(fwUi('Enter a valid position on the spatial profile before sampling its time history.','Introduce una posición válida en el perfil espacial antes de construir su historia temporal.'));
   const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).sort((a,b)=>Number(a.profileTime)-Number(b.profileTime));if(!rows.length)return null;
-  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(Number(rows[i].profileTime));y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
+  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=Number(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
   const base=rows[0],unit=base.profileCoordUnit||'',key=['profile-history',q.caseId,q.set,q.field,q.line,Number(q.position).toPrecision(12)].join('|'),field={...base.field,canonical:'profile:'+base.field.canonical+':'+q.line+':'+Number(q.position).toPrecision(8),display:localizedFieldName(base.field)+' · '+(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:''),original:'Spatial profile sampled at fixed coordinate over physical time'};
   let s=(series||[]).find(s=>s.fieldHistoryKey===key);const caseObj=caseById(base.caseId),loc=(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:'');
