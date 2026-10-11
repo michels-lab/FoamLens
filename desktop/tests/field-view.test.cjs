@@ -1486,6 +1486,34 @@ test('native OpenFOAM smoke removes only discovered timestamps and verifies geom
     'Native missing-field test must not fabricate availability timestamps or measured values');
 });
 
+test('Windows regression uses genuinely missing on-disk mold T at 9.8, not altered measurements',()=>{
+  const workflow=require('fs').readFileSync(
+    require('path').join(root,'../.github/workflows/build-foamlens-desktop.yml'),'utf8');
+  for(const token of [
+    '"SmokeCase_Asymmetric"',
+    'missing_t = asymmetric / "9.8" / "mold" / "T"',
+    'earlier_t = asymmetric / "0" / "mold" / "T"',
+    'metal_t = asymmetric / "9.8" / "metal" / "T"',
+    'missing_t.unlink()',
+    "FOAMLENS_SMOKE_ASYMMETRIC_CASE='SmokeCase_Asymmetric'"
+  ])assert(workflow.includes(token),'Asymmetric source-file fixture missing: '+token);
+  for(const token of [
+    'asymmetricCase = asymmetricCaseName',
+    'if(options.asymmetricCase)',
+    'await selectSmokeCase(options.asymmetricCase)',
+    "const moldGroup=fvFieldGroups(c2,moldName,null,'any').find(g=>g.name==='T')",
+    'moldTimes.some(t=>fvTimeEqual(t,previous.time))',
+    'await fvLoadFrame(targetIndex);',
+    'await api.load(c2,fvState.time);',
+    'layer.geometryOnly===true&&layer.sourceTime===null',
+    "legend?.querySelector('.fvRegionLegendBar')",
+    'physicalScene.asymmetric=asymmetric',
+    'await selectSmokeCase(previous.caseName)',
+    'restoreIndex<0'
+  ])assert(program.includes(token),'Native real-case asynchronous-grid acceptance missing: '+token);
+  assert(!workflow.includes('echo "synthetic mold field"'),'Do not invent numeric OpenFOAM measurement files');
+});
+
 test('native packaged Windows smoke validates real metal and mold physical meshes in ONE WebGL scene',()=>{
   assert(program.includes('FOAMLENS_SMOKE_EXPECT_REGIONS'),'Real OpenFOAM multiregion requirement must be forwarded to native smoke');
   assert(program.includes('await api.load(c,fvState.time)'),'Packaged smoke must await actual secondary OpenFOAM mesh/field loading');
