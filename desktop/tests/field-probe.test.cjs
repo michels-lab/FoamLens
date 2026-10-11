@@ -131,11 +131,13 @@ test('probe module stays generic and contains no thesis fixture names',()=>{
 
 
 test('Field discovery refreshes visible Probe region choices without stale case options',()=>{
+  const helperStart=fieldSource.indexOf('function fvRegionPalette(');
+  const helperEnd=fieldSource.indexOf('function fvRegionStatus(',helperStart);
   const fieldStart=fieldSource.indexOf('function fvRegionRefreshList(){');
   const fieldEnd=fieldSource.indexOf('function fvRegionApplyVisibility(',fieldStart);
   const probeStart=source.indexOf('function fpRefreshRegions(){');
   const probeEnd=source.indexOf('function fpSecondaryRegionPick(',probeStart);
-  assert(fieldStart>=0&&fieldEnd>fieldStart&&probeStart>=0&&probeEnd>probeStart,
+  assert(helperStart>=0&&helperEnd>helperStart&&fieldStart>=0&&fieldEnd>fieldStart&&probeStart>=0&&probeEnd>probeStart,
     'Real Field/Probe selector refresh implementation must be available');
   const select={options:[],_value:'auto',
     get value(){return this._value},
@@ -156,7 +158,7 @@ test('Field discovery refreshes visible Probe region choices without stale case 
   const refreshField=new Function('document','window','fvCase','fvRegionEnsureCase',
     'fvRegionNames','fvRegionChoice','fvFieldGroups','fvRegionScene','fvEsc',
     'fvAssociationLabel','flUi',
-    fieldSource.slice(fieldStart,fieldEnd)+';return fvRegionRefreshList;')(
+    fieldSource.slice(helperStart,helperEnd)+fieldSource.slice(fieldStart,fieldEnd)+';return fvRegionRefreshList;')(
     dom,fieldWindow,()=>({id:17}),()=>{},()=>regions,
     ()=>({visible:true,field:'T',opacity:.5}),()=>[],{layers:new Map()},
     x=>String(x),()=>'',x=>x);
@@ -173,6 +175,8 @@ test('Field discovery refreshes visible Probe region choices without stale case 
     'Switching OpenFOAM cases must discard a region no longer present');
   assert.equal(select.value,'auto','Invalid old region selection must fall back to Auto');
   assert.equal(refreshCount,3,'Every Field inventory refresh must invoke the actual Probe API');
+  assert(rows.innerHTML.includes('data-fv-region-palette'),
+    'Region inspector must retain real palette controls without breaking Probe region discovery');
 });
 
 console.log('FoamLens 3D Field Probe regression suite passed: '+passed.length+' checks.');

@@ -582,13 +582,63 @@ function fvRegionChoice(c,region){
     // A transparent default for secondary layers keeps adjacent/encasing
     // solid regions inspectable together (e.g. metal inside mold).
     const primaryRegion=document.getElementById('fvRegion')?.value||'';
-    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48})
+    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
   }
   return fvRegionScene.choices.get(region)
 }
 function fvRegionPrimaryVisible(){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'';
   return c?fvRegionChoice(c,region).visible!==false:true
+}
+// Palette ownership belongs to each physical field layer, not to the primary
+// Field View's colormap. Only known names ever become CSS or GPU inputs.
+function fvRegionPalette(choice){
+  return ['viridis','turbo','coolwarm'].includes(choice?.palette)?choice.palette:'viridis'
+}
+function fvRegionLegendMarkup(layer,choice){
+  if(choice?.visible===false)return '<span class="smallnote">'+flUi('Region hidden','Región oculta')+'</span>';
+  const range=layer?.paintRange,sourceTime=layer?.sourceTime;
+  // Gray mesh-only fallback is never a measured scalar or a numerical scale.
+  if(!layer||layer.geometryOnly||!layer.colored||typeof sourceTime!=='number'||!Number.isFinite(sourceTime)||
+    !range?.valid||!Number.isFinite(range.min)||!Number.isFinite(range.max))
+    return '<span class="smallnote">'+flUi('Geometry only · no measured field scale','Solo geometría · sin escala de campo medido')+'</span>';
+  const palette=fvRegionPalette(choice),unit=layer.parsed?.dimensions&&typeof pmUnitFromDimensions==='function'
+    ?pmUnitFromDimensions(layer.parsed.dimensions):'';
+  const prefix=fvEsc((layer.field||'')+' · t='+fvFmt(sourceTime)+' s · '+fvAssociationLabel(layer.storage));
+  const lo=fvEsc(fvFmtRange(range.min,range)),hi=fvEsc(fvFmtRange(range.max,range)),suffix=unit?' '+fvEsc(unit):'';
+  return '<div class="fvRegionLegendLabel">'+prefix+'</div>'+
+    '<div class="fvRegionLegendBar" style="background:'+fvLegendGradient(palette)+'" aria-hidden="true"></div>'+
+    '<div class="fvRegionLegendBounds"><span>'+lo+suffix+'</span><span>'+hi+suffix+'</span></div>'
+}
+function fvRegionUpdateLegend(region){
+  const root=document.getElementById('fvMultiRegionRows');if(!root)return;
+  const row=[...root.querySelectorAll('[data-fv-region-row]')].find(el=>el.dataset.fvRegionRow===region);
+  const target=row?.querySelector('.fvRegionLegend');if(!target)return;
+  target.innerHTML=fvRegionLegendMarkup(fvRegionScene.layers.get(region),fvRegionScene.choices.get(region))
+}
+function fvRegionRecolorLayer(layer,choice){
+  if(!layer?.gl||layer.geometryOnly||!layer.colored||!layer.fieldValues?.length||
+    !layer.paintRange?.valid)return false;
+  const gl=layer.gl,palette=fvRegionPalette(choice),mesh=layer.mesh,values=layer.fieldValues,
+    min=layer.paintRange.min,max=layer.paintRange.max;
+  if(!Number.isFinite(min)||!Number.isFinite(max))return false;
+  let colors=null;
+  if(layer.storage==='volume'&&values.length===mesh.cellCount)
+    colors=fvSurfaceColors(mesh,values,min,max,palette);
+  else if(layer.storage==='point'&&values.length===mesh.pointCount)
+    colors=fvPointSurfaceColors(mesh,values,min,max,palette);
+  if(colors&&layer.surfaceColor){
+    gl.bindBuffer(gl.ARRAY_BUFFER,layer.surfaceColor);
+    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW)
+  }
+  if(layer.storage==='surface'&&values.length===mesh.internalFaceCount&&
+    layer.faceFieldColor&&layer.faceTriangleFaces?.length){
+    colors=fvInternalFaceColors(layer.faceTriangleFaces,values,min,max,palette);
+    gl.bindBuffer(gl.ARRAY_BUFFER,layer.faceFieldColor);
+    gl.bufferData(gl.ARRAY_BUFFER,colors,gl.DYNAMIC_DRAW)
+  }
+  if(!colors)return false;
+  layer.palette=palette;return true
 }
 function fvRegionStatus(region,message){
   const rows=document.getElementById('fvMultiRegionRows');
@@ -612,6 +662,9 @@ function fvRegionRefreshList(){
       (active?'<span class="smallnote">'+flUi('Field selected above','Campo seleccionado arriba')+'</span>':
         '<select data-fv-region-field aria-label="'+label+' field">'+(options||'<option value="">'+flUi('Geometry only','Solo geometría')+'</option>')+'</select>')+
       (!active?'<input type="range" data-fv-region-opacity min=".1" max="1" step=".1" value="'+fvEsc(choice.opacity)+'" aria-label="'+label+' opacity">':'')+
+      (!active?'<label class="fvRegionPaletteLabel"><span>'+flUi('Region colormap','Mapa de color regional')+'</span><select data-fv-region-palette aria-label="'+label+' colormap">'+
+        ['viridis','turbo','coolwarm'].map(p=>'<option value="'+p+'"'+(fvRegionPalette(choice)===p?' selected':'')+'>'+({viridis:'Viridis',turbo:'Turbo',coolwarm:'Cool–warm'}[p])+'</option>').join('')+'</select></label>':'')+
+      (!active?'<div class="fvRegionLegend" aria-live="polite">'+fvRegionLegendMarkup(layer,choice)+'</div>':'')+
       '</div>'
   }).join('')
 }
@@ -650,6 +703,12 @@ function fvRegionInstallEvents(){
     const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
     const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
     if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;fvRegionApplyVisibility(c);return}
+    if(e.target.matches('[data-fv-region-palette]')){
+      choice.palette=['viridis','turbo','coolwarm'].includes(e.target.value)?e.target.value:'viridis';
+      const layer=fvRegionScene.layers.get(region);
+      if(layer)fvRegionRecolorLayer(layer,choice);
+      fvRegionUpdateLegend(region);fvRender();return
+    }
     if(e.target.matches('[data-fv-region-field]')){
       choice.field=e.target.value;choice.component='value';
       fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
@@ -665,7 +724,7 @@ function fvRegionMakeBuffer(gl,values){
 }
 function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
-  const shape=fvBuildSurfaceBuffers(mesh),palette=document.getElementById('fvPalette')?.value||'viridis';
+  const shape=fvBuildSurfaceBuffers(mesh),palette=fvRegionPalette(choice);
   const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range;
   let colors,colored=false;
   if(storage==='volume'&&values?.length===mesh.cellCount&&paintRange?.valid){
@@ -685,6 +744,7 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   // copy of a potentially huge OpenFOAM field.
   const layer={gl,region,mesh,probePositions:shape.surfacePositions,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
     sourceTime:Number.isFinite(data?.sourceTime)?data.sourceTime:null,geometryOnly:!data?.fieldValues,
+    palette,faceTriangleFaces:face?.triangleFaces||null,
     status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
@@ -780,7 +840,7 @@ async function fvRegionLoadFrame(c,time){
   const loadOne=async region=>{
     if(!current())return;
     const choice=fvRegionChoice(c,region);
-    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));
+    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const selected=groups.find(g=>g.name===choice.field);
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
@@ -806,8 +866,8 @@ async function fvRegionLoadFrame(c,time){
           :flUi('No renderable internal faces; neutral geometry','Sin caras internas renderizables; geometría neutra'))
       }
       if(layer){layer.status=status;fvRegionScene.layers.set(region,layer);fvRender()}
-      fvRegionStatus(region,status)
-    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
+      fvRegionStatus(region,status);fvRegionUpdateLegend(region)
+    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);fvRegionUpdateLegend(region);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
@@ -1347,7 +1407,7 @@ function fvPanelHtml(){
   </div>`
 }
 function fvCss(){
-  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:6px 10px;align-items:center;margin:6px 0;padding:7px;border:1px solid var(--line);border-radius:10px;min-width:0}.fvRegionRow .fvRegionStatus{color:var(--muted);font-size:10px;overflow-wrap:anywhere}.fvRegionRow select,.fvRegionRow input[type=range]{width:100%;min-width:0}.fvRegionRow .inlineCheck{overflow-wrap:anywhere}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
+  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:6px 10px;align-items:center;margin:6px 0;padding:7px;border:1px solid var(--line);border-radius:10px;min-width:0}.fvRegionRow .fvRegionStatus{color:var(--muted);font-size:10px;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fvRegionRow .fvRegionPaletteLabel span{flex:1;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel select{flex:1;min-width:0}.fvRegionRow .fvRegionLegend{grid-column:1/-1;min-width:0;padding-top:6px;border-top:1px solid var(--line);font-size:10px}.fvRegionRow .fvRegionLegendLabel{color:var(--muted);overflow-wrap:anywhere}.fvRegionRow .fvRegionLegendBar{height:9px;border-radius:5px;margin:5px 0}.fvRegionRow .fvRegionLegendBounds{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}.fvRegionRow select,.fvRegionRow input[type=range]{width:100%;min-width:0}.fvRegionRow .inlineCheck{overflow-wrap:anywhere}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true;
