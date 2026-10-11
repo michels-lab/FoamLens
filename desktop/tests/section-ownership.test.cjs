@@ -416,6 +416,87 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
   }
 });
 
+test('Field/Data time badge and synchronization use measured OpenFOAM timestamps only',()=>{
+  const a=field.indexOf('function fwPhysicalTime('),b=field.indexOf('function fwAdoptFieldNode(',a),
+    c=field.indexOf('function fwUpdateTimeBadge()'),d=field.indexOf('function fwUpdateViewCount()',c);
+  assert(a>=0&&b>a&&c>=0&&d>c,'Missing actual physical-clock or badge/sync implementation');
+  const state={companion:'profile',active:true,syncTime:true};
+  const inputs={
+    fwPlotTime:{textContent:''},profileTimeInput:{value:''},profileTime:{value:''},
+    logCurrentTime:{value:''}
+  };
+  const pushed=[],logUpdates=[],window={};
+  const api=new Function('state','inputs','window','pushed','logUpdates',
+    'const fwState=state,document={getElementById:id=>inputs[id]||null};'+
+    "const fvFmt=String,fwUi=en=>en,console={warn:()=>{}};"+
+    "const profileOptionsBase=()=>[1],logContextOptionsBase=()=>[1];"+
+    "const applyProfileTimeValue=t=>pushed.push(t),logAvailableTimes=()=>[null,'',false,0,9.8];"+
+    "const nearestValue=(times,at)=>times.reduce((best,t)=>best==null||Math.abs(t-at)<Math.abs(best-at)?t:best,null);"+
+    "const syncLogTimeNavigator=t=>logUpdates.push(t);"+
+    field.slice(a,b)+field.slice(c,d)+
+    ';return {badge:fwUpdateTimeBadge,sync:fwSyncCompanionTime};')(
+      state,inputs,window,pushed,logUpdates);
+  api.badge();
+  assert.equal(inputs.fwPlotTime.textContent,'—','Missing profile time must not appear as t=0 s');
+  inputs.profileTimeInput.value=' ';inputs.profileTime.value='';
+  api.badge();assert.equal(inputs.fwPlotTime.textContent,'—');
+  inputs.profileTimeInput.value='';inputs.profileTime.value='0';
+  api.badge();assert.equal(inputs.fwPlotTime.textContent,'t = 0 s','Genuine physical t=0 remains valid');
+  inputs.profileTimeInput.value='9.8';
+  api.badge();assert.equal(inputs.fwPlotTime.textContent,'t = 9.8 s');
+  for(const invalid of [null,undefined,'',false,NaN,'not-a-time'])api.sync(invalid);
+  assert.deepStrictEqual(pushed,[],'Absent physical time cannot synchronize Data to an invented zero');
+  api.sync('0');api.sync(9.8);
+  assert.deepStrictEqual(pushed,[0,9.8]);
+  state.companion='log';inputs.logCurrentTime.value='';
+  api.badge();assert.equal(inputs.fwPlotTime.textContent,'—','Blank log time is not t=0');
+  inputs.logCurrentTime.value='0';
+  api.badge();assert.equal(inputs.fwPlotTime.textContent,'t = 0 s');
+  api.sync('9.8');assert.deepStrictEqual(logUpdates,[9.8]);
+  api.sync(null);assert.deepStrictEqual(logUpdates,[9.8]);
+  assert(field.includes('fwPhysicalTimes(logAvailableTimes())'),
+    'Log clock must filter invalid physical samples before nearest-time selection');
+});
+
+test('A–B OpenFOAM line profile never fabricates a physical timestamp',()=>{
+  const start=field.indexOf('function fwBuild3DLineProfile('),
+    end=field.indexOf('function fwSet3DProfileLine(',start);
+  assert(start>=0&&end>start,'Missing true 3D line profile builder');
+  const fnCode=field.slice(start,end);
+  const build=env=>new Function('env',
+    'const fwLineProfileState=env.lineState,fvState=env.fvState,series=env.series;let nextId=env.nextId;'+
+    "const document={getElementById:id=>id==='fw3DProfileSamples'?{value:'20'}:null};"+
+    "const fwCurrent3DProfileField=()=>env.info,fwSampleFieldAtPoint=()=>({value:303.063,distance:0});"+
+    'const fw3DProfileStatus=(text,error)=>env.status.push({text,error}),fwUi=en=>en,fwPhysicalTime=env.physicalTime;'+
+    'const fvFmt=String,automaticSeriesColor=()=>"#0077aa";'+
+    'const refreshDatasetControls=()=>{},console={warn:()=>{}};'+
+    fnCode+';return {build:fwBuild3DLineProfile,next:()=>nextId};')(env);
+  const make=time=>{
+    const env={lineState:{a:[0,0,0],b:[1,0,0],seriesId:null},
+      fvState:{mesh:{cellCount:1},fieldValues:[303.063],fieldStorage:'volume',time,region:'metal'},
+      series:[],nextId:12,status:[],
+      info:{caseObj:{id:1,name:'QuickCup',dash:'solid'},name:'T',component:'value',
+        field:{canonical:'field3d:T',display:'T',unit:'K',quantity:'temperature'}},
+      physicalTime:raw=>(typeof raw==='number'||typeof raw==='string')&&String(raw).trim()!==''&&
+        Number.isFinite(Number(raw))?Number(raw):NaN};
+    return {env,api:build(env)}
+  };
+  for(const invalid of [null,undefined,'',false,NaN]){
+    const x=make(invalid);
+    assert.equal(x.api.build({select:false}),null);
+    assert.equal(x.env.series.length,0,'Invalid time cannot create measured line-profile series');
+    assert.equal(x.api.next(),12,'Invalid time must not consume a curve ID');
+    assert(x.env.status.at(-1)?.error,'Invalid time must report an actionable error');
+  }
+  for(const valid of ['0',9.8]){
+    const x=make(valid),item=x.api.build({select:false});
+    assert(item&&item.profileTime===Number(valid));
+    assert.equal(x.env.series.length,1);
+    assert.equal(x.api.next(),13);
+    assert.equal(item.y.length,20);
+  }
+});
+
 test('Temperature-at-probe sampling uses correct cell values and finite geometric bounds',()=>{
   const start=field.indexOf('function fwNearestFlatIndex('),end=field.indexOf('function fwProfileSeriesAll()',start);
   assert(start>=0&&end>start,'Physical field sampling path missing');
