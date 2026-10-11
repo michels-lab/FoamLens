@@ -683,7 +683,7 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   // Keep the exact region's CPU field association for scientific probing.
   // This references the same parsed array: no fabricated values, no second
   // copy of a potentially huge OpenFOAM field.
-  const layer={gl,region,mesh,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
+  const layer={gl,region,mesh,probePositions:shape.surfacePositions,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
     status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
   try{
     layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
