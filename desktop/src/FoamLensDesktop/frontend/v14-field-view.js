@@ -532,12 +532,24 @@ function fvRegionNames(c){
   const named=names.some(name=>name!=='');
   const rootHasPhysicalFields=(c?.discoveryModel?.fields||[]).some(f=>
     !String(f?.region||'')&&['volume','surface','point'].includes(String(f?.storage||''))&&
-    Array.isArray(f?.times)&&f.times.length>0);
+    Array.isArray(f?.times)&&f.times.some(t=>Number.isFinite(fvRegionPhysicalTime(t))));
   const physical=named&&!rootHasPhysicalFields?names.filter(name=>name!==''):names;
   return physical.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
 }
+function fvRegionPhysicalTime(raw){
+  // OpenFOAM physical times must be actual finite numeric metadata.
+  // Number(null), Number('') and Number(false) are all 0 in JS, but none
+  // represents a measured field at t=0.
+  if((typeof raw!=='number'&&typeof raw!=='string')||String(raw).trim()==='')return NaN;
+  const time=Number(raw);return Number.isFinite(time)?time:NaN
+}
 function fvRegionExactTime(times,target){
-  return (times||[]).map(Number).find(t=>fvTimeEqual(t,target))
+  const requested=fvRegionPhysicalTime(target);if(!Number.isFinite(requested))return undefined;
+  for(const raw of times||[]){
+    const time=fvRegionPhysicalTime(raw);
+    if(Number.isFinite(time)&&fvTimeEqual(time,requested))return time
+  }
+  return undefined
 }
 function fvRegionUnionBounds(meshes){
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let n=0;
