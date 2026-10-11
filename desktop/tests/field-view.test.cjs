@@ -1398,6 +1398,55 @@ test('field case selector keeps explicit A-case on metadata refresh and Compare 
 });
 
 
+test('actual Field renderer composites opaque physical regions before transparent metal and mold',()=>{
+  const renderBegin=source.indexOf('function fvRender(exportSize=null){');
+  const renderEnd=source.indexOf('function fvUpdateMeshBuffers(',renderBegin);
+  const regionBegin=regionCode.indexOf('function fvSurfaceDepthWritable(');
+  const regionEnd=regionCode.indexOf('function fvRegionFitCamera()',regionBegin);
+  assert(renderBegin>0&&renderEnd>renderBegin&&regionBegin>0&&regionEnd>regionBegin);
+  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold',[
+    'const draws=[];let depth=true;',
+    'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,COLOR_BUFFER_BIT:16384,DEPTH_BUFFER_BIT:256,DEPTH_TEST:2929,BLEND:3042,',
+    'SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,viewport(){},clearColor(){},clear(){},enable(){},blendFunc(){},',
+    'useProgram(){},uniformMatrix4fv(){},depthFunc(){},depthMask(v){depth=!!v}};',
+    'const canvas={width:0,height:0,getBoundingClientRect(){return {width:750,height:450}}};',
+    'const checks=new Map([["fvSurface",true],["fvEdges",false],["fvSlice",false],["fvIso",false],["fvVectors",false],["fvStreamlines",false]]);',
+    'const document={getElementById(id){return id==="fvCanvas"?canvas:checks.has(id)?{checked:checks.get(id)}:id==="fvOpacity"?{value:primaryOpacity}:null}};',
+    'const window={devicePixelRatio:1};',
+    'const bounds=z=>({boundsMin:[-.2,-.2,z],boundsMax:[.2,.2,z+1]});',
+    'const r={gl,program:1,mvp:2,surfacePos:"metal",surfaceColor:"metal-col",surfaceCount:3,probeCount:0};',
+    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
+    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:bounds(moldDepth),surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
+    'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
+    'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
+    regionCode.slice(regionBegin,regionEnd),
+    source.slice(renderBegin,renderEnd),
+    'fvRender();return {draws,depth};'
+  ].join('\n'));
+  const summarize=x=>x.draws.filter(d=>d.pos==='metal'||d.pos==='mold');
+  const opaqueMold=summarize(harness(.65,1,2,7,true));
+  assert.deepStrictEqual(opaqueMold.map(d=>d.pos),['mold','metal'],
+    'Opaque measured mold must establish the depth buffer before translucent metal blending');
+  assert.deepStrictEqual(opaqueMold.map(d=>d.depth),[true,false],
+    'Only opaque layer may write the depth buffer');
+  const metalFar=summarize(harness(.65,.48,1,6,true));
+  assert.deepStrictEqual(metalFar.map(d=>d.pos),['metal','mold'],
+    'Far metal must blend before near translucent mold even though the selected region is primary');
+  const moldFar=summarize(harness(.65,.48,7,1,true));
+  assert.deepStrictEqual(moldFar.map(d=>d.pos),['mold','metal'],
+    'Far translucent mold must blend before near selected metal');
+  assert.deepStrictEqual(moldFar.map(d=>d.depth),[false,false]);
+  const opaqueMetal=summarize(harness(1,.48,1,6,true));
+  assert.deepStrictEqual(opaqueMetal.map(d=>d.pos),['metal','mold'],
+    'Opaque metal draws before a translucent enclosing mold, independent of distance');
+  assert.deepStrictEqual(opaqueMetal.map(d=>d.depth),[true,false]);
+  const isolated=summarize(harness(.65,.48,1,6,false));
+  assert.deepStrictEqual(isolated.map(d=>d.pos),['metal'],
+    'Hidden physical regions must never draw, even if their buffers remain allocated');
+});
+
 test('field marker renders after all physical layers; translucent shells sort by depth rather than import order',()=>{
   const start=source.indexOf('function fvRender(exportSize=null){');
   const end=source.indexOf('function fvUpdateMeshBuffers(',start);
