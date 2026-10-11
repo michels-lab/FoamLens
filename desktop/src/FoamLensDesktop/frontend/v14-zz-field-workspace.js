@@ -17,6 +17,12 @@ const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
 // Data/Field histories must use real OpenFOAM physical-time metadata.
 // JS Number(null), Number('') and Number(false) are 0 but not measurements.
+function fwMeasuredNumber(raw){
+  // Missing OpenFOAM measurements must not be coerced into measured zero.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim())return NaN;
+  const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN
+}
 function fwPhysicalTime(raw){
   const resolver=window.FoamLensRegionScene?.physicalTime;
   if(typeof resolver==='function')return resolver(raw);
@@ -181,20 +187,20 @@ function fwTimeMode(){return fwState.view==='split'?'3d':fwState.view}
 function fwTimeTimes(){
   try{
     const mode=fwTimeMode();
-    if(mode==='profile'&&typeof profileAvailableTimes==='function')return profileAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
-    if(mode==='log'&&typeof logAvailableTimes==='function')return logAvailableTimes().map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
-    return (fvCurrentFieldGroup()?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)
+    if(mode==='profile'&&typeof profileAvailableTimes==='function')return fwPhysicalTimes(profileAvailableTimes());
+    if(mode==='log'&&typeof logAvailableTimes==='function')return fwPhysicalTimes(logAvailableTimes());
+    return fwPhysicalTimes(fvCurrentFieldGroup()?.times||[])
   }catch{return[]}
 }
 function fwTimeCurrent(){
   try{
     const mode=fwTimeMode();
     if(mode==='profile'){
-      if(typeof profilePlaybackUsesGlobalClock==='function'&&profilePlaybackUsesGlobalClock()&&Number.isFinite(Number(profilePlaybackClockTime)))return Number(profilePlaybackClockTime);
-      return Number(document.getElementById('profileTime')?.value)
+      if(typeof profilePlaybackUsesGlobalClock==='function'&&profilePlaybackUsesGlobalClock()&&Number.isFinite(fwPhysicalTime(profilePlaybackClockTime)))return fwPhysicalTime(profilePlaybackClockTime);
+      return fwPhysicalTime(document.getElementById('profileTime')?.value)
     }
-    if(mode==='log')return Number(document.getElementById('logCurrentTime')?.value);
-    return Number(fvState?.time)
+    if(mode==='log')return fwPhysicalTime(document.getElementById('logCurrentTime')?.value);
+    return fwPhysicalTime(fvState?.time)
   }catch{return NaN}
 }
 function fwRefreshGlobalTime(){
@@ -259,11 +265,11 @@ function fwFieldTsField(group,component,stat,parsed){
 function fwFieldTsSource(slot){return document.getElementById('fwTsSource'+slot)?.value||'global'}
 function fwProbeChoices(){
   const out=[],primary=window.FoamLensFieldProbe?.getLast?.();
-  if(primary?.point?.length===3&&!primary.geometryOnly&&Number.isFinite(Number(primary.value)))out.push({
+  if(primary?.point?.length===3&&primary.point.every(v=>Number.isFinite(fwMeasuredNumber(v)))&&!primary.geometryOnly&&Number.isFinite(fwMeasuredNumber(primary.value)))out.push({
     id:'view1',view:1,caseId:primary.caseId??fvState.caseId,caseName:fvCase()?.name||'',
     region:primary.region??fvState.region??'',field:primary.fieldName||fvState.fieldName||'',
     component:fvState.component||'value',point:primary.point.map(Number),
-    cell:primary.cell??null,face:primary.face??null,value:Number(primary.value)
+    cell:primary.cell??null,face:primary.face??null,value:fwMeasuredNumber(primary.value)
   });
   for(const d of window.FoamLensFieldCompare?.getProbeDescriptors?.()||[])if(d?.point?.length===3&&!out.some(x=>x.id===d.id))out.push({...d,point:d.point.map(Number)});
   return out
@@ -280,12 +286,12 @@ function fwSampleFieldAtPoint(data,point){
   const mesh=data.mesh,values=data.fieldValues||[],storage=String(data.storage||'volume'),diag=Math.hypot(mesh.boundsMax?.[0]-mesh.boundsMin?.[0],mesh.boundsMax?.[1]-mesh.boundsMin?.[1],mesh.boundsMax?.[2]-mesh.boundsMin?.[2])||1;
   if(typeof fvInsideBounds==='function'&&!fvInsideBounds(point,mesh.boundsMin,mesh.boundsMax,diag*1e-6))return{value:NaN,index:-1,distance:NaN};
   if(storage==='point'){
-    const q=fwNearestFlatIndex(mesh.points||[],Number(mesh.pointCount)||Math.floor((mesh.points?.length||0)/3),point);return{value:Number(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
+    const q=fwNearestFlatIndex(mesh.points||[],Number(mesh.pointCount)||Math.floor((mesh.points?.length||0)/3),point);return{value:fwMeasuredNumber(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
   }
   if(storage==='surface'){
-    let best=-1,bestD2=Infinity;for(let fi=0;fi<Math.min(Number(mesh.internalFaceCount)||0,values.length);fi++){const p=fwFaceCentroid(mesh,fi);if(!p)continue;const dx=p[0]-point[0],dy=p[1]-point[1],dz=p[2]-point[2],d2=dx*dx+dy*dy+dz*dz;if(d2<bestD2){bestD2=d2;best=fi}}return{value:Number(values[best]),index:best,distance:Math.sqrt(bestD2)}
+    let best=-1,bestD2=Infinity;for(let fi=0;fi<Math.min(Number(mesh.internalFaceCount)||0,values.length);fi++){const p=fwFaceCentroid(mesh,fi);if(!p)continue;const dx=p[0]-point[0],dy=p[1]-point[1],dz=p[2]-point[2],d2=dx*dx+dy*dy+dz*dz;if(d2<bestD2){bestD2=d2;best=fi}}return{value:fwMeasuredNumber(values[best]),index:best,distance:Math.sqrt(bestD2)}
   }
-  const q=fwNearestFlatIndex(mesh.cellCenters||[],Number(mesh.cellCount)||Math.floor((mesh.cellCenters?.length||0)/3),point);return{value:Number(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
+  const q=fwNearestFlatIndex(mesh.cellCenters||[],Number(mesh.cellCount)||Math.floor((mesh.cellCenters?.length||0)/3),point);return{value:fwMeasuredNumber(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
 }
 function fwProfileSeriesAll(){return (series||[]).filter(s=>datasetTypeOf(s)==='profile'&&s.profileTime!=null&&String(s.profileTime).trim()!==''&&Number.isFinite(Number(s.profileTime)))}
 function fwProfileTsSelection(slot){

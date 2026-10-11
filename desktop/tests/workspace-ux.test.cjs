@@ -175,3 +175,55 @@ test('Global top chrome is stable across sidebar resizing',()=>{
   assert(ribbon.includes('flRibbonInstallChromeMeasurement')&&ribbon.includes("body.flRibbonReady .sidebar{margin-top"),
     'Header and toolbar must be independent of the sidebar track');
 });
+
+test('Field toolbar uses genuine OpenFOAM physical time; absent timestamps never become t=0',()=>{
+  const extract=(start,end)=>{
+    const a=field.indexOf(start),b=field.indexOf(end,a);
+    assert(a>=0&&b>a,'missing production function: '+start);
+    return field.slice(a,b)
+  };
+  const physics=new Function('window',extract('function fwMeasuredNumber(raw)','function fwAdoptFieldNode')+
+    ';return{fwMeasuredNumber,fwPhysicalTime,fwPhysicalTimes};')({});
+  assert(Number.isNaN(physics.fwMeasuredNumber(null)));
+  assert(Number.isNaN(physics.fwMeasuredNumber(false)));
+  assert.equal(physics.fwMeasuredNumber('0'),0);
+  const source=extract('function fwTimeTimes()','function fwRefreshGlobalTime()');
+  const api=(mode,input='',frameTime=null)=>new Function(
+    'fwTimeMode','fwPhysicalTimes','fwPhysicalTime','profileAvailableTimes','logAvailableTimes',
+    'fvCurrentFieldGroup','profilePlaybackUsesGlobalClock','profilePlaybackClockTime','document','fvState',
+    source+';return{fwTimeTimes,fwTimeCurrent};')(
+      ()=>mode,physics.fwPhysicalTimes,physics.fwPhysicalTime,
+      ()=>[null,'',false,'0','9.8'],()=>[null,'',false,9.8],
+      ()=>({times:[null,'',false,0,9.8]}),()=>true,null,{getElementById:()=>({value:input})},
+      {time:frameTime});
+  assert.deepStrictEqual(api('3d').fwTimeTimes(),[0,9.8]);
+  assert.deepStrictEqual(api('log').fwTimeTimes(),[9.8]);
+  assert(Number.isNaN(api('3d').fwTimeCurrent()));
+  assert(Number.isNaN(api('profile').fwTimeCurrent()));
+  assert(Number.isNaN(api('log').fwTimeCurrent()));
+  assert.strictEqual(api('3d','',0).fwTimeCurrent(),0);
+  assert.strictEqual(api('profile','0').fwTimeCurrent(),0);
+  assert.strictEqual(api('3d','','9.8').fwTimeCurrent(),9.8);
+});
+
+test('Field probes reject missing values and preserve genuine zero',()=>{
+  const p=field.indexOf('function fwProbeChoices()'),q=field.indexOf('function fwNearestFlatIndex(',p);
+  assert(p>=0&&q>p,'missing production probe-choice source');
+  const helper=new Function('window',field.slice(field.indexOf('function fwMeasuredNumber(raw)'),field.indexOf('function fwPhysicalTime(raw)'))+';return fwMeasuredNumber;')({});
+  const probe=value=>new Function('window','fvState','fvCase','fwMeasuredNumber',
+    field.slice(p,q)+';return fwProbeChoices();')(
+      {FoamLensFieldProbe:{getLast:()=>({point:[0,0,0],value,geometryOnly:false})},
+       FoamLensFieldCompare:{getProbeDescriptors:()=>[]}},
+      {caseId:1,region:'metal',fieldName:'T'},()=>({name:'Measured'}),helper);
+  assert.deepStrictEqual(probe(null),[]);
+  assert.deepStrictEqual(probe(false),[]);
+  assert.equal(probe(0).length,1);
+  assert.equal(probe('0').length,1);
+  const sample=field.slice(field.indexOf('function fwSampleFieldAtPoint('),field.indexOf('function fwProfileSeriesAll()'));
+  const picked=new Function('fwMeasuredNumber','fwNearestFlatIndex','fwFaceCentroid','fvInsideBounds',sample+
+    ';return fwSampleFieldAtPoint;')(helper,()=>({index:0,d2:0}),()=>null,()=>true);
+  const mesh={points:[0,0,0],pointCount:1,boundsMin:[0,0,0],boundsMax:[1,1,1]};
+  assert(Number.isNaN(picked({mesh,fieldValues:[null],storage:'point'},[0,0,0]).value));
+  assert.strictEqual(picked({mesh,fieldValues:[0],storage:'point'},[0,0,0]).value,0);
+});
+
