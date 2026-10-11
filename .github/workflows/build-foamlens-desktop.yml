@@ -774,9 +774,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check Pillow
           $v='${{ steps.ver.outputs.version }}'
-          python tools/make_visual_evidence.py --evidence-dir artifacts/visual/installed --artifact "artifacts/FoamLens-Setup-v$v.exe" --source-sha $env:GITHUB_SHA --platform windows --output artifacts/visual/manifest.json
+          python tools/make_visual_evidence.py --evidence-dir artifacts/visual/installed --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" --source-sha $env:GITHUB_SHA --platform windows --output artifacts/visual/manifest.json
           if ($LASTEXITCODE -ne 0) { throw 'Could not bind rendered Windows screenshots to installer SHA-256.' }
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about --capture-only
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about,data,field --capture-only
           if ($LASTEXITCODE -ne 0) { throw 'Rendered UI evidence failed: missing, blank, stale, or incorrect screenshots.' }
 
       - name: Sync canonical Windows ICO for future design builds
@@ -858,16 +858,19 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check Pillow
           test -f artifacts/visual/manifest.json
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about --capture-only
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about,data,field --capture-only
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
           doc=json.loads(Path('artifacts/visual/manifest.json').read_text())
           setup=next(Path('artifacts').glob('FoamLens-Setup-v*.exe'),None)
-          if setup is None: raise SystemExit('No exact installer artifact found')
+          portable=next(Path('artifacts').glob('FoamLens-Portable-v*.exe'),None)
+          if setup is None or portable is None: raise SystemExit('No exact Setup and Portable release artifacts found')
           digest=hashlib.sha256(setup.read_bytes()).hexdigest()
+          pdigest=hashlib.sha256(portable.read_bytes()).hexdigest()
           if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: validated screenshots belong to a different Setup digest')
-          print('Release installer validated against screenshot manifest:',digest)
+          if pdigest!=doc.get('portable_artifact_sha256',{}).get('windows'): raise SystemExit('BLOCKED: portable binary differs from UI-validated candidate')
+          print('Release installer and portable validated against source/screenshot manifest:',digest,pdigest)
           PY
       - name: Publish verified GitHub Release
         shell: bash
