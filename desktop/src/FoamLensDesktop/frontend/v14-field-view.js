@@ -790,9 +790,18 @@ function fvRegionRenderLayers(){
     const faceField=layer.faceFieldCount>0;
     gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}));
     if(surface)fvBindDraw(r,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,faceField?Math.min(opacity,.14):opacity);
-    gl.depthMask(true);
-    if(surface&&faceField)fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity);
-    if(edges)fvBindDraw(r,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
+    // Actual internal-face data may occlude only when fully opaque. A translucent
+    // face must never write invisible depth that hides a second physical region.
+    if(surface&&faceField){
+      gl.depthMask(fvSurfaceDepthWritable(opacity));
+      fvBindDraw(r,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
+    }
+    // Mesh edges are visual aids, not solid barriers in the depth buffer.
+    if(edges){
+      gl.depthMask(false);
+      fvBindDraw(r,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
+    }
+    gl.depthMask(true)
   }
   gl.depthMask(true);gl.depthFunc(gl.LEQUAL)
 }
@@ -1102,11 +1111,13 @@ function fvRender(exportSize=null){
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   if(showSurface){const faceAssoc=fvState.fieldStorage==='surface';gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}));fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);fvBindDraw(r,r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
-  if(showSlice){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
-  if(showIso){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
-  if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
-  if(primaryVisible&&document.getElementById('fvVectors')?.checked)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
-  if(primaryVisible&&document.getElementById('fvStreamlines')?.checked)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  if(showSlice){gl.depthFunc(gl.LEQUAL);gl.depthMask(fvSurfaceDepthWritable(sliceOpacity));fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity);gl.depthMask(true)}
+  if(showIso){gl.depthFunc(gl.LEQUAL);gl.depthMask(fvSurfaceDepthWritable(isoOpacity));fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity);gl.depthMask(true)}
+  // Mesh wireframes, vectors and streamlines must not silently occlude other
+  // physical regions rendered later into the same OpenFOAM depth buffer.
+  if(showEdges){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));gl.depthMask(true)}
+  if(primaryVisible&&document.getElementById('fvVectors')?.checked){gl.depthMask(false);fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);gl.depthMask(true)}
+  if(primaryVisible&&document.getElementById('fvStreamlines')?.checked){gl.depthMask(false);fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);gl.depthMask(true)}
   fvRegionRenderLayers();
   // A pin may belong to any physical region, including a mold behind an
   // enclosing translucent shell. Draw its scientific marker after ALL regions.

@@ -1091,6 +1091,71 @@ test('transparent primary and secondary regions share a non-occluding depth poli
   assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}))'));
 });
 
+test('real physical region renderer never lets translucent faces or wireframes write depth',()=>{
+  const first=regionCode.indexOf('function fvSurfaceDepthWritable(');
+  const last=regionCode.indexOf('function fvRegionFitCamera()',first);
+  assert(first>=0&&last>first,'Actual region render/depth implementation must be extractable');
+  const implementation=regionCode.slice(first,last);
+  const simulate=(alpha,hasFaces)=>new Function('alpha','hasFaces',[
+    'const draws=[];let depth=true;',
+    'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,depthMask(value){depth=!!value},depthFunc(){}};',
+    'const fvState={renderer:{gl},camera:{}};',
+    'const layer={gl,mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},surfacePos:"shell",surfaceColor:"shell-col",surfaceCount:3,',
+    'faceFieldPos:"measured-face",faceFieldColor:"face-col",faceFieldCount:hasFaces?3:0,edgePos:"wire",edgeColor:"wire-col",edgeCount:2};',
+    'const fvRegionScene={layers:new Map([["mold",layer]]),choices:new Map([["mold",{visible:true,opacity:alpha}]])};',
+    'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
+    'const document={getElementById:id=>id==="fvSurface"||id==="fvEdges"?{checked:true}:null};',
+    'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,mode,opacity,depth});',
+    implementation,
+    'fvRegionRenderLayers();return {draws,depth};'
+  ].join('\n'))(alpha,hasFaces);
+  const translucent=simulate(.48,true);
+  assert.deepStrictEqual(translucent.draws.map(d=>d.pos),['shell','measured-face','wire']);
+  assert.deepStrictEqual(translucent.draws.map(d=>d.depth),[false,false,false],
+    'Translucent measured internal faces and their wireframe must not occlude other regions');
+  assert.equal(translucent.depth,true,'Restore depth writes after each region pass');
+  const opaqueFace=simulate(1,true);
+  assert.deepStrictEqual(opaqueFace.draws.map(d=>d.depth),[false,true,false],
+    'A real opaque internal face may occlude; its unknown boundary shell and wireframe must not');
+  const opaqueVolume=simulate(1,false);
+  assert.deepStrictEqual(opaqueVolume.draws.map(d=>d.depth),[true,false],
+    'Opaque measured volume shells may write depth, but wireframe must remain an annotation');
+});
+
+test('real primary Field renderer does not let transparent slice, iso or line annotations mask neighboring regions',()=>{
+  const begin=source.indexOf('function fvRender(exportSize=null){');
+  const end=source.indexOf('function fvUpdateMeshBuffers(',begin);
+  assert(begin>=0&&end>begin,'Actual Field render function must be extractable');
+  const implementation=source.slice(begin,end);
+  const observed=new Function([
+    'let depth=true;const draws=[];',
+    'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,COLOR_BUFFER_BIT:16384,DEPTH_BUFFER_BIT:256,DEPTH_TEST:2929,BLEND:3042,',
+    'SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,viewport(){},clearColor(){},clear(){},enable(){},blendFunc(){},',
+    'useProgram(){},uniformMatrix4fv(){},depthFunc(){},depthMask(value){depth=!!value}};',
+    'const r={gl,program:1,mvp:2,probeCount:1};',
+    'for(const key of ["surface","slice","iso","edge","vector","line","probe"]){r[key+"Pos"]=key;r[key+"Color"]=key+"-color";r[key+"Count"]=3}',
+    'const fvState={renderer:r,fieldStorage:"volume"};',
+    'const canvas={width:0,height:0,getBoundingClientRect(){return {width:750,height:450}}};',
+    'const checked=new Set(["fvSurface","fvEdges","fvSlice","fvIso","fvVectors","fvStreamlines"]);',
+    'const values={fvOpacity:".65",fvSliceOpacity:".55",fvIsoOpacity:".45"};',
+    'const document={getElementById:id=>id==="fvCanvas"?canvas:(checked.has(id)?{checked:true}:({value:values[id]||"1"}))};',
+    'const window={devicePixelRatio:1};',
+    'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
+    'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
+    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
+    'const fvRegionRenderLayers=()=>draws.push({pos:"region-pass",depth});const fvUpdateAxisGizmo=()=>{};',
+    'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
+    implementation,
+    'fvRender();return {draws,depth};'
+  ].join('\n'))();
+  for(const label of ['surface','slice','iso','edge','vector','line','probe']){
+    const item=observed.draws.find(d=>d.pos===label);
+    assert(item,'Expected physical renderer to draw '+label);
+    assert.equal(item.depth,false,label+' must not write invisible depth ahead of other regions');
+  }
+  assert.equal(observed.depth,true,'Final WebGL depth state must be restored');
+});
+
 test('physical regions allocate and draw distinct meshes in one shared WebGL depth context',()=>{
   const setup=[
     'const calls=[];',
