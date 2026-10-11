@@ -2231,8 +2231,11 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       const unavailable=api.state().layers.get(missingRegion);
       const row=[...(document.getElementById('fvMultiRegionRows')?.querySelectorAll('[data-fv-region-row]')||[])]
         .find(el=>el.dataset.fvRegionRow===missingRegion);
-      const hasScale=!!row?.querySelector('.fvRegionLegendBar');
-      missingFrame={region:missingRegion,sourceTime:unavailable?.sourceTime??null,
+      const legend=row?.querySelector('.fvRegionLegend');
+      const hasScale=!!legend?.querySelector('.fvRegionLegendBar');
+      const explicitMissing=!!legend&&/Geometry only|Solo geometría/i.test(legend.textContent||'');
+      missingFrame={region:missingRegion,legendPresent:!!legend,explicitMissing,
+        sourceTime:unavailable?.sourceTime??null,
         geometryOnly:unavailable?.geometryOnly===true,
         measuredColors:unavailable?.colored===true,
         cellCount:Number(unavailable?.mesh?.cellCount||0),
@@ -2240,7 +2243,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         remainingTimes:selectedGroup.times.map(api.physicalTime),
         originalTimes:originalTimes.map(api.physicalTime)};
       if(!missingFrame.geometryOnly||missingFrame.measuredColors||missingFrame.sourceTime!==null||
-        !(missingFrame.cellCount>0)||!missingFrame.sameWebGL||hasScale)
+        !(missingFrame.cellCount>0)||!missingFrame.sameWebGL||hasScale||!missingFrame.explicitMissing)
         throw new Error('Real geometry-only physical frame contract failed: '+JSON.stringify(missingFrame))
     }finally{
       selectedGroup.times=originalTimes;
