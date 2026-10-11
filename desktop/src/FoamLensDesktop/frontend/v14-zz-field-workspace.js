@@ -538,7 +538,12 @@ function fwBuild3DLineProfile({select=true}={}){
   const x=[],y=[],data={mesh,fieldValues:values,storage:fvState.fieldStorage};let maxNearest=0;
   for(let i=0;i<count;i++){const f=count===1?0:i/(count-1),p=[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f],sample=fwSampleFieldAtPoint(data,p);if(Number.isFinite(sample.value)){x.push(length*f);y.push(Number(sample.value));maxNearest=Math.max(maxNearest,Number(sample.distance)||0)}}
   if(x.length<2){fw3DProfileStatus(fwUi('The A→B line did not intersect enough usable field data.','La línea A→B no intersectó suficientes datos utilizables del campo.'),true);return null}
-  const outputPath='Field Workspace / 3D line',lineKey='field-workspace-3d-line',caseObj=info.caseObj,time=Number(fvState.time),source='derived:field-workspace-3d-line:'+caseObj.id,existing=(series||[]).find(q=>q.id===fwLineProfileState.seriesId)||null;
+  const time=fwPhysicalTime(fvState.time);
+  if(!Number.isFinite(time)){
+    fw3DProfileStatus(fwUi('Select a valid OpenFOAM physical frame before sampling A→B.','Selecciona un instante físico OpenFOAM válido antes de muestrear A→B.'),true);
+    return null
+  }
+  const outputPath='Field Workspace / 3D line',lineKey='field-workspace-3d-line',caseObj=info.caseObj,source='derived:field-workspace-3d-line:'+caseObj.id,existing=(series||[]).find(q=>q.id===fwLineProfileState.seriesId)||null;
   const payload={datasetType:'profile',caseId:caseObj.id,caseName:caseObj.name,region:fvState.region||'',fileName:'3D A→B field profile',sourcePath:source,field:info.field,probe:null,location:'3D A→B',profileAxis:'s',profileOrientation:'spatial',profileLine:'3D A→B',profileLineKey:lineKey,profileLineSort:0,profileTime:time,profileTimeLabel:Number.isFinite(time)?String(time):'—',profileCoordUnit:'m',profileOutputPath:outputPath,t:x,y,visible:true,width:2.2,dash:caseObj.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field3d_line_profile',profilePointA:[...a],profilePointB:[...b],profileSampleCount:count,profileNearestDistance:maxNearest};
   let item=existing;if(item)Object.assign(item,payload);else{item={id:nextId++,...payload,color:null};item.color=automaticSeriesColor(item);series.push(item);fwLineProfileState.seriesId=item.id}
   fw3DProfileStatus(fwUi('A→B profile','Perfil A→B')+': '+x.length+'/'+count+' '+fwUi('samples','muestras')+' · L='+fvFmt(length)+' m · '+info.name+(info.component!=='value'?' · '+info.component:'')+' · t='+fvFmt(time)+' s');
@@ -614,15 +619,26 @@ function fwSetCompanion(mode){
 }
 function fwUpdateTimeBadge(){
   const e=document.getElementById('fwPlotTime');if(!e)return;
-  if(fwState.companion==='profile'){const t=Number(document.getElementById('profileTimeInput')?.value||document.getElementById('profileTime')?.value);e.textContent=Number.isFinite(t)?'t = '+fvFmt(t)+' s':'—'}
-  else if(fwState.companion==='log'){const t=Number(document.getElementById('logCurrentTime')?.value);e.textContent=Number.isFinite(t)?'t = '+fvFmt(t)+' s':'—'}
-  else e.textContent=fwState.companion==='timeseries'?fwUi('time history','historia temporal'):'—'
+  if(fwState.companion==='profile'){
+    const input=document.getElementById('profileTimeInput')?.value;
+    const selected=document.getElementById('profileTime')?.value;
+    const t=fwPhysicalTime(typeof input==='string'&&input.trim()!==''?input:selected);
+    e.textContent=Number.isFinite(t)?'t = '+fvFmt(t)+' s':'—'
+  }else if(fwState.companion==='log'){
+    const t=fwPhysicalTime(document.getElementById('logCurrentTime')?.value);
+    e.textContent=Number.isFinite(t)?'t = '+fvFmt(t)+' s':'—'
+  }else e.textContent=fwState.companion==='timeseries'?fwUi('time history','historia temporal'):'—'
 }
 function fwSyncCompanionTime(time){
-  if(!fwState.active||!fwState.syncTime||!Number.isFinite(Number(time)))return;
+  const requested=fwPhysicalTime(time);
+  if(!fwState.active||!fwState.syncTime||!Number.isFinite(requested))return;
   try{
-    if(fwState.companion==='profile'&&profileOptionsBase().length)applyProfileTimeValue(Number(time),{renderListToo:false});
-    else if(fwState.companion==='log'&&logContextOptionsBase().length){const times=logAvailableTimes(),t=nearestValue(times,Number(time));if(t!=null)syncLogTimeNavigator(t)}
+    if(fwState.companion==='profile'&&profileOptionsBase().length)
+      applyProfileTimeValue(requested,{renderListToo:false});
+    else if(fwState.companion==='log'&&logContextOptionsBase().length){
+      const times=fwPhysicalTimes(logAvailableTimes()),t=times.length?nearestValue(times,requested):null;
+      if(t!=null)syncLogTimeNavigator(t)
+    }
   }catch(e){console.warn('Field Workspace time sync:',e)}
   fwUpdateTimeBadge()
 }
