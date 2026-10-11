@@ -4252,3 +4252,9 @@ The required interpretation is structural integration rather than sticker placem
 - **Action:** Address the actual compact interaction: opening the Camera subbar scrolls its own Ribbon shelf to reveal the docked controls, without moving controls over scientific geometry. Preserve accessible horizontal scrolling and all camera/probe actions. Add executed source-function regression for compact, wide and missing-control scenarios.
 - **Diagnostics:** Native screenshot gate now captures Camera toolbar left/right/width plus shelf scroll position/extent when a viewport still fails. It **retains** required on-screen bounds and overlap assertions, including 640px.
 - **Validation at commit time:** JavaScript syntax and executed helper regression prepared; exact-head packaged Windows QuickCup, wide+compact screenshots and installed-app evidence are pending. No human pre-release approval, no merge, no release.
+
+## 2026-10-11 UTC — responsive Camera remains reachable across live resize
+
+- **Finding:** opening Camera scrolls to the horizontal toolbar on a compact WebView2, but an already-open Camera tab can remain active while Windows switches widths; in that case a click-only scroll handler does not run.
+- **Correction:** refine Ribbon scroll to leave fully visible wide controls alone, left-align controls that run off either side of the shelf and register a viewport resize handler for the already-open Camera tab. Keep existing horizontal scroll and no-canvas-overlap structure.
+- **Validation:** real helper-source execution checked offscreen right, offscreen left, and already-visible cases. The exact-head packaged Windows evidence must still verify Camera bounds at both widths, QuickCup science, portable and installed behaviors. No release.

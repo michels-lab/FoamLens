@@ -456,8 +456,11 @@ function flRibbonRevealCameraTools(shelf){
   if(!tools)return false;
   const host=shelf.getBoundingClientRect(),dock=tools.getBoundingClientRect();
   if(!(host.width>0&&dock.width>0))return false;
-  const beyond=Math.max(0,dock.left-host.left);
-  if(beyond>0)shelf.scrollLeft+=beyond;
+  // Keep the beginning of the toolbar reachable after any window resize.
+  // A fully visible toolbar needs no movement; a wider one is left-aligned
+  // within its independently scrollable shelf instead of covering the canvas.
+  const left=dock.left-host.left,right=dock.right-host.right;
+  if(left<0||right>0)shelf.scrollLeft+=left;
   return true
 }
 function flRibbonFieldSubbars(){
@@ -492,6 +495,14 @@ function flRibbonFieldSubbars(){
   if(inspectHost&&samples){samples.classList.add('flRibbonProfileSamples');inspectHost.appendChild(samples)}
   if(inspectHost&&clear)inspectHost.appendChild(clear);
   if(inspectHost&&profileStatus)inspectHost.appendChild(profileStatus);
+  // Camera can stay expanded as Windows/WebView2 changes from wide to compact.
+  // Reposition its own shelf on resize, without altering the 3D canvas or
+  // forcing the user to close and re-open Camera.
+  window.addEventListener('resize',()=>{
+    const camera=tabs.querySelector('[data-fl-subbar="camera"]');
+    if(camera?.classList.contains('active')&&!shelf.classList.contains('hidden'))
+      flRibbonRevealCameraTools(shelf)
+  });
   return true
 }
 function flRibbonInstallChromeMeasurement(){

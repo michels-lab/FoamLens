@@ -172,10 +172,18 @@ const visibleDock={getBoundingClientRect:()=>({left:50,right:300,width:250})};
 const wideShelf={scrollLeft:0,querySelector:()=>visibleDock,
   getBoundingClientRect:()=>({left:0,right:1140,width:1140})};
 assert.equal(revealCamera(wideShelf),true);
-assert.equal(wideShelf.scrollLeft,50,'Camera should align tools without hiding them.');
+assert.equal(wideShelf.scrollLeft,0,'Already-visible wide Camera tools must not force horizontal scrolling.');
+const leftClippedDock={getBoundingClientRect:()=>({left:-80,right:160,width:240})};
+const clippedShelf={scrollLeft:100,querySelector:()=>leftClippedDock,
+  getBoundingClientRect:()=>({left:0,right:640,width:640})};
+assert.equal(revealCamera(clippedShelf),true);
+assert.equal(clippedShelf.scrollLeft,20,'Resizing wider must restore left-clipped Camera controls.');
 assert.equal(revealCamera({querySelector:()=>null}),false,'Missing tools must fail safely.');
 assert(source.includes("if(enabled&&key==='camera')flRibbonRevealCameraTools(shelf)"),
   'Opening Camera must invoke its compact scroll-to-controls behavior.');
+assert(source.includes("window.addEventListener('resize',()=>{")&&
+  source.includes("if(camera?.classList.contains('active')&&!shelf.classList.contains('hidden'))"),
+  'Keeping Camera open during wide/compact window changes must re-reveal its docked controls.');
 
 const compactCssStart=source.indexOf('function flRibbonCss()');
 const compactCssEnd=source.indexOf('function flRibbonSelectTab(',compactCssStart);
