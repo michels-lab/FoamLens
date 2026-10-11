@@ -127,6 +127,7 @@ jobs:
               "SmokeCase_A",
               "SmokeCase_B",
               "SmokeCase_C",
+              "SmokeCase_Asymmetric",
               "B13_prghPressure_airGapOF14",
           ]
           dst_root = Path("multi-case-runtime-windows")
@@ -174,6 +175,21 @@ jobs:
               missing = [str(p.relative_to(dst)) for p in required if not p.exists()]
               if missing:
                   raise SystemExit(f"Windows-safe {case_name} fixture lost required 3D inputs: " + ", ".join(missing))
+
+          # Keep real measured OpenFOAM values unchanged. Remove ONLY the
+          # t=9.8 mold temperature file from one *separate copied case*, while
+          # retaining measured t=0 mold T and t=9.8 metal T. This creates
+          # honest on-disk asynchronous physical-time availability.
+          asymmetric = dst_root / "SmokeCase_Asymmetric"
+          missing_t = asymmetric / "9.8" / "mold" / "T"
+          earlier_t = asymmetric / "0" / "mold" / "T"
+          metal_t = asymmetric / "9.8" / "metal" / "T"
+          if not (missing_t.is_file() and earlier_t.is_file() and metal_t.is_file()):
+              raise SystemExit("Asymmetric real-case fixture lacks required measured OpenFOAM T sources")
+          missing_t.unlink()
+          if missing_t.exists():
+              raise SystemExit("Asymmetric mold T frame unexpectedly survived removal")
+          print("On-disk asymmetric regression: metal T at t=9.8, mold T at t=0 only; no fabricated physical values.")
 
           print(f"Windows-safe multi-case fixture: {len(case_names)} case identities backed by complete B13; {len(copied_files)} files each; {skipped} invalid paths omitted.")
           PY
@@ -610,6 +626,7 @@ jobs:
             $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_EXPECT_REGIONS='metal;mold'
+            $env:FOAMLENS_SMOKE_ASYMMETRIC_CASE='SmokeCase_Asymmetric'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
@@ -732,6 +749,7 @@ jobs:
             $env:FOAMLENS_SMOKE_SWITCH_CASE='B13_prghPressure_airGapOF14'
             $env:FOAMLENS_SMOKE_REGION='metal'
             $env:FOAMLENS_SMOKE_EXPECT_REGIONS='metal;mold'
+            $env:FOAMLENS_SMOKE_ASYMMETRIC_CASE='SmokeCase_Asymmetric'
             $env:FOAMLENS_SMOKE_FIELD='T'
             $env:FOAMLENS_SMOKE_TIME='9.8'
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
