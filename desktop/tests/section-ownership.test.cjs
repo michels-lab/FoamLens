@@ -335,6 +335,86 @@ test('Data field histories reject false OpenFOAM t=0 in Probe, statistics and sp
     'Missing OpenFOAM physical times must produce a meaningful error rather than an empty plotted curve');
 });
 
+test('Data two-curve histories commit atomically after successful OpenFOAM reads, never blanking previous plots',()=>{
+  const begin=field.indexOf('function fwCommitFieldHistoryDrafts(');
+  const end=field.indexOf('function fw3DProfileStatus(',begin);
+  assert(begin>0&&end>begin,'Missing real atomic Data history commit implementation');
+  const code=field.slice(begin,end);
+  const run=async (scenario)=>{
+    const old={id:4,datasetType:'timeseries',derivedKind:'field_history_workspace',fieldHistoryKey:'probeA',
+      t:[0,9.8],y:[1420,1460],color:'#336699',visible:true,customLabel:'old label'};
+    const unrelated={id:5,datasetType:'timeseries',fieldHistoryKey:'other',visible:true,t:[0],y:[12]};
+    const state={active:true,companion:'timeseries',fieldTsSeq:1,fieldTsKeys:new Set()};
+    const series=[old,unrelated],status=[];
+    const controls={
+      timeSeriesVariable:{dataset:{},options:[{value:'probeA'},{value:'probeB'}],value:''},
+      timeSeriesVariable2:{options:[{value:'probeA'},{value:'probeB'}],value:'',disabled:true},
+      timeSeriesProbe:{dataset:{},value:'x'},timeSeriesFamily:{value:'x'},
+      fwPlotEmpty:{classList:{add(){}}}
+    };
+    let nextId=9,refresh=0;
+    const env=new Function('env',
+      'const fwState=env.state,series=env.series;let nextId=env.nextId;'+
+      'const fwFieldTsSetStatus=(s,error)=>env.status.push({s,error});'+
+      'const fwUi=x=>x,fwBuildOneFieldHistory=env.build;'+
+      'const automaticSeriesColor=env.color;'+
+      'const refreshDatasetControls=()=>env.refreshed();'+
+      'const refreshTimeSeriesControls=()=>env.refreshed();'+
+      'const renderList=()=>{},updateMeta=()=>{},draw=()=>{};'+
+      'const document={getElementById:id=>env.controls[id]||null};'+
+      'const console={error:()=>{}};'+code+
+      ';return {run:fwBuildFieldTimeSeries,commit:fwCommitFieldHistoryDrafts,next:()=>nextId};')({
+        state,series,nextId,controls,status,refreshed:()=>{refresh++},color:()=> '#ffcc00',
+        build:async slot=>{
+          if(slot===1)return {datasetType:'timeseries',derivedKind:'field_history_workspace',
+            fieldHistoryKey:'probeA',field:{canonical:'probeA'},t:[0,9.8],y:[1500,1600],visible:true};
+          if(scenario==='error')throw new Error('mold field unavailable at t=9.8 s');
+          if(scenario==='cancel'){state.fieldTsSeq++;return null}
+          if(scenario==='empty')return null;
+          return {datasetType:'timeseries',derivedKind:'field_history_workspace',
+            fieldHistoryKey:'probeB',field:{canonical:'probeB'},t:[0,9.8],y:[301,303],visible:true}
+        }
+      });
+    let failure=null;
+    try{await env.run()}catch(e){failure=e}
+    return {old,unrelated,series,state,env,refresh,status,failure}
+  };
+  // Async assertions are run in a child Node process so a rejected scientific
+  // field read exits nonzero and can never be mistaken for a passed sync test.
+  const {execFileSync}=require('node:child_process');
+  const runner='const assert=require("node:assert/strict");'+
+    'const run='+run.toString()+';'+
+    '(async()=>{'+
+    'const bad=await run("error");'+
+    'assert.match(bad.failure?.message||"",/mold field unavailable/);'+
+    'assert.deepEqual(bad.old.y,[1420,1460]);assert.equal(bad.old.visible,true);'+
+    'assert.equal(bad.series.length,2);assert.equal(bad.refresh,0);assert.equal(bad.env.next(),9);'+
+    'const cancelled=await run("cancel");'+
+    'assert.equal(cancelled.old.visible,true);assert.deepEqual(cancelled.old.y,[1420,1460]);'+
+    'assert.equal(cancelled.series.length,2);assert.equal(cancelled.env.next(),9);'+
+    'const success=await run("success");'+
+    'assert.equal(success.failure,null);assert.equal(success.series.length,3);'+
+    'assert.deepEqual(success.old.y,[1500,1600]);assert.equal(success.old.color,"#336699");'+
+    'assert.equal(success.old.customLabel,"old label");assert.equal(success.old.visible,true);'+
+    'assert.equal(success.unrelated.visible,true);assert.deepEqual(success.unrelated.y,[12]);'+
+    'assert.equal(success.series[2].id,9);assert.equal(success.series[2].color,"#ffcc00");'+
+    'assert.equal(success.series[2].visible,true);assert.equal(success.env.next(),10);'+
+    'assert.equal(success.state.fieldTsKeys.size,2);'+
+    'const noSecond=await run("empty");assert.equal(noSecond.series.length,2);'+
+    'assert.equal(noSecond.old.visible,true);assert.deepEqual(noSecond.old.y,[1500,1600]);'+
+    '})().catch(e=>{console.error(e);process.exitCode=1});';
+  execFileSync(process.execPath,['-e',runner],{encoding:'utf8',timeout:15000});
+  assert(field.includes('const drafts=[];')&&field.includes('const built=fwCommitFieldHistoryDrafts(drafts);'),
+    'Both OpenFOAM curves must be staged before the single UI commit');
+  for(const name of ['fwBuildProbeFieldHistory','fwBuildProfileHistory','fwBuildOneFieldHistory']){
+    const start=field.indexOf('async function '+name+'(');
+    const end=field.indexOf('\n}',start);
+    const producer=field.slice(start,end+2);
+    assert(!producer.includes('series.push(')&&!producer.includes('nextId++'),
+      'A cancelled scientific history producer must never mutate visible graph data: '+name)
+  }
+});
+
 test('Temperature-at-probe sampling uses correct cell values and finite geometric bounds',()=>{
   const start=field.indexOf('function fwNearestFlatIndex('),end=field.indexOf('function fwProfileSeriesAll()',start);
   assert(start>=0&&end>start,'Physical field sampling path missing');
