@@ -645,7 +645,7 @@ test('OpenFOAM video frame provenance distinguishes measured, missing, hidden an
   assert.equal(capture(9.8,main,scene,'metal').regions[1].state,'hidden');
   choices.get('mold').visible=true;
   scene.layers.delete('mold');
-  assert.throws(()=>capture(9.8,main,scene,'metal'),/visible OpenFOAM region missing/);
+  assert.throws(()=>capture(9.8,main,scene,'metal'),/Visible OpenFOAM region missing/);
   scene.layers.set('mold',{...original,sourceTime:7});
   assert.throws(()=>capture(9.8,main,scene,'metal'),/time mismatch/);
   assert.throws(()=>capture(9.8,{...main,time:0},scene,'metal'),/Primary field frame/);
