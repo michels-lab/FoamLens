@@ -129,6 +129,52 @@ test('probe module stays generic and contains no thesis fixture names',()=>{
   for(const banned of ['QuickCup','B3_reference','B12_','C12_'])assert(!source.includes(banned),'Project-specific token leaked into probe module: '+banned);
 });
 
+
+test('Field discovery refreshes visible Probe region choices without stale case options',()=>{
+  const fieldStart=fieldSource.indexOf('function fvRegionRefreshList(){');
+  const fieldEnd=fieldSource.indexOf('function fvRegionApplyVisibility(',fieldStart);
+  const probeStart=source.indexOf('function fpRefreshRegions(){');
+  const probeEnd=source.indexOf('function fpSecondaryRegionPick(',probeStart);
+  assert(fieldStart>=0&&fieldEnd>fieldStart&&probeStart>=0&&probeEnd>probeStart,
+    'Real Field/Probe selector refresh implementation must be available');
+  const select={options:[],_value:'auto',
+    get value(){return this._value},
+    set value(v){this._value=this.options.some(x=>x.value===v)?v:''},
+    replaceChildren(){this.options=[];this._value=''},
+    appendChild(option){this.options.push(option);if(this.options.length===1)this._value=option.value}
+  };
+  const rows={replaceChildren(){},innerHTML:''},panel={hidden:false},primary={value:'metal'};
+  const dom={getElementById:id=>({fvProbeRegion:select,fvRegion:primary,
+    fvMultiRegionRows:rows,fvMultiRegionPanel:panel}[id]||null),
+    createElement:()=>({value:'',textContent:''})};
+  let regions=['metal','mold'],refreshCount=0;
+  const probeWindow={FoamLensRegionScene:{regionNames:()=>regions}};
+  const refreshProbe=new Function('document','window','fvCase','fpUi',
+    source.slice(probeStart,probeEnd)+';return fpRefreshRegions;')(
+    dom,probeWindow,()=>({id:17}),x=>x);
+  const fieldWindow={FoamLensFieldProbe:{fpRefreshRegions:()=>{refreshCount++;refreshProbe()}}};
+  const refreshField=new Function('document','window','fvCase','fvRegionEnsureCase',
+    'fvRegionNames','fvRegionChoice','fvFieldGroups','fvRegionScene','fvEsc',
+    'fvAssociationLabel','flUi',
+    fieldSource.slice(fieldStart,fieldEnd)+';return fvRegionRefreshList;')(
+    dom,fieldWindow,()=>({id:17}),()=>{},()=>regions,
+    ()=>({visible:true,field:'T',opacity:.5}),()=>[],{layers:new Map()},
+    x=>String(x),()=>'',x=>x);
+  refreshField();
+  assert(select.options.some(x=>x.value==='region:metal'));
+  assert(select.options.some(x=>x.value==='region:mold'),
+    'Imported physical mold must be selectable; never leave only initial Auto/metal options');
+  select.value='region:mold';
+  refreshField();
+  assert.equal(select.value,'region:mold','Refreshing Field must preserve a valid explicit Probe region');
+  regions=['metal'];
+  refreshField();
+  assert.equal(select.options.some(x=>x.value==='region:mold'),false,
+    'Switching OpenFOAM cases must discard a region no longer present');
+  assert.equal(select.value,'auto','Invalid old region selection must fall back to Auto');
+  assert.equal(refreshCount,3,'Every Field inventory refresh must invoke the actual Probe API');
+});
+
 console.log('FoamLens 3D Field Probe regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 

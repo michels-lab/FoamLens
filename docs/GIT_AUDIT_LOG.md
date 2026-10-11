@@ -4231,3 +4231,10 @@ The required interpretation is structural integration rather than sticker placem
 - Both failed native runs are preserved, not treated as validation. New exact-HEAD Windows QuickCup / portable / installed gate is required before merge.
 
 - CI #1118 confirmed another private-bundler boundary: `fvTimeEqual` was not accessible from WebView2's external script context. The native smoke now uses explicit finite numeric time comparison on the already-validated physical layer, rather than calling private internals. For the same reason, Data/Field screenshot checks now read the **public** `window.FoamLensFieldView.getVideoDescriptor()` instead of private `fvState`. The real scientific raster and data APIs remain unchanged. Exact-head CI must confirm both interfaces before any merge.
+
+## 2026-10-11 UTC — PR #49 native Windows probe-region selector regression
+
+- **Evidence:** Exact-head Windows Action #1121 (run 38113972062, SHA `4c70764827729ca7fa92c3e44c28938aec9c93da`) compiled and passed real QuickCup and all 76 preceding build checks; composite metal/mold WebGL scene and real mold cell temperature at physical t=9.8 s passed. Packaged smoke failed when `selectorPresent=false` for the measured `mold` region, despite correct 303.063 K source/picked values. Installer and rendered-evidence steps were skipped; no release.
+- **Root cause:** `fvRegionRefreshList` called nonexistent optional `window.FoamLensFieldProbe.refreshRegions`, while the actual probe module exports `fpRefreshRegions`. Optional chaining silently skipped option reconstruction after OpenFOAM case discovery.
+- **Action:** Connect to the real exported refresh API, preserve valid selected probe regions and remove stale choices when changing cases; add executed-function regression for metal+mold discovery, selection persistence and stale-region removal.
+- **Validation:** Local JS function-execution check passed against the corrected code and mock DOM (3 refresh cycles); full exact-head Windows QuickCup, packaged Probe, installer and rendered workspace evidence still **pending** at commit time. No PR merge, version bump, release or Store work authorized by this fix.

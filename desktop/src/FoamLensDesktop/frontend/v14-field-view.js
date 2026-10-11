@@ -600,7 +600,7 @@ function fvRegionRefreshList(){
   const root=document.getElementById('fvMultiRegionRows'),panel=document.getElementById('fvMultiRegionPanel'),c=fvCase();
   if(!root||!panel)return;
   fvRegionEnsureCase(c);const names=fvRegionNames(c),primary=document.getElementById('fvRegion')?.value||'';
-  window.FoamLensFieldProbe?.refreshRegions?.();
+  window.FoamLensFieldProbe?.fpRefreshRegions?.();
   panel.hidden=names.length<2;
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
