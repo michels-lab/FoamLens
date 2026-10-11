@@ -1272,7 +1272,7 @@ test('visible same-time physical layers survive independent region activation wi
   const begin=source.indexOf('async function fvRegionLoadFrame(c,time,');
   const end=source.indexOf('window.FoamLensRegionScene=',begin);
   const parseStart=source.indexOf('function fvRegionPhysicalTime(raw){');
-  const parseEnd=source.indexOf('function fvRegionExactTime(',parseStart);
+  const parseEnd=source.indexOf('function fvRegionUnionBounds(',parseStart);
   assert(begin>0&&end>begin&&parseStart>0&&parseEnd>parseStart);
   const asyncScript=[
     'const assert=require("node:assert/strict");',
