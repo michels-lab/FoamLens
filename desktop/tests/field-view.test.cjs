@@ -1127,6 +1127,60 @@ test('camera fit excludes hidden primary and secondary regions without inventing
 });
 
 
+test('production renderer applies deterministic coplanar depth tie-offset only to opaque secondary triangles',()=>{
+  const begin=regionCode.indexOf('function fvSurfaceDepthWritable(');
+  const end=regionCode.indexOf('function fvRegionFitCamera()',begin);
+  assert(begin>0&&end>begin);
+  const run=new Function('moldOpacity','withExtension',[
+    'const events=[],draws=[];let enabled=false,offset=[0,0];',
+    'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,POLYGON_OFFSET_FILL:32823,',
+    'enable(x){if(x===32823)enabled=true},disable(x){if(x===32823)enabled=false},',
+    'polygonOffset(f,u){offset=[f,u];events.push(["offset",f,u])},',
+    'depthMask(){},depthFunc(){}};',
+    'if(!withExtension){delete gl.POLYGON_OFFSET_FILL;delete gl.polygonOffset;delete gl.disable}',
+    'const fvState={renderer:{gl},camera:{}};',
+    'const fvRegionScene={layers:new Map(),choices:new Map()};',
+    'const shape=name=>({gl,mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},',
+    'surfacePos:name,surfaceColor:name+"-colors",surfaceCount:3,edgeCount:0,faceFieldCount:0});',
+    // Deliberately reverse alphabetical insertion order to prove camera order
+    // and import order are NOT the tie-break source.
+    'fvRegionScene.layers.set("mold",shape("mold"));fvRegionScene.layers.set("fluid",shape("fluid"));',
+    'fvRegionScene.choices.set("mold",{visible:true,opacity:moldOpacity});',
+    'fvRegionScene.choices.set("fluid",{visible:true,opacity:1});',
+    'const fvClamp=(value,min,max)=>Math.max(min,Math.min(max,Number(value)));',
+    'const document={getElementById:id=>id==="fvSurface"?{checked:true}:{checked:false}};',
+    'const fvBindDraw=(renderer,pos,col,count,mode,alpha)=>draws.push({pos,alpha,enabled,offset:offset.slice()});',
+    regionCode.slice(begin,end),
+    "fvRegionRenderLayers('opaque');fvRegionRenderLayers('transparent');",
+    'return {draws,events,enabled,offset};'
+  ].join('\n'));
+  const opaque=run(1,true);
+  assert.deepStrictEqual(opaque.draws.map(d=>d.pos),['fluid','mold'],
+    'Opaque identical-depth physical regions must use deterministic names, not import order');
+  assert(opaque.draws.every(d=>d.enabled&&d.offset[0]===1&&d.offset[1]>0),
+    'Secondary opaque triangles must use a positive depth tie offset');
+  assert.deepStrictEqual(opaque.draws.map(d=>d.offset[1]),[1,2],
+    'Priority must stay stable across camera changes and input file ordering');
+  assert.equal(opaque.enabled,false,'Polygon offset state must be disabled after physical scene render');
+  assert.deepStrictEqual(opaque.offset,[0,0],'Polygon offset values must not leak into annotations or next frame');
+  const mixed=run(.48,true);
+  assert.deepStrictEqual(mixed.draws.map(d=>d.pos),['fluid','mold']);
+  assert.equal(mixed.draws[0].enabled,true);
+  assert.equal(mixed.draws[1].enabled,false,
+    'Translucent secondary faces must remain unbiased and must not write an artificial depth');
+  const fallback=run(1,false);
+  assert.deepStrictEqual(fallback.draws.map(d=>d.pos),['fluid','mold'],
+    'Depth tie handling must degrade without crashing if the GL context is incomplete');
+  assert(fallback.draws.every(d=>d.enabled===false));
+  const cleanup=new Function(regionCode.slice(begin,end)+
+    'const events=[];const gl={POLYGON_OFFSET_FILL:32823,enable(){events.push("enable")},'+
+    'disable(){events.push("disable")},polygonOffset(a,b){events.push(a+","+b)}};'+
+    'const fvRegionScene={layers:new Map([["mold",{}]])};'+
+    'try{fvRegionWithOpaqueTieOffset(gl,"mold",()=>{throw Error("forced draw failure")})}catch{};return events;')();
+  assert.deepStrictEqual(cleanup,['enable','1,1','disable','0,0'],
+    'Even a failing WebGL draw must restore shared polygon offset state');
+});
+
 test('transparent primary and secondary regions share a non-occluding depth policy',()=>{
   const writable=regionApi.fvSurfaceDepthWritable;
   assert.equal(writable(1),true,'Opaque exterior surfaces should write depth');
