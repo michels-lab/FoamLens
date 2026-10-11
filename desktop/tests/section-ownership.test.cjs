@@ -159,3 +159,57 @@ test('leaving Field preserves the outgoing plot snapshot until the surface manag
   assert.deepStrictEqual(simulate(null),{view:'timeseries',active:false},
     'Legacy fallback must still restore Data when no plot-surface manager exists');
 });
+
+
+test('Data difference selects only mutually available probes and fields and preserves a valid selection',()=>{
+  const start=dataHtml.indexOf('function differenceSharedProbeIds(');
+  const end=dataHtml.indexOf('function createDifferenceCurves(',start);
+  assert(start>=0&&end>start,'Data probe comparison implementation missing');
+  const source=dataHtml.slice(start,end);
+  const items=[
+    {caseId:1,datasetType:'timeseries',field:{canonical:'T'},probe:0},
+    {caseId:1,datasetType:'timeseries',field:{canonical:'T'},probe:5},
+    {caseId:2,datasetType:'timeseries',field:{canonical:'T'},probe:5},
+    {caseId:2,datasetType:'timeseries',field:{canonical:'T'},probe:7},
+    {caseId:1,datasetType:'timeseries',field:{canonical:'U'},probe:0},
+    {caseId:2,datasetType:'timeseries',field:{canonical:'U'},probe:9},
+    {caseId:3,datasetType:'timeseries',field:{canonical:'T'},probe:3},
+    {caseId:2,datasetType:'timeseries',field:{canonical:'T'},probe:null,derivedKind:'difference'}
+  ];
+  const cases=[{id:1,name:'A'},{id:2,name:'B'},{id:3,name:'C'}];
+  class Select{
+    constructor(value=''){this._value=String(value);this.options=[];this.style={};this.dataset={};this.disabled=false}
+    get value(){return this._value}
+    set value(v){v=String(v);this._value=this.options.some(o=>o.value===v)?v:''}
+    set innerHTML(markup){
+      this.options=[...String(markup).matchAll(/<option value="([^"]*)">/g)].map(m=>({value:m[1]}));
+      this._value=this.options[0]?.value||''
+    }
+  }
+  const fields={differenceCaseA:new Select(),differenceCaseB:new Select(),differenceVariable:new Select(),differenceProbe:new Select(),differenceProbeField:{style:{}},
+    differenceLogMemberAField:{classList:{toggle:()=>{}}},differenceLogMemberBField:{classList:{toggle:()=>{}}},
+    differenceLogMemberA:new Select(),differenceLogMemberB:new Select(),createDifference:{disabled:false}};
+  for(const [id,value] of [['differenceCaseA','1'],['differenceCaseB','2'],['differenceVariable','T'],['differenceProbe','5']]){
+    fields[id].innerHTML='<option value="'+value+'"></option>';fields[id].value=value
+  }
+  const $=id=>fields[id];
+  const core=new Function('series','cases','$','datasetTypeOf','profileVariablePriority','localizedFieldName','esc','tr','flUi','currentDataView',
+    source+';return {shared:differenceSharedProbeIds,refresh:refreshDifferenceControls,scope:differenceScopeSeries};')(
+      items,cases,$,s=>s.datasetType||'timeseries',()=>0,f=>f.canonical,s=>s,s=>s,(en)=>en,'timeseries');
+  assert.deepStrictEqual(core.shared(items,1,2,'T'),[5]);
+  assert.deepStrictEqual(core.shared(items,1,2,'U'),[]);
+  core.refresh();
+  assert.equal(fields.differenceVariable.value,'T','Only a mutually comparable variable should be selectable');
+  assert.deepStrictEqual(fields.differenceProbe.options.map(x=>x.value),['5']);
+  assert.equal(fields.differenceProbe.value,'5');
+  assert.equal(fields.createDifference.disabled,false);
+  assert.deepStrictEqual(core.scope(1,'T').map(s=>s.probe),[5]);
+  fields.differenceProbe.value='';
+  assert.deepStrictEqual(core.scope(1,'T'),[],'Blank probe must never coerce to probe 0');
+  fields.differenceCaseB.value='3';core.refresh();
+  assert.equal(fields.createDifference.disabled,true,'Cases with no common probe must be blocked');
+  assert.equal(fields.differenceProbe.value,'');
+  fields.differenceCaseB.value='2';core.refresh();
+  assert.equal(fields.differenceProbe.value,'5','Restore the shared probe when compatible cases return');
+  assert.equal(fields.createDifference.disabled,false);
+});
