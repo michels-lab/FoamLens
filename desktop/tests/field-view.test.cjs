@@ -1033,7 +1033,7 @@ test('region rendering never fabricates physical t=0 from missing OpenFOAM time 
 });
 
 test('real multi-region frame loader rejects missing clock metadata before releasing valid WebGL layers',()=>{
-  const a=source.indexOf('async function fvRegionLoadFrame(c,time){');
+  const a=source.indexOf('async function fvRegionLoadFrame(c,time,');
   const b=source.indexOf('window.FoamLensRegionScene=',a);
   assert(a>=0&&b>a,'Actual physical-region async loader must be extracted');
   const physicalTimeStart=source.indexOf('function fvRegionPhysicalTime(raw){');
