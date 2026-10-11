@@ -1524,10 +1524,12 @@ internal sealed class FoamLensForm : Form
                         const primaryCaseBeforeSwap=String(document.getElementById('fvCase')?.value||'');
                         const comparisonCaseBeforeSwap=String(document.getElementById('fcCase')?.value||'');
                         const firstSwap=await api.swapPrimaryCompare();
+                        const afterFirstSwap={primary:String(document.getElementById('fvCase')?.value||''),comparison:String(document.getElementById('fcCase')?.value||'')};
                         const swapApplied=firstSwap===true&&
                           String(document.getElementById('fvCase')?.value||'')===comparisonCaseBeforeSwap&&
                           String(document.getElementById('fcCase')?.value||'')===primaryCaseBeforeSwap;
                         const secondSwap=await api.swapPrimaryCompare();
+                        const afterSecondSwap={primary:String(document.getElementById('fvCase')?.value||''),comparison:String(document.getElementById('fcCase')?.value||'')};
                         const swapRestored=secondSwap===true&&
                           String(document.getElementById('fvCase')?.value||'')===primaryCaseBeforeSwap&&
                           String(document.getElementById('fcCase')?.value||'')===comparisonCaseBeforeSwap;
@@ -1539,6 +1541,12 @@ internal sealed class FoamLensForm : Form
                           copySettingsApplied,
                           swapApplied,
                           swapRestored,
+                          firstSwap,
+                          secondSwap,
+                          primaryCaseBeforeSwap,
+                          comparisonCaseBeforeSwap,
+                          afterFirstSwap,
+                          afterSecondSwap,
                           expectedCase:expectedCaseName,
                           secondaryCase:view2?.caseName||'',
                           secondaryField:view2?.fieldName||'',
