@@ -1078,3 +1078,25 @@ test('comparison view metadata lives under scenes and long numeric values are re
   assert(compare.includes('.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))'),
     'Legend tick values must not overlap in narrow comparison viewports');
 });
+
+
+test('field case selector keeps explicit A-case on metadata refresh and Compare swaps',()=>{
+  const start=source.indexOf('const mount=()=>{if(!fvInstallUi())return false;');
+  const end=source.indexOf('};',start);
+  assert(start>=0&&end>start,'Field integration mount selector policy missing');
+  const mountCode=source.slice(start,end+2);
+  const mountedOptions=count=>{
+    const calls=[];
+    new Function('fvInstallUi','fvRefreshSelectors','document',mountCode+';mount();')(
+      ()=>true,preserve=>calls.push(preserve),
+      {getElementById:()=>({options:Array(count).fill({value:'case'})})}
+    );
+    return calls
+  };
+  assert.deepStrictEqual(mountedOptions(0),[false],
+    'New empty selector must pick the initial 3D case once');
+  assert.deepStrictEqual(mountedOptions(3),[true],
+    'Existing 3D case selection must survive metadata/dataset refresh and Swap A/B');
+  assert(!source.includes('setTimeout(()=>{mount();fvRefreshSelectors(true)},0)'),
+    'Duplicate refresh must not rebuild or reselect A after asynchronous updates');
+});
