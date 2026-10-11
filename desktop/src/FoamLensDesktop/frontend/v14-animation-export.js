@@ -11,7 +11,7 @@ function vaPrimaryGroup(){
   try{return typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null}catch{return null}
 }
 function vaTimes(){
-  const g=vaPrimaryGroup();return (g?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b)
+  const g=vaPrimaryGroup();return (g?.times||[]).map(raw=>{const resolve=window.FoamLensRegionScene?.physicalTime;if(typeof resolve==='function')return resolve(raw);return (typeof raw==='number'||typeof raw==='string')&&String(raw).trim()!==''?Number(raw):NaN}).filter(Number.isFinite).sort((a,b)=>a-b)
 }
 function vaRefreshTimeSelectors(){
   const times=vaTimes(),start=document.getElementById('fvVideoStart'),end=document.getElementById('fvVideoEnd');if(!start||!end)return;
