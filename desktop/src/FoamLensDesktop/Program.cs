@@ -250,6 +250,83 @@ internal sealed class FoamLensForm : Form
         Log("FoamLens rendered Home/About evidence captured and verified across wide/compact viewports.");
     }
 
+
+    // Scientific rendered-evidence contract: capture the actual imported
+    // QuickCup Data/Field workspaces from portable AND installed WebView2.
+    // Toolbars must allocate real layout space rather than mask the 3D canvas.
+    private async Task CaptureScientificWorkspaceEvidenceAsync()
+    {
+        var root = Environment.GetEnvironmentVariable("FOAMLENS_BRAND_EVIDENCE_DIR");
+        if (string.IsNullOrWhiteSpace(root)) return;
+        Directory.CreateDirectory(root);
+        await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.enable", "{}");
+        try
+        {
+            foreach (var size in new[] { (Width: 1140, Height: 820, Name: "wide"), (Width: 640, Height: 900, Name: "compact") })
+            {
+                var metrics = $"{{\"width\":{size.Width},\"height\":{size.Height},\"deviceScaleFactor\":1,\"mobile\":false}}";
+                await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride", metrics);
+                var fieldState = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRibbonTab-field')?.click();
+                      const canvas=document.getElementById('fvCanvas');
+                      const tools=document.querySelector('#fieldViewPanel .fvViewTools');
+                      const panel=document.getElementById('fieldViewPanel');
+                      const physical=window.FoamLensRegionScene?.state?.();
+                      const probe=document.getElementById('fvProbeRegion');
+                      const rect=x=>x?.getBoundingClientRect();
+                      const a=rect(canvas),b=rect(tools),v=rect(panel);
+                      const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+                        Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
+                      const hasField=!!fvState?.mesh&&fvState.fieldValues?.length>0;
+                      const ok=!!canvas&&!!tools&&!!panel&&!!probe&&
+                        !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
+                        !!v&&v.width>180&&overlap<1&&hasField&&
+                        physical?.layers?.size>0;
+                      return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
+                        toolbarHeight:b?.height,toolbarCanvasOverlap:overlap,
+                        primaryCells:fvState?.mesh?.cellCount||0,
+                        secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
+                await Task.Delay(180);
+                await CaptureCdpPngAsync(Path.Combine(root, $"field-{size.Name}.png"));
+
+                var dataState = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRibbonTab-data')?.click();
+                      const panel=document.getElementById('fieldViewPanel');
+                      const compare=document.getElementById('flDataComparisonCard');
+                      const tools=['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'];
+                      const own=tools.every(id=>!!document.getElementById(id));
+                      const fieldRect=panel?.getBoundingClientRect();
+                      const fieldHidden=!fieldRect||fieldRect.width<1||getComputedStyle(panel).display==='none';
+                      const chart=document.getElementById('chartViewport');
+                      const rect=chart?.getBoundingClientRect();
+                      const ok=own&&!!compare&&!!chart&&!!rect&&rect.width>180&&
+                        fieldHidden&&!chart.contains(panel);
+                      return {ok,viewport:innerWidth,dataTools:tools.length,fieldHidden,
+                        chartWidth:rect?.width,chartHeight:rect?.height,comparisonCard:!!compare};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(dataState).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException("Real Data scientific 2D surface evidence failed in " + size.Name + ": " + dataState);
+                await Task.Delay(140);
+                await CaptureCdpPngAsync(Path.Combine(root, $"data-{size.Name}.png"));
+                Log("FoamLens real Data/Field screenshot geometry passed: field=" + fieldState + " data=" + dataState);
+            }
+        }
+        finally
+        {
+            await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
+            await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
     private async Task CaptureCdpPngAsync(string fullPath)
     {
         var response = await _web.CoreWebView2.CallDevToolsProtocolMethodAsync(
@@ -1688,6 +1765,7 @@ internal sealed class FoamLensForm : Form
                 await _web.CoreWebView2.ExecuteScriptAsync(
                     "delete window.__foamLensRealCaseSmokeResult;");
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
+                await CaptureScientificWorkspaceEvidenceAsync();
             }
 
             // Verify that JavaScript work continues while the native window is minimized.
