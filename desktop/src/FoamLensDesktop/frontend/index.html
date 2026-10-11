@@ -3519,13 +3519,28 @@ function startProfileAnimation(){
 }
 function stopAllPlayback(){stopProfileAnimation();stopLogAnimation()}
 function restartPlaybackForSpeed(){if(profileAnimationPlaying)startProfileAnimationTimer();if(logAnimationPlaying)startLogAnimationTimer()}
+function differenceSharedProbeIds(all,caseA,caseB,canonical){
+  // A physical probe comparison is defined only where both selected cases
+  // contain the same probe index for the same OpenFOAM variable.
+  const probesFor=caseId=>new Set(all.filter(s=>
+    s.caseId===caseId&&s.field?.canonical===canonical&&
+    datasetTypeOf(s)==='timeseries'&&s.derivedKind!=='difference'&&Number.isFinite(s.probe)
+  ).map(s=>s.probe));
+  const a=probesFor(caseA),b=probesFor(caseB);
+  return [...a].filter(p=>b.has(p)).sort((x,y)=>x-y)
+}
 function differenceScopeSeries(caseId,canonical){
   let ss=series.filter(s=>s.caseId===caseId&&s.field?.canonical===canonical&&datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference');
   if(currentDataView==='profile'){
     const set=$('profileSet').value,time=$('profileTime').value,line=$('profileLine').value,compare=$('compareHeights').checked;
     ss=ss.filter(s=>(!set||(s.profileOutputPath||'')===set)&&profileTimeEqual(s.profileTime,time)&&(compare||!line||s.profileLineKey===line))
   }else if(currentDataView==='timeseries'){
-    const probe=Number($('differenceProbe').value);if(Number.isFinite(probe))ss=ss.filter(s=>s.probe===probe)
+    // An empty <select> coerces to zero in JavaScript. Never silently compare
+    // probe 0 when there is no valid pair selected.
+    const raw=String($('differenceProbe')?.value??'');
+    if(raw==='')return[];
+    const probe=Number(raw);if(!Number.isFinite(probe))return[];
+    ss=ss.filter(s=>s.probe===probe)
   }else if(currentDataView==='log'){const fam=$('logFamily')?.value||'';if(fam)ss=ss.filter(s=>s.logFamily===fam)}
   return ss
 }
@@ -3534,11 +3549,13 @@ function differenceVariableOptions(){
     const set=$('profileSet')?.value||'';return [...new Map(profileOptionsBase().filter(s=>!set||(s.profileOutputPath||'')===set).map(s=>[s.field.canonical,s.field])).values()]
   }
   if(currentDataView==='log')return [...new Map(logOptionsBase().filter(s=>s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()];
+  const a=Number($('differenceCaseA')?.value),b=Number($('differenceCaseB')?.value);
   return [...new Map(series.filter(s=>datasetTypeOf(s)==='timeseries'&&s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()]
+    .filter(f=>Number.isFinite(a)&&Number.isFinite(b)&&differenceSharedProbeIds(series,a,b,f.canonical).length>0)
 }
 function refreshDifferenceControls(){
   const a=$('differenceCaseA'),b=$('differenceCaseB'),v=$('differenceVariable'),pf=$('differenceProbeField');if(!a||!b||!v)return;
-  const oldA=a.value,oldB=b.value,oldV=v.value,oldMA=$('differenceLogMemberA')?.value,oldMB=$('differenceLogMemberB')?.value;
+  const oldA=a.value,oldB=b.value,oldV=v.value,oldProbe=$('differenceProbe')?.value??'',oldMA=$('differenceLogMemberA')?.value,oldMB=$('differenceLogMemberB')?.value;
   const relevant=cases.filter(c=>series.some(s=>s.caseId===c.id&&datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference'));
   const opts=relevant.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   a.innerHTML=opts;b.innerHTML=opts;
@@ -3558,8 +3575,13 @@ function refreshDifferenceControls(){
 
   pf.style.display=currentDataView==='timeseries'?'':'none';
   if(currentDataView==='timeseries'){
-    const probes=[...new Set(series.filter(s=>datasetTypeOf(s)==='timeseries'&&s.field.canonical===v.value&&s.derivedKind!=='difference').map(s=>s.probe).filter(Number.isFinite))].sort((x,y)=>x-y);
-    $('differenceProbe').innerHTML=probes.map(p=>`<option value="${p}">${tr('probe')} ${p}</option>`).join('')
+    const probes=differenceSharedProbeIds(series,Number(a.value),Number(b.value),v.value);
+    const probeSelect=$('differenceProbe');
+    probeSelect.innerHTML=probes.length
+      ?probes.map(p=>`<option value="${p}">${tr('probe')} ${p}</option>`).join('')
+      :`<option value="">${flUi('No common probes','Sin sondas comunes')}</option>`;
+    if(probes.some(p=>String(p)===String(oldProbe)))probeSelect.value=String(oldProbe);
+    else if(probes.length)probeSelect.value=String(probes[0]);
   }
 
   const isLog=currentDataView==='log';
@@ -3575,7 +3597,8 @@ function refreshDifferenceControls(){
     else if(mb.length)$('differenceLogMemberB').value=String(mb.at(-1))
   }
 
-  $('createDifference').disabled=!vars.length||(currentDataView!=='log'&&relevant.length<2)||(currentDataView==='log'&&!relevant.length)
+  const validProbe=currentDataView!=='timeseries'||differenceSharedProbeIds(series,Number(a.value),Number(b.value),v.value).length>0;
+  $('createDifference').disabled=!vars.length||!validProbe||(currentDataView!=='log'&&(relevant.length<2||a.value===b.value))||(currentDataView==='log'&&!relevant.length)
 }
 function createDifferenceCurves(){
   const aId=Number($('differenceCaseA').value),bId=Number($('differenceCaseB').value),canonical=$('differenceVariable').value;
