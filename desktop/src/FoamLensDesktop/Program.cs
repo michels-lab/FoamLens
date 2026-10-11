@@ -282,6 +282,39 @@ internal sealed class FoamLensForm : Form
                       const panel=document.getElementById('fieldViewPanel');
                       const physical=window.FoamLensRegionScene?.state?.();
                       const probe=document.getElementById('fvProbeRegion');
+                      // Validate an actual measured secondary OpenFOAM field:
+                      // its own inspector colormap/legend must reflect the same
+                      // physical time, while the primary colormap stays unchanged.
+                      const secondary=[...(physical?.layers||[])].find(([,layer])=>layer?.colored);
+                      const measuredLayer=secondary?.[1],secondaryName=secondary?.[0];
+                      const regionRow=[...document.querySelectorAll('#fvMultiRegionRows [data-fv-region-row]')]
+                        .find(el=>el.dataset.fvRegionRow===secondaryName);
+                      const regionPalette=regionRow?.querySelector('[data-fv-region-palette]');
+                      const regionLegend=regionRow?.querySelector('.fvRegionLegend');
+                      const colorBar=regionLegend?.querySelector('.fvRegionLegendBar');
+                      const primaryPalette=document.getElementById('fvPalette');
+                      const primaryPaletteBefore=primaryPalette?.value;
+                      const regionLegendMeasured=!!secondary&&!!regionRow&&!!regionPalette&&!!colorBar&&
+                        colorBar.getBoundingClientRect().width>70&&
+                        regionLegend.textContent.includes(measuredLayer.field)&&
+                        Number.isFinite(measuredLayer.sourceTime)&&
+                        Number.isFinite(measuredLayer.paintRange?.min)&&
+                        Number.isFinite(measuredLayer.paintRange?.max)&&
+                        !measuredLayer.geometryOnly;
+                      let independentRegionPalette=false;
+                      if(regionLegendMeasured){
+                        const before=regionPalette.value,next=before==='turbo'?'coolwarm':'turbo';
+                        regionPalette.value=next;
+                        regionPalette.dispatchEvent(new Event('change',{bubbles:true}));
+                        const updated=physical.layers.get(secondaryName);
+                        independentRegionPalette=updated?.palette===next&&
+                          primaryPalette?.value===primaryPaletteBefore&&
+                          !!regionRow.querySelector('.fvRegionLegendBar')?.style.backgroundImage.includes('linear-gradient');
+                        // The evidence screenshot keeps the originally selected
+                        // physical color map after exercising live GPU recoloring.
+                        regionPalette.value=before;
+                        regionPalette.dispatchEvent(new Event('change',{bubbles:true}));
+                      }
                       const rect=x=>x?.getBoundingClientRect();
                       const a=rect(canvas),b=rect(tools),v=rect(panel);
                       const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
@@ -295,8 +328,10 @@ internal sealed class FoamLensForm : Form
                         !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
-                        physical?.layers?.size>0;
+                        physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
+                        regionLegendMeasured,independentRegionPalette,region:secondaryName,
+                        regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
                         cameraDocked,toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
