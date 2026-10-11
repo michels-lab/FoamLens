@@ -562,7 +562,20 @@ function fvRegionUnionBounds(meshes){
 }
 function fvRegionReleaseLayer(layer){
   const gl=layer?.gl;if(!gl)return;
-  for(const k of ['surfacePos','surfaceColor','edgePos','edgeColor','faceFieldPos','faceFieldColor'])if(layer[k])gl.deleteBuffer(layer[k])
+  for(const k of ['surfacePos','surfaceColor','edgePos','edgeColor','faceFieldPos','faceFieldColor']){
+    if(layer[k]){gl.deleteBuffer(layer[k]);layer[k]=null}
+  }
+  // Bytes describe uploaded typed-array payload, never total driver VRAM.
+  layer.gpuPayloadBytes=0
+}
+function fvRegionGpuPayloadStats(){
+  let regionCount=0,payloadBytes=0;
+  for(const layer of fvRegionScene.layers.values()){
+    if(!layer?.gl)continue;
+    regionCount++;
+    payloadBytes+=Number(layer.gpuPayloadBytes)||0
+  }
+  return {regionCount,payloadBytes,scope:'secondary-region WebGL buffer payload only; excludes primary renderer and driver allocations'}
 }
 function fvRegionClearLayers(){
   ++fvRegionScene.sequence;
@@ -719,8 +732,20 @@ function fvRegionInstallEvents(){
     fvRegionChoice(c,row.dataset.fvRegionRow).opacity=fvClamp(e.target.value,.1,1);fvRender()
   })
 }
-function fvRegionMakeBuffer(gl,values){
-  const buffer=gl.createBuffer();if(!buffer)throw new Error('WebGL region buffer allocation failed');gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,values,gl.STATIC_DRAW);return buffer
+function fvRegionMakeBuffer(gl,values,layer){
+  const buffer=gl.createBuffer();if(!buffer)throw new Error('WebGL region buffer allocation failed');
+  try{
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+    gl.bufferData(gl.ARRAY_BUFFER,values,gl.STATIC_DRAW);
+    // This is the exact typed-array upload size, not an estimate of driver VRAM.
+    if(layer)layer.gpuPayloadBytes+=(Number(values?.byteLength)||0);
+    return buffer
+  }catch(error){
+    // The buffer has not been assigned to layer yet. The outer layer cleanup
+    // cannot see it, so release here even if bindBuffer/bufferData throws.
+    try{gl.deleteBuffer(buffer)}catch{} 
+    throw error
+  }
 }
 function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
@@ -745,15 +770,15 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   const layer={gl,region,mesh,probePositions:shape.surfacePositions,field:data?.group?.name||'',fieldValues:values||null,storage,range,paintRange,parsed:data?.parsed||null,time,
     sourceTime:Number.isFinite(data?.sourceTime)?data.sourceTime:null,geometryOnly:!data?.fieldValues,
     palette,faceTriangleFaces:face?.triangleFaces||null,
-    status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount};
+    status:data?.status||'',colored:colored||faceCount>0,surfaceCount:shape.surfacePositions.length/3,edgeCount:shape.edgePositions.length/3,faceFieldCount:faceCount,gpuPayloadBytes:0};
   try{
-    layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions);
-    layer.surfaceColor=fvRegionMakeBuffer(gl,colors);
-    layer.edgePos=fvRegionMakeBuffer(gl,shape.edgePositions);
-    layer.edgeColor=fvRegionMakeBuffer(gl,edgeColors);
+    layer.surfacePos=fvRegionMakeBuffer(gl,shape.surfacePositions,layer);
+    layer.surfaceColor=fvRegionMakeBuffer(gl,colors,layer);
+    layer.edgePos=fvRegionMakeBuffer(gl,shape.edgePositions,layer);
+    layer.edgeColor=fvRegionMakeBuffer(gl,edgeColors,layer);
     if(faceCount>0){
-      layer.faceFieldPos=fvRegionMakeBuffer(gl,face.positions);
-      layer.faceFieldColor=fvRegionMakeBuffer(gl,fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette))
+      layer.faceFieldPos=fvRegionMakeBuffer(gl,face.positions,layer);
+      layer.faceFieldColor=fvRegionMakeBuffer(gl,fvInternalFaceColors(face.triangleFaces,values,paintRange.min,paintRange.max,palette),layer)
     }
     return layer
   }catch(err){fvRegionReleaseLayer(layer);throw err}
@@ -902,7 +927,7 @@ async function fvRegionLoadFrame(c,time){
 }
 window.FoamLensRegionScene={
   regionNames:fvRegionNames,physicalTime:fvRegionPhysicalTime,exactTime:fvRegionExactTime,unionBounds:fvRegionUnionBounds,
-  state:()=>fvRegionScene,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera,
+  state:()=>fvRegionScene,gpuPayloadStats:fvRegionGpuPayloadStats,refresh:fvRegionRefreshList,load:fvRegionLoadFrame,fit:fvRegionFitCamera,
   beginVideoRangeScan:fvRegionBeginVideoRangeScan,endVideoRangeScan:fvRegionEndVideoRangeScan,setVideoRanges:fvRegionSetVideoRanges
 };
 
