@@ -4172,3 +4172,9 @@ The required interpretation is structural integration rather than sticker placem
 - Issue #30 review found `desktop/tests/ribbon-ui.test.cjs` asserted retired identifier `flRaDataTime` using `source.includes`. That assertion passed accidentally because the real `flRaDataTimeSeries` contains the old string as a prefix.
 - Updated the test to check the canonical `flRaDataTimeSeries` command, its actual Data Ribbon HTML creation and the `flRibbonOpenDataView('timeseries')` navigation binding. Also explicitly reject rebinding the retired command.
 - Scope is regression-test hardening only; no UI or science implementation has changed. Exact-head Windows/QuickCup CI and native interactions remain pending. No release.
+
+## 2026-10-10 — Data/Field plot-view restoration root fix (issue #30)
+- Found a lifecycle ordering bug: `fwLeave()` overwrote `currentDataView` with `dataViewBeforeField` before `FoamLensPlotSurfaces.activate()` captured the outgoing Field surface. This could persist the Data tab as the Field plot view, losing Field's own profile/time-series/log selection when navigating back.
+- Keep the Field view intact for the independent surface manager's capture, and retain the previous Data view fallback only when no Field plot surface is active. Do not move controls or change the approved UI.
+- A focused executed JavaScript mock verified the old function incorrectly changed Field's `profile` to Data's `timeseries`; the corrected function preserves `profile` for active Field surfaces and restores `timeseries` in legacy fallback. The permanent Node `section-ownership.test.cjs` suite now includes this regression.
+- Pending: exact-head Windows Actions + real Data → Field (profile/time series/log) → Data → Field native interaction, packaging and screenshots. No version bump or release.
