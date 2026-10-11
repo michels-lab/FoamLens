@@ -423,7 +423,9 @@ async function fwBuildFieldTimeSeries(){
   const p=document.getElementById('timeSeriesVariable'),s2=document.getElementById('timeSeriesVariable2'),probe=document.getElementById('timeSeriesProbe'),family=document.getElementById('timeSeriesFamily');
   if(p){delete p.dataset.showAll;if([...p.options].some(o=>o.value===built[0].field.canonical))p.value=built[0].field.canonical}
   if(s2){const second=built[1]?.field?.canonical||'';if(second&&second!==built[0].field.canonical&&[...s2.options].some(o=>o.value===second)){s2.disabled=false;s2.value=second}else s2.value=''}
-  if(probe)probe.value='';if(family)family.value='';
+  // Two real histories may originate from different probes or viewports.
+  // Keep both curves visible instead of reselecting the first probe.
+  if(probe){probe.value='';probe.dataset.autoinit='1'}if(family)family.value='';
   try{refreshTimeSeriesControls()}catch{};try{renderList();updateMeta();draw()}catch(e){console.error(e)}
   fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D'));
   const empty=document.getElementById('fwPlotEmpty');empty?.classList.add('hidden')
