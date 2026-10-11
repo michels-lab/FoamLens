@@ -21,7 +21,10 @@ test('multiregion candidate retains exact-frame native evidence contract',()=>{
 
 test('physical regions stay independently visible and editable in one scene',()=>{
   for(const token of [
-    'fvRegionRenderLayers()',
+    "fvRegionRenderLayers('opaque')",
+    "fvRegionRenderLayers('transparent'",
+    "const sorted=[...fvRegionScene.layers].filter(",
+    "sorted.sort((a,b)=>layerDepth(b[1])-layerDepth(a[1])",
     'fvRegionBuildLayer(',
     'fvRegionChoice(',
     'fvRegionExactTime(',
