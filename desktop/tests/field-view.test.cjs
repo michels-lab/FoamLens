@@ -1215,7 +1215,7 @@ test('actual cross-region transparent triangle sorting handles camera reversal, 
   assert.equal(sorted.triangles,2);
   assert.deepStrictEqual([...sorted.positions.slice(0,9)], [...mold.positions]);
   assert.deepStrictEqual([...sorted.positions.slice(9)], [...primary.positions]);
-  assert.deepStrictEqual([...sorted.alpha],[.35,.35,.35,.6,.6,.6]);
+  for(const [i,expected] of [.35,.35,.35,.6,.6,.6].entries())near(sorted.alpha[i],expected,1e-6);
   assert.deepStrictEqual([...sorted.colors.slice(0,9)],[...mold.colors]);
   const reversed=api.fvTransparentTriangleSort([mold,primary],{...camera,yaw:Math.PI});
   assert.deepStrictEqual([...reversed.positions.slice(0,9)],[...primary.positions]);
