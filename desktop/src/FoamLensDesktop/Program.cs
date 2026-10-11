@@ -1209,9 +1209,43 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException(
                         $"FoamLens real-case smoke folder does not exist: {fullCasePath}");
 
-                // Actual Windows host-process memory measured before native OpenFOAM import.
-                // WebView2 child processes and graphics-driver VRAM are not included.
-                var smokeHostWorkingSetBefore = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;
+                // Sample both our native host and the real WebView2 environment.
+                // GetProcessInfos() belongs to the WebView2 user-data folder and
+                // excludes Crashpad. Values are resident *process* memory, NOT
+                // driver graphics-card VRAM or total machine memory.
+                (long WorkingBytes, long PrivateBytes, int Observed, int Unreadable)
+                    SampleWebView2Resident()
+                {
+                    var seen = new HashSet<int>();
+                    long working = 0, privateBytes = 0;
+                    var observed = 0;
+                    var unreadable = 0;
+                    foreach (var info in _web.CoreWebView2.Environment.GetProcessInfos())
+                    {
+                        if (!seen.Add(info.ProcessId)) continue;
+                        try
+                        {
+                            using var process = System.Diagnostics.Process.GetProcessById(info.ProcessId);
+                            process.Refresh();
+                            working = checked(working + process.WorkingSet64);
+                            privateBytes = checked(privateBytes + process.PrivateMemorySize64);
+                            observed++;
+                        }
+                        catch (ArgumentException) { unreadable++; }
+                        catch (InvalidOperationException) { unreadable++; }
+                        catch (System.ComponentModel.Win32Exception) { unreadable++; }
+                    }
+                    return (working, privateBytes, observed, unreadable);
+                }
+
+                using var baselineHost = System.Diagnostics.Process.GetCurrentProcess();
+                baselineHost.Refresh();
+                var smokeHostWorkingSetBefore = baselineHost.WorkingSet64;
+                var smokeHostPrivateBytesBefore = baselineHost.PrivateMemorySize64;
+                var smokeWebViewBefore = SampleWebView2Resident();
+                if (smokeWebViewBefore.Observed == 0)
+                    throw new InvalidOperationException(
+                        "Real WebView2 memory baseline unavailable; cannot infer full FoamLENS memory from host alone.");
                 var smokeRefs = BuildSmokeNativeFileRefs(fullCasePath);
                 if (smokeRefs.Count < 4)
                     throw new InvalidOperationException(
@@ -1599,13 +1633,39 @@ internal sealed class FoamLensForm : Form
                     }
                 }
 
-                // Real resident-memory observation for the imported physical
-                // QuickCup case; log the host scope and exclude unmeasured GPU VRAM.
+                // Real resident-memory observation after importing actual B13
+                // metal/mold. Sum host + WebView2 processes from this WebView2
+                // user-data folder; never mislabel the sum as GPU VRAM.
                 using (var host = System.Diagnostics.Process.GetCurrentProcess())
                 {
                     host.Refresh();
-                    var working = host.WorkingSet64;
-                    Log($"FoamLens real OpenFOAM memory [host-only]: workingSetBeforeBytes={smokeHostWorkingSetBefore}, workingSetAfterBytes={working}, deltaBytes={working-smokeHostWorkingSetBefore}, peakWorkingSetBytes={host.PeakWorkingSet64}, privateBytes={host.PrivateMemorySize64}; WebView2 child processes and GPU VRAM excluded.");
+                    var afterWeb = SampleWebView2Resident();
+                    if (afterWeb.Observed == 0)
+                        throw new InvalidOperationException(
+                            "Real WebView2 processes not measurable after OpenFOAM import.");
+                    var totalBefore = checked(smokeHostWorkingSetBefore + smokeWebViewBefore.WorkingBytes);
+                    var totalAfter = checked(host.WorkingSet64 + afterWeb.WorkingBytes);
+                    var report = new
+                    {
+                        scope = "Windows host + WebView2 user-data-folder resident process memory; crashpad and GPU driver VRAM excluded",
+                        nativeFixture = "actual imported OpenFOAM QuickCup metal/mold",
+                        residentWorkingSetBeforeBytes = totalBefore,
+                        residentWorkingSetAfterBytes = totalAfter,
+                        residentWorkingSetDeltaBytes = totalAfter - totalBefore,
+                        privateBytesBefore = checked(smokeHostPrivateBytesBefore + smokeWebViewBefore.PrivateBytes),
+                        privateBytesAfter = checked(host.PrivateMemorySize64 + afterWeb.PrivateBytes),
+                        hostWorkingSetBeforeBytes = smokeHostWorkingSetBefore,
+                        hostWorkingSetAfterBytes = host.WorkingSet64,
+                        hostPeakWorkingSetBytes = host.PeakWorkingSet64,
+                        webView2WorkingSetBeforeBytes = smokeWebViewBefore.WorkingBytes,
+                        webView2WorkingSetAfterBytes = afterWeb.WorkingBytes,
+                        webView2ProcessesBefore = smokeWebViewBefore.Observed,
+                        webView2ProcessesAfter = afterWeb.Observed,
+                        webView2UnreadableBefore = smokeWebViewBefore.Unreadable,
+                        webView2UnreadableAfter = afterWeb.Unreadable,
+                        includesGpuDriverVram = false
+                    };
+                    Log($"FoamLens real OpenFOAM process memory: {JsonSerializer.Serialize(report, _json)}");
                 }
 
                 // Validate the exact multi-view defects reported by the user:
