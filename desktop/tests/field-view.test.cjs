@@ -935,7 +935,7 @@ test('one 3D canvas recognizes distinct physical regions without treating proces
   assert.deepStrictEqual(regionApi.fvRegionNames(sourceCase),['fluid','solid']);
   assert(regionCode.includes('fvRegionBuildLayer('));
   assert(regionCode.includes('fvRegionRenderLayers()'));
-  assert(source.includes('fvRegionRenderLayers();')&&source.includes('fvUpdateAxisGizmo()'),'Physical layers and XYZ gizmo must render together');
+  assert(source.includes("fvRegionRenderLayers('opaque')")&&source.includes("fvRegionRenderLayers('transparent'")&&source.includes('fvUpdateAxisGizmo()'),'Opaque and translucent physical passes must share the Field scene and XYZ gizmo');
   assert(regionCode.includes("const inventory=fvMeshes(c).filter(g=>String(g.region||'')===region)"),'Processor fallback must remain scoped to ONE physical region');
   assert(regionCode.includes('fvCombinePartitionMeshes(loaded)'),'Processor-only submeshes within the same physical region should be reconstructible');
   for(const token of ['id="fvMultiRegionPanel"','id="fvMultiRegionRows"','id="fvRegionShowAll"','id="fvRegionOnlyPrimary"'])
@@ -1134,8 +1134,8 @@ test('transparent primary and secondary regions share a non-occluding depth poli
   assert.equal(writable(.8,{faceField:false}),false,'Translucent secondary regions must not occlude neighboring regions');
   assert.equal(writable(1,{faceField:true}),false,'Neutral shell surrounding real internal faces must not hide the face field');
   assert.equal(writable(1,{interior:true}),false,'Interior slice/iso views must not be masked by the outer shell');
-  assert(source.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{interior:interiorActive,faceField:faceAssoc}))'));
-  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField}))'));
+  assert(source.includes('const shellAlpha=faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity)'));
+  assert(regionCode.includes('gl.depthMask(fvSurfaceDepthWritable(shellAlpha))'));
 });
 
 test('real physical region renderer never lets translucent faces or wireframes write depth',()=>{
@@ -1190,7 +1190,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
     'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
-    'const fvRegionRenderLayers=()=>draws.push({pos:"region-pass",depth});const fvUpdateAxisGizmo=()=>{};',
+    'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     implementation,
     'fvRender();return {draws,depth};'
@@ -1402,10 +1402,10 @@ test('field marker renders after all physical layers; translucent shells sort by
   const start=source.indexOf('function fvRender(exportSize=null){');
   const end=source.indexOf('function fvUpdateMeshBuffers(',start);
   const render=source.slice(start,end);
-  assert(render.indexOf('fvRegionRenderLayers();')>=0);
-  assert(render.indexOf('fvRegionRenderLayers();')<render.indexOf('if(r.probeCount){gl.depthFunc(gl.ALWAYS)'),
+  assert(render.indexOf("fvRegionRenderLayers('opaque');")>=0);
+  assert(render.indexOf("fvRegionRenderLayers('transparent'")<render.indexOf('if(r.probeCount){gl.depthFunc(gl.ALWAYS)'),
     'The pinned probe must remain visible after translucent physical shells render');
-  assert(regionCode.includes('const sorted=[...fvRegionScene.layers].sort('),
+  assert(regionCode.includes('sorted.sort((a,b)=>layerDepth(b[1])-layerDepth(a[1])'),
     'Unsorted translucent regions must not depend on discovery order');
   assert(render.includes('gl.depthMask(false);fvBindDraw(r,r.probePos'),
     'Probe overlay must not corrupt the scientific depth buffer');
