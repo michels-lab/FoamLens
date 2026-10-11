@@ -66,7 +66,8 @@ test('Field View product wiring renders iso-surfaces as transient interior geome
     "isoColor:null",
     "isoCount:0",
     "showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked",
-    "fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)",
+    "draw(r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)",
+    "fvRegionRenderLayers('transparent'",
     "if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange)"
   ])assert(fieldSource.includes(token),'Missing Field View iso render hook: '+token);
 });
