@@ -3,10 +3,16 @@
    application's existing series/case model without duplicating the frontend. */
 
 /* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_START */
+function taPhysicalNumber(value){
+  // OpenFOAM zero is real; absent, blank and boolean data must never become zero.
+  if(typeof value==='number')return Number.isFinite(value)?value:NaN;
+  if(typeof value!=='string'||!value.trim()||!(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/).test(value.trim()))return NaN;
+  const number=Number(value);return Number.isFinite(number)?number:NaN
+}
 function taAlmostEqual(a,b,tol=1e-10){return Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=tol*Math.max(1,Math.abs(a),Math.abs(b))}
 function taFinitePairs(s){
   const t=Array.isArray(s?.t)?s.t:[],y=Array.isArray(s?.y)?s.y:[],out=[];
-  for(let i=0;i<Math.min(t.length,y.length);i++){const tx=Number(t[i]),vy=Number(y[i]);if(Number.isFinite(tx)&&Number.isFinite(vy))out.push({t:tx,y:vy})}
+  for(let i=0;i<Math.min(t.length,y.length);i++){const tx=taPhysicalNumber(t[i]),vy=taPhysicalNumber(y[i]);if(Number.isFinite(tx)&&Number.isFinite(vy))out.push({t:tx,y:vy})}
   out.sort((a,b)=>a.t-b.t);
   const dedup=[];for(const p of out){if(dedup.length&&taAlmostEqual(dedup.at(-1).t,p.t))dedup[dedup.length-1]=p;else dedup.push(p)}
   return dedup
@@ -18,6 +24,7 @@ function taCommonTimeRange(items){
   return{valid:Number.isFinite(start)&&Number.isFinite(end)&&end>=start,start,end}
 }
 function taNearestSample(pairs,t){
+  t=taPhysicalNumber(t);if(!Number.isFinite(t))return{ok:false,reason:'invalid-time'};
   if(!pairs.length)return{ok:false,reason:'no-data'};
   if(t<pairs[0].t&&!taAlmostEqual(t,pairs[0].t)||t>pairs.at(-1).t&&!taAlmostEqual(t,pairs.at(-1).t))return{ok:false,reason:'outside-range'};
   let lo=0,hi=pairs.length-1;
@@ -26,6 +33,7 @@ function taNearestSample(pairs,t){
   return{ok:true,value:best.y,status:taAlmostEqual(best.t,t)?'native':'nearest',requestedTime:t,usedTime:best.t,delta:best.t-t}
 }
 function taLinearSample(pairs,t){
+  t=taPhysicalNumber(t);if(!Number.isFinite(t))return{ok:false,reason:'invalid-time'};
   if(!pairs.length)return{ok:false,reason:'no-data'};
   if(t<pairs[0].t&&!taAlmostEqual(t,pairs[0].t)||t>pairs.at(-1).t&&!taAlmostEqual(t,pairs.at(-1).t))return{ok:false,reason:'outside-range'};
   let lo=0,hi=pairs.length-1;
@@ -66,13 +74,13 @@ function taAlignSeries(items,{mode='native',method='linear',referenceIndex=0,max
   return{valid:true,mode:m,method:String(method||'linear').toLowerCase(),range:g.range,grid:g.grid,series:items.map(s=>taAlignOne(s,g.grid,method))}
 }
 function taPearsonPairs(a,b){
-  const pts=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=Number(a[i]),y=Number(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))pts.push([x,y])}
+  const pts=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=taPhysicalNumber(a[i]),y=taPhysicalNumber(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))pts.push([x,y])}
   if(pts.length<2)return NaN;const mx=pts.reduce((s,p)=>s+p[0],0)/pts.length,my=pts.reduce((s,p)=>s+p[1],0)/pts.length;
   let num=0,dx=0,dy=0;for(const [x,y] of pts){const ax=x-mx,ay=y-my;num+=ax*ay;dx+=ax*ax;dy+=ay*ay}return dx>0&&dy>0?num/Math.sqrt(dx*dy):NaN
 }
 function taDifferenceValues(a,b,kind='signed',epsilon=1e-12){
   const out=[],eps=Math.max(0,Number(epsilon)||0),n=Math.min(a.length,b.length);
-  for(let i=0;i<n;i++){const x=Number(a[i]),y=Number(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)){out.push(NaN);continue}
+  for(let i=0;i<n;i++){const x=taPhysicalNumber(a[i]),y=taPhysicalNumber(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)){out.push(NaN);continue}
     const d=x-y,k=String(kind||'signed').toLowerCase();
     if(k==='absolute')out.push(Math.abs(d));
     else if(k==='relative')out.push(Math.abs(y)>eps?d/y:NaN);
@@ -82,11 +90,11 @@ function taDifferenceValues(a,b,kind='signed',epsilon=1e-12){
   return out
 }
 function taPairMetrics(t,a,b,epsilon=1e-12){
-  const diffs=[],abs=[],rel=[],pct=[],times=[],eps=Math.max(0,Number(epsilon)||0);
-  for(let i=0;i<Math.min(t.length,a.length,b.length);i++){const tx=Number(t[i]),x=Number(a[i]),y=Number(b[i]);if(!Number.isFinite(tx)||!Number.isFinite(x)||!Number.isFinite(y))continue;const d=x-y;times.push(tx);diffs.push(d);abs.push(Math.abs(d));if(Math.abs(y)>eps){rel.push(d/y);pct.push(100*d/y)}}
+  const diffs=[],abs=[],rel=[],pct=[],times=[],validA=[],validB=[],eps=Math.max(0,Number(epsilon)||0);
+  for(let i=0;i<Math.min(t.length,a.length,b.length);i++){const tx=taPhysicalNumber(t[i]),x=taPhysicalNumber(a[i]),y=taPhysicalNumber(b[i]);if(!Number.isFinite(tx)||!Number.isFinite(x)||!Number.isFinite(y))continue;const d=x-y;validA.push(x);validB.push(y);times.push(tx);diffs.push(d);abs.push(Math.abs(d));if(Math.abs(y)>eps){rel.push(d/y);pct.push(100*d/y)}}
   if(!diffs.length)return{count:0,rmse:NaN,mae:NaN,maxAbs:NaN,maxAbsTime:NaN,meanDifference:NaN,meanRelative:NaN,meanPercent:NaN,correlation:NaN};
   let im=0;for(let i=1;i<abs.length;i++)if(abs[i]>abs[im])im=i;
-  return{count:diffs.length,rmse:Math.sqrt(diffs.reduce((s,v)=>s+v*v,0)/diffs.length),mae:abs.reduce((s,v)=>s+v,0)/abs.length,maxAbs:abs[im],maxAbsTime:times[im],meanDifference:diffs.reduce((s,v)=>s+v,0)/diffs.length,meanRelative:rel.length?rel.reduce((s,v)=>s+v,0)/rel.length:NaN,meanPercent:pct.length?pct.reduce((s,v)=>s+v,0)/pct.length:NaN,correlation:taPearsonPairs(a,b)}
+  return{count:diffs.length,rmse:Math.sqrt(diffs.reduce((s,v)=>s+v*v,0)/diffs.length),mae:abs.reduce((s,v)=>s+v,0)/abs.length,maxAbs:abs[im],maxAbsTime:times[im],meanDifference:diffs.reduce((s,v)=>s+v,0)/diffs.length,meanRelative:rel.length?rel.reduce((s,v)=>s+v,0)/rel.length:NaN,meanPercent:pct.length?pct.reduce((s,v)=>s+v,0)/pct.length:NaN,correlation:taPearsonPairs(validA,validB)}
 }
 function taQuantityCompatibility(A,B){
   const dimensions=s=>String(s?.field?.dimensions||s?.dimensions||'').replace(/\s+/g,' ').trim();
