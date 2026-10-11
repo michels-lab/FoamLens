@@ -279,14 +279,15 @@ internal sealed class FoamLensForm : Form
                       const a=rect(canvas),b=rect(tools),v=rect(panel);
                       const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
                         Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
-                      const hasField=!!fvState?.mesh&&fvState.fieldValues?.length>0;
+                      const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
+                      const hasField=!!primary?.range?.valid;
                       const ok=!!canvas&&!!tools&&!!panel&&!!probe&&
                         !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         toolbarHeight:b?.height,toolbarCanvasOverlap:overlap,
-                        primaryCells:fvState?.mesh?.cellCount||0,
+                        primaryField:primary?.fieldName||'',primaryTime:primary?.time,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                     })()
                     """);
