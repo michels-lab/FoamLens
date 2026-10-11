@@ -810,7 +810,7 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
 const FV_TRANSPARENT_TRIANGLE_LIMIT=65536;
 function fvTransparentTriangleSort(sources,camera){
   // Reject oversized scenes before even building centroid objects; the real
-  // QuickCup mold alone has >23k measured surface triangles.
+  // Real physical mold datasets can exceed tens of thousands of triangles.
   let declaredTriangles=0;
   for(const src of sources){
     const count=Number(src.count);
