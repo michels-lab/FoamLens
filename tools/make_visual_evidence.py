@@ -14,19 +14,21 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--evidence-dir",type=Path,required=True)
     p.add_argument("--artifact",type=Path,required=True)
+    p.add_argument("--portable-artifact",type=Path,required=True)
     p.add_argument("--source-sha",required=True)
     p.add_argument("--platform",required=True)
     p.add_argument("--capture-method",default="installed-windows-desktop")
     p.add_argument("--output",type=Path,required=True)
     a=p.parse_args()
-    if len(a.source_sha)!=40 or not a.artifact.is_file(): raise SystemExit("Invalid source SHA or missing real artifact")
+    if len(a.source_sha)!=40 or not a.artifact.is_file() or not a.portable_artifact.is_file(): raise SystemExit("Invalid source SHA or missing actual installer/portable artifact")
     root=a.output.parent.resolve()
     root.mkdir(parents=True,exist_ok=True)
     artifact_sha=hashfile(a.artifact)
+    portable_sha=hashfile(a.portable_artifact)
     records=[]
     for viewport in ("wide","compact"):
         opening_about_hash=None
-        for name, surface in ((f"home-{viewport}.png","home"),(f"about-{viewport}.png","about"),(f"about-{viewport}-bottom.png","about")):
+        for name, surface in ((f"home-{viewport}.png","home"),(f"about-{viewport}.png","about"),(f"about-{viewport}-bottom.png","about"),(f"field-{viewport}.png","field"),(f"data-{viewport}.png","data")):
             file=(a.evidence_dir/name).resolve()
             if not file.is_file(): raise SystemExit(f"Missing real screenshot: {file}")
             digest=hashfile(file)
@@ -43,6 +45,6 @@ def main():
                             "sha256":digest,"width":width,"height":height,"capture_method":a.capture_method,
                             "candidate_artifact_sha256":artifact_sha})
     a.output.write_text(json.dumps({"schema":"michelslab-rendered-ui-v1","source_commit":a.source_sha,
-                    "artifact_sha256":{a.platform:artifact_sha},"screenshots":records},indent=2)+"\n",encoding="utf-8")
-    print(f"Recorded {len(records)} actual UI screenshots for {a.platform}: {artifact_sha}")
+                    "artifact_sha256":{a.platform:artifact_sha},"portable_artifact_sha256":{a.platform:portable_sha},"screenshots":records},indent=2)+"\n",encoding="utf-8")
+    print(f"Recorded {len(records)} actual UI screenshots for {a.platform}; setup={artifact_sha}; portable={portable_sha}")
 if __name__=="__main__": main()
