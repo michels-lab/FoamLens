@@ -1271,7 +1271,9 @@ internal sealed class FoamLensForm : Form
                                 hit.caseId!=null&&String(hit.caseId)===String(scene.caseId)&&
                                 Number.isFinite(hit.value)&&Number.isFinite(observed)&&
                                 Math.abs(hit.value-observed)<=Math.max(1e-9,Math.abs(observed)*1e-8)&&
-                                fvTimeEqual(hit.time,fvState.time);
+                                Number.isFinite(Number(hit.time))&&Number.isFinite(Number(layer.time))&&
+                                Math.abs(Number(hit.time)-Number(layer.time))<=
+                                  Math.max(1e-8,Math.abs(Number(layer.time))*1e-8);
                               return {ok,region:name,field:hit?.fieldName,storage:hit?.storage,
                                 cell:hit?.cell,face:hit?.face,measuredValue:hit?.value,
                                 sourceValue:observed,time:hit?.time,caseId:hit?.caseId,
