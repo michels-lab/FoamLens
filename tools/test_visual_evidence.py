@@ -116,6 +116,11 @@ def main() -> None:
         reused_file["screenshots"][0]["path"] = reused_file["screenshots"][8]["path"]
         assert_rejected(reused_file, manifest, "screenshot checksum mismatch")
 
+        cross_runtime = copy.deepcopy(original)
+        cross_runtime["screenshots"][8]["path"] = original["screenshots"][0]["path"]
+        cross_runtime["screenshots"][8]["sha256"] = original["screenshots"][0]["sha256"]
+        assert_rejected(cross_runtime, manifest, "portable screenshot path outside its runtime directory")
+
         manifest.write_text(json.dumps(original), encoding="utf-8")
         shot = evidence / records[0]["path"]
         shot.write_bytes(shot.read_bytes() + b"\nmodified after capture")
