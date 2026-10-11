@@ -71,7 +71,7 @@ function vaFrameEvidence(physicalTime,primary,scene,primaryRegion=''){
   if(!primary||!equal(primary.time))throw new Error('Primary field frame does not match requested physical time.');
   if(!scene?.choices||!scene?.layers)throw new Error('Physical-region scene unavailable for scientific video provenance.');
   const regions=[];
-  for(const region of [...scene.choices.keys()].sort((a,b)=>String(a).localeCompare(String(b)))){
+  for(const region of [...new Set([primaryRegion,...scene.choices.keys()])].sort((a,b)=>String(a).localeCompare(String(b)))){
     const choice=scene.choices.get(region),visible=choice?.visible!==false;
     if(region===primaryRegion){
       regions.push({region,visible,state:visible?'field':'hidden',field:visible?(primary.fieldName||''):null,
