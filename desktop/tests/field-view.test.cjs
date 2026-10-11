@@ -1404,7 +1404,7 @@ test('actual Field renderer composites opaque physical regions before transparen
   const regionBegin=regionCode.indexOf('function fvSurfaceDepthWritable(');
   const regionEnd=regionCode.indexOf('function fvRegionFitCamera()',regionBegin);
   assert(renderBegin>0&&renderEnd>renderBegin&&regionBegin>0&&regionEnd>regionBegin);
-  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold',[
+  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold','primaryX','moldX',[
     'const draws=[];let depth=true;',
     'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,COLOR_BUFFER_BIT:16384,DEPTH_BUFFER_BIT:256,DEPTH_TEST:2929,BLEND:3042,',
     'SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,viewport(){},clearColor(){},clear(){},enable(){},blendFunc(){},',
@@ -1413,10 +1413,10 @@ test('actual Field renderer composites opaque physical regions before transparen
     'const checks=new Map([["fvSurface",true],["fvEdges",false],["fvSlice",false],["fvIso",false],["fvVectors",false],["fvStreamlines",false]]);',
     'const document={getElementById(id){return id==="fvCanvas"?canvas:checks.has(id)?{checked:checks.get(id)}:id==="fvOpacity"?{value:primaryOpacity}:null}};',
     'const window={devicePixelRatio:1};',
-    'const bounds=z=>({boundsMin:[-.2,-.2,z],boundsMax:[.2,.2,z+1]});',
+    'const bounds=(z,x=0)=>({boundsMin:[x-.2,-.2,z],boundsMax:[x+.2,.2,z+1]});',
     'const r={gl,program:1,mvp:2,surfacePos:"metal",surfaceColor:"metal-col",surfaceCount:3,probeCount:0};',
-    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
-    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:bounds(moldDepth),surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
+    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth,primaryX||0),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
+    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:bounds(moldDepth,moldX||0),surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
     'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
     'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
@@ -1438,6 +1438,9 @@ test('actual Field renderer composites opaque physical regions before transparen
   assert.deepStrictEqual(moldFar.map(d=>d.pos),['mold','metal'],
     'Far translucent mold must blend before near selected metal');
   assert.deepStrictEqual(moldFar.map(d=>d.depth),[false,false]);
+  const lateralMold=summarize(harness(.65,.48,1,6,true,0,100));
+  assert.deepStrictEqual(lateralMold.map(d=>d.pos),['metal','mold'],
+    'Camera-axis depth must defeat misleading radial distance when a physically near mold is far off-center');
   const opaqueMetal=summarize(harness(1,.48,1,6,true));
   assert.deepStrictEqual(opaqueMetal.map(d=>d.pos),['metal','mold'],
     'Opaque metal draws before a translucent enclosing mold, independent of distance');
