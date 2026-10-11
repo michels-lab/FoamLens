@@ -4285,3 +4285,8 @@ The required interpretation is structural integration rather than sticker placem
 - **Edge case caught before merge:** the new video evidence iterator initially required a populated multi-region choice map. For a legitimate single-physical-region case, that map can be empty because the multiregion chooser is intentionally hidden. The video must still record the primary measured field.
 - **Correction:** provenance builds the set union of the current primary region and explicitly known physical region choices, without inventing extra regions or fields. The primary is directly sourced from its actual video descriptor. Two-region behavior and missing-layer rejection remain unchanged.
 - **Regression:** execute the real frame evidence function with empty region-choice/layer maps and a single primary field, plus the existing measured metal/mold, missing-time, hidden, stale and absent-region cases. Current-head CI pending.
+
+## 2026-10-11 UTC — PR #50 exact-head Windows regression diagnostic case
+
+- **Evidence:** Windows Action 38118648201 passed real QuickCup, Linux VTK and 44 preceding Windows checks, but the new Field View frame-provenance test failed. Runtime correctly threw `Visible OpenFOAM region missing from scientific video frame: mold` for a visible region with no loaded physical mesh. The assertion used a lowercase `/visible OpenFOAM region missing/` expression and thus rejected its own expected fail-closed result.
+- **Correction:** preserve the actual strict missing-region exception, adjust assertion to exact capitalized error text; no scientific check relaxed, no production logic changed. Re-run exact-head CI, portable, installed and visual gates before merge.
