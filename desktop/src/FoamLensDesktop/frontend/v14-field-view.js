@@ -807,8 +807,17 @@ function fvSurfaceDepthWritable(opacity,{interior=false,faceField=false}={}){
 // regions, rather than sorting entire metal/mold objects by their centers.
 // Triangle-centroid sorting is not per-fragment OIT; intersecting triangles
 // and exact coplanar alpha surfaces still need a dedicated OIT technique.
-const FV_TRANSPARENT_TRIANGLE_LIMIT=4096;
+const FV_TRANSPARENT_TRIANGLE_LIMIT=65536;
 function fvTransparentTriangleSort(sources,camera){
+  // Reject oversized scenes before even building centroid objects; the real
+  // QuickCup mold alone has >23k measured surface triangles.
+  let declaredTriangles=0;
+  for(const src of sources){
+    const count=Number(src.count);
+    if(!Number.isInteger(count)||count<0||count%3)return null;
+    declaredTriangles+=count/3;
+    if(declaredTriangles>FV_TRANSPARENT_TRIANGLE_LIMIT)return null
+  }
   const items=[],target=camera?.target||[],d=Number(camera?.distance),
     yaw=Number(camera?.yaw),pitch=Number(camera?.pitch);
   if(target.length!==3||!Number.isFinite(d)||!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
