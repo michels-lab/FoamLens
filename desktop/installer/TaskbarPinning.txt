@@ -1,0 +1,17 @@
+FoamLens — Pin to Windows taskbar / Anclar a la barra de tareas
+
+ENGLISH
+This is a guide only. FoamLens has NOT been pinned automatically.
+1. Open FoamLens using the Start menu shortcut created by Setup.
+2. While the application is running, right-click its icon on the Windows taskbar.
+3. Choose "Pin to taskbar". Windows may use different words or prevent pinning on managed devices.
+4. You can now close the app; its pinned icon should remain. To remove it, right-click > Unpin from taskbar.
+
+ESPAÑOL
+Estas son instrucciones, no un anclaje automático.
+1. Abre FoamLens desde el acceso directo del menú Inicio.
+2. Con la aplicación abierta, haz clic derecho sobre su icono en la barra de tareas de Windows.
+3. Elige "Anclar a la barra de tareas". En algunos equipos administrados puede no estar permitido.
+4. Al cerrar la app, el icono anclado debería permanecer. Para quitarlo, haz clic derecho > Desanclar de la barra de tareas.
+
+El instalador nunca modifica los accesos anclados por el usuario.

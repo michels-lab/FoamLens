@@ -8,6 +8,14 @@ const root=path.join(__dirname,'..');
 const project=fs.readFileSync(path.join(root,'src','FoamLensDesktop','FoamLensDesktop.csproj'),'utf8');
 const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs'),'utf8');
 const installer=fs.readFileSync(path.join(root,'installer','FoamLens.iss'),'utf8');
+const guide=fs.readFileSync(path.join(root,'installer','TaskbarPinning.txt'),'utf8');
+const license=fs.readFileSync(path.join(root,'LICENSE.txt'),'utf8');
+assert(installer.includes('DisableWelcomePage=no')&&installer.includes('LicenseFile=..\\LICENSE.txt'),'Setup must show Welcome + full EULA acceptance.');
+assert(license.includes('FoamLens')&&license.length>500,'Setup EULA must be the full product license.');
+assert(/Name:\s*"desktopicon"[^\n]*Flags:\s*unchecked/.test(installer),'Desktop shortcut must be optional.');
+assert(/Tasks:\s*desktopicon/.test(installer),'Optional shortcut task must be connected to a real icon.');
+assert(/notepad\.exe[^\n]*TaskbarPinning\.txt[^\n]*postinstall skipifsilent unchecked/.test(installer),'User-only taskbar pin guide must be optional and silent-safe.');
+assert(/Pin to Windows taskbar/.test(guide)&&/Anclar a la barra de tareas/.test(guide),'Bilingual pinning help required.');
 const iconPath=path.join(root,'src','FoamLensDesktop','Assets','FoamLens.ico');
 const icon=fs.readFileSync(iconPath);
 
