@@ -92,6 +92,29 @@ def main() -> None:
         assert check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
                               require_review=False, require_portable=True) == []
 
+        # Existing Microsoft Store MSIX automation intentionally has no portable EXE.
+        store_manifest = evidence / "store-manifest.json"
+        subprocess.run(
+            [sys.executable, str(SCRIPT), "--evidence-dir", str(evidence / "installed"),
+             "--artifact", str(setup), "--source-sha", SOURCE_SHA,
+             "--platform", "windows-store", "--capture-method", "running-desktop-app",
+             "--output", str(store_manifest)],
+            check=True, capture_output=True, text=True,
+        )
+        store_doc = json.loads(store_manifest.read_text(encoding="utf-8"))
+        assert "portable_artifact_sha256" not in store_doc
+        assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(SURFACES),
+                              require_review=False) == []
+
+        # Conversely, direct Windows must never silently downgrade to Store-style coverage.
+        no_portable = subprocess.run(
+            [sys.executable, str(SCRIPT), "--evidence-dir", str(evidence / "installed"),
+             "--artifact", str(setup), "--source-sha", SOURCE_SHA,
+             "--platform", "windows", "--output", str(evidence / "invalid.json")],
+            capture_output=True, text=True,
+        )
+        assert no_portable.returncode != 0 and "requires both portable" in no_portable.stderr
+
         absent = copy.deepcopy(original)
         absent["screenshots"] = [
             shot for shot in absent["screenshots"]
