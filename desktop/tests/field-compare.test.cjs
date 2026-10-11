@@ -31,6 +31,25 @@ function cubeMesh(){
   }
 }
 
+test('missing physical time is never coerced to measured t=0 in 3D synchronization',()=>{
+  assert(Number.isNaN(api.fcNearestTime([null,'',false,9.8],null)));
+  assert.equal(api.fcCloseTime(null,0),false);
+  assert.equal(api.fcResolveTime([0,9.8],false,'exact').ok,false);
+  assert.equal(api.fcTimeBracket([null,'',false,9.8],0).ok,false);
+  assert.equal(api.fcResolveTime(['0','9.8'],'0','exact').ok,true);
+  near(api.fcNearestTime(['0','9.8'],9.7),9.8);
+});
+
+test('3D compare ignores missing samples, malformed interpolation and invalid geometry',()=>{
+  const interpolated=api.fcInterpolateValues([null,10],[0,20],.5);
+  assert(Number.isNaN(interpolated[0]));near(interpolated[1],15);
+  assert(Number.isNaN(api.fcInterpolateValues([1],[3],null)[0]));
+  assert(Number.isNaN(api.fcDifferenceValues([null,10],[0,3])[0]));
+  assert.equal(api.fcSharedRange({min:null,max:1},{min:2,max:3}).min,2);
+  assert.equal(api.fcSymmetricDifferenceRange([null,3]).count,1);
+  assert.equal(api.fcArrayEqualNumeric([null,1],[0,1]),false);
+});
+
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
   const a=cubeMesh(),b=JSON.parse(JSON.stringify(a)),r=api.fcMeshesEquivalent(a,b);
   assert.equal(r.ok,true);assert.equal(r.reason,'equivalent');

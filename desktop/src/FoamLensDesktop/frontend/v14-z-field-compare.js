@@ -1,23 +1,29 @@
 /* FoamLens Desktop v1.4.1 — synchronized side-by-side 3D case comparison. */
 
 /* FOAMLENS_FIELD_COMPARE_CORE_START */
+function fcPhysicalNumber(value){
+  // OpenFOAM zero is real; absent, blank and boolean data must never become zero.
+  if(typeof value==='number')return Number.isFinite(value)?value:NaN;
+  if(typeof value!=='string'||!value.trim()||!(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/).test(value.trim()))return NaN;
+  const number=Number(value);return Number.isFinite(number)?number:NaN
+}
 function fcCloseTime(a,b){
-  a=Number(a);b=Number(b);if(!Number.isFinite(a)||!Number.isFinite(b))return false;
+  a=fcPhysicalNumber(a);b=fcPhysicalNumber(b);if(!Number.isFinite(a)||!Number.isFinite(b))return false;
   return Math.abs(a-b)<=Math.max(1e-10,Math.max(Math.abs(a),Math.abs(b),1)*1e-9)
 }
 function fcNearestTime(values,target){
-  const a=[...new Set((values||[]).map(Number).filter(Number.isFinite))].sort((x,y)=>x-y),t=Number(target);if(!a.length||!Number.isFinite(t))return NaN;
+  const a=[...new Set((values||[]).map(fcPhysicalNumber).filter(Number.isFinite))].sort((x,y)=>x-y),t=fcPhysicalNumber(target);if(!a.length||!Number.isFinite(t))return NaN;
   let best=a[0],d=Math.abs(best-t);for(let i=1;i<a.length;i++){const nd=Math.abs(a[i]-t);if(nd<d){best=a[i];d=nd}}return best
 }
 function fcTimeBracket(values,target){
-  const a=[...new Set((values||[]).map(Number).filter(Number.isFinite))].sort((x,y)=>x-y),t=Number(target);if(!a.length||!Number.isFinite(t))return{ok:false,lower:NaN,upper:NaN,weight:NaN,exact:false};
+  const a=[...new Set((values||[]).map(fcPhysicalNumber).filter(Number.isFinite))].sort((x,y)=>x-y),t=fcPhysicalNumber(target);if(!a.length||!Number.isFinite(t))return{ok:false,lower:NaN,upper:NaN,weight:NaN,exact:false};
   const near=fcNearestTime(a,t);if(fcCloseTime(near,t))return{ok:true,lower:near,upper:near,weight:0,exact:true};
   if(t<a[0]||t>a.at(-1))return{ok:false,lower:a[0],upper:a.at(-1),weight:NaN,exact:false};
   let hi=1;while(hi<a.length&&a[hi]<t)hi++;const lo=Math.max(0,hi-1),lower=a[lo],upper=a[Math.min(hi,a.length-1)],span=upper-lower;
   return span>0?{ok:true,lower,upper,weight:(t-lower)/span,exact:false}:{ok:false,lower,upper,weight:NaN,exact:false}
 }
 function fcResolveTime(values,target,mode='nearest'){
-  const t=Number(target),near=fcNearestTime(values,t);if(!Number.isFinite(near))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false};
+  const t=fcPhysicalNumber(target),near=fcNearestTime(values,t);if(!Number.isFinite(near))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false};
   const exact=fcCloseTime(near,t);
   if(mode==='exact')return exact?{ok:true,time:near,delta:near-t,exact:true,interpolated:false}:{ok:false,time:near,delta:near-t,exact:false,interpolated:false};
   if(mode==='interpolate'){
@@ -28,16 +34,16 @@ function fcResolveTime(values,target,mode='nearest'){
   return{ok:true,time:near,delta:near-t,exact,interpolated:false}
 }
 function fcInterpolateValues(a,b,weight){
-  const n=Math.min(a?.length||0,b?.length||0),w=Math.max(0,Math.min(1,Number(weight)||0)),out=new Array(n);
-  for(let i=0;i<n;i++){const x=Number(a[i]),y=Number(b[i]);out[i]=Number.isFinite(x)&&Number.isFinite(y)?x+(y-x)*w:NaN}
+  const n=Math.min(a?.length||0,b?.length||0),rawWeight=fcPhysicalNumber(weight),w=Math.max(0,Math.min(1,rawWeight)),out=new Array(n);
+  for(let i=0;i<n;i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);out[i]=Number.isFinite(rawWeight)&&rawWeight>=0&&rawWeight<=1&&Number.isFinite(x)&&Number.isFinite(y)?x+(y-x)*w:NaN}
   return out
 }
 function fcSharedRange(a,b){
-  const valid=x=>x&&Number.isFinite(Number(x.min))&&Number.isFinite(Number(x.max));
+  const valid=x=>x&&Number.isFinite(fcPhysicalNumber(x.min))&&Number.isFinite(fcPhysicalNumber(x.max));
   if(!valid(a)&&!valid(b))return{valid:false,min:NaN,max:NaN};
-  if(!valid(a))return{valid:true,min:Number(b.min),max:Number(b.max)};
-  if(!valid(b))return{valid:true,min:Number(a.min),max:Number(a.max)};
-  return{valid:true,min:Math.min(Number(a.min),Number(b.min)),max:Math.max(Number(a.max),Number(b.max))}
+  if(!valid(a))return{valid:true,min:fcPhysicalNumber(b.min),max:fcPhysicalNumber(b.max)};
+  if(!valid(b))return{valid:true,min:fcPhysicalNumber(a.min),max:fcPhysicalNumber(a.max)};
+  return{valid:true,min:Math.min(fcPhysicalNumber(a.min),fcPhysicalNumber(b.min)),max:Math.max(fcPhysicalNumber(a.max),fcPhysicalNumber(b.max))}
 }
 function fcMeshDiag(mesh){
   const lo=mesh?.boundsMin||[0,0,0],hi=mesh?.boundsMax||[1,1,1];return Math.hypot(Number(hi[0])-Number(lo[0]),Number(hi[1])-Number(lo[1]),Number(hi[2])-Number(lo[2]))||1
@@ -49,7 +55,7 @@ function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){
 
 function fcArrayEqualNumeric(a,b,tol=0){
   if((a?.length||0)!==(b?.length||0))return false;
-  for(let i=0;i<(a?.length||0);i++){const x=Number(a[i]),y=Number(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x-y)>tol)return false}
+  for(let i=0;i<(a?.length||0);i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x-y)>tol)return false}
   return true
 }
 function fcMeshesEquivalent(a,b){
@@ -65,18 +71,18 @@ function fcMeshesEquivalent(a,b){
 }
 function fcDifferenceValues(primary,compare,mode='signed',epsilon=1e-12){
   const n=Math.min(primary?.length||0,compare?.length||0),out=new Array(n),eps=Math.max(Number.EPSILON,Math.abs(Number(epsilon)||1e-12));
-  for(let i=0;i<n;i++){const a=Number(primary[i]),b=Number(compare[i]);if(!Number.isFinite(a)||!Number.isFinite(b)){out[i]=NaN;continue}const d=a-b;out[i]=mode==='absolute'?Math.abs(d):mode==='percent'?100*d/Math.max(Math.abs(a),eps):d}
+  for(let i=0;i<n;i++){const a=fcPhysicalNumber(primary[i]),b=fcPhysicalNumber(compare[i]);if(!Number.isFinite(a)||!Number.isFinite(b)){out[i]=NaN;continue}const d=a-b;out[i]=mode==='absolute'?Math.abs(d):mode==='percent'?100*d/Math.max(Math.abs(a),eps):d}
   return out
 }
 function fcDifferenceRange(values,mode='signed'){
-  const finite=(values||[]).map(Number).filter(Number.isFinite);if(!finite.length)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
+  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite);if(!finite.length)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
   const mean=finite.reduce((a,b)=>a+b,0)/finite.length;if(mode==='absolute'){const max=Math.max(...finite,0);return{valid:true,min:0,max:max||1,mean,count:finite.length}}
   return fcSymmetricDifferenceRange(finite)
 }
 function fcSymmetricDifferenceRange(values){
-  let m=0,n=0;for(const v of values||[]){const x=Number(v);if(Number.isFinite(x)){m=Math.max(m,Math.abs(x));n++}}
+  let m=0,n=0;for(const v of values||[]){const x=fcPhysicalNumber(v);if(Number.isFinite(x)){m=Math.max(m,Math.abs(x));n++}}
   if(!n)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};if(m===0)m=1;
-  const finite=(values||[]).map(Number).filter(Number.isFinite),mean=finite.reduce((a,b)=>a+b,0)/finite.length;
+  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite),mean=finite.reduce((a,b)=>a+b,0)/finite.length;
   return{valid:true,min:-m,max:m,mean,count:n}
 }
 /* FOAMLENS_FIELD_COMPARE_CORE_END */

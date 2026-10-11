@@ -23,6 +23,26 @@ const near = (x, y, tol = 1e-9) => Math.abs(x - y) <= tol;
 const passed = [];
 function test(name, fn) { fn(); passed.push(name); }
 
+test('missing timestamps and values are discarded rather than silently measured at zero', () => {
+  const pairs=api.taFinitePairs({t:[0,null,2,'',4,false,'  ',6],y:[10,20,30,40,null,50,60,70]});
+  assert.deepStrictEqual(pairs,[{t:0,y:10},{t:2,y:30},{t:6,y:70}]);
+  assert.deepStrictEqual(api.taFinitePairs({t:['0','9.8','1e1'],y:['100','90','80']}),[{t:0,y:100},{t:9.8,y:90},{t:10,y:80}]);
+  assert.equal(api.taNearestSample(pairs,null).reason,'invalid-time');
+  assert.equal(api.taLinearSample(pairs,false).reason,'invalid-time');
+  assert.equal(api.taNearestSample(pairs,'0').ok,true);
+});
+
+test('missing measurements cannot become differences, correlation or valid pair metrics', () => {
+  assert(Number.isNaN(api.taDifferenceValues([null,10],[5,3])[0]));
+  assert(Number.isNaN(api.taDifferenceValues(['',10],[5,3])[0]));
+  const m=api.taPairMetrics([0,1,2,3],[null,10,20,30],[2,3,false,15]);
+  assert.equal(m.count,2);
+  assert.equal(m.maxAbsTime,3);
+  assert.equal(m.mae,11);
+  assert.equal(m.correlation,1);
+  assert(Number.isNaN(api.taPearsonPairs([null,3],[0,5])));
+});
+
 test('explicit dimensions and units block misleading quantitative comparisons', () => {
   const temperature={field:{dimensions:'[0 0 0 1 0 0 0]',unit:'K'}};
   const pressure={field:{dimensions:'[1 -1 -2 0 0 0 0]',unit:'Pa'}};
