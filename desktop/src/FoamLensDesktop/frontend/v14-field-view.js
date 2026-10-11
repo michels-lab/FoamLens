@@ -916,6 +916,7 @@ function fvDrawGlobalTransparentTriangles(r,options){
     }
     gl.drawArrays(gl.TRIANGLES,0,ordered.triangles*3);
     batch.lastTriangles=ordered.triangles;
+    batch.lastPayloadBytes=ordered.positions.byteLength+ordered.colors.byteLength+ordered.alpha.byteLength;
     return true
   }finally{
     gl.depthMask(true);
