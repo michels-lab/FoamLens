@@ -628,6 +628,10 @@ test('OpenFOAM video frame provenance distinguishes measured, missing, hidden an
   const original={sourceTime:9.8,fieldValues:[303.063],geometryOnly:false,field:'T',storage:'volume',
     parsed:{dimensions:'[0 0 0 1 0 0 0]'}};
   const scene={caseId:'1',choices,layers:new Map([['mold',original]])};
+  const single=capture(9.8,main,{caseId:'single',choices:new Map(),layers:new Map()},'fluid');
+  assert.deepStrictEqual(single.regions.map(r=>r.region),['fluid'],
+    'Single-region video must include the primary scientific field even without a multi-region chooser');
+  assert.deepStrictEqual(single.regions.map(r=>r.state),['field']);
   const frame=capture(9.8,main,scene,'metal');
   assert.deepStrictEqual(frame.regions.map(r=>r.state),['field','field']);
   assert.equal(frame.regions[1].sourceTime,9.8);
