@@ -605,6 +605,35 @@ test('Field View exports synchronized multi-view animation with fixed scientific
   ])assert(animationSource.includes(token),'Missing animation-export token: '+token);
 });
 
+test('video recorder releases all WebView2 media tracks on success and scientific frame errors',()=>{
+  const start=animationSource.indexOf('function vaReleaseRecordingSession(');
+  const end=animationSource.indexOf('async function vaExport()',start);
+  assert(start>=0&&end>start,'Recording resource owner must be a real executable function');
+  const release=new Function('console',animationSource.slice(start,end)+';return vaReleaseRecordingSession')({warn:()=>{}});
+  const events=[],first={readyState:'live',stop(){events.push('track1');this.readyState='ended'}},
+    second={readyState:'live',stop(){events.push('track2');this.readyState='ended'}},
+    recorder={state:'recording',stop(){events.push('recorder');this.state='inactive'}};
+  const session={recorder,stream:{getTracks:()=>[first,second]}};
+  release(session);
+  assert.deepStrictEqual(events,['recorder','track1','track2'],
+    'Recording must stop before releasing video tracks when scientific export aborts');
+  release(session);
+  assert.deepStrictEqual(events,['recorder','track1','track2'],
+    'Cleanup must be idempotent after a successful final recorder stop');
+  assert.doesNotThrow(()=>release(null));
+  const failures=[];
+  release({recorder:{state:'recording',stop(){throw new Error('recorder shutdown failed')}},
+    stream:{getTracks:()=>[{readyState:'live',stop(){failures.push('surviving track')}},{readyState:'live',stop(){throw new Error('unavailable track')}},{readyState:'live',stop(){failures.push('last track')}}]}});
+  assert.deepStrictEqual(failures,['surviving track','last track'],
+    'One failed recorder or track cleanup must not leave other media capture tracks alive');
+  assert(animationSource.includes('recording={stream,recorder:null}')&&
+    animationSource.includes('recording.recorder=recorder')&&
+    animationSource.includes('finally{vaReleaseRecordingSession(recording);'),
+    'Scientific export must own capture stream before MediaRecorder construction and release it in finally');
+  assert(animationSource.includes('stopped.catch(()=>{})'),
+    'An early OpenFOAM error cannot cause an unhandled MediaRecorder stop rejection');
+});
+
 test('Field and video reject false zero timestamps from empty OpenFOAM metadata',()=>{
   const a=animationSource.indexOf('function vaTimes()'),b=animationSource.indexOf('function vaRefreshTimeSelectors()',a);
   assert(a>=0&&b>a);
