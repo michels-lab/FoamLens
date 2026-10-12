@@ -20,6 +20,18 @@ const passed=[];
 function test(name,fn){fn();passed.push(name)}
 function near(a,b,e=1e-10){assert(Math.abs(a-b)<=e,`${a} != ${b}`)}
 
+
+test('missing energy samples, closure inputs and timestamps never become false physical zero',()=>{
+  assert.deepStrictEqual(api.eaFinitePairs([0,null,'',2,false,'3'],[10,20,30,null,40,'0']),[[0,10],[3,0]]);
+  assert.deepStrictEqual(api.eaFinitePairs(['0','9.8'],['0','5e1']),[[0,0],[9.8,50]]);
+  const metrics=api.eaClosureMetrics([null,5,false,0],[1,1,1,0],[1,6,1,0]);
+  assert.strictEqual(metrics.n,2);
+  assert.deepStrictEqual(metrics.residual,[0,0]);
+  const q=api.eaQuantile([null,false,'',2,4],.5);
+  near(q,3);
+  assert.strictEqual(api.eaTrapezoid([0,1,2],[1,null,3]).final,4);
+});
+
 test('OpenFOAM energy-flux roles are classified from field/reduction provenance',()=>{
   assert.equal(api.eaRoleFromDescriptor({fieldName:'energyAdvectiveFlux',kind:'surfaceReduction',operation:'sum'}),'advective');
   assert.equal(api.eaRoleFromDescriptor({fieldName:'heatFlux',functionType:'surfaceFieldValue',operation:'sum'}),'diffusive');
@@ -31,6 +43,25 @@ test('OpenFOAM energy-flux roles are classified from field/reduction provenance'
 test('specific enthalpy is not mislabeled as an energy inventory without rho weighting',()=>{
   assert.equal(api.eaRoleFromDescriptor({fieldName:'h',functionType:'volFieldValue',operation:'volIntegrate',weightField:''}),'');
   assert.equal(api.eaRoleFromDescriptor({fieldName:'h',kind:'tabular',operation:'sum',weightField:'rho'}),'');
+});
+
+
+test('energy residual integrals reject missing aligned physical-time samples rather than shifting timestamps',()=>{
+  const begin=source.indexOf('function eaAnalyzeFluxGroup('),end=source.indexOf('function eaInventoryRows(',begin);
+  assert(begin>=0&&end>begin,'Real energy closure integration function unavailable');
+  const impl=source.slice(begin,end);
+  const analyze=aligned=>new Function('eaMergedRole','taAlignSeries','eaClosureMetrics','eaTrapezoid',
+    impl+';return eaAnalyzeFluxGroup;')(()=>({}),()=>aligned,api.eaClosureMetrics,api.eaTrapezoid)({roles:{}});
+  const incomplete=analyze({valid:true,grid:[0,1,4],range:{start:0,end:4},
+    series:[{y:[10,null,30]},{y:[2,2,2]},{y:[13,null,37]}]});
+  assert.strictEqual(incomplete.ok,false,'A missing t=1 reading cannot yield a fabricated integrated residual');
+  assert.match(incomplete.reason,/incomplete synchronized energy samples/);
+  assert.strictEqual(incomplete.integrals,undefined);
+  const measured=analyze({valid:true,grid:[0,1,4],range:{start:0,end:4},
+    series:[{y:[10,12,30]},{y:[2,2,2]},{y:[13,14,37]}]});
+  assert.strictEqual(measured.ok,true);
+  assert.strictEqual(measured.metrics.n,3);
+  near(measured.integrals.residual,8);
 });
 
 test('exact advective plus diffusive decomposition closes numerically',()=>{

@@ -15,6 +15,20 @@ const api=new Function(core+'\nreturn {saPairs,saDerivative,saTrapezoid,saContig
 const near=(x,y,t=1e-10)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
+
+test('missing phase measurements and timestamps never become false zero or false phase events',()=>{
+  const p=api.saPairs([0,1,2,3,4,'5'],[1,null,false,'',0,'0']);
+  assert.deepStrictEqual(p,[[0,1],[4,0],[5,0]]);
+  assert.deepStrictEqual(api.saPairs([null,'',false,'0','9.8'],[1,2,3,0,1]),[[0,0],[9.8,1]]);
+  const a=api.saAnalyzePhaseSignal([0,1,2],[1,null,.6],'liquidFraction');
+  assert.deepStrictEqual(a.t,[0,2]);
+  assert.strictEqual(a.outOfRangeCount,0);
+  assert.strictEqual(a.initial,1);
+  assert.strictEqual(a.final,.6);
+  assert.deepStrictEqual(api.saContiguousIntervals([null,0,1,2],[true,true,false,true]),
+    [{start:0,end:0},{start:2,end:2}]);
+});
+
 test('liquid fraction decrease is solidification',()=>{
   const a=api.saAnalyzePhaseSignal([0,1,3],[1,.8,.4],'liquidFraction',1e-12);
   assert(a.solidificationRate.every(v=>v>=0));

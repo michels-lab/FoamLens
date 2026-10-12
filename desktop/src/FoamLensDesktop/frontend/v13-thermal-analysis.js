@@ -1,8 +1,14 @@
 /* FoamLens Desktop v1.3.0 — general thermal analysis. */
 
 /* FOAMLENS_THERMAL_ANALYSIS_CORE_START */
+function thPhysicalNumber(raw){
+  // Missing thermal fields or coordinates are not physically measured zero.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim())return NaN;
+  const value=Number(raw);return Number.isFinite(value)?value:NaN
+}
 function thPairs(x,y){
-  const out=[];for(let i=0;i<Math.min(x?.length||0,y?.length||0);i++){const xx=Number(x[i]),yy=Number(y[i]);if(Number.isFinite(xx)&&Number.isFinite(yy))out.push([xx,yy])}
+  const out=[];for(let i=0;i<Math.min(x?.length||0,y?.length||0);i++){const xx=thPhysicalNumber(x[i]),yy=thPhysicalNumber(y[i]);if(Number.isFinite(xx)&&Number.isFinite(yy))out.push([xx,yy])}
   out.sort((a,b)=>a[0]-b[0]);const d=[];for(const p of out){if(d.length&&Math.abs(d.at(-1)[0]-p[0])<=1e-12*Math.max(1,Math.abs(p[0])))d[d.length-1]=p;else d.push(p)}return d
 }
 function thDerivative(x,y){
@@ -21,7 +27,7 @@ function thWeightedStats(x,y){
 }
 function thIntervals(x,values,epsilon=0){
   const out=[];let start=null,last=null;
-  for(let i=0;i<Math.min(x?.length||0,values?.length||0);i++){const xx=Number(x[i]),v=Number(values[i]),on=Number.isFinite(xx)&&Number.isFinite(v)&&v>epsilon;if(on&&start==null)start=xx;if(on)last=xx;if(!on&&start!=null){out.push({start,end:last??start});start=null;last=null}}
+  for(let i=0;i<Math.min(x?.length||0,values?.length||0);i++){const xx=thPhysicalNumber(x[i]),v=thPhysicalNumber(values[i]),on=Number.isFinite(xx)&&Number.isFinite(v)&&v>epsilon;if(on&&start==null)start=xx;if(on)last=xx;if(!on&&start!=null){out.push({start,end:last??start});start=null;last=null}}
   if(start!=null)out.push({start,end:last??start});return out
 }
 function thAnalyzeTemperature(t,T,epsilon=1e-12){
@@ -62,7 +68,7 @@ function thSources(){
 }
 function thId(s,i){return String(s?.id??i)}
 function thLabel(s){try{return taSeriesLabel(s)}catch{return String(s?.name||s?.field?.display||s?.field?.canonical||'Series')}}
-function thFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
+function thFmt(v){const n=thPhysicalNumber(v);return Number.isFinite(n)?n.toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 function thSelected(){const src=thSources(),id=document.getElementById('thSource')?.value;return src.find((s,i)=>thId(s,i)===String(id))}
 function thRole(){return document.getElementById('thRole')?.value||'userDefined'}
 function thAddRate(base,name,t,y,kind,formula){
