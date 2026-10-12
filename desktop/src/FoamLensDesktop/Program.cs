@@ -269,6 +269,7 @@ internal sealed class FoamLensForm : Form
                 var fieldState = await _web.CoreWebView2.ExecuteScriptAsync(
                     """
                     (() => {
+                      try {
                       document.getElementById('flRibbonTab-field')?.click();
                       // The physical-region controls are in the real Field
                       // inspector. Open it rather than asserting that a
@@ -356,8 +357,16 @@ internal sealed class FoamLensForm : Form
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
                         clockMatchesRealFrame,clockText:clock?.textContent,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
+                      }catch(error){
+                        return {ok:false,stage:'native-field-wide-compact',error:String(error?.message||error),
+                          stack:String(error?.stack||''),timeFn:typeof fwTimeCurrent,
+                          exportedTimeFn:typeof window.FoamLensFieldWorkspace?.timeController?.current};
+                      }
                     })()
                     """);
+                if (fieldState == "null" || string.IsNullOrWhiteSpace(fieldState))
+                    throw new InvalidOperationException("Native Field UI JavaScript evaluation returned null in " + size.Name +
+                        "; inspect WebView2 runtime JavaScript syntax/errors: " + fieldState);
                 if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
                     throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
                 await Task.Delay(180);
