@@ -22,6 +22,8 @@ on:
       - 'tools/test_gpu_process_memory.ps1'
       - 'tools/capture_gpu_memory_series.ps1'
       - 'tools/test_gpu_memory_series.ps1'
+      - 'tools/capture_packaged_gpu_smoke.ps1'
+      - 'tools/test_packaged_gpu_smoke.ps1'
       - '.github/workflows/build-foamlens-desktop.yml'
   workflow_dispatch:
     inputs:
@@ -52,6 +54,8 @@ on:
       - 'tools/test_gpu_process_memory.ps1'
       - 'tools/capture_gpu_memory_series.ps1'
       - 'tools/test_gpu_memory_series.ps1'
+      - 'tools/capture_packaged_gpu_smoke.ps1'
+      - 'tools/test_packaged_gpu_smoke.ps1'
       - '.github/workflows/build-foamlens-desktop.yml'
 
 permissions:
@@ -493,6 +497,10 @@ jobs:
         shell: pwsh
         run: ./tools/test_gpu_memory_series.ps1
 
+      - name: Guard packaged Windows GPU counter snapshot provenance
+        shell: pwsh
+        run: ./tools/test_packaged_gpu_smoke.ps1
+
       - name: Test large-coordinate multiregion camera midpoint
         run: node desktop/tests/field-region-camera-midpoint.test.cjs
 
@@ -651,6 +659,7 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          ./tools/capture_packaged_gpu_smoke.ps1 -RootProcessId $process.Id -Variant portable -SourceSha (git rev-parse HEAD) -OutputPath artifacts/foam-gpu-portable.json
           if (-not $process.WaitForExit(300000)) {
             try { $process.Kill($true) } catch {}
             throw 'FoamLens executable smoke test timed out after 300 seconds.'
@@ -786,6 +795,7 @@ jobs:
             $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
           }
           $app=Start-Process -FilePath $installedExe -ArgumentList '--smoke-test' -PassThru
+          ./tools/capture_packaged_gpu_smoke.ps1 -RootProcessId $app.Id -Variant installed -SourceSha (git rev-parse HEAD) -OutputPath artifacts/foam-gpu-installed.json
           if (-not $app.WaitForExit(300000)) {
             try { $app.Kill($true) } catch {}
             throw 'Installed FoamLens smoke test timed out after 300 seconds.'
@@ -877,6 +887,8 @@ jobs:
             artifacts/FoamLens-Installed-smoke.png
             artifacts/FoamLens-Portable-smoke.log
             artifacts/FoamLens-Installed-smoke.log
+            artifacts/foam-gpu-portable.json
+            artifacts/foam-gpu-installed.json
             artifacts/visual/
           if-no-files-found: error
 
@@ -893,6 +905,7 @@ jobs:
             artifacts/*smoke.log
             artifacts/*smoke.png
             artifacts/*launch.png
+            artifacts/foam-gpu-*.json
           if-no-files-found: warn
           retention-days: 14
 
