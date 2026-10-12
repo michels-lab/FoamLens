@@ -50,6 +50,28 @@ test('3D compare ignores missing samples, malformed interpolation and invalid ge
   assert.equal(api.fcArrayEqualNumeric([null,1],[0,1]),false);
 });
 
+
+test('3D probe descriptors preserve only physically measured finite values, never false zero',()=>{
+  const start=source.indexOf('function fcProbeDescriptors(){'),stop=source.indexOf('window.FoamLensFieldCompare=',start);
+  assert(start>=0&&stop>start,'Missing production 3D probe descriptor');
+  const actual=source.slice(start,stop);
+  const coreStart=source.indexOf('function fcPhysicalNumber(value){'),coreEnd=source.indexOf('function fcCloseTime(',coreStart);
+  assert(coreStart>=0&&coreEnd>coreStart,'Missing physical numeric validator');
+  const numeric=new Function(source.slice(coreStart,coreEnd)+';return fcPhysicalNumber;')();
+  const fn=new Function('window','fvState','fvCase','fcState','fcCase','fcExtraViews','fcExtraCase','fcPhysicalNumber',
+    actual+';return fcProbeDescriptors;');
+  const make=(primary,secondary)=>fn(
+    {FoamLensFieldProbe:{getLast:()=>primary}}, {caseId:1,region:'metal',fieldName:'T'},
+    ()=>({name:'B13'}),{enabled:true,caseId:2,region:'mold',fieldName:'T',probe:secondary},
+    ()=>({name:'B13'}),[],()=>null,numeric)();
+  assert.deepStrictEqual(make({point:[0,0,0],value:null},{point:[0,0,0],value:false}),[]);
+  assert.deepStrictEqual(make({point:[null,0,0],value:3},{point:['',0,0],value:1}),[]);
+  assert.deepStrictEqual(make({point:[0,0,0],value:2,geometryOnly:true},{point:[0,0,0],value:0,geometryOnly:true}),[]);
+  const genuine=make({point:[0,0,0],value:0},{point:[0,0,0],value:'0'});
+  assert.equal(genuine.length,2);
+  assert.deepStrictEqual(genuine.map(x=>x.value),[0,0]);
+});
+
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
   const a=cubeMesh(),b=JSON.parse(JSON.stringify(a)),r=api.fcMeshesEquivalent(a,b);
   assert.equal(r.ok,true);assert.equal(r.reason,'equivalent');
