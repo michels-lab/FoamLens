@@ -62,6 +62,27 @@ try{
   }
   if(Test-Path -LiteralPath $dir){Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue}
 }
+$optOutDir=Join-Path $root 'without optional tasks'
+try{
+  if(Test-Path -LiteralPath $optOutDir){Remove-Item -LiteralPath $optOutDir -Force -Recurse}
+  Invoke-FoamSetup $setup $optOutDir $false
+  if(-not (Test-Path -LiteralPath (Join-Path $optOutDir 'FoamLens.exe'))){
+    throw 'Opt-out installation did not deploy FoamLens.exe'
+  }
+  if(-not (Test-Path -LiteralPath (Join-Path $optOutDir 'TaskbarPinning.txt'))){
+    throw 'Opt-out installation must retain the guide for later voluntary use'
+  }
+  if(Test-Path -LiteralPath $link){
+    throw 'Explicit !desktopicon task choice unexpectedly created a desktop shortcut'
+  }
+  Invoke-FoamUninstall $optOutDir
+  Write-Host 'Inno Setup explicit optional-task opt-out and uninstall cleanup PASS'
+}finally{
+  if(Test-Path -LiteralPath (Join-Path $optOutDir 'unins000.exe')){
+    try{Invoke-FoamUninstall $optOutDir}catch{Write-Warning $_.Exception.Message}
+  }
+  if(Test-Path -LiteralPath $optOutDir){Remove-Item -LiteralPath $optOutDir -Recurse -Force -ErrorAction SilentlyContinue}
+}
 Write-Host 'Real FoamLens installer desktop shortcut, taskbar guidance choice and uninstall PASS'
 ){
   throw 'Installer must display taskbar guidance as an unchecked task'
