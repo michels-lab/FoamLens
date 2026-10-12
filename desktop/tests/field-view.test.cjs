@@ -1633,6 +1633,8 @@ test('packaged real OpenFOAM smoke verifies crossed-triangle weighted WebGL2 pix
     'Production OIT must support a separate regression canvas without replacing owner viewport');
   assert(program.includes('physicalScene.weightedCrossedPixelProof=weightedCrossedPixelProof'),
     'Native evidence must record tested output rather than only shader capability');
+  assert(program.includes('physicalScene.weightedOit.active&&!weightedCrossedPixelProof.supported'),
+    'Real hardware OIT activation must never silently skip crossed-pixel acceptance');
   assert(program.includes('fvDrawWeightedOit(testRenderer,opts,off)'),
     'Native pixel regression must execute the actual production OIT renderer');
   assert(program.includes('const first=draw(true),reversed=draw(false)'),
