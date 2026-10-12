@@ -1947,6 +1947,44 @@ internal sealed class FoamLensForm : Form
                     "delete window.__foamLensRealCaseSmokeResult;");
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
                 await CaptureScientificWorkspaceEvidenceAsync();
+
+                // Optional CI handshake: keep the actual rendered metal/mold case
+                // alive while the parent runner samples GPU Process Memory counters.
+                // Never describe those process counters as graphics-card total VRAM.
+                var readyFile = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_GPU_READY_FILE");
+                if (!string.IsNullOrWhiteSpace(readyFile))
+                {
+                    var readyPath = Path.GetFullPath(readyFile);
+                    var ackPath = readyPath + ".ack";
+                    var readyDirectory = Path.GetDirectoryName(readyPath);
+                    if (!string.IsNullOrWhiteSpace(readyDirectory))
+                        Directory.CreateDirectory(readyDirectory);
+                    if (File.Exists(readyPath) || File.Exists(ackPath))
+                        throw new InvalidOperationException("Stale loaded-GPU smoke handshake marker detected.");
+                    var marker = new
+                    {
+                        schema = "foamlens-loaded-openfoam-gpu-ready-v1",
+                        hostPid = Environment.ProcessId,
+                        sourceSha = Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_SOURCE_SHA") ?? "",
+                        caseRoot = fullCasePath,
+                        observedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                        phase = "real OpenFOAM physical region data loaded and rendered"
+                    };
+                    await File.WriteAllTextAsync(readyPath, JsonSerializer.Serialize(marker));
+                    var gpuDeadline = Stopwatch.StartNew();
+                    while (!File.Exists(ackPath))
+                    {
+                        if (gpuDeadline.Elapsed > TimeSpan.FromSeconds(45))
+                            throw new InvalidOperationException("Loaded OpenFOAM GPU counter sampler did not acknowledge the actual rendered case.");
+                        await Task.Delay(200);
+                    }
+                    var acknowledgment = await File.ReadAllTextAsync(ackPath);
+                    if (!string.Equals(acknowledgment.Trim(), "sampled", StringComparison.Ordinal))
+                        throw new InvalidOperationException("Loaded GPU counter sampler returned an invalid acknowledgment.");
+                    File.Delete(ackPath);
+                    File.Delete(readyPath);
+                    Log("FoamLens real rendered OpenFOAM GPU counter sampling handshake completed.");
+                }
             }
 
             // Verify that JavaScript work continues while the native window is minimized.
