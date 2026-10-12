@@ -34,8 +34,11 @@ Name: "{autoprograms}\FoamLens"; Filename: "{app}\FoamLens.exe"; IconFilename: "
 Name: "{autodesktop}\FoamLens"; Filename: "{app}\FoamLens.exe"; IconFilename: "{app}\FoamLens.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Optional shortcuts and guidance:"; Flags: unchecked
+Name: "taskbarhelp"; Description: "Show how to pin FoamLens to the Windows taskbar after installation"; GroupDescription: "Optional shortcuts and guidance:"; Flags: unchecked
 
 [Run]
+; Windows does not expose a supported unattended taskbar pinning API.
+; Taskbar guidance is shown only if explicitly chosen on the Tasks page.
 Filename: "{app}\FoamLens.exe"; Description: "Launch FoamLens"; Flags: nowait postinstall skipifsilent
-Filename: "{sys}\notepad.exe"; Parameters: """{app}\TaskbarPinning.txt"""; Description: "Show how to pin FoamLens to the taskbar"; Flags: nowait postinstall skipifsilent unchecked
+Filename: "{sys}\notepad.exe"; Parameters: """{app}\TaskbarPinning.txt"""; Description: "Show FoamLens taskbar pinning instructions"; Flags: nowait postinstall skipifsilent; Tasks: taskbarhelp
