@@ -1560,7 +1560,7 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
   assert(begin>0&&end>begin,'Weighted OIT production helper must exist');
   const kernel=source.slice(begin,end);
   const setup=[
-    'const calls=[],events=[];',
+    'const calls=[],events=[],attrs=new Set();let throwInDraw=false;',
     'const gl={ARRAY_BUFFER:1,STATIC_DRAW:2,TRIANGLES:4,FLOAT:8,FRAMEBUFFER:9,FRAMEBUFFER_COMPLETE:10,',
     'COLOR_ATTACHMENT0:11,TEXTURE_2D:12,RGBA16F:13,HALF_FLOAT:14,R8:15,UNSIGNED_BYTE:16,RED:17,RGBA:18,',
     'TEXTURE_MIN_FILTER:19,TEXTURE_MAG_FILTER:20,NEAREST:21,TEXTURE_WRAP_S:22,TEXTURE_WRAP_T:23,CLAMP_TO_EDGE:24,',
@@ -1570,13 +1570,13 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
     'createTexture(){return {}},createFramebuffer(){return {}},bindTexture(){},texParameteri(){},',
     'texImage2D(){},bindFramebuffer(){},framebufferTexture2D(){},checkFramebufferStatus(){return 10},',
     'createBuffer(){return {}},bindBuffer(){},bufferData(){},',
-    'deleteFramebuffer(){},deleteTexture(){},deleteProgram(){},deleteBuffer(){},',
+    'deleteFramebuffer(){events.push(["deleteFramebuffer"])},deleteTexture(){events.push(["deleteTexture"])},deleteProgram(){},deleteBuffer(){},',
     'viewport(){},clearColor(){},clear(){},useProgram(){},blendFunc(a,b){events.push(["blend",a,b])},',
     'depthMask(v){events.push(["depthMask",v])},disable(){},enable(){},',
     'getAttribLocation(p,n){return n==="aPos"?0:n==="aColor"?1:-1},',
     'getUniformLocation(){return {}},uniformMatrix4fv(){},uniform1f(){},uniform1i(){},',
-    'enableVertexAttribArray(){},disableVertexAttribArray(){},vertexAttribPointer(){},',
-    'drawArrays(mode,off,count){calls.push(count)},getError(){return 0},activeTexture(){}};',
+    'enableVertexAttribArray(i){attrs.add(i)},disableVertexAttribArray(i){attrs.delete(i)},vertexAttribPointer(){},',
+    'drawArrays(mode,off,count){if(throwInDraw)throw Error("simulated GPU draw failure");calls.push(count)},getError(){return 0},activeTexture(){}};',
     'const r={gl,program:{},mvp:{},surfacePos:{},surfaceColor:{},surfaceCount:3};',
     'const fvState={fieldStorage:"volume",camera:{target:[0,0,0],yaw:0,pitch:0,distance:10}};',
     'const fvRegionScene={layers:new Map([["mold",{gl,surfacePos:{},surfaceColor:{},surfaceCount:3,faceFieldCount:0}]]),',
@@ -1593,11 +1593,18 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
     'opacity:.7,interiorActive:false};',
     'const worked=fvDrawWeightedOit(r,opts),draws=calls.slice();',
     'const memory=r.weightedOit?.scratchBytes,mode=r.weightedOit?.mode;',
+    'throwInDraw=true;const failed=fvDrawWeightedOit(r,opts);',
+    'const failedAttrs=attrs.size,failedReleased=r.weightedOit===null;',
+    'const failedReason=String(r.weightedOitDisabled||"");',
+    'throwInDraw=false;r.weightedOitDisabled=null;',
+    'const retried=fvDrawWeightedOit(r,opts);',
     'const opaque=fvDrawWeightedOit(r,{...opts,opacity:1});',
+    'const opaqueReleased=r.weightedOit===null;',
     'const disabledGl={...gl,texStorage2D:undefined},saved=r.gl;r.gl=disabledGl;',
     'const noWebgl2=fvDrawWeightedOit(r,opts);r.gl=saved;',
     'width=3000;height=2000;const tooLarge=fvDrawWeightedOit(r,opts);',
-    'return{worked,draws,memory,mode,opaque,noWebgl2,tooLarge,',
+    'return{worked,draws,memory,mode,failed,failedAttrs,failedReleased,failedReason,retried,opaque,opaqueReleased,noWebgl2,tooLarge,',
+    'deallocatedTextures:events.filter(x=>x[0]==="deleteTexture").length,',
     'additiveBlend:events.some(x=>x[0]==="blend"&&x[1]===gl.ONE&&x[2]===gl.ONE),',
     'revealBlend:events.some(x=>x[0]==="blend"&&x[1]===gl.ZERO&&x[2]===gl.ONE_MINUS_SRC_ALPHA),',
     'depthRestored:events.some(x=>x[0]==="depthMask"&&x[1]===true)};'
@@ -1608,7 +1615,14 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
     'Two surface draws in each accumulation/reveal pass plus one fullscreen composite');
   assert.equal(result.memory,32*32*9,'RGBA16F and R8 targets must have a declared bounded footprint');
   assert.equal(result.mode,'weighted-blended-approximate','Never claim weighted OIT as exact sorting');
+  assert.equal(result.failed,false,'A failed GPU draw must use the safe fallback');
+  assert.equal(result.failedAttrs,0,'Failed OIT draw may not leave enabled attributes on the fallback');
+  assert.equal(result.failedReleased,true,'GPU draw failures must free OIT scratch render targets');
+  assert(result.failedReason.includes('simulated GPU draw failure'),'OIT error must report why fallback activated');
+  assert.equal(result.retried,true,'A new valid draw may re-create scratch targets after renderer recovery');
   assert.equal(result.opaque,false,'An opaque depth-writing surface must use existing safe fallback');
+  assert.equal(result.opaqueReleased,true,'Opaque physical frames must release unused floating-point targets');
+  assert(result.deallocatedTextures>=4,'Failure and opacity switch must each release both temporary GPU textures');
   assert.equal(result.noWebgl2,false,'WebGL1 devices must retain the existing renderer');
   assert.equal(result.tooLarge,false,'Large screenshots must not allocate unbounded float render targets');
   assert(result.additiveBlend&&result.revealBlend&&result.depthRestored,
@@ -1628,6 +1642,15 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
     'Accumulation and revealage must not depend on global triangle order');
 });
 
+test('OIT and transparent-sort provenance flags refer to the current physical render, not stale frames',()=>{
+  const render=source.slice(source.indexOf('function fvRender(exportSize=null){'),source.indexOf('function fvUpdateMeshBuffers(',source.indexOf('function fvRender(exportSize=null){')));
+  const reset=render.indexOf('r.transparentBatchLastActive=false;');
+  const tryOit=render.indexOf('const weightedOit=fvDrawWeightedOit(r,transparentOptions);');
+  const trySorted=render.indexOf('const triangleSorted=weightedOit||fvDrawGlobalTransparentTriangles');
+  assert(reset>=0&&reset<tryOit&&tryOit<trySorted,
+    'A successful weighted render must clear prior-frame sorted-GPU telemetry even when fallback is short-circuited');
+});
+
 test('packaged real OpenFOAM smoke verifies crossed-triangle weighted WebGL2 pixels independently of source order',()=>{
   assert(source.includes('function fvDrawWeightedOit(r,options,canvasOverride=null)'),
     'Production OIT must support a separate regression canvas without replacing owner viewport');
@@ -1635,6 +1658,8 @@ test('packaged real OpenFOAM smoke verifies crossed-triangle weighted WebGL2 pix
     'Native evidence must record tested output rather than only shader capability');
   assert(program.includes('physicalScene.weightedOit.active&&!weightedCrossedPixelProof.supported'),
     'Real hardware OIT activation must never silently skip crossed-pixel acceptance');
+  assert(program.includes('physicalScene.weightedOit.active&&physicalScene.transparentBatch.active'),
+    'Packaged real-region smoke must reject stale simultaneous OIT and sorted-triangle diagnostics');
   assert(program.includes('fvDrawWeightedOit(testRenderer,opts,off)'),
     'Native pixel regression must execute the actual production OIT renderer');
   assert(program.includes('const first=draw(true),reversed=draw(false)'),

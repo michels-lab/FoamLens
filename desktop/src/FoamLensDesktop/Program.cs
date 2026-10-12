@@ -2403,6 +2403,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       disabledReason:String(fvState.renderer?.weightedOitDisabled||''),
       scope:'real imported OpenFOAM WebGL render, weighted approximate per-fragment; not exact OIT or driver VRAM'
     };
+    if(physicalScene.weightedOit.active&&physicalScene.transparentBatch.active)
+      throw new Error('Scientific 3D frame declared two mutually exclusive transparency modes active');
     // Native pixel-backed order-independence evidence: two synthetic triangles
     // CROSS in physical Z while sharing exactly the same projected XY. One
     // triangle is nearer on the left; the other is nearer on the right. Swap

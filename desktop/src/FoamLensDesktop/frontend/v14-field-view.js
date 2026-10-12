@@ -1031,13 +1031,17 @@ function fvWeightedOitCreate(r,width,height){
 }
 function fvDrawWeightedOit(r,options,canvasOverride=null){
   r.weightedOitLastActive=false;
-  if(r.weightedOitDisabled||fvRegionScene.layers.size<1)return false;
+  // Transparency scratch targets can occupy up to 33 MiB. Returning to opaque,
+  // hidden or unsupported scenes must release them instead of retaining VRAM.
+  if(r.weightedOitDisabled||fvRegionScene.layers.size<1){fvWeightedOitRelease(r);return false}
   // Only native regression fixtures supply an offscreen canvas. Ordinary
   // physical OpenFOAM rendering still uses the real Field viewport.
   const gl=r.gl,canvas=canvasOverride||document.getElementById('fvCanvas');
-  if(!canvas)return false;
-  const sources=fvWeightedOitSources(r,options);if(!sources)return false;
-  const oit=fvWeightedOitCreate(r,canvas.width,canvas.height);if(!oit)return false;
+  if(!canvas){fvWeightedOitRelease(r);return false}
+  const sources=fvWeightedOitSources(r,options);
+  if(!sources){fvWeightedOitRelease(r);return false}
+  const oit=fvWeightedOitCreate(r,canvas.width,canvas.height);
+  if(!oit){fvWeightedOitRelease(r);return false}
   let completed=false,compositeStarted=false;
   try{
     const render=(program,blendSrc,blendDst,target,clear)=>{
@@ -1050,19 +1054,22 @@ function fvDrawWeightedOit(r,options,canvasOverride=null){
       if(pos<0)throw new Error('Weighted transparency position attribute missing');
       gl.uniformMatrix4fv(mvp,false,fvMvp(canvas));
       gl.enableVertexAttribArray(pos);
-      if(color>=0)gl.enableVertexAttribArray(color);
-      for(const source of sources){
-        gl.bindBuffer(gl.ARRAY_BUFFER,source.pos);
-        gl.vertexAttribPointer(pos,3,gl.FLOAT,false,0,0);
-        if(color>=0){
-          gl.bindBuffer(gl.ARRAY_BUFFER,source.col);
-          gl.vertexAttribPointer(color,3,gl.FLOAT,false,0,0)
+      try{
+        if(color>=0)gl.enableVertexAttribArray(color);
+        for(const source of sources){
+          gl.bindBuffer(gl.ARRAY_BUFFER,source.pos);
+          gl.vertexAttribPointer(pos,3,gl.FLOAT,false,0,0);
+          if(color>=0){
+            gl.bindBuffer(gl.ARRAY_BUFFER,source.col);
+            gl.vertexAttribPointer(color,3,gl.FLOAT,false,0,0)
+          }
+          gl.uniform1f(alpha,source.alpha);
+          gl.drawArrays(gl.TRIANGLES,0,source.count)
         }
-        gl.uniform1f(alpha,source.alpha);
-        gl.drawArrays(gl.TRIANGLES,0,source.count)
+      }finally{
+        gl.disableVertexAttribArray(pos);
+        if(color>=0)gl.disableVertexAttribArray(color)
       }
-      gl.disableVertexAttribArray(pos);
-      if(color>=0)gl.disableVertexAttribArray(color)
     };
     gl.depthMask(false);gl.disable(gl.DEPTH_TEST);
     render(oit.programs[0],gl.ONE,gl.ONE,0,0);
@@ -1080,14 +1087,18 @@ function fvDrawWeightedOit(r,options,canvasOverride=null){
     const pos=gl.getAttribLocation(oit.programs[2],'aPos');
     if(pos<0)throw new Error('Weighted transparency composite position missing');
     gl.bindBuffer(gl.ARRAY_BUFFER,oit.quad);
-    gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-    gl.drawArrays(gl.TRIANGLES,0,3);gl.disableVertexAttribArray(pos);
+    gl.enableVertexAttribArray(pos);
+    try{
+      gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+      gl.drawArrays(gl.TRIANGLES,0,3)
+    }finally{gl.disableVertexAttribArray(pos)}
     if(gl.getError()!==gl.NO_ERROR)throw new Error('Weighted transparency composition GL error');
     r.weightedOitLastActive=true;
     completed=true;
     return true
   }catch(error){
     r.weightedOitDisabled=String(error?.message||error);
+    fvWeightedOitRelease(r);
     if(compositeStarted){
       // The OIT path requires an all-translucent surface scene: clear a
       // partially composited default frame before the legacy fallback draws.
@@ -1624,6 +1635,9 @@ function fvRender(exportSize=null){
   fvRegionRenderLayers('opaque');
   const transparentOptions={primaryVisible,showSurface,showSlice,showIso,
     opacity,sliceOpacity,isoOpacity,interiorActive};
+  // Mode diagnostics must describe THIS rendered frame, not the previous one.
+  // Short-circuiting on successful OIT skips the sorted renderer entirely.
+  r.transparentBatchLastActive=false;
   const weightedOit=fvDrawWeightedOit(r,transparentOptions);
   const triangleSorted=weightedOit||fvDrawGlobalTransparentTriangles(r,transparentOptions);
   fvRegionRenderLayers('transparent',triangleSorted?null:()=>drawPrimarySurface('transparent'),
