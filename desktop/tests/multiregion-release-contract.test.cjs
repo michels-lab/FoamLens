@@ -18,7 +18,7 @@ test('actual installed and portable Field wide/compact screenshots assert measur
   for(const token of [
     "document.getElementById('fwTimeReadout')",
     "document.getElementById('fwTimeSlider')",
-    "typeof fwTimeCurrent==='function'",
+    "window.FoamLensFieldWorkspace?.timeController?.current?.()",
     'Math.abs(loadedTime-fieldPhysicalTime)<1e-9',
     'clock?.textContent===readoutExpected',
     "timeSlider?.getAttribute('aria-valuetext')===readoutExpected",

@@ -326,7 +326,7 @@ internal sealed class FoamLensForm : Form
                       const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
                       const clock=document.getElementById('fwTimeReadout');
                       const timeSlider=document.getElementById('fwTimeSlider');
-                      const loadedTime=typeof fwTimeCurrent==='function'?fwTimeCurrent():NaN;
+                      const loadedTime=window.FoamLensFieldWorkspace?.timeController?.current?.()??NaN;
                       const fieldPhysicalTime=primary?.time;
                       const readoutExpected=Number.isFinite(loadedTime)?'t = '+fvFmt(loadedTime)+' s':'t = —';
                       const clockRect=clock?.getBoundingClientRect();
