@@ -1297,6 +1297,41 @@ test('actual cross-region transparent triangle sorting handles camera reversal, 
   }],camera),null,'No unbounded transparent CPU sort for large meshes');
   assert.equal(api.fvTransparentTriangleSort([{...primary,colors:null}],camera),null,
     'A missing measured color buffer must not be fabricated');
+  // Number(null), Number(false) and Number('') are 0 in JavaScript, but
+  // are not real physical camera coordinates or time/position metadata.
+  for(const value of [null,false,true,'', ' ',NaN,Infinity,{},undefined]){
+    for(let axis=0;axis<3;axis++){
+      const target=[0,0,0];target[axis]=value;
+      assert.equal(api.fvTransparentTriangleSort([primary,mold],{...camera,target}),null,
+        'Missing or invalid physical camera axis '+axis+': '+String(value));
+    }
+    for(const property of ['distance','yaw','pitch']){
+      assert.equal(api.fvTransparentTriangleSort([primary,mold],{...camera,[property]:value}),null,
+        'Invalid camera '+property+' cannot trigger scientific alpha sorting: '+String(value));
+    }
+  }
+  assert.equal(api.fvTransparentTriangleSort([primary,mold],{...camera,distance:0}),null,
+    'A zero-length camera vector has no valid physical viewing direction');
+  const fromNumericStrings=api.fvTransparentTriangleSort([primary,mold],
+    {...camera,target:['0','0','0'],distance:'10',yaw:'0',pitch:'0'});
+  assert(fromNumericStrings&&fromNumericStrings.triangles===2,
+    'Explicit finite numeric-string camera metadata remains valid');
+  assert.deepStrictEqual([...fromNumericStrings.positions.slice(0,9)],[...mold.positions]);
+  for(const [name,property] of [['NaN',NaN],['Infinity',Infinity]]){
+    const brokenPos=new Float32Array(primary.positions);brokenPos[0]=property;
+    const brokenColor=new Float32Array(primary.colors);brokenColor[0]=property;
+    assert.equal(api.fvTransparentTriangleSort([{...primary,positions:brokenPos}],camera),null,
+      name+' coordinate cannot become scientific geometry');
+    assert.equal(api.fvTransparentTriangleSort([{...primary,colors:brokenColor}],camera),null,
+      name+' color cannot reach WebGL');
+  }
+  assert.equal(api.fvTransparentTriangleSort([{...primary,positions:[...primary.positions]}],camera),null,
+    'Unsupported non-typed buffers must fall back instead of throwing on subarray');
+  assert.equal(api.fvTransparentTriangleSort([{...primary,colors:[...primary.colors]}],camera),null,
+    'Unsupported non-typed color buffers must fall back instead of throwing on subarray');
+  assert.equal(api.fvTransparentTriangleSort([primary],{
+    target:[1.7e308,1.7e308,1.7e308],distance:10,yaw:Math.PI/4,pitch:Math.PI/4
+  }),null,'An overflowed camera projection must not be sorted as finite depth');
 });
 
 test('production GPU alpha-batch reuses three buffers and restores primary program and depth',()=>{
