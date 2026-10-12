@@ -10,6 +10,20 @@ const program=fs.readFileSync(path.join(root,'src','FoamLensDesktop','Program.cs
 const installer=fs.readFileSync(path.join(root,'installer','FoamLens.iss'),'utf8');
 const guide=fs.readFileSync(path.join(root,'installer','TaskbarPinning.txt'),'utf8');
 const license=fs.readFileSync(path.join(root,'LICENSE.txt'),'utf8');
+const version=/<Version>(\d+\.\d+\.\d+)<\/Version>/.exec(project)?.[1];
+assert(version,'Native FoamLens Desktop version metadata missing');
+assert(project.includes('<AssemblyVersion>'+version+'.0</AssemblyVersion>')&&
+  project.includes('<FileVersion>'+version+'.0</FileVersion>'),
+  'Assembly, file and product version must match for the native updater');
+assert(installer.includes('#define MyAppVersion "'+version+'"'),
+  'Setup standalone default version must match packaged native EXE');
+const frontend=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
+assert(frontend.includes("dataset.foamLensDesktopVersion||'"+version+"'"),
+  'Desktop frontend fallback identity must match the signed product version');
+const changelog=fs.readFileSync(path.join(root,'..','CHANGELOG.md'),'utf8');
+assert(changelog.includes('## Desktop v'+version+' '),
+  'Automated GitHub release must include notes for the exact installer version');
+
 assert(installer.includes('DisableWelcomePage=no')&&installer.includes('LicenseFile=..\\LICENSE.txt'),'Setup must show Welcome + full EULA acceptance.');
 assert(license.includes('FoamLens')&&license.length>500,'Setup EULA must be the full product license.');
 assert(/Name:\s*"desktopicon"[^\n]*Flags:\s*unchecked/.test(installer),'Desktop shortcut must be optional.');
