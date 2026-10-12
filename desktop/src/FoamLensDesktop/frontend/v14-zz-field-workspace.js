@@ -208,7 +208,12 @@ function fwRefreshGlobalTime(){
   if(!slider||!readout)return;slider.max=String(Math.max(0,times.length-1));let idx=0,current=fwTimeCurrent();
   if(times.length&&Number.isFinite(current)){let best=Infinity;times.forEach((t,i)=>{const d=Math.abs(t-current);if(d<best){best=d;idx=i}})}
   slider.value=String(Math.max(0,Math.min(Math.max(0,times.length-1),idx)));slider.disabled=times.length<2;if(play)play.disabled=times.length<2;
-  readout.textContent=times.length?'t = '+fvFmt(times[idx])+' s':'t = —'
+  // A selectable first timeline tick is not proof that its field frame was loaded.
+  // Preserve an interpolated/explicit physical time rather than mislabeling it
+  // as the nearest available snapshot.
+  const hasFrame=times.length>0&&Number.isFinite(current);
+  readout.textContent=hasFrame?'t = '+fvFmt(current)+' s':'t = —';
+  slider.setAttribute('aria-valuetext',hasFrame?readout.textContent:fwUi('No measured frame loaded','Sin frame medido cargado'))
 }
 async function fwTimeLoadIndex(index){
   const times=fwTimeTimes();if(!times.length)return;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0))),time=times[i],mode=fwTimeMode();
@@ -242,11 +247,13 @@ function fwFieldTsGroup(slot){
   return c&&name?fvFieldGroups(c,region,null,'any').find(g=>g.name===name):null
 }
 function fwFieldTsMetric(range,stat){
-  if(!range?.valid)return NaN;
-  if(stat==='min')return Number(range.min);
-  if(stat==='max')return Number(range.max);
-  if(stat==='delta')return Number(range.max)-Number(range.min);
-  return Number(range.mean)
+  if(range?.valid!==true)return NaN;
+  const min=fwMeasuredNumber(range.min),max=fwMeasuredNumber(range.max);
+  if(!Number.isFinite(min)||!Number.isFinite(max)||min>max)return NaN;
+  if(stat==='min')return min;
+  if(stat==='max')return max;
+  if(stat==='delta')return max-min;
+  return fwMeasuredNumber(range.mean)
 }
 function fwFieldTsStatLabel(stat){
   return stat==='min'?'Min':stat==='max'?'Max':stat==='delta'?'Δ':fwUi('Mean','Media')
