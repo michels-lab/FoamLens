@@ -25,8 +25,12 @@ assert(project.includes('<AssemblyVersion>'+desktopVersion+'.0</AssemblyVersion>
   'Desktop native assembly version must match the project release version');
 assert(project.includes('<FileVersion>'+desktopVersion+'.0</FileVersion>'),
   'Desktop Windows file version must match the project release version');
-assert(readme.includes('**FoamLens Desktop v'+desktopVersion+'** for Windows'),
-  'README release version must match the current native product version');
+assert(readme.startsWith('# FoamLens Desktop v'+desktopVersion+'\n')&&
+  readme.includes('**FoamLens Desktop v'+desktopVersion+' with frontend v51**'),
+  'Desktop README version and frontend must match the native product release');
+const publicReadme=fs.readFileSync(path.join(root,'..','README.md'),'utf8');
+assert(publicReadme.includes('**FoamLens Desktop v'+desktopVersion+'** for Windows'),
+  'Repository README native release version must match the Desktop project');
 assert(fs.readFileSync(path.join(root,'..','CHANGELOG.md'),'utf8').includes('## Desktop v'+desktopVersion+' '),
   'Changelog must include exact candidate-version release notes');
 assert(rootLicense.startsWith('FoamLens — Proprietary Software License'),'Root license still carries a legacy product identity.');
