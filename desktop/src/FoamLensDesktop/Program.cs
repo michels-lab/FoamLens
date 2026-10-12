@@ -2483,6 +2483,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       }
     }
     physicalScene.weightedCrossedPixelProof=weightedCrossedPixelProof;
+    if(physicalScene.weightedOit.active&&!weightedCrossedPixelProof.supported)
+      throw new Error('Active native weighted OIT must not skip its crossed-surface pixel acceptance fixture');
     // In the real imported OpenFOAM metal/mold WebGL context, draw both
     // measured physical surfaces fully opaque. Their shared interface may
     // contain coincident raster depths. The temporary tie-bias must never
