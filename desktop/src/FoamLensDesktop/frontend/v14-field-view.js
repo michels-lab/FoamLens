@@ -983,7 +983,14 @@ function fvRegionRenderLayers(pass='all',drawPrimary=null,{skipTransparentTriang
   const forward=eye?camera.target.map((v,i)=>Number(v)-eye[i]):null;
   const length=forward?Math.hypot(...forward):0;
   const layerDepth=layer=>{
-    const m=layer?.mesh;if(!eye||!(length>0)||!m?.boundsMin||!m?.boundsMax)return 0;
+    const m=layer?.mesh;
+    // Never assign an invented depth at the origin to missing physical bounds.
+    const valid=v=>(typeof v==='number'||typeof v==='string')&&
+      String(v).trim()!==''&&Number.isFinite(Number(v));
+    if(!eye||!(length>0)||!m?.boundsMin||!m?.boundsMax||
+      m.boundsMin.length<3||m.boundsMax.length<3||
+      ![0,1,2].every(i=>valid(m.boundsMin[i])&&valid(m.boundsMax[i])&&
+        Number(m.boundsMin[i])<=Number(m.boundsMax[i])))return Number.NEGATIVE_INFINITY;
     const center=[0,1,2].map(i=>(Number(m.boundsMin[i])+Number(m.boundsMax[i]))/2);
     // View-axis depth, not radial distance: a laterally displaced mold must
     // not be sorted behind metal merely because its Euclidean distance grows.
