@@ -1235,11 +1235,12 @@ test('single-region camera fallback preserves valid view when physical bounds or
   const setup=[
     'let renders=0;',
     'const document={getElementById:id=>id==="fvRegion"?{value:"fluid"}:null};',
-    'const fvCase=()=>null;const fvRegionFitCamera=()=>false;',
+    'const fvCase=()=>null;',
     'const fvRender=()=>{renders++};',
     'const fvState={mesh:null,camera:{target:[4,5,6],distance:8}};'
   ].join('\n');
   const run=new Function(setup+regionCode+code+`
+    fvRegionFitCamera=()=>false;
     fvState.mesh={boundsMin:[-1e308,0,0],boundsMax:[1e308,0,0]};
     fvCameraFitCurrent();
     const mixed={target:fvState.camera.target.slice(),distance:fvState.camera.distance};
