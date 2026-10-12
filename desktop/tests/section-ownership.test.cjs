@@ -500,8 +500,13 @@ test('A–B OpenFOAM line profile never fabricates a physical timestamp',()=>{
 test('Temperature-at-probe sampling uses correct cell values and finite geometric bounds',()=>{
   const start=field.indexOf('function fwNearestFlatIndex('),end=field.indexOf('function fwProfileSeriesAll()',start);
   assert(start>=0&&end>start,'Physical field sampling path missing');
-  const sample=new Function('fvInsideBounds','fvMeshFacePoints',field.slice(start,end)+';return fwSampleFieldAtPoint;')(
-    (p,min,max)=>p.every((v,i)=>v>=min[i]&&v<=max[i]),()=>[]);
+  // The isolated production sampler now requires the real strict measurement guard.
+  const guardStart=field.indexOf('function fwMeasuredNumber(raw){'),guardEnd=field.indexOf('function fwPhysicalTime(raw){',guardStart);
+  assert(guardStart>=0&&guardEnd>guardStart,'Missing production physical-value validator');
+  const measured=new Function(field.slice(guardStart,guardEnd)+';return fwMeasuredNumber;')();
+  const sample=new Function('fvInsideBounds','fvMeshFacePoints','fwMeasuredNumber',
+    field.slice(start,end)+';return fwSampleFieldAtPoint;')(
+    (p,min,max)=>p.every((v,i)=>v>=min[i]&&v<=max[i]),()=>[],measured);
   const mesh={boundsMin:[0,0,0],boundsMax:[1,1,1],cellCount:2,
     cellCenters:[0.2,0.2,0.2,0.8,0.8,0.8],pointCount:2,points:[0,0,0,1,1,1]};
   const data={mesh,storage:'volume',fieldValues:[1417.57,1481.9]};
@@ -510,4 +515,8 @@ test('Temperature-at-probe sampling uses correct cell values and finite geometri
   assert(Number.isNaN(sample(data,[1.5,0.5,0.5]).value),
     'A probe outside the physical region must not fabricate a temperature');
   assert.equal(sample({...data,storage:'point',fieldValues:[1200,1300]},[0.9,0.9,0.9]).value,1300);
+  assert(Number.isNaN(sample({...data,fieldValues:[null,1481.9]},[0.15,0.15,0.15]).value),
+    'A missing OpenFOAM cell temperature must not be interpreted as zero');
+  assert.equal(sample({...data,fieldValues:[0,1481.9]},[0.15,0.15,0.15]).value,0,
+    'A genuine measured zero remains valid');
 });
