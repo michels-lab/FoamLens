@@ -1234,6 +1234,7 @@ test('single-region camera fallback preserves valid view when physical bounds or
   // regionCode contains the exact production union-bounds implementation.
   const setup=[
     'let renders=0;',
+    'const window={};',
     'const document={getElementById:id=>id==="fvRegion"?{value:"fluid"}:null};',
     'const fvCase=()=>null;',
     'const fvRender=()=>{renders++};',
