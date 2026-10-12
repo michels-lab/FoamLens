@@ -4465,3 +4465,7 @@ The required interpretation is structural integration rather than sticker placem
 - Reproduced with the actual `eaAnalyzeFluxGroup` production function: aligned times `[0,1,4]` and a missing t=1 reading yielded two compact residuals `[1,5]`, then `eaTrapezoid` mistakenly combined them against the first two timestamps to report an apparently valid 3 J integral.
 - Fail-closed correction: if not every aligned physical timestamp has a finite advective, diffusive and total power triple, mark the group's integrated closure unavailable, without generating a fictitious energy value. Preserve full exact-grid integration and existing closure metrics for genuinely complete datasets.
 - Added executed direct production-function negative and positive regressions; combined PR #76 requires a new exact-head QuickCup/Windows validation after this scientifically material correction. No new version or release.
+
+## 2026-10-12 — Shared agent contract synchronization
+
+Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructions.md to Michel-Software-Standards child-agent-core 2026-10-12.1. Local product instructions remain byte-for-byte unchanged outside those blocks. Carries current installer EULA/shortcut, standalone HTML (where applicable), and independent work during CI policies; does not modify app code, workflows, versions or releases. Validation: one managed block per target, exact canonical body and preserved local prefix/suffix. Product/runtime acceptance is not inferred from this documentation change.
