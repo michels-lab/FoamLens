@@ -12,10 +12,18 @@ if ([string]::IsNullOrWhiteSpace($desktop)) { throw 'Current-user desktop path u
 $link=Join-Path $desktop 'FoamLens.lnk'
 if (Test-Path -LiteralPath $link) { throw "Refusing to replace existing user desktop shortcut: $link" }
 $expectedGuide=(Resolve-Path -LiteralPath 'desktop/installer/TaskbarPinning.txt').Path
+$installerSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../desktop/installer/FoamLens.iss') -Raw
+if($installerSource -notmatch '(?m)^Name: "taskbarhelp";[^\r\n]*Flags: unchecked\s*$'){
+  throw 'Installer taskbar guidance must be an unchecked wizard Tasks-page option'
+}
+if($installerSource -notmatch '(?m)^Filename: "\{sys\}\\notepad.exe";[^\r\n]*Tasks: taskbarhelp\s*$'){
+  throw 'Taskbar guide must only open for an explicit taskbarhelp selection'
+}
+
 function Invoke-FoamSetup([string]$exe,[string]$destination,[bool]$withShortcut) {
   $dirArg='/DIR="' + $destination + '"'
   $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER',$dirArg)
-  if($withShortcut){$args+='/TASKS=desktopicon'}else{$args+='/MERGETASKS=!desktopicon'}
+  if($withShortcut){$args+='/TASKS=desktopicon,taskbarhelp'}else{$args+='/MERGETASKS=!desktopicon,!taskbarhelp'}
   $proc=Start-Process -FilePath $exe -ArgumentList $args -PassThru
   if(-not $proc.WaitForExit(90000)){
     try{$proc.Kill($true)}catch{}
@@ -60,4 +68,26 @@ try{
   }
   if(Test-Path -LiteralPath $dir){Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue}
 }
-Write-Host 'Real FoamLens installer shortcut opt-in and uninstall cleanup PASS'
+
+$optOutDir=Join-Path $root 'without optional tasks'
+try{
+  if(Test-Path -LiteralPath $optOutDir){Remove-Item -LiteralPath $optOutDir -Force -Recurse}
+  Invoke-FoamSetup $setup $optOutDir $false
+  if(-not (Test-Path -LiteralPath (Join-Path $optOutDir 'FoamLens.exe'))){
+    throw 'Opt-out install did not deploy FoamLens.exe'
+  }
+  if(-not (Test-Path -LiteralPath (Join-Path $optOutDir 'TaskbarPinning.txt'))){
+    throw 'Opt-out install lost the optional taskbar guidance file'
+  }
+  if(Test-Path -LiteralPath $link){
+    throw 'Explicit !desktopicon opt-out still created a desktop shortcut'
+  }
+  Invoke-FoamUninstall $optOutDir
+  Write-Host 'Inno Setup optional-task opt-out and uninstall PASS'
+}finally{
+  if(Test-Path -LiteralPath (Join-Path $optOutDir 'unins000.exe')){
+    try{Invoke-FoamUninstall $optOutDir}catch{Write-Warning $_.Exception.Message}
+  }
+  if(Test-Path -LiteralPath $optOutDir){Remove-Item -LiteralPath $optOutDir -Recurse -Force -ErrorAction SilentlyContinue}
+}
+Write-Host 'Real FoamLens installer optional shortcut choices and cleanup PASS'
