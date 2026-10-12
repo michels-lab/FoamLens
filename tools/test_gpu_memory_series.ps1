@@ -1,10 +1,11 @@
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
-. (Join-Path $PSScriptRoot 'capture_gpu_memory_series.ps1')
+. (Join-Path $PSScriptRoot 'capture_gpu_memory_series.ps1') -RootProcessId 321
 
 function Assert-Sampled([bool]$condition,[string]$message){
   if(-not $condition){throw "GPU time-series regression: $message"}
 }
+Assert-Sampled ($RootProcessId -eq 321) 'Dot-sourced process sampler must preserve the explicitly supplied FoamLens host PID'
 function VerifiedWebView([int[]]$pids,[int]$expected=$pids.Count){
   [pscustomobject]@{
     webViewPidCount=$expected;observedProcessCount=$pids.Count
