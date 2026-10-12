@@ -4441,3 +4441,8 @@ The required interpretation is structural integration rather than sticker placem
 - Found after green B2.2/B2.3 PRs #68/#69 merged: 3D View B and View 3/4 still called `Number(fvState.time)`; null/blank/false could silently select t=0. Compare A/B swap also used that unsafe timestamp and `map(Number)` on frame-time metadata.
 - Scoped fix: strict `fcPrimaryPhysicalTime` source, no swap on unmeasured primary time, no fabricated t=0 in swap lists. Additional viewport invalidation clears stale CPU field, mesh, probe and renderer draw counts and advances sequence token on absent/incompatible time/field or caught error, preventing old data appearing in 3D video export.
 - Added direct production-function regression to `desktop/tests/field-compare.test.cjs` preserving authentic t=0. Exact-head Windows/QuickCup and installed UI CI is pending. Issue #30 remains open; no release authorized.
+
+## 2026-10-12 — Thermal Analysis: missing physical samples and false temperature zero
+- Confirmed `thPairs`, `thIntervals` and thermal display formatting used `Number(null/false/'')`, treating missing OpenFOAM measurements/time as zero. This risks fake cooling/heating rates and thermal statistics.
+- Added strict numeric/string physical sample parsing, kept genuine zero and numeric time, and expanded executed core regressions to exercise missing timestamps, temperatures, integrals and intervals. UI representation now uses an em dash for missing thermal readings rather than zero.
+- This is a validated source smoke candidate only; exact-head Windows/real OpenFOAM CI pending. Temperature rates still derive from measured endpoints; no recalescence/latent-heat inference or release claimed.
