@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.1 — 2026-10-12
+
+- **Field 3D WebGL2 transparency**: release unused weighted-blended transparency GPU scratch targets when returning to opaque/hidden/unsupported scenes, clean shader vertex attributes on draw failure, and correctly report the active transparency mode for each physical render frame. Real QuickCup, crossed-fragment rendering and native Windows scientific-screenshot regression gates were retained.
+- **Real-case GPU diagnostics**: add bounded, PID/SHA-attributed Windows GPU-process-counter sampling only **after real OpenFOAM metal/mold has loaded and rendered**, independently for portable and installed FoamLens. Keep counter provenance, transient unavailability and source timestamp explicit; never misrepresent process counters as physical GPU total VRAM.
+- **Windows Setup choice**: provide independent unchecked options for a desktop shortcut and user-selected instructions to pin FoamLens to the Windows taskbar. Respect Windows pinning controls; do not silently alter existing taskbar pins. Exercise opt-in/opt-out, actual installation, uninstallation, Welcome/EULA and portable/installed launch.
+- **Regression hardening**: preserve the real running FoamLens host PID across PowerShell GPU sampler imports, publish sampling handshake markers atomically, and validate that minimized WebView2 advances rather than requiring a non-portable hidden-timer cadence. Rebuild the installer choice test with no duplicate functions after CI exposed an invalid generated script.
+- **Release safety**: retain the actual OpenFOAM QuickCup/VTK physical-science suite, exact-head Windows executable/installer smoke, source-tagged Home/About/Data/Field screenshots at wide and compact sizes, SHA-256 asset checks and automatic updater checksum verification. Microsoft Store remains paused, and owner visual/hardware review is post-release.
+
 ## Desktop v1.8.0 — 2026-10-08
 
 - Replaced owner-rejected orbit brackets and cardinal ticks with the arc-free layered-field identity across the product mark, lockup, app SVG, and regenerated seven-size native Windows icon (launcher, installer, shortcuts and taskbar). Canonical sources are shared through Michel's Lab.
