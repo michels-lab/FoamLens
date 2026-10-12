@@ -7,6 +7,17 @@ Set-StrictMode -Version Latest
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Drawing
+# Delphi/Inno Setup standard buttons sometimes expose a native HWND but no
+# UIAutomation InvokePattern/SelectionItemPattern. Use native BM_CLICK instead
+# of treating this as an EULA acceptance failure.
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class NativeFoamWizard {
+  [DllImport("user32.dll", CharSet=CharSet.Auto)]
+  public static extern IntPtr SendMessage(IntPtr hwnd, UInt32 msg, IntPtr wp, IntPtr lp);
+}
+'@
 $setup=(Resolve-Path -LiteralPath $Installer).Path
 $screenshotPath=[IO.Path]::GetFullPath($Screenshot)
 [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($screenshotPath)) | Out-Null
@@ -43,12 +54,31 @@ function Get-NamedItem([object[]]$items,[string]$pattern){
   return $null
 }
 function Invoke-Item([System.Windows.Automation.AutomationElement]$item){
-  $pattern=$item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-  $pattern.Invoke()
+  try{
+    $pattern=$item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+    $pattern.Invoke()
+    return
+  }catch{
+    Write-Host "UIAutomation InvokePattern unavailable for $($item.Current.Name); trying native control."
+  }
+  try{
+    $legacy=$item.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
+    $legacy.DoDefaultAction()
+    return
+  }catch{}
+  $handle=$item.Current.NativeWindowHandle
+  if($handle -eq 0){throw "No native HWND for wizard control $($item.Current.Name)"}
+  [void][NativeFoamWizard]::SendMessage([IntPtr]$handle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)
 }
 function Select-Item([System.Windows.Automation.AutomationElement]$item){
-  $pattern=$item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-  $pattern.Select()
+  try{
+    $pattern=$item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    $pattern.Select()
+    return
+  }catch{
+    Write-Host "UIAutomation SelectionItemPattern unavailable for $($item.Current.Name); trying native radio click."
+  }
+  Invoke-Item $item
 }
 try{
   $proc=Start-Process -FilePath $setup -ArgumentList @('/SP-','/CURRENTUSER') -PassThru
@@ -73,6 +103,7 @@ try{
     Invoke-Item $next
     Start-Sleep -Milliseconds 650
   }
+  Write-Host ("Reached Setup EULA page; accept="+($null -ne $accept)+", decline="+($null -ne $decline)+", next="+($null -ne $next))
   if($null -eq $accept -or $null -eq $decline -or $null -eq $next){
     $names=(Get-WizardItems $window | ForEach-Object {$_.Current.Name}) -join ' | '
     throw "Required native license accept/decline controls missing: $names"
