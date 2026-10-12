@@ -551,12 +551,20 @@ function fvRegionExactTime(times,target){
   }
   return undefined
 }
+function fvRegionPhysicalCoordinate(raw){
+  // A missing mesh coordinate is not 0: Number(null), Number('') and
+  // Number(false) would otherwise invent physical geometry during camera fit.
+  if((typeof raw!=='number'&&typeof raw!=='string')||String(raw).trim()==='')return NaN;
+  const coordinate=Number(raw);return Number.isFinite(coordinate)?coordinate:NaN
+}
 function fvRegionUnionBounds(meshes){
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let n=0;
   for(const mesh of meshes||[]){
-    if(!mesh?.boundsMin||!mesh?.boundsMax)continue;
-    if(![0,1,2].every(i=>Number.isFinite(Number(mesh.boundsMin[i]))&&Number.isFinite(Number(mesh.boundsMax[i]))&&Number(mesh.boundsMin[i])<=Number(mesh.boundsMax[i])))continue;
-    for(let i=0;i<3;i++){min[i]=Math.min(min[i],Number(mesh.boundsMin[i]));max[i]=Math.max(max[i],Number(mesh.boundsMax[i]))}n++
+    if(!mesh?.boundsMin||!mesh?.boundsMax||mesh.boundsMin.length<3||mesh.boundsMax.length<3)continue;
+    const lo=[0,1,2].map(i=>fvRegionPhysicalCoordinate(mesh.boundsMin[i]));
+    const hi=[0,1,2].map(i=>fvRegionPhysicalCoordinate(mesh.boundsMax[i]));
+    if(![0,1,2].every(i=>Number.isFinite(lo[i])&&Number.isFinite(hi[i])&&lo[i]<=hi[i]))continue;
+    for(let i=0;i<3;i++){min[i]=Math.min(min[i],lo[i]);max[i]=Math.max(max[i],hi[i])}n++
   }
   return n?{min,max,center:min.map((v,i)=>(v+max[i])/2),diagonal:Math.hypot(...max.map((v,i)=>v-min[i]))||1}:null
 }

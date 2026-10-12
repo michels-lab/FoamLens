@@ -865,6 +865,34 @@ const regionApi=new Function(
   regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
 )();
 
+
+test('multiregion union bounds exclude absent/nonfinite mesh coordinates rather than inventing x=0',()=>{
+  const good={boundsMin:[2,3,4],boundsMax:[6,7,8]};
+  assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good]).min,[2,3,4]);
+  assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good]).max,[6,7,8]);
+  assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good]).center,[4,5,6]);
+  const invalid=[
+    {boundsMin:[null,0,0],boundsMax:[1,1,1]},
+    {boundsMin:[false,0,0],boundsMax:[1,1,1]},
+    {boundsMin:['',0,0],boundsMax:[1,1,1]},
+    {boundsMin:[0,0,0],boundsMax:['',1,1]},
+    {boundsMin:[0,0],boundsMax:[1,1,1]},
+    {boundsMin:[0,0,0],boundsMax:[1,1]},
+    {boundsMin:[9,0,0],boundsMax:[3,1,1]},
+    {boundsMin:[Infinity,0,0],boundsMax:[1,1,1]},
+    {boundsMin:[0,0,0],boundsMax:[NaN,1,1]}
+  ];
+  for(const mesh of invalid){
+    assert.strictEqual(regionApi.fvRegionUnionBounds([mesh]),null,'Invalid mesh must not set camera bounds');
+    assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,mesh]).min,[2,3,4],
+      'Invalid mesh must not displace valid region in shared scene');
+    assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,mesh]).max,[6,7,8]);
+  }
+  const numericStrings={boundsMin:['-1','0','0.5'],boundsMax:['1e1','2','3']};
+  assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,numericStrings]).min,[-1,0,0.5]);
+  assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,numericStrings]).max,[10,7,8]);
+});
+
 test('physical OpenFOAM region colormaps use independent measured field legends and GPU buffers',()=>{
   const begin=regionCode.indexOf('function fvRegionPalette(');
   const end=regionCode.indexOf('function fvRegionStatus(',begin);
