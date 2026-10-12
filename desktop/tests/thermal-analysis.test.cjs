@@ -15,6 +15,18 @@ const api=new Function(core+'\nreturn {thPairs,thDerivative,thIntegral,thWeighte
 const near=(x,y,t=1e-10)=>Math.abs(x-y)<=t*Math.max(1,Math.abs(x),Math.abs(y));
 const passed=[];function test(name,fn){fn();passed.push(name)}
 
+
+test('missing thermal values cannot create fictitious cooling, heating or measured t=0',()=>{
+  assert.deepStrictEqual(api.thPairs([0,1,2,3,'4'],[100,null,false,'',90]),[[0,100],[4,90]]);
+  assert.deepStrictEqual(api.thPairs([null,'',false,'0','9.8'],[1,2,3,'0','100']),[[0,0],[9.8,100]]);
+  const x=api.thAnalyzeTemperature([0,1,2],[100,null,90]);
+  assert.deepStrictEqual(x.t,[0,2]);
+  assert(x.coolingRate.every(v=>v>0));
+  assert(x.heatingRate.every(v=>v===0));
+  assert.deepStrictEqual(api.thIntervals([null,0,1,2],[10,10,null,10]),[{start:0,end:0},{start:2,end:2}]);
+  assert.strictEqual(api.thIntegral([0,1,2],[10,null,0]),10);
+});
+
 test('temperature derivative uses physical time on nonuniform grid',()=>{
   const d=api.thDerivative([0,.2,1.2],[100,99.6,97.6]);
   assert(d.y.every(v=>near(v,-2)));

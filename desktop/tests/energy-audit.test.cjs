@@ -20,6 +20,18 @@ const passed=[];
 function test(name,fn){fn();passed.push(name)}
 function near(a,b,e=1e-10){assert(Math.abs(a-b)<=e,`${a} != ${b}`)}
 
+
+test('missing energy samples, closure inputs and timestamps never become false physical zero',()=>{
+  assert.deepStrictEqual(api.eaFinitePairs([0,null,'',2,false,'3'],[10,20,30,null,40,'0']),[[0,10],[3,0]]);
+  assert.deepStrictEqual(api.eaFinitePairs(['0','9.8'],['0','5e1']),[[0,0],[9.8,50]]);
+  const metrics=api.eaClosureMetrics([null,5,false,0],[1,1,1,0],[1,6,1,0]);
+  assert.strictEqual(metrics.n,2);
+  assert.deepStrictEqual(metrics.residual,[0,0]);
+  const q=api.eaQuantile([null,false,'',2,4],.5);
+  near(q,3);
+  assert.strictEqual(api.eaTrapezoid([0,1,2],[1,null,3]).final,4);
+});
+
 test('OpenFOAM energy-flux roles are classified from field/reduction provenance',()=>{
   assert.equal(api.eaRoleFromDescriptor({fieldName:'energyAdvectiveFlux',kind:'surfaceReduction',operation:'sum'}),'advective');
   assert.equal(api.eaRoleFromDescriptor({fieldName:'heatFlux',functionType:'surfaceFieldValue',operation:'sum'}),'diffusive');

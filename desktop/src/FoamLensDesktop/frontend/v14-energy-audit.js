@@ -8,9 +8,15 @@ const EA_ROLE_LABELS={
   sensibleInventory:{en:'Sensible-energy inventory',es:'Inventario de energía sensible'},
   latentPower:{en:'Latent-heat power',es:'Potencia de calor latente'}
 };
+function eaPhysicalNumber(raw){
+  // Null/blank/false are not OpenFOAM energy measurements or timestamps.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim())return NaN;
+  const value=Number(raw);return Number.isFinite(value)?value:NaN
+}
 function eaNorm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'')}
 function eaFinitePairs(t,y){
-  const out=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const x=Number(t[i]),v=Number(y[i]);if(Number.isFinite(x)&&Number.isFinite(v))out.push([x,v])}
+  const out=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const x=eaPhysicalNumber(t[i]),v=eaPhysicalNumber(y[i]);if(Number.isFinite(x)&&Number.isFinite(v))out.push([x,v])}
   out.sort((a,b)=>a[0]-b[0]);const d=[];for(const p of out){if(d.length&&Math.abs(d.at(-1)[0]-p[0])<=Math.max(1e-12,Math.max(Math.abs(p[0]),1)*1e-10))d[d.length-1]=p;else d.push(p)}return d
 }
 function eaMergeSeries(seriesList){
@@ -37,13 +43,13 @@ function eaTrapezoid(t,y){
   return{t:tt,y:out,final:acc}
 }
 function eaQuantile(values,q){
-  const a=(values||[]).map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return NaN;if(a.length===1)return a[0];
+  const a=(values||[]).map(eaPhysicalNumber).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return NaN;if(a.length===1)return a[0];
   const p=(a.length-1)*Math.max(0,Math.min(1,Number(q)||0)),lo=Math.floor(p),hi=Math.ceil(p),f=p-lo;return a[lo]+(a[hi]-a[lo])*f
 }
 function eaClosureMetrics(adv,diff,total,epsilon=1e-12){
   const n=Math.min(adv?.length||0,diff?.length||0,total?.length||0),res=[],rel=[];
   for(let i=0;i<n;i++){
-    const a=Number(adv[i]),d=Number(diff[i]),tt=Number(total[i]);if(![a,d,tt].every(Number.isFinite))continue;
+    const a=eaPhysicalNumber(adv[i]),d=eaPhysicalNumber(diff[i]),tt=eaPhysicalNumber(total[i]);if(![a,d,tt].every(Number.isFinite))continue;
     const r=tt-a-d,scale=Math.max(Math.abs(tt),Math.abs(a)+Math.abs(d),Math.abs(Number(epsilon)||0),1e-300);res.push(r);rel.push(Math.abs(r)/scale)
   }
   const abs=res.map(Math.abs),rms=res.length?Math.sqrt(res.reduce((s,v)=>s+v*v,0)/res.length):NaN;
@@ -56,8 +62,8 @@ function eaInventoryDelta(t,y){
 
 function eaUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(diagEs()?es:en)}catch{return en}}
 function eaEsc(v){try{return typeof esc==='function'?esc(String(v??'')):String(v??'')}catch{return String(v??'')}}
-function eaFmt(v,d=6){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:d}):'—'}
-function eaPct(v){return Number.isFinite(Number(v))?(100*Number(v)).toLocaleString(undefined,{maximumFractionDigits:4})+'%':'—'}
+function eaFmt(v,d=6){const n=eaPhysicalNumber(v);return Number.isFinite(n)?n.toLocaleString(undefined,{maximumSignificantDigits:d}):'—'}
+function eaPct(v){const n=eaPhysicalNumber(v);return Number.isFinite(n)?(100*n).toLocaleString(undefined,{maximumFractionDigits:4})+'%':'—'}
 function eaRoleLabel(role){const x=EA_ROLE_LABELS[role];return x?eaUi(x.en,x.es):role}
 
 function eaFunctionObjectForSeries(s){

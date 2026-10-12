@@ -1,8 +1,14 @@
 /* FoamLens Desktop v1.3.0 — general solidification / remelting signal analysis. */
 
 /* FOAMLENS_SOLIDIFICATION_ANALYSIS_CORE_START */
+function saPhysicalNumber(raw){
+  // A missing phase fraction or physical timestamp is not measured zero.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim())return NaN;
+  const value=Number(raw);return Number.isFinite(value)?value:NaN
+}
 function saPairs(t,y){
-  const out=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const tt=Number(t[i]),vv=Number(y[i]);if(Number.isFinite(tt)&&Number.isFinite(vv))out.push([tt,vv])}
+  const out=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const tt=saPhysicalNumber(t[i]),vv=saPhysicalNumber(y[i]);if(Number.isFinite(tt)&&Number.isFinite(vv))out.push([tt,vv])}
   out.sort((a,b)=>a[0]-b[0]);const d=[];for(const p of out){if(d.length&&Math.abs(d.at(-1)[0]-p[0])<=1e-12*Math.max(1,Math.abs(p[0])))d[d.length-1]=p;else d.push(p)}return d
 }
 function saDerivative(t,y){
@@ -19,7 +25,7 @@ function saTrapezoid(t,y){
 function saContiguousIntervals(t,mask){
   const out=[];let start=null,last=null;
   for(let i=0;i<Math.min(t?.length||0,mask?.length||0);i++){
-    const tt=Number(t[i]),on=!!mask[i];if(!Number.isFinite(tt))continue;
+    const tt=saPhysicalNumber(t[i]),on=!!mask[i];if(!Number.isFinite(tt))continue;
     if(on&&start==null)start=tt;if(on)last=tt;
     if(!on&&start!=null){out.push({start,end:last??start});start=null;last=null}
   }
@@ -51,7 +57,7 @@ function saSources(){
 }
 function saId(s,i){return String(s?.id??i)}
 function saLabel(s){try{return taSeriesLabel(s)}catch{return String(s?.name||s?.field?.display||s?.field?.canonical||'Series')}}
-function saFmt(v){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
+function saFmt(v){const n=saPhysicalNumber(v);return Number.isFinite(n)?n.toLocaleString(undefined,{maximumSignificantDigits:7}):'—'}
 function saSelected(){const src=saSources(),id=document.getElementById('saSource')?.value;return src.find((s,i)=>saId(s,i)===String(id))}
 function saAddDerived(base,name,t,y,kind,formula){
   const d={...base,id:'sa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name,label:name,t:t.slice(),y:y.slice(),derived:true,derivedKind:kind,sourceKind:'derived',sourcePath:'FoamLens solidification analysis',visible:true,hidden:false,checked:true,enabled:true,

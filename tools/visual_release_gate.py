@@ -24,7 +24,9 @@ BOT = ("bot", "agent", "automation", "copilot", "chatgpt", "gpt-")
 
 def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str],
                    required_surfaces: list[str], require_review: bool = True,
-                   require_portable: bool = False) -> list[str]:
+                   require_portable: bool = False,
+                   artifact_paths: dict[str, Path] | None = None,
+                   portable_artifact_paths: dict[str, Path] | None = None) -> list[str]:
     errors = []
     if not re.fullmatch(r"[0-9a-fA-F]{40}", source_sha):
         return ["Source SHA must be a full 40-character commit hash"]
@@ -51,6 +53,28 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
             errors.append(f"Missing real candidate artifact SHA-256 for {platform}")
         if require_portable and not HEX.fullmatch(str(portable_artifacts.get(platform, ""))):
             errors.append(f"Missing real portable candidate SHA-256 for {platform}")
+    # A manifest digest is merely a claim until the actual current candidate
+    # binary is independently hashed at the validation/publication boundary.
+    for variant, paths, declared in (
+        ("installed", artifact_paths, artifacts),
+        ("portable", portable_artifact_paths, portable_artifacts),
+    ):
+        if paths is None:
+            continue
+        for platform in required_platforms:
+            candidate = paths.get(platform)
+            if candidate is None or not Path(candidate).is_file():
+                errors.append(f"{platform}/{variant}: exact candidate binary missing")
+                continue
+            digest = hashlib.sha256()
+            try:
+                with Path(candidate).open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                if digest.hexdigest() != str(declared.get(platform, "")).lower():
+                    errors.append(f"{platform}/{variant}: candidate binary SHA-256 differs from evidence manifest")
+            except OSError as exc:
+                errors.append(f"{platform}/{variant}: cannot hash candidate binary: {exc}")
     for idx, shot in enumerate(shots):
         prefix = f"screenshot[{idx}]"
         if not isinstance(shot, dict):
@@ -150,14 +174,22 @@ def main() -> int:
                         help="Validate actual screenshot and candidate integrity; owner visual review follows publication")
     parser.add_argument("--require-portable", action="store_true",
                         help="Require separately captured portable and installed UI evidence at both viewport sizes")
+    parser.add_argument("--artifact", type=Path,
+                        help="Rehash the actual installed Setup/MSIX candidate against the evidence manifest")
+    parser.add_argument("--portable-artifact", type=Path,
+                        help="Rehash the exact portable EXE against its separate manifest digest")
     args = parser.parse_args()
     platforms = [p.strip() for p in args.platforms.split(",") if p.strip()]
     surfaces = [p.strip() for p in args.surfaces.split(",") if p.strip()]
     if not platforms or not {"home", "about"}.issubset(surfaces):
         parser.error("Must declare shipped platforms and include home,about")
+    if args.require_portable and (not args.artifact or not args.portable_artifact):
+        parser.error("Windows portable/installed validation requires both exact binary paths")
     errors = check_evidence(args.manifest, args.source_sha, platforms, surfaces,
                             require_review=not args.capture_only,
-                            require_portable=args.require_portable)
+                            require_portable=args.require_portable,
+                            artifact_paths={platforms[0]: args.artifact} if args.artifact and len(platforms)==1 else None,
+                            portable_artifact_paths={platforms[0]: args.portable_artifact} if args.portable_artifact and len(platforms)==1 else None)
     for problem in errors:
         print("::error::" + problem, file=sys.stderr)
     if errors:

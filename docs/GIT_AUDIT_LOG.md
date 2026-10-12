@@ -4446,3 +4446,17 @@ The required interpretation is structural integration rather than sticker placem
 - Found false-zero risk in `fvRegionUnionBounds`: incomplete mesh bounding boxes and null/blank/boolean XYZ values were coerced to physical zero by JavaScript. This could contaminate the framing union of genuine metal/mold geometry.
 - Corrected validation to accept only finite number/numeric-string XYZ triples with nonreversed min/max. Bad mesh bounds are skipped without inventing coordinates, preserving union bounds for remaining valid OpenFOAM regions.
 - Added actual production-kernel regressions in `desktop/tests/field-view.test.cjs`; manual direct V8 check and exact-head Windows QuickCup CI required before merging. No release and no GPU-memory-performance claims from these tests.
+
+## 2026-10-12 — Exact binary provenance for automated Windows UI evidence
+- Release evidence audit found that the source/manifest/image hashes are checked, while validation of the actual candidate binary SHA-256 was delegated to a separate publication snippet. Added direct optional real-file digest verification to the visual gate itself, made candidate Setup+Portable paths mandatory when `--require-portable` is enabled, and required this at both Windows build/QA and release verification.
+- Added executed negative fixture scenarios: mutate Setup or portable after screenshot capture and require the validator to reject otherwise-correct image evidence. No user pre-release visual blocker, Store change or release authorized. Exact-head CI still required.
+
+## 2026-10-12 — Scientific Block 3: missing measurements in phase and energy post-processing
+- Source-executed audit reproduced `Number(null/false/'') -> 0` in `saPairs`, `saContiguousIntervals`, `eaFinitePairs`, `eaClosureMetrics` and `eaQuantile`. This risked fabricated solidification/remelting events, energy integrations and closure metrics from samples OpenFOAM did not measure.
+- Both scientific modules now use local strict physical-number parsing for numeric/string measurements while retaining genuine `0` and scientific notation; UI formatters also avoid presenting an absent value as zero. Production-source V8 cases pass, with regression tests expanded for phase progression and energy audit.
+- This is a source correctness fix only. Exact-head Windows + real OpenFOAM CI pending; phase thermophysical inference and case-specific conservation/sign conventions remain intentionally out of scope.
+
+## 2026-10-12 — Thermal Analysis: missing physical samples and false temperature zero
+- Confirmed `thPairs`, `thIntervals` and thermal display formatting used `Number(null/false/'')`, treating missing OpenFOAM measurements/time as zero. This risks fake cooling/heating rates and thermal statistics.
+- Added strict numeric/string physical sample parsing, kept genuine zero and numeric time, and expanded executed core regressions to exercise missing timestamps, temperatures, integrals and intervals. UI representation now uses an em dash for missing thermal readings rather than zero.
+- This is a validated source smoke candidate only; exact-head Windows/real OpenFOAM CI pending. Temperature rates still derive from measured endpoints; no recalescence/latent-heat inference or release claimed.

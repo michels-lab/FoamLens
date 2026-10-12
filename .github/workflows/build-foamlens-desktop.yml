@@ -798,7 +798,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Could not bind rendered Windows screenshots to installer SHA-256.' }
           python tools/test_visual_evidence.py
           if ($LASTEXITCODE -ne 0) { throw 'Portable/installed evidence negative regression failed.' }
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about,data,field --capture-only --require-portable
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about,data,field --capture-only --require-portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe"
           if ($LASTEXITCODE -ne 0) { throw 'Rendered UI evidence failed: missing, blank, stale, or incorrect screenshots.' }
 
       - name: Sync canonical Windows ICO for future design builds
@@ -880,7 +880,10 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check Pillow
           test -f artifacts/visual/manifest.json
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about,data,field --capture-only --require-portable
+          setup="$(find artifacts -maxdepth 1 -name 'FoamLens-Setup-v*.exe' -print -quit)"
+          portable="$(find artifacts -maxdepth 1 -name 'FoamLens-Portable-v*.exe' -print -quit)"
+          test -n "$setup" && test -n "$portable"
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha "$GITHUB_SHA" --platforms windows --surfaces home,about,data,field --capture-only --require-portable --artifact "$setup" --portable-artifact "$portable"
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
