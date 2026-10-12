@@ -81,6 +81,8 @@ if($MyInvocation.InvocationName -ne '.'){
       if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Force}
     }
   } finally {
-    [IO.File]::WriteAllText($ack,$ackStatus,[Text.Encoding]::UTF8)
+    $ackStage=$ack+'.writing.'+$PID
+    [IO.File]::WriteAllText($ackStage,$ackStatus,[Text.Encoding]::UTF8)
+    [IO.File]::Move($ackStage,$ack)
   }
 }
