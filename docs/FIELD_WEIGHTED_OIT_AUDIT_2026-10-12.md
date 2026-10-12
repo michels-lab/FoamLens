@@ -1,0 +1,27 @@
+# Field 3D — capability-gated WebGL2 weighted blended transparency
+Date: 2026-10-12
+
+## Scientific / visual motivation
+
+Two physically independent translucent OpenFOAM regions can intersect in image space so that the front-to-back order changes **within** a triangle. A centroid-sort is one order per primitive and cannot handle that. This feature implements a bounded **weighted blended order-independent transparency approximation** (McGuire/Bavoil method family) on devices with WebGL2 and the necessary float render targets. It is explicitly **not exact** per-fragment visibility, depth peeling, nor an assertion that physically correct absorptive transport/refractive effects have been reconstructed.
+
+## Eligibility and protected fallback
+
+- Operates only if the visible scientific surface scene is **fully translucent** and has at least one independently loaded physical secondary region; scenes with any depth-writing opaque surface stay on the existing correct shared-depth path.
+- Requires WebGL2, `EXT_color_buffer_float` and `EXT_float_blend`. Unsupported GPU/software contexts use the pre-existing bounded CPU triangle sorter and per-region camera-axis fallback. A failure during weighted drawing restores the primary program, GL depth mask and blending state, clears a partial composite if needed and deactivates the path.
+- Uses existing already-uploaded measured OpenFOAM vertex and field-color buffers. No fabrications, mixing values between regions, additional giant CPU sorting or duplicate vertex geometry. Two bounded textures are used: RGBA16F weighted color+alpha and R8 revealage.
+- GPU offscreen allocation budget: **9 bytes per pixel** (8+1) plus a tiny quad buffer, subject to a hard **2560×1440** pixel limit. This is a theoretical texture-storage budget, **not measured driver VRAM**.
+- The saved alpha/sorting path remains available for opaque scenes, WebGL1/unsupported extensions and allocation failures.
+
+## Validation
+
+The production helper regression exercises a mocked WebGL2 device with two physical translucent sources and verifies accumulation/revealage/blended composite passes, bounded target sizes, fallback for opaque scenes and missing capabilities, GL depth-state restoration and commutativity of the modeled weighted compositing operation. The real Windows packaged smoke now records whether weighted OIT was activated on the imported OpenFOAM metal/mold field, the actual driver extension support, estimated scratch texture budget and disabled reason. It does **not** turn an unsupported CI GPU into an invented OIT PASS.
+
+Exact-head Windows/QuickCup, native screenshot/EULA/installer validation and the packaged real multiregion smoke must pass before merge. Post-release human visual review and additional physical-GPU crossed-polygon screenshots are required before describing this approximation as visually sufficient on a particular GPU. The OpenFOAM large-scene GPU process/adapter evidence remains separately tracked as issue #40.
+
+## Background sources
+
+- Khronos `EXT_float_blend`: https://registry.khronos.org/webgl/extensions/EXT_float_blend/
+- McGuire & Bavoil, weighted blended order-independent transparency: https://jcgt.org/published/0002/02/09/paper.pdf
+
+No release/tag is created by this candidate.

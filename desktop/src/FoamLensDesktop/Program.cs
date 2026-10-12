@@ -2393,6 +2393,16 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       sortedTriangles:batchActive?Number(alphaBatch?.lastTriangles||0):0,
       scratchPayloadBytes:batchActive?Number(alphaBatch?.lastPayloadBytes||0):0,
       scope:'sorted upload payload, not graphics-driver VRAM'};
+    const weightedRenderer=fvState.renderer?.weightedOit;
+    physicalScene.weightedOit={
+      active:fvState.renderer?.weightedOitLastActive===true,
+      mode:weightedRenderer?.mode||'not-active',
+      scratchBytes:Number(weightedRenderer?.scratchBytes||0),
+      floatColorSupported:!!gl?.getExtension?.('EXT_color_buffer_float'),
+      floatBlendSupported:!!gl?.getExtension?.('EXT_float_blend'),
+      disabledReason:String(fvState.renderer?.weightedOitDisabled||''),
+      scope:'real imported OpenFOAM WebGL render, weighted approximate per-fragment; not exact OIT or driver VRAM'
+    };
     // In the real imported OpenFOAM metal/mold WebGL context, draw both
     // measured physical surfaces fully opaque. Their shared interface may
     // contain coincident raster depths. The temporary tie-bias must never
