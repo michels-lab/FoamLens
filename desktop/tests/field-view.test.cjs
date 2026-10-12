@@ -1500,6 +1500,59 @@ test('unchanged physical alpha frame reuses sorted GPU upload; camera, alpha and
   assert.equal(result.lastBytes,2*(72+72+24)/2,'Upload budget must match measured 2-triangle geometry');
 });
 
+test('QuickCup-scale 23112-triangle alpha draws cache uploads with bounded measured host payload',()=>{
+  const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
+  assert(begin>=0&&end>begin);
+  const input=[
+    'const uploads=[],draws=[];',
+    'const gl={ARRAY_BUFFER:34962,DYNAMIC_DRAW:35048,TRIANGLES:4,FLOAT:5126,',
+    'createShader(){return {}},createBuffer(){return {}},getAttribLocation(p,n){return {aPos:0,aColor:1,aAlpha:2}[n]},',
+    'getUniformLocation(){return {}},useProgram(){},uniformMatrix4fv(){},depthMask(){},',
+    'bindBuffer(){},bufferData(t,a){uploads.push(a.byteLength)},',
+    'enableVertexAttribArray(){},disableVertexAttribArray(){},vertexAttribPointer(){},',
+    'drawArrays(mode,start,count){draws.push(count)}};',
+    'const fvProgram=()=>({}),fvMvp=()=>new Float32Array(16);',
+    'const fvSurfaceDepthWritable=alpha=>Number(alpha)>=.99;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const document={getElementById:id=>id==="fvSurface"?{checked:true}:id==="fvCanvas"?{}:null};',
+    'const fvState={fieldStorage:"volume",camera:{target:[0,0,0],distance:10,yaw:0,pitch:0}};',
+    'const triangles=23111,positions=new Float32Array(triangles*9),colors=new Float32Array(triangles*9);',
+    'for(let i=0;i<triangles;i++){const base=i*9;for(let j=0;j<3;j++){',
+    'positions[base+j*3]=j===1?1:0;positions[base+j*3+1]=j===2?1:0;',
+    'positions[base+j*3+2]=i/triangles;colors[base+j*3]=.45}}',
+    'const renderer={gl,program:{},mvp:{},surfaceCount:triangles*3,',
+    'transparentCpu:{surfacePos:positions,surfaceColor:colors}};',
+    'const layer={gl,surfaceCount:3,surfaceCpuPos:new Float32Array([0,0,-1,1,0,-1,0,1,-1]),',
+    'surfaceCpuColor:new Float32Array([.7,0,0,.7,0,0,.7,0,0]),faceFieldCount:0};',
+    'const fvRegionScene={layers:new Map([["mold",layer]]),',
+    'choices:new Map([["mold",{visible:true,opacity:.4}]])};',
+    source.slice(begin,end),
+    'const opts={primaryVisible:true,showSurface:true,showSlice:false,showIso:false,',
+    'opacity:.6,interiorActive:false};',
+    'const firstStart=performance.now();if(!fvDrawGlobalTransparentTriangles(renderer,opts))throw Error("first draw");',
+    'const coldMs=performance.now()-firstStart,bytes=uploads.reduce((a,b)=>a+b,0);',
+    'const warmStart=performance.now();',
+    'for(let i=0;i<4;i++)if(!fvDrawGlobalTransparentTriangles(renderer,opts))throw Error("warm draw");',
+    'const warmMs=performance.now()-warmStart;',
+    'return{triangles:renderer.transparentBatch.lastTriangles,uploads:uploads.length,',
+    'bufferBytes:bytes,draws:draws.length,coldMs,warmMs,',
+    'signatureOnly:!Object.hasOwn(renderer.transparentSortCache,"positions")};'
+  ].join('\n');
+  const result=new Function(input)();
+  assert.equal(result.triangles,23112);
+  assert.equal(result.uploads,3,'Four repeated frames must not re-upload unchanged scientific triangles');
+  assert.equal(result.draws,5);
+  assert.equal(result.bufferBytes,23112*84,
+    'Actual CPU→GPU upload bytes must be bounded by 2 float3 vectors plus alpha per vertex');
+  assert.equal(result.signatureOnly,true);
+  console.log('Field QuickCup-scale alpha benchmark: '+JSON.stringify({
+    source:'generated geometry, not actual OpenFOAM GPU/VRAM',triangles:result.triangles,
+    firstDrawMs:result.coldMs,fourCachedDrawsMs:result.warmMs,
+    uploadBytes:result.bufferBytes,cachedUploads:0,hostRssBytes:process.memoryUsage().rss
+  }));
+});
+
 test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
   const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
   const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
