@@ -1192,6 +1192,40 @@ test('camera fit excludes hidden primary and secondary regions without inventing
 });
 
 
+test('real union-bounds camera fit rejects unrepresentable distance without poisoning the last view',()=>{
+  const setup=[
+    'const window={};',
+    'const c={id:1};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"solid"}:null};',
+    'const fvCase=()=>c;',
+    'let renders=0;const fvRender=()=>{renders++};',
+    'const fvState={mesh:{boundsMin:[-1e308,0,0],boundsMax:[1e308,0,0]},',
+    '  camera:{target:[2,3,4],distance:5}};',
+    'const fvTimeEqual=(a,b)=>a===b;'
+  ].join('\n');
+  const exercise=[
+    'fvRegionScene.caseId="1";fvRegionScene.choices.set("solid",{visible:true});',
+    'const mixedSign=fvRegionFitCamera();',
+    'const cameraAfterMixedSign={target:fvState.camera.target.slice(),distance:fvState.camera.distance};',
+    'fvState.mesh={boundsMin:[0,0,0],boundsMax:[1.4e308,0,0]};',
+    'const multiplierOverflow=fvRegionFitCamera();',
+    'const cameraAfterMultiplier={target:fvState.camera.target.slice(),distance:fvState.camera.distance};',
+    'fvState.mesh={boundsMin:[0,0,0],boundsMax:[2,2,2]};',
+    'const valid=fvRegionFitCamera();',
+    'return {mixedSign,multiplierOverflow,cameraAfterMixedSign,cameraAfterMultiplier,',
+    'valid,target:fvState.camera.target,distance:fvState.camera.distance,renders};'
+  ].join('\n');
+  const result=new Function(setup+regionCode+exercise)();
+  assert.equal(result.mixedSign,false,'Unrepresentable mixed-sign physical bounds must not fit');
+  assert.equal(result.multiplierOverflow,false,'Finite diagonal with overflowing distance multiplier must not fit');
+  assert.deepStrictEqual(result.cameraAfterMixedSign,{target:[2,3,4],distance:5});
+  assert.deepStrictEqual(result.cameraAfterMultiplier,{target:[2,3,4],distance:5});
+  assert.equal(result.valid,true,'A normal measured region still fits correctly');
+  assert.deepStrictEqual(result.target,[1,1,1]);
+  near(result.distance,Math.sqrt(12)*1.65);
+  assert.equal(result.renders,1,'Invalid physical fits must not trigger extra renderer frames');
+});
+
 test('real Windows native smoke forces coincident metal and mold into opaque WebGL and checks offset cleanup',()=>{
   const from=program.indexOf('const mainAlpha=document.getElementById(');
   const to=program.indexOf('physicalScene.opaqueInterfaceDepthPolicy=opaqueDepth',from);
