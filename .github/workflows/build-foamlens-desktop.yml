@@ -789,6 +789,12 @@ jobs:
           }
           Write-Host 'FoamLens installer installed successfully and the installed executable passed its startup smoke test.'
 
+      - name: Test actual installer shortcut choice and uninstall cleanup
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          ./tools/test_installer_shortcuts.ps1 -Installer "artifacts/FoamLens-Setup-v$v.exe" -TestRoot "artifacts/installer-task-smoke"
+
       - name: Validate real portable and installed Home/About/Data/Field at two viewport sizes
         shell: pwsh
         run: |
