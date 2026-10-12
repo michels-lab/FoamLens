@@ -1628,6 +1628,27 @@ test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and
     'Accumulation and revealage must not depend on global triangle order');
 });
 
+test('packaged real OpenFOAM smoke verifies crossed-triangle weighted WebGL2 pixels independently of source order',()=>{
+  assert(source.includes('function fvDrawWeightedOit(r,options,canvasOverride=null)'),
+    'Production OIT must support a separate regression canvas without replacing owner viewport');
+  assert(program.includes('physicalScene.weightedCrossedPixelProof=weightedCrossedPixelProof'),
+    'Native evidence must record tested output rather than only shader capability');
+  assert(program.includes('fvDrawWeightedOit(testRenderer,opts,off)'),
+    'Native pixel regression must execute the actual production OIT renderer');
+  assert(program.includes('const first=draw(true),reversed=draw(false)'),
+    'The crossed physical surfaces must render in opposite source orders');
+  assert(program.includes('Math.abs(v-reversed[i][j])'),
+    'Native pixel colors must be compared in both source orders');
+  assert(program.includes('maxDiff<=8&&nonBlank&&error===0'),
+    'Pixel evidence must fail for unstable color, blank framebuffer or GL errors');
+  assert(program.includes('fvState.camera=savedCamera;fvState.fieldStorage=savedStorage;'),
+    'Native synthetic fixture must restore the real measured camera and field association');
+  assert(program.includes('fvRegionScene.layers=savedLayers;fvRegionScene.choices=savedChoices;'),
+    'Actual measured OpenFOAM region selections must be preserved after the fixture');
+  assert(program.includes('scope:\'real WebGL2 offscreen raster of crossed synthetic surfaces'),
+    'Synthetic GPU geometry may never be mislabeled as measured OpenFOAM data');
+});
+
 test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
   const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
   const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
