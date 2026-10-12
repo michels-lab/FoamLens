@@ -477,6 +477,9 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
 
+      - name: Test large-coordinate multiregion camera midpoint
+        run: node desktop/tests/field-region-camera-midpoint.test.cjs
+
       - name: Test pointField interior slice and iso-surface reconstruction
         shell: pwsh
         run: node desktop/tests/point-interior.test.cjs
