@@ -300,7 +300,7 @@ function fwSampleFieldAtPoint(data,point){
   }
   const q=fwNearestFlatIndex(mesh.cellCenters||[],Number(mesh.cellCount)||Math.floor((mesh.cellCenters?.length||0)/3),point);return{value:fwMeasuredNumber(values[q.index]),index:q.index,distance:Math.sqrt(q.d2)}
 }
-function fwProfileSeriesAll(){return (series||[]).filter(s=>datasetTypeOf(s)==='profile'&&s.profileTime!=null&&String(s.profileTime).trim()!==''&&Number.isFinite(Number(s.profileTime)))}
+function fwProfileSeriesAll(){return (series||[]).filter(s=>datasetTypeOf(s)==='profile'&&Number.isFinite(fwPhysicalTime(s.profileTime)))}
 function fwProfileTsSelection(slot){
   return{
     caseId:document.getElementById('fwTsProfileCase'+slot)?.value||'',
