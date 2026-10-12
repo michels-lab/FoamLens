@@ -1226,6 +1226,39 @@ test('real union-bounds camera fit rejects unrepresentable distance without pois
   assert.equal(result.renders,1,'Invalid physical fits must not trigger extra renderer frames');
 });
 
+test('single-region camera fallback preserves valid view when physical bounds or fit overflow',()=>{
+  const begin=source.indexOf('function fvCameraFitCurrent(){');
+  const end=source.indexOf('function ',begin+9);
+  assert(begin>=0&&end>begin,'Production single-region camera fit is missing');
+  const code=source.slice(begin,end);
+  // regionCode contains the exact production union-bounds implementation.
+  const setup=[
+    'let renders=0;',
+    'const window={};',
+    'const document={getElementById:id=>id==="fvRegion"?{value:"fluid"}:null};',
+    'const fvCase=()=>null;',
+    'const fvRender=()=>{renders++};',
+    'const fvState={mesh:null,camera:{target:[4,5,6],distance:8}};'
+  ].join('\n');
+  const run=new Function(setup+regionCode+code+`
+    fvRegionFitCamera=()=>false; // Force the real single-region fallback; regionCode declares this function.
+    fvState.mesh={boundsMin:[-1e308,0,0],boundsMax:[1e308,0,0]};
+    fvCameraFitCurrent();
+    const mixed={target:fvState.camera.target.slice(),distance:fvState.camera.distance};
+    fvState.mesh={boundsMin:[0,0,0],boundsMax:[1.4e308,0,0]};
+    fvCameraFitCurrent();
+    const scaled={target:fvState.camera.target.slice(),distance:fvState.camera.distance};
+    fvState.mesh={boundsMin:[0,0,0],boundsMax:[2,2,2]};
+    fvCameraFitCurrent();
+    return{mixed,scaled,final:fvState.camera,renders};
+  `)();
+  assert.deepStrictEqual(run.mixed,{target:[4,5,6],distance:8});
+  assert.deepStrictEqual(run.scaled,{target:[4,5,6],distance:8});
+  assert.deepStrictEqual(run.final.target,[1,1,1]);
+  near(run.final.distance,Math.sqrt(12)*1.65);
+  assert.equal(run.renders,1,'Invalid region bounds must not trigger extra frames');
+});
+
 test('real Windows native smoke forces coincident metal and mold into opaque WebGL and checks offset cleanup',()=>{
   const from=program.indexOf('const mainAlpha=document.getElementById(');
   const to=program.indexOf('physicalScene.opaqueInterfaceDepthPolicy=opaqueDepth',from);

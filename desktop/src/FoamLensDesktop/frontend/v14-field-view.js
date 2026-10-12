@@ -1334,8 +1334,14 @@ function fvCameraFitCurrent(){
   if(fvRegionFitCamera())return;
   const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';
   if(c&&!fvRegionChoice(c,primary).visible)return;
-  const m=fvState.mesh;if(!m)return;const min=m.boundsMin,max=m.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1;
-  fvState.camera.target=center;fvState.camera.distance=diag*1.65;fvRender()
+  const m=fvState.mesh;if(!m)return;
+  // The single-region fallback must meet the SAME physical bounds contract as
+  // multi-region fit; otherwise an overflowed union re-poisons a valid camera.
+  const bounds=fvRegionUnionBounds([m]);
+  const distance=bounds?.diagonal*1.65;
+  if(!bounds||!bounds.center.every(Number.isFinite)||
+    !Number.isFinite(distance)||!(distance>0))return;
+  fvState.camera.target=bounds.center;fvState.camera.distance=distance;fvRender()
 }
 function fvCameraPreset(name){
   const presets={
