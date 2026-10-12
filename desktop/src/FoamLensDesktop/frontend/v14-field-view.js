@@ -1029,10 +1029,12 @@ function fvWeightedOitCreate(r,width,height){
     gl.bindTexture(gl.TEXTURE_2D,null)
   }
 }
-function fvDrawWeightedOit(r,options){
+function fvDrawWeightedOit(r,options,canvasOverride=null){
   r.weightedOitLastActive=false;
   if(r.weightedOitDisabled||fvRegionScene.layers.size<1)return false;
-  const gl=r.gl,canvas=document.getElementById('fvCanvas');
+  // Only native regression fixtures supply an offscreen canvas. Ordinary
+  // physical OpenFOAM rendering still uses the real Field viewport.
+  const gl=r.gl,canvas=canvasOverride||document.getElementById('fvCanvas');
   if(!canvas)return false;
   const sources=fvWeightedOitSources(r,options);if(!sources)return false;
   const oit=fvWeightedOitCreate(r,canvas.width,canvas.height);if(!oit)return false;
