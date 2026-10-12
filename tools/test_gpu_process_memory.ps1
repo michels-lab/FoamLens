@@ -1,6 +1,7 @@
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'measure_gpu_process_memory.ps1')
+. (Join-Path $PSScriptRoot 'capture_gpu_hardware_inventory.ps1')
 
 function Assert-True([bool]$condition,[string]$message){
   if(-not $condition){throw "GPU memory evidence regression: $message"}
@@ -47,4 +48,24 @@ $foreign=Measure-FoamGpuCounterSamples -HostId 100 -ProcessRows $processes -Coun
 Assert-True ($foreign.status -eq 'unavailable') 'Unrelated browser GPU processes cannot be attributed'
 $badPid=Get-FoamGpuMemoryEvidence -HostId 99999999
 Assert-True ($badPid.status -eq 'unavailable') 'Absent FoamLens host must fail closed'
+$osRow=[pscustomobject]@{Caption='Windows 11';BuildNumber='99999';Version='10.0.99999'}
+$adapterRows=@(
+  [pscustomobject]@{Name='GPU B';DriverVersion='4.0';DriverDate='2026-10-01';PNPDeviceID='PCI\VEN_B';Status='OK';AdapterRAM=[long]123456789},
+  [pscustomobject]@{Name='GPU A';DriverVersion='5.1';DriverDate='2026-09-01';PNPDeviceID='PCI\VEN_A';Status='OK';AdapterRAM=[long]987654321}
+)
+$hardware=Format-FoamGpuHardwareInventory -OperatingSystem $osRow -Adapters $adapterRows
+Assert-True ($hardware.status -eq 'reported') 'Adapter names and OS build can be inventoried'
+Assert-True ($hardware.osBuild -eq '99999') 'Preserve actual provided Windows build'
+Assert-True ($hardware.adapterCount -eq 2) 'Multiple GPUs must be preserved, not assumed active'
+Assert-True ($hardware.adapters[0].name -eq 'GPU A') 'Stable adapter order needed for audit comparison'
+Assert-True ($hardware.adapters[1].driverVersion -eq '4.0') 'Retain reported driver version'
+Assert-True ($null -eq $hardware.selectedForFoamLens) 'Never infer the rendering GPU from WMI list'
+Assert-True ($null -eq $hardware.measuredDedicatedVramBytes) 'WMI AdapterRAM must not be claimed as measured VRAM'
+$one=Format-FoamGpuHardwareInventory -OperatingSystem $osRow -Adapters @($adapterRows[0])
+Assert-True ($one.adapterCount -eq 1) 'Single adapter must remain an array, not a scalar'
+$missingHardware=Format-FoamGpuHardwareInventory -OperatingSystem $null -Adapters @()
+Assert-True ($missingHardware.status -eq 'unavailable') 'Missing WMI data cannot produce invented hardware'
+$serialized=$hardware | ConvertTo-Json -Depth 5 -Compress
+Assert-True ($serialized -notmatch '123456789|987654321') 'Do not expose WMI AdapterRAM as actual GPU VRAM'
+
 Write-Host 'Windows GPU process-memory telemetry tests PASS: attribution, cross-app isolation, duplicate rejection, no-fabricated-zero, unavailable fallback'
