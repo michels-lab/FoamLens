@@ -43,7 +43,7 @@ assert(!/A360|A280|M190 275|M190 750|M95 78|M95 418/.test(vector),'Windows ICO S
 const generator=fs.readFileSync(path.join(root,'..','tools','generate_windows_icon.py'),'utf8');
 assert(generator.includes('assert_arc_free(markup)')&&generator.includes('resvg_py.svg_to_bytes'),'Windows icon is not reproducibly derived from the canonical SVG.');
 const realChoiceScript=fs.readFileSync(path.join(root,'..','tools','test_installer_shortcuts.ps1'),'utf8');
-assert(realChoiceScript.includes('/TASKS=desktopicon')&&realChoiceScript.includes('/MERGETASKS=!desktopicon'),
+assert(realChoiceScript.includes('/TASKS=desktopicon')&&windowsWorkflow.includes('/MERGETASKS=!desktopicon'),
   'Installer must test actual selected and unselected Windows desktop shortcut task');
 assert(realChoiceScript.includes('CreateShortcut($link)')&&realChoiceScript.includes('Invoke-FoamUninstall'),
   'Installer must verify actual shortcut target and uninstaller cleanup');

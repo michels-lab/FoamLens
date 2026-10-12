@@ -3,10 +3,9 @@
 Already in setup: initial welcome screen, full product-specific license with user acceptance requirement, unchecked desktop icon and an optional user-directed taskbar pinning guide. Silent CI install does not replace visual testing of the wizard.
 
 New behavioral test in Windows Actions:
-- Execute the real candidate Inno Setup as current user with /TASKS=desktopicon and verify its actual Windows .lnk exists and points to the installed FoamLens.exe.
-- Verify the installed taskbar guide matches project source SHA-256.
-- Uninstall via the installed uninstaller and verify removal of its own desktop shortcut.
-- Install again with /MERGETASKS=!desktopicon; verify no desktop shortcut despite the app and guide being installed, and uninstall.
-- Never modify existing user shortcuts or force pins to the taskbar. Separate native screenshot/wizard acceptance remains open.
+- The normal actual Setup installation explicitly disables the desktop icon task and checks that no Windows desktop shortcut was created while the installed executable runs.
+- A separate real Setup installation explicitly opts in with /TASKS=desktopicon; check the shortcut points to its exact FoamLens.exe, check the installed taskbar guide hash, then run its uninstaller and verify shortcut cleanup.
+- Split the opt-in and opt-out checks across existing normal and independent installs to avoid Inno's same-AppId uninstall registry reuse during sequential same-directory tests.
+- Never modify pre-existing desktop shortcuts or force an OS taskbar pin. Interactive EULA wizard acceptance remains a separate CI gate.
 
-The unchanged Setup LicenseFile and normal Welcome functionality continue to be checked in windows-icon regression; interactive clicking through the license still requires a separate GUI/wizard observation. No release authorized.
+The product version and normal setup design are unchanged; no release authorized.

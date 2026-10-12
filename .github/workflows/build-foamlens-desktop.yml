@@ -721,6 +721,7 @@ jobs:
             '/NORESTART',
             '/SP-',
             '/CURRENTUSER',
+            '/MERGETASKS=!desktopicon',
             "/DIR=`"$installDir`""
           )
           $install=Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru
@@ -732,6 +733,11 @@ jobs:
             throw "FoamLens installer failed with exit code $($install.ExitCode)."
           }
 
+          $desktopShortcut=Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'FoamLens.lnk'
+          if (Test-Path -LiteralPath $desktopShortcut) {
+            throw 'Unchecked Inno Setup desktopicon task created a Windows desktop shortcut.'
+          }
+          Write-Host 'Inno Setup explicit desktopicon opt-out PASS'
           $installedExe=Join-Path $installDir 'FoamLens.exe'
           if (-not (Test-Path $installedExe)) {
             throw "FoamLens.exe was not installed to $installDir."

@@ -35,30 +35,24 @@ function Invoke-FoamUninstall([string]$destination) {
 }
 $dir=Join-Path $root 'with shortcut'
 try{
-  foreach($enabled in @($true,$false)){
-    if(Test-Path -LiteralPath $dir){Remove-Item -LiteralPath $dir -Force -Recurse}
-    Invoke-FoamSetup $setup $dir $enabled
-    $exe=Join-Path $dir 'FoamLens.exe'
-    $help=Join-Path $dir 'TaskbarPinning.txt'
-    if(-not (Test-Path -LiteralPath $exe)){throw 'Installed FoamLens.exe missing'}
-    if(-not (Test-Path -LiteralPath $help)){throw 'Installed taskbar guide missing'}
-    if((Get-FileHash -LiteralPath $expectedGuide -Algorithm SHA256).Hash -ne
-       (Get-FileHash -LiteralPath $help -Algorithm SHA256).Hash){
-      throw 'Installed taskbar guidance differs from source'
-    }
-    if($enabled){
-      if(-not (Test-Path -LiteralPath $link)){throw 'Opt-in desktopicon task did not create shortcut'}
-      $shortcut=(New-Object -ComObject WScript.Shell).CreateShortcut($link)
-      if([IO.Path]::GetFullPath($shortcut.TargetPath) -ne [IO.Path]::GetFullPath($exe)){
-        throw "Desktop shortcut target incorrect: $($shortcut.TargetPath)"
-      }
-    }elseif(Test-Path -LiteralPath $link){
-      throw 'Desktop shortcut created despite explicitly unselecting desktopicon'
-    }
-    Invoke-FoamUninstall $dir
-    if(Test-Path -LiteralPath $link){throw 'Uninstaller left its desktop shortcut behind'}
-    Write-Host ("Installer shortcut option PASS: selected="+$enabled)
+  if(Test-Path -LiteralPath $dir){Remove-Item -LiteralPath $dir -Force -Recurse}
+  Invoke-FoamSetup $setup $dir $true
+  $exe=Join-Path $dir 'FoamLens.exe'
+  $help=Join-Path $dir 'TaskbarPinning.txt'
+  if(-not (Test-Path -LiteralPath $exe)){throw 'Installed FoamLens.exe missing'}
+  if(-not (Test-Path -LiteralPath $help)){throw 'Installed taskbar guide missing'}
+  if((Get-FileHash -LiteralPath $expectedGuide -Algorithm SHA256).Hash -ne
+     (Get-FileHash -LiteralPath $help -Algorithm SHA256).Hash){
+    throw 'Installed taskbar guidance differs from source'
   }
+  if(-not (Test-Path -LiteralPath $link)){throw 'Opt-in desktopicon task did not create shortcut'}
+  $shortcut=(New-Object -ComObject WScript.Shell).CreateShortcut($link)
+  if([IO.Path]::GetFullPath($shortcut.TargetPath) -ne [IO.Path]::GetFullPath($exe)){
+    throw "Desktop shortcut target incorrect: $($shortcut.TargetPath)"
+  }
+  Invoke-FoamUninstall $dir
+  if(Test-Path -LiteralPath $link){throw 'Uninstaller left its desktop shortcut behind'}
+  Write-Host 'Inno Setup explicit desktopicon opt-in and uninstall cleanup PASS'
 }finally{
   $uninstaller=Join-Path $dir 'unins000.exe'
   if(Test-Path -LiteralPath $uninstaller){
@@ -66,4 +60,4 @@ try{
   }
   if(Test-Path -LiteralPath $dir){Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue}
 }
-Write-Host 'Real FoamLens installer shortcut choices and uninstall cleanup PASS'
+Write-Host 'Real FoamLens installer shortcut opt-in and uninstall cleanup PASS'
