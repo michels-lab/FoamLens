@@ -837,7 +837,7 @@ function fvTransparentTriangleSort(sources,camera){
   // Reject invalid frames and allow the existing bounded region fallback.
   const validCameraValue=raw=>(typeof raw==='number'||typeof raw==='string')&&
     String(raw).trim()!==''&&Number.isFinite(Number(raw));
-  const target=camera?.target||[],d=Number(camera?.distance),
+  const items=[],target=camera?.target||[],d=Number(camera?.distance),
     yaw=Number(camera?.yaw),pitch=Number(camera?.pitch);
   if(target.length!==3||!target.every(validCameraValue)||
     !validCameraValue(camera?.distance)||!(d>0)||
