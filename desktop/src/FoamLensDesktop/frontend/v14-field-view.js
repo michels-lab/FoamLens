@@ -833,14 +833,21 @@ function fvTransparentTriangleSort(sources,camera){
     declaredTriangles+=count/3;
     if(declaredTriangles>FV_TRANSPARENT_TRIANGLE_LIMIT)return null
   }
-  const items=[],target=camera?.target||[],d=Number(camera?.distance),
+  // Camera physical metadata cannot be fabricated by Number(null/false/'')=0.
+  // Reject invalid frames and allow the existing bounded region fallback.
+  const validCameraValue=raw=>(typeof raw==='number'||typeof raw==='string')&&
+    String(raw).trim()!==''&&Number.isFinite(Number(raw));
+  const target=camera?.target||[],d=Number(camera?.distance),
     yaw=Number(camera?.yaw),pitch=Number(camera?.pitch);
-  if(target.length!==3||!Number.isFinite(d)||!Number.isFinite(yaw)||!Number.isFinite(pitch))return null;
+  if(target.length!==3||!target.every(validCameraValue)||
+    !validCameraValue(camera?.distance)||!(d>0)||
+    !validCameraValue(camera?.yaw)||!validCameraValue(camera?.pitch))return null;
   const cp=Math.cos(pitch),forward=[-cp*Math.sin(yaw),-Math.sin(pitch),-cp*Math.cos(yaw)];
   for(const src of sources){
     const pos=src.positions,col=src.colors,count=Number(src.count),alpha=Number(src.alpha);
     if(!Number.isInteger(count)||count<0||count%3||!Number.isFinite(alpha)||!(alpha>0)||
-      !pos||!col||pos.length<count*3||col.length<count*3)return null;
+      !pos||!col||typeof pos.subarray!=='function'||typeof col.subarray!=='function'||
+      pos.length<count*3||col.length<count*3)return null;
     for(let vertex=0;vertex<count;vertex+=3){
       const base=vertex*3,center=[
         (pos[base]+pos[base+3]+pos[base+6])/3,
@@ -848,7 +855,11 @@ function fvTransparentTriangleSort(sources,camera){
         (pos[base+2]+pos[base+5]+pos[base+8])/3
       ];
       if(!center.every(Number.isFinite))return null;
-      items.push({src,base,depth:center.reduce((sum,p,i)=>sum+(p-target[i])*forward[i],0)});
+      // Do not upload nonfinite measured colors or attempt to sort invalid depths.
+      for(let i=0;i<9;i++)if(!Number.isFinite(pos[base+i])||!Number.isFinite(col[base+i]))return null;
+      const depth=center.reduce((sum,p,i)=>sum+(p-Number(target[i]))*forward[i],0);
+      if(!Number.isFinite(depth))return null;
+      items.push({src,base,depth});
       if(items.length>FV_TRANSPARENT_TRIANGLE_LIMIT)return null
     }
   }
