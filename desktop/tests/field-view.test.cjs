@@ -2197,6 +2197,17 @@ test('video color scale remains fixed per physical region, field, component, uni
     'Each region must color using its own fixed video range');
 });
 
+test('native Windows background smoke distinguishes true stall from permitted WebView timer coalescing',()=>{
+  assert(program.includes("window.__foamLensBackgroundTimer=setInterval("),
+    'Real WebView2 minimized-background smoke must run a scheduled callback');
+  assert(program.includes('backgroundTicks < 1'),
+    'At least one executed callback must prove background progress; hidden WebView timers may run once per second');
+  assert(program.includes('background execution stalled while minimized'),
+    'Zero callbacks must still fail scientific background execution smoke');
+  assert(program.includes('clearInterval(window.__foamLensBackgroundTimer)'),
+    'Native smoke must release its diagnostic timer');
+});
+
 console.log('FoamLens Field View regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
