@@ -25,6 +25,7 @@ BOT = ("bot", "agent", "automation", "copilot", "chatgpt", "gpt-")
 def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str],
                    required_surfaces: list[str], require_review: bool = True,
                    require_portable: bool = False,
+                   require_multiregion: bool = False,
                    artifact_paths: dict[str, Path] | None = None,
                    portable_artifact_paths: dict[str, Path] | None = None) -> list[str]:
     errors = []
@@ -147,6 +148,11 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
                     errors.append(f"{platform}/{variant}: missing wide/compact rendered {surface} coverage")
             if len(viewport_sizes[(platform, variant)]) < 2:
                 errors.append(f"{platform}/{variant}: at least two distinct viewport sizes required")
+            if require_multiregion and (
+                platform != "windows" or
+                "real-metal-mold" not in coverage_by_viewport[(platform, variant, "field-multiregion")]
+            ):
+                errors.append(f"{platform}/{variant}: missing real metal/mold WebView2 multiregion evidence")
     if require_review:
         review = doc.get("human_visual_review") or {}
         name = str(review.get("reviewer", "")).strip()
@@ -174,6 +180,8 @@ def main() -> int:
                         help="Validate actual screenshot and candidate integrity; owner visual review follows publication")
     parser.add_argument("--require-portable", action="store_true",
                         help="Require separately captured portable and installed UI evidence at both viewport sizes")
+    parser.add_argument("--require-multiregion", action="store_true",
+                        help="Require real imported metal/mold Field scene screenshot from both native Windows runtime variants")
     parser.add_argument("--artifact", type=Path,
                         help="Rehash the actual installed Setup/MSIX candidate against the evidence manifest")
     parser.add_argument("--portable-artifact", type=Path,
@@ -183,11 +191,14 @@ def main() -> int:
     surfaces = [p.strip() for p in args.surfaces.split(",") if p.strip()]
     if not platforms or not {"home", "about"}.issubset(surfaces):
         parser.error("Must declare shipped platforms and include home,about")
+    if args.require_multiregion and (platforms != ["windows"] or not args.require_portable):
+        parser.error("Real multiregion evidence requires Windows with both installed and portable screenshots")
     if args.require_portable and (not args.artifact or not args.portable_artifact):
         parser.error("Windows portable/installed validation requires both exact binary paths")
     errors = check_evidence(args.manifest, args.source_sha, platforms, surfaces,
                             require_review=not args.capture_only,
                             require_portable=args.require_portable,
+                            require_multiregion=args.require_multiregion,
                             artifact_paths={platforms[0]: args.artifact} if args.artifact and len(platforms)==1 else None,
                             portable_artifact_paths={platforms[0]: args.portable_artifact} if args.portable_artifact and len(platforms)==1 else None)
     for problem in errors:

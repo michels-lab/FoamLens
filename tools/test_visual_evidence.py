@@ -124,6 +124,50 @@ def main() -> None:
         assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(SURFACES),
                               require_review=False) == []
 
+        # Optional Real OpenFOAM scene contract is mandatory on Windows CI when
+        # QuickCup is available; test screenshots here are deliberately synthetic
+        # fixtures and are NEVER uploaded as real runtime evidence.
+        for variant_index, variant in enumerate(("installed", "portable")):
+            render_fixture(evidence / variant / "field-real-multiregion.png",
+                           (920, 540), 9898 + variant_index)
+        subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--evidence-dir", str(evidence / "installed"),
+             "--portable-evidence-dir", str(evidence / "portable"),
+             "--artifact", str(setup), "--portable-artifact", str(portable),
+             "--source-sha", SOURCE_SHA, "--platform", "windows",
+             "--require-multiregion", "--output", str(manifest)],
+            check=True, capture_output=True, text=True,
+        )
+        multiregion_doc = json.loads(manifest.read_text(encoding="utf-8"))
+        actual = [s for s in multiregion_doc["screenshots"] if s["surface"] == "field-multiregion"]
+        assert len(actual) == 2
+        assert {s["runtime_variant"] for s in actual} == {"installed", "portable"}
+        assert all(s["viewport"] == "real-metal-mold" for s in actual)
+        assert check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                              require_review=False, require_portable=True,
+                              require_multiregion=True,
+                              artifact_paths={"windows": setup},
+                              portable_artifact_paths={"windows": portable}) == []
+        no_real = copy.deepcopy(multiregion_doc)
+        no_real["screenshots"] = [s for s in no_real["screenshots"]
+                                  if not (s["runtime_variant"] == "portable"
+                                          and s["surface"] == "field-multiregion")]
+        manifest.write_text(json.dumps(no_real), encoding="utf-8")
+        errors = check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                                require_review=False, require_portable=True,
+                                require_multiregion=True)
+        assert any("portable: missing real metal/mold" in e for e in errors), errors
+        corrupted = copy.deepcopy(multiregion_doc)
+        shot = next(s for s in corrupted["screenshots"] if s["surface"] == "field-multiregion")
+        shot["sha256"] = "0" * 64
+        manifest.write_text(json.dumps(corrupted), encoding="utf-8")
+        errors = check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                                require_review=False, require_portable=True,
+                                require_multiregion=True)
+        assert any("screenshot checksum mismatch" in e for e in errors), errors
+        manifest.write_text(json.dumps(original), encoding="utf-8")
+
         # Conversely, direct Windows must never silently downgrade to Store-style coverage.
         no_portable = subprocess.run(
             [sys.executable, str(SCRIPT), "--evidence-dir", str(evidence / "installed"),
