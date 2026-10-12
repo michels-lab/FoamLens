@@ -25,7 +25,7 @@ assert(project.includes('<AssemblyVersion>'+desktopVersion+'.0</AssemblyVersion>
   'Desktop native assembly version must match the project release version');
 assert(project.includes('<FileVersion>'+desktopVersion+'.0</FileVersion>'),
   'Desktop Windows file version must match the project release version');
-assert(readme.startsWith('# FoamLens Desktop v'+desktopVersion+'\n')&&
+assert(readme.split(/\r?\n/,1)[0]==='# FoamLens Desktop v'+desktopVersion&&
   readme.includes('**FoamLens Desktop v'+desktopVersion+' with frontend v51**'),
   'Desktop README version and frontend must match the native product release');
 const publicReadme=fs.readFileSync(path.join(root,'..','README.md'),'utf8');
