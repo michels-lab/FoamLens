@@ -47,6 +47,7 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
     coverage = defaultdict(set)
     coverage_by_viewport = defaultdict(set)
     viewport_sizes = defaultdict(set)
+    surface_dimensions = defaultdict(set)
     hashes = defaultdict(set)
     base = manifest.parent.resolve()
     for platform in required_platforms:
@@ -133,6 +134,8 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
                 if (shot.get("width"), shot.get("height")) != (width, height):
                     errors.append(f"{prefix}: declared dimensions differ from actual image")
                 viewport_sizes[(platform, variant)].add((width, height))
+                if shot.get("viewport") in ("wide", "compact"):
+                    surface_dimensions[(platform, variant, surface, shot["viewport"])].add((width, height))
         except (OSError, UnidentifiedImageError, ValueError) as exc:
             errors.append(f"{prefix}: image decode/validation failed: {exc}")
             continue
@@ -148,6 +151,16 @@ def check_evidence(manifest: Path, source_sha: str, required_platforms: list[str
                     errors.append(f"{platform}/{variant}: missing wide/compact rendered {surface} coverage")
             if len(viewport_sizes[(platform, variant)]) < 2:
                 errors.append(f"{platform}/{variant}: at least two distinct viewport sizes required")
+            if platform == "windows" and require_portable:
+                # A supplementary About-bottom or multiregion image cannot prove
+                # that Home/About/Data/Field themselves were rendered at two sizes.
+                for surface in required_surfaces:
+                    wide = surface_dimensions[(platform, variant, surface, "wide")]
+                    compact = surface_dimensions[(platform, variant, surface, "compact")]
+                    if len(wide) != 1 or len(compact) != 1:
+                        errors.append(f"{platform}/{variant}/{surface}: expected one actual image size per named viewport")
+                    elif next(iter(wide))[0] <= next(iter(compact))[0]:
+                        errors.append(f"{platform}/{variant}/{surface}: wide screenshot width must exceed compact screenshot width")
             if require_multiregion and (
                 platform != "windows" or
                 "real-metal-mold" not in coverage_by_viewport[(platform, variant, "field-multiregion")]
