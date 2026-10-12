@@ -269,6 +269,7 @@ internal sealed class FoamLensForm : Form
                 var fieldState = await _web.CoreWebView2.ExecuteScriptAsync(
                     """
                     (() => {
+                      try {
                       document.getElementById('flRibbonTab-field')?.click();
                       // The physical-region controls are in the real Field
                       // inspector. Open it rather than asserting that a
@@ -324,6 +325,24 @@ internal sealed class FoamLensForm : Form
                       const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
                         Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
                       const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
+                      const clock=document.getElementById('fwTimeReadout');
+                      const timeSlider=document.getElementById('fwTimeSlider');
+                      const loadedTime=window.FoamLensFieldWorkspace?.timeController?.current?.()??NaN;
+                      const fieldPhysicalTime=primary?.time;
+                      // The native host must observe the rendered UI rather
+                      // than call internal frontend formatter functions. Extract
+                      // the actually displayed numeric physical time from the
+                      // visible readout, and cross-check independent frame data.
+                      const readoutText=clock?.textContent||'';
+                      const shown=/^\s*t\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s\s*$/.exec(readoutText);
+                      const displayedTime=shown?Number(shown[1]):NaN;
+                      const clockRect=clock?.getBoundingClientRect();
+                      const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
+                        Number.isFinite(loadedTime)&&Number.isFinite(displayedTime)&&
+                        Math.abs(loadedTime-fieldPhysicalTime)<1e-9&&
+                        Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime))&&
+                        timeSlider?.getAttribute('aria-valuetext')===readoutText&&
+                        clockRect?.width>30&&clockRect?.height>12;
                       const hasField=!!primary?.range?.valid;
                       const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
                         !!shelf&&!shelf.classList.contains('hidden')&&
@@ -332,7 +351,8 @@ internal sealed class FoamLensForm : Form
                         !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
-                        physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette;
+                        physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette&&
+                        clockMatchesRealFrame;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
@@ -341,9 +361,18 @@ internal sealed class FoamLensForm : Form
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
+                        clockMatchesRealFrame,clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
+                      }catch(error){
+                        return {ok:false,stage:'native-field-wide-compact',error:String(error?.message||error),
+                          stack:String(error?.stack||''),timeFn:typeof fwTimeCurrent,
+                          exportedTimeFn:typeof window.FoamLensFieldWorkspace?.timeController?.current};
+                      }
                     })()
                     """);
+                if (fieldState == "null" || string.IsNullOrWhiteSpace(fieldState))
+                    throw new InvalidOperationException("Native Field UI JavaScript evaluation returned null in " + size.Name +
+                        "; inspect WebView2 runtime JavaScript syntax/errors: " + fieldState);
                 if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
                     throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
                 await Task.Delay(180);

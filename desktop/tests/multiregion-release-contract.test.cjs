@@ -10,6 +10,26 @@ const root=path.join(__dirname,'..');
 const field=fs.readFileSync(path.join(root,'src/FoamLensDesktop/frontend/v14-field-view.js'),'utf8');
 const native=fs.readFileSync(path.join(root,'src/FoamLensDesktop/Program.cs'),'utf8');
 
+test('actual installed and portable Field wide/compact screenshots assert measured timeline readout',()=>{
+  const start=native.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()');
+  const end=native.indexOf('private async Task CaptureCdpPngAsync(',start);
+  assert(start>=0&&end>start,'Native WebView2 rendered Field evidence was not found');
+  const capture=native.slice(start,end);
+  for(const token of [
+    "document.getElementById('fwTimeReadout')",
+    "document.getElementById('fwTimeSlider')",
+    "window.FoamLensFieldWorkspace?.timeController?.current?.()",
+    'Math.abs(loadedTime-fieldPhysicalTime)<1e-9',
+    'const displayedTime=shown?Number(shown[1]):NaN',
+    'Math.abs(displayedTime-loadedTime)<=1e-6',
+    "timeSlider?.getAttribute('aria-valuetext')===readoutText",
+    'clockMatchesRealFrame;',
+    'field-{size.Name}.png'
+  ])assert(capture.includes(token),'Missing real packaged UI timeline evidence: '+token);
+});
+
+
+
 test('multiregion candidate retains exact-frame native evidence contract',()=>{
   for(const token of [
     'field-real-multiregion.png',
