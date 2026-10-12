@@ -54,7 +54,8 @@ function Get-FoamGpuMemoryEvidence {
   $script:index++
   return [pscustomobject]@{
     status='counter-sampled';dedicatedBytes=[long](100+$script:index*10);
-    sharedBytes=[long]2;hostPid=$HostId;evidence=(VerifiedWebView -pids @(300,301))
+    sharedBytes=[long]2;hostPid=$HostId;webViewPidCount=2;observedProcessCount=2;
+    processes=@([pscustomobject]@{processId=300},[pscustomobject]@{processId=301})
   }
 }
 $capture=Capture-FoamGpuSeries -HostId 321 -Count 3 -PeriodSeconds 0
