@@ -1554,6 +1554,80 @@ test('QuickCup-scale 23112-triangle alpha draws cache uploads with bounded measu
   }));
 });
 
+test('WebGL2 weighted per-fragment transparency is capability-gated, bounded and restores rendering state',()=>{
+  const begin=source.indexOf('function fvWeightedOitSources(');
+  const end=source.indexOf('function fvDrawGlobalTransparentTriangles(',begin);
+  assert(begin>0&&end>begin,'Weighted OIT production helper must exist');
+  const kernel=source.slice(begin,end);
+  const setup=[
+    'const calls=[],events=[];',
+    'const gl={ARRAY_BUFFER:1,STATIC_DRAW:2,TRIANGLES:4,FLOAT:8,FRAMEBUFFER:9,FRAMEBUFFER_COMPLETE:10,',
+    'COLOR_ATTACHMENT0:11,TEXTURE_2D:12,RGBA16F:13,HALF_FLOAT:14,R8:15,UNSIGNED_BYTE:16,RED:17,RGBA:18,',
+    'TEXTURE_MIN_FILTER:19,TEXTURE_MAG_FILTER:20,NEAREST:21,TEXTURE_WRAP_S:22,TEXTURE_WRAP_T:23,CLAMP_TO_EDGE:24,',
+    'COLOR_BUFFER_BIT:25,BLEND:26,DEPTH_TEST:27,ONE:28,ZERO:29,ONE_MINUS_SRC_ALPHA:30,',
+    'SRC_ALPHA:31,TEXTURE0:32,TEXTURE1:33,NO_ERROR:0,',
+    'texStorage2D(){},getExtension(k){return k==="EXT_color_buffer_float"||k==="EXT_float_blend"?{}:null},',
+    'createTexture(){return {}},createFramebuffer(){return {}},bindTexture(){},texParameteri(){},',
+    'texImage2D(){},bindFramebuffer(){},framebufferTexture2D(){},checkFramebufferStatus(){return 10},',
+    'createBuffer(){return {}},bindBuffer(){},bufferData(){},',
+    'deleteFramebuffer(){},deleteTexture(){},deleteProgram(){},deleteBuffer(){},',
+    'viewport(){},clearColor(){},clear(){},useProgram(){},blendFunc(a,b){events.push(["blend",a,b])},',
+    'depthMask(v){events.push(["depthMask",v])},disable(){},enable(){},',
+    'getAttribLocation(p,n){return n==="aPos"?0:n==="aColor"?1:-1},',
+    'getUniformLocation(){return {}},uniformMatrix4fv(){},uniform1f(){},uniform1i(){},',
+    'enableVertexAttribArray(){},disableVertexAttribArray(){},vertexAttribPointer(){},',
+    'drawArrays(mode,off,count){calls.push(count)},getError(){return 0},activeTexture(){}};',
+    'const r={gl,program:{},mvp:{},surfacePos:{},surfaceColor:{},surfaceCount:3};',
+    'const fvState={fieldStorage:"volume",camera:{target:[0,0,0],yaw:0,pitch:0,distance:10}};',
+    'const fvRegionScene={layers:new Map([["mold",{gl,surfacePos:{},surfaceColor:{},surfaceCount:3,faceFieldCount:0}]]),',
+    'choices:new Map([["mold",{visible:true,opacity:.5}]])};',
+    'let width=32,height=32;',
+    'const document={getElementById(id){if(id==="fvCanvas")return {width,height};',
+    'if(id==="fvSurface")return {checked:true};return null}};',
+    'const fvSurfaceDepthWritable=alpha=>Number(alpha)>=.99;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const fvProgram=()=>({}),fvMvp=()=>new Float32Array(16);'
+  ].join('\n');
+  const exercise=[
+    'const opts={primaryVisible:true,showSurface:true,showSlice:false,showIso:false,',
+    'opacity:.7,interiorActive:false};',
+    'const worked=fvDrawWeightedOit(r,opts),draws=calls.slice();',
+    'const memory=r.weightedOit?.scratchBytes,mode=r.weightedOit?.mode;',
+    'const opaque=fvDrawWeightedOit(r,{...opts,opacity:1});',
+    'const disabledGl={...gl,texStorage2D:undefined},saved=r.gl;r.gl=disabledGl;',
+    'const noWebgl2=fvDrawWeightedOit(r,opts);r.gl=saved;',
+    'width=3000;height=2000;const tooLarge=fvDrawWeightedOit(r,opts);',
+    'return{worked,draws,memory,mode,opaque,noWebgl2,tooLarge,',
+    'additiveBlend:events.some(x=>x[0]==="blend"&&x[1]===gl.ONE&&x[2]===gl.ONE),',
+    'revealBlend:events.some(x=>x[0]==="blend"&&x[1]===gl.ZERO&&x[2]===gl.ONE_MINUS_SRC_ALPHA),',
+    'depthRestored:events.some(x=>x[0]==="depthMask"&&x[1]===true)};'
+  ].join('\n');
+  const result=new Function(setup+kernel+exercise)();
+  assert.equal(result.worked,true,'Two independent physical translucent sources must use WebGL2 weighted path');
+  assert.deepStrictEqual(result.draws,[3,3,3,3,3],
+    'Two surface draws in each accumulation/reveal pass plus one fullscreen composite');
+  assert.equal(result.memory,32*32*9,'RGBA16F and R8 targets must have a declared bounded footprint');
+  assert.equal(result.mode,'weighted-blended-approximate','Never claim weighted OIT as exact sorting');
+  assert.equal(result.opaque,false,'An opaque depth-writing surface must use existing safe fallback');
+  assert.equal(result.noWebgl2,false,'WebGL1 devices must retain the existing renderer');
+  assert.equal(result.tooLarge,false,'Large screenshots must not allocate unbounded float render targets');
+  assert(result.additiveBlend&&result.revealBlend&&result.depthRestored,
+    'OIT must use commutative alpha accumulation/revealage and restore GL depth state');
+  assert(source.includes('const triangleSorted=weightedOit||fvDrawGlobalTransparentTriangles'),
+    'OIT must leave previous sorted/fallback methods in place');
+  // Constant-color crossed fragments must produce the same weighted result
+  // irrespective of input order. This is mathematical, NOT native pixel proof.
+  const composite=layers=>{
+    const accum=layers.reduce((s,x)=>({r:s.r+x.r*x.alpha*x.weight,
+      b:s.b+x.b*x.alpha*x.weight,a:s.a+x.alpha*x.weight}),{r:0,b:0,a:0});
+    const cover=1-layers.reduce((p,x)=>p*(1-x.alpha),1);
+    return{r:accum.r/accum.a*cover,b:accum.b/accum.a*cover,coverage:cover}
+  };
+  const crossing=[{r:1,b:0,alpha:.5,weight:2},{r:0,b:1,alpha:.5,weight:3}];
+  assert.deepStrictEqual(composite(crossing),composite([...crossing].reverse()),
+    'Accumulation and revealage must not depend on global triangle order');
+});
+
 test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
   const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
   const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
