@@ -227,3 +227,49 @@ test('Field probes reject missing values and preserve genuine zero',()=>{
   assert.strictEqual(picked({mesh,fieldValues:[0],storage:'point'},[0,0,0]).value,0);
 });
 
+test('Field clock readout reflects only loaded physical frames, not the nearest available tick',()=>{
+  const start=field.indexOf('function fwRefreshGlobalTime(){');
+  const end=field.indexOf('async function fwTimeLoadIndex(',start);
+  assert(start>=0&&end>start,'Missing production global time bar implementation');
+  const run=(times,current)=>{
+    const attrs={},slider={max:'',value:'',disabled:false,setAttribute:(key,value)=>{attrs[key]=value}};
+    const readout={textContent:''},play={disabled:false};
+    const nodes={fwTimeSlider:slider,fwTimeReadout:readout,fwTimePlay:play};
+    new Function('fwTimeTimes','fwTimeCurrent','document','fvFmt','fwUi',field.slice(start,end)+';fwRefreshGlobalTime()')(
+      ()=>times,()=>current,{getElementById:key=>nodes[key]},String,(en)=>en);
+    return {slider,readout,play,attrs};
+  };
+  const missing=run([0,9.8],NaN);
+  assert.equal(missing.readout.textContent,'t = —');
+  assert.equal(missing.slider.value,'0');
+  assert.equal(missing.slider.disabled,false,'Timeline remains navigable when no frame was loaded');
+  assert.equal(missing.attrs['aria-valuetext'],'No measured frame loaded');
+  assert.equal(run([0,9.8],0).readout.textContent,'t = 0 s','Measured zero must remain visible');
+  const interp=run([0,10],9.8);
+  assert.equal(interp.readout.textContent,'t = 9.8 s','Do not mislabel interpolated time as the nearest t=10');
+  assert.equal(interp.slider.value,'1');
+  assert.equal(run([],9.8).readout.textContent,'t = —','No available field-time samples');
+  assert.equal(run([3],3).play.disabled,true);
+});
+
+test('Field 3D time-series statistics do not turn missing/reversed range limits into measured zero',()=>{
+  const begin=field.indexOf('function fwFieldTsMetric('),end=field.indexOf('function fwFieldTsStatLabel(',begin);
+  assert(begin>=0&&end>begin,'Missing actual Field 3D history metric function');
+  const parse=new Function(field.slice(field.indexOf('function fwMeasuredNumber('),field.indexOf('function fwPhysicalTime('))+';return fwMeasuredNumber')();
+  const metric=new Function('fwMeasuredNumber',field.slice(begin,end)+';return fwFieldTsMetric')(parse);
+  const measured={valid:true,min:0,max:10,mean:5};
+  assert.equal(metric(measured,'min'),0);
+  assert.equal(metric(measured,'max'),10);
+  assert.equal(metric(measured,'mean'),5);
+  assert.equal(metric(measured,'delta'),10);
+  for(const value of [null,'',false,undefined,NaN,Infinity]){
+    for(const stat of ['min','max','mean','delta']){
+      assert(Number.isNaN(metric({...measured,min:value},stat)),String(value)+' is not a physical min');
+      assert(Number.isNaN(metric({...measured,max:value},stat)),String(value)+' is not a physical max');
+    }
+    assert(Number.isNaN(metric({...measured,mean:value},'mean')));
+  }
+  assert(Number.isNaN(metric({...measured,min:12},'delta')),'Reversed bounds cannot be physical');
+  assert.equal(metric({valid:true,min:'0',max:'1e1',mean:'5'},'delta'),10);
+});
+
