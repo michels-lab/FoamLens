@@ -1,3 +1,20 @@
+test('actual installed and portable Field wide/compact screenshots assert measured timeline readout',()=>{
+  const start=native.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()');
+  const end=native.indexOf('private async Task CaptureCdpPngAsync(',start);
+  assert(start>=0&&end>start,'Native WebView2 rendered Field evidence was not found');
+  const capture=native.slice(start,end);
+  for(const token of [
+    "document.getElementById('fwTimeReadout')",
+    "document.getElementById('fwTimeSlider')",
+    "typeof fwTimeCurrent==='function'",
+    'Math.abs(loadedTime-fieldPhysicalTime)<1e-9',
+    'clock?.textContent===readoutExpected',
+    "timeSlider?.getAttribute('aria-valuetext')===readoutExpected",
+    'clockMatchesRealFrame;',
+    'field-{size.Name}.png'
+  ])assert(capture.includes(token),'Missing real packaged UI timeline evidence: '+token);
+});
+
 'use strict';
 
 // Scientific release invariant: two physical OpenFOAM regions share a single

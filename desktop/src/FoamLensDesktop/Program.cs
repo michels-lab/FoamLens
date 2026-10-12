@@ -324,6 +324,18 @@ internal sealed class FoamLensForm : Form
                       const overlap=a&&b?Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
                         Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)):Infinity;
                       const primary=window.FoamLensFieldView?.getVideoDescriptor?.();
+                      const clock=document.getElementById('fwTimeReadout');
+                      const timeSlider=document.getElementById('fwTimeSlider');
+                      const loadedTime=typeof fwTimeCurrent==='function'?fwTimeCurrent():NaN;
+                      const fieldPhysicalTime=primary?.time;
+                      const readoutExpected=Number.isFinite(loadedTime)?'t = '+fvFmt(loadedTime)+' s':'t = —';
+                      const clockRect=clock?.getBoundingClientRect();
+                      const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
+                        Number.isFinite(loadedTime)&&
+                        Math.abs(loadedTime-fieldPhysicalTime)<1e-9&&
+                        clock?.textContent===readoutExpected&&
+                        timeSlider?.getAttribute('aria-valuetext')===readoutExpected&&
+                        clockRect?.width>30&&clockRect?.height>12;
                       const hasField=!!primary?.range?.valid;
                       const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
                         !!shelf&&!shelf.classList.contains('hidden')&&
@@ -332,7 +344,8 @@ internal sealed class FoamLensForm : Form
                         !!a&&a.width>180&&a.height>180&&!!b&&b.width>130&&b.height>20&&
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
-                        physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette;
+                        physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette&&
+                        clockMatchesRealFrame;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
@@ -341,6 +354,7 @@ internal sealed class FoamLensForm : Form
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
+                        clockMatchesRealFrame,clockText:clock?.textContent,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                     })()
                     """);
