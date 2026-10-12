@@ -42,7 +42,15 @@ const vector=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','
 assert(!/A360|A280|M190 275|M190 750|M95 78|M95 418/.test(vector),'Windows ICO SVG source still has owner-rejected bracket arcs.');
 const generator=fs.readFileSync(path.join(root,'..','tools','generate_windows_icon.py'),'utf8');
 assert(generator.includes('assert_arc_free(markup)')&&generator.includes('resvg_py.svg_to_bytes'),'Windows icon is not reproducibly derived from the canonical SVG.');
+const realChoiceScript=fs.readFileSync(path.join(root,'..','tools','test_installer_shortcuts.ps1'),'utf8');
+assert(realChoiceScript.includes('CreateShortcut($link)')&&realChoiceScript.includes('Invoke-FoamUninstall'),
+  'Installer must verify actual shortcut target and uninstaller cleanup');
 const windowsWorkflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+assert(realChoiceScript.includes('/TASKS=desktopicon')&&windowsWorkflow.includes('/MERGETASKS=!desktopicon'),
+  'Installer must test actual selected and unselected Windows desktop shortcut task');
+
+assert(windowsWorkflow.includes('./tools/test_installer_shortcuts.ps1'),
+  'Real Windows Setup task test must run in current CI');
 assert(windowsWorkflow.includes('python tools/generate_windows_icon.py --check'),
   'Active Windows installer release CI must verify native icon/source parity.');
 const storeWorkflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-store-msix.yml'),'utf8');
