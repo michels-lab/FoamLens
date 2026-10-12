@@ -1330,7 +1330,7 @@ test('actual cross-region transparent triangle sorting handles camera reversal, 
   assert.equal(api.fvTransparentTriangleSort([{...primary,colors:[...primary.colors]}],camera),null,
     'Unsupported non-typed color buffers must fall back instead of throwing on subarray');
   assert.equal(api.fvTransparentTriangleSort([primary],{
-    target:[1e308,1e308,1e308],distance:10,yaw:Math.PI/4,pitch:Math.PI/4
+    target:[1.7e308,1.7e308,1.7e308],distance:10,yaw:Math.PI/4,pitch:Math.PI/4
   }),null,'An overflowed camera projection must not be sorted as finite depth');
 });
 
