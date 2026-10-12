@@ -52,7 +52,8 @@ def verify_release(metadata: dict, folder: Path, version: str) -> dict:
         if not match:
             raise ValueError(f"Missing or malformed checksum with exact filename: {binary}")
 
-        digest = hashlib.file_digest(exe.open("rb"), "sha256").hexdigest()
+        with exe.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if digest.lower() != match.group(1).lower():
             raise ValueError(f"Published binary SHA-256 mismatch: {binary}")
         disk_size = exe.stat().st_size
