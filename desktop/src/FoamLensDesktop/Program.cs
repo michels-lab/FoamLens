@@ -1991,7 +1991,10 @@ internal sealed class FoamLensForm : Form
                 }
             }
 
-            // Verify that JavaScript work continues while the native window is minimized.
+            // Verify continued background progress, not an exact 50 ms cadence.
+            // Windows WebView2 legitimately coalesces/throttles hidden timers
+            // after a long real-case GPU smoke. At least one executed callback
+            // proves progress; requiring five in 1.5 s is a false failure.
             await _web.CoreWebView2.ExecuteScriptAsync(
                 "window.__foamLensBackgroundTicks=0;window.__foamLensBackgroundTimer=setInterval(()=>window.__foamLensBackgroundTicks++,50);");
             WindowState = FormWindowState.Minimized;
@@ -2001,7 +2004,7 @@ internal sealed class FoamLensForm : Form
             WindowState = FormWindowState.Normal;
             Activate();
             if (!int.TryParse(backgroundTicksJson.Trim('"'), NumberStyles.Integer,
-                    CultureInfo.InvariantCulture, out var backgroundTicks) || backgroundTicks < 5)
+                    CultureInfo.InvariantCulture, out var backgroundTicks) || backgroundTicks < 1)
                 throw new InvalidOperationException(
                     $"FoamLens background execution stalled while minimized: {backgroundTicksJson}");
             await _web.CoreWebView2.ExecuteScriptAsync(
