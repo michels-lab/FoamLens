@@ -20,8 +20,9 @@ test('actual installed and portable Field wide/compact screenshots assert measur
     "document.getElementById('fwTimeSlider')",
     "window.FoamLensFieldWorkspace?.timeController?.current?.()",
     'Math.abs(loadedTime-fieldPhysicalTime)<1e-9',
-    'clock?.textContent===readoutExpected',
-    "timeSlider?.getAttribute('aria-valuetext')===readoutExpected",
+    'const displayedTime=shown?Number(shown[1]):NaN',
+    'Math.abs(displayedTime-loadedTime)<=1e-6',
+    "timeSlider?.getAttribute('aria-valuetext')===readoutText",
     'clockMatchesRealFrame;',
     'field-{size.Name}.png'
   ])assert(capture.includes(token),'Missing real packaged UI timeline evidence: '+token);

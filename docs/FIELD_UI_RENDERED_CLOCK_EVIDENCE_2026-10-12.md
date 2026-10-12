@@ -7,3 +7,6 @@ The check compares real Field descriptor time with active transport and visible 
 This is rendered UI functional evidence; owner visual review after a release remains separate. No new themes, typography, layout, product icon, release or case data are changed.
 
 The real UI smoke reads the module-owned physical clock via its new read-only `timeController.current()` API. The function is not assumed global; the displayed and accessible time must correspond to the actual loaded OpenFOAM frame.
+
+## Production WebView2 regression diagnosis — 2026-10-12
+The previous host-side assertion called `fvFmt` inside `ExecuteScriptAsync`, but the internal frontend formatter is intentionally not exposed in that JavaScript scope. The actual packaged smoke failed with `ReferenceError: fvFmt is not defined`. Current candidate parses the numeric physical time **displayed in the DOM**, checks it independently against both loaded Field time and the exported Field workspace transport clock, and checks accessibility text. This tests user-visible behavior without exposing an internal formatter or inventing metadata. Exact-commit packaged Windows CI is required.

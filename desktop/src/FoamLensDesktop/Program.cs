@@ -329,13 +329,19 @@ internal sealed class FoamLensForm : Form
                       const timeSlider=document.getElementById('fwTimeSlider');
                       const loadedTime=window.FoamLensFieldWorkspace?.timeController?.current?.()??NaN;
                       const fieldPhysicalTime=primary?.time;
-                      const readoutExpected=Number.isFinite(loadedTime)?'t = '+fvFmt(loadedTime)+' s':'t = —';
+                      // The native host must observe the rendered UI rather
+                      // than call internal frontend formatter functions. Extract
+                      // the actually displayed numeric physical time from the
+                      // visible readout, and cross-check independent frame data.
+                      const readoutText=clock?.textContent||'';
+                      const shown=/^\\s*t\\s*=\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*s\\s*$/.exec(readoutText);
+                      const displayedTime=shown?Number(shown[1]):NaN;
                       const clockRect=clock?.getBoundingClientRect();
                       const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
-                        Number.isFinite(loadedTime)&&
+                        Number.isFinite(loadedTime)&&Number.isFinite(displayedTime)&&
                         Math.abs(loadedTime-fieldPhysicalTime)<1e-9&&
-                        clock?.textContent===readoutExpected&&
-                        timeSlider?.getAttribute('aria-valuetext')===readoutExpected&&
+                        Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime))&&
+                        timeSlider?.getAttribute('aria-valuetext')===readoutText&&
                         clockRect?.width>30&&clockRect?.height>12;
                       const hasField=!!primary?.range?.valid;
                       const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
@@ -355,7 +361,7 @@ internal sealed class FoamLensForm : Form
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
-                        clockMatchesRealFrame,clockText:clock?.textContent,activeClockTime:loadedTime,
+                        clockMatchesRealFrame,clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                       }catch(error){
                         return {ok:false,stage:'native-field-wide-compact',error:String(error?.message||error),
