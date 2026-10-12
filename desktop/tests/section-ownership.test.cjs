@@ -288,9 +288,12 @@ test('Profile histories reject blank XYZ coordinates and missing physical times'
     {datasetType:'profile',profileTime:NaN},{datasetType:'log',profileTime:1}
   ];
   let position='';
-  const controls=new Function('series','datasetTypeOf','document',field.slice(start,end)+
+  const physicalStart=field.indexOf('function fwPhysicalTime(');
+  const physicalEnd=field.indexOf('function fwAdoptFieldNode(',physicalStart);
+  assert(physicalStart>=0&&physicalEnd>physicalStart,'Production physical-time validator missing');
+  const controls=new Function('window','series','datasetTypeOf','document',field.slice(physicalStart,physicalEnd)+field.slice(start,end)+
     ';return {getProfiles:fwProfileSeriesAll,selection:fwProfileTsSelection};')(
-    data,s=>s.datasetType,
+    {},data,s=>s.datasetType,
     {getElementById:id=>({value:id==='fwTsProfilePosition1'?position:id==='fwTsProfileCase1'?'1':id==='fwTsProfileSet1'?'set':id==='fwTsProfileField1'?'T':'line'})}
   );
   assert.deepStrictEqual(controls.getProfiles().map(s=>s.profileTime),[0,9.8],
