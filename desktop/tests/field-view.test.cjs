@@ -1780,7 +1780,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
     'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
-    'const fvDrawGlobalTransparentTriangles=()=>false;',
+    'const fvDrawWeightedOit=()=>false;const fvDrawGlobalTransparentTriangles=()=>false;',
     'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     implementation,
