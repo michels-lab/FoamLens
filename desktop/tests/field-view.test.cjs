@@ -1445,6 +1445,60 @@ test('production GPU alpha-batch reuses three buffers and restores primary progr
     'Successful triangle batching must not double-blend old region-center draws');
 });
 
+test('unchanged physical alpha frame reuses sorted GPU upload; camera, alpha and data changes invalidate',()=>{
+  const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
+  const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
+  const program=source.slice(begin,end);
+  assert(begin>0&&end>begin);
+  const harness=[
+    'const events=[];',
+    'const gl={ARRAY_BUFFER:34962,DYNAMIC_DRAW:35048,TRIANGLES:4,FLOAT:5126,',
+    'createShader(){return {}},createBuffer(){return {}},',
+    'getAttribLocation(p,k){return {aPos:0,aColor:1,aAlpha:2}[k]},',
+    'getUniformLocation(){return {}},useProgram(){},uniformMatrix4fv(){},depthMask(){},',
+    'bindBuffer(){},bufferData(t,a){events.push(["upload",a.byteLength])},',
+    'enableVertexAttribArray(){},disableVertexAttribArray(){},vertexAttribPointer(){},',
+    'drawArrays(m,s,count){events.push(["draw",count])}};',
+    'const fvProgram=()=>({}),fvMvp=()=>new Float32Array(16);',
+    'const fvSurfaceDepthWritable=alpha=>Number(alpha)>=.99;',
+    'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
+    'const document={getElementById:id=>id==="fvSurface"?{checked:true}:id==="fvCanvas"?{}:null};',
+    'const fvState={fieldStorage:"volume",camera:{target:[0,0,0],distance:10,yaw:0,pitch:0}};',
+    'const pos=new Float32Array([0,0,-1,1,0,-1,0,1,-1]);',
+    'let colors=new Float32Array([.5,0,0,.5,0,0,.5,0,0]);',
+    'const renderer={gl,program:{},mvp:{},surfaceCount:3,transparentCpu:{surfacePos:pos,surfaceColor:colors}};',
+    'const layer={gl,surfaceCount:3,surfaceCpuPos:new Float32Array([0,0,1,1,0,1,0,1,1]),',
+    'surfaceCpuColor:new Float32Array([.3,0,0,.3,0,0,.3,0,0]),faceFieldCount:0};',
+    'const fvRegionScene={layers:new Map([["solid",layer]]),',
+    'choices:new Map([["solid",{visible:true,opacity:.5}]])};',
+    program,
+    'const options={primaryVisible:true,showSurface:true,showSlice:false,showIso:false,',
+    'opacity:.6,interiorActive:false};',
+    'const draw=()=>fvDrawGlobalTransparentTriangles(renderer,options);',
+    'const count=k=>events.filter(e=>e[0]===k).length;',
+    'if(!draw())throw Error("first draw");const first={upload:count("upload"),draw:count("draw")};',
+    'if(!draw())throw Error("unchanged draw");const stable={upload:count("upload"),draw:count("draw")};',
+    'fvState.camera.yaw=.5;if(!draw())throw Error("rotated draw");const rotate=count("upload");',
+    'fvRegionScene.choices.get("solid").opacity=.4;if(!draw())throw Error("opacity draw");',
+    'const opacity=count("upload");',
+    'renderer.transparentCpu.surfaceColor=new Float32Array(colors);',
+    'if(!draw())throw Error("recolored draw");const recolor=count("upload");',
+    'return{first,stable,rotate,opacity,recolor,draws:count("draw"),',
+    'cacheOnlySignature:!Object.hasOwn(renderer.transparentSortCache,"positions"),',
+    'lastBytes:renderer.transparentBatch.lastPayloadBytes};'
+  ].join('\n');
+  const result=new Function(harness)();
+  assert.deepStrictEqual(result.first,{upload:3,draw:1});
+  assert.deepStrictEqual(result.stable,{upload:3,draw:2},
+    'A static scientific Field scene must draw again without sorting/reuploading');
+  assert.equal(result.rotate,6,'Camera change must invalidate GPU order');
+  assert.equal(result.opacity,9,'Region opacity must invalidate GPU alpha');
+  assert.equal(result.recolor,12,'A replacement measured color buffer must invalidate GPU upload');
+  assert.equal(result.draws,5);
+  assert.equal(result.cacheOnlySignature,true,'Cache must not retain a second full triangle payload');
+  assert.equal(result.lastBytes,2*(72+72+24)/2,'Upload budget must match measured 2-triangle geometry');
+});
+
 test('one-million-triangle GPU scene stays out of bounded transparency sort and records actual Node resident memory',()=>{
   const begin=source.indexOf('const FV_TRANSPARENT_TRIANGLE_LIMIT=');
   const end=source.indexOf('function fvRegionWithOpaqueTieOffset(',begin);
