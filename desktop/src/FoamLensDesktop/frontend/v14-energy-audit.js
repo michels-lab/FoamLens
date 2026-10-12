@@ -113,7 +113,14 @@ function eaMergedRole(g,role){
 function eaAnalyzeFluxGroup(g,epsilon=1e-12){
   const A=eaMergedRole(g,'advective'),D=eaMergedRole(g,'diffusive'),T=eaMergedRole(g,'total');
   const aligned=taAlignSeries([A,D,T],{mode:'common',method:'linear',maxPoints:5000});if(!aligned.valid)return{ok:false,group:g,reason:'no shared physical-time interval'};
-  const a=aligned.series[0].y,d=aligned.series[1].y,t=aligned.series[2].y,m=eaClosureMetrics(a,d,t,epsilon),res=m.residual;
+  const a=aligned.series[0].y,d=aligned.series[1].y,t=aligned.series[2].y,m=eaClosureMetrics(a,d,t,epsilon);
+  // Missing values are not synchronized measurements. eaClosureMetrics
+  // intentionally omits invalid triples, so its compact residual array
+  // cannot be indexed against the full physical-time grid for integration.
+  if(m.n!==aligned.grid.length)return{
+    ok:false,group:g,reason:'incomplete synchronized energy samples; residual integral unavailable'
+  };
+  const res=m.residual;
   return{
     ok:true,group:g,range:aligned.range,grid:aligned.grid,advective:a,diffusive:d,total:t,residual:res,metrics:m,
     integrals:{advective:eaTrapezoid(aligned.grid,a).final,diffusive:eaTrapezoid(aligned.grid,d).final,total:eaTrapezoid(aligned.grid,t).final,residual:eaTrapezoid(aligned.grid,res).final},

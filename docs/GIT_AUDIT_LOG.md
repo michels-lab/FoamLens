@@ -4460,3 +4460,8 @@ The required interpretation is structural integration rather than sticker placem
 - Confirmed `thPairs`, `thIntervals` and thermal display formatting used `Number(null/false/'')`, treating missing OpenFOAM measurements/time as zero. This risks fake cooling/heating rates and thermal statistics.
 - Added strict numeric/string physical sample parsing, kept genuine zero and numeric time, and expanded executed core regressions to exercise missing timestamps, temperatures, integrals and intervals. UI representation now uses an em dash for missing thermal readings rather than zero.
 - This is a validated source smoke candidate only; exact-head Windows/real OpenFOAM CI pending. Temperature rates still derive from measured endpoints; no recalescence/latent-heat inference or release claimed.
+
+## 2026-10-12 — Energy closure integration must preserve the original physical-time grid
+- Reproduced with the actual `eaAnalyzeFluxGroup` production function: aligned times `[0,1,4]` and a missing t=1 reading yielded two compact residuals `[1,5]`, then `eaTrapezoid` mistakenly combined them against the first two timestamps to report an apparently valid 3 J integral.
+- Fail-closed correction: if not every aligned physical timestamp has a finite advective, diffusive and total power triple, mark the group's integrated closure unavailable, without generating a fictitious energy value. Preserve full exact-grid integration and existing closure metrics for genuinely complete datasets.
+- Added executed direct production-function negative and positive regressions; combined PR #76 requires a new exact-head QuickCup/Windows validation after this scientifically material correction. No new version or release.

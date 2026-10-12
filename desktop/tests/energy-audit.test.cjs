@@ -45,6 +45,25 @@ test('specific enthalpy is not mislabeled as an energy inventory without rho wei
   assert.equal(api.eaRoleFromDescriptor({fieldName:'h',kind:'tabular',operation:'sum',weightField:'rho'}),'');
 });
 
+
+test('energy residual integrals reject missing aligned physical-time samples rather than shifting timestamps',()=>{
+  const begin=source.indexOf('function eaAnalyzeFluxGroup('),end=source.indexOf('function eaInventoryRows(',begin);
+  assert(begin>=0&&end>begin,'Real energy closure integration function unavailable');
+  const impl=source.slice(begin,end);
+  const analyze=aligned=>new Function('eaMergedRole','taAlignSeries','eaClosureMetrics','eaTrapezoid',
+    impl+';return eaAnalyzeFluxGroup;')(()=>({}),()=>aligned,api.eaClosureMetrics,api.eaTrapezoid)({roles:{}});
+  const incomplete=analyze({valid:true,grid:[0,1,4],range:{start:0,end:4},
+    series:[{y:[10,null,30]},{y:[2,2,2]},{y:[13,null,37]}]});
+  assert.strictEqual(incomplete.ok,false,'A missing t=1 reading cannot yield a fabricated integrated residual');
+  assert.match(incomplete.reason,/incomplete synchronized energy samples/);
+  assert.strictEqual(incomplete.integrals,undefined);
+  const measured=analyze({valid:true,grid:[0,1,4],range:{start:0,end:4},
+    series:[{y:[10,12,30]},{y:[2,2,2]},{y:[13,14,37]}]});
+  assert.strictEqual(measured.ok,true);
+  assert.strictEqual(measured.metrics.n,3);
+  near(measured.integrals.residual,8);
+});
+
 test('exact advective plus diffusive decomposition closes numerically',()=>{
   const adv=[10,8,5,-1],diff=[-2,-3,4,1],total=adv.map((v,i)=>v+diff[i]);
   const m=api.eaClosureMetrics(adv,diff,total,1e-12);
