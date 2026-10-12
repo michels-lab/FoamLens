@@ -25,3 +25,15 @@ Microsoft documents a Windows 10 GPU Process Memory counter defect in which a pr
 Before closing issue #40, run a real metal/mold OpenFOAM workload on identified hardware (adapter/driver/version) and capture baseline/loaded/repeated-frame/case-exit dedicated/shared GPU process counter samples alongside actual WebView2 render evidence, FPS/responsiveness and a native screenshot. Record counter availability, timing, raw JSON and hardware provenance. Also resolve intersecting per-fragment transparency separately: centroid sorting and static-frame caching alone cannot do that.
 
 No release or numerical driver-VRAM claim is authorized by this document.
+
+## Timestamped repeated-sample capture
+
+For an actual imported multi-region OpenFOAM case on identified Windows GPU hardware, keep the FoamLens.exe PID alive with the target case displayed and run:
+
+```powershell
+pwsh -File tools/capture_gpu_memory_series.ps1 -RootProcessId <ACTUAL_FOAMLENS_EXE_PID> -Samples 10 -IntervalSeconds 2 -OutputPath evidence/gpu-loaded.json
+```
+
+Capture **a separate baseline** before loading the large case, a loaded steady frame, a camera-rotation/scrubbing window and after unloading, each with clear case size/physical region names and adapter/driver provenance. Each JSON retains UTC timestamps, verified WebView2 child process counts, individual dedicated/shared usage counter values and an explicit `incomplete` status if even one point could not be measured. Delta and peak are reported only from observed valid counter snapshots; a missing point must not become 0 MB or a fake growth trend.
+
+This is a Windows **per-process counter series**, NOT adapter-total VRAM, application-exclusive driver allocation or definitive leak proof. Microsoft KB 4490156 warns that some Windows GPU Process Memory counters can be wrong; corroborate suspicious trends using WPR/WPA on affected hardware. The regression tests in GitHub Actions use **synthetic inputs only** and must not be presented as actual GPU hardware measurements.
