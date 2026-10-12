@@ -6,7 +6,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
-. (Join-Path $PSScriptRoot 'measure_gpu_process_memory.ps1')
+. (Join-Path $PSScriptRoot 'measure_gpu_process_memory.ps1') -RootProcessId $RootProcessId
 
 function Get-FoamGpuSeriesSummary {
   param([object[]]$Readings)
