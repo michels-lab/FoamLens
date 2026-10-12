@@ -991,10 +991,13 @@ function fvRegionRenderLayers(pass='all',drawPrimary=null,{skipTransparentTriang
       m.boundsMin.length<3||m.boundsMax.length<3||
       ![0,1,2].every(i=>valid(m.boundsMin[i])&&valid(m.boundsMax[i])&&
         Number(m.boundsMin[i])<=Number(m.boundsMax[i])))return Number.NEGATIVE_INFINITY;
-    const center=[0,1,2].map(i=>(Number(m.boundsMin[i])+Number(m.boundsMax[i]))/2);
+    // Finite physical coordinates must not overflow at an intermediate sum:
+    // (min+max)/2 and (position-eye)*forward/length can become infinite
+    // even when the actual midpoint and camera-axis projection are finite.
+    const center=[0,1,2].map(i=>Number(m.boundsMin[i])/2+Number(m.boundsMax[i])/2);
     // View-axis depth, not radial distance: a laterally displaced mold must
     // not be sorted behind metal merely because its Euclidean distance grows.
-    return center.reduce((sum,v,i)=>sum+(v-eye[i])*forward[i]/length,0)
+    return center.reduce((sum,v,i)=>sum+(v-eye[i])*(forward[i]/length),0)
   };
   const sorted=[...fvRegionScene.layers].filter(([region,layer])=>
     fvRegionScene.choices.get(region)?.visible&&layer?.gl===gl);
