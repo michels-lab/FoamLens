@@ -72,6 +72,50 @@ test('3D probe descriptors preserve only physically measured finite values, neve
   assert.deepStrictEqual(genuine.map(x=>x.value),[0,0]);
 });
 
+
+test('3D compare uses measured primary physical time and refuses false t=0',()=>{
+  const a=source.indexOf('function fcPhysicalNumber(value){'),b=source.indexOf('function fcCloseTime(',a);
+  assert(a>=0&&b>a,'Missing production physical-number parser');
+  const physical=new Function(source.slice(a,b)+';return fcPhysicalNumber;')();
+  const start=source.indexOf('function fcPrimaryPhysicalTime(){'),end=source.indexOf('function fcEsc(',start);
+  assert(start>=0&&end>start,'Missing primary physical time resolver');
+  const getTime=time=>new Function('fvState','fcPhysicalNumber',
+    source.slice(start,end)+';return fcPrimaryPhysicalTime;')({time},physical)();
+  for(const v of [null,undefined,'',false,'  '])assert(Number.isNaN(getTime(v)),'Not measured: '+String(v));
+  assert.strictEqual(getTime('0'),0);
+  assert.strictEqual(getTime(9.8),9.8);
+  const compare=source.slice(source.indexOf('async function fcRefreshFrame(){'),source.indexOf('function fcRefreshVisuals()',source.indexOf('async function fcRefreshFrame(){')));
+  const extras=source.slice(source.indexOf('function fcExtraInvalidateFrame('),source.indexOf('async function fcRefreshExtras('));
+  const swap=source.slice(source.indexOf('async function fcSwapPrimaryCompare(){'),source.indexOf('function fcVideoDescriptors()',source.indexOf('async function fcSwapPrimaryCompare(){')));
+  assert(compare.includes('target=fcPrimaryPhysicalTime()'),'Compare view must reject missing t');
+  assert(extras.includes('target=fcPrimaryPhysicalTime()'),'Extra views must reject missing t');
+  assert(swap.includes('if(!Number.isFinite(targetTime))return false'),'Case swapping must not load invented t=0');
+  assert(swap.includes('.map(fcPhysicalNumber).filter(Number.isFinite)'),'Swapped time lists must discard missing samples');
+});
+
+test('3D extra view invalidates stale mesh/probes/export state when primary clock is missing',()=>{
+  const start=source.indexOf('function fcExtraInvalidateFrame('),end=source.indexOf('async function fcRefreshExtras(',start);
+  assert(start>=0&&end>start,'Missing production stale-frame invalidation path');
+  const make=new Function('fcState','fcExtraRefreshSelectors','fcExtraCase','fcExtraRegion',
+    'fcExtraField','fcExtraComponent','fcPrimaryPhysicalTime','fcExtraDom','fcUi','fcExtraUpdateLabel',
+    source.slice(start,end)+';return fcExtraRefreshFrame;');
+  const status={textContent:''},state={id:3,seq:5,renderer:{surfaceCount:4,edgeCount:8,probeCount:1},
+    mesh:{id:12},fieldValues:[1000],range:{valid:true},fieldParsed:{},time:0,sync:{exact:true},
+    probe:{point:[0,0,0]}};
+  const refresh=make({enabled:true},()=>{},()=>({}),()=>'metal',()=>'T',()=>'value',
+    ()=>NaN,()=>status,x=>x,()=>{});
+  refresh(state); // deterministic synchronous validation happens before the first await
+  assert.equal(state.seq,6,'An earlier in-flight frame must be invalidated');
+  assert.equal(state.mesh,null);
+  assert.equal(state.fieldValues,null);
+  assert.equal(state.probe,null);
+  assert.equal(state.sync,null);
+  assert(Number.isNaN(state.time));
+  assert.equal(state.renderer.surfaceCount,0);
+  assert.equal(state.renderer.probeCount,0);
+  assert(status.textContent.includes('measured primary'));
+});
+
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
   const a=cubeMesh(),b=JSON.parse(JSON.stringify(a)),r=api.fcMeshesEquivalent(a,b);
   assert.equal(r.ok,true);assert.equal(r.reason,'equivalent');

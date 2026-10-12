@@ -113,6 +113,7 @@ const fcState={
   spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
+function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
 function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
 function fcFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fcCloneCamera(camera){
@@ -378,7 +379,7 @@ function fcApplySharedRange(compareRange){
 }
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
-  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=Number(fvState.time);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a synchronized 3D view after loading the primary frame.','Elige una vista 3D sincronizada después de cargar el frame principal.'),true);return}
+  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcPrimaryPhysicalTime();if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a synchronized 3D view after loading the primary frame.','Elige una vista 3D sincronizada después de cargar el frame principal.'),true);return}
   const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;try{
@@ -435,10 +436,20 @@ function fcExtraRefreshSelectors(state,preserve=true){
   const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';compSel.innerHTML=components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join('');if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
   state.caseId=caseSel.value;state.region=regionSel.value;state.fieldName=fieldSel.value;state.component=compSel.value;fcExtraUpdateLabel(state)
 }
+function fcExtraInvalidateFrame(state,message){
+  // A past measured frame must not survive a missing physical timestamp in UI or exports.
+  ++state.seq;
+  if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
+  state.mesh=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
+  fcExtraUpdateLabel(state);
+  const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
+}
 async function fcExtraRefreshFrame(state){
-  if(!fcState.enabled)return;fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=Number(fvState.time),status=fcExtraDom(state.id,'Status');if(!c||!field||!Number.isFinite(target))return;
-  const group=fcFieldFor(c,region,field);if(!group){if(status)status.textContent=fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.');return}const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){if(status)status.textContent=fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.');return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);if(status)status.textContent=fcSyncText(sync)}catch(e){if(status)status.textContent=String(e?.message||e)}
+  if(!fcState.enabled)return;fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcPrimaryPhysicalTime(),status=fcExtraDom(state.id,'Status');
+  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
+  const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
+  const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
+  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
@@ -462,7 +473,9 @@ async function fcCopyPrimarySettingsToCompare(){
   await fcRefreshFrame();return true
 }
 async function fcSwapPrimaryCompare(){
-  const targetTime=Number(fvState.time),p={caseId:String(document.getElementById('fvCase')?.value||''),region:document.getElementById('fvRegion')?.value||'',field:document.getElementById('fvField')?.value||'',component:document.getElementById('fvComponent')?.value||'value'},q={caseId:String(document.getElementById('fcCase')?.value||''),region:document.getElementById('fcRegion')?.value||'',field:document.getElementById('fcField')?.value||'',component:document.getElementById('fcComponent')?.value||'value'};
+  const targetTime=fcPrimaryPhysicalTime();
+  if(!Number.isFinite(targetTime))return false;
+  const p={caseId:String(document.getElementById('fvCase')?.value||''),region:document.getElementById('fvRegion')?.value||'',field:document.getElementById('fvField')?.value||'',component:document.getElementById('fvComponent')?.value||'value'},q={caseId:String(document.getElementById('fcCase')?.value||''),region:document.getElementById('fcRegion')?.value||'',field:document.getElementById('fcField')?.value||'',component:document.getElementById('fcComponent')?.value||'value'};
   if(!p.caseId||!q.caseId)return false;
   const enabled=document.getElementById('fcEnabled'),wasEnabled=!!enabled?.checked;if(enabled)enabled.checked=false;
   try{
@@ -470,7 +483,7 @@ async function fcSwapPrimaryCompare(){
     const pr=document.getElementById('fvRegion');if([...pr.options].some(o=>o.value===q.region))pr.value=q.region;fvRefreshSelectors(true);
     const pf=document.getElementById('fvField');if([...pf.options].some(o=>o.value===q.field))pf.value=q.field;
     const pg=fvCurrentFieldGroup(),pcomp=document.getElementById('fvComponent');if(pg&&pcomp){pcomp.innerHTML=fvFieldComponents(pg).map(o=>'<option value="'+fvEsc(o.v)+'">'+fvEsc(o.t)+'</option>').join('');if([...pcomp.options].some(o=>o.value===q.component))pcomp.value=q.component}
-    const ptimes=(pg?.times||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);let pi=0;if(Number.isFinite(targetTime)&&ptimes.length){let d=Infinity;for(let i=0;i<ptimes.length;i++){const qd=Math.abs(ptimes[i]-targetTime);if(qd<d){d=qd;pi=i}}}
+    const ptimes=[...new Set((pg?.times||[]).map(fcPhysicalNumber).filter(Number.isFinite))].sort((a,b)=>a-b);let pi=0;if(Number.isFinite(targetTime)&&ptimes.length){let d=Infinity;for(let i=0;i<ptimes.length;i++){const qd=Math.abs(ptimes[i]-targetTime);if(qd<d){d=qd;pi=i}}}
     await fvLoadFrame(pi,{resetCamera:false});
 
     fcRefreshSelectors(false);const qc=document.getElementById('fcCase');qc.value=p.caseId;fcRefreshSelectors(true);
