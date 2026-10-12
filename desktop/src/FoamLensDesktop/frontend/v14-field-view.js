@@ -1050,8 +1050,14 @@ function fvRegionFitCamera(){
   // The primary mesh is no exception: hidden physical regions must not alter camera fit.
   if(fvState.mesh&&(!c||fvRegionChoice(c,primary).visible))meshes.push(fvState.mesh);
   for(const [region,layer] of fvRegionScene.layers)if(fvRegionScene.choices.get(region)?.visible)meshes.push(layer.mesh);
-  const bounds=fvRegionUnionBounds(meshes);if(!bounds)return false;
-  fvState.camera.target=bounds.center;fvState.camera.distance=bounds.diagonal*1.65;fvRender();return true
+  const bounds=fvRegionUnionBounds(meshes);
+  const distance=bounds?.diagonal*1.65;
+  // Finite mesh endpoints do not guarantee a representable union span:
+  // a mixed-sign extremum can overflow Math.hypot or the fit multiplier.
+  // Preserve the last valid view instead of poisoning the camera with Infinity.
+  if(!bounds||!bounds.center.every(Number.isFinite)||
+    !Number.isFinite(distance)||!(distance>0))return false;
+  fvState.camera.target=bounds.center;fvState.camera.distance=distance;fvRender();return true
 }
 // Geometry-only fallback may combine processor partitions WITHIN ONE physical
 // region. Never flatten two physical regions into a fake field/mesh association.
