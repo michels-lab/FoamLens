@@ -1,3 +1,15 @@
+'use strict';
+
+// Scientific release invariant: two physical OpenFOAM regions share a single
+// runtime WebGL scene and their measurements must refer to the same timestep.
+const fs=require('fs');
+const path=require('path');
+const assert=require('assert');
+const {test}=require('node:test');
+const root=path.join(__dirname,'..');
+const field=fs.readFileSync(path.join(root,'src/FoamLensDesktop/frontend/v14-field-view.js'),'utf8');
+const native=fs.readFileSync(path.join(root,'src/FoamLensDesktop/Program.cs'),'utf8');
+
 test('actual installed and portable Field wide/compact screenshots assert measured timeline readout',()=>{
   const start=native.indexOf('private async Task CaptureScientificWorkspaceEvidenceAsync()');
   const end=native.indexOf('private async Task CaptureCdpPngAsync(',start);
@@ -15,17 +27,7 @@ test('actual installed and portable Field wide/compact screenshots assert measur
   ])assert(capture.includes(token),'Missing real packaged UI timeline evidence: '+token);
 });
 
-'use strict';
 
-// Scientific release invariant: two physical OpenFOAM regions share a single
-// runtime WebGL scene and their measurements must refer to the same timestep.
-const fs=require('fs');
-const path=require('path');
-const assert=require('assert');
-const {test}=require('node:test');
-const root=path.join(__dirname,'..');
-const field=fs.readFileSync(path.join(root,'src/FoamLensDesktop/frontend/v14-field-view.js'),'utf8');
-const native=fs.readFileSync(path.join(root,'src/FoamLensDesktop/Program.cs'),'utf8');
 
 test('multiregion candidate retains exact-frame native evidence contract',()=>{
   for(const token of [
