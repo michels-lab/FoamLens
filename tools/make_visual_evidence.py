@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--platform", required=True)
     parser.add_argument("--capture-method", default="installed-windows-desktop")
+    parser.add_argument("--require-multiregion", action="store_true",
+                        help="Require genuine measured metal/mold native WebView2 screenshot in both runtime variants")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -42,6 +44,8 @@ def main():
     if not direct_windows and (args.portable_artifact is not None or args.portable_evidence_dir is not None):
         raise SystemExit("Nonportable channels must not claim a portable Windows variant")
 
+    if args.require_multiregion and not direct_windows:
+        raise SystemExit("Real multiregion evidence applies to direct Windows Setup/Portable only")
     root = args.output.parent.resolve()
     root.mkdir(parents=True, exist_ok=True)
     installer_sha = hashfile(args.artifact)
@@ -86,6 +90,28 @@ def main():
                     "capture_method": capture_method,
                     "candidate_artifact_sha256": candidate_sha,
                 })
+
+    if args.require_multiregion:
+        # Unlike generated graphics fixtures, this file is created by the actual
+        # native QuickCup metal/mold WebView2 import and single-canvas renderer.
+        for variant, evidence_dir, candidate_sha, capture_method in candidates:
+            file = (evidence_dir / "field-real-multiregion.png").resolve()
+            if not file.is_file() or not file.is_relative_to(root):
+                raise SystemExit(f"Missing/out-of-root real OpenFOAM {variant} multiregion screenshot: {file}")
+            with Image.open(file) as img:
+                width, height = img.size
+            records.append({
+                "platform": args.platform,
+                "runtime_variant": variant,
+                "surface": "field-multiregion",
+                "viewport": "real-metal-mold",
+                "path": str(file.relative_to(root)).replace("\\", "/"),
+                "sha256": hashfile(file),
+                "width": width,
+                "height": height,
+                "capture_method": capture_method,
+                "candidate_artifact_sha256": candidate_sha,
+            })
 
     manifest = {
         "schema": "michelslab-rendered-ui-v1",
