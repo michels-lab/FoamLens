@@ -938,14 +938,15 @@ test('physical OpenFOAM region colormaps use independent measured field legends 
   const palette='coolwarm';
   const helpers=new Function('flUi','fvEsc','fvFmt','fvFmtRange','fvAssociationLabel',
     'fvLegendGradient','pmUnitFromDimensions','fvSurfaceColors','fvPointSurfaceColors','fvInternalFaceColors',
-    regionCode.slice(begin,end)+
+    'fvRegionMeasuredRange',regionCode.slice(begin,end)+
     ';return {fvRegionPalette,fvRegionLegendMarkup,fvRegionRecolorLayer}')(
       english=>english,s=>String(s).replace(/</g,'&lt;'),String,String,s=>s,
       name=>'linear-gradient(90deg, '+name+', #fff)',
       ()=> 'K',
       (...args)=>{used.push(['volumePalette',args.at(-1)]);return new Float32Array([.1,.2,.3])},
       (...args)=>{used.push(['pointPalette',args.at(-1)]);return new Float32Array([.4,.5,.6])},
-      (...args)=>{used.push(['facePalette',args.at(-1)]);return new Float32Array([.7,.8,.9])});
+      (...args)=>{used.push(['facePalette',args.at(-1)]);return new Float32Array([.7,.8,.9])},
+      regionApi.fvRegionMeasuredRange);
   const choice={visible:true,palette};
   const layer={gl,region:'mold',storage:'volume',mesh:{cellCount:1,pointCount:3,internalFaceCount:1},
     field:'T',fieldValues:new Float64Array([303.063]),sourceTime:9.8,time:9.8,geometryOnly:false,colored:true,
