@@ -113,7 +113,8 @@ try{
   $width=[Math]::Ceiling($bounds.Width)
   $height=[Math]::Ceiling($bounds.Height)
   if($width -lt 350 -or $height -lt 240){throw "Unrealistic wizard screenshot size: $width x $height"}
-  $bmp=New-Object System.Drawing.Bitmap $width,$height
+  Write-Host "Native wizard screenshot bounds: $width x $height, x=$([Math]::Floor($bounds.Left)), y=$([Math]::Floor($bounds.Top))"
+  $bmp=[System.Drawing.Bitmap]::new([int]$width,[int]$height)
   $graphics=[System.Drawing.Graphics]::FromImage($bmp)
   try{
     $graphics.CopyFromScreen([int][Math]::Floor($bounds.Left),
