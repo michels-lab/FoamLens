@@ -25,3 +25,11 @@ Exact-head Windows/QuickCup, native screenshot/EULA/installer validation and the
 - McGuire & Bavoil, weighted blended order-independent transparency: https://jcgt.org/published/0002/02/09/paper.pdf
 
 No release/tag is created by this candidate.
+
+## Native crossed-surface pixel regression (new candidate)
+
+To distinguish the already-passed native *two constant-depth* overlap test from a genuinely **intersecting** polygon pair, the packaged Windows smoke now constructs two GPU-only synthetic triangles with identical projected XY and opposite Z gradients: red A has z=[−0.5,+0.5,+0.5], blue B has z=[+0.5,−0.5,−0.5]. They swap which surface is nearer across the projected triangle. This diagnostic does **not** change the imported metal/mold measured arrays or physical time.
+
+On an offscreen 64×64 native WebGL2 context with the float color/blend extensions, it calls **the actual production `fvDrawWeightedOit` function** using a dedicated canvas and known camera. It reads 8-bit RGBA pixels at two covered positions after rendering red-first/blue-second, then reverses the source draw order without changing physical Z or colors. The candidate demands **nonblank, overlapping red/blue colors**, GL error 0, and at most 8 levels/channel absolute change between orders. A supporting Node regression protects this native smoke's actual source wiring and restoration of original OpenFOAM state. The path is optional on unsupported GPU devices; the smoke records unsupported rather than claiming a GPU PASS.
+
+This demonstrates **source-order independence of the approximate weighted blend on two crossing triangles**, if actual native CI reports supported+PASS. It does not demonstrate exact far-to-near alpha colors for each pixel, realistic refraction, driver-total VRAM, or hardware behavior beyond the exercised WebView2 context. Real-large-case GPU memory and manual visual review remain independent tasks of issue #40.
