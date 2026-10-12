@@ -934,8 +934,23 @@ function fvDrawGlobalTransparentTriangles(r,options){
   // Oversized scenes, incomplete measured buffers and older WebGL drivers
   // retain the existing camera-axis region composite without extra GPU RAM.
   if(fvRegionScene.layers.size<1||!sources.length)return false;
-  const ordered=fvTransparentTriangleSort(sources,fvState.camera);
-  if(!ordered)return false;
+  // A static frame is rendered repeatedly during UI changes, screenshots
+  // and native resizing. Keep only source identities + sort signature, NOT a
+  // second copy of all triangle arrays. Upload again if any measured source,
+  // camera coordinate, alpha, count or GL batch changes.
+  const camera=fvState.camera,old=r.transparentSortCache;
+  const sameCamera=!!old&&camera?.target?.length===3&&
+    old.target.every((v,i)=>Object.is(v,camera.target[i]))&&
+    ['distance','yaw','pitch'].every(k=>Object.is(old[k],camera[k]));
+  const sameSources=sameCamera&&old.sources.length===sources.length&&sources.every((src,i)=>{
+    const prior=old.sources[i];
+    return Object.is(src.key,prior.key)&&Object.is(src.positions,prior.positions)&&
+      Object.is(src.colors,prior.colors)&&Object.is(src.count,prior.count)&&
+      Object.is(src.alpha,prior.alpha)
+  });
+  const reuse=sameSources&&old.batch===r.transparentBatch;
+  const ordered=reuse?null:fvTransparentTriangleSort(sources,camera);
+  if(!reuse&&!ordered){r.transparentSortCache=null;return false}
   const gl=r.gl;
   if(typeof gl.createShader!=='function'||typeof gl.disableVertexAttribArray!=='function')return false;
   let batch=null;
@@ -947,22 +962,29 @@ function fvDrawGlobalTransparentTriangles(r,options){
     gl.useProgram(batch.program);gl.uniformMatrix4fv(batch.mvp,false,fvMvp(canvas));
     gl.depthMask(false);
     for(const [i,data,location,components] of [
-      [0,ordered.positions,batch.pos,3],[1,ordered.colors,batch.color,3],
-      [2,ordered.alpha,batch.alpha,1]]){
+      [0,ordered?.positions,batch.pos,3],[1,ordered?.colors,batch.color,3],
+      [2,ordered?.alpha,batch.alpha,1]]){
       gl.bindBuffer(gl.ARRAY_BUFFER,batch.buffers[i]);
-      gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+      if(!reuse)gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(location);
       gl.vertexAttribPointer(location,components,gl.FLOAT,false,0,0)
     }
-    gl.drawArrays(gl.TRIANGLES,0,ordered.triangles*3);
-    batch.lastTriangles=ordered.triangles;
-    batch.lastPayloadBytes=ordered.positions.byteLength+ordered.colors.byteLength+ordered.alpha.byteLength;
+    if(!reuse){
+      batch.lastTriangles=ordered.triangles;
+      batch.lastPayloadBytes=ordered.positions.byteLength+ordered.colors.byteLength+ordered.alpha.byteLength;
+      r.transparentSortCache={batch,target:[...camera.target],distance:camera.distance,
+        yaw:camera.yaw,pitch:camera.pitch,sources:sources.map(src=>({
+          key:src.key,positions:src.positions,colors:src.colors,count:src.count,alpha:src.alpha
+        }))};
+    }
+    gl.drawArrays(gl.TRIANGLES,0,batch.lastTriangles*3);
     r.transparentBatchLastActive=true;
     return true
   }catch(error){
     // A driver upload failure must not blank the viewport or leave half a
     // framebuffer. Disable the fast path for this renderer and use the
     // previous CPU-bounded region-average fallback on subsequent draws.
+    r.transparentSortCache=null;
     r.transparentBatchDisabled=String(error?.message||error);
     return false
   }finally{
