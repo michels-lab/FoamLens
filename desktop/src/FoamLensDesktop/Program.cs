@@ -334,7 +334,7 @@ internal sealed class FoamLensForm : Form
                       // the actually displayed numeric physical time from the
                       // visible readout, and cross-check independent frame data.
                       const readoutText=clock?.textContent||'';
-                      const shown=/^\\s*t\\s*=\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*s\\s*$/.exec(readoutText);
+                      const shown=/^\s*t\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s\s*$/.exec(readoutText);
                       const displayedTime=shown?Number(shown[1]):NaN;
                       const clockRect=clock?.getBoundingClientRect();
                       const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
