@@ -927,6 +927,178 @@ function fvEnsureTransparentBatchRenderer(r){
     throw error
   }
 }
+// WebGL2 weighted-blended OIT is an approximate PER-FRAGMENT alternative for
+// intersecting translucent physical regions; it is NOT exact sorted compositing.
+// Only use it for an entirely translucent surface scene. An opaque surface
+// would require sharing the opaque depth attachment with the offscreen passes.
+// Drivers without float blending retain the existing bounded sorter/fallback.
+function fvWeightedOitSources(r,options){
+  const sources=[];let opaque=false,incomplete=false;
+  const add=(pos,col,count,alpha)=>{
+    if(!(count>0))return;
+    if(fvSurfaceDepthWritable(alpha)){opaque=true;return}
+    if(!pos||!col||!Number.isFinite(alpha)||!(alpha>0)){incomplete=true;return}
+    sources.push({pos,col,count,alpha})
+  };
+  if(options.primaryVisible){
+    if(options.showSurface){
+      const face=String(fvState.fieldStorage)==='surface',
+        shell=face?Math.min(options.opacity,.16):
+          (options.interiorActive?Math.min(options.opacity,.28):options.opacity);
+      add(r.surfacePos,r.surfaceColor,r.surfaceCount,shell);
+      if(face){
+        add(r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,options.opacity);
+        add(r.boundaryFieldPos,r.boundaryFieldColor,r.boundaryFieldCount,options.opacity)
+      }
+    }
+    if(options.showSlice)add(r.slicePos,r.sliceColor,r.sliceCount,options.sliceOpacity);
+    if(options.showIso)add(r.isoPos,r.isoColor,r.isoCount,options.isoOpacity)
+  }
+  if(document.getElementById('fvSurface')?.checked){
+    for(const [region,layer] of fvRegionScene.layers){
+      if(!fvRegionScene.choices.get(region)?.visible||layer?.gl!==r.gl)continue;
+      const choice=fvRegionScene.choices.get(region),
+        alpha=fvClamp(choice.opacity,.1,1),face=layer.faceFieldCount>0;
+      add(layer.surfacePos,layer.surfaceColor,layer.surfaceCount,face?Math.min(alpha,.14):alpha);
+      if(face)add(layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,alpha)
+    }
+  }
+  return opaque||incomplete||!sources.length?null:sources
+}
+function fvWeightedOitRelease(r){
+  const oit=r.weightedOit;if(!oit)return;
+  const gl=r.gl;
+  for(const fbo of oit.framebuffers)try{gl.deleteFramebuffer(fbo)}catch{}
+  for(const tex of oit.textures)try{gl.deleteTexture(tex)}catch{}
+  for(const program of oit.programs)try{gl.deleteProgram(program)}catch{}
+  try{gl.deleteBuffer(oit.quad)}catch{}
+  r.weightedOit=null
+}
+function fvWeightedOitCreate(r,width,height){
+  const gl=r.gl;
+  if(typeof gl.texStorage2D!=='function'||typeof gl.getExtension!=='function'||
+    !gl.getExtension('EXT_color_buffer_float')||!gl.getExtension('EXT_float_blend'))return null;
+  // RGBA16F accumulation + R8 revealage: 9 bytes/pixel; cap at 2560x1440.
+  if(!(width>0&&height>0)||width*height>2560*1440)return null;
+  if(r.weightedOit?.width===width&&r.weightedOit?.height===height)return r.weightedOit;
+  fvWeightedOitRelease(r);
+  const textures=[],framebuffers=[],programs=[];
+  let quad=null;
+  try{
+    const vertex='attribute vec3 aPos;attribute vec3 aColor;uniform mat4 uMVP;varying vec3 vColor;void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}';
+    const accum=fvProgram(gl,vertex,
+      'precision highp float;varying vec3 vColor;uniform float uOpacity;void main(){float a=clamp(uOpacity,0.0,1.0);float d=1.0-gl_FragCoord.z;float w=clamp(d*d*100.0,0.02,100.0);gl_FragColor=vec4(vColor*a*w,a*w);}');
+    programs.push(accum);
+    const reveal=fvProgram(gl,vertex,
+      'precision mediump float;uniform float uOpacity;void main(){gl_FragColor=vec4(clamp(uOpacity,0.0,1.0));}');
+    programs.push(reveal);
+    const composite=fvProgram(gl,
+      'attribute vec2 aPos;varying vec2 vUv;void main(){vUv=(aPos+1.0)*0.5;gl_Position=vec4(aPos,0.0,1.0);}',
+      'precision highp float;varying vec2 vUv;uniform sampler2D uAccum;uniform sampler2D uReveal;void main(){vec4 a=texture2D(uAccum,vUv);float coverage=clamp(1.0-texture2D(uReveal,vUv).r,0.0,1.0);gl_FragColor=vec4(a.rgb/max(a.a,0.000001),coverage);}');
+    programs.push(composite);
+    for(const [format,type] of [[gl.RGBA16F,gl.HALF_FLOAT],[gl.R8,gl.UNSIGNED_BYTE]]){
+      const tex=gl.createTexture(),fbo=gl.createFramebuffer();
+      if(!tex||!fbo)throw new Error('Weighted transparency render target allocation failed');
+      textures.push(tex);framebuffers.push(fbo);
+      gl.bindTexture(gl.TEXTURE_2D,tex);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D,0,format,width,height,0,
+        format===gl.R8?gl.RED:gl.RGBA,type,null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+      if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)
+        throw new Error('Weighted transparency floating-point framebuffer unavailable')
+    }
+    quad=gl.createBuffer();if(!quad)throw new Error('Weighted transparency fullscreen buffer allocation failed');
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    return r.weightedOit={width,height,textures,framebuffers,programs,quad,
+      scratchBytes:width*height*9,mode:'weighted-blended-approximate'}
+  }catch(error){
+    for(const fbo of framebuffers)try{gl.deleteFramebuffer(fbo)}catch{}
+    for(const tex of textures)try{gl.deleteTexture(tex)}catch{}
+    for(const program of programs)try{gl.deleteProgram(program)}catch{}
+    if(quad)try{gl.deleteBuffer(quad)}catch{}
+    r.weightedOitDisabled=String(error?.message||error);
+    return null
+  }finally{
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.bindTexture(gl.TEXTURE_2D,null)
+  }
+}
+function fvDrawWeightedOit(r,options){
+  r.weightedOitLastActive=false;
+  if(r.weightedOitDisabled||fvRegionScene.layers.size<1)return false;
+  const gl=r.gl,canvas=document.getElementById('fvCanvas');
+  if(!canvas)return false;
+  const sources=fvWeightedOitSources(r,options);if(!sources)return false;
+  const oit=fvWeightedOitCreate(r,canvas.width,canvas.height);if(!oit)return false;
+  let completed=false;
+  try{
+    const render=(program,blendSrc,blendDst,target,clear)=>{
+      gl.bindFramebuffer(gl.FRAMEBUFFER,oit.framebuffers[target]);
+      gl.viewport(0,0,oit.width,oit.height);
+      gl.clearColor(clear,clear,clear,clear);gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.useProgram(program);gl.blendFunc(blendSrc,blendDst);
+      const pos=gl.getAttribLocation(program,'aPos'),color=gl.getAttribLocation(program,'aColor'),
+        mvp=gl.getUniformLocation(program,'uMVP'),alpha=gl.getUniformLocation(program,'uOpacity');
+      if(pos<0)throw new Error('Weighted transparency position attribute missing');
+      gl.uniformMatrix4fv(mvp,false,fvMvp(canvas));
+      gl.enableVertexAttribArray(pos);
+      if(color>=0)gl.enableVertexAttribArray(color);
+      for(const source of sources){
+        gl.bindBuffer(gl.ARRAY_BUFFER,source.pos);
+        gl.vertexAttribPointer(pos,3,gl.FLOAT,false,0,0);
+        if(color>=0){
+          gl.bindBuffer(gl.ARRAY_BUFFER,source.col);
+          gl.vertexAttribPointer(color,3,gl.FLOAT,false,0,0)
+        }
+        gl.uniform1f(alpha,source.alpha);
+        gl.drawArrays(gl.TRIANGLES,0,source.count)
+      }
+      gl.disableVertexAttribArray(pos);
+      if(color>=0)gl.disableVertexAttribArray(color)
+    };
+    gl.depthMask(false);gl.disable(gl.DEPTH_TEST);
+    render(oit.programs[0],gl.ONE,gl.ONE,0,0);
+    render(oit.programs[1],gl.ZERO,gl.ONE_MINUS_SRC_ALPHA,1,1);
+    if(gl.getError()!==gl.NO_ERROR)throw new Error('Weighted transparency framebuffer GL error');
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.viewport(0,0,oit.width,oit.height);
+    gl.useProgram(oit.programs[2]);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,oit.textures[0]);
+    gl.uniform1i(gl.getUniformLocation(oit.programs[2],'uAccum'),0);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,oit.textures[1]);
+    gl.uniform1i(gl.getUniformLocation(oit.programs[2],'uReveal'),1);
+    const pos=gl.getAttribLocation(oit.programs[2],'aPos');
+    if(pos<0)throw new Error('Weighted transparency composite position missing');
+    gl.bindBuffer(gl.ARRAY_BUFFER,oit.quad);
+    gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+    gl.drawArrays(gl.TRIANGLES,0,3);gl.disableVertexAttribArray(pos);
+    if(gl.getError()!==gl.NO_ERROR)throw new Error('Weighted transparency composition GL error');
+    r.weightedOitLastActive=true;
+    completed=true;
+    return true
+  }catch(error){
+    r.weightedOitDisabled=String(error?.message||error);
+    return false
+  }finally{
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.depthMask(true);gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
+    // A partially committed composite must never also receive fallback alpha.
+    // A false result after any GL error is always explicitly reported.
+    if(!completed)r.weightedOitLastActive=false
+  }
+}
+
 function fvDrawGlobalTransparentTriangles(r,options){
   r.transparentBatchLastActive=false;
   if(r.transparentBatchDisabled)return false;
@@ -1441,9 +1613,10 @@ function fvRender(exportSize=null){
   };
   drawPrimarySurface('opaque');
   fvRegionRenderLayers('opaque');
-  const triangleSorted=fvDrawGlobalTransparentTriangles(r,{
-    primaryVisible,showSurface,showSlice,showIso,opacity,sliceOpacity,isoOpacity,interiorActive
-  });
+  const transparentOptions={primaryVisible,showSurface,showSlice,showIso,
+    opacity,sliceOpacity,isoOpacity,interiorActive};
+  const weightedOit=fvDrawWeightedOit(r,transparentOptions);
+  const triangleSorted=weightedOit||fvDrawGlobalTransparentTriangles(r,transparentOptions);
   fvRegionRenderLayers('transparent',triangleSorted?null:()=>drawPrimarySurface('transparent'),
     {skipTransparentTriangles:triangleSorted});
   // Overlay annotations after the actual physical region composite.
