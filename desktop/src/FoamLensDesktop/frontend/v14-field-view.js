@@ -510,10 +510,16 @@ const fvRegionScene={caseId:null,choices:new Map(),layers:new Map(),sequence:0,f
 function fvRegionRangeKey(region,choice,data){
   return JSON.stringify([region,data?.group?.name||'',choice?.component||'value',data?.storage||'',data?.parsed?.dimensions||null])
 }
+function fvRegionMeasuredRange(range){
+  // Missing bounds are NOT physical zero, even when a parser accidentally
+  // marks the range valid. Never invent a metal/mold temperature color scale.
+  const min=fvRegionPhysicalTime(range?.min),max=fvRegionPhysicalTime(range?.max);
+  return range?.valid===true&&Number.isFinite(min)&&Number.isFinite(max)&&min<=max
+}
 function fvRegionBeginVideoRangeScan(){fvRegionScene.rangeScan={};fvRegionScene.videoRanges=null}
 function fvRegionObserveRange(region,choice,data){
   const ranges=fvRegionScene.rangeScan,r=data?.range;
-  if(!ranges||!r?.valid||!Number.isFinite(Number(r.min))||!Number.isFinite(Number(r.max)))return;
+  if(!ranges||!fvRegionMeasuredRange(r))return;
   const key=fvRegionRangeKey(region,choice,data),old=ranges[key];
   ranges[key]=old?{valid:true,min:Math.min(old.min,Number(r.min)),max:Math.max(old.max,Number(r.max))}:{valid:true,min:Number(r.min),max:Number(r.max)}
 }
@@ -641,7 +647,7 @@ function fvRegionUpdateLegend(region){
 }
 function fvRegionRecolorLayer(layer,choice){
   if(!layer?.gl||layer.geometryOnly||!layer.colored||!layer.fieldValues?.length||
-    !layer.paintRange?.valid)return false;
+    !fvRegionMeasuredRange(layer.paintRange))return false;
   const gl=layer.gl,palette=fvRegionPalette(choice),mesh=layer.mesh,values=layer.fieldValues,
     min=layer.paintRange.min,max=layer.paintRange.max;
   if(!Number.isFinite(min)||!Number.isFinite(max))return false;
@@ -763,16 +769,17 @@ function fvRegionBuildLayer(region,mesh,data,choice,time){
   const gl=fvState.renderer?.gl;if(!gl)return null;
   const shape=fvBuildSurfaceBuffers(mesh),palette=fvRegionPalette(choice);
   const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range;
+  const measuredPaintRange=fvRegionMeasuredRange(range)&&fvRegionMeasuredRange(paintRange);
   let colors,colored=false;
-  if(storage==='volume'&&values?.length===mesh.cellCount&&paintRange?.valid){
+  if(storage==='volume'&&values?.length===mesh.cellCount&&measuredPaintRange){
     colors=fvSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);colored=true
-  }else if(storage==='point'&&values?.length===mesh.pointCount&&paintRange?.valid){
+  }else if(storage==='point'&&values?.length===mesh.pointCount&&measuredPaintRange){
     colors=fvPointSurfaceColors(mesh,values,paintRange.min,paintRange.max,palette);colored=true
   }else colors=fvConstantColors(shape.surfacePositions.length/3,[.42,.48,.56]);
   // surfaceScalar/VectorField's internalField belongs to actual mesh FACES,
   // not cells or boundary patches. Triangulate those faces exactly as in View 1.
   // Never paint the outer shell with inferred or fabricated boundary values.
-  const face=(storage==='surface'&&values?.length===mesh.internalFaceCount&&paintRange?.valid)
+  const face=(storage==='surface'&&values?.length===mesh.internalFaceCount&&measuredPaintRange)
     ?fvBuildInternalFaceBuffers(mesh):null;
   const faceCount=face?.positions?.length/3||0;
   const edgeColors=fvConstantColors(shape.edgePositions.length/3,[.13,.17,.22]);

@@ -4469,3 +4469,8 @@ The required interpretation is structural integration rather than sticker placem
 ## 2026-10-12 — Shared agent contract synchronization
 
 Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructions.md to Michel-Software-Standards child-agent-core 2026-10-12.1. Local product instructions remain byte-for-byte unchanged outside those blocks. Carries current installer EULA/shortcut, standalone HTML (where applicable), and independent work during CI policies; does not modify app code, workflows, versions or releases. Validation: one managed block per target, exact canonical body and preserved local prefix/suffix. Product/runtime acceptance is not inferred from this documentation change.
+
+## 2026-10-12 — Physical multiregion color and export ranges cannot invent measured zero
+- Code audit found `fvRegionObserveRange` accepted `range.valid === true` with `Number(null/false/'') === 0`, while `fvRegionBuildLayer` painted region volume/point/internal-face data without independently verifying its range minima and maxima. A bad frame or fixed-video range could color metal/mold against a fictitious thermal scale.
+- Added strict `fvRegionMeasuredRange` for real physical minimum/maximum, non-reversed ranges and explicit `valid:true`. Region video scans omit invalid frames, while the layer GPU coloring now requires *both* the measured source frame and the fixed video scale to be valid; otherwise the geometry remains neutral. Real 0 and numeric-string/scientific bounds remain supported.
+- Extended actual production-region regression in `desktop/tests/field-view.test.cjs`, with direct source-slice checks guarding all three field associations. Real-case Windows CI pending; no inference of real GPU VRAM and no release.

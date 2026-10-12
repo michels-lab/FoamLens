@@ -862,7 +862,7 @@ assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.
 const regionCode=source.slice(regionBegin,regionEnd);
 const regionApi=new Function(
   'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
-  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
+  regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionMeasuredRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
 )();
 
 
@@ -891,6 +891,41 @@ test('multiregion union bounds exclude absent/nonfinite mesh coordinates rather 
   const numericStrings={boundsMin:['-1','0','0.5'],boundsMax:['1e1','2','3']};
   assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,numericStrings]).min,[-1,0,0.5]);
   assert.deepStrictEqual(regionApi.fvRegionUnionBounds([good,numericStrings]).max,[10,7,8]);
+});
+
+
+test('real multiregion field color and video ranges reject missing/reversed limits without fake zero',()=>{
+  const valid={valid:true,min:0,max:300};
+  assert.equal(regionApi.fvRegionMeasuredRange(valid),true);
+  assert.equal(regionApi.fvRegionMeasuredRange({valid:true,min:'0',max:'3e2'}),true);
+  for(const min of [null,false,'',undefined,NaN,Infinity]){
+    assert.equal(regionApi.fvRegionMeasuredRange({valid:true,min,max:300}),false);
+  }
+  for(const max of [null,false,'',undefined,NaN,Infinity]){
+    assert.equal(regionApi.fvRegionMeasuredRange({valid:true,min:0,max}),false);
+  }
+  assert.equal(regionApi.fvRegionMeasuredRange({valid:true,min:310,max:300}),false);
+  assert.equal(regionApi.fvRegionMeasuredRange({valid:false,min:0,max:300}),false);
+  const input={group:{name:'T'},storage:'volume',parsed:{dimensions:'[0 0 0 1 0 0 0]'}};
+  const choice={component:'value'},key=regionApi.fvRegionRangeKey('mold',choice,input);
+  regionApi.fvRegionBeginVideoRangeScan();
+  for(const range of [
+    {valid:true,min:null,max:300},{valid:true,min:0,max:false},
+    {valid:true,min:300,max:100},{valid:true,min:NaN,max:300}
+  ])regionApi.fvRegionObserveRange('mold',choice,{...input,range});
+  assert.deepStrictEqual(regionApi.fvRegionEndVideoRangeScan(),{});
+  regionApi.fvRegionBeginVideoRangeScan();
+  regionApi.fvRegionObserveRange('mold',choice,{...input,range:valid});
+  assert.deepStrictEqual(regionApi.fvRegionEndVideoRangeScan()[key],valid);
+  // The real GPU-building production path must validate both measured source
+  // range and fixed video range before generating colored surface buffers.
+  const start=source.indexOf('function fvRegionBuildLayer(');
+  const stop=source.indexOf('function fvSurfaceDepthWritable(',start);
+  const build=source.slice(start,stop);
+  assert(build.includes('measuredPaintRange=fvRegionMeasuredRange(range)&&fvRegionMeasuredRange(paintRange)'));
+  assert(build.includes("values?.length===mesh.cellCount&&measuredPaintRange"));
+  assert(build.includes("values?.length===mesh.pointCount&&measuredPaintRange"));
+  assert(build.includes("values?.length===mesh.internalFaceCount&&measuredPaintRange"));
 });
 
 test('physical OpenFOAM region colormaps use independent measured field legends and GPU buffers',()=>{
