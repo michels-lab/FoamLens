@@ -707,6 +707,12 @@ jobs:
           $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  FoamLens-Setup-v$v.exe" | Set-Content "$exe.sha256" -Encoding ascii
 
+      - name: Inspect actual interactive Welcome and License Agreement wizard
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          ./tools/test_installer_wizard_eula.ps1 -Installer "artifacts/FoamLens-Setup-v$v.exe" -Screenshot "artifacts/installer-eula-wizard.png"
+
       - name: Install and smoke-test FoamLens installer
         shell: pwsh
         run: |
@@ -833,6 +839,7 @@ jobs:
             artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
             artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/installer-eula-wizard.png
             artifacts/FoamLens-Portable-smoke.png
             artifacts/FoamLens-Portable-launch.png
             artifacts/FoamLens-Installed-launch.png
@@ -851,6 +858,7 @@ jobs:
           name: FoamLens-Windows-failed-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/visual/
+            artifacts/installer-eula-wizard.png
             artifacts/*smoke.log
             artifacts/*smoke.png
             artifacts/*launch.png
