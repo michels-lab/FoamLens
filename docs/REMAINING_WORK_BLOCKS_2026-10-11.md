@@ -27,3 +27,8 @@ This is the executable acceptance plan for the work that remains after main `a35
 - Reproduced false incompatible-units/dimensions rejection in temporal-alignment comparisons when the seven physical exponents have identical values but are serialized as `1`, `1.0` or `1e0`.
 - Candidate uses strictly parsed, complete seven-exponent OpenFOAM vectors for numeric equivalence; malformed/incomplete dimensions retain conservative raw-text comparisons, and distinct explicit units (e.g. K/degC) stay incompatible without a conversion.
 - Production-core V8 examples passed locally in the GitHub execution environment. New science regressions are committed; exact-head Windows/OpenFOAM integration CI remains pending. No release or owner visual acceptance is implied.
+
+### B1.6 — Real-region camera bounds metadata guard (2026-10-12)
+- Found mesh-union camera fit using `Number(null)`, `Number(false)`, and `Number('')`; invalid/missing coordinates could expand the physical scene to an invented zero-origin bound.
+- Bounded fix parses only explicit finite numeric metadata for complete XYZ min/max triples. The real union of valid physical region meshes continues to drive camera fit; malformed/partial/reversed bounds are omitted rather than painted or inferred.
+- New executable Field View tests cover missing, boolean, blank, Infinity, NaN, reversed/incomplete bounds and valid numeric strings. Source-executed smoke passed; exact-head Windows OpenFOAM CI is required. This **does not** close large-scene physical GPU/VRAM or owner screenshot acceptance (#40 remains open).

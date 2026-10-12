@@ -4441,3 +4441,8 @@ The required interpretation is structural integration rather than sticker placem
 - Found after green B2.2/B2.3 PRs #68/#69 merged: 3D View B and View 3/4 still called `Number(fvState.time)`; null/blank/false could silently select t=0. Compare A/B swap also used that unsafe timestamp and `map(Number)` on frame-time metadata.
 - Scoped fix: strict `fcPrimaryPhysicalTime` source, no swap on unmeasured primary time, no fabricated t=0 in swap lists. Additional viewport invalidation clears stale CPU field, mesh, probe and renderer draw counts and advances sequence token on absent/incompatible time/field or caught error, preventing old data appearing in 3D video export.
 - Added direct production-function regression to `desktop/tests/field-compare.test.cjs` preserving authentic t=0. Exact-head Windows/QuickCup and installed UI CI is pending. Issue #30 remains open; no release authorized.
+
+## 2026-10-12 — Physical mesh bounds correctness in single-scene multiregion camera fit
+- Found false-zero risk in `fvRegionUnionBounds`: incomplete mesh bounding boxes and null/blank/boolean XYZ values were coerced to physical zero by JavaScript. This could contaminate the framing union of genuine metal/mold geometry.
+- Corrected validation to accept only finite number/numeric-string XYZ triples with nonreversed min/max. Bad mesh bounds are skipped without inventing coordinates, preserving union bounds for remaining valid OpenFOAM regions.
+- Added actual production-kernel regressions in `desktop/tests/field-view.test.cjs`; manual direct V8 check and exact-head Windows QuickCup CI required before merging. No release and no GPU-memory-performance claims from these tests.
