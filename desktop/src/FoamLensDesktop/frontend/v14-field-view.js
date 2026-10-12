@@ -572,7 +572,7 @@ function fvRegionUnionBounds(meshes){
     if(![0,1,2].every(i=>Number.isFinite(lo[i])&&Number.isFinite(hi[i])&&lo[i]<=hi[i]))continue;
     for(let i=0;i<3;i++){min[i]=Math.min(min[i],lo[i]);max[i]=Math.max(max[i],hi[i])}n++
   }
-  return n?{min,max,center:min.map((v,i)=>(v+max[i])/2),diagonal:Math.hypot(...max.map((v,i)=>v-min[i]))||1}:null
+  return n?{min,max,center:min.map((v,i)=>v/2+max[i]/2),diagonal:Math.hypot(...max.map((v,i)=>v-min[i]))||1}:null
 }
 function fvRegionReleaseLayer(layer){
   const gl=layer?.gl;if(!gl)return;
