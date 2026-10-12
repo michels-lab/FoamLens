@@ -14,6 +14,10 @@ pwsh -File tools/measure_gpu_process_memory.ps1 -RootProcessId <ACTUAL_FOAMLENS_
 
 The script verifies the requested PID belongs to `FoamLens.exe`, enumerates only its process descendants, and uses Windows `GPU Process Memory(*)\Dedicated Usage` and `Shared Usage` counters only for verified descendant `msedgewebview2.exe` PIDs. The JSON labels these as **per-process OS counter samples**. It reports an explicit `unavailable` and **null** bytes (not fabricated zero) when the PID/counters cannot be verified. Aggregate totals are not the graphics adapter's total VRAM, may omit driver/global allocations or shared WebView2 processes, and do not independently prove GPU rendering or correct transparency. The process tree is collected at sample time only; a changing browser process group can affect attribution.
 
+## Known Windows counter limitations
+
+Microsoft documents a Windows 10 GPU Process Memory counter defect in which a process's reported dedicated usage may climb when resources are flushed/re-created, even without equivalent actual adapter allocation (Microsoft KB 4490156: https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/gpu-process-memory-counters-report-wrong-value). On affected devices, confirm memory with Windows Performance Recorder / Windows Performance Analyzer (WPR/WPA) or appropriate adapter tools, and disclose the operating-system build, device and driver. Even a successful sample from this script is diagnostic, **not** an independently verified total graphics-driver VRAM value.
+
 ## Tests and evidence limitations
 
 `tools/test_gpu_process_memory.ps1` uses fixed synthetic process trees and counter rows to verify valid child attribution, foreign-process isolation, duplicate path suppression, invalid/missing counter fail-closed behavior and honest unavailable state. Windows GitHub Actions runs this test for the **exact candidate commit**. A passing synthetic fixture is **not actual GPU driver memory evidence**.
