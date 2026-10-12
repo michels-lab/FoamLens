@@ -1985,3 +1985,24 @@ test('field marker renders after all physical layers; translucent shells sort by
   assert(render.includes('gl.depthMask(false);fvBindDraw(r,r.probePos'),
     'Probe overlay must not corrupt the scientific depth buffer');
 });
+
+test('finite large physical-region bounds keep correct transparent fallback order',()=>{
+  const begin=regionCode.indexOf('function fvSurfaceDepthWritable(');
+  const end=regionCode.indexOf('function fvRegionFitCamera()',begin);
+  assert(begin>=0&&end>begin,'Production Field depth composition is missing');
+  const run=new Function([
+    'const draws=[];',
+    'const gl={LEQUAL:515,TRIANGLES:4,LINES:1,depthMask(){},depthFunc(){}};',
+    'const document={getElementById(id){return id==="fvSurface"?{checked:true}:id==="fvEdges"?{checked:false}:null}};',
+    'const region=(name,z)=>({gl,mesh:{boundsMin:[0,0,z],boundsMax:[0,0,z]},surfacePos:name,surfaceColor:name+"-color",surfaceCount:3,faceFieldCount:0,edgeCount:0});',
+    'const fvRegionScene={layers:new Map([["a-near",region("near",-9e307)],["z-far",region("far",-1e308)]]),',
+    'choices:new Map([["a-near",{visible:true,opacity:.4}],["z-far",{visible:true,opacity:.4}]])};',
+    'const fvState={renderer:{gl},mesh:null,camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
+    'const fvClamp=(value,lo,hi)=>Math.max(lo,Math.min(hi,Number(value)));',
+    'const fvBindDraw=(r,pos)=>draws.push(pos);',
+    regionCode.slice(begin,end),
+    'fvRegionRenderLayers("transparent");return draws;'
+  ].join('\\n'));
+  assert.deepStrictEqual(run(),['far','near'],
+    'Finite OpenFOAM mesh bounds must sort by measured camera depth rather than overflow-to-Infinity and lexical tie order');
+});
