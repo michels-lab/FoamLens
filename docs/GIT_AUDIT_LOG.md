@@ -4493,3 +4493,10 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - **Bounded correction:** reject the fit before changing view state unless the union center and final fitted distance are finite and distance is positive. Preserve the previous view, do not call the renderer for an invalid fit. Do not synthesize or clamp an enormous scientific coordinate.
 - **Local proof:** the same production-harness inputs on the candidate reject the invalid fit (`false`, preserved target `[2,3,4]`, preserved distance `5`, no render) and still accept normal `[0,0,0] … [2,2,2]` bounds with the original distance and exactly one render. Source-executed regression added to `desktop/tests/field-view.test.cjs`.
 - **State:** current candidate must pass exact-head native Windows, installer, QuickCup and UI evidence CI. No release. Real high-dynamic-range physical meshes and large GPU VRAM remain outside demonstrated acceptance.
+
+## 2026-10-12 — Single-region camera fallback obeys finite physical bounds
+
+- **Reproduction:** after guarded multi-region fit rejects a measured mesh with finite endpoints but unrepresentable extent, `fvCameraFitCurrent()` could still overwrite a good single-region camera with `Infinity` via its independent `(min+max)/2` and `diag*1.65` code path.
+- **Fix:** reuse the audited `fvRegionUnionBounds([mesh])` finite measured-geometry contract; validate the final distance and center before mutating the camera and before rendering. Preserve the previously valid view when physical bounds are unrepresentable; never fabricate a clipped scientific extent.
+- **Source-executed evidence:** mixed-sign `[-1e308,1e308]` and fit-margin overflow `[0,1.4e308]` retain the previous `[4,5,6]` target and distance 8. Ordinary `[0,2]^3` still fits to target `[1,1,1]`, distance `sqrt(12)*1.65`, exactly one renderer draw.
+- **Status:** targeted production source execution PASS, Node/Windows QuickCup and installed-package CI pending exact PR SHA. No release and no claim of real GPU VRAM measurements.
