@@ -49,3 +49,13 @@ This section supersedes **candidate/pending** labels above only where exact-comm
 | Microsoft Store | Provider-bound Store channel remains paused as previously directed | No Store submission, certification or publication claim |
 
 **Release boundary:** all source changes listed above are on `main` as of this recorded state; the new exact-head main run for `990cf418` was started, but this note does not assert it finished. No new release has been authorized or published. Do not close #29 or #40 based only on the regression merges.
+
+
+## 2026-10-12 — integration triage against current main (audit update)
+
+- Inspected `main` at `caa38c5cc0b564125e59a5dc62e4713c0b84273c`. Current README still identifies publicly published Desktop `v1.8.0`; this audit does **not** authorize release.
+- The physical multiregion development branch `development/field-multiregion-scene-20261008` is 234 commits behind main and **zero ahead**: do not resurrect/merge it.
+- `feat/field-weighted-oit-webgl2-20261012` at `9561d2e93e21cf288ff74d594585e7c35d826888`: 6 commits ahead / 9 behind main. Its PR-triggered Windows workflow run [38287191059](https://github.com/michels-lab/FoamLens/actions/runs/38287191059) finished **SUCCESS**. This is **branch-head evidence only**, not a rebased-main integration test, actual hardware acceptance or published binary.
+- `feat/field-gpu-hardware-provenance-20261012` at `0b805beb9815ac999eccab3f30f684bc3e464193`: 3 commits ahead / 4 behind main. Its PR-triggered Windows workflow run [38290778910](https://github.com/michels-lab/FoamLens/actions/runs/38290778910) finished **SUCCESS**. This does **not** establish full GPU VRAM measurement or a pass on the owner's device.
+- **Next integration gate:** reconcile both branch deltas against fresh main, confirm existing changes aren't duplicated, review `Program.cs`, `v14-field-view.js`, workflows and GPU scripts for conflicts, then run exact-head Windows packaged portable+installer scientific/UI and real multiregion acceptance. Do not merge old divergent heads merely because their earlier CI runs were green.
+- **Open acceptance:** crossed-polygon OIT pixels on supported native GPUs; measured high-cell-count OpenFOAM frame rate, host/WebView2 process memory and GPU VRAM; owner post-release visual review. Keep #40 and #29 open and Microsoft Store paused.
