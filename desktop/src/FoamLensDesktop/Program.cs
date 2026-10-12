@@ -1970,7 +1970,11 @@ internal sealed class FoamLensForm : Form
                         observedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
                         phase = "real OpenFOAM physical region data loaded and rendered"
                     };
-                    await File.WriteAllTextAsync(readyPath, JsonSerializer.Serialize(marker));
+                    // A readiness file must only become visible after its JSON
+                    // is fully written; the CI watcher must never parse a partial file.
+                    var stagingPath = readyPath + ".writing." + Environment.ProcessId;
+                    await File.WriteAllTextAsync(stagingPath, JsonSerializer.Serialize(marker));
+                    File.Move(stagingPath, readyPath);
                     var gpuDeadline = Stopwatch.StartNew();
                     while (!File.Exists(ackPath))
                     {
