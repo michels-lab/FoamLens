@@ -1036,7 +1036,7 @@ function fvDrawWeightedOit(r,options){
   if(!canvas)return false;
   const sources=fvWeightedOitSources(r,options);if(!sources)return false;
   const oit=fvWeightedOitCreate(r,canvas.width,canvas.height);if(!oit)return false;
-  let completed=false;
+  let completed=false,compositeStarted=false;
   try{
     const render=(program,blendSrc,blendDst,target,clear)=>{
       gl.bindFramebuffer(gl.FRAMEBUFFER,oit.framebuffers[target]);
@@ -1067,6 +1067,7 @@ function fvDrawWeightedOit(r,options){
     render(oit.programs[1],gl.ZERO,gl.ONE_MINUS_SRC_ALPHA,1,1);
     if(gl.getError()!==gl.NO_ERROR)throw new Error('Weighted transparency framebuffer GL error');
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    compositeStarted=true;
     gl.viewport(0,0,oit.width,oit.height);
     gl.useProgram(oit.programs[2]);
     gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
@@ -1085,6 +1086,12 @@ function fvDrawWeightedOit(r,options){
     return true
   }catch(error){
     r.weightedOitDisabled=String(error?.message||error);
+    if(compositeStarted){
+      // The OIT path requires an all-translucent surface scene: clear a
+      // partially composited default frame before the legacy fallback draws.
+      try{gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.clearColor(0,0,0,0);
+        gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)}catch{}
+    }
     return false
   }finally{
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
