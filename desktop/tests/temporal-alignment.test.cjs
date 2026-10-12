@@ -17,7 +17,7 @@ const core = js.slice(a, b + end.length);
 const api = new Function(core + '\nreturn {' +
   'taAlmostEqual,taFinitePairs,taCommonTimeRange,taNearestSample,taLinearSample,' +
   'taDownsampleGrid,taCommonGrid,taReferenceGrid,taAlignOne,taAlignSeries,' +
-  'taPearsonPairs,taDifferenceValues,taPairMetrics,taQuantityCompatibility};')();
+  'taPearsonPairs,taDifferenceValues,taPairMetrics,taDimensionVector,taEquivalentDimensions,taQuantityCompatibility};')();
 
 const near = (x, y, tol = 1e-9) => Math.abs(x - y) <= tol;
 const passed = [];
@@ -41,6 +41,18 @@ test('missing measurements cannot become differences, correlation or valid pair 
   assert.equal(m.mae,11);
   assert.equal(m.correlation,1);
   assert(Number.isNaN(api.taPearsonPairs([null,3],[0,5])));
+});
+
+
+test('OpenFOAM dimension exponents compare numerically without changing unit safety',()=>{
+  const T={field:{dimensions:'[0 0 0 1 0 0 0]',unit:'K'}};
+  const same={field:{dimensions:'[0.0 0e0 0 1e0 0 0 0]',unit:'K'}};
+  assert.deepStrictEqual(api.taQuantityCompatibility(T,same),{ok:true,reason:'verified-dimensions'});
+  assert.deepStrictEqual(api.taQuantityCompatibility(T,{field:{dimensions:'[0 0 0 0 0 0 0]',unit:'K'}}),
+    {ok:false,reason:'incompatible-dimensions'});
+  assert.deepStrictEqual(api.taQuantityCompatibility(T,{field:{dimensions:'[0 0 0 1 0 0 0]',unit:'degC'}}),
+    {ok:false,reason:'incompatible-units'});
+  assert.strictEqual(api.taQuantityCompatibility(T,{field:{dimensions:'[0 0 0 1 0 0 xyz]',unit:'K'}}).ok,false);
 });
 
 test('explicit dimensions and units block misleading quantitative comparisons', () => {

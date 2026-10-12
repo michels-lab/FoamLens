@@ -96,11 +96,25 @@ function taPairMetrics(t,a,b,epsilon=1e-12){
   let im=0;for(let i=1;i<abs.length;i++)if(abs[i]>abs[im])im=i;
   return{count:diffs.length,rmse:Math.sqrt(diffs.reduce((s,v)=>s+v*v,0)/diffs.length),mae:abs.reduce((s,v)=>s+v,0)/abs.length,maxAbs:abs[im],maxAbsTime:times[im],meanDifference:diffs.reduce((s,v)=>s+v,0)/diffs.length,meanRelative:rel.length?rel.reduce((s,v)=>s+v,0)/rel.length:NaN,meanPercent:pct.length?pct.reduce((s,v)=>s+v,0)/pct.length:NaN,correlation:taPearsonPairs(validA,validB)}
 }
+function taDimensionVector(raw){
+  // OpenFOAM dimension exponents are numbers, not a text-identity fingerprint.
+  // Only interpret a complete seven-component vector; unknown metadata stays raw.
+  const value=String(raw||'').trim();
+  if(!value.startsWith('[')||!value.endsWith(']'))return null;
+  const parts=value.slice(1,-1).trim().split(/\s+/);
+  if(parts.length!==7||parts.some(p=>!(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/).test(p)))return null;
+  const vector=parts.map(Number);
+  return vector.every(Number.isFinite)?vector:null
+}
+function taEquivalentDimensions(a,b){
+  const x=taDimensionVector(a),y=taDimensionVector(b);
+  return x&&y?x.every((v,i)=>v===y[i]):a===b
+}
 function taQuantityCompatibility(A,B){
   const dimensions=s=>String(s?.field?.dimensions||s?.dimensions||'').replace(/\s+/g,' ').trim();
   const units=s=>String(s?.field?.unit||s?.unit||'').trim();
   const da=dimensions(A),db=dimensions(B),ua=units(A),ub=units(B);
-  if(da&&db&&da!==db)return{ok:false,reason:'incompatible-dimensions'};
+  if(da&&db&&!taEquivalentDimensions(da,db))return{ok:false,reason:'incompatible-dimensions'};
   if(ua&&ub&&ua!==ub)return{ok:false,reason:'incompatible-units'};
   return{ok:true,reason:da&&db?'verified-dimensions':ua&&ub?'verified-units':'metadata-incomplete'};
 }

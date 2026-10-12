@@ -22,3 +22,8 @@ This is the executable acceptance plan for the work that remains after main `a35
 ### Block 2 B2.2 candidate (2026-10-11) — Field toolbar/probe false-zero guard
 - Reproduced another independent coercion route after PR #66: `fwTimeTimes` and `fwTimeCurrent` used unguarded `Number()` for blank/missing physical OpenFOAM timestamps; primary probe chooser and cell/point/internal-face samplers could also treat an absent field value as real zero.
 - Source candidate guards physical-time lists/current time and probe values with strict finite-metadata checks. Real t=0 and measured zero remain valid. Adds source-executed Field Workspace regression; exact-commit Windows CI, real cases and screenshot gate are required before merger. Keep issue #30 open and do not release solely for this.
+
+### Block 2 B2.5 — Numeric equivalence of OpenFOAM dimensions (2026-10-11)
+- Reproduced false incompatible-units/dimensions rejection in temporal-alignment comparisons when the seven physical exponents have identical values but are serialized as `1`, `1.0` or `1e0`.
+- Candidate uses strictly parsed, complete seven-exponent OpenFOAM vectors for numeric equivalence; malformed/incomplete dimensions retain conservative raw-text comparisons, and distinct explicit units (e.g. K/degC) stay incompatible without a conversion.
+- Production-core V8 examples passed locally in the GitHub execution environment. New science regressions are committed; exact-head Windows/OpenFOAM integration CI remains pending. No release or owner visual acceptance is implied.
