@@ -1917,7 +1917,7 @@ test('actual Field renderer composites opaque physical regions before transparen
   const regionBegin=regionCode.indexOf('function fvSurfaceDepthWritable(');
   const regionEnd=regionCode.indexOf('function fvRegionFitCamera()',regionBegin);
   assert(renderBegin>0&&renderEnd>renderBegin&&regionBegin>0&&regionEnd>regionBegin);
-  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold','primaryX','moldX',[
+  const harness=new Function('primaryOpacity','moldOpacity','primaryDepth','moldDepth','showMold','primaryX','moldX','invalidBounds',[
     'const draws=[];let depth=true;',
     'const gl={TRIANGLES:4,LINES:1,LEQUAL:515,COLOR_BUFFER_BIT:16384,DEPTH_BUFFER_BIT:256,DEPTH_TEST:2929,BLEND:3042,',
     'SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,viewport(){},clearColor(){},clear(){},enable(){},blendFunc(){},',
@@ -1929,7 +1929,11 @@ test('actual Field renderer composites opaque physical regions before transparen
     'const bounds=(z,x=0)=>({boundsMin:[x-.2,-.2,z],boundsMax:[x+.2,.2,z+1]});',
     'const r={gl,program:1,mvp:2,surfacePos:"metal",surfaceColor:"metal-col",surfaceCount:3,probeCount:0};',
     'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth,primaryX||0),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
-    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:bounds(moldDepth,moldX||0),surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
+    'const moldMesh=bounds(moldDepth,moldX||0);if(invalidBounds==="null")moldMesh.boundsMin[2]=null;',
+    'if(invalidBounds==="false")moldMesh.boundsMin[2]=false;',
+    'if(invalidBounds==="empty")moldMesh.boundsMin[2]="";',
+    'if(invalidBounds==="short")moldMesh.boundsMin=[0,0];',
+    'const fvRegionScene={layers:new Map([["mold",{gl,mesh:moldMesh,surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
     'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
     'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
@@ -1958,6 +1962,12 @@ test('actual Field renderer composites opaque physical regions before transparen
   assert.deepStrictEqual(opaqueMetal.map(d=>d.pos),['metal','mold'],
     'Opaque metal draws before a translucent enclosing mold, independent of distance');
   assert.deepStrictEqual(opaqueMetal.map(d=>d.depth),[true,false]);
+  for(const badBounds of ['null','false','empty','short']){
+    const result=summarize(harness(.65,.48,1,6,true,0,0,badBounds));
+    assert.deepStrictEqual(result.map(x=>x.pos),['metal','mold'],
+      'Missing '+badBounds+' bounds cannot use a fabricated zero');
+    assert(result.every(x=>x.depth===false),'Translucent geometry must not write opaque depth');
+  }
   const isolated=summarize(harness(.65,.48,1,6,false));
   assert.deepStrictEqual(isolated.map(d=>d.pos),['metal'],
     'Hidden physical regions must never draw, even if their buffers remain allocated');
