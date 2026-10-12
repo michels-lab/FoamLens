@@ -2,11 +2,37 @@ param(
   [int]$RootProcessId=0,
   [ValidateRange(1,120)][int]$Samples=5,
   [ValidateRange(0,60)][int]$IntervalSeconds=2,
+  [string]$CaseLabel='',
   [string]$OutputPath=''
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'measure_gpu_process_memory.ps1')
+
+function Get-FoamGpuHardwareProvenance {
+  # Never include computer name, Windows user name, hardware serial or device ID.
+  # Software adapters and missing WMI data must not be reported as discrete GPU.
+  $osInfo=$null;$adapters=@();$notes=@()
+  try{
+    $os=Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+    if($os){
+      $osInfo=[pscustomobject]@{
+        caption=[string]$os.Caption;version=[string]$os.Version;build=[string]$os.BuildNumber
+      }
+    }
+  }catch{$notes+=('OS metadata unavailable: '+$_.Exception.Message)}
+  try{
+    $video=@(Get-CimInstance Win32_VideoController -ErrorAction Stop)
+    $adapters=@($video | Where-Object {$null -ne $_} | ForEach-Object {
+      [pscustomobject]@{name=[string]$_.Name;driverVersion=[string]$_.DriverVersion}
+    })
+  }catch{$notes+=('Display adapter metadata unavailable: '+$_.Exception.Message)}
+  return [pscustomobject]@{
+    status=if($osInfo -and $adapters.Count -gt 0){'reported'}else{'incomplete'}
+    windows=$osInfo;displayAdapters=$adapters;notes=@($notes)
+    scope='Unverified display-adapter inventory: software/virtual adapters may be present, no device serials'
+  }
+}
 
 function Get-FoamGpuSeriesSummary {
   param([object[]]$Readings)
@@ -29,7 +55,7 @@ function Get-FoamGpuSeriesSummary {
 }
 
 function Capture-FoamGpuSeries {
-  param([int]$HostId,[int]$Count,[int]$PeriodSeconds)
+  param([int]$HostId,[int]$Count,[int]$PeriodSeconds,[string]$Label='')
   if($HostId -le 0){throw 'An actual FoamLens.exe PID is required'}
   if($Count -lt 1 -or $Count -gt 120){throw 'Samples must be between 1 and 120'}
   if($PeriodSeconds -lt 0 -or $PeriodSeconds -gt 60){throw 'IntervalSeconds must be between 0 and 60'}
@@ -44,14 +70,16 @@ function Capture-FoamGpuSeries {
   }
   return [pscustomobject]@{
     schema='foamlens-windows-gpu-process-memory-series-v1';hostPid=$HostId
+    caseLabel=$Label;hardware=(Get-FoamGpuHardwareProvenance)
     scope='verified WebView2 descendants via Windows performance counters; NOT graphics-driver total VRAM'
+    knownCounterCaveat='Microsoft KB4490156: some Windows GPU Process Memory counters are inaccurate; corroborate with WPR/WPA'
     summary=(Get-FoamGpuSeriesSummary -Readings $result);readings=$result
   }
 }
 
 if($MyInvocation.InvocationName -ne '.'){
   if($RootProcessId -le 0){throw 'Supply -RootProcessId of an actual running FoamLens.exe'}
-  $report=Capture-FoamGpuSeries -HostId $RootProcessId -Count $Samples -PeriodSeconds $IntervalSeconds
+  $report=Capture-FoamGpuSeries -HostId $RootProcessId -Count $Samples -PeriodSeconds $IntervalSeconds -Label $CaseLabel
   $json=$report | ConvertTo-Json -Depth 10
   if(-not [string]::IsNullOrWhiteSpace($OutputPath)){
     $full=[IO.Path]::GetFullPath($OutputPath)
