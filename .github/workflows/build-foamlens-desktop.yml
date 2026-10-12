@@ -20,6 +20,8 @@ on:
       - 'tools/visual_release_gate.py'
       - 'tools/measure_gpu_process_memory.ps1'
       - 'tools/test_gpu_process_memory.ps1'
+      - 'tools/capture_gpu_memory_series.ps1'
+      - 'tools/test_gpu_memory_series.ps1'
       - '.github/workflows/build-foamlens-desktop.yml'
   workflow_dispatch:
     inputs:
@@ -48,6 +50,8 @@ on:
       - 'tools/visual_release_gate.py'
       - 'tools/measure_gpu_process_memory.ps1'
       - 'tools/test_gpu_process_memory.ps1'
+      - 'tools/capture_gpu_memory_series.ps1'
+      - 'tools/test_gpu_memory_series.ps1'
       - '.github/workflows/build-foamlens-desktop.yml'
 
 permissions:
@@ -484,6 +488,10 @@ jobs:
       - name: Test Windows WebView2 GPU counter evidence attribution
         shell: pwsh
         run: ./tools/test_gpu_process_memory.ps1
+
+      - name: Test Windows WebView2 GPU memory time-series evidence
+        shell: pwsh
+        run: ./tools/test_gpu_memory_series.ps1
 
       - name: Test large-coordinate multiregion camera midpoint
         run: node desktop/tests/field-region-camera-midpoint.test.cjs
