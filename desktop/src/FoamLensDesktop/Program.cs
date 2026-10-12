@@ -2403,6 +2403,86 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       disabledReason:String(fvState.renderer?.weightedOitDisabled||''),
       scope:'real imported OpenFOAM WebGL render, weighted approximate per-fragment; not exact OIT or driver VRAM'
     };
+    // Native pixel-backed order-independence evidence: two synthetic triangles
+    // CROSS in physical Z while sharing exactly the same projected XY. One
+    // triangle is nearer on the left; the other is nearer on the right. Swap
+    // physical source draw order and compare both pixel positions. The actual
+    // production weighted WebGL2 path (not a reimplemented mock) is exercised.
+    let weightedCrossedPixelProof={supported:false,ok:false,
+      reason:'Offscreen WebGL2/float blend not available',
+      scope:'controlled crossed synthetic triangles, not OpenFOAM measurement or exact OIT'};
+    {
+      const off=document.createElement('canvas');off.width=64;off.height=64;
+      const gpu=off.getContext('webgl2',{antialias:false,alpha:true,preserveDrawingBuffer:true});
+      if(gpu&&gpu.getExtension('EXT_color_buffer_float')&&gpu.getExtension('EXT_float_blend')){
+        const savedCamera=fvState.camera,savedStorage=fvState.fieldStorage;
+        const savedLayers=fvRegionScene.layers,savedChoices=fvRegionScene.choices;
+        const buffers=[];
+        let testRenderer=null,baseProgram=null;
+        try{
+          fvState.camera={target:[0,0,0],distance:5,yaw:0,pitch:0};
+          fvState.fieldStorage='volume';
+          const vertex='attribute vec3 aPos;attribute vec3 aColor;uniform mat4 uMVP;varying vec3 vColor;void main(){vColor=aColor;gl_Position=uMVP*vec4(aPos,1.0);}';
+          baseProgram=fvProgram(gpu,vertex,
+            'precision mediump float;varying vec3 vColor;void main(){gl_FragColor=vec4(vColor,1.0);}');
+          const buffer=data=>{
+            const b=gpu.createBuffer();if(!b)throw new Error('Crossed OIT test GPU buffer unavailable');
+            buffers.push(b);gpu.bindBuffer(gpu.ARRAY_BUFFER,b);
+            gpu.bufferData(gpu.ARRAY_BUFFER,data,gpu.STATIC_DRAW);return b
+          };
+          const verts=z=>new Float32Array([-1,-1,z[0],1,-1,z[1],0,1,z[2]]);
+          const colors=(red,blue)=>new Float32Array([red,0,blue,red,0,blue,red,0,blue]);
+          const redPos=buffer(verts([-.5,.5,.5])),bluePos=buffer(verts([.5,-.5,-.5]));
+          const redCol=buffer(colors(1,0)),blueCol=buffer(colors(0,1));
+          testRenderer={gl:gpu,program:baseProgram,mvp:gpu.getUniformLocation(baseProgram,'uMVP'),
+            surfacePos:redPos,surfaceColor:redCol,surfaceCount:3};
+          const second={gl:gpu,surfacePos:bluePos,surfaceColor:blueCol,surfaceCount:3,faceFieldCount:0};
+          fvRegionScene.layers=new Map([['crossed-second',second]]);
+          fvRegionScene.choices=new Map([['crossed-second',{visible:true,opacity:.5}]]);
+          gpu.enable(gpu.BLEND);
+          const opts={primaryVisible:true,showSurface:true,showSlice:false,showIso:false,
+            opacity:.5,interiorActive:false};
+          const sample=(x,y)=>{
+            const px=new Uint8Array(4);
+            gpu.readPixels(x,y,1,1,gpu.RGBA,gpu.UNSIGNED_BYTE,px);
+            return Array.from(px)
+          };
+          const draw=(redFirst)=>{
+            testRenderer.surfacePos=redFirst?redPos:bluePos;
+            testRenderer.surfaceColor=redFirst?redCol:blueCol;
+            second.surfacePos=redFirst?bluePos:redPos;
+            second.surfaceColor=redFirst?blueCol:redCol;
+            gpu.bindFramebuffer(gpu.FRAMEBUFFER,null);
+            gpu.viewport(0,0,64,64);gpu.clearColor(0,0,0,0);
+            gpu.clear(gpu.COLOR_BUFFER_BIT|gpu.DEPTH_BUFFER_BIT);
+            if(!fvDrawWeightedOit(testRenderer,opts,off))
+              throw new Error('Native crossed WebGL2 weighted path did not activate: '+
+                String(testRenderer.weightedOitDisabled||'unknown'));
+            return[sample(24,24),sample(40,24)]
+          };
+          const first=draw(true),reversed=draw(false);
+          const maxDiff=Math.max(...first.flatMap((a,i)=>a.map((v,j)=>
+            Math.abs(v-reversed[i][j]))));
+          const nonBlank=first.every(a=>a[3]>0&&a[0]>10&&a[2]>10);
+          const error=gpu.getError();
+          weightedCrossedPixelProof={supported:true,ok:maxDiff<=8&&nonBlank&&error===0,
+            first,reversed,maxDiff,nonBlank,glError:error,
+            crossing:'left blue near / right red near; alpha=0.5 each',
+            scope:'real WebGL2 offscreen raster of crossed synthetic surfaces using production weighted OIT; approximate not exact'};
+          if(!weightedCrossedPixelProof.ok)
+            throw new Error('Native crossed weighted OIT pixel mismatch: '+
+              JSON.stringify(weightedCrossedPixelProof))
+        }finally{
+          fvState.camera=savedCamera;fvState.fieldStorage=savedStorage;
+          fvRegionScene.layers=savedLayers;fvRegionScene.choices=savedChoices;
+          if(testRenderer)fvWeightedOitRelease(testRenderer);
+          for(const buffer of buffers)gpu.deleteBuffer(buffer);
+          if(baseProgram)gpu.deleteProgram(baseProgram);
+          fvRender()
+        }
+      }
+    }
+    physicalScene.weightedCrossedPixelProof=weightedCrossedPixelProof;
     // In the real imported OpenFOAM metal/mold WebGL context, draw both
     // measured physical surfaces fully opaque. Their shared interface may
     // contain coincident raster depths. The temporary tie-bias must never
