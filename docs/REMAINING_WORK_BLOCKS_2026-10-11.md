@@ -19,9 +19,11 @@ This is the executable acceptance plan for the work that remains after main `a35
 
 **Closure rule:** Block 1 is not complete merely because its first PR merges. Do not close issue #40 until B1.2 through B1.5 have adequate measured evidence; do not claim pixels or large-scene performance that CI has not verified. No Microsoft Store work while the channel is paused.
 
-### Block 2 B2.2 candidate (2026-10-11) — Field toolbar/probe false-zero guard
-- Reproduced another independent coercion route after PR #66: `fwTimeTimes` and `fwTimeCurrent` used unguarded `Number()` for blank/missing physical OpenFOAM timestamps; primary probe chooser and cell/point/internal-face samplers could also treat an absent field value as real zero.
-- Source candidate guards physical-time lists/current time and probe values with strict finite-metadata checks. Real t=0 and measured zero remain valid. Adds source-executed Field Workspace regression; exact-commit Windows CI, real cases and screenshot gate are required before merger. Keep issue #30 open and do not release solely for this.
+### Block 2 B2.2 — Field toolbar/probe false-zero guard (validated 2026-10-12)
+- PR #68 passed both exact-head Windows CI runs #38184372194 / #38184369569 and was merged to `main` at `839f021b`. Invalid physical times and missing field samples no longer become measured zero; real t=0 and measured zero remain valid.
+- PR #69 passed both exact-head Windows runs #38184333561 / #38184323493 and merged at `666304de`, excluding geometry-only/unmeasured cross-view probes.
+- PR #70 passed #38196879728 / #38196865562 and merged at `4e7dac11`: A/B and extra views reject missing primary physical time and clear stale field/mesh/probe buffers.
+- PR #71 passed #38197029876 / #38197015645 and merged at `5fba8ffb`: physically equivalent seven-component OpenFOAM dimension exponents compare numerically while explicit incompatible units remain blocked.
 
 ### Block 2 B2.5 — Numeric equivalence of OpenFOAM dimensions (2026-10-11)
 - Reproduced false incompatible-units/dimensions rejection in temporal-alignment comparisons when the seven physical exponents have identical values but are serialized as `1`, `1.0` or `1e0`.
@@ -32,3 +34,18 @@ This is the executable acceptance plan for the work that remains after main `a35
 - Found mesh-union camera fit using `Number(null)`, `Number(false)`, and `Number('')`; invalid/missing coordinates could expand the physical scene to an invented zero-origin bound.
 - Bounded fix parses only explicit finite numeric metadata for complete XYZ min/max triples. The real union of valid physical region meshes continues to drive camera fit; malformed/partial/reversed bounds are omitted rather than painted or inferred.
 - New executable Field View tests cover missing, boolean, blank, Infinity, NaN, reversed/incomplete bounds and valid numeric strings. Source-executed smoke passed; exact-head Windows OpenFOAM CI is required. This **does not** close large-scene physical GPU/VRAM or owner screenshot acceptance (#40 remains open).
+
+
+## Current evidence and remaining closure boundary — 2026-10-12
+
+This section supersedes **candidate/pending** labels above only where exact-commit evidence exists. Do not interpret a closed source regression as owner visual acceptance, hardware VRAM certification or a published app release.
+
+| Gate | Verified implemented evidence | What remains |
+| --- | --- | --- |
+| B1.6 physical multiregion camera bounds | PR #72, `main` `b0bc0dc`, both Windows runs #38212583297 and #38212564980 SUCCESS; rejects null/blank/boolean/reversed/partial bounds instead of creating fake geometry | B1.2 true intersecting alpha surfaces and B1.5 measured real multi-million-cell hardware RAM/VRAM / frame rate remain **open**, issue #40 |
+| B2 physical clocks / probes / quantity dimensions | PRs #66, #68, #69, #70 and #71 merged with actual source-function regressions, QuickCup and Windows candidate checks | Full UI behavior and owner follow-up must still follow the relevant evidence contract; don't recreate fake-0 fixes |
+| B3 phase/thermal/energy measured data | Integration PR #76, `main` `990cf418`, exact-head prior-to-merge Windows/QuickCup run #38213866848 **SUCCESS**. Solidification, Thermal and Energy Audit reject missing readings; residual energy integration fails closed if aligned grid has a missing physical sample | Broader thermophysical model assumptions, real large-case performance and any dataset-specific scientific validity outside the tested fixtures are still **open** |
+| B4 Setup, Portable and native UI evidence | PR #67 Setup acceptance/shortcuts and PR #76 exact binary SHA-256 re-verification. Native build / installed+portable screenshots on validated PR branch; owner review remains **after** publication | Main integration run for `990cf418` and owner post-release review are separate gates; issue #29 remains **open** until full exact published candidate evidence and actual acceptance |
+| Microsoft Store | Provider-bound Store channel remains paused as previously directed | No Store submission, certification or publication claim |
+
+**Release boundary:** all source changes listed above are on `main` as of this recorded state; the new exact-head main run for `990cf418` was started, but this note does not assert it finished. No new release has been authorized or published. Do not close #29 or #40 based only on the regression merges.
