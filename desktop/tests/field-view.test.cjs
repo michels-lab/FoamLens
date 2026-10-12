@@ -1658,6 +1658,8 @@ test('packaged real OpenFOAM smoke verifies crossed-triangle weighted WebGL2 pix
     'Native evidence must record tested output rather than only shader capability');
   assert(program.includes('physicalScene.weightedOit.active&&!weightedCrossedPixelProof.supported'),
     'Real hardware OIT activation must never silently skip crossed-pixel acceptance');
+  assert(program.includes('physicalScene.weightedOit.active&&physicalScene.transparentBatch.active'),
+    'Packaged real-region smoke must reject stale simultaneous OIT and sorted-triangle diagnostics');
   assert(program.includes('fvDrawWeightedOit(testRenderer,opts,off)'),
     'Native pixel regression must execute the actual production OIT renderer');
   assert(program.includes('const first=draw(true),reversed=draw(false)'),
