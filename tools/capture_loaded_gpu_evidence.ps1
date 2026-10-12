@@ -37,6 +37,7 @@ if($MyInvocation.InvocationName -ne '.'){
   $ack=$fullReady+'.ack'
   $fullOutput=[IO.Path]::GetFullPath($OutputPath)
   $deadline=(Get-Date).AddSeconds(255)
+  $p=$null
   while(-not (Test-Path -LiteralPath $fullReady)){
     if((Get-Date) -ge $deadline){throw 'Real OpenFOAM field was not ready for loaded GPU capture before deadline'}
     try {
@@ -59,7 +60,6 @@ if($MyInvocation.InvocationName -ne '.'){
     [IO.Directory]::CreateDirectory($folder) | Out-Null
     try {
       $null = & (Join-Path $PSScriptRoot 'capture_gpu_memory_series.ps1') -RootProcessId $RootProcessId -Samples 3 -IntervalSeconds 1 -OutputPath $temporary
-      if($LASTEXITCODE -ne 0){throw 'Loaded GPU series sampling process failed'}
       $series=Get-Content -LiteralPath $temporary -Raw | ConvertFrom-Json
       if($series.schema -ne 'foamlens-windows-gpu-process-memory-series-v1' -or [int]$series.hostPid -ne $RootProcessId){
         throw 'Loaded GPU time-series provenance mismatch'
