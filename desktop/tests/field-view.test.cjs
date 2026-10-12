@@ -2002,7 +2002,7 @@ test('finite large physical-region bounds keep correct transparent fallback orde
     'const fvBindDraw=(r,pos)=>draws.push(pos);',
     regionCode.slice(begin,end),
     'fvRegionRenderLayers("transparent");return draws;'
-  ].join('\\n'));
+  ].join('\n'));
   assert.deepStrictEqual(run(),['far','near'],
     'Finite OpenFOAM mesh bounds must sort by measured camera depth rather than overflow-to-Infinity and lexical tie order');
 });
