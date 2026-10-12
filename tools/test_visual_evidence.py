@@ -93,6 +93,35 @@ def main() -> None:
                               require_review=False, require_portable=True,
                               artifact_paths={"windows": setup},
                               portable_artifact_paths={"windows": portable}) == []
+        # A supplemental screenshot must not mask Home's failure to render
+        # at genuinely distinct wide and compact native window sizes.
+        compact_home = evidence / "installed" / "home-compact.png"
+        previous_png = compact_home.read_bytes()
+        try:
+            render_fixture(compact_home, (920, 540), 424242)
+            same_size = copy.deepcopy(original)
+            record = next(shot for shot in same_size["screenshots"]
+                          if shot["runtime_variant"] == "installed"
+                          and shot["surface"] == "home" and shot["viewport"] == "compact")
+            record["width"], record["height"] = 920, 540
+            record["sha256"] = hashlib.sha256(compact_home.read_bytes()).hexdigest()
+            assert_rejected(same_size, manifest,
+                            "windows/installed/home: wide screenshot width must exceed compact screenshot width")
+        finally:
+            compact_home.write_bytes(previous_png)
+
+        swapped_viewports = copy.deepcopy(original)
+        for shot in swapped_viewports["screenshots"]:
+            if shot["runtime_variant"] == "portable" and shot["surface"] == "data":
+                shot["viewport"] = "wide" if shot["viewport"] == "compact" else "compact"
+        assert_rejected(swapped_viewports, manifest,
+                        "windows/portable/data: wide screenshot width must exceed compact screenshot width")
+        manifest.write_text(json.dumps(original), encoding="utf-8")
+        assert check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                              require_review=False, require_portable=True,
+                              artifact_paths={"windows": setup},
+                              portable_artifact_paths={"windows": portable}) == []
+
         # The screenshot hashes can all be valid while a Setup or portable EXE
         # is replaced after capture; the gate must reject the changed binary.
         setup.write_bytes(setup.read_bytes() + b"\npost-capture tamper")
