@@ -90,7 +90,25 @@ def main() -> None:
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
         assert original["portable_artifact_sha256"]["windows"] == hashlib.sha256(portable.read_bytes()).hexdigest()
         assert check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
-                              require_review=False, require_portable=True) == []
+                              require_review=False, require_portable=True,
+                              artifact_paths={"windows": setup},
+                              portable_artifact_paths={"windows": portable}) == []
+        # The screenshot hashes can all be valid while a Setup or portable EXE
+        # is replaced after capture; the gate must reject the changed binary.
+        setup.write_bytes(setup.read_bytes() + b"\npost-capture tamper")
+        errors = check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                                require_review=False, require_portable=True,
+                                artifact_paths={"windows": setup},
+                                portable_artifact_paths={"windows": portable})
+        assert any("installed: candidate binary SHA-256 differs" in problem for problem in errors), errors
+        setup.write_bytes(setup.read_bytes()[:-len(b"\npost-capture tamper")])
+        portable.write_bytes(portable.read_bytes() + b"\npost-capture tamper")
+        errors = check_evidence(manifest, SOURCE_SHA, ["windows"], list(SURFACES),
+                                require_review=False, require_portable=True,
+                                artifact_paths={"windows": setup},
+                                portable_artifact_paths={"windows": portable})
+        assert any("portable: candidate binary SHA-256 differs" in problem for problem in errors), errors
+        portable.write_bytes(portable.read_bytes()[:-len(b"\npost-capture tamper")])
 
         # Existing Microsoft Store MSIX automation intentionally has no portable EXE.
         store_manifest = evidence / "store-manifest.json"
