@@ -5,6 +5,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - 'desktop/tests/scientific-fast-import.test.cjs'
+      - 'desktop/tests/scientific-import-report.test.cjs'
       - 'desktop/tests/scientific-import-index.test.cjs'
       - '.github/workflows/fast-import-regression.yml'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - 'desktop/tests/scientific-fast-import.test.cjs'
+      - 'desktop/tests/scientific-import-report.test.cjs'
       - 'desktop/tests/scientific-import-index.test.cjs'
       - '.github/workflows/fast-import-regression.yml'
   workflow_dispatch:
@@ -34,6 +36,8 @@ jobs:
         run: node desktop/tests/scientific-fast-import.test.cjs
       - name: Preserve physical probe matching with O(N) membership
         run: node desktop/tests/scientific-import-index.test.cjs
+      - name: Test sanitized real-machine performance report
+        run: node desktop/tests/scientific-import-report.test.cjs
       - name: Verify JS syntax for actual inline frontend scripts
         run: |
           node - <<'NODE'
