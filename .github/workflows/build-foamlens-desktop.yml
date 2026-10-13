@@ -497,6 +497,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/scientific-import-report.test.cjs
 
+      - name: Test scientific 3,008-curve progressive list DOM
+        shell: pwsh
+        run: node desktop/tests/scientific-series-list-viewport.test.cjs
+
       - name: Test scientific 2D probe indexing and bounded case file lists
         shell: pwsh
         run: node desktop/tests/scientific-import-index.test.cjs
