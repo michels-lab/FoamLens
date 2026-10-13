@@ -5037,7 +5037,10 @@ async function importSelectedRaw(){
   closeSmartImport();
   if(files.length){
     const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case',true),identitySet=new Set(series.map(seriesIdentityKey));
-    prepareImportProgress(files.length,1);scanStepState('config','active',`${files.length.toLocaleString()} ${diagEs()?'archivos':'files'}`);
+    prepareImportProgress(files.length,1);
+    scanStepState('structure','done',diagEs()?'Archivos seleccionados':'Files selected');
+    scanStepState('cases','done',diagEs()?'Importación directa':'Direct file import');
+    scanStepState('config','active',`${files.length.toLocaleString()} ${diagEs()?'archivos':'files'}`);
     await loadFiles(files,c.id,info=>{if(info.stage==='file')scanSetLive(scanWeighted(8,88,info.index,info.total),diagEs()?'Parseando archivos':'Parsing files',scanPathLabel(info.file),info.index,info.total)}, {deferUi:true,deferDerived:true,identitySet});
     scanStepState('config','done',diagEs()?'Archivos procesados':'Files processed');
     await finalizeBulkImportWorkspace(files.length,files.length);
@@ -6842,7 +6845,7 @@ function setAppMode(mode){
   document.querySelector('.top h2').textContent=titles[activeAppMode]||'FoamLens';
   if(activeAppMode==='workspace'||activeAppMode==='review')refreshWorkspaceReview();
   if(activeAppMode==='review'&&flImportAuditPending)void flRunScientificAuditOnDemand();
-  if(activeAppMode==='analysis'&&!flImportAuditPending)refreshCouplingDiagnostics();
+  if(activeAppMode==='analysis')refreshCouplingDiagnostics();
   if(activeAppMode==='live')refreshLiveCapability();
   updateContextTrail()
 }
