@@ -5180,6 +5180,7 @@ async function flRunScientificAuditOnDemand(){
       await scannerYield();
       const health=await computeWorkspaceHealthProgressive(0,0);
       // Only explicitly requested diagnostics run here, never at 95% import.
+      refreshDifferenceControls();
       refreshCouplingDiagnostics();
       if(currentDataView==='profile')renderPhaseFront();
       flImportAuditPending=false;
