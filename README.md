@@ -7,7 +7,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Published version
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.8.1** for Windows (current public release; frontend v51). Download the [verified Windows Setup and Portable binaries](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.1), each with a SHA-256 checksum.
+- **FoamLens Desktop v1.8.2** for Windows (scientific fast-import release candidate; publication is conditional on the protected Windows workflow). The currently published version remains [v1.8.1](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.1) until v1.8.2 is verified.
 
 ## Features
 
