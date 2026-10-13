@@ -19,6 +19,7 @@ assert.strictEqual(ctx.exportReport(),false,'Do not download a fake performance 
 vm.runInContext(`flImportPerformance={
   fileCount:3008,loadedSeries:2000,mode:'indexed-fast',fileParseAndMetadataMs:120000,
   totalMs:36000,endToEndMs:185000,auditMs:null,
+  nativeTemporalCache:{hits:1900,misses:1108},
   stageMs:{derivedSeries:900,selectors:60,dataViews:210,firstVisibleWorkspace:22},
   privatePath:'C:\\\\private\\\\secret',caseName:'CONFIDENTIAL_PATIENT_OR_CASE_NAME',
   filename:'Confidential-data.csv',scientificField:[1,2,3]
@@ -29,6 +30,8 @@ assert.strictEqual(result.mode,'indexed-fast');
 assert.strictEqual(result.totalParseAndMetadataMs,120000);
 assert.strictEqual(result.firstInteractiveMs,185000);
 assert.strictEqual(result.fullAuditMs,null,'An unfinished audit may not appear completed');
+assert.strictEqual(result.nativeTemporalCacheHits,1900,'Real cache hits must be exported as numeric counts');
+assert.strictEqual(result.nativeTemporalSourceParses,1108,'Source parse misses must not be reported as cached');
 assert.strictEqual(result.stageMs.firstVisibleWorkspace,22);
 assert.strictEqual(result.stageMs.audit,null);
 assert.strictEqual(result.webViewJsHeapBytes,1245);
