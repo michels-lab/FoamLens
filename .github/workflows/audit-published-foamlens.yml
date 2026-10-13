@@ -24,6 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Verify release tag and versioned source identity
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -40,6 +41,7 @@ jobs:
         run: python3 tools/test_verify_published_release.py
 
       - name: Retrieve public release metadata and actual binary assets
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,6 +54,7 @@ jobs:
           test "$(find release-audit/assets -maxdepth 1 -type f | wc -l)" -ge 4
 
       - name: Verify public Setup and Portable PE binaries, real hashes, asset sizes
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -71,7 +74,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Preserve public release verification record
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: FoamLens-public-release-integrity-${{ github.run_id }}
