@@ -1,12 +1,15 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require('vm');
 const html=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','frontend','index.html'),'utf8');
+const project=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','FoamLensDesktop.csproj'),'utf8');
+const version=/<Version>(\d+\.\d+\.\d+)<\/Version>/.exec(project)?.[1];
+assert(version,'Product version missing from project');
 const start=html.indexOf('let flImportPerformance=null;');
 const end=html.indexOf('function flNeedsFastScientificImport(',start);
 assert(start>=0&&end>start,'Live owner import report implementation missing');
 const downloads=[];
 const ctx={
-  document:{documentElement:{dataset:{foamLensDesktopVersion:'1.8.2'}}},
+  document:{documentElement:{dataset:{foamLensDesktopVersion:version}}},
   cases:[{id:1,name:'CONFIDENTIAL_PATIENT_OR_CASE_NAME',rootPath:'C:\\private\\secret\\case'}],
   performance:{memory:{usedJSHeapSize:1245,jsHeapSizeLimit:50000}},
   downloadText:(name,text,type)=>downloads.push({name,text,type}),
@@ -37,7 +40,7 @@ assert.strictEqual(downloads.length,1);
 assert.strictEqual(downloads[0].name,'FoamLens_import_performance.json');
 assert.strictEqual(downloads[0].type,'application/json');
 const json=JSON.parse(downloads[0].text);
-assert.strictEqual(json.version,'1.8.2');
+assert.strictEqual(json.version,version);
 assert.strictEqual(json.schema,'foamlens-scientific-import-performance-v1');
 for(const secret of ['CONFIDENTIAL','secret','scientificField','filename','rootPath','privatePath']){
   assert(!downloads[0].text.includes(secret),'Do not export private case content: '+secret);
