@@ -7396,9 +7396,13 @@ function esc(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
 
+// Preserve all scientific data and curves. Only visible DOM rows are paginated.
+const flSeriesListLimits=new Map();
 function renderList(){
   const box=$('seriesList');box.innerHTML='';
   const items=currentViewSeries();
+  const mode=currentDataView;
+  const limit=Math.min(items.length,Math.max(1,flSeriesListLimits.get(mode)||120));
   if(!items.length){
     box.innerHTML=`<div class="seriesEmpty">${flUi('No curves match the current filters.','Ninguna curva coincide con los filtros actuales.')}</div>`;
     return;
@@ -7416,6 +7420,24 @@ function renderList(){
     el.onclick=()=>{activeId=s.id;loadStyle();renderList()};
     box.appendChild(el);
   };
+  const showPager=()=>{
+    if(limit>=items.length)return;
+    const footer=document.createElement('div');
+    footer.className='seriesListPager';
+    footer.innerHTML=`<span aria-live="polite">${limit.toLocaleString()} / ${items.length.toLocaleString()} ${flUi('curves shown','curvas visibles')}</span>
+      <button type="button" class="btn tiny" data-role="series-next">${flUi('Show next 150','Mostrar 150 más')}</button>
+      <button type="button" class="btn tiny" data-role="series-all">${flUi('Show all curves','Mostrar todas las curvas')}</button>`;
+    footer.querySelector('[data-role="series-next"]').onclick=()=>{
+      flSeriesListLimits.set(mode,Math.min(items.length,limit+150));
+      renderList()
+    };
+    footer.querySelector('[data-role="series-all"]').onclick=()=>{
+      // This may intentionally render thousands of rows; the user asked for all.
+      flSeriesListLimits.set(mode,items.length);
+      renderList()
+    };
+    box.appendChild(footer)
+  };
   if(currentDataView==='timeseries'){
     const groups=new Map();
     for(const s of items){
@@ -7423,15 +7445,20 @@ function renderList(){
       if(!groups.has(key))groups.set(key,[]);
       groups.get(key).push(s);
     }
+    let remaining=limit;
     for(const [name,list] of groups){
+      if(remaining<=0)break;
       const header=document.createElement('div');header.className='seriesGroupHeader';
       header.innerHTML=`<span>${esc(name)}</span><span class="mini">${list.length} curve${list.length===1?'':'s'}</span>`;
       box.appendChild(header);
-      list.forEach(appendSeries);
+      list.slice(0,remaining).forEach(appendSeries);
+      remaining-=list.length
     }
+    showPager();
     return;
   }
-  items.forEach(appendSeries);
+  items.slice(0,limit).forEach(appendSeries);
+  showPager()
 }
 
 function active(){return currentViewSeries().find(s=>s.id===activeId)||series.find(s=>s.id===activeId)}
