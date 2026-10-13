@@ -15,13 +15,26 @@ on:
       - 'tools/verify_published_release.py'
       - 'tools/test_verify_published_release.py'
       - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  check-integrity-logic:
+    name: Validate binary/checksum audit regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release digest and tamper-detection contract
+        run: python3 tools/test_verify_published_release.py
+
   verify-immutable-public-assets:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    needs: check-integrity-logic
     name: Confirm actual published Windows binaries and checksums
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -42,9 +55,6 @@ jobs:
           test "$tagged_version" = "$version"
           echo "FOAMLENS_RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           echo "Public release source tag $tag matches project version $version"
-
-      - name: Negative and positive release integrity regressions
-        run: python3 tools/test_verify_published_release.py
 
       - name: Retrieve public release metadata and actual binary assets
         shell: bash
