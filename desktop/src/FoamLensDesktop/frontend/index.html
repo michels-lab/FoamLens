@@ -5162,6 +5162,7 @@ async function runProjectScan(files){
 // Keep the core data import distinct from the optional scientific audit.
 let flImportAuditPending=false;
 let flImportAuditRunning=null;
+let flImportAuditGeneration=0;
 let flImportPerformance=null;
 function flNeedsFastScientificImport(files,loadedSeries){
   return Number(files)>=256||Number(loadedSeries)>=256
@@ -5199,7 +5200,7 @@ async function flRunScientificAuditOnDemand(){
   if(!flImportAuditPending)return workspaceHealthSnapshot;
   if(flImportAuditRunning)return flImportAuditRunning;
   const run=(async()=>{
-    const es=diagEs(),started=performance.now();
+    const es=diagEs(),started=performance.now(),sourceGeneration=flImportAuditGeneration;
     $('scanTitle').textContent=es?'Auditoría científica completa':'Full scientific audit';
     $('scanSubtitle').textContent=es?'Calculando ahora los diagnósticos solicitados; los datos ya están importados.':'Computing requested diagnostics; your data is already imported.';
     setOverlayOpen('scanOverlay',true);
@@ -5211,6 +5212,7 @@ async function flRunScientificAuditOnDemand(){
     try{
       await scannerYield();
       const health=await computeWorkspaceHealthProgressive(0,0);
+      if(sourceGeneration!==flImportAuditGeneration)throw new Error('Scientific audit invalidated because the imported dataset changed. Run it again for the current case.');
       // Only explicitly requested diagnostics run here, never at 95% import.
       refreshDifferenceControls();
       refreshCouplingDiagnostics();
@@ -5234,6 +5236,7 @@ async function flRunScientificAuditOnDemand(){
 }
 async function finalizeBulkImportWorkspace(processedFiles,totalFiles){
   const es=diagEs(),start=performance.now(),fast=flNeedsFastScientificImport(totalFiles,series.length);
+  flImportAuditGeneration++;
   flImportPerformance={fileCount:totalFiles,loadedSeries:series.length,mode:fast?'indexed-fast':'full',stageMs:{},auditMs:null};
   const step=(name,at)=>{flImportPerformance.stageMs[name]=Math.round(performance.now()-at)};
   flImportAuditPending=fast;
