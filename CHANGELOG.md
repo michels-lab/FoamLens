@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop v1.8.2 — 2026-10-12
+
+- **Large 2D scientific imports**: opening OpenFOAM cases with at least 256 indexed output files or curves no longer blocks at the final 95% step to compute solver coupling, cross-case differences, phase-front crossings and full Health review. Raw results and the first scientific chart become available while expensive analyses remain explicitly on request.
+- **Numerical evidence integrity**: the UI clearly shows `NOT YET ANALYZED` when advanced diagnostics are deferred and never reports zero findings or a healthy solver without actually evaluating them. Users can request a full progressive audit from Overview or by opening Review. Changes of dataset invalidate running audits rather than allowing stale results.
+- **High-volume scientific comparison**: shared physical variables and probes for cross-case differences are indexed in one pass, preserving canonical field names and matching probe indices while avoiding repeated scanning of thousands of curves.
+- **Scalable case browser**: show the first 80 individual output-file rows, with Show next 150 and Show all to retain individual-file inspection/removal without forcing thousands of DOM rows at startup. Correct the prematurely displayed Waiting stage labels for direct-file imports.
+- **Performance provenance**: log separate file-parse/metadata time, time-to-first-workspace, individual finalization stages, end-to-end import duration and optional audit time, with file and loaded-series counts. Timings are locally recorded, not uploaded.
+- **Regression protection**: real-source-executing 3,008-curve fast-import/indexing tests run in a dedicated quick CI workflow and the Windows scientific validation workflow. Full existing QuickCup/VTK, installed/portable Field, screenshot, license/shortcut and cryptographic updater gates remain required.
+- **No invented benchmark**: the owner's v1.8.1 screenshot showed 3,008 processed files, 184.8 seconds elapsed and 95% Updating analyses on a 2D model. Synthetic tests verify the code path, but only a post-release run on that actual dataset can quantify improvement; million-cell hardware peak/GPU data remain unverified.
+- **Post-release integrity**: audit real GitHub Release Setup and Portable executable SHA-256 on the `release.published` event rather than launching an impossible verification before the release exists. No Microsoft Store publication. Installer size is not capped if proper native scientific dependencies are needed.
+
 ## Desktop v1.8.1 — 2026-10-12
 
 - **Field 3D WebGL2 transparency**: release unused weighted-blended transparency GPU scratch targets when returning to opaque/hidden/unsupported scenes, clean shader vertex attributes on draw failure, and correctly report the active transparency mode for each physical render frame. Real QuickCup, crossed-fragment rendering and native Windows scientific-screenshot regression gates were retained.
