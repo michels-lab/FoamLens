@@ -1002,3 +1002,30 @@ jobs:
             exit 1
           fi
           gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
+      - name: Verify actual newly published Windows Setup and Portable checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          v="$VERSION"
+          tag="v$v"
+          mkdir -p artifacts/published-check
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
+              --json tagName,isDraft,isPrerelease,publishedAt,url,assets > artifacts/published-check/release.json &&
+              gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+                --dir artifacts/published-check \
+                --pattern "FoamLens-*-v$v.exe*" --clobber; then
+              break
+            fi
+            if [[ "$attempt" == "5" ]]; then echo "::error::Published binary audit downloads failed"; exit 1; fi
+            sleep 3
+          done
+          python3 tools/verify_published_release.py \
+            --version "$v" \
+            --metadata artifacts/published-check/release.json \
+            --dir artifacts/published-check \
+            --output artifacts/published-check/integrity.json
+          echo "Actual v$v Setup + Portable downloads passed SHA-256, file-size and PE integrity checks" >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.2 — 2026-10-12
+
+- **Faster scientific 2D workspace startup:** opening large OpenFOAM imports (256+ files/curves) no longer waits at 95% for every solver coupling audit, quantitative difference, phase-front crossing and Health analysis to finish. Open the first scientific data view when parsed data are ready; request deeper calculations when you need them.
+- **Truthful numerical provenance:** show **NOT YET ANALYZED**, never a fabricated healthy verdict or a zero finding count, while the full scientific audit is pending. Provide an explicit **Run full scientific audit** option, and automatically compute it when the user opens the Review workspace. Invalidate results when another case is imported.
+- **Scalable comparisons:** replace repeated scan-per-variable shared-probe comparisons with a one-pass case/field/probe index preserving matching by canonical field and physical probe number. Large case file lists show an initial 80 rows with **Show next 150** and **Show all** options; individual provenance and removal remain available.
+- **Instrumentation:** log stage times for parsing, derived data, data selectors, first usable workspace and on-demand audit; correct misleading direct-import stage labels. Timings are per run, not made-up hardware benchmarks.
+- **Regression and release gates:** source-executed 3,008-curve fast-path tests, O(N) scientific shared-probe checks, QuickCup/VTK, Windows Portable/installed WebView2, scientific screenshots, EULA/shortcuts and checksums. No claim that the owner's recorded 184.8-second load is resolved until they test the published v1.8.2 on the same case.
+
 ## Desktop v1.8.1 — 2026-10-12
 
 - **Field 3D WebGL2 transparency**: release unused weighted-blended transparency GPU scratch targets when returning to opaque/hidden/unsupported scenes, clean shader vertex attributes on draw failure, and correctly report the active transparency mode for each physical render frame. Real QuickCup, crossed-fragment rendering and native Windows scientific-screenshot regression gates were retained.
