@@ -28,7 +28,7 @@ internal static class Program
     }
 }
 
-internal sealed class FoamLensForm : Form
+internal sealed partial class FoamLensForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly bool _smokeTest;
@@ -424,6 +424,7 @@ internal sealed class FoamLensForm : Form
     {
         RunBinaryMeshParserSelfTest();
         await RunFoamLogParserSelfTestAsync();
+        await RunTemporalCacheSelfTestAsync();
 
         var smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1" +
             (StoreDistributionChannel ? "&store=1" : "");
@@ -3178,10 +3179,11 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         try
         {
-            var result = await ParseTemporalFileAsync(path, requestId, operation.Token);
+            var (result, cacheHit) = await ParseTemporalFileCachedAsync(path, requestId, operation.Token);
             completedBytes = totalBytes;
             Reply(requestId, true, result, null);
-            Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes });
+            Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes,
+                cache = cacheHit ? "verified-disk-hit" : "source-parse" });
         }
         catch (OperationCanceledException)
         {
