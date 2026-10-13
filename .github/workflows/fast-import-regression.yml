@@ -36,6 +36,9 @@ jobs:
         run: node desktop/tests/scientific-fast-import.test.cjs
       - name: Preserve physical probe matching with O(N) membership
         run: node desktop/tests/scientific-import-index.test.cjs
+      - name: Test 3,008-curve lazy scientific list DOM without dropping raw series
+        run: node desktop/tests/scientific-series-list-viewport.test.cjs
+
       - name: Test sanitized real-machine performance report
         run: node desktop/tests/scientific-import-report.test.cjs
       - name: Verify JS syntax for actual inline frontend scripts
