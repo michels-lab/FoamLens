@@ -2,7 +2,7 @@
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-The v1.8.1 release source is **FoamLens Desktop v1.8.1 with frontend v51**. Publication is conditional on a successful Windows portable + installed validation and verified GitHub Release assets.
+The current public release is **FoamLens Desktop v1.8.1 with frontend v51**. Download the [verified Windows Setup and Portable executables](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.1), each with a SHA-256 checksum.
 
 ## Architecture
 

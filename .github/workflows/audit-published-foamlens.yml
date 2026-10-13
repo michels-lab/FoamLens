@@ -1,0 +1,89 @@
+name: Audit published FoamLens Windows release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/audit-published-foamlens.yml'
+      - 'tools/verify_published_release.py'
+      - 'tools/test_verify_published_release.py'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/audit-published-foamlens.yml'
+      - 'tools/verify_published_release.py'
+      - 'tools/test_verify_published_release.py'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-immutable-public-assets:
+    name: Confirm actual published Windows binaries and checksums
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release tag and versioned source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python3 -c "import re,pathlib; p=pathlib.Path('desktop/src/FoamLensDesktop/FoamLensDesktop.csproj').read_text(); print(re.search(r'<Version>([^<]+)</Version>',p).group(1))")"
+          tag="v$version"
+          git rev-parse --verify "refs/tags/$tag^{commit}"
+          git show "$tag:desktop/src/FoamLensDesktop/FoamLensDesktop.csproj" > /tmp/foamlens-tagged-project.xml
+          tagged_version="$(python3 -c "import re,pathlib; p=pathlib.Path('/tmp/foamlens-tagged-project.xml').read_text(); print(re.search(r'<Version>([^<]+)</Version>',p).group(1))")"
+          test "$tagged_version" = "$version"
+          echo "FOAMLENS_RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Public release source tag $tag matches project version $version"
+
+      - name: Negative and positive release integrity regressions
+        run: python3 tools/test_verify_published_release.py
+
+      - name: Retrieve public release metadata and actual binary assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v$FOAMLENS_RELEASE_VERSION"
+          mkdir -p release-audit/assets
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,publishedAt,url,assets > release-audit/public-release.json
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir release-audit/assets --pattern "FoamLens-*-v$FOAMLENS_RELEASE_VERSION.exe*"
+          test "$(find release-audit/assets -maxdepth 1 -type f | wc -l)" -ge 4
+
+      - name: Verify public Setup and Portable PE binaries, real hashes, asset sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/verify_published_release.py \
+            --version "$FOAMLENS_RELEASE_VERSION" \
+            --metadata release-audit/public-release.json \
+            --dir release-audit/assets \
+            --output release-audit/release-integrity.json
+          {
+            echo '### Actual public FoamLens Windows release — SHA-256 verified'
+            echo
+            echo "Tag: v$FOAMLENS_RELEASE_VERSION"
+            echo
+            echo 'Both public Windows executables were downloaded from GitHub Releases and passed exact filename, declared size, PE header and SHA-256 checksum verification.'
+            echo
+            echo 'This is not Authenticode signing or a personal-GPU benchmark.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve public release verification record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-public-release-integrity-${{ github.run_id }}
+          path: |
+            release-audit/public-release.json
+            release-audit/release-integrity.json
+          if-no-files-found: warn
+          retention-days: 90
