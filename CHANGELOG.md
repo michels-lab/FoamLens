@@ -1,5 +1,12 @@
 # Changelog
 
+## Desktop v1.8.3 — 2026-10-13
+
+- **Scalable scientific curve navigator:** initially render 120 rows in the 2D Data curve selector, then let the user show the next 150 or explicitly show all. This prevents thousands of interactive DOM elements and redundant event handlers on first open, while keeping all raw samples, physical fields, time coordinates and plot visibility selections unchanged.
+- **Measured rather than guessed performance:** expose **Export import performance (JSON)** after loading an OpenFOAM case. Report parsing and metadata, finalization, first interaction, deferred-audit timings (null if not run) and available JavaScript memory without exporting scientific field values, user paths or case names. This export is a new functionality in the version following the v1.8.2 release tag.
+- **Scientific safeguards and acceptance:** keep the v1.8.2 large-file fast-import, optional solver coupling/Health audit, physically matched probe comparisons, QuickCup/VTK numerical baselines, actual WebView2 installed + portable smoke, EULA, updater and rendered-UI integrity checks. A source-executed regression verifies 3,008 untouched raw curves, 120 initially visible rows, correct 150-item paging, grouping, per-view limits and explicit all-data access.
+- **Limitations:** neither the synthetic list regression nor the v1.8.2/v1.8.3 candidate source tests prove the original 184.8-second 3,008-file owner-case load is now faster. A native persistent case cache and a cold/warm disk benchmark on the exact owner dataset remain open under issue #117. Do not claim the release is signed or certified on owner hardware.
+
 ## Desktop v1.8.2 — 2026-10-12
 
 - **Faster scientific 2D workspace startup:** opening large OpenFOAM imports (256+ files/curves) no longer waits at 95% for every solver coupling audit, quantitative difference, phase-front crossing and Health analysis to finish. Open the first scientific data view when parsed data are ready; request deeper calculations when you need them.
