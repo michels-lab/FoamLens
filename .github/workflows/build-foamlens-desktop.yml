@@ -489,6 +489,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/multiregion-release-contract.test.cjs
 
+      - name: Test native exact-source scientific temporal disk cache
+        shell: pwsh
+        run: node desktop/tests/native-temporal-cache.test.cjs
+
       - name: Test scientific 2D large-case fast import and deferred analysis
         shell: pwsh
         run: node desktop/tests/scientific-fast-import.test.cjs
