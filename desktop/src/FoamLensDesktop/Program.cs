@@ -3181,7 +3181,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             var (result, cacheHit) = await ParseTemporalFileCachedAsync(path, requestId, operation.Token);
             completedBytes = totalBytes;
-            Reply(requestId, true, result, null);
+            Reply(requestId, true, result with { CacheStatus = cacheHit ? "verified-disk-hit" : "source-parse" }, null);
             Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes,
                 cache = cacheHit ? "verified-disk-hit" : "source-parse" });
         }
@@ -4775,7 +4775,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         Version Version, string Tag, string HtmlUrl, string InstallerName, string? InstallerUrl, string? ChecksumUrl);
     private sealed record NativeFileRef(string Token, string Name, string RelativePath, long Size, long LastModified);
     private sealed record TemporalColumn(double[] T, double[] Y);
-    private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes);
+    private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes)
+    {
+        public string CacheStatus { get; init; } = "source-parse";
+    }
     private sealed record OpenFoamFieldParseResult(
         bool Supported, string Reason, string Format, string FieldClass, string Object, string Dimensions, string Kind,
         bool Uniform, double? UniformScalar, double[]? UniformVector, double[]? ScalarValues, double[][]? VectorValues,
