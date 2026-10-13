@@ -1983,7 +1983,7 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
   <section class="readyDialog" role="dialog" aria-modal="true" aria-labelledby="readyTitle">
     <div class="readyHead"><div><h3 id="readyTitle">Project ready</h3><p id="readySubtitle">FoamLens finished building the analysis workspace.</p></div></div>
     <div class="readyGrid"><div class="readyItem"><span>Cases</span><b id="readyCases">0</b></div><div class="readyItem"><span>Regions</span><b id="readyRegions">0</b></div><div class="readyItem"><span>Series</span><b id="readySeries">0</b></div><div class="readyItem"><span>Findings</span><b id="readyFindings">0</b></div></div>
-    <div class="scanActions"><button class="btn primary" id="readyOpen">Open analysis</button></div>
+    <div class="scanActions"><button class="btn primary" id="readyOpen">Open analysis</button><button type="button" class="btn soft" id="readyPerformance">Export import timing (JSON)</button></div>
   </section>
 </div>
 <div class="findingDetailOverlay" id="findingDetailOverlay" aria-hidden="true">
@@ -9344,6 +9344,25 @@ $('phaseFrontExport')?.addEventListener('click',exportPhaseFrontCsv);
 $('scanContinue')?.addEventListener('click',()=>{setOverlayOpen('scanOverlay',false);if(pendingScanCandidates.length)openSmartImport(pendingScanCandidates);else{const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case');loadFiles(pendingScanFiles,c.id).then(()=>{refreshWorkspaceReview();openReadyOverlay()})}});
 $('scanCancel')?.addEventListener('click',()=>{cancelActiveDataReads();pendingScanFiles=[];pendingScanCandidates=[];stopOperationClock();setOverlayOpen('scanOverlay',false)});
 $('readyOpen')?.addEventListener('click',()=>{setOverlayOpen('readyOverlay',false);setAppMode('workspace');refreshWorkspaceReview()});
+$('readyPerformance')?.addEventListener('click',()=>{
+  const perf=flImportPerformance;
+  if(!perf){flSetIssue('readySubtitle','Import timing not available yet',{view:'Project ready'});return}
+  // Share elapsed scientific workload metrics only: no file paths, user names
+  // or case contents are exported, and no telemetry is sent to a server.
+  const report={
+    schema:'foamlens-scientific-import-timing-v1',
+    appVersion:flBuildIdentity(),importMode:perf.mode,
+    fileCount:perf.fileCount,loadedSeries:perf.loadedSeries,
+    fileParseAndMetadataMs:perf.fileParseAndMetadataMs??null,
+    finalizationMs:perf.totalMs??null,
+    stageMs:perf.stageMs||{},
+    endToEndMs:perf.endToEndMs??null,
+    explicitAuditMs:perf.auditMs??null,
+    auditEvaluated:!flImportAuditPending,
+    durationScope:'Measured by this WebView2 client with performance.now(); includes source import but not OS folder picker latency or benchmark repetitions. No file paths.'
+  };
+  downloadText('FoamLens_import_timing_v1.json',JSON.stringify(report,null,2),'application/json')
+});
 $('globalCaseSelect')?.addEventListener('change',()=>{activeContextCaseId=$('globalCaseSelect').value?Number($('globalCaseSelect').value):null;activeContextRegion='';refreshGlobalContext();applyGlobalContext()});
 $('globalRegionSelect')?.addEventListener('change',()=>{activeContextRegion=$('globalRegionSelect').value||'';applyGlobalContext()});
 for(const id of ['saveWorkspaceTop','projectSaveWorkspace'])$(id)?.addEventListener('click',saveFoamLensWorkspace);
