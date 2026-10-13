@@ -3564,13 +3564,30 @@ function differenceVariableOptions(){
   }
   if(currentDataView==='log')return [...new Map(logOptionsBase().filter(s=>s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()];
   const a=Number($('differenceCaseA')?.value),b=Number($('differenceCaseB')?.value);
-  return [...new Map(series.filter(s=>datasetTypeOf(s)==='timeseries'&&s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()]
-    .filter(f=>Number.isFinite(a)&&Number.isFinite(b)&&differenceSharedProbeIds(series,a,b,f.canonical).length>0)
+  if(!Number.isFinite(a)||!Number.isFinite(b)||a===b)return[];
+  // A large transient result can contain hundreds of different variables.
+  // Build probe membership once O(N), rather than re-filter all N curves for
+  // every variable (the old O(variables × curves) startup bottleneck).
+  const byCase=new Map([[a,new Map()],[b,new Map()]]);
+  for(const s of series){
+    if(s.derivedKind==='difference'||datasetTypeOf(s)!=='timeseries'||!Number.isFinite(s.probe))continue;
+    const variables=byCase.get(s.caseId);if(!variables||!s.field?.canonical)continue;
+    const key=s.field.canonical;
+    if(!variables.has(key))variables.set(key,{field:s.field,probes:new Set()});
+    variables.get(key).probes.add(s.probe)
+  }
+  const matches=[];
+  for(const [key,left] of byCase.get(a)){
+    const right=byCase.get(b).get(key);
+    if(right&&[...left.probes].some(probe=>right.probes.has(probe)))matches.push(left.field)
+  }
+  return matches
 }
 function refreshDifferenceControls(){
   const a=$('differenceCaseA'),b=$('differenceCaseB'),v=$('differenceVariable'),pf=$('differenceProbeField');if(!a||!b||!v)return;
   const oldA=a.value,oldB=b.value,oldV=v.value,oldProbe=$('differenceProbe')?.value??'',oldMA=$('differenceLogMemberA')?.value,oldMB=$('differenceLogMemberB')?.value;
-  const relevant=cases.filter(c=>series.some(s=>s.caseId===c.id&&datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference'));
+  const availableCaseIds=new Set(series.filter(s=>datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference').map(s=>s.caseId));
+  const relevant=cases.filter(c=>availableCaseIds.has(c.id));
   const opts=relevant.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   a.innerHTML=opts;b.innerHTML=opts;
   if(relevant.some(c=>String(c.id)===oldA))a.value=oldA;
@@ -4993,6 +5010,7 @@ async function importSelectedAsCases(){
   const identitySet=new Set(series.map(seriesIdentityKey));
 
   closeSmartImport();prepareImportProgress(totalFiles,plan.length);
+  const importStarted=performance.now();
   scanStepState('structure','active',`${plan.length} ${diagEs()?'caso(s) seleccionados':'selected case(s)'}`);
   await scanYieldProgress(3,diagEs()?'Construyendo Project Data Index':'Building Project Data Index',`${plan.length} ${diagEs()?'caso(s) ·':'case(s) ·'} ${totalFiles.toLocaleString()} ${diagEs()?'archivos detectados':'detected files'}`,0,totalFiles);
   scanStepState('structure','done',`${plan.length} ${diagEs()?'caso(s) preparados':'case(s) prepared'}`);
@@ -5021,7 +5039,13 @@ async function importSelectedAsCases(){
   }
   scanStepState('config','done',`${processedFiles.toLocaleString()} / ${totalFiles.toLocaleString()} ${diagEs()?'archivos indexados/procesados':'files indexed/processed'}`);
 
+  const dataParsedAt=performance.now();
   await finalizeBulkImportWorkspace(processedFiles,totalFiles);
+  if(flImportPerformance){
+    flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
+    flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
+    console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
+  }
   scanStepState('plan','active',diagEs()?'Finalizando espacio de trabajo…':'Finalizing workspace…');
   await scanYieldProgress(99.5,diagEs()?'Finalizando espacio de trabajo':'Finalizing workspace',`${totalLoaded.toLocaleString()} ${diagEs()?'series cargadas ·':'loaded series ·'} ${indexedProfiles.toLocaleString()} ${diagEs()?'perfiles con carga diferida':'profiles lazy-indexed'}${totalFailed?` · ${totalFailed} ${diagEs()?'archivos omitidos':'files skipped'}`:''}`,processedFiles,totalFiles);
   scanStepState('plan','done',diagEs()?'Espacio de trabajo listo':'Workspace ready');
@@ -5037,10 +5061,20 @@ async function importSelectedRaw(){
   closeSmartImport();
   if(files.length){
     const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case',true),identitySet=new Set(series.map(seriesIdentityKey));
-    prepareImportProgress(files.length,1);scanStepState('config','active',`${files.length.toLocaleString()} ${diagEs()?'archivos':'files'}`);
+    prepareImportProgress(files.length,1);
+    const importStarted=performance.now();
+    scanStepState('structure','done',diagEs()?'Archivos seleccionados':'Files selected');
+    scanStepState('cases','done',diagEs()?'Importación directa':'Direct file import');
+    scanStepState('config','active',`${files.length.toLocaleString()} ${diagEs()?'archivos':'files'}`);
     await loadFiles(files,c.id,info=>{if(info.stage==='file')scanSetLive(scanWeighted(8,88,info.index,info.total),diagEs()?'Parseando archivos':'Parsing files',scanPathLabel(info.file),info.index,info.total)}, {deferUi:true,deferDerived:true,identitySet});
     scanStepState('config','done',diagEs()?'Archivos procesados':'Files processed');
+    const dataParsedAt=performance.now();
     await finalizeBulkImportWorkspace(files.length,files.length);
+    if(flImportPerformance){
+      flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
+      flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
+      console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
+    }
     scanStepState('plan','done',diagEs()?'Espacio de trabajo listo':'Workspace ready');scanSetLive(100,diagEs()?'Importación completada':'Import complete',`${series.length} ${diagEs()?'series cargadas':'loaded series'}`,files.length,files.length);
     if($('scanPulse'))$('scanPulse').style.animation='none';updateOperationElapsed();stopOperationClock();await new Promise(r=>setTimeout(r,120));setOverlayOpen('scanOverlay',false);restoreScanStepLabels()
   }
@@ -5123,38 +5157,136 @@ async function runProjectScan(files){
   popAppActivity(diagEs()?'Escaneo de carpeta completado':'Folder scan complete')
 }
 
+// Large 2D transient runs can have thousands of time directories; the size of
+// a dataset is not a reason to force solver diagnostics before the plot opens.
+// Keep the core data import distinct from the optional scientific audit.
+let flImportAuditPending=false;
+let flImportAuditRunning=null;
+let flImportAuditGeneration=0;
+let flImportPerformance=null;
+function flNeedsFastScientificImport(files,loadedSeries){
+  return Number(files)>=256||Number(loadedSeries)>=256
+}
+function flFastImportOverview(){
+  if(!flImportAuditPending||!hasRealWorkspaceEvidence())return false;
+  currentFindings=[];
+  const es=diagEs(),regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size;
+  refreshGlobalContext();
+  const msg=es?'El caso está importado. Los diagnósticos completos de solver, acoplamiento y estado se calculan cuando lo solicites; aún no se han evaluado.':'Case imported. Full solver, coupling and health diagnostics are available on request and have NOT been evaluated yet.';
+  const health=$('workspaceHealthState'),badge=$('workspaceHealthBadge');
+  if(health){health.textContent=es?'PENDIENTE DE ANÁLISIS':'NOT YET ANALYZED';applyHealthStateVisual(health,'NOT YET ANALYZED')}
+  if(badge)badge.textContent=es?'Sin evaluar':'Not evaluated';
+  if($('workspaceHealthReason'))$('workspaceHealthReason').textContent=msg;
+  if($('workspaceHealthCounts'))$('workspaceHealthCounts').textContent=es?'Pendiente':'Not evaluated';
+  if($('reviewFindingBadge'))$('reviewFindingBadge').textContent=es?'Pendiente':'Not analyzed';
+  if($('workspaceCaseCount'))$('workspaceCaseCount').textContent=`${cases.length} ${es?'casos':'cases'}`;
+  if($('projectHeroName'))$('projectHeroName').textContent=projectDisplayName();
+  if($('projectHeroSummary'))$('projectHeroSummary').textContent=`${cases.length} ${es?'casos':'cases'} · ${series.length} ${es?'series cargadas':'loaded series'} · ${pendingLazyProfileCount()} ${es?'perfiles indexados':'indexed profiles'}`;
+  for(const [id,value] of [['projectCasesStat',cases.length],['projectRegionsStat',regions],['projectSeriesStat',series.length],['projectFindingsStat','—']])if($(id))$(id).textContent=value;
+  const runButton=`<button type="button" class="btn primary flRunScientificAudit">${es?'Ejecutar auditoría científica completa':'Run full scientific audit'}</button>`;
+  const placeholder=`<div class="extNote">${msg} ${runButton}</div>`;
+  for(const id of ['workspaceFindings','allFindings','workspaceHealthCases'])if($(id))$(id).innerHTML=placeholder;
+  if($('workspaceDiscoverySummary'))$('workspaceDiscoverySummary').innerHTML=[
+    [es?'Casos':'Cases',cases.length],[es?'Regiones':'Regions',regions],
+    [es?'Series cargadas':'Loaded series',series.length],
+    [es?'Perfiles indexados':'Indexed profiles',pendingLazyProfileCount()],
+    [es?'Estado de auditoría':'Audit state',es?'Sin evaluar':'Not evaluated']
+  ].map(([k,v])=>`<div class="auditBlock"><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('');
+  document.querySelectorAll('.flRunScientificAudit').forEach(btn=>btn.onclick=()=>{void flRunScientificAuditOnDemand()});
+  updateContextTrail();
+  return true
+}
+async function flRunScientificAuditOnDemand(){
+  if(!flImportAuditPending)return workspaceHealthSnapshot;
+  if(flImportAuditRunning)return flImportAuditRunning;
+  const run=(async()=>{
+    const es=diagEs(),started=performance.now(),sourceGeneration=flImportAuditGeneration;
+    $('scanTitle').textContent=es?'Auditoría científica completa':'Full scientific audit';
+    $('scanSubtitle').textContent=es?'Calculando ahora los diagnósticos solicitados; los datos ya están importados.':'Computing requested diagnostics; your data is already imported.';
+    setOverlayOpen('scanOverlay',true);
+    scanStepState('structure','done',es?'Archivos importados':'Files imported');
+    scanStepState('cases','done',es?'Casos indexados':'Cases indexed');
+    scanStepState('config','done',es?'Resultados cargados':'Results loaded');
+    scanStepState('outputs','active',es?'Evaluando solver y hallazgos':'Evaluating solver and findings');
+    scanStepState('plan','',es?'Esperando auditoría':'Waiting for audit');
+    try{
+      await scannerYield();
+      const health=await computeWorkspaceHealthProgressive(0,0);
+      if(sourceGeneration!==flImportAuditGeneration)throw new Error('Scientific audit invalidated because the imported dataset changed. Run it again for the current case.');
+      // Only explicitly requested diagnostics run here, never at 95% import.
+      refreshDifferenceControls();
+      refreshCouplingDiagnostics();
+      if(currentDataView==='profile')renderPhaseFront();
+      flImportAuditPending=false;
+      refreshWorkspaceReview(health);
+      if(flImportPerformance)flImportPerformance.auditMs=Math.round(performance.now()-started);
+      scanStepState('outputs','done',es?'Auditoría verificada':'Audit completed');
+      scanStepState('plan','done',es?'Hallazgos listos':'Findings ready');
+      return health
+    }catch(error){
+      // Never relabel a failed or incomplete scientific review as 'healthy'.
+      flImportAuditPending=true;
+      scanStepState('outputs','active',es?'Auditoría incompleta':'Audit incomplete');
+      flSetIssue('workspaceHealthReason',String(error),{analysis:'Scientific audit'});
+      throw error
+    }finally{setOverlayOpen('scanOverlay',false)}
+  })();
+  flImportAuditRunning=run;
+  try{return await run}finally{flImportAuditRunning=null}
+}
 async function finalizeBulkImportWorkspace(processedFiles,totalFiles){
-  const es=diagEs();
-  scanStepState('outputs','active',es?'Construyendo variables derivadas…':'Building derived fields…');
-  await scanYieldProgress(90,es?'Construyendo variables derivadas':'Building derived fields',`${series.length.toLocaleString()} ${es?'series base cargadas':'base series loaded'}`,processedFiles,totalFiles);
+  const es=diagEs(),start=performance.now(),fast=flNeedsFastScientificImport(totalFiles,series.length);
+  flImportAuditGeneration++;
+  flImportPerformance={fileCount:totalFiles,loadedSeries:series.length,mode:fast?'indexed-fast':'full',stageMs:{},auditMs:null};
+  const step=(name,at)=>{flImportPerformance.stageMs[name]=Math.round(performance.now()-at)};
+  flImportAuditPending=fast;
+  if(fast)invalidateHealthAnalysisIndex();
+  scanStepState('outputs','active',es?'Preparando datos e índices…':'Preparing data and indexes…');
+  await scanYieldProgress(90,es?'Preparando datos':'Preparing data',`${series.length.toLocaleString()} ${es?'series disponibles':'available series'}`,processedFiles,totalFiles);
+  let t=performance.now();
   ensureVelocityDerivedSeries();
+  step('derivedSeries',t);
   await scannerYield();
-
-  scanSetLive(92,es?'Preparando selectores':'Preparing selectors',es?'Organizando perfiles, logs y series disponibles…':'Organizing available profiles, logs, and series…',processedFiles,totalFiles);
+  scanSetLive(92,es?'Preparando visualización':'Preparing visualizations',es?'Configurando perfiles, logs y campos…':'Configuring profiles, logs and fields…',processedFiles,totalFiles);
+  t=performance.now();
   refreshDatasetControls({deferHeavy:true});
+  step('selectors',t);
   await scannerYield();
-
-  scanSetLive(94,es?'Sincronizando datos':'Synchronizing data',es?'Actualizando perfiles y Solver Logs…':'Updating profiles and Solver Logs…',processedFiles,totalFiles);
+  scanSetLive(94,es?'Preparando workspace':'Preparing workspace',es?'Habilitando resultados disponibles…':'Opening available results…',processedFiles,totalFiles);
+  t=performance.now();
   refreshLogSelectors();updateDatasetViewUI();refreshProfileTimes($('profileTime')?.value||'');
+  step('dataViews',t);
   await scannerYield();
 
-  scanSetLive(95,es?'Actualizando análisis':'Updating analyses',es?'Difference, coupling diagnostics y phase-front tracking…':'Difference, coupling diagnostics, and phase-front tracking…',processedFiles,totalFiles);
-  refreshDifferenceControls();
-  await scannerYield();refreshCouplingDiagnostics();
-  await scannerYield();renderPhaseFront();
-  await scannerYield();
-
-  scanSetLive(96,es?'Calculando estado y hallazgos':'Computing Health and Findings',`${es?'Preparando revisión de':'Preparing review of'} ${cases.length} ${es?'casos':'cases'}…`,processedFiles,totalFiles);
-  const precomputedHealth=await computeWorkspaceHealthProgressive(processedFiles,totalFiles);
-
-  scanSetLive(99,es?'Generando espacio de trabajo':'Rendering workspace',es?'Usando los resultados ya calculados para construir Resumen y Revisión…':'Building Overview and Review from the results already computed…',processedFiles,totalFiles);
-  refreshWorkspaceReview(precomputedHealth);
-  await scannerYield();
-  renderCaseManager();
-  await scannerYield();
-  renderList();draw();updateMeta();
-  await scannerYield();
-  scanStepState('outputs','done',es?'Datos derivados, estado e índices listos':'Derived data, Health, and indexes ready')
+  if(fast){
+    // Crucial: these are O(series × time × solver-correctors) computations,
+    // not prerequisites for opening a 2D dataset. No eager comparison scan,
+    // coupling heatmap, phase-front crossings or full health audit.
+    scanSetLive(97,es?'Abriendo datos':'Opening data',es?'Análisis avanzados disponibles cuando se soliciten':'Advanced analyses available on demand',processedFiles,totalFiles);
+    t=performance.now();
+    renderCaseManager();renderList();draw();updateMeta();
+    step('firstVisibleWorkspace',t);
+    flFastImportOverview();
+    scanStepState('outputs','done',es?'Datos listos · auditoría opcional':'Data ready · optional audit');
+  }else{
+    scanSetLive(95,es?'Actualizando análisis':'Updating analyses',es?'Comprobando diferencias, acoplamiento y frentes…':'Preparing differences, coupling and phase fronts…',processedFiles,totalFiles);
+    t=performance.now();
+    refreshDifferenceControls();
+    await scannerYield();refreshCouplingDiagnostics();
+    await scannerYield();renderPhaseFront();
+    step('diagnostics',t);
+    scanSetLive(96,es?'Calculando estado y hallazgos':'Computing Health and Findings',`${cases.length} ${es?'casos':'cases'}`,processedFiles,totalFiles);
+    t=performance.now();
+    const precomputedHealth=await computeWorkspaceHealthProgressive(processedFiles,totalFiles);
+    step('audit',t);
+    scanSetLive(99,es?'Generando workspace':'Rendering workspace',es?'Actualizando vistas científicas':'Updating scientific views',processedFiles,totalFiles);
+    refreshWorkspaceReview(precomputedHealth);
+    await scannerYield();
+    renderCaseManager();await scannerYield();renderList();draw();updateMeta();
+    scanStepState('outputs','done',es?'Datos y diagnósticos listos':'Data and diagnostics ready')
+  }
+  flImportPerformance.totalMs=Math.round(performance.now()-start);
+  console.info('[FoamLens import performance]',JSON.stringify(flImportPerformance))
 }
 function prepareImportProgress(totalFiles,totalCases){
   startOperationClock();
@@ -5184,7 +5316,7 @@ function restoreScanStepLabels(){
   $('scanTitle').textContent=es?'Analizando proyecto OpenFOAM':'Scanning OpenFOAM project';
   $('scanSubtitle').textContent=es?'FoamLens está descubriendo el proyecto antes de importar los datos.':'FoamLens is discovering the project before importing anything.'
 }
-function openReadyOverlay(){const wh=workspaceHealth(),regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size,lazy=pendingLazyProfileCount();$('readyCases').textContent=cases.length;$('readyRegions').textContent=regions;$('readySeries').textContent=lazy?`${series.length} + ${lazy} indexed profiles`:series.length;$('readyFindings').textContent=wh.findings.length;setOverlayOpen('readyOverlay',true)}
+function openReadyOverlay(){const regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size,lazy=pendingLazyProfileCount();$('readyCases').textContent=cases.length;$('readyRegions').textContent=regions;$('readySeries').textContent=lazy?`${series.length} + ${lazy} indexed profiles`:series.length;$('readyFindings').textContent=flImportAuditPending?'Not analyzed':(workspaceHealthSnapshot||workspaceHealth()).findings.length;setOverlayOpen('readyOverlay',true)}
 class FoamLensDirectoryFile{
   constructor(handle,relativePath){this.handle=handle;this.name=handle.name;this.webkitRelativePath=relativePath;this._filePromise=null}
   async _file(){if(!this._filePromise)this._filePromise=this.handle.getFile();return await this._filePromise}
@@ -5461,6 +5593,8 @@ function setCaseTags(caseId,value){
   renderCaseManager();renderDataCatalog();updateMeta()
 }
 
+// Render long OpenFOAM file lists progressively; users can still inspect every entry.
+const flCaseFileRowLimits=new Map();
 function renderCaseManager(){
   const box=$('caseManager');
   if(!box)return;
@@ -5477,12 +5611,14 @@ function renderCaseManager(){
     const logFiles=files.filter(f=>f.datasetType==='log');
     const profileFiles=files.filter(f=>f.datasetType==='profile');
     const profileOutputs=[...new Set(profileFiles.map(f=>f.profileOutputPath).filter(Boolean))];
+    const allCaseFileRows=[...timeFiles,...logFiles];
+    const shownFileCount=Math.min(allCaseFileRows.length,flCaseFileRowLimits.get(c.id)||80);
     const fileRows=(timeFiles.length||profileFiles.length||logFiles.length)
       ? `<div class="caseFilesList">
           <div class="smallnote">${esc(tr('filesInCase'))} · ${files.length} ${files.length===1?esc(tr('fileSingular')):esc(tr('filePlural'))}</div>
           ${profileFiles.length?`<div class="profileDatasetSummary"><b>${esc(tr('spatialProfilesView'))}</b> · ${profileFiles.length} ${esc(tr('profileFiles'))}${profileOutputs.length?`<br>${profileOutputs.map(esc).join(' · ')}`:''}</div>`:''}
           ${logFiles.length?`<div class="profileDatasetSummary"><b>${esc(tr('solverLogsView'))}</b> · ${logFiles.length} logs</div>`:''}
-          ${[...timeFiles,...logFiles].map(f=>`
+          ${allCaseFileRows.slice(0,shownFileCount).map(f=>`
             <div class="caseFileRow" data-source="${encodeURIComponent(f.sourcePath)}">
               <div class="caseFileInfo">
                 <b title="${esc(f.sourcePath)}">${esc(f.fileName)}</b>
@@ -5491,6 +5627,9 @@ function renderCaseManager(){
               <button class="btn danger tiny caseFileRemove" data-role="remove-file">${esc(tr('removeFile'))}</button>
             </div>
           `).join('')}
+          ${shownFileCount<allCaseFileRows.length?`<div class="smallnote">${shownFileCount.toLocaleString()} / ${allCaseFileRows.length.toLocaleString()} ${flUi('files shown','archivos visibles')}</div>
+          <button type="button" class="btn tiny" data-role="case-files-more">${flUi('Show next 150','Ver 150 más')}</button>
+          <button type="button" class="btn tiny" data-role="case-files-all">${flUi('Show all files','Ver todos')}</button>`:''}
         </div>`
       : '';
 
@@ -5551,6 +5690,12 @@ function renderCaseManager(){
     el.querySelector('[data-role="dash"]').onchange=e=>setCaseDash(c.id,e.target.value);
     el.querySelector('[data-role="files"]').onclick=()=>pickFilesForCase(c.id,false);
     el.querySelector('[data-role="folder"]').onclick=()=>pickFilesForCase(c.id,true);
+    el.querySelector('[data-role="case-files-more"]')?.addEventListener('click',()=>{
+      flCaseFileRowLimits.set(c.id,shownFileCount+150);renderCaseManager()
+    });
+    el.querySelector('[data-role="case-files-all"]')?.addEventListener('click',()=>{
+      flCaseFileRowLimits.set(c.id,allCaseFileRows.length);renderCaseManager()
+    });
 
     el.querySelectorAll('[data-role="remove-file"]').forEach(btn=>{
       btn.onclick=()=>{
@@ -5585,6 +5730,9 @@ function setDataView(mode){
   currentDataView=mode==='profile'?'profile':mode==='log'?'log':mode==='catalog'?'catalog':'timeseries';
   if(currentDataView!=='catalog')restoreXRange();
   pinnedPoints=[];hoverPoint=null;activeId=null;updateDatasetViewUI();renderList();updateMeta();loadStyle();
+  // Analysis controls only scan this dataset once the user opens its view.
+  if(currentDataView!=='catalog')refreshDifferenceControls();
+  if(currentDataView==='profile')renderPhaseFront();
   if(currentDataView==='catalog')renderDataCatalog();else draw()
 }
 function profileOptionsBase(){return series.filter(s=>datasetTypeOf(s)==='profile'&&seriesMatchesGlobalContext(s))}
@@ -6705,6 +6853,7 @@ function refreshWorkspaceReview(precomputedHealth=null){
     updateContextTrail();
     return
   }
+  if(flFastImportOverview())return;
   const wh=precomputedHealth?cacheWorkspaceHealthSnapshot(precomputedHealth):(workspaceHealthSnapshot||workspaceHealth());currentFindings=wh.findings||allWorkspaceFindings();const restoredWorkspace=applyPendingWorkspaceRestore();if(!restoredWorkspace)refreshGlobalContext();
   $('workspaceHealthState').textContent=reviewStateLabel(wh.state);applyHealthStateVisual($('workspaceHealthState'),wh.state);$('workspaceHealthReason').textContent=reviewText(wh.reason);$('workspaceHealthBadge').textContent=reviewStateLabel(wh.state);
   $('workspaceHealthCounts').innerHTML=healthCountsHtml(wh.counts);$('reviewFindingBadge').textContent=`${currentFindings.length} ${diagEs()?'hallazgos':'findings'}`;
@@ -6747,6 +6896,9 @@ function setAppMode(mode){
   const titles={workspace:diagEs()?'Resumen':'Overview',data:diagEs()?'Datos':'Data',field:diagEs()?'Workspace de campos':'Field Workspace',analysis:diagEs()?'Análisis':'Analysis',review:diagEs()?'Revisión y auditoría':'Review & audit',live:diagEs()?'Monitorear ejecución':'Watch Run'};
   document.querySelector('.top h2').textContent=titles[activeAppMode]||'FoamLens';
   if(activeAppMode==='workspace'||activeAppMode==='review')refreshWorkspaceReview();
+  if(activeAppMode==='review'&&flImportAuditPending)void flRunScientificAuditOnDemand();
+  if(activeAppMode==='analysis')refreshCouplingDiagnostics();
+  if(activeAppMode==='data'&&currentDataView!=='catalog')refreshDifferenceControls();
   if(activeAppMode==='live')refreshLiveCapability();
   updateContextTrail()
 }
