@@ -54,10 +54,13 @@ test('foamLog reader checks cancellation per line',()=>{
   assert(program.includes('ct.ThrowIfCancellationRequested()'));
 });
 
-test('large temporal files have a cancellable native streaming parser',()=>{
+test('small and large temporal files have a cancellable native parser and SHA-verified disk cache',()=>{
   assert(program.includes('case "parseTemporalFile"'));
   assert(program.includes('HandleTemporalFileAsync(root, requestId)'));
-  assert(program.includes('ParseTemporalFileAsync(path, requestId, operation.Token)'));
+  assert(program.includes('ParseTemporalFileCachedAsync(path, requestId, operation.Token)'),
+    'All native 2D temporal imports must use exact-content cache before parsing source');
+  assert(program.includes('private async Task<TemporalParseResult> ParseTemporalFileAsync'),
+    'The original source parser must remain the numerical fallback');
   assert(program.includes('private async Task<TemporalParseResult> ParseTemporalFileAsync'));
   assert(program.includes('await reader.ReadLineAsync(ct)'));
   assert(program.includes('type = "operationProgress", requestId, operation = "temporalFile"'));
