@@ -493,6 +493,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/scientific-fast-import.test.cjs
 
+      - name: Test scientific 2D probe indexing and bounded case file lists
+        shell: pwsh
+        run: node desktop/tests/scientific-import-index.test.cjs
+
       - name: Test 3D OpenFOAM Field View
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
