@@ -12,7 +12,7 @@ async function runScenario(fileCount,curveCount){
   const node=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',innerHTML:'',classList:{add(){},remove(){}},value:'',onclick:null});return nodes.get(id)};
   const mock={
     console:{info(...x){called.push('log '+x.join(' '))}},
-    performance:{now},series:Array.from({length:curveCount},(_,id)=>({id,caseId:1})),cases,
+    performance:{now},series:Array.from({length:curveCount},(_,id)=>({id,caseId:1})),cases,currentDataView:'timeseries',
     document:{querySelectorAll:()=>[],body:{classList:{toggle(){}}}},
     $:node,diagEs:()=>false,esc:String,updateContextTrail:()=>{},
     pendingLazyProfileCount:()=>0,projectDisplayName:()=>cases[0].name,
