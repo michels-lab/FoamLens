@@ -5010,6 +5010,7 @@ async function importSelectedAsCases(){
   const identitySet=new Set(series.map(seriesIdentityKey));
 
   closeSmartImport();prepareImportProgress(totalFiles,plan.length);
+  const importStarted=performance.now();
   scanStepState('structure','active',`${plan.length} ${diagEs()?'caso(s) seleccionados':'selected case(s)'}`);
   await scanYieldProgress(3,diagEs()?'Construyendo Project Data Index':'Building Project Data Index',`${plan.length} ${diagEs()?'caso(s) ·':'case(s) ·'} ${totalFiles.toLocaleString()} ${diagEs()?'archivos detectados':'detected files'}`,0,totalFiles);
   scanStepState('structure','done',`${plan.length} ${diagEs()?'caso(s) preparados':'case(s) prepared'}`);
@@ -5038,7 +5039,13 @@ async function importSelectedAsCases(){
   }
   scanStepState('config','done',`${processedFiles.toLocaleString()} / ${totalFiles.toLocaleString()} ${diagEs()?'archivos indexados/procesados':'files indexed/processed'}`);
 
+  const dataParsedAt=performance.now();
   await finalizeBulkImportWorkspace(processedFiles,totalFiles);
+  if(flImportPerformance){
+    flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
+    flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
+    console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
+  }
   scanStepState('plan','active',diagEs()?'Finalizando espacio de trabajo…':'Finalizing workspace…');
   await scanYieldProgress(99.5,diagEs()?'Finalizando espacio de trabajo':'Finalizing workspace',`${totalLoaded.toLocaleString()} ${diagEs()?'series cargadas ·':'loaded series ·'} ${indexedProfiles.toLocaleString()} ${diagEs()?'perfiles con carga diferida':'profiles lazy-indexed'}${totalFailed?` · ${totalFailed} ${diagEs()?'archivos omitidos':'files skipped'}`:''}`,processedFiles,totalFiles);
   scanStepState('plan','done',diagEs()?'Espacio de trabajo listo':'Workspace ready');
@@ -5055,12 +5062,19 @@ async function importSelectedRaw(){
   if(files.length){
     const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case',true),identitySet=new Set(series.map(seriesIdentityKey));
     prepareImportProgress(files.length,1);
+    const importStarted=performance.now();
     scanStepState('structure','done',diagEs()?'Archivos seleccionados':'Files selected');
     scanStepState('cases','done',diagEs()?'Importación directa':'Direct file import');
     scanStepState('config','active',`${files.length.toLocaleString()} ${diagEs()?'archivos':'files'}`);
     await loadFiles(files,c.id,info=>{if(info.stage==='file')scanSetLive(scanWeighted(8,88,info.index,info.total),diagEs()?'Parseando archivos':'Parsing files',scanPathLabel(info.file),info.index,info.total)}, {deferUi:true,deferDerived:true,identitySet});
     scanStepState('config','done',diagEs()?'Archivos procesados':'Files processed');
+    const dataParsedAt=performance.now();
     await finalizeBulkImportWorkspace(files.length,files.length);
+    if(flImportPerformance){
+      flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
+      flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
+      console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
+    }
     scanStepState('plan','done',diagEs()?'Espacio de trabajo listo':'Workspace ready');scanSetLive(100,diagEs()?'Importación completada':'Import complete',`${series.length} ${diagEs()?'series cargadas':'loaded series'}`,files.length,files.length);
     if($('scanPulse'))$('scanPulse').style.animation='none';updateOperationElapsed();stopOperationClock();await new Promise(r=>setTimeout(r,120));setOverlayOpen('scanOverlay',false);restoreScanStepLabels()
   }
@@ -5156,6 +5170,7 @@ function flFastImportOverview(){
   if(!flImportAuditPending||!hasRealWorkspaceEvidence())return false;
   currentFindings=[];
   const es=diagEs(),regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size;
+  refreshGlobalContext();
   const msg=es?'El caso está importado. Los diagnósticos completos de solver, acoplamiento y estado se calculan cuando lo solicites; aún no se han evaluado.':'Case imported. Full solver, coupling and health diagnostics are available on request and have NOT been evaluated yet.';
   const health=$('workspaceHealthState'),badge=$('workspaceHealthBadge');
   if(health){health.textContent=es?'PENDIENTE DE ANÁLISIS':'NOT YET ANALYZED';applyHealthStateVisual(health,'NOT YET ANALYZED')}
