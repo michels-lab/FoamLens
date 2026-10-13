@@ -2819,6 +2819,8 @@ async function flReadTemporalColumns(file){
     });
     foamLensActiveTemporalRequests.add(op.requestId);
     const data=await op.promise;
+    if(data?.cacheStatus==='verified-disk-hit')flNativeTemporalCacheStats.hits++;
+    else if(data?.cacheStatus==='source-parse')flNativeTemporalCacheStats.misses++;
     for(let j=0;j<(data?.columns||[]).length;j++){
       const col=data.columns[j];if(!col)continue;
       state.columns[j]={t:(col.t||[]).map(Number),y:(col.y||[]).map(Number)}
@@ -5172,6 +5174,7 @@ let flImportAuditPending=false;
 let flImportAuditRunning=null;
 let flImportAuditGeneration=0;
 let flImportPerformance=null;
+let flNativeTemporalCacheStats={hits:0,misses:0};
 // Diagnostic export intentionally contains no absolute paths, case names,
 // filenames, field arrays, solver values or user identity. Real owner-case
 // timings remain separate from synthetic CI benchmark numbers.
@@ -5191,6 +5194,8 @@ function flSanitizedImportPerformanceReport(){
     finalizeMs:ms(stats.totalMs),
     firstInteractiveMs:ms(stats.endToEndMs),
     fullAuditMs:ms(stats.auditMs),
+    nativeTemporalCacheHits:ms(stats.nativeTemporalCache?.hits),
+    nativeTemporalSourceParses:ms(stats.nativeTemporalCache?.misses),
     stageMs:{}
   };
   for(const name of ['derivedSeries','selectors','dataViews','firstVisibleWorkspace','diagnostics','audit']){
@@ -5329,9 +5334,11 @@ async function finalizeBulkImportWorkspace(processedFiles,totalFiles){
     scanStepState('outputs','done',es?'Datos y diagnósticos listos':'Data and diagnostics ready')
   }
   flImportPerformance.totalMs=Math.round(performance.now()-start);
+  flImportPerformance.nativeTemporalCache={...flNativeTemporalCacheStats};
   console.info('[FoamLens import performance]',JSON.stringify(flImportPerformance))
 }
 function prepareImportProgress(totalFiles,totalCases){
+  flNativeTemporalCacheStats={hits:0,misses:0};
   startOperationClock();
   if($('scanPulse'))$('scanPulse').style.animation='';
   $('scanTitle').textContent=diagEs()?'Importando y analizando casos':'Importing and analyzing cases';
