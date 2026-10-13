@@ -81,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FoamLens-v1.8.1-public-release-integrity
+          name: FoamLens-public-release-integrity-${{ github.run_id }}
           path: |
             release-audit/public-release.json
             release-audit/release-integrity.json
