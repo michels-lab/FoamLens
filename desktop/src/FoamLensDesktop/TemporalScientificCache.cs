@@ -68,7 +68,7 @@ internal sealed partial class FoamLensForm
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or InvalidDataException or ArgumentException)
+            or InvalidDataException or ArgumentException or FormatException)
         {
             // Corrupt or unavailable caches are not evidence. Parse the actual source.
         }
@@ -90,7 +90,7 @@ internal sealed partial class FoamLensForm
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or InvalidDataException or ArgumentException)
+            or InvalidDataException or ArgumentException or FormatException)
         {
             // Cache is always optional. The freshly parsed scientific data is valid.
         }
