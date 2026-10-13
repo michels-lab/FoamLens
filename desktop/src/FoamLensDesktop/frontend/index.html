@@ -2799,8 +2799,11 @@ function flCaptureTemporalHead(state,text){
 /* FOAMLENS_INCREMENTAL_TEMPORAL_CORE_END */
 
 async function flReadTemporalColumns(file){
-  const state=flTemporalParseState(),nativeLarge=!!(FOAMLENS_NATIVE&&file?._nativeToken&&Number(file?.size)>FL_TEMPORAL_NATIVE_THRESHOLD&&typeof file?.slice==='function');
-  if(!nativeLarge){
+  // Native Desktop's exact-content disk cache must be used for ordinary small
+  // 2D OpenFOAM time-step files too, not only oversized files. The previous
+  // threshold bypassed caching when a case had thousands of small outputs.
+  const state=flTemporalParseState(),nativeAvailable=!!(FOAMLENS_NATIVE&&file?._nativeToken&&typeof file?.slice==='function'&&Number(file?.size)>0);
+  if(!nativeAvailable){
     const text=await file.text();flCaptureTemporalHead(state,text);
     const parts=String(text||'').split(/\r?\n/);for(const line of parts)flParseTemporalLine(line,state);
     return{state,incremental:false,nativeStreaming:false}
@@ -2823,6 +2826,9 @@ async function flReadTemporalColumns(file){
     for(const [k,v] of Object.entries(data?.probes||{}))state.probes[Number(k)]=String(v||'');
     state.head=String(data?.head||'').slice(0,FL_TEMPORAL_CLASSIFY_HEAD);
     state.dataCount=state.columns.reduce((n,col)=>Math.max(n,col?.t?.length||0),0);
+    // An empty native interpretation is not authoritative: allow the legacy
+    // tokenizer to classify unusual OpenFOAM outputs rather than losing data.
+    if(!state.dataCount)throw new Error('Native temporal parser returned no numerical samples');
     return{state,incremental:true,nativeStreaming:true}
   }catch(err){
     if(/cancel/i.test(String(err?.message||err)))throw err;
