@@ -1983,7 +1983,7 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
   <section class="readyDialog" role="dialog" aria-modal="true" aria-labelledby="readyTitle">
     <div class="readyHead"><div><h3 id="readyTitle">Project ready</h3><p id="readySubtitle">FoamLens finished building the analysis workspace.</p></div></div>
     <div class="readyGrid"><div class="readyItem"><span>Cases</span><b id="readyCases">0</b></div><div class="readyItem"><span>Regions</span><b id="readyRegions">0</b></div><div class="readyItem"><span>Series</span><b id="readySeries">0</b></div><div class="readyItem"><span>Findings</span><b id="readyFindings">0</b></div></div>
-    <div class="scanActions"><button class="btn primary" id="readyOpen">Open analysis</button></div>
+    <div class="scanActions"><button class="btn primary" id="readyOpen">Open analysis</button><button class="btn soft" type="button" id="readyPerformanceReport">Export import performance (JSON)</button></div>
   </section>
 </div>
 <div class="findingDetailOverlay" id="findingDetailOverlay" aria-hidden="true">
@@ -5164,6 +5164,41 @@ let flImportAuditPending=false;
 let flImportAuditRunning=null;
 let flImportAuditGeneration=0;
 let flImportPerformance=null;
+// Diagnostic export intentionally contains no absolute paths, case names,
+// filenames, field arrays, solver values or user identity. Real owner-case
+// timings remain separate from synthetic CI benchmark numbers.
+function flSanitizedImportPerformanceReport(){
+  if(!flImportPerformance)return null;
+  const stats=flImportPerformance,ms=value=>value===null||value===undefined||value===''?null:(Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null);
+  const report={
+    schema:'foamlens-scientific-import-performance-v1',
+    generatedUtc:new Date().toISOString(),
+    version:String(document.documentElement.dataset.foamLensDesktopVersion||'unknown'),
+    scope:'desktop UI import timings on this machine; not a synthetic CI benchmark; no case paths or scientific field content',
+    fileCount:ms(stats.fileCount),
+    loadedSeries:ms(stats.loadedSeries),
+    caseCount:cases.length,
+    mode:stats.mode==='indexed-fast'?'indexed-fast':'full',
+    totalParseAndMetadataMs:ms(stats.fileParseAndMetadataMs),
+    finalizeMs:ms(stats.totalMs),
+    firstInteractiveMs:ms(stats.endToEndMs),
+    fullAuditMs:ms(stats.auditMs),
+    stageMs:{}
+  };
+  for(const name of ['derivedSeries','selectors','dataViews','firstVisibleWorkspace','diagnostics','audit']){
+    report.stageMs[name]=ms(stats.stageMs?.[name]);
+  }
+  const native=performance.memory||null;
+  report.webViewJsHeapBytes=native?ms(native.usedJSHeapSize):null;
+  report.webViewJsHeapLimitBytes=native?ms(native.jsHeapSizeLimit):null;
+  return report
+}
+function flExportImportPerformanceReport(){
+  const report=flSanitizedImportPerformanceReport();
+  if(!report){console.warn('FoamLens: no completed import timing is available yet');return false}
+  downloadText('FoamLens_import_performance.json',JSON.stringify(report,null,2),'application/json');
+  return true
+}
 function flNeedsFastScientificImport(files,loadedSeries){
   return Number(files)>=256||Number(loadedSeries)>=256
 }
@@ -5316,7 +5351,7 @@ function restoreScanStepLabels(){
   $('scanTitle').textContent=es?'Analizando proyecto OpenFOAM':'Scanning OpenFOAM project';
   $('scanSubtitle').textContent=es?'FoamLens está descubriendo el proyecto antes de importar los datos.':'FoamLens is discovering the project before importing anything.'
 }
-function openReadyOverlay(){const regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size,lazy=pendingLazyProfileCount();$('readyCases').textContent=cases.length;$('readyRegions').textContent=regions;$('readySeries').textContent=lazy?`${series.length} + ${lazy} indexed profiles`:series.length;$('readyFindings').textContent=flImportAuditPending?'Not analyzed':(workspaceHealthSnapshot||workspaceHealth()).findings.length;setOverlayOpen('readyOverlay',true)}
+function openReadyOverlay(){if($('readyPerformanceReport'))$('readyPerformanceReport').disabled=!flImportPerformance;const regions=new Set(cases.flatMap(c=>c.discovery?.regions||[])).size,lazy=pendingLazyProfileCount();$('readyCases').textContent=cases.length;$('readyRegions').textContent=regions;$('readySeries').textContent=lazy?`${series.length} + ${lazy} indexed profiles`:series.length;$('readyFindings').textContent=flImportAuditPending?'Not analyzed':(workspaceHealthSnapshot||workspaceHealth()).findings.length;setOverlayOpen('readyOverlay',true)}
 class FoamLensDirectoryFile{
   constructor(handle,relativePath){this.handle=handle;this.name=handle.name;this.webkitRelativePath=relativePath;this._filePromise=null}
   async _file(){if(!this._filePromise)this._filePromise=this.handle.getFile();return await this._filePromise}
@@ -9344,6 +9379,7 @@ $('phaseFrontExport')?.addEventListener('click',exportPhaseFrontCsv);
 $('scanContinue')?.addEventListener('click',()=>{setOverlayOpen('scanOverlay',false);if(pendingScanCandidates.length)openSmartImport(pendingScanCandidates);else{const c=cases[0]||addCase(diagEs()?'Caso importado':'Imported case');loadFiles(pendingScanFiles,c.id).then(()=>{refreshWorkspaceReview();openReadyOverlay()})}});
 $('scanCancel')?.addEventListener('click',()=>{cancelActiveDataReads();pendingScanFiles=[];pendingScanCandidates=[];stopOperationClock();setOverlayOpen('scanOverlay',false)});
 $('readyOpen')?.addEventListener('click',()=>{setOverlayOpen('readyOverlay',false);setAppMode('workspace');refreshWorkspaceReview()});
+$('readyPerformanceReport')?.addEventListener('click',flExportImportPerformanceReport);
 $('globalCaseSelect')?.addEventListener('change',()=>{activeContextCaseId=$('globalCaseSelect').value?Number($('globalCaseSelect').value):null;activeContextRegion='';refreshGlobalContext();applyGlobalContext()});
 $('globalRegionSelect')?.addEventListener('change',()=>{activeContextRegion=$('globalRegionSelect').value||'';applyGlobalContext()});
 for(const id of ['saveWorkspaceTop','projectSaveWorkspace'])$(id)?.addEventListener('click',saveFoamLensWorkspace);
