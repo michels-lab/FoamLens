@@ -3564,13 +3564,30 @@ function differenceVariableOptions(){
   }
   if(currentDataView==='log')return [...new Map(logOptionsBase().filter(s=>s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()];
   const a=Number($('differenceCaseA')?.value),b=Number($('differenceCaseB')?.value);
-  return [...new Map(series.filter(s=>datasetTypeOf(s)==='timeseries'&&s.derivedKind!=='difference').map(s=>[s.field.canonical,s.field])).values()]
-    .filter(f=>Number.isFinite(a)&&Number.isFinite(b)&&differenceSharedProbeIds(series,a,b,f.canonical).length>0)
+  if(!Number.isFinite(a)||!Number.isFinite(b)||a===b)return[];
+  // A large transient result can contain hundreds of different variables.
+  // Build probe membership once O(N), rather than re-filter all N curves for
+  // every variable (the old O(variables × curves) startup bottleneck).
+  const byCase=new Map([[a,new Map()],[b,new Map()]]);
+  for(const s of series){
+    if(s.derivedKind==='difference'||datasetTypeOf(s)!=='timeseries'||!Number.isFinite(s.probe))continue;
+    const variables=byCase.get(s.caseId);if(!variables||!s.field?.canonical)continue;
+    const key=s.field.canonical;
+    if(!variables.has(key))variables.set(key,{field:s.field,probes:new Set()});
+    variables.get(key).probes.add(s.probe)
+  }
+  const matches=[];
+  for(const [key,left] of byCase.get(a)){
+    const right=byCase.get(b).get(key);
+    if(right&&[...left.probes].some(probe=>right.probes.has(probe)))matches.push(left.field)
+  }
+  return matches
 }
 function refreshDifferenceControls(){
   const a=$('differenceCaseA'),b=$('differenceCaseB'),v=$('differenceVariable'),pf=$('differenceProbeField');if(!a||!b||!v)return;
   const oldA=a.value,oldB=b.value,oldV=v.value,oldProbe=$('differenceProbe')?.value??'',oldMA=$('differenceLogMemberA')?.value,oldMB=$('differenceLogMemberB')?.value;
-  const relevant=cases.filter(c=>series.some(s=>s.caseId===c.id&&datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference'));
+  const availableCaseIds=new Set(series.filter(s=>datasetTypeOf(s)===currentDataView&&s.derivedKind!=='difference').map(s=>s.caseId));
+  const relevant=cases.filter(c=>availableCaseIds.has(c.id));
   const opts=relevant.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   a.innerHTML=opts;b.innerHTML=opts;
   if(relevant.some(c=>String(c.id)===oldA))a.value=oldA;
@@ -5558,6 +5575,8 @@ function setCaseTags(caseId,value){
   renderCaseManager();renderDataCatalog();updateMeta()
 }
 
+// Render long OpenFOAM file lists progressively; users can still inspect every entry.
+const flCaseFileRowLimits=new Map();
 function renderCaseManager(){
   const box=$('caseManager');
   if(!box)return;
@@ -5574,12 +5593,14 @@ function renderCaseManager(){
     const logFiles=files.filter(f=>f.datasetType==='log');
     const profileFiles=files.filter(f=>f.datasetType==='profile');
     const profileOutputs=[...new Set(profileFiles.map(f=>f.profileOutputPath).filter(Boolean))];
+    const allCaseFileRows=[...timeFiles,...logFiles];
+    const shownFileCount=Math.min(allCaseFileRows.length,flCaseFileRowLimits.get(c.id)||80);
     const fileRows=(timeFiles.length||profileFiles.length||logFiles.length)
       ? `<div class="caseFilesList">
           <div class="smallnote">${esc(tr('filesInCase'))} · ${files.length} ${files.length===1?esc(tr('fileSingular')):esc(tr('filePlural'))}</div>
           ${profileFiles.length?`<div class="profileDatasetSummary"><b>${esc(tr('spatialProfilesView'))}</b> · ${profileFiles.length} ${esc(tr('profileFiles'))}${profileOutputs.length?`<br>${profileOutputs.map(esc).join(' · ')}`:''}</div>`:''}
           ${logFiles.length?`<div class="profileDatasetSummary"><b>${esc(tr('solverLogsView'))}</b> · ${logFiles.length} logs</div>`:''}
-          ${[...timeFiles,...logFiles].map(f=>`
+          ${allCaseFileRows.slice(0,shownFileCount).map(f=>`
             <div class="caseFileRow" data-source="${encodeURIComponent(f.sourcePath)}">
               <div class="caseFileInfo">
                 <b title="${esc(f.sourcePath)}">${esc(f.fileName)}</b>
@@ -5588,6 +5609,9 @@ function renderCaseManager(){
               <button class="btn danger tiny caseFileRemove" data-role="remove-file">${esc(tr('removeFile'))}</button>
             </div>
           `).join('')}
+          ${shownFileCount<allCaseFileRows.length?`<div class="smallnote">${shownFileCount.toLocaleString()} / ${allCaseFileRows.length.toLocaleString()} ${flUi('files shown','archivos visibles')}</div>
+          <button type="button" class="btn tiny" data-role="case-files-more">${flUi('Show next 150','Ver 150 más')}</button>
+          <button type="button" class="btn tiny" data-role="case-files-all">${flUi('Show all files','Ver todos')}</button>`:''}
         </div>`
       : '';
 
@@ -5648,6 +5672,12 @@ function renderCaseManager(){
     el.querySelector('[data-role="dash"]').onchange=e=>setCaseDash(c.id,e.target.value);
     el.querySelector('[data-role="files"]').onclick=()=>pickFilesForCase(c.id,false);
     el.querySelector('[data-role="folder"]').onclick=()=>pickFilesForCase(c.id,true);
+    el.querySelector('[data-role="case-files-more"]')?.addEventListener('click',()=>{
+      flCaseFileRowLimits.set(c.id,shownFileCount+150);renderCaseManager()
+    });
+    el.querySelector('[data-role="case-files-all"]')?.addEventListener('click',()=>{
+      flCaseFileRowLimits.set(c.id,allCaseFileRows.length);renderCaseManager()
+    });
 
     el.querySelectorAll('[data-role="remove-file"]').forEach(btn=>{
       btn.onclick=()=>{
@@ -5682,6 +5712,9 @@ function setDataView(mode){
   currentDataView=mode==='profile'?'profile':mode==='log'?'log':mode==='catalog'?'catalog':'timeseries';
   if(currentDataView!=='catalog')restoreXRange();
   pinnedPoints=[];hoverPoint=null;activeId=null;updateDatasetViewUI();renderList();updateMeta();loadStyle();
+  // Analysis controls only scan this dataset once the user opens its view.
+  if(currentDataView!=='catalog')refreshDifferenceControls();
+  if(currentDataView==='profile')renderPhaseFront();
   if(currentDataView==='catalog')renderDataCatalog();else draw()
 }
 function profileOptionsBase(){return series.filter(s=>datasetTypeOf(s)==='profile'&&seriesMatchesGlobalContext(s))}
@@ -6847,6 +6880,7 @@ function setAppMode(mode){
   if(activeAppMode==='workspace'||activeAppMode==='review')refreshWorkspaceReview();
   if(activeAppMode==='review'&&flImportAuditPending)void flRunScientificAuditOnDemand();
   if(activeAppMode==='analysis')refreshCouplingDiagnostics();
+  if(activeAppMode==='data'&&currentDataView!=='catalog')refreshDifferenceControls();
   if(activeAppMode==='live')refreshLiveCapability();
   updateContextTrail()
 }
