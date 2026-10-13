@@ -16,7 +16,7 @@ const inputs=new Map([
 const series=[];
 const caseCount=2,variables=100,curveCount=3008;
 for(let i=0;i<curveCount;i++){
-  const caseId=i%caseCount+1,canonical='field_'+(i%variables);
+  const caseId=i%caseCount+1,canonical='field_'+(Math.floor(i/caseCount)%variables);
   series.push({caseId,field:{canonical,display:canonical,unit:'-'},probe:Math.floor(i/variables)%2,
     datasetType:'timeseries',t:[0,1],y:[i,i+1]});
 }
