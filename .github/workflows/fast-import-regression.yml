@@ -7,6 +7,8 @@ on:
       - 'desktop/tests/scientific-fast-import.test.cjs'
       - 'desktop/tests/scientific-import-report.test.cjs'
       - 'desktop/tests/scientific-import-index.test.cjs'
+      - 'desktop/tests/native-temporal-cache.test.cjs'
+      - 'desktop/src/FoamLensDesktop/TemporalScientificCache.cs'
       - '.github/workflows/fast-import-regression.yml'
   push:
     branches:
@@ -16,6 +18,8 @@ on:
       - 'desktop/tests/scientific-fast-import.test.cjs'
       - 'desktop/tests/scientific-import-report.test.cjs'
       - 'desktop/tests/scientific-import-index.test.cjs'
+      - 'desktop/tests/native-temporal-cache.test.cjs'
+      - 'desktop/src/FoamLensDesktop/TemporalScientificCache.cs'
       - '.github/workflows/fast-import-regression.yml'
   workflow_dispatch:
 
@@ -41,6 +45,8 @@ jobs:
 
       - name: Test sanitized real-machine performance report
         run: node desktop/tests/scientific-import-report.test.cjs
+      - name: Test small-file native routing and exact-content scientific cache contracts
+        run: node desktop/tests/native-temporal-cache.test.cjs
       - name: Verify JS syntax for actual inline frontend scripts
         run: |
           node - <<'NODE'
