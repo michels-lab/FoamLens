@@ -5169,7 +5169,7 @@ let flImportPerformance=null;
 // timings remain separate from synthetic CI benchmark numbers.
 function flSanitizedImportPerformanceReport(){
   if(!flImportPerformance)return null;
-  const stats=flImportPerformance,ms=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null;
+  const stats=flImportPerformance,ms=value=>value===null||value===undefined||value===''?null:(Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null);
   const report={
     schema:'foamlens-scientific-import-performance-v1',
     generatedUtc:new Date().toISOString(),
