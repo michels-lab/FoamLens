@@ -1,20 +1,13 @@
 name: Audit published FoamLens Windows release
 
 on:
+  release:
+    types: [published]
   pull_request:
     paths:
       - '.github/workflows/audit-published-foamlens.yml'
       - 'tools/verify_published_release.py'
       - 'tools/test_verify_published_release.py'
-      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/audit-published-foamlens.yml'
-      - 'tools/verify_published_release.py'
-      - 'tools/test_verify_published_release.py'
-      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
   workflow_dispatch:
 
 permissions:
