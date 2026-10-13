@@ -1,5 +1,14 @@
 # Changelog
 
+## Desktop v1.8.3 — 2026-10-13
+
+- **Native temporal scientific cache:** the real Windows Desktop `parseTemporalFile` endpoint now stores parsed OpenFOAM time-series arrays, probe metadata, and source headers in a persistent per-user binary cache. On a second import it can reuse those arrays instead of parsing the original text again.
+- **Exact scientific invalidation:** every candidate reuse SHA-256-hashes the entire source file and checks its byte count and modification metadata; the cache entry carries a separate full checksum and format identifier. Same-size/same-timestamp scientific-value edits, incomplete or corrupt cache entries must trigger reparse; live-changing outputs are not written as verified cache.
+- **3,008-file workload coverage:** Desktop now invokes native parsing for token-backed small **and** large temporal outputs, not only large files. Native parser failure falls back to JavaScript where safe. New source-executed and installed/portable Windows self-tests verify actual parsing, cache hits, source mutation, corruption and fallback behavior. Parsing source files never depends on cache availability.
+- **Measurable imports:** `FoamLens_import_performance.json` adds counts for verified native temporal cache hits and source parses, alongside stage timings. No private source paths or scientific values are exported by the report.
+- **Existing protected release gates:** require exact source SHA, real QuickCup/VTK, OpenFOAM scientific views, Windows portable + installed WebView2, EULA, optional shortcuts, screenshots, and public Setup/Portable SHA-256 verification before declaring v1.8.3 published.
+- **Limits:** this initial disk cache covers native **temporal series**, not raw spatial-profile `.xy` files, mesh/polyMesh, or volumetric OpenFOAM field arrays. Every warm hit still reads source bytes to verify its SHA-256. The owner's original 184.8-second / 3,008-file case has not been rerun yet, and neither a cold-load speedup nor a specific warm-load speedup is claimed.
+
 ## Desktop v1.8.2 — 2026-10-12
 
 - **Faster scientific 2D workspace startup:** opening large OpenFOAM imports (256+ files/curves) no longer waits at 95% for every solver coupling audit, quantitative difference, phase-front crossing and Health analysis to finish. Open the first scientific data view when parsed data are ready; request deeper calculations when you need them.
