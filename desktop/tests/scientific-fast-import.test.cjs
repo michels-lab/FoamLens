@@ -14,7 +14,7 @@ async function runScenario(fileCount,curveCount){
     console:{info(...x){called.push('log '+x.join(' '))}},
     performance:{now},series:Array.from({length:curveCount},(_,id)=>({id,caseId:1})),cases,currentDataView:'timeseries',
     document:{querySelectorAll:()=>[],body:{classList:{toggle(){}}}},
-    $:node,diagEs:()=>false,esc:String,updateContextTrail:()=>{},
+    $:node,diagEs:()=>false,esc:String,updateContextTrail:()=>{},refreshGlobalContext:()=>called.push('context'),
     pendingLazyProfileCount:()=>0,projectDisplayName:()=>cases[0].name,
     hasRealWorkspaceEvidence:()=>true,applyHealthStateVisual:()=>{},
     scanStepState:(key,state)=>called.push('step '+key+' '+state),
