@@ -80,5 +80,14 @@ async function runScenario(fileCount,curveCount){
     'Review navigation must re-enable the full requested scientific audit');
   assert(src.includes("scanStepState('structure','done',diagEs()?'Archivos seleccionados':'Files selected')"),
     'Raw 2D file import must not show Prepare cases Waiting after files are parsed');
+  assert(src.includes('id="readyPerformance"'),
+    'A scientific owner benchmark must be exportable from the completed import dialog');
+  assert(src.includes("schema:'foamlens-scientific-import-timing-v1'")&&
+    src.includes('fileParseAndMetadataMs:perf.fileParseAndMetadataMs??null')&&
+    src.includes('endToEndMs:perf.endToEndMs??null'),
+    'Import timing report must include parse and full-load wall time with explicit provenance');
+  assert(src.includes('auditEvaluated:!flImportAuditPending')&&
+    src.includes("downloadText('FoamLens_import_timing_v1.json'"),
+    'Export must distinguish uncomputed health audit from actual evidence and save a JSON report');
   console.log('FoamLENS 2D fast-import regression PASS: 3,008 files opened without eager heavy diagnostics; small case unchanged; audit on demand and truthful state verified.');
 })().catch(e=>{console.error(e);process.exitCode=1});
