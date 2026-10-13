@@ -52,9 +52,17 @@ internal sealed partial class FoamLensForm
         // provenance matters more than a faster but potentially stale mtime-only hit.
         // Reading source bytes to hash is linear I/O; caching saves parsing work.
         string sourceHash;
-        await TemporalCacheIo.WaitAsync(ct);
-        try { sourceHash = await HashExactSourceAsync(path, ct); }
-        finally { TemporalCacheIo.Release(); }
+        try
+        {
+            await TemporalCacheIo.WaitAsync(ct);
+            try { sourceHash = await HashExactSourceAsync(path, ct); }
+            finally { TemporalCacheIo.Release(); }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Hashing is an optimization precondition, not a condition for reading science.
+            return (await ParseTemporalFileAsync(path, requestId, ct), false);
+        }
         if (!StableSource(path, length, ticks))
             return (await ParseTemporalFileAsync(path, requestId, ct), false);
 
@@ -77,9 +85,17 @@ internal sealed partial class FoamLensForm
         if (!StableSource(path, length, ticks)) return (parsed, false);
         // Detect a live OpenFOAM writer that changed bytes while we parsed.
         string afterHash;
-        await TemporalCacheIo.WaitAsync(ct);
-        try { afterHash = await HashExactSourceAsync(path, ct); }
-        finally { TemporalCacheIo.Release(); }
+        try
+        {
+            await TemporalCacheIo.WaitAsync(ct);
+            try { afterHash = await HashExactSourceAsync(path, ct); }
+            finally { TemporalCacheIo.Release(); }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Already parsed from actual source: cache failure must never erase result.
+            return (parsed, false);
+        }
         if (!string.Equals(sourceHash, afterHash, StringComparison.Ordinal))
             return (parsed, false);
         if (!StableSource(path, length, ticks)) return (parsed, false);
@@ -103,7 +119,8 @@ internal sealed partial class FoamLensForm
         var digestPath = cachePath + ".sha256";
         if (!File.Exists(cachePath) || !File.Exists(digestPath)) return null;
         var info = new FileInfo(cachePath);
-        if (info.Length <= 0 || info.Length > MaxTemporalCacheFileBytes) return null;
+        if (info.Length <= 0 || info.Length > MaxTemporalCacheFileBytes ||
+            new FileInfo(digestPath).Length > 128) return null;
         using var stream = new FileStream(cachePath, FileMode.Open, FileAccess.Read,
             FileShare.Read, bufferSize: 131072);
         var expected = File.ReadAllText(digestPath, Encoding.ASCII).Trim();
