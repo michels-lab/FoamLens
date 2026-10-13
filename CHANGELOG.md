@@ -1,5 +1,12 @@
 # Changelog
 
+## Desktop v1.8.3 — 2026-10-12
+
+- **Owner-measurable 2D import performance:** adds **Export import performance (JSON)** in the Project ready dialog. The generated report carries real-machine parsing/metadata time, first interactive time, preparation stages, curve/file counts, and optional WebView JS heap observation when available. An unrun full solver audit is represented by `null`, never falsely as `0 ms`.
+- **Privacy and provenance:** exported fields are fixed and numeric/neutral. Do **not** include full OpenFOAM file paths, names of cases, solver field arrays, scientific sample data or identifiable user information; preserve the source version and evidence scope.
+- **Stable scientific import baseline:** includes the v1.8.2 performance fix for the original owner 3,008-file, 184.8-second 2D screenshot: no unconditional full coupling/phase-front/Health work before opening the scientific workspace; real analyses remain available on demand and never appear as completed prematurely.
+- **Quality gates:** direct 3,008-curve import and privacy regression, source-version parity, real OpenFOAM QuickCup/VTK, native Windows installed and portable visual smoke, EULA/shortcuts, SHA-256 integrity and post-publication re-download checks. An improvement in the owner's actual end-to-end case has **not been measured yet**; use the report to obtain a trustworthy cold/warm baseline.
+
 ## Desktop v1.8.2 — 2026-10-12
 
 - **Faster scientific 2D workspace startup:** opening large OpenFOAM imports (256+ files/curves) no longer waits at 95% for every solver coupling audit, quantitative difference, phase-front crossing and Health analysis to finish. Open the first scientific data view when parsed data are ready; request deeper calculations when you need them.
