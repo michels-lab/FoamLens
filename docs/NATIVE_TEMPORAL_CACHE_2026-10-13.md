@@ -19,3 +19,11 @@ Owner reported FoamLENS v1.8.1 taking **184.8 seconds at 95%** on a 2D case cont
 - Other pending targets (issue #117): Native worker pipeline, profile and volumetric field caching, memory-mapped binary arrays, capped global-cache eviction, a 10k-step workload and owner-device numerical/time benchmark. A larger installer is acceptable if numerical accuracy and independent tests are maintained.
 
 **Status:** Candidate native code for exact-head CI. No public release/tag and no claim that original 184.8-second cold load was eliminated.
+
+## 2026-10-13 implementation follow-through: small temporal outputs and owner measurements
+
+The frontend previously only called `parseTemporalFile` if the native file exceeded `FL_TEMPORAL_NATIVE_THRESHOLD`. A case with 3,008 small probe/timestep files therefore bypassed any native cache. Production `flReadTemporalColumns` now uses the native cached parser for **all nonempty token-backed temporal files**. An empty native parse explicitly falls back to the existing JS tokenizer rather than inventing samples. HTML-uploaded files without a native token still use the non-native parser.
+
+The native `TemporalParseResult` now provides a structured `cacheStatus` value with the parsed T/Y data (`verified-disk-hit` or `source-parse`). The explicit `FoamLens_import_performance.json` diagnostic reports `nativeTemporalCacheHits` and `nativeTemporalSourceParses` as aggregated **counts only**, alongside measured parsing and UI timings. It does not export paths, names, private scientific fields or any hash of user files. Missing native data remain nullable rather than fabricated hits. The owner can compare first import and second import for the exact same source cases; overall load may still be I/O-bound.
+
+CI source test `native-performance.test.cjs` was updated after Windows identified a stale direct-call assertion: it now requires the live native handler to use `ParseTemporalFileCachedAsync` and retain `ParseTemporalFileAsync` as the full numerical/cancellation fallback. The fast Node suite executes a **small** mock native output with and without numeric rows, exercising both cached-result and JS-fallback paths. Real .NET numerical cache invalidation continues to run during portable and installed Windows smoke.
