@@ -4574,15 +4574,17 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - Reconciled existing [release candidate PR #124](https://github.com/michels-lab/FoamLens/pull/124) with the merged latest scientific `main` tree while preserving only v1.8.3 version/changelog/doc deltas from the earlier candidate, to avoid silently losing the last scientific cache correction. New candidate-head Windows + native cache + QuickCup/VTK validation MUST pass before any `release:` merge/publishing.
 - **Unverified outside CI:** owner's real 3,008-file 2D model cold/warm import, first interactive time, memory peak and comparison to v1.8.1's 184.8 s screenshot. Do not invent a speedup or close [issue #117](https://github.com/michels-lab/FoamLens/issues/117). Public v1.8.2 remains available until an independently validated new release and SHA-256 public-asset audit.
 
-### 2026-10-14 — Owner-reported Field navigation / cache defects (candidate; not released)
+### 2026-10-14 — Optional second field for Spatial Profiles (candidate)
 
-- Reproduced from owner Windows v1.8.3 screenshots: reopening frame-cache settings broke the single-row command bar and wrapped Play vertically; seven real camera presets existed but quick toolbar exposed only four with indistinguishable repeated eye icons; a CSS ID/class mismatch kept the Field Workspace bar with Data plot tabs visible.
-- Candidate corrects the anchored frame-cache settings popover with the canonical cache selector/readout, fixes physical-time control minimum width, exposes all seven camera orientations with distinct directional icons and readable labels, and hides the duplicate internal Field navigation by its real CSS class.
-- Product ownership: Field navigation is now 3D-only; Data remains the source for profiles, time series and solver logs. Analysis result shortcuts route to Data. Legacy/imported Field view values normalize to 3D without repurposing Data plot controls.
-- Validation: pending exact-head Windows CI and owner installed-Windows review. No product version, updater feed, public release or Microsoft Store state changed by this candidate.
+- User requirement: compare two real OpenFOAM Spatial Profile variables at once, e.g. T and liquid fraction alpha1 / available phase-change field, using the **same original case/region, postProcessing profile set, line and physical-time selection** as one variable. Never invent the missing field or its samples.
+- Implemented an always-discoverable optional second variable, compatible with all available fields in the selected profile set. Underlying plot and case-visibility predicates select the two exact variables; the profile playback engine builds distinct provenance-preserving field/case groups, and a single case with unequal field snapshots uses the shared measured physical-time range or reports absence when no overlap exists.
+- Automatic axis mapping places unlike scientific dimensions/units on independent left and right Y scales, while like units may share an axis. Locked animation ranges are computed independently for both Y axes. Preserve the original one-field workflow with secondary set to None and never fabricate percentage/phase metadata.
+- Candidate validation: dual-profile runtime/contract regression test registered in Windows workflow, old profile playback and Windows native OpenFOAM smoke pending. **No release or version bump authorized**.
 
-### 2026-10-14 — Preserve 3D-derived scientific histories under Data (candidate)
+- Two-field figure titles and the per-case/per-variable native/interpolated playback statuses now name each real field distinctly. Same-case dual-variable playback displays its common physical-time range instead of misleading native-only text.
 
-- Field-only navigation must not orphan the scientifically sourced 3D OpenFOAM field-history generator (global scalar/vector statistics, pinned 3D Probe histories, position-sampled Spatial Profile histories, source physical times). This candidate mounts the generator in a collapsed **Data → Time Series** panel and keeps its real native parser/provenance.
-- Parsing from OpenFOAM source frames requires a deliberate **Build field histories** click; changing case, region, variable or component does not auto-scan thousands of time directories. Field 3D no longer borrows the Data plot controls or activates its plot surface during entry.
-- Native QuickCup timeline invariant retained while checking screenshot camera/cache/ownership defects. Exact candidate Windows CI and owner visual acceptance pending, no release authorized.
+### 2026-10-14 — Field UI PR #128 CI regression triage and main reconciliation
+
+- Previous Windows failure came from scientific section-ownership test fixture lacking activeAppMode/currentDataView. Updated Data + Time Series fixture and tested Field-mode no-side-effects, preserving staged atomic scientific history behavior.
+- A 3,008-curve fast import runner exceeded its existing 2,000 ms wall-clock threshold; the fast-import source was not modified by this UI branch. Retain benchmark bound and retest on exact reconciled head.
+- Reconciled approved Field UI fix onto main including integrated dual-variable Spatial Profiles #129 and its Windows tests. Exact installed/portable Windows OpenFOAM and screenshot validation required before merge. No release or version bump.

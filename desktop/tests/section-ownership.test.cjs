@@ -343,7 +343,7 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
   const end=field.indexOf('function fw3DProfileStatus(',begin);
   assert(begin>0&&end>begin,'Missing real atomic Data history commit implementation');
   const code=field.slice(begin,end);
-  const run=async (scenario)=>{
+  const run=async (scenario,mode='data')=>{
     const old={id:4,datasetType:'timeseries',derivedKind:'field_history_workspace',fieldHistoryKey:'probeA',
       t:[0,9.8],y:[1420,1460],color:'#336699',visible:true,customLabel:'old label'};
     const unrelated={id:5,datasetType:'timeseries',fieldHistoryKey:'other',visible:true,t:[0],y:[12]};
@@ -358,6 +358,7 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
     let nextId=9,refresh=0;
     const env=new Function('env',
       'const fwState=env.state,series=env.series;let nextId=env.nextId;'+
+      'const activeAppMode=env.mode,currentDataView="timeseries";'+
       'const fwFieldTsSetStatus=(s,error)=>env.status.push({s,error});'+
       'const fwUi=x=>x,fwBuildOneFieldHistory=env.build;'+
       'const automaticSeriesColor=env.color;'+
@@ -367,7 +368,7 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
       'const document={getElementById:id=>env.controls[id]||null};'+
       'const console={error:()=>{}};'+code+
       ';return {run:fwBuildFieldTimeSeries,commit:fwCommitFieldHistoryDrafts,next:()=>nextId};')({
-        state,series,nextId,controls,status,refreshed:()=>{refresh++},color:()=> '#ffcc00',
+        state,series,nextId,controls,status,mode,refreshed:()=>{refresh++},color:()=> '#ffcc00',
         build:async slot=>{
           if(slot===1)return {datasetType:'timeseries',derivedKind:'field_history_workspace',
             fieldHistoryKey:'probeA',field:{canonical:'probeA'},t:[0,9.8],y:[1500,1600],visible:true};
@@ -406,6 +407,9 @@ test('Data two-curve histories commit atomically after successful OpenFOAM reads
     'assert.equal(success.state.fieldTsKeys.size,2);'+
     'const noSecond=await run("empty");assert.equal(noSecond.series.length,2);'+
     'assert.equal(noSecond.old.visible,true);assert.deepEqual(noSecond.old.y,[1500,1600]);'+
+    'const fieldMode=await run("success","field");assert.equal(fieldMode.failure,null);'+
+    'assert.equal(fieldMode.series.length,2);assert.equal(fieldMode.refresh,0);'+
+    'assert.deepEqual(fieldMode.old.y,[1420,1460]);'+
     '})().catch(e=>{console.error(e);process.exitCode=1});';
   execFileSync(process.execPath,['-e',runner],{encoding:'utf8',timeout:15000});
   assert(field.includes('const drafts=[];')&&field.includes('const built=fwCommitFieldHistoryDrafts(drafts);'),

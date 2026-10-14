@@ -357,6 +357,9 @@ jobs:
         shell: pwsh
         run: node desktop/tests/profile-playback.test.cjs
 
+      - name: Dual Spatial Profiles variable comparison
+        run: node desktop/tests/dual-profiles.test.cjs
+
       - name: Test Phase Change / Momentum analysis
         shell: pwsh
         run: node desktop/tests/phase-momentum.test.cjs
@@ -625,6 +628,7 @@ jobs:
         run: node desktop/tests/ribbon-ui.test.cjs
 
       - name: Field camera, cache, ownership regression
+        shell: pwsh
         run: node desktop/tests/field-3d-navigation-cache.test.cjs
 
       - name: Test stable 2D plot surfaces
