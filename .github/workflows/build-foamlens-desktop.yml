@@ -321,6 +321,14 @@ jobs:
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
           dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true --no-restore
 
+      - name: Verify native scientific temporal cache and stale-file rejection
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe').Path
+          $test = Start-Process -FilePath $exe -ArgumentList '--temporal-cache-self-test' -PassThru -Wait
+          if ($test.ExitCode -ne 0) { throw "Native cache numerical integrity regression failed: exit $($test.ExitCode)" }
+          Write-Host 'Real compiled native scientific temporal cache integrity checks PASS'
+
       - name: Validate FoamLens frontend JavaScript
         shell: pwsh
         run: |

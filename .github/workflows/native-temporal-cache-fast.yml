@@ -1,0 +1,31 @@
+name: Native scientific cache integrity
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
+      - 'tools/native-temporal-cache-tests/**'
+      - '.github/workflows/native-temporal-cache-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
+      - 'tools/native-temporal-cache-tests/**'
+      - '.github/workflows/native-temporal-cache-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cache-science:
+    name: Compile actual native cache and reject stale scientific values
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Native source cache integrity regressions
+        run: dotnet run --project tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj -c Release
