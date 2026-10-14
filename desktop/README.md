@@ -1,4 +1,4 @@
-# FoamLens Desktop v1.8.2
+# FoamLens Desktop v1.8.3
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
