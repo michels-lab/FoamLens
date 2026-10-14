@@ -2699,7 +2699,7 @@ function seriesIsVisible(s){
 }
 function currentViewSeries(){
   if(currentDataView==='log'&&logEvolutionActive)return logEvolutionSeries.filter(seriesMatchesGlobalContext);
-  if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock()&&profilePlaybackRenderSeries.length)return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
+  if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock())return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
   return series.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s))
 }
 function visibleCurrentSeries(){return currentViewSeries().filter(seriesIsVisible)}
@@ -3507,7 +3507,7 @@ function syncProfileTimeNavigator(valsOverride=null){
   else{slider.min='0';slider.max='0';slider.value='0';slider.step='any'}
   slider.disabled=!range.valid||vals.length<2;input.value=Number.isFinite(current)?profileTimeDisplay(current):'';
   $('profilePrev').disabled=!range.valid;$('profileNext').disabled=!range.valid;$('profilePlay').disabled=!range.valid||vals.length<2;$('profilePause').disabled=!profileAnimationPlaying;
-  const lines=[...new Set(profileOptionsBase().filter(s=>(!$('profileSet').value||(s.profileOutputPath||'')===$('profileSet').value)&&profileMatchesVariable(s.field?.canonical,...profileSelectedVariables())).map(s=>s.profileLineKey))];
+  const lines=[...new Set(profilePlaybackSeries().map(s=>s.profileLineKey))];
   $('heightCountBadge').textContent=`${lines.length} ${lines.length===1?flUi('height','altura'):flUi('heights','alturas')}`;profilePlaybackScopeInfo(vals)
 }
 function applyProfileTimeValue(value,{renderListToo=true}={}){
@@ -3533,11 +3533,24 @@ function resetProfilePlaybackState(){
   if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true
 }
 function computeProfileLockedRanges(){
-  const set=$('profileSet').value,v=$('profileVariable').value,line=$('profileLine').value,compare=$('compareHeights').checked;
-  const ss=profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s));
-  if(!ss.length){animationLockedRanges=null;return}let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
-  for(const s of ss){for(const x of s.t){if(Number.isFinite(x)){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x)}}for(const yy of s.y){const y=displayValue(yy,s.field);if(Number.isFinite(y)){ymin=Math.min(ymin,y);ymax=Math.max(ymax,y)}}}
-  if(!Number.isFinite(ymin)){animationLockedRanges=null;return}if(ymin===ymax){const d=Math.abs(ymin||1)*.05;ymin-=d;ymax+=d}else{const p=(ymax-ymin)*.06;ymin-=p;ymax+=p}animationLockedRanges={xmin,xmax,ymin,ymax}
+  const set=$('profileSet').value,line=$('profileLine').value,compare=$('compareHeights').checked;
+  const selected=profileSelectedVariables();
+  const ss=profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,...selected)&&(compare||!line||s.profileLineKey===line)&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s));
+  if(!ss.length){animationLockedRanges=null;return}
+  const axes=assignments(ss),ranges={left:[Infinity,-Infinity],right:[Infinity,-Infinity]};let xmin=Infinity,xmax=-Infinity;
+  for(const s of ss){
+    for(const x of s.t)if(Number.isFinite(x)){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x)}
+    const range=ranges[axes.get(s.id)||'left'];
+    for(const yy of s.y){const y=displayValue(yy,s.field);if(Number.isFinite(y)){range[0]=Math.min(range[0],y);range[1]=Math.max(range[1],y)}}
+  }
+  const pad=r=>{
+    if(!Number.isFinite(r[0])||!Number.isFinite(r[1]))return null;
+    if(r[0]===r[1]){const d=Math.abs(r[0]||1)*.05;return[r[0]-d,r[1]+d]}
+    const d=(r[1]-r[0])*.06;return[r[0]-d,r[1]+d]
+  };
+  const left=pad(ranges.left),right=pad(ranges.right);
+  if(!left){animationLockedRanges=null;return}
+  animationLockedRanges={xmin,xmax,ymin:left[0],ymax:left[1],rymin:right?.[0],rymax:right?.[1]}
 }
 function playbackIntervalMs(){const speed=Math.max(.25,Number($('playbackSpeed')?.value)||1);return Math.max(50,Math.round(650/speed))}
 function stopProfileAnimation(){if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true}
@@ -7565,7 +7578,13 @@ function yPlot(s,v){return displayValue(v,s.field)}
 
 function assignments(vis){
   const out=new Map(),quantities=[];
+  const dual=currentDataView==='profile'&&profileSelectedVariables().length===2;
+  const primary=dual?vis.find(s=>s.field?.canonical===$('profileVariable')?.value)?.field:null;
+  const secondary=dual?vis.find(s=>s.field?.canonical===$('profileVariable2')?.value)?.field:null;
+  const axisPlan=primary&&secondary?profileAxisPlan(primary,secondary):null;
   for(const s of vis){
+    if(axisPlan&&s.field?.canonical===$('profileVariable')?.value){out.set(s.id,axisPlan.primary);continue}
+    if(axisPlan&&s.field?.canonical===$('profileVariable2')?.value){out.set(s.id,axisPlan.secondary);continue}
     if(s.axis==='Left'){out.set(s.id,'left');continue}
     if(s.axis==='Right'){out.set(s.id,'right');continue}
     const key=s.field.quantity+'|'+s.field.unit;
@@ -7764,6 +7783,9 @@ function buildState(W,H,panelField=null){
   if(currentDataView==='profile'&&animationLockedRanges){
     if(!$('xmin').value&&!$('xmax').value){xmin=animationLockedRanges.xmin;xmax=animationLockedRanges.xmax}
     if($('leftYMode').value!=='custom'){yl0=animationLockedRanges.ymin;yl1=animationLockedRanges.ymax}
+    if(right.length&&Number.isFinite(animationLockedRanges.rymin)&&Number.isFinite(animationLockedRanges.rymax)&&$('rightYMode').value!=='custom'){
+      yr0=animationLockedRanges.rymin;yr1=animationLockedRanges.rymax
+    }
   }
 
   const legendPos=effectiveLegendPosition(W);
