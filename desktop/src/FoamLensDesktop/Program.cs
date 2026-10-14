@@ -3185,8 +3185,15 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         try
         {
-            var result = await NativeTemporalCache.GetOrParseAsync(
-                path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token);
+            // Streaming text parsing performs CPU work on every line. Running
+            // the full cache/checksum/parse pipeline on a bounded caller-owned
+            // worker keeps WinForms/WebView2 input and cancellation responsive.
+            // The frontend already limits simultaneous file requests; native
+            // Post() marshals scientific progress messages back to the UI.
+            var result = await Task.Run(
+                () => NativeTemporalCache.GetOrParseAsync(
+                    path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token),
+                operation.Token);
             completedBytes = totalBytes;
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes });

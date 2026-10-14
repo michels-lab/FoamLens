@@ -72,6 +72,18 @@ test('large temporal files have a cancellable native streaming parser',()=>{
   assert(program.includes('totalBytes'));
 });
 
+test('temporal cache, checksum and streaming parser execute off the WinForms UI thread',()=>{
+  const start=program.indexOf('private async Task HandleTemporalFileAsync(');
+  const end=program.indexOf('private async Task<TemporalParseResult> ParseTemporalFileAsync(',start);
+  assert(start>=0&&end>start,'Real temporal request handler must be present');
+  const handler=program.slice(start,end);
+  assert(handler.includes('await Task.Run('),'Native temporal parsing must not run on UI dispatcher');
+  assert(/Task\.Run\([\s\S]*?NativeTemporalCache\.GetOrParseAsync\([\s\S]*?operation\.Token\)/.test(handler),
+    'Worker must contain the actual source-verified cache, parser and cancellation');
+  assert(program.includes('if (InvokeRequired) BeginInvoke('),
+    'Progress replies from native workers must be marshalled back to WebView2');
+});
+
 test('native temporal parser preserves vector magnitudes and probe metadata',()=>{
   assert(program.includes('SplitTemporalTokens(line)'));
   assert(program.includes('TryParseTemporalValue(tokens[j], out var value)'));
