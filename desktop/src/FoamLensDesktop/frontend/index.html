@@ -5044,6 +5044,9 @@ async function importSelectedAsCases(){
   const dataParsedAt=performance.now();
   await finalizeBulkImportWorkspace(processedFiles,totalFiles);
   if(flImportPerformance){
+    Object.assign(flImportPerformance,flSummarizeImportSourceFiles(
+      plan.flatMap(item=>item.files.concat(item.lazyProfiles)
+        .map(file=>({file,kind:candidateFileKind(item.candidate,file)})))));
     flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
     flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
     console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
@@ -5073,6 +5076,8 @@ async function importSelectedRaw(){
     const dataParsedAt=performance.now();
     await finalizeBulkImportWorkspace(files.length,files.length);
     if(flImportPerformance){
+      Object.assign(flImportPerformance,flSummarizeImportSourceFiles(
+        files.map(file=>({file,kind:fastOpenFOAMKind(file)}))));
       flImportPerformance.fileParseAndMetadataMs=Math.round(dataParsedAt-importStarted);
       flImportPerformance.endToEndMs=Math.round(performance.now()-(window.__foamLensScanStarted||importStarted));
       console.info('[FoamLens import end-to-end]',JSON.stringify(flImportPerformance))
@@ -5169,6 +5174,27 @@ let flImportPerformance=null;
 // Diagnostic export intentionally contains no absolute paths, case names,
 // filenames, field arrays, solver values or user identity. Real owner-case
 // timings remain separate from synthetic CI benchmark numbers.
+// Bounded, privacy-safe input profiling. No paths, case identities or raw values
+// leave the local import; unknown size is distinct from zero measured bytes.
+function flSummarizeImportSourceFiles(entries){
+  const kinds={timeseries:0,profile:0,log:0,runlog:0,field:0,ignore:0,unknown:0};
+  let knownBytes=0,knownSizeFiles=0,unknownSizeFiles=0;
+  for(const entry of entries||[]){
+    const file=entry?.file||entry;
+    const kind=String(entry?.kind||'unknown');
+    kinds[Object.prototype.hasOwnProperty.call(kinds,kind)?kind:'unknown']++;
+    const size=file?.size;
+    // Direct directory FileSystem handles expose a placeholder size=0 until
+    // their file is opened. Avoid expensive getFile() calls just for diagnostics.
+    if(typeof size==='number'&&Number.isSafeInteger(size)&&size>0&&
+      Number.isSafeInteger(knownBytes+size)){
+      knownBytes+=size;knownSizeFiles++
+    }else unknownSizeFiles++
+  }
+  return {sourceBytesKnown:knownSizeFiles?knownBytes:null,
+    sourceBytesSizedFiles:knownSizeFiles,sourceBytesUnknownFiles:unknownSizeFiles,
+    sourceKindCounts:kinds};
+}
 function flSanitizedImportPerformanceReport(){
   if(!flImportPerformance)return null;
   const stats=flImportPerformance,ms=value=>value===null||value===undefined||value===''?null:(Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null);
@@ -5178,6 +5204,11 @@ function flSanitizedImportPerformanceReport(){
     version:String(document.documentElement.dataset.foamLensDesktopVersion||'unknown'),
     scope:'desktop UI import timings on this machine; not a synthetic CI benchmark; no case paths or scientific field content',
     fileCount:ms(stats.fileCount),
+    sourceBytesKnown:ms(stats.sourceBytesKnown),
+    sourceBytesSizedFiles:ms(stats.sourceBytesSizedFiles),
+    sourceBytesUnknownFiles:ms(stats.sourceBytesUnknownFiles),
+    sourceKindCounts:Object.fromEntries(['timeseries','profile','log','runlog','field','ignore','unknown']
+      .map(kind=>[kind,ms(stats.sourceKindCounts?.[kind])])),
     loadedSeries:ms(stats.loadedSeries),
     caseCount:cases.length,
     mode:stats.mode==='indexed-fast'?'indexed-fast':'full',
