@@ -351,6 +351,30 @@ internal sealed class FoamLensForm : Form
                         timeSlider?.getAttribute('aria-valuetext')===readoutText&&
                         clockRect?.width>30&&clockRect?.height>12;
                       const hasField=!!primary?.range?.valid;
+                      // User-reported installed-WebView2 regressions: 7 distinguishable
+                      // camera presets, no duplicate 2D Field bar, no vertical Play,
+                      // and a cache panel that does not grow the command row.
+                      const names=['Iso','Front','Back','Left','Right','Top','Bottom'];
+                      const quick=names.map(name=>document.getElementById('flRaQuick'+name));
+                      const distinctCameras=quick.every(Boolean)&&
+                        new Set(quick.map(el=>el.querySelector('svg')?.innerHTML)).size===7;
+                      const internalBar=document.querySelector('#fieldSurface .fwWorkspaceBar');
+                      const fieldNavHidden=!!internalBar&&getComputedStyle(internalBar).display==='none'&&
+                        window.FoamLensFieldWorkspace?.getState?.().view==='3d';
+                      const playRect=document.getElementById('fwTimePlay')?.getBoundingClientRect();
+                      const playNotCollapsed=!!playRect&&playRect.width>=25&&playRect.height>=24;
+                      const cache=document.getElementById('flRibbonCacheAdvanced');
+                      if(cache)cache.open=true;
+                      if(typeof flRibbonPlaceCachePopover==='function')flRibbonPlaceCachePopover();
+                      const popup=cache?.querySelector('.flRibbonCachePopover');
+                      const popupRect=popup?.getBoundingClientRect();
+                      const selectorRect=document.getElementById('fvCacheLimit')?.getBoundingClientRect();
+                      const cachePopoverValid=!!cache?.open&&!!popupRect&&
+                        getComputedStyle(popup).display==='grid'&&popupRect.width>=200&&
+                        popupRect.left>=0&&popupRect.right<=innerWidth+1&&
+                        !!selectorRect&&selectorRect.width>=80&&
+                        selectorRect.left>=popupRect.left&&selectorRect.right<=popupRect.right+1;
+                      if(cache)cache.open=false;
                       const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
                         !!shelf&&!shelf.classList.contains('hidden')&&
                         ribbon?.contains(shelf)&&shelf.contains(tools)&&tools?.contains(probe);
@@ -359,11 +383,13 @@ internal sealed class FoamLensForm : Form
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette&&
-                        clockMatchesRealFrame;
+                        clockMatchesRealFrame&&distinctCameras&&fieldNavHidden&&
+                        playNotCollapsed&&cachePopoverValid;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
-                        cameraDocked,toolbarHeight:b?.height,toolbarWidth:b?.width,
+                        cameraDocked,distinctCameras,fieldNavHidden,playNotCollapsed,cachePopoverValid,
+                        toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
@@ -1482,11 +1508,11 @@ internal sealed class FoamLensForm : Form
                         !plotSurfaceDataRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
                         !plotSurfaceFieldRestoredNode.GetBoolean() ||
-                        !data.TryGetProperty("plotSurfaceFieldPlotCaptured", out var plotSurfaceFieldPlotCapturedNode) ||
+                        !data.TryGetProperty("plotSurfaceFieldDataPlotBlocked", out var plotSurfaceFieldPlotCapturedNode) ||
                         !plotSurfaceFieldPlotCapturedNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceDataAfterFieldRoundTrip", out var plotSurfaceDataAfterFieldRoundTripNode) ||
                         !plotSurfaceDataAfterFieldRoundTripNode.GetBoolean() ||
-                        !data.TryGetProperty("plotSurfaceFieldPlotRestored", out var plotSurfaceFieldPlotRestoredNode) ||
+                        !data.TryGetProperty("plotSurfaceField3DRestored", out var plotSurfaceFieldPlotRestoredNode) ||
                         !plotSurfaceFieldPlotRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
                         !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
@@ -2240,18 +2266,20 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     setAppMode('field');
     const fieldRestored=ps.active?.()==='field'&&owner()==='field';
-    // Exercise a real Data -> Field time-series -> Data -> Field round trip.
-    // The outgoing Field view must be captured before Data restores its own
-    // independent catalog/plot choice. This caught a previously silent bug.
+    // Legacy Field plot views must not hijack Data's independent plot context.
+    // Field stays physically 3D even if an imported workspace asks for Time Series.
+    const dataViewBeforeLegacyRequest=String(currentDataView||'');
     window.FoamLensFieldWorkspace?.setView?.('timeseries');
-    const requestedFieldPlotView=String(currentDataView||'');
+    const blockedDataPlot=window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d'&&
+      String(currentDataView||'')===dataViewBeforeLegacyRequest;
     setAppMode('data');
-    const fieldPlotCaptured=ps.state?.('field')?.view===requestedFieldPlotView;
     const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
     setAppMode('field');
-    const fieldPlotRestored=ps.active?.()==='field'&&owner()==='field'&&String(currentDataView||'')===requestedFieldPlotView&&requestedFieldPlotView==='timeseries';
-    // Leave subsequent scientific smoke in its required 3D-focused state.
-    window.FoamLensFieldWorkspace?.setView?.('3d');
+    const field3DRestored=ps.active?.()==='field'&&owner()==='field'&&
+      window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d'&&
+      String(currentDataView||'')===requestedDataView;
     const parentsAfter={
       data:dataSurface.parentElement?.id||'',
       analysis:analysisSurface.parentElement?.id||'',
@@ -2268,10 +2296,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       analysisActive,
       dataRestored,
       fieldRestored,
-      fieldPlotCaptured,
+      blockedDataPlot,
       dataAfterFieldRoundTrip,
-      fieldPlotRestored,
-      requestedFieldPlotView,
+      field3DRestored,
+      dataViewBeforeLegacyRequest,
       requestedDataView
     };
   }catch(e){
@@ -2705,9 +2733,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
     plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
-    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.fieldPlotCaptured,
+    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.blockedDataPlot,
     plotSurfaceDataAfterFieldRoundTrip:!!plotSurfaceSmoke?.dataAfterFieldRoundTrip,
-    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.fieldPlotRestored,
+    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.field3DRestored,
     plotSurfaceRequestedFieldPlotView:String(plotSurfaceSmoke?.requestedFieldPlotView||''),
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
