@@ -2,7 +2,7 @@
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-Release candidate **FoamLens Desktop v1.8.2 with frontend v51**. Publishing requires the real OpenFOAM Windows release gates to pass; the [v1.8.1 installer](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.1) remains public meanwhile.
+Release candidate **FoamLens Desktop v1.8.3 with frontend v51**. This release adds lossless, content-verified persistent native scientific caches for supported OpenFOAM temporal files and complete ASCII fields. Publishing requires real QuickCup/VTK, Windows portable/installed smoke, installer licensing and exact checksums; the [previously verified v1.8.1 installer](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.1) remains available meanwhile.
 
 ## Architecture
 
