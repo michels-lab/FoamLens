@@ -4580,3 +4580,9 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - Candidate corrects the anchored frame-cache settings popover with the canonical cache selector/readout, fixes physical-time control minimum width, exposes all seven camera orientations with distinct directional icons and readable labels, and hides the duplicate internal Field navigation by its real CSS class.
 - Product ownership: Field navigation is now 3D-only; Data remains the source for profiles, time series and solver logs. Analysis result shortcuts route to Data. Legacy/imported Field view values normalize to 3D without repurposing Data plot controls.
 - Validation: pending exact-head Windows CI and owner installed-Windows review. No product version, updater feed, public release or Microsoft Store state changed by this candidate.
+
+### 2026-10-14 — Preserve 3D-derived scientific histories under Data (candidate)
+
+- Field-only navigation must not orphan the scientifically sourced 3D OpenFOAM field-history generator (global scalar/vector statistics, pinned 3D Probe histories, position-sampled Spatial Profile histories, source physical times). This candidate mounts the generator in a collapsed **Data → Time Series** panel and keeps its real native parser/provenance.
+- Parsing from OpenFOAM source frames requires a deliberate **Build field histories** click; changing case, region, variable or component does not auto-scan thousands of time directories. Field 3D no longer borrows the Data plot controls or activates its plot surface during entry.
+- Native QuickCup timeline invariant retained while checking screenshot camera/cache/ownership defects. Exact candidate Windows CI and owner visual acceptance pending, no release authorized.

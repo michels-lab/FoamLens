@@ -350,6 +350,7 @@ internal sealed class FoamLensForm : Form
                         Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime))&&
                         timeSlider?.getAttribute('aria-valuetext')===readoutText&&
                         clockRect?.width>30&&clockRect?.height>12;
+                      const timelineEvidence=clockMatchesRealFrame;
                       const hasField=!!primary?.range?.valid;
                       // User-reported installed-WebView2 regressions: 7 distinguishable
                       // camera presets, no duplicate 2D Field bar, no vertical Play,

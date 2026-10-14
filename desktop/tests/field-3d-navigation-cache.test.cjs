@@ -16,6 +16,14 @@ for(const view of ['profile','timeseries','log','split'])
 assert(ribbon.includes('body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}'),'Actual class-based navigation leak is not fixed');
 assert(!ribbon.includes('body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}'));
 assert(field.includes("view='3d';fwState.view=view;"),'Legacy Field view state not constrained');
+assert(field.includes("details.id='fwDataFieldHistories'")&&field.includes("dataHost.appendChild(details)"),
+  'OpenFOAM-derived time series builder must be owned by Data, not hidden with the Field companion');
+assert(field.includes("activeAppMode!=='data'||currentDataView!=='timeseries'"),
+  '3D-field histories must be generated only inside Data Time Series');
+assert(field.includes("fwBuildFieldHistories")&&field.includes("fwBuildFieldTimeSeries().catch("),
+  'Scientific histories must remain available via explicit Build, not auto-parse on selector changes');
+assert(!field.includes("fw2DControlsHost')?.prepend(root)"),
+  'Field 3D still owns the scientific history builder');
 assert(ux.includes("FoamLensFieldWorkspace?.setView?.('3d')"),'Imported legacy Field state is not constrained');
 assert(ribbon.includes('function flRibbonPlaceCachePopover()'));
 assert(ribbon.includes("const popup=advanced.querySelector('.flRibbonCachePopover')"));

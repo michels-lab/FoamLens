@@ -132,6 +132,7 @@ function fwCreateSurface(){
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
     .fw3DViewCases{display:grid;gap:7px;border-bottom:1px solid var(--line);margin-bottom:9px;padding-top:5px!important}.fw3DViewCases .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}.fw3DViewCases .row2 label{font-weight:800}.fw3DViewCases .fwViewBCaseRow.hidden{display:none!important}
+    .fwDataFieldHistories{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--panel2)}.fwDataFieldHistories>summary{cursor:pointer;font-size:11px;font-weight:800;padding:7px 5px;color:var(--text)}.fwDataFieldHistories[open]>summary{margin-bottom:9px}.fwDataFieldHistories .fwFieldTsControls{padding:6px;min-width:0}.fwDataFieldHistories #fwBuildFieldHistories{justify-self:start}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:auto auto auto minmax(90px,1fr);}.fwTimeReadout,#fwTimeSpeed{grid-row:2}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
@@ -152,6 +153,7 @@ function fwCreateSurface(){
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
   fwMountContextSidebar();
   fwEnsureCompanionSurface();
+  fwEnsureFieldTsControls(); // Data-only explicit scientific history builder
   fwUpdateNavText()
 }
 function fwSetLayout(layout){
@@ -345,9 +347,22 @@ function fwEnsureFieldTsControls(){
         <div class="smallnote" id="fwTsProfileMeta${slot}"></div>
       </div>
     </div>`;
-  root.innerHTML='<div class="analysisTitle"><strong>'+fwUi('3D field history','Historia temporal de campo 3D')+'</strong><span class="badge" id="fwTsStatusBadge">—</span></div><div class="smallnote">'+fwUi('Build time histories directly from OpenFOAM 3D fields even when no probe/postProcessing time series exists.','Construye historias temporales directamente desde campos 3D de OpenFOAM aunque no exista una serie de probe/postProcessing.')+'</div>'+row(1)+row(2)+'<div class="smallnote" id="fwTsStatus"></div>';
-  document.getElementById('fw2DControlsHost')?.prepend(root);
-  const schedule=()=>{clearTimeout(fwState.fieldTsTimer);fwState.fieldTsTimer=setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),220)};
+  root.innerHTML='<div class="analysisTitle"><strong>'+fwUi('3D field history','Historia temporal de campo 3D')+'</strong><span class="badge" id="fwTsStatusBadge">—</span></div><div class="smallnote">'+fwUi('Build time histories directly from OpenFOAM 3D fields even when no probe/postProcessing time series exists.','Construye historias temporales directamente desde campos 3D de OpenFOAM aunque no exista una serie de probe/postProcessing.')+'</div>'+row(1)+row(2)+'<button class="btn primary" id="fwBuildFieldHistories" type="button" data-fl-en="Build field histories" data-fl-es="Construir historias de campo">Build field histories</button><div class="smallnote" id="fwTsStatus" role="status"></div>';
+  // Data owns 2D scientific plots, including histories sampled from real 3D fields.
+  // The generator stays collapsed; no expensive OpenFOAM parse on tab entry.
+  const dataHost=document.getElementById('timeSeriesControls');
+  if(dataHost){
+    let details=document.getElementById('fwDataFieldHistories');
+    if(!details){
+      details=document.createElement('details');details.id='fwDataFieldHistories';details.className='fwDataFieldHistories';
+      details.innerHTML='<summary data-fl-en="Create time series from 3D OpenFOAM fields" data-fl-es="Crear series desde campos 3D OpenFOAM">Create time series from 3D OpenFOAM fields</summary>';
+      dataHost.appendChild(details);
+      details.addEventListener('toggle',()=>{if(details.open)fwRefreshFieldTsControls()});
+    }
+    details.appendChild(root);
+    root.classList.remove('hidden');
+  }
+  const schedule=()=>fwFieldTsSetStatus(fwUi('Ready. Select Build field histories to parse OpenFOAM data.','Listo. Selecciona Construir historias de campo para leer los datos OpenFOAM.'));
   for(const slot of [1,2]){
     document.getElementById('fwTsSource'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,true,'source');schedule()});
     document.getElementById('fwTsCase'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,false,'case');schedule()});
@@ -360,6 +375,7 @@ function fwEnsureFieldTsControls(){
     document.getElementById('fwTsProfilePosition'+slot)?.addEventListener('change',schedule)
   }
   document.getElementById('fwTsEnable2')?.addEventListener('change',()=>{fwRefreshFieldTsSlot(2,true,'enable');schedule()});
+  document.getElementById('fwBuildFieldHistories')?.addEventListener('click',()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)));
   return root
 }
 function fwFieldTsSetStatus(text,error=false){
@@ -394,8 +410,8 @@ function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
   if(components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===preferredComp))compSel.value=preferredComp
 }
 function fwRefreshFieldTsControls(){
-  const root=fwEnsureFieldTsControls();root?.classList.toggle('hidden',fwState.companion!=='timeseries');
-  if(fwState.companion!=='timeseries')return;
+  const root=fwEnsureFieldTsControls(),details=document.getElementById('fwDataFieldHistories');
+  if(!root||!details?.open)return;
   fwRefreshFieldTsSlot(1,true);fwRefreshFieldTsSlot(2,true)
 }
 
@@ -487,7 +503,7 @@ function fwCommitFieldHistoryDrafts(drafts){
   return drafts.map(draft=>byKey.get(draft.fieldHistoryKey)).filter(Boolean)
 }
 async function fwBuildFieldTimeSeries(){
-  if(!fwState.active||fwState.companion!=='timeseries')return;
+  if(activeAppMode!=='data'||currentDataView!=='timeseries')return;
   const seq=++fwState.fieldTsSeq;fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
   const drafts=[];
   for(const slot of [1,2]){
@@ -613,7 +629,8 @@ function fwCompanionTitle(mode){
 function fwSetCompanion(mode){
   mode=['profile','timeseries','log','none'].includes(mode)?mode:'profile';fwState.companion=mode;
   const select=document.getElementById('fwCompanion');if(select&&select.value!==mode)select.value=mode;
-  fwOwnCompanionControls();fwActivateCompanionSurface();
+  if(fwState.active&&fwState.view!=='3d')fwOwnCompanionControls();
+  // Field 3D must not activate a Data plot as a navigation side effect.
   const card=document.getElementById('fwPlotCard'),group=document.getElementById('fw2DControlGroup'),empty=document.getElementById('fwPlotEmpty'),title=document.getElementById('fwPlotTitle'),controlTitle=document.getElementById('fw2DControlTitle');
   card?.classList.toggle('companion-none',mode==='none');if(group)group.style.display=mode==='none'?'none':'';
   if(title)title.textContent=fwCompanionTitle(mode);if(controlTitle)controlTitle.textContent=fwCompanionTitle(mode)+' '+fwUi('controls','controles');
@@ -621,7 +638,7 @@ function fwSetCompanion(mode){
   const coreMode=mode==='profile'?'profile':mode==='log'?'log':'timeseries';
   try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
   const chart=window.FoamLensPlotSurfaces?.surface?.('field');if(chart)chart.classList.remove('hidden','flPlotSurfaceInactive');
-  fwRefreshFieldTsControls();
+  if(fwState.view!=='3d')fwRefreshFieldTsControls();
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
   if(mode==='timeseries'&&fieldHistoryAvailable)setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),0);
