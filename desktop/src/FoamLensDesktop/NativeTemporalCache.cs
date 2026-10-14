@@ -17,7 +17,7 @@ internal static class NativeTemporalCache
     private const long MinSourceBytes = 256 * 1024;
     private const long MaxSourceBytes = 64L * 1024 * 1024;
     private const int MaxPayloadBytes = 32 * 1024 * 1024;
-    private const long MaxCacheBytes = 1024L * 1024 * 1024;
+    private const long MaxCacheBytes = 2L * 1024 * 1024 * 1024;
     private static int _cacheWrites;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -26,13 +26,16 @@ internal static class NativeTemporalCache
 
     private static string DefaultRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FoamLens", "Desktop", "ScientificCache", "temporal-v1");
+            "FoamLens", "Desktop", "ScientificCache");
 
     internal static async Task<T> GetOrParseAsync<T>(
         string sourcePath, Func<CancellationToken, Task<T>> parse, CancellationToken ct,
-        string? cacheRoot = null, long minSourceBytes = MinSourceBytes)
+        string? cacheRoot = null, long minSourceBytes = MinSourceBytes,
+        string cacheKind = "temporal", Func<T, bool>? cacheEligible = null)
     {
         ArgumentNullException.ThrowIfNull(parse);
+        if (cacheKind is not ("temporal" or "field"))
+            throw new ArgumentException("Unknown scientific cache type.", nameof(cacheKind));
         var fullPath = Path.GetFullPath(sourcePath);
         if (Environment.GetEnvironmentVariable("FOAMLENS_DISABLE_TEMPORAL_CACHE") == "1")
             return await parse(ct);
@@ -48,7 +51,7 @@ internal static class NativeTemporalCache
         if (!info.Exists || info.Length != length || info.LastWriteTimeUtc.Ticks != modified)
             throw new IOException("The OpenFOAM source changed during checksum verification. Retry importing.");
 
-        var root = cacheRoot ?? DefaultRoot;
+        var root = cacheRoot ?? Path.Combine(DefaultRoot, cacheKind + "-v1");
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             fullPath.ToUpperInvariant())));
         var cachePath = Path.Combine(root, key[..2], key + ".fltc");
@@ -77,6 +80,7 @@ internal static class NativeTemporalCache
             !string.Equals(signature, await GetSourceShaAsync(fullPath, ct), StringComparison.Ordinal))
             throw new IOException("The OpenFOAM source changed while parsing. Retry after the solver finishes writing.");
 
+        if (cacheEligible is not null && !cacheEligible(result)) return result;
         try
         {
             var payload = JsonSerializer.SerializeToUtf8Bytes(result, JsonOptions);
