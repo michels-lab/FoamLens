@@ -18,6 +18,11 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Any(arg => string.Equals(arg, "--temporal-cache-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeTemporalCache.RunSelfTestAsync().GetAwaiter().GetResult();
+            return;
+        }
         ApplicationConfiguration.Initialize();
         var smokeTest = args.Any(arg =>
             string.Equals(arg, "--smoke-test", StringComparison.OrdinalIgnoreCase));
@@ -3178,7 +3183,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         try
         {
-            var result = await ParseTemporalFileAsync(path, requestId, operation.Token);
+            var result = await NativeTemporalCache.GetOrParseAsync(
+                path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token);
             completedBytes = totalBytes;
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes });
