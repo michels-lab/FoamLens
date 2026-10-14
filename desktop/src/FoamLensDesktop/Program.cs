@@ -22,6 +22,7 @@ internal static class Program
         {
             NativeTemporalCache.RunSelfTestAsync().GetAwaiter().GetResult();
             FoamLensForm.RunTemporalRecordCacheSelfTestAsync().GetAwaiter().GetResult();
+            FoamLensForm.RunFieldRecordCacheSelfTestAsync().GetAwaiter().GetResult();
             return;
         }
         ApplicationConfiguration.Initialize();
@@ -4291,14 +4292,23 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
             // opacity and other visual controls remain responsive while a new timestep loads.
             var result = await Task.Run(async () =>
             {
-                var parsed = await ParseOpenFoamFieldAsync(path, requestId, operation.Token).ConfigureAwait(false);
-                if (parsed.Supported && string.Equals(parsed.Format, "ascii", StringComparison.OrdinalIgnoreCase))
-                {
-                    var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
-                        path, parsed.Kind, operation.Token).ConfigureAwait(false);
-                    parsed = parsed with { BoundaryPatches = boundaryPatches };
-                }
-                return parsed;
+                return await NativeTemporalCache.GetOrParseAsync(
+                    path, async ct =>
+                    {
+                        var parsed = await ParseOpenFoamFieldAsync(path, requestId, ct).ConfigureAwait(false);
+                        if (parsed.Supported && string.Equals(parsed.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var boundaryPatches = await OpenFoamBoundarySupport.ReadFieldBoundaryPatchesAsync(
+                                path, parsed.Kind, ct).ConfigureAwait(false);
+                            parsed = parsed with { BoundaryPatches = boundaryPatches };
+                        }
+                        // Cache only complete, supported field results. Unsupported or
+                        // unclosed native fields always re-enter the regular parser.
+                        return parsed;
+                    }, operation.Token, cacheKind: "field",
+                    cacheEligible: result => result.Supported && result.Closed
+                        && string.Equals(result.Format, "ascii", StringComparison.OrdinalIgnoreCase))
+                    .ConfigureAwait(false);
             }, operation.Token);
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "openFoamField", completedBytes = result.BytesRead, totalBytes });
@@ -4842,6 +4852,51 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         public FoamBoundaryFieldPatchInfo[] BoundaryPatches { get; init; } = Array.Empty<FoamBoundaryFieldPatchInfo>();
     }
+    internal static async Task RunFieldRecordCacheSelfTestAsync()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FoamLens-field-cache-record-" + Guid.NewGuid().ToString("N"));
+        var source = Path.Combine(folder, "time-0.5", "T");
+        var cache = Path.Combine(folder, "local-cache");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        try
+        {
+            await File.WriteAllBytesAsync(source, new byte[] { 11, 22, 33 });
+            var count = 0;
+            Task<OpenFoamFieldParseResult> Parse(CancellationToken ct)
+            {
+                ct.ThrowIfCancellationRequested();
+                count++;
+                var record = OpenFoamFieldParseResult.FromUniformScalar(
+                    "ascii", "volScalarField", "T", "[0 0 0 1 0 0 0]", 273.15, 3, 3);
+                return Task.FromResult(record with
+                {
+                    Uniform = false, UniformScalar = null,
+                    ScalarValues = new[] { 273.15, double.NaN, 315.125 },
+                    Count = 3, DeclaredCount = 3, Closed = true
+                });
+            }
+
+            var first = await NativeTemporalCache.GetOrParseAsync(source, Parse,
+                CancellationToken.None, cache, minSourceBytes: 0, cacheKind: "field",
+                cacheEligible: r => r.Supported && r.Closed);
+            var second = await NativeTemporalCache.GetOrParseAsync(source, Parse,
+                CancellationToken.None, cache, minSourceBytes: 0, cacheKind: "field",
+                cacheEligible: r => r.Supported && r.Closed);
+            if (count != 1 || !first.Supported || !second.Supported || !second.Closed ||
+                second.FieldClass != "volScalarField" || second.Object != "T" ||
+                second.Dimensions != "[0 0 0 1 0 0 0]" ||
+                second.ScalarValues?.Length != 3 || second.ScalarValues[0] != 273.15 ||
+                !double.IsNaN(second.ScalarValues[1]) || second.ScalarValues[2] != 315.125 ||
+                second.Count != 3 || second.DeclaredCount != 3 ||
+                second.SourceBytes != 3 || second.BytesRead != 3)
+                throw new InvalidOperationException("Actual native 2D scalar OpenFOAM field did not round-trip exactly through a valid persistent cache.");
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
     private sealed record OpenFoamMeshParseResult(
         bool Supported, string Reason, string Format,
         double[] Points, int[] SurfaceTriangles, int[] SurfaceOwners, int[] SurfaceEdges, double[] CellCenters,
