@@ -1,5 +1,14 @@
 # Changelog
 
+## Desktop v1.8.3 — 2026-10-13
+
+- **Native scientific disk cache:** persist supported parsed OpenFOAM temporal columns/probes and completed ASCII scalar/vector/tensor fields, including native field metadata and boundary patches. Reimporting unchanged results can reuse the decoded scientific arrays rather than repeating the parser.
+- **Stale scientific data protection:** validate source length, last-write UTC timestamp and full source SHA-256 even when the file was replaced with identical size/time; validate the cached payload SHA-256, reject torn/corrupt/unsupported data, and never cache a source modified during a cold parse.
+- **Scientific completeness:** preserve numerical precision, physical dimensions, probe coordinates and field metadata, including IEEE non-finite values. No mesh/curve decimation; incomplete/unsupported fields remain on the normal parser path.
+- **Resource control:** separate user-private temporal and field caches, bounded entry sizes and opportunistic disk quota, atomic writes, readonly fallback and explicit `FOAMLENS_DISABLE_TEMPORAL_CACHE=1` opt-out. No external cache service or telemetry upload.
+- **Executable acceptance:** compile and execute the real native cache integrity self-test before full OpenFOAM/VTK QuickCup, installed and portable Windows WebView2, EULA, screenshots and SHA-256 release checks. The v1.8.2 fast-2D import workflow remains intact.
+- **Benchmark limitation:** faster owner-machine 3,008-file cold/warm import is **not claimed** without running the same actual model and comparing its exported performance report; native content hashing has a cost and does not make unchanged files free to read.
+
 ## Desktop v1.8.2 — 2026-10-12
 
 - **Faster scientific 2D workspace startup:** opening large OpenFOAM imports (256+ files/curves) no longer waits at 95% for every solver coupling audit, quantitative difference, phase-front crossing and Health analysis to finish. Open the first scientific data view when parsed data are ready; request deeper calculations when you need them.
