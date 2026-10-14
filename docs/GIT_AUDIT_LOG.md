@@ -4582,3 +4582,8 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - Candidate validation: dual-profile runtime/contract regression test registered in Windows workflow, old profile playback and Windows native OpenFOAM smoke pending. **No release or version bump authorized**.
 
 - Two-field figure titles and the per-case/per-variable native/interpolated playback statuses now name each real field distinctly. Same-case dual-variable playback displays its common physical-time range instead of misleading native-only text.
+
+### 2026-10-14 — Public v1.8.3 documentation CI reconciliation
+
+- Public v1.8.3 publication and exact downloaded Setup/Portable checksum evidence recorded independently. Repaired README's exact-version native regression contract by retaining standalone bold Desktop v1.8.3 / frontend v51 release identity while placing real GitHub release download links separately. No false v1.8.3 release candidate language.
+- Corrected user-facing outdated claim that embedded Spatial Profile/Time Series/Solver Logs controls must remain simultaneously visible inside Field: Data already owns these datasets; a separate, still-validated Field UX PR retires their legacy companion tabs. Updated docs do not assert unpublished UI changes are shipped. No release or updater change.
