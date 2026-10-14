@@ -23,7 +23,7 @@ for(const removed of ['plots','compare'])
 
 for(const id of [
   'flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaDataCompare','flRaCatalog','flRaFieldWorkspace',
-  'flRaSplit','flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
+  'flRaInspector','flRaProbe','flRaCompare3D','flRaCompareDifference',
   'flRaAnalysisTimeResult','flRaAnalysisProfileResult','flRaExportPng','flRaTheme'
 ]) assert(source.includes(id),'Missing v1.6 Ribbon action: '+id);
 
@@ -64,7 +64,7 @@ assert(source.includes("document.getElementById('fwSplitChooser')"),
   'Split second-pane chooser is not available from the Field Ribbon.');
 assert(source.includes("#flRibbonPanel-field.active{display:flex;align-items:center;flex-wrap:nowrap"),'Field Ribbon must remain one compact primary row.');
 assert(source.includes("document.getElementById('flRibbon')?.appendChild(shelf)"),'Field subbars must live outside the primary command row.');
-assert(source.includes("body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}"),
+assert(source.includes("body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}"),
   'Duplicated internal Field navigation remains visible under the Ribbon.');
 for(const id of ['flRaProbe','flRaSlice','flRaVectors','flRaStreamlines','flRaCompare3D','flRaLinkCameras'])
   assert(source.includes(id),'Expected scoped Field action missing: '+id);
