@@ -357,6 +357,9 @@ jobs:
         shell: pwsh
         run: node desktop/tests/profile-playback.test.cjs
 
+      - name: Dual Spatial Profiles variable comparison
+        run: node desktop/tests/dual-profiles.test.cjs
+
       - name: Test Phase Change / Momentum analysis
         shell: pwsh
         run: node desktop/tests/phase-momentum.test.cjs

@@ -1117,6 +1117,8 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
           <div class="field"><label id="profileVariableLabel">Variable</label><select id="profileVariable"></select></div>
           <div class="field"><label id="profileTimeLabel">Profile time</label><select id="profileTime"></select></div>
         </div>
+        <div class="field"><label id="profileVariable2Label" for="profileVariable2">Variable 2 (optional)</label><select id="profileVariable2" aria-label="Optional second spatial-profile variable"></select></div>
+        <div class="smallnote" id="profileDualHint">Both variables use the same selected cases, profile line and physical time. Different units use independent Y axes.</div>
         <div class="field"><label id="profileLineLabel">Profile line</label><select id="profileLine"></select></div>
         <div class="profileTimeline" id="profileTimeline">
           <div class="timelineRow">
@@ -2658,15 +2660,30 @@ function refreshTimeSeriesControls(){
   $('timeSeriesFilterHint').textContent=diagEs()?`Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varText} · ${probeText}.`:`Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${varText} · ${probeText}.`;
 }
 
+/* FOAMLENS_DUAL_PROFILE_CORE_START */
+function profileVariableSet(primary,secondary){
+  const a=String(primary||''),b=String(secondary||'');
+  return [...new Set([a,b].filter(Boolean))]
+}
+function profileMatchesVariable(canonical,primary,secondary){
+  const selected=profileVariableSet(primary,secondary);
+  return !selected.length||selected.includes(String(canonical||''))
+}
+function profileAxisPlan(a,b){
+  const same=!!a&&!!b&&a.quantity===b.quantity&&a.unit===b.unit;
+  return {primary:'left',secondary:same?'left':'right',separate:!same}
+}
+/* FOAMLENS_DUAL_PROFILE_CORE_END */
+function profileSelectedVariables(){return profileVariableSet($('profileVariable')?.value,$('profileVariable2')?.value)}
 function profileMatchesSelection(s){
   if(datasetTypeOf(s)!=='profile')return false;
   const set=$('profileSet')?.value||'';
-  const variable=$('profileVariable')?.value||'';
+  const variable=$('profileVariable')?.value||'',second=$('profileVariable2')?.value||'';
   const line=$('profileLine')?.value||'';
   const compareHeights=!!$('compareHeights')?.checked;
   if(set&&(s.profileOutputPath||'')!==set)return false;
   const time=$('profileTime')?.value||'';
-  if(variable&&s.field.canonical!==variable)return false;
+  if(!profileMatchesVariable(s.field?.canonical,variable,second))return false;
   if(line&&!compareHeights&&s.profileLineKey!==line)return false;
   if(time!==''&&!profileTimeEqual(s.profileTime,time))return false;
   return true
@@ -2682,7 +2699,7 @@ function seriesIsVisible(s){
 }
 function currentViewSeries(){
   if(currentDataView==='log'&&logEvolutionActive)return logEvolutionSeries.filter(seriesMatchesGlobalContext);
-  if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock()&&profilePlaybackRenderSeries.length)return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
+  if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock())return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
   return series.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s))
 }
 function visibleCurrentSeries(){return currentViewSeries().filter(seriesIsVisible)}
@@ -3364,8 +3381,8 @@ function ensureVelocityDerivedSeries(){
 }
 
 function profilePlaybackSeries(){
-  const profiles=profileOptionsBase(),set=$('profileSet')?.value||'',v=$('profileVariable')?.value||'',line=$('profileLine')?.value||'',compare=!!$('compareHeights')?.checked;
-  return profiles.filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&Number.isFinite(Number(s.profileTime))&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s))
+  const profiles=profileOptionsBase(),set=$('profileSet')?.value||'',v=$('profileVariable')?.value||'',v2=$('profileVariable2')?.value||'',line=$('profileLine')?.value||'',compare=!!$('compareHeights')?.checked;
+  return profiles.filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,v,v2)&&(compare||!line||s.profileLineKey===line)&&Number.isFinite(Number(s.profileTime))&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s))
 }
 function profilePlaybackGroupKey(s){return[(s.caseId??s.caseName??'raw'),seriesRegion(s)||'',s.profileOutputPath||'',s.profileLineKey||'',s.field?.canonical||''].join('|')}
 function profilePlaybackGroups(){
@@ -3373,7 +3390,11 @@ function profilePlaybackGroups(){
   return[...map.values()].map(a=>a.slice().sort((x,y)=>Number(x.profileTime)-Number(y.profileTime)))
 }
 function profilePlaybackCaseCount(){return new Set(profilePlaybackSeries().map(s=>(s.caseId??s.caseName)).filter(v=>v!=null)).size}
-function profilePlaybackUsesGlobalClock(){return profilePlaybackCaseCount()>1}
+function profilePlaybackUsesGlobalClock(){
+  // A single case can have unequal physical-time grids for two fields.
+  // Align through their measured common time interval.
+  return profilePlaybackCaseCount()>1||(profileSelectedVariables().length===2&&profilePlaybackGroups().length>1)
+}
 function profilePlaybackCommonRange(){return playbackCommonPhysicalRange(profilePlaybackGroups().map(g=>g.map(s=>Number(s.profileTime))))}
 function profilePlaybackFrameCount(){return Math.max(2,Math.min(2000,Math.round(Number($('profilePlaybackFrameCount')?.value)||100)))}
 function profileAvailableTimes(){
@@ -3403,6 +3424,7 @@ function profilePlaybackCacheContext(){
     activeContextRegion||'all',
     $('profileSet')?.value||'',
     $('profileVariable')?.value||'',
+    $('profileVariable2')?.value||'',
     $('profileLine')?.value||'',
     $('compareHeights')?.checked?'1':'0',
     groups.map(g=>g.map(s=>profilePlaybackGroupKey(s)+'@'+Number(s.profileTime)).join(',')).join(';')
@@ -3423,7 +3445,7 @@ function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext()
     if(!group.length)continue;const exact=profilePlaybackExactSeries(group,tPlay);
     if(exact){
       renderSeries.push(alignedProfileClone(exact,tPlay,{mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay}));
-      statuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
+      statuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',variable:localizedFieldName(exact.field),line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
     }
     if(mode==='interpolate'){
       const bracket=profilePlaybackBracketSeries(group,tPlay);
@@ -3432,13 +3454,13 @@ function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext()
         if(interp.ok){
           const near=Math.abs(Number(bracket.before.profileTime)-tPlay)<=Math.abs(Number(bracket.after.profileTime)-tPlay)?bracket.before:bracket.after;
           renderSeries.push({...alignedProfileClone(near,tPlay,{mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap}),t:interp.x,y:interp.y,fileName:`interpolated @ ${profileTimeDisplay(tPlay)} s`});
-          statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
+          statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',variable:localizedFieldName(near.field),line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
         }
       }
     }
     const near=profilePlaybackNearestSeries(group,tPlay);if(!near)continue;const used=Number(near.profileTime),fallback=mode==='interpolate';
     renderSeries.push(alignedProfileClone(near,tPlay,{mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback}));
-    statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
+    statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',variable:localizedFieldName(near.field),line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
   }
   return{renderSeries,statuses}
 }
@@ -3458,15 +3480,15 @@ function prefetchProfilePlaybackFrames(values,index,radius=2){
   }
 }
 function profilePlaybackStatusText(st){
-  const line=st.line?` · ${st.line}`:'';
-  if(st.mode==='native')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · Native · Δt: 0 s`;
-  if(st.mode==='interpolate')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Interpolado de':'Interpolated from'} ${profileTimeDisplay(st.t1)} / ${profileTimeDisplay(st.t2)} s${st.spatialRemap?` · ${diagEs()?'malla espacial alineada':'spatial grid aligned'}`:''}`;
+  const line=st.line?` · ${st.line}`:'',variable=st.variable?` · ${st.variable}`:'';
+  if(st.mode==='native')return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · Native · Δt: 0 s`;
+  if(st.mode==='interpolate')return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Interpolado de':'Interpolated from'} ${profileTimeDisplay(st.t1)} / ${profileTimeDisplay(st.t2)} s${st.spatialRemap?` · ${diagEs()?'malla espacial alineada':'spatial grid aligned'}`:''}`;
   const sign=st.dt>=0?'+':'';
-  return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · ${st.fallback?'Nearest (fallback)':'Nearest'} · Δt: ${sign}${profileTimeDisplay(st.dt)} s`
+  return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · ${st.fallback?'Nearest (fallback)':'Nearest'} · Δt: ${sign}${profileTimeDisplay(st.dt)} s`
 }
 function profilePlaybackScopeInfo(vals=null){
   if(!$('profilePlaybackNote'))return;vals=vals||profileAvailableTimes();const ncase=profilePlaybackCaseCount();
-  if(ncase<=1){$('profilePlaybackNote').textContent=diagEs()?`${vals.length} tiempos nativos disponibles para el caso actual.`:`${vals.length} native stored times available for the current case.`;return}
+  if(!profilePlaybackUsesGlobalClock()){$('profilePlaybackNote').textContent=diagEs()?`${vals.length} tiempos nativos disponibles para el caso actual.`:`${vals.length} native stored times available for the current case.`;return}
   const range=profilePlaybackCommonRange(),mode=$('profileAlignment')?.value==='interpolate'?'Interpolate':'Nearest';
   if(!range.valid){$('profilePlaybackNote').textContent=diagEs()?'No existe un intervalo de tiempo físico común entre los perfiles/casos visibles.':'No common physical-time interval exists across the visible profile groups.';return}
   const head=diagEs()?`Reloj físico común: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`:`Common physical-time clock: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`;
@@ -3485,7 +3507,7 @@ function syncProfileTimeNavigator(valsOverride=null){
   else{slider.min='0';slider.max='0';slider.value='0';slider.step='any'}
   slider.disabled=!range.valid||vals.length<2;input.value=Number.isFinite(current)?profileTimeDisplay(current):'';
   $('profilePrev').disabled=!range.valid;$('profileNext').disabled=!range.valid;$('profilePlay').disabled=!range.valid||vals.length<2;$('profilePause').disabled=!profileAnimationPlaying;
-  const lines=[...new Set(profileOptionsBase().filter(s=>(!$('profileSet').value||(s.profileOutputPath||'')===$('profileSet').value)&&(!$('profileVariable').value||s.field.canonical===$('profileVariable').value)).map(s=>s.profileLineKey))];
+  const lines=[...new Set(profilePlaybackSeries().map(s=>s.profileLineKey))];
   $('heightCountBadge').textContent=`${lines.length} ${lines.length===1?flUi('height','altura'):flUi('heights','alturas')}`;profilePlaybackScopeInfo(vals)
 }
 function applyProfileTimeValue(value,{renderListToo=true}={}){
@@ -3511,11 +3533,24 @@ function resetProfilePlaybackState(){
   if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true
 }
 function computeProfileLockedRanges(){
-  const set=$('profileSet').value,v=$('profileVariable').value,line=$('profileLine').value,compare=$('compareHeights').checked;
-  const ss=profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s));
-  if(!ss.length){animationLockedRanges=null;return}let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
-  for(const s of ss){for(const x of s.t){if(Number.isFinite(x)){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x)}}for(const yy of s.y){const y=displayValue(yy,s.field);if(Number.isFinite(y)){ymin=Math.min(ymin,y);ymax=Math.max(ymax,y)}}}
-  if(!Number.isFinite(ymin)){animationLockedRanges=null;return}if(ymin===ymax){const d=Math.abs(ymin||1)*.05;ymin-=d;ymax+=d}else{const p=(ymax-ymin)*.06;ymin-=p;ymax+=p}animationLockedRanges={xmin,xmax,ymin,ymax}
+  const set=$('profileSet').value,line=$('profileLine').value,compare=$('compareHeights').checked;
+  const selected=profileSelectedVariables();
+  const ss=profileOptionsBase().filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,...selected)&&(compare||!line||s.profileLineKey===line)&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s));
+  if(!ss.length){animationLockedRanges=null;return}
+  const axes=assignments(ss),ranges={left:[Infinity,-Infinity],right:[Infinity,-Infinity]};let xmin=Infinity,xmax=-Infinity;
+  for(const s of ss){
+    for(const x of s.t)if(Number.isFinite(x)){xmin=Math.min(xmin,x);xmax=Math.max(xmax,x)}
+    const range=ranges[axes.get(s.id)||'left'];
+    for(const yy of s.y){const y=displayValue(yy,s.field);if(Number.isFinite(y)){range[0]=Math.min(range[0],y);range[1]=Math.max(range[1],y)}}
+  }
+  const pad=r=>{
+    if(!Number.isFinite(r[0])||!Number.isFinite(r[1]))return null;
+    if(r[0]===r[1]){const d=Math.abs(r[0]||1)*.05;return[r[0]-d,r[1]+d]}
+    const d=(r[1]-r[0])*.06;return[r[0]-d,r[1]+d]
+  };
+  const left=pad(ranges.left),right=pad(ranges.right);
+  if(!left){animationLockedRanges=null;return}
+  animationLockedRanges={xmin,xmax,ymin:left[0],ymax:left[1],rymin:right?.[0],rymax:right?.[1]}
 }
 function playbackIntervalMs(){const speed=Math.max(.25,Number($('playbackSpeed')?.value)||1);return Math.max(50,Math.round(650/speed))}
 function stopProfileAnimation(){if(profileAnimationTimer){clearTimeout(profileAnimationTimer);profileAnimationTimer=null}profileAnimationPlaying=false;if($('profilePlay'))$('profilePlay').textContent=`▶ ${tr('play')}`;if($('profilePause'))$('profilePause').disabled=true}
@@ -7321,8 +7356,8 @@ function refreshDatasetControls(options={}){
   $('datasetSummary').textContent=`${times.length} + ${knownProfiles} + ${uniqueLogFiles().size} + ${catalogN}`;
   refreshTimeSeriesControls();
 
-  const sSel=$('profileSet'),vSel=$('profileVariable'),lSel=$('profileLine'),tSel=$('profileTime');
-  const ps=sSel.value,pv=vSel.value,pl=lSel.value,pt=tSel.value;
+  const sSel=$('profileSet'),vSel=$('profileVariable'),v2Sel=$('profileVariable2'),lSel=$('profileLine'),tSel=$('profileTime');
+  const ps=sSel.value,pv=vSel.value,pv2=v2Sel.value,pl=lSel.value,pt=tSel.value;
   const sets=[...new Map(profiles.map(s=>[s.profileOutputPath||'',s])).entries()].map(([path,sample])=>({path,sample})).sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));
   sSel.innerHTML=sets.map(o=>`<option value="${esc(o.path)}">${esc(profileSetDisplay(o.path,o.sample))}</option>`).join('');
   if(sets.some(o=>o.path===ps))sSel.value=ps;
@@ -7330,8 +7365,12 @@ function refreshDatasetControls(options={}){
   const vars=[...new Map(bySet.map(s=>[s.field.canonical,s.field])).values()].sort((a,b)=>profileVariablePriority(a.canonical)-profileVariablePriority(b.canonical)||a.display.localeCompare(b.display));
   vSel.innerHTML=vars.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
   if(vars.some(f=>f.canonical===pv))vSel.value=pv;
-
-  const byVar=bySet.filter(s=>!vSel.value||s.field.canonical===vSel.value);
+  const secondaryOptions=vars.filter(f=>f.canonical!==vSel.value);
+  v2Sel.innerHTML='<option value="">'+flUi('No second variable','Sin segunda variable')+'</option>'+
+    secondaryOptions.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
+  if(secondaryOptions.some(f=>f.canonical===pv2))v2Sel.value=pv2;else v2Sel.value='';
+  v2Sel.disabled=!vSel.value||!secondaryOptions.length;
+  const byVar=bySet.filter(s=>profileMatchesVariable(s.field?.canonical,vSel.value,v2Sel.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
   lSel.innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
   if(lines.some(l=>l.key===pl))lSel.value=pl;
@@ -7349,8 +7388,15 @@ function refreshDatasetControls(options={}){
   refreshLogSelectors();updateDatasetViewUI();refreshProfileTimes(tSel.value);refreshDifferenceControls();refreshCouplingDiagnostics();renderPhaseFront();renderDataCatalog();refreshWorkspaceReview()
 }
 function refreshProfileSelectorsFromVariable(){
-  const profiles=profileOptionsBase(),set=$('profileSet').value,v=$('profileVariable').value,oldLine=$('profileLine').value,oldTime=$('profileTime').value;
-  const byVar=profiles.filter(s=>(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v));
+  const profiles=profileOptionsBase(),set=$('profileSet').value,oldLine=$('profileLine').value,oldTime=$('profileTime').value;
+  const vSel=$('profileVariable'),secondary=$('profileVariable2'),oldSecond=secondary.value;
+  const vars=[...new Map(profiles.filter(s=>!set||(s.profileOutputPath||'')===set).map(s=>[s.field.canonical,s.field])).values()];
+  const secondaryOptions=vars.filter(f=>f.canonical!==vSel.value);
+  secondary.innerHTML='<option value="">'+flUi('No second variable','Sin segunda variable')+'</option>'+
+    secondaryOptions.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
+  if(secondaryOptions.some(f=>f.canonical===oldSecond))secondary.value=oldSecond;
+  secondary.disabled=!vSel.value||!secondaryOptions.length;
+  const byVar=profiles.filter(s=>(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,vSel.value,secondary.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
   $('profileLine').innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
   if(lines.some(l=>l.key===oldLine))$('profileLine').value=oldLine;
@@ -7410,9 +7456,12 @@ function xAxisLabelText(){
 function profileTitle(vis){
   const s=vis[0];if(!s)return tr('profileGeneric');
   const t=Number.isFinite(s.profileTime)?`${trimZeros(String(s.profileTime))} s`:'—';
+  const selected=profileSelectedVariables();
+  const shown=selected.map(k=>vis.find(q=>q.field?.canonical===k)?.field).filter(Boolean);
+  const fieldTitle=shown.length===2?shown.map(localizedFieldName).join(' + '):localizedFieldName(s.field);
   const vs='vs';
-  if($('compareHeights')?.checked)return `${localizedFieldName(s.field)} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${tr('compareHeights')} · t = ${t}`;
-  return `${localizedFieldName(s.field)} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${s.profileLine} · t = ${t}`
+  if($('compareHeights')?.checked)return `${fieldTitle} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${tr('compareHeights')} · t = ${t}`;
+  return `${fieldTitle} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${s.profileLine} · t = ${t}`
 }
 
 function updateMeta(){
@@ -7563,7 +7612,13 @@ function yPlot(s,v){return displayValue(v,s.field)}
 
 function assignments(vis){
   const out=new Map(),quantities=[];
+  const dual=currentDataView==='profile'&&profileSelectedVariables().length===2;
+  const primary=dual?vis.find(s=>s.field?.canonical===$('profileVariable')?.value)?.field:null;
+  const secondary=dual?vis.find(s=>s.field?.canonical===$('profileVariable2')?.value)?.field:null;
+  const axisPlan=primary&&secondary?profileAxisPlan(primary,secondary):null;
   for(const s of vis){
+    if(axisPlan&&s.field?.canonical===$('profileVariable')?.value){out.set(s.id,axisPlan.primary);continue}
+    if(axisPlan&&s.field?.canonical===$('profileVariable2')?.value){out.set(s.id,axisPlan.secondary);continue}
     if(s.axis==='Left'){out.set(s.id,'left');continue}
     if(s.axis==='Right'){out.set(s.id,'right');continue}
     const key=s.field.quantity+'|'+s.field.unit;
@@ -7762,6 +7817,9 @@ function buildState(W,H,panelField=null){
   if(currentDataView==='profile'&&animationLockedRanges){
     if(!$('xmin').value&&!$('xmax').value){xmin=animationLockedRanges.xmin;xmax=animationLockedRanges.xmax}
     if($('leftYMode').value!=='custom'){yl0=animationLockedRanges.ymin;yl1=animationLockedRanges.ymax}
+    if(right.length&&Number.isFinite(animationLockedRanges.rymin)&&Number.isFinite(animationLockedRanges.rymax)&&$('rightYMode').value!=='custom'){
+      yr0=animationLockedRanges.rymin;yr1=animationLockedRanges.rymax
+    }
   }
 
   const legendPos=effectiveLegendPosition(W);
@@ -8586,6 +8644,8 @@ function applyLanguage(){
   $('logFamilyLabel').textContent=L.logFamily;$('logMemberLabel').textContent=L.logMember;$('logCurrentFileLabel').textContent=L.logCurrentFile;
   $('profileSetLabel').textContent=L.profileSet;
   $('profileVariableLabel').textContent=L.profileVariable;
+  $('profileVariable2Label').textContent=flUi('Variable 2 (optional)','Variable 2 (opcional)');
+  $('profileDualHint').textContent=flUi('Both variables use the same selected cases, profile line and physical time. Different units use independent Y axes.','Ambas variables usan los mismos casos, línea de perfil y tiempo físico. Las unidades distintas usan ejes Y independientes.');
   $('profileTimeLabel').textContent=L.profileTime;
   $('profileLineLabel').textContent=L.profileLine;
   $('dataViewNote').textContent=$('language').value==='es'?'Las series temporales, perfiles espaciales y logs del solver permanecen en vistas de gráfica separadas; el Catálogo muestra los datos nativos y derivados sin graficarlos automáticamente.':'Time-series probes, spatial profiles and solver logs are kept in separate views so they are never mixed in the same figure.';
@@ -9486,7 +9546,8 @@ $('timeSeriesVariable2').addEventListener('change',()=>{stopAllPlayback();animat
 $('timeSeriesResetFilters').addEventListener('click',()=>{const v=$('timeSeriesVariable'),v2=$('timeSeriesVariable2'),p=$('timeSeriesProbe'),f=$('timeSeriesFamily');v.value='';v2.value='';p.value='';f.value='';v.dataset.autoinit='1';p.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesShowAllVars').addEventListener('click',()=>{const v=$('timeSeriesVariable');v.value='';$('timeSeriesVariable2').value='';v.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 
-$('profileVariable').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileVariable').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileVariable2').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 $('profileLine').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileTimes(old);activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 $('profileTime').addEventListener('change',()=>applyProfileTimeValue($('profileTime').value));
 
