@@ -57,7 +57,14 @@ test('foamLog reader checks cancellation per line',()=>{
 test('large temporal files have a cancellable native streaming parser',()=>{
   assert(program.includes('case "parseTemporalFile"'));
   assert(program.includes('HandleTemporalFileAsync(root, requestId)'));
-  assert(program.includes('ParseTemporalFileAsync(path, requestId, operation.Token)'));
+  assert(program.includes('NativeTemporalCache.GetOrParseAsync('),
+    'Native parser must invoke the source-verified scientific parse cache');
+  assert(program.includes('ct => ParseTemporalFileAsync(path, requestId, ct)'),
+    'Cache miss must preserve actual streaming parser and cancellation token');
+  assert(program.includes('cacheKind: "field"'),
+    'Completed OpenFOAM field results must use the separate field cache');
+  assert(program.includes('cacheEligible: result => result.Supported && result.Closed'),
+    'Incomplete or unsupported scientific fields must not be cached');
   assert(program.includes('private async Task<TemporalParseResult> ParseTemporalFileAsync'));
   assert(program.includes('await reader.ReadLineAsync(ct)'));
   assert(program.includes('type = "operationProgress", requestId, operation = "temporalFile"'));
