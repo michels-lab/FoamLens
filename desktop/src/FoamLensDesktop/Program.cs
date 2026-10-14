@@ -358,6 +358,10 @@ internal sealed class FoamLensForm : Form
                       const quick=names.map(name=>document.getElementById('flRaQuick'+name));
                       const distinctCameras=quick.every(Boolean)&&
                         new Set(quick.map(el=>el.querySelector('svg')?.innerHTML)).size===7;
+                      const cameraNamesReadable=innerWidth<=760||
+                        quick.every(el=>!!el&&el.getBoundingClientRect().width>=43&&
+                          getComputedStyle(el.querySelector('.flRibbonLabel')).display!=='none'&&
+                          el.querySelector('.flRibbonLabel').getBoundingClientRect().width>=15);
                       const internalBar=document.querySelector('#fieldSurface .fwWorkspaceBar');
                       const fieldNavHidden=!!internalBar&&getComputedStyle(internalBar).display==='none'&&
                         window.FoamLensFieldWorkspace?.getState?.().view==='3d';
@@ -383,12 +387,12 @@ internal sealed class FoamLensForm : Form
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette&&
-                        clockMatchesRealFrame&&distinctCameras&&fieldNavHidden&&
+                        clockMatchesRealFrame&&distinctCameras&&cameraNamesReadable&&fieldNavHidden&&
                         playNotCollapsed&&cachePopoverValid;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
-                        cameraDocked,distinctCameras,fieldNavHidden,playNotCollapsed,cachePopoverValid,
+                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,
                         toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,

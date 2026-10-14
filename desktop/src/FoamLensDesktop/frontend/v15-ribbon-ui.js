@@ -230,7 +230,7 @@ function flRibbonCss(){
     // visible down to tablet widths, then live in the Camera subbar.
     '@media(max-width:1460px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}#flRibbonPanel-field .flRibbonGroup{padding-right:4px}#flRibbonPanel-field .flRibbonActions{gap:1px}#flRibbonPanel-field .flRibbonTimeGroup{min-width:210px;flex:1 1 240px}#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 210px;gap:3px;grid-template-columns:auto auto auto minmax(42px,1fr) auto auto}#flFieldContextTabs .flFieldContextTab{padding:5px 7px}}',
     '@media(max-width:760px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none}#flRibbonPanel-field .flRibbonTimeGroup{min-width:300px;flex:0 0 auto}#flFieldContextTabs .flFieldContextTab{font-size:9px;padding:5px 5px}}',
-    '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{min-width:43px;width:auto;max-width:none;padding:5px 7px;gap:4px}',
+    '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{min-width:43px!important;width:auto!important;max-width:none!important;padding:5px 7px!important;gap:4px}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important;font-size:10px;max-width:none}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonIcon{width:14px;height:14px}',
     '#flRibbonPanel-field .flRibbonTimeGroup{min-width:310px;flex:0 0 auto}',

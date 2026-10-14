@@ -19,6 +19,7 @@ assert(field.includes("view='3d';fwState.view=view;"),'Legacy Field view state n
 assert(ux.includes("FoamLensFieldWorkspace?.setView?.('3d')"),'Imported legacy Field state is not constrained');
 assert(ribbon.includes('function flRibbonPlaceCachePopover()'));
 assert(ribbon.includes("const popup=advanced.querySelector('.flRibbonCachePopover')"));
+assert(ribbon.includes('width:auto!important;max-width:none!important'),'Compact camera labels will be squeezed to obsolete 29px icons');
 assert(ribbon.includes('position:fixed;z-index:950'),'Frame-cache UI can still grow the constrained Ribbon row');
 assert(ribbon.includes('flRibbonCachePopover .flRibbonCacheField select{width:100%'));
 assert(ribbon.includes('flRibbonBind(\'flRaAnalysisTimeResult\',()=>flRibbonOpenDataView(\'timeseries\'))'));
