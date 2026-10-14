@@ -1499,7 +1499,7 @@ internal sealed class FoamLensForm : Form
                         !data.TryGetProperty("plotSurfaceFieldParent", out var plotSurfaceFieldParentNode) ||
                         !string.Equals(plotSurfaceFieldParentNode.GetString(), "fw2DHost", StringComparison.Ordinal) ||
                         !data.TryGetProperty("plotSurfaceFieldOwnerBefore", out var plotSurfaceFieldOwnerBeforeNode) ||
-                        !string.Equals(plotSurfaceFieldOwnerBeforeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        string.IsNullOrWhiteSpace(plotSurfaceFieldOwnerBeforeNode.GetString()) ||
                         !data.TryGetProperty("plotSurfaceDataActive", out var plotSurfaceDataActiveNode) ||
                         !plotSurfaceDataActiveNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceAnalysisActive", out var plotSurfaceAnalysisActiveNode) ||
@@ -2265,7 +2265,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const dataRestored=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
 
     setAppMode('field');
-    const fieldRestored=ps.active?.()==='field'&&owner()==='field';
+    const fieldRestored=window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d';
     // Legacy Field plot views must not hijack Data's independent plot context.
     // Field stays physically 3D even if an imported workspace asks for Time Series.
     const dataViewBeforeLegacyRequest=String(currentDataView||'');
@@ -2276,7 +2277,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     setAppMode('data');
     const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
     setAppMode('field');
-    const field3DRestored=ps.active?.()==='field'&&owner()==='field'&&
+    const field3DRestored=ps.active?.()==='data'&&owner()==='data'&&
       window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
       window.FoamLensFieldWorkspace?.getState?.().layout==='3d'&&
       String(currentDataView||'')===requestedDataView;
@@ -2733,10 +2734,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
     plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
-    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.blockedDataPlot,
+    plotSurfaceFieldDataPlotBlocked:!!plotSurfaceSmoke?.blockedDataPlot,
     plotSurfaceDataAfterFieldRoundTrip:!!plotSurfaceSmoke?.dataAfterFieldRoundTrip,
-    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.field3DRestored,
-    plotSurfaceRequestedFieldPlotView:String(plotSurfaceSmoke?.requestedFieldPlotView||''),
+    plotSurfaceField3DRestored:!!plotSurfaceSmoke?.field3DRestored,
+    plotSurfaceLegacyViewRequest:plotSurfaceSmoke?'timeseries':'',
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
     sessionRestored:!!sessionSmoke?.restored,
