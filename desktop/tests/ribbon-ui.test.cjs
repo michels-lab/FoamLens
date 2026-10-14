@@ -31,7 +31,7 @@ assert(source.includes("flRibbonActionHtml('flRaDataTimeSeries'"),'Time Series m
 assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'))"),'Time Series must navigate to its real Data view.');
 assert(!source.includes("flRibbonBind('flRaDataTime',"),'Retired Time Series command must not reappear.');
 
-assert(source.includes("flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'))"),
+assert(source.includes("flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonOpenDataView('timeseries'))"),
   'Analysis has no explicit Time Series result handoff.');
 assert(source.includes("flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonOpenDataView('profile'))"),
   'Analysis has no explicit Spatial Profile result handoff.');
