@@ -412,7 +412,13 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException("Native Field UI JavaScript evaluation returned null in " + size.Name +
                         "; inspect WebView2 runtime JavaScript syntax/errors: " + fieldState);
                 if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
+                {
+                    // A failed renderer contract must leave real pixels for
+                    // debugging, not just an early process death in GPU capture.
+                    try { await CaptureCdpPngAsync(Path.Combine(root, $"field-failed-{size.Name}.png")); }
+                    catch (Exception captureError) { Log("Failed Field evidence screenshot: " + captureError.Message); }
                     throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
+                }
                 await Task.Delay(180);
                 await CaptureCdpPngAsync(Path.Combine(root, $"field-{size.Name}.png"));
 

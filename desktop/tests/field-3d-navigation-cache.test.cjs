@@ -1,6 +1,8 @@
 'use strict';
 const fs=require('fs'),path=require('path'),assert=require('assert');
 const frontend=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
+const native=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8');
+const gpu=fs.readFileSync(path.join(__dirname,'..','..','tools','capture_loaded_gpu_evidence.ps1'),'utf8');
 const ribbon=fs.readFileSync(path.join(frontend,'v15-ribbon-ui.js'),'utf8');
 const field=fs.readFileSync(path.join(frontend,'v14-zz-field-workspace.js'),'utf8');
 const ux=fs.readFileSync(path.join(frontend,'v17-workspace-ux.js'),'utf8');
@@ -33,3 +35,6 @@ assert(ribbon.includes('flRibbonCachePopover .flRibbonCacheField select{width:10
 assert(ribbon.includes('flRibbonBind(\'flRaAnalysisTimeResult\',()=>flRibbonOpenDataView(\'timeseries\'))'));
 assert(ribbon.includes('flRibbonBind(\'flRaAnalysisProfileResult\',()=>flRibbonOpenDataView(\'profile\'))'));
 console.log('Field-only 3D nav, seven unique camera shortcuts and anchored cache popover contracts passed.');
+
+assert(native.includes('field-failed-{size.Name}.png'),'Failed real Field smoke must preserve rendered UI screenshot evidence');
+assert(gpu.includes('Sanitized native Field smoke diagnostics'),'Premature Field exit must not be masked by GPU readiness-wait exception');

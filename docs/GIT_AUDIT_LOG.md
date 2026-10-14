@@ -4588,3 +4588,8 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - Previous Windows failure came from scientific section-ownership test fixture lacking activeAppMode/currentDataView. Updated Data + Time Series fixture and tested Field-mode no-side-effects, preserving staged atomic scientific history behavior.
 - A 3,008-curve fast import runner exceeded its existing 2,000 ms wall-clock threshold; the fast-import source was not modified by this UI branch. Retain benchmark bound and retest on exact reconciled head.
 - Reconciled approved Field UI fix onto main including integrated dual-variable Spatial Profiles #129 and its Windows tests. Exact installed/portable Windows OpenFOAM and screenshot validation required before merge. No release or version bump.
+
+### 2026-10-14 — Field packaged smoke failure: preserve render-level evidence, fail closed
+
+- PR #128 exact-head Windows run #38655966974 passed real QuickCup and source scientific suites but installed/portable smoke ended before GPU-loaded readiness marker. Initial evidence ZIP contained real Home/About launch pixels but omitted the native failure log, so failure origin could not be diagnosed reliably. Another exact-head run exceeded an existing CPU-congested synthetic import wall clock, which is independently tracked.
+- Added a real WebView2 Field screenshot on failed measured 3D/toolbar contract before throwing, and made the GPU readiness helper print a short redacted set of relevant native smoke exception lines when the host dies early. This is diagnostic only: all scientific/physical render failure gates still fail closed. New exact-head CI is required; do not report Field fixed or merged from this step.
