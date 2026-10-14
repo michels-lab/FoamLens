@@ -47,7 +47,7 @@ function fwMountContextSidebar(){
 function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
   const title=document.getElementById('fwTitle');if(title)title.textContent=fwUi('Field Workspace','Workspace de campos');
-  const sub=document.getElementById('fwSubtitle');if(sub)sub.textContent=fwUi('3D fields and 2D diagnostics in the same workspace','Campos 3D y diagnósticos 2D en el mismo workspace');
+  const sub=document.getElementById('fwSubtitle');if(sub)sub.textContent=fwUi('OpenFOAM 3D fields and camera views','Campos OpenFOAM 3D y vistas de cámara');
   const add=document.getElementById('fwAdd3DView');if(add)add.textContent=fwUi('+ Add 3D View','+ Añadir vista 3D');
   const cfg=document.getElementById('fwConfigureViews');if(cfg)cfg.textContent=fwUi('Configure 3D views','Configurar vistas 3D');
   const drawProfile=document.getElementById('fwDraw3DProfile');if(drawProfile)drawProfile.textContent=fwLineProfileState.enabled?fwUi('Pick A → B','Elige A → B'):fwUi('Draw profile','Dibujar perfil');
@@ -76,10 +76,6 @@ function fwCreateSurface(){
       <div class="fwWorkspaceBar">
         <div class="fwViewTabs" id="fwViewTabs" role="tablist" aria-label="Field workspace views">
           <button class="fwViewTab active" type="button" role="tab" aria-selected="true" data-fw-view="3d">3D</button>
-          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="profile">Spatial Profile</button>
-          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="timeseries">Time Series</button>
-          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="log">Solver Logs</button>
-          <button class="fwViewTab" type="button" role="tab" aria-selected="false" data-fw-view="split">Split</button>
         </div>
         <div class="fwSplitChooser hidden" id="fwSplitChooser"><label for="fwCompanion" data-fl-en="Second pane" data-fl-es="Segundo panel">Second pane</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option></select></div>
         <div class="fwTimeTransport" id="fwTimeTransport" aria-label="Physical time playback">
@@ -168,7 +164,8 @@ function fwSetInspector(open){
   drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
 }
 function fwActivateView(view){
-  view=['3d','profile','timeseries','log','split'].includes(view)?view:'3d';fwState.view=view;
+  // Field owns 3D geometry only. Imported legacy layouts cannot reopen Data plots here.
+  view='3d';fwState.view=view;
   if(view==='profile'){fwSetCompanion('profile');fwSetLayout('plot')}
   else if(view==='timeseries'){fwSetCompanion('timeseries');fwSetLayout('plot')}
   else if(view==='log'){fwSetCompanion('log');fwSetLayout('plot')}
@@ -719,8 +716,7 @@ function fwEnter(){
     if(typeof fcUpdateLayout==='function')fcUpdateLayout()
   }
   fwPromoteViewCaseSelectors();
-  const preferred=(fwState.companion==='profile'&&profileOptionsBase().length)?'profile':fwState.companion;fwSetCompanion(preferred);
-  fwActivateView(fwState.view||'3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
+  fwActivateView('3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;

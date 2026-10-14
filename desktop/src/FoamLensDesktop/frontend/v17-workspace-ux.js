@@ -91,7 +91,7 @@ async function uxApplyState(saved){
   try{
     const set=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.value=String(value);e.dispatchEvent(new Event('change',{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
-    set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d');if(saved.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!saved.inspector);
+    set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.('3d');if(saved.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!saved.inspector);
     check('fcLinkCameras',saved.camerasLinked);check('fcSyncVisuals',saved.visualsSynced);set('fcSync',saved.syncMode);check('fcDifference',saved.differenceEnabled);
     if(saved.compareEnabled){window.FoamLensFieldWorkspace?.requestCompare?.();check('fcEnabled',true)}else if(saved.compareEnabled===false)check('fcEnabled',false);
     const target=Math.max(2,Math.min(4,Number(saved.viewCount)||2));if(saved.compareEnabled&&typeof fcExtraAdd==='function'&&typeof fcExtraViews!=='undefined'){while(2+fcExtraViews.length<target)fcExtraAdd();while(2+fcExtraViews.length>target&&typeof fcExtraRemove==='function')fcExtraRemove(fcExtraViews.at(-1)?.id)}
