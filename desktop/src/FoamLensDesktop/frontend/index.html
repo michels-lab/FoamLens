@@ -1117,6 +1117,8 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
           <div class="field"><label id="profileVariableLabel">Variable</label><select id="profileVariable"></select></div>
           <div class="field"><label id="profileTimeLabel">Profile time</label><select id="profileTime"></select></div>
         </div>
+        <div class="field"><label id="profileVariable2Label" for="profileVariable2">Variable 2 (optional)</label><select id="profileVariable2" aria-label="Optional second spatial-profile variable"></select></div>
+        <div class="smallnote" id="profileDualHint">Both variables use the same selected cases, profile line and physical time. Different units use independent Y axes.</div>
         <div class="field"><label id="profileLineLabel">Profile line</label><select id="profileLine"></select></div>
         <div class="profileTimeline" id="profileTimeline">
           <div class="timelineRow">
@@ -2658,15 +2660,30 @@ function refreshTimeSeriesControls(){
   $('timeSeriesFilterHint').textContent=diagEs()?`Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varText} · ${probeText}.`:`Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${varText} · ${probeText}.`;
 }
 
+/* FOAMLENS_DUAL_PROFILE_CORE_START */
+function profileVariableSet(primary,secondary){
+  const a=String(primary||''),b=String(secondary||'');
+  return [...new Set([a,b].filter(Boolean))]
+}
+function profileMatchesVariable(canonical,primary,secondary){
+  const selected=profileVariableSet(primary,secondary);
+  return !selected.length||selected.includes(String(canonical||''))
+}
+function profileAxisPlan(a,b){
+  const same=!!a&&!!b&&a.quantity===b.quantity&&a.unit===b.unit;
+  return {primary:'left',secondary:same?'left':'right',separate:!same}
+}
+/* FOAMLENS_DUAL_PROFILE_CORE_END */
+function profileSelectedVariables(){return profileVariableSet($('profileVariable')?.value,$('profileVariable2')?.value)}
 function profileMatchesSelection(s){
   if(datasetTypeOf(s)!=='profile')return false;
   const set=$('profileSet')?.value||'';
-  const variable=$('profileVariable')?.value||'';
+  const variable=$('profileVariable')?.value||'',second=$('profileVariable2')?.value||'';
   const line=$('profileLine')?.value||'';
   const compareHeights=!!$('compareHeights')?.checked;
   if(set&&(s.profileOutputPath||'')!==set)return false;
   const time=$('profileTime')?.value||'';
-  if(variable&&s.field.canonical!==variable)return false;
+  if(!profileMatchesVariable(s.field?.canonical,variable,second))return false;
   if(line&&!compareHeights&&s.profileLineKey!==line)return false;
   if(time!==''&&!profileTimeEqual(s.profileTime,time))return false;
   return true
@@ -3364,8 +3381,8 @@ function ensureVelocityDerivedSeries(){
 }
 
 function profilePlaybackSeries(){
-  const profiles=profileOptionsBase(),set=$('profileSet')?.value||'',v=$('profileVariable')?.value||'',line=$('profileLine')?.value||'',compare=!!$('compareHeights')?.checked;
-  return profiles.filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v)&&(compare||!line||s.profileLineKey===line)&&Number.isFinite(Number(s.profileTime))&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s))
+  const profiles=profileOptionsBase(),set=$('profileSet')?.value||'',v=$('profileVariable')?.value||'',v2=$('profileVariable2')?.value||'',line=$('profileLine')?.value||'',compare=!!$('compareHeights')?.checked;
+  return profiles.filter(s=>s.derivedKind!=='difference'&&(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,v,v2)&&(compare||!line||s.profileLineKey===line)&&Number.isFinite(Number(s.profileTime))&&isCaseVisible(s.caseId)&&seriesFamilyVisible(s))
 }
 function profilePlaybackGroupKey(s){return[(s.caseId??s.caseName??'raw'),seriesRegion(s)||'',s.profileOutputPath||'',s.profileLineKey||'',s.field?.canonical||''].join('|')}
 function profilePlaybackGroups(){
@@ -3373,7 +3390,11 @@ function profilePlaybackGroups(){
   return[...map.values()].map(a=>a.slice().sort((x,y)=>Number(x.profileTime)-Number(y.profileTime)))
 }
 function profilePlaybackCaseCount(){return new Set(profilePlaybackSeries().map(s=>(s.caseId??s.caseName)).filter(v=>v!=null)).size}
-function profilePlaybackUsesGlobalClock(){return profilePlaybackCaseCount()>1}
+function profilePlaybackUsesGlobalClock(){
+  // A single case can have unequal physical-time grids for two fields.
+  // Align through their measured common time interval.
+  return profilePlaybackCaseCount()>1||(profileSelectedVariables().length===2&&profilePlaybackGroups().length>1)
+}
 function profilePlaybackCommonRange(){return playbackCommonPhysicalRange(profilePlaybackGroups().map(g=>g.map(s=>Number(s.profileTime))))}
 function profilePlaybackFrameCount(){return Math.max(2,Math.min(2000,Math.round(Number($('profilePlaybackFrameCount')?.value)||100)))}
 function profileAvailableTimes(){
@@ -3403,6 +3424,7 @@ function profilePlaybackCacheContext(){
     activeContextRegion||'all',
     $('profileSet')?.value||'',
     $('profileVariable')?.value||'',
+    $('profileVariable2')?.value||'',
     $('profileLine')?.value||'',
     $('compareHeights')?.checked?'1':'0',
     groups.map(g=>g.map(s=>profilePlaybackGroupKey(s)+'@'+Number(s.profileTime)).join(',')).join(';')
@@ -3485,7 +3507,7 @@ function syncProfileTimeNavigator(valsOverride=null){
   else{slider.min='0';slider.max='0';slider.value='0';slider.step='any'}
   slider.disabled=!range.valid||vals.length<2;input.value=Number.isFinite(current)?profileTimeDisplay(current):'';
   $('profilePrev').disabled=!range.valid;$('profileNext').disabled=!range.valid;$('profilePlay').disabled=!range.valid||vals.length<2;$('profilePause').disabled=!profileAnimationPlaying;
-  const lines=[...new Set(profileOptionsBase().filter(s=>(!$('profileSet').value||(s.profileOutputPath||'')===$('profileSet').value)&&(!$('profileVariable').value||s.field.canonical===$('profileVariable').value)).map(s=>s.profileLineKey))];
+  const lines=[...new Set(profileOptionsBase().filter(s=>(!$('profileSet').value||(s.profileOutputPath||'')===$('profileSet').value)&&profileMatchesVariable(s.field?.canonical,...profileSelectedVariables())).map(s=>s.profileLineKey))];
   $('heightCountBadge').textContent=`${lines.length} ${lines.length===1?flUi('height','altura'):flUi('heights','alturas')}`;profilePlaybackScopeInfo(vals)
 }
 function applyProfileTimeValue(value,{renderListToo=true}={}){
@@ -7290,8 +7312,8 @@ function refreshDatasetControls(options={}){
   $('datasetSummary').textContent=`${times.length} + ${knownProfiles} + ${uniqueLogFiles().size} + ${catalogN}`;
   refreshTimeSeriesControls();
 
-  const sSel=$('profileSet'),vSel=$('profileVariable'),lSel=$('profileLine'),tSel=$('profileTime');
-  const ps=sSel.value,pv=vSel.value,pl=lSel.value,pt=tSel.value;
+  const sSel=$('profileSet'),vSel=$('profileVariable'),v2Sel=$('profileVariable2'),lSel=$('profileLine'),tSel=$('profileTime');
+  const ps=sSel.value,pv=vSel.value,pv2=v2Sel.value,pl=lSel.value,pt=tSel.value;
   const sets=[...new Map(profiles.map(s=>[s.profileOutputPath||'',s])).entries()].map(([path,sample])=>({path,sample})).sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));
   sSel.innerHTML=sets.map(o=>`<option value="${esc(o.path)}">${esc(profileSetDisplay(o.path,o.sample))}</option>`).join('');
   if(sets.some(o=>o.path===ps))sSel.value=ps;
@@ -7299,8 +7321,12 @@ function refreshDatasetControls(options={}){
   const vars=[...new Map(bySet.map(s=>[s.field.canonical,s.field])).values()].sort((a,b)=>profileVariablePriority(a.canonical)-profileVariablePriority(b.canonical)||a.display.localeCompare(b.display));
   vSel.innerHTML=vars.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
   if(vars.some(f=>f.canonical===pv))vSel.value=pv;
-
-  const byVar=bySet.filter(s=>!vSel.value||s.field.canonical===vSel.value);
+  const secondaryOptions=vars.filter(f=>f.canonical!==vSel.value);
+  v2Sel.innerHTML='<option value="">'+flUi('No second variable','Sin segunda variable')+'</option>'+
+    secondaryOptions.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
+  if(secondaryOptions.some(f=>f.canonical===pv2))v2Sel.value=pv2;else v2Sel.value='';
+  v2Sel.disabled=!vSel.value||!secondaryOptions.length;
+  const byVar=bySet.filter(s=>profileMatchesVariable(s.field?.canonical,vSel.value,v2Sel.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
   lSel.innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
   if(lines.some(l=>l.key===pl))lSel.value=pl;
@@ -7318,8 +7344,15 @@ function refreshDatasetControls(options={}){
   refreshLogSelectors();updateDatasetViewUI();refreshProfileTimes(tSel.value);refreshDifferenceControls();refreshCouplingDiagnostics();renderPhaseFront();renderDataCatalog();refreshWorkspaceReview()
 }
 function refreshProfileSelectorsFromVariable(){
-  const profiles=profileOptionsBase(),set=$('profileSet').value,v=$('profileVariable').value,oldLine=$('profileLine').value,oldTime=$('profileTime').value;
-  const byVar=profiles.filter(s=>(!set||(s.profileOutputPath||'')===set)&&(!v||s.field.canonical===v));
+  const profiles=profileOptionsBase(),set=$('profileSet').value,oldLine=$('profileLine').value,oldTime=$('profileTime').value;
+  const vSel=$('profileVariable'),secondary=$('profileVariable2'),oldSecond=secondary.value;
+  const vars=[...new Map(profiles.filter(s=>!set||(s.profileOutputPath||'')===set).map(s=>[s.field.canonical,s.field])).values()];
+  const secondaryOptions=vars.filter(f=>f.canonical!==vSel.value);
+  secondary.innerHTML='<option value="">'+flUi('No second variable','Sin segunda variable')+'</option>'+
+    secondaryOptions.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
+  if(secondaryOptions.some(f=>f.canonical===oldSecond))secondary.value=oldSecond;
+  secondary.disabled=!vSel.value||!secondaryOptions.length;
+  const byVar=profiles.filter(s=>(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,vSel.value,secondary.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
   $('profileLine').innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
   if(lines.some(l=>l.key===oldLine))$('profileLine').value=oldLine;
@@ -8555,6 +8588,8 @@ function applyLanguage(){
   $('logFamilyLabel').textContent=L.logFamily;$('logMemberLabel').textContent=L.logMember;$('logCurrentFileLabel').textContent=L.logCurrentFile;
   $('profileSetLabel').textContent=L.profileSet;
   $('profileVariableLabel').textContent=L.profileVariable;
+  $('profileVariable2Label').textContent=flUi('Variable 2 (optional)','Variable 2 (opcional)');
+  $('profileDualHint').textContent=flUi('Both variables use the same selected cases, profile line and physical time. Different units use independent Y axes.','Ambas variables usan los mismos casos, línea de perfil y tiempo físico. Las unidades distintas usan ejes Y independientes.');
   $('profileTimeLabel').textContent=L.profileTime;
   $('profileLineLabel').textContent=L.profileLine;
   $('dataViewNote').textContent=$('language').value==='es'?'Las series temporales, perfiles espaciales y logs del solver permanecen en vistas de gráfica separadas; el Catálogo muestra los datos nativos y derivados sin graficarlos automáticamente.':'Time-series probes, spatial profiles and solver logs are kept in separate views so they are never mixed in the same figure.';
@@ -9455,7 +9490,8 @@ $('timeSeriesVariable2').addEventListener('change',()=>{stopAllPlayback();animat
 $('timeSeriesResetFilters').addEventListener('click',()=>{const v=$('timeSeriesVariable'),v2=$('timeSeriesVariable2'),p=$('timeSeriesProbe'),f=$('timeSeriesFamily');v.value='';v2.value='';p.value='';f.value='';v.dataset.autoinit='1';p.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 $('timeSeriesShowAllVars').addEventListener('click',()=>{const v=$('timeSeriesVariable');v.value='';$('timeSeriesVariable2').value='';v.dataset.autoinit='1';refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
 
-$('profileVariable').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileVariable').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
+$('profileVariable2').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshProfileSelectorsFromVariable();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 $('profileLine').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;const old=$('profileTime').value;refreshProfileTimes(old);activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 $('profileTime').addEventListener('change',()=>applyProfileTimeValue($('profileTime').value));
 
