@@ -179,4 +179,74 @@ internal static class NativeTemporalCache
             // Read-only / removable media never prevent parsing.
         }
     }
+
+    private sealed record CacheSelfTestPayload(double[] Values, string Provenance);
+
+    internal static async Task RunSelfTestAsync()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FoamLens-temporal-cache-test-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(directory, "cache");
+        var source = Path.Combine(directory, "case-probes.dat");
+        var previous = Environment.GetEnvironmentVariable("FOAMLENS_DISABLE_TEMPORAL_CACHE");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            Environment.SetEnvironmentVariable("FOAMLENS_DISABLE_TEMPORAL_CACHE", null);
+            var bytes = new byte[32_768];
+            bytes[1] = 3;
+            await File.WriteAllBytesAsync(source, bytes);
+            var parseCount = 0;
+
+            async Task<CacheSelfTestPayload> Parse(CancellationToken ct)
+            {
+                parseCount++;
+                var data = await File.ReadAllBytesAsync(source, ct);
+                return new CacheSelfTestPayload(new double[] { data[1], double.NaN, double.PositiveInfinity },
+                    "probe:physical-position");
+            }
+
+            var first = await GetOrParseAsync(source, Parse, CancellationToken.None, root, 0);
+            if (parseCount != 1 || first.Values[0] != 3)
+                throw new InvalidOperationException("Cold scientific cache parse failed.");
+            var second = await GetOrParseAsync(source, Parse, CancellationToken.None, root, 0);
+            if (parseCount != 1 || second.Values[0] != 3 ||
+                !double.IsNaN(second.Values[1]) || !double.IsPositiveInfinity(second.Values[2]))
+                throw new InvalidOperationException("Warm scientific cache was not reused exactly, including nonfinite values.");
+
+            // A solver may replace a file without changing its length or mtime.
+            // The cache MUST still invalidate via full source SHA-256.
+            var stamp = File.GetLastWriteTimeUtc(source);
+            bytes[1] = 7;
+            await File.WriteAllBytesAsync(source, bytes);
+            File.SetLastWriteTimeUtc(source, stamp);
+            var modified = await GetOrParseAsync(source, Parse, CancellationToken.None, root, 0);
+            if (parseCount != 2 || modified.Values[0] != 7)
+                throw new InvalidOperationException("Changed source reused stale scientific values.");
+
+            // Corrupt/torn cache data should fall back to a freshly parsed source.
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                Path.GetFullPath(source).ToUpperInvariant())));
+            var cachedPath = Path.Combine(root, key[..2], key + ".fltc");
+            await File.WriteAllBytesAsync(cachedPath, new byte[] { 0x42, 0x41, 0x44 });
+            var restored = await GetOrParseAsync(source, Parse, CancellationToken.None, root, 0);
+            if (parseCount != 3 || restored.Values[0] != 7)
+                throw new InvalidOperationException("Corrupt cache data was not discarded safely.");
+
+            using var cancel = new CancellationTokenSource();
+            cancel.Cancel();
+            try
+            {
+                await GetOrParseAsync(source, Parse, cancel.Token, root, 0);
+                throw new InvalidOperationException("Cache ignored cancellation.");
+            }
+            catch (OperationCanceledException) { }
+
+            Console.WriteLine("FoamLens native scientific temporal cache: cold, warm, same-size/mtime mutation, corrupt payload and cancellation PASS");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FOAMLENS_DISABLE_TEMPORAL_CACHE", previous);
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
 }
