@@ -21,6 +21,7 @@ internal static class Program
         if (args.Any(arg => string.Equals(arg, "--temporal-cache-self-test", StringComparison.OrdinalIgnoreCase)))
         {
             NativeTemporalCache.RunSelfTestAsync().GetAwaiter().GetResult();
+            FoamLensForm.RunTemporalRecordCacheSelfTestAsync().GetAwaiter().GetResult();
             return;
         }
         ApplicationConfiguration.Initialize();
@@ -4780,6 +4781,49 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     private sealed record NativeFileRef(string Token, string Name, string RelativePath, long Size, long LastModified);
     private sealed record TemporalColumn(double[] T, double[] Y);
     private sealed record TemporalParseResult(TemporalColumn[] Columns, Dictionary<int, string> Probes, string Head, long SourceBytes);
+    // Verify exact serialization of the production native parser's private record
+    // (not just a public test DTO), including IEEE special values and probe keys.
+    internal static async Task RunTemporalRecordCacheSelfTestAsync()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FoamLens-parser-cache-record-" + Guid.NewGuid().ToString("N"));
+        var source = Path.Combine(folder, "raw-probe-values");
+        var cache = Path.Combine(folder, "local-cache");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            await File.WriteAllBytesAsync(source, new byte[] { 10, 20, 30 });
+            var count = 0;
+            Task<TemporalParseResult> Parse(CancellationToken ct)
+            {
+                ct.ThrowIfCancellationRequested();
+                count++;
+                return Task.FromResult(new TemporalParseResult(
+                    new[] { new TemporalColumn(
+                        new[] { 0.0, 0.25, 0.50 },
+                        new[] { double.NaN, -7.25e-10, double.PositiveInfinity }) },
+                    new Dictionary<int, string> { [0] = "(0 0 0)", [7] = "(0.01 0 0)" },
+                    "# Probe 7 (0.01 0 0)", 3L));
+            }
+
+            var first = await NativeTemporalCache.GetOrParseAsync(source, Parse,
+                CancellationToken.None, cache, minSourceBytes: 0);
+            var second = await NativeTemporalCache.GetOrParseAsync(source, Parse,
+                CancellationToken.None, cache, minSourceBytes: 0);
+            if (count != 1 || first.Columns.Length != 1 || second.Columns.Length != 1 ||
+                second.Columns[0].T.Length != 3 || second.Columns[0].T[2] != 0.50 ||
+                !double.IsNaN(second.Columns[0].Y[0]) ||
+                second.Columns[0].Y[1] != -7.25e-10 ||
+                !double.IsPositiveInfinity(second.Columns[0].Y[2]) ||
+                second.Probes.Count != 2 || second.Probes[7] != "(0.01 0 0)" ||
+                second.Head != "# Probe 7 (0.01 0 0)" || second.SourceBytes != 3)
+                throw new InvalidOperationException("Actual native scientific temporal record did not round-trip exactly through the persistent cache.");
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
     private sealed record OpenFoamFieldParseResult(
         bool Supported, string Reason, string Format, string FieldClass, string Object, string Dimensions, string Kind,
         bool Uniform, double? UniformScalar, double[]? UniformVector, double[]? ScalarValues, double[][]? VectorValues,
