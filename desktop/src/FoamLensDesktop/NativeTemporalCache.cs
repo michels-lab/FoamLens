@@ -16,8 +16,9 @@ internal static class NativeTemporalCache
     private const string Magic = "FoamLens-Temporal-Cache-v1";
     private const long MinSourceBytes = 256 * 1024;
     private const long MaxSourceBytes = 64L * 1024 * 1024;
-    private const int MaxPayloadBytes = 256 * 1024 * 1024;
+    private const int MaxPayloadBytes = 32 * 1024 * 1024;
     private const long MaxCacheBytes = 1024L * 1024 * 1024;
+    private static int _cacheWrites;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
@@ -62,7 +63,7 @@ internal static class NativeTemporalCache
             }
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or NotSupportedException or FormatException)
         {
             Trace.WriteLine("[FoamLens temporal cache] invalid cache discarded");
         }
@@ -153,7 +154,10 @@ internal static class NativeTemporalCache
         {
             await File.WriteAllBytesAsync(staging, memory.ToArray(), ct);
             File.Move(staging, cachePath, overwrite: true);
-            TrimCacheBestEffort(Path.GetDirectoryName(folder)!);
+            // A full cache-folder scan per scientific file causes O(N²) I/O.
+            // Reclaim space only periodically after successful atomic writes.
+            if ((Interlocked.Increment(ref _cacheWrites) & 127) == 0)
+                TrimCacheBestEffort(Path.GetDirectoryName(folder)!);
         }
         finally
         {
