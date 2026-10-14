@@ -71,3 +71,8 @@ for(const needle of [
 ])assert(source.includes(needle),'Missing integrated dual-variable profile feature: '+needle);
 assert(!source.includes('const byVar=bySet.filter(s=>!vSel.value||s.field.canonical===vSel.value)'), 'Profile line/times still constrained to first variable');
 console.log('Dual-variable profiles: same real cases/line/time, unit axes, and playback wiring PASS');
+
+assert(source.includes("variable:localizedFieldName(exact.field)")&&source.includes("variable:localizedFieldName(near.field)"),
+  'Both variables must be distinguishable in synchronized playback diagnostics');
+assert(source.includes("shown.map(localizedFieldName).join(' + ')"),'Dual-variable figure title must name both measured fields');
+assert(source.includes("if(!profilePlaybackUsesGlobalClock())"),'Single-case two-field playback must report a common time clock');

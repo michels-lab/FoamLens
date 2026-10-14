@@ -3445,7 +3445,7 @@ function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext()
     if(!group.length)continue;const exact=profilePlaybackExactSeries(group,tPlay);
     if(exact){
       renderSeries.push(alignedProfileClone(exact,tPlay,{mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay}));
-      statuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
+      statuses.push({caseId:exact.caseId,caseName:caseById(exact.caseId)?.name||exact.caseName||'Case',variable:localizedFieldName(exact.field),line:exact.profileLine||'',mode:'native',requested:tPlay,used:Number(exact.profileTime),dt:Number(exact.profileTime)-tPlay});continue
     }
     if(mode==='interpolate'){
       const bracket=profilePlaybackBracketSeries(group,tPlay);
@@ -3454,13 +3454,13 @@ function computeProfilePlaybackFrame(tPlay,context=profilePlaybackCacheContext()
         if(interp.ok){
           const near=Math.abs(Number(bracket.before.profileTime)-tPlay)<=Math.abs(Number(bracket.after.profileTime)-tPlay)?bracket.before:bracket.after;
           renderSeries.push({...alignedProfileClone(near,tPlay,{mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap}),t:interp.x,y:interp.y,fileName:`interpolated @ ${profileTimeDisplay(tPlay)} s`});
-          statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
+          statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',variable:localizedFieldName(near.field),line:near.profileLine||'',mode:'interpolate',requested:tPlay,t1:interp.t1,t2:interp.t2,spatialRemap:interp.spatialRemap});continue
         }
       }
     }
     const near=profilePlaybackNearestSeries(group,tPlay);if(!near)continue;const used=Number(near.profileTime),fallback=mode==='interpolate';
     renderSeries.push(alignedProfileClone(near,tPlay,{mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback}));
-    statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
+    statuses.push({caseId:near.caseId,caseName:caseById(near.caseId)?.name||near.caseName||'Case',variable:localizedFieldName(near.field),line:near.profileLine||'',mode:'nearest',requested:tPlay,used,dt:used-tPlay,fallback})
   }
   return{renderSeries,statuses}
 }
@@ -3480,15 +3480,15 @@ function prefetchProfilePlaybackFrames(values,index,radius=2){
   }
 }
 function profilePlaybackStatusText(st){
-  const line=st.line?` · ${st.line}`:'';
-  if(st.mode==='native')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · Native · Δt: 0 s`;
-  if(st.mode==='interpolate')return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Interpolado de':'Interpolated from'} ${profileTimeDisplay(st.t1)} / ${profileTimeDisplay(st.t2)} s${st.spatialRemap?` · ${diagEs()?'malla espacial alineada':'spatial grid aligned'}`:''}`;
+  const line=st.line?` · ${st.line}`:'',variable=st.variable?` · ${st.variable}`:'';
+  if(st.mode==='native')return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · Native · Δt: 0 s`;
+  if(st.mode==='interpolate')return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Interpolado de':'Interpolated from'} ${profileTimeDisplay(st.t1)} / ${profileTimeDisplay(st.t2)} s${st.spatialRemap?` · ${diagEs()?'malla espacial alineada':'spatial grid aligned'}`:''}`;
   const sign=st.dt>=0?'+':'';
-  return`${st.caseName}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · ${st.fallback?'Nearest (fallback)':'Nearest'} · Δt: ${sign}${profileTimeDisplay(st.dt)} s`
+  return`${st.caseName}${variable}${line} — ${diagEs()?'Solicitado':'Requested'}: ${profileTimeDisplay(st.requested)} s · ${diagEs()?'Usado':'Used'}: ${profileTimeDisplay(st.used)} s · ${st.fallback?'Nearest (fallback)':'Nearest'} · Δt: ${sign}${profileTimeDisplay(st.dt)} s`
 }
 function profilePlaybackScopeInfo(vals=null){
   if(!$('profilePlaybackNote'))return;vals=vals||profileAvailableTimes();const ncase=profilePlaybackCaseCount();
-  if(ncase<=1){$('profilePlaybackNote').textContent=diagEs()?`${vals.length} tiempos nativos disponibles para el caso actual.`:`${vals.length} native stored times available for the current case.`;return}
+  if(!profilePlaybackUsesGlobalClock()){$('profilePlaybackNote').textContent=diagEs()?`${vals.length} tiempos nativos disponibles para el caso actual.`:`${vals.length} native stored times available for the current case.`;return}
   const range=profilePlaybackCommonRange(),mode=$('profileAlignment')?.value==='interpolate'?'Interpolate':'Nearest';
   if(!range.valid){$('profilePlaybackNote').textContent=diagEs()?'No existe un intervalo de tiempo físico común entre los perfiles/casos visibles.':'No common physical-time interval exists across the visible profile groups.';return}
   const head=diagEs()?`Reloj físico común: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`:`Common physical-time clock: ${profileTimeDisplay(range.start)}–${profileTimeDisplay(range.end)} s · ${vals.length} frames · ${mode}`;
@@ -7425,9 +7425,12 @@ function xAxisLabelText(){
 function profileTitle(vis){
   const s=vis[0];if(!s)return tr('profileGeneric');
   const t=Number.isFinite(s.profileTime)?`${trimZeros(String(s.profileTime))} s`:'—';
+  const selected=profileSelectedVariables();
+  const shown=selected.map(k=>vis.find(q=>q.field?.canonical===k)?.field).filter(Boolean);
+  const fieldTitle=shown.length===2?shown.map(localizedFieldName).join(' + '):localizedFieldName(s.field);
   const vs='vs';
-  if($('compareHeights')?.checked)return `${localizedFieldName(s.field)} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${tr('compareHeights')} · t = ${t}`;
-  return `${localizedFieldName(s.field)} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${s.profileLine} · t = ${t}`
+  if($('compareHeights')?.checked)return `${fieldTitle} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${tr('compareHeights')} · t = ${t}`;
+  return `${fieldTitle} ${vs} ${(s.profileAxis||'x').toUpperCase()} · ${s.profileLine} · t = ${t}`
 }
 
 function updateMeta(){
