@@ -6192,7 +6192,7 @@ let currentFindings=[];
 let activeContextCaseId=null;
 let activeContextRegion='';
 /* FOAMLENS_DATA_LOADED_CASE_COMPARISON_START */
-const dataCompareState={active:false,mode:'profile',selected:new Set(),touched:false,importConfigured:false};
+const dataCompareState={active:false,mode:'profile',selected:new Set(),touched:false,importConfigured:false,previousCaseId:null,previousRegion:''};
 function dataCompareCaseAllowed(seriesCaseId,view){
   if(!dataCompareState.active||!['profile','timeseries'].includes(view))return true;
   return dataCompareState.selected.has(Number(seriesCaseId))
@@ -6253,6 +6253,7 @@ function dataCompareApply(view){
   const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
   if(ready.length<2)return;
   stopAllPlayback();
+  if(!dataCompareState.active){dataCompareState.previousCaseId=activeContextCaseId;dataCompareState.previousRegion=activeContextRegion}
   dataCompareState.active=true;dataCompareState.mode=view;
   activeContextCaseId=null;activeContextRegion='';
   if($('globalCaseSelect'))$('globalCaseSelect').value='';
@@ -6271,6 +6272,10 @@ function dataCompareApply(view){
 }
 function dataCompareReset(){
   stopAllPlayback();dataCompareState.active=false;
+  activeContextCaseId=dataCompareState.previousCaseId;
+  activeContextRegion=dataCompareState.previousRegion;
+  dataCompareState.previousCaseId=null;dataCompareState.previousRegion='';
+  refreshGlobalContext();
   resetProfilePlaybackState();clearProfilePlaybackFrameCache();
   refreshDatasetControls();renderList();updateMeta();draw()
 }
@@ -7530,7 +7535,7 @@ function refreshProfileSelectorsFromVariable(){
   secondary.disabled=!vSel.value||!secondaryOptions.length;
   const byVar=profiles.filter(s=>(!set||(s.profileOutputPath||'')===set)&&profileMatchesVariable(s.field?.canonical,vSel.value,secondary.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
-  $('profileLine').innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
+  $('profileLine').innerHTML=(dataCompareState.active&&currentDataView==='profile'?'<option value="">'+flUi('All matching profile lines','Todas las líneas de perfiles')+'</option>':'')+lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
   if(lines.some(l=>l.key===oldLine))$('profileLine').value=oldLine;
   refreshProfileTimes(oldTime)
 }
