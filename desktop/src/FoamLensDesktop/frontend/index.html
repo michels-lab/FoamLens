@@ -6193,7 +6193,7 @@ let currentFindings=[];
 let activeContextCaseId=null;
 let activeContextRegion='';
 /* FOAMLENS_DATA_LOADED_CASE_COMPARISON_START */
-const dataCompareState={active:false,mode:'profile',selected:new Set(),touched:false,importConfigured:false,previousCaseId:null,previousRegion:''};
+const dataCompareState={active:false,mode:'profile',selected:new Set(),touched:false,importConfigured:false,previousCaseId:null,previousRegion:'',previousView:null};
 function dataCompareCaseAllowed(seriesCaseId,view){
   if(!dataCompareState.active||!['profile','timeseries'].includes(view))return true;
   return dataCompareState.selected.has(Number(seriesCaseId))
@@ -6257,12 +6257,16 @@ function dataCompareApply(view){
   const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
   if(ready.length<2)return;
   stopAllPlayback();
-  if(!dataCompareState.active){dataCompareState.previousCaseId=activeContextCaseId;dataCompareState.previousRegion=activeContextRegion}
+  if(!dataCompareState.active){
+    dataCompareState.previousCaseId=activeContextCaseId;
+    dataCompareState.previousRegion=activeContextRegion;
+    dataCompareState.previousView=currentDataView
+  }
   dataCompareState.active=true;dataCompareState.mode=view;
   activeContextCaseId=null;activeContextRegion='';
   if($('globalCaseSelect'))$('globalCaseSelect').value='';
   refreshGlobalContext();
-  currentDataView=view;
+  if(currentDataView!==view){saveCurrentXRange();currentDataView=view;restoreXRange()}
   resetProfilePlaybackState();clearProfilePlaybackFrameCache();
   if(view==='profile'){
     // All output sets/lines remain selectable; a case-specific source folder
@@ -6278,8 +6282,10 @@ function dataCompareReset(){
   stopAllPlayback();dataCompareState.active=false;
   activeContextCaseId=dataCompareState.previousCaseId;
   activeContextRegion=dataCompareState.previousRegion;
-  dataCompareState.previousCaseId=null;dataCompareState.previousRegion='';
+  const previousView=dataCompareState.previousView;
+  dataCompareState.previousCaseId=null;dataCompareState.previousRegion='';dataCompareState.previousView=null;
   refreshGlobalContext();
+  if(previousView&&previousView!==currentDataView){saveCurrentXRange();currentDataView=previousView;restoreXRange()}
   resetProfilePlaybackState();clearProfilePlaybackFrameCache();
   refreshDatasetControls();renderList();updateMeta();draw()
 }
