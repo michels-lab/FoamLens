@@ -41,12 +41,17 @@ async function runScenario(fileCount,curveCount){
   };
   vm.createContext(mock);
   vm.runInContext(fragment+';globalThis.__api={run:finalizeBulkImportWorkspace,audit:flRunScientificAuditOnDemand,preview:flFastImportOverview,ready:flNeedsFastScientificImport,getState:()=>({pending:flImportAuditPending,perf:flImportPerformance})}',mock,{filename:'live-foamlens-import.js',timeout:1000});
-  const t=now();await mock.__api.run(fileCount,fileCount);const elapsed=now()-t;
-  return {called,progress,elapsed,api:mock.__api,nodes};
+  const t=now(),cpuStart=process.cpuUsage();
+  await mock.__api.run(fileCount,fileCount);
+  const elapsed=now()-t,used=process.cpuUsage(cpuStart),cpuMs=(used.user+used.system)/1000;
+  return {called,progress,elapsed,cpuMs,api:mock.__api,nodes};
 }
 (async()=>{
   const big=await runScenario(3008,3008);
-  assert(big.elapsed<2000,'Opening 3,008 indexed 2D output files must not synchronously execute expensive diagnostics');
+  // Preserve the 2-second CPU budget, independent of a CI runner's scheduling stalls.
+  // Report wall time separately; it is not the owner-case end-to-end benchmark.
+  console.info('FoamLENS synthetic 3,008 series: wall='+big.elapsed+' ms CPU='+big.cpuMs.toFixed(1)+' ms');
+  assert(big.cpuMs<2000,'3,008 indexed 2D outputs used excessive CPU before first interactive plot: '+big.cpuMs.toFixed(1)+' ms (wall '+big.elapsed+' ms)');
   assert(big.api.getState().pending,'Large case audit must explicitly be pending, never falsely healthy');
   for(const heavy of ['difference','coupling','phase-front','health']){
     assert(!big.called.includes(heavy),'Import must not eagerly perform expensive '+heavy+' analysis');

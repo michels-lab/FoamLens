@@ -7,7 +7,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Published version
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.8.3** for Windows (new scientific cache release candidate; frontend v51). Publication requires exact Windows OpenFOAM, portable and installed validation, followed by an independent audit of publicly downloadable checksums. The currently published [v1.8.2 downloads](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.2) remain available; this candidate is not yet a public v1.8.3 binary.
+- **FoamLens Desktop v1.8.3** for Windows ([official Setup and Portable downloads](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.3)) (public Setup and Portable downloads; frontend v51). The native scientific cache release passed real QuickCup/VTK, Windows portable/installed, UI/installer gates and post-publication SHA-256 verification. [v1.8.2](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.2) remains archived. Owner-device large-case speedup has not been measured.
 
 ## Features
 
@@ -17,7 +17,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 - **Data Catalog** view for explicit inspection of what FoamLens detected: case, region, data kind, scalar/vector/tensor class, dimensions, physical-time range, sample count, provenance, and source path. Catalog discovery never auto-plots every variable.
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
 - **3D Field View** for OpenFOAM cell-, internal-face-, and point-associated scalar/vector fields with ASCII/native-binary `polyMesh`, physical-time playback, moving/dynamic meshes, cell- and point-field slices/iso-surfaces, association-aware 3D probes, vector glyphs and streamlines. `surface*Field` explicit numeric patch values are mapped to their exact boundary faces; patches without explicit numeric values remain neutral and are never fabricated.
-- **Field Workspace** promotes 3D analysis to a top-level mode and supports simultaneous 3D + Spatial Profile / Time Series / Solver Logs, with visible multi-case controls.
+- **Field Workspace** promotes 3D analysis to a top-level mode with visible multi-case controls. Spatial Profiles, Time Series and Solver Logs remain available in the Data workspace; internal companion tabs are being retired in a separately tested UI update.
 - **Synchronized multi-view 3D analysis** for up to four viewports. Each view can use its own case, region, field and component while sharing physical time and camera orientation. Compatible quantities can use shared color ranges and strict signed difference fields for topologically/geometrically equivalent meshes.
 - **3D animation/video export** composites the visible synchronized views into one video after preloading frames and fixing an independent global color range for each viewport.
 - Optional **dual-variable Time-Series Focus** with independent left/right Y axes for combinations such as temperature + liquid fraction.
