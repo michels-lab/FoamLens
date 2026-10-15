@@ -1,0 +1,36 @@
+name: Field physical-scale scientific contract
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-field-view.js'
+      - 'desktop/tests/physical-3d-scale.test.cjs'
+      - 'desktop/tests/field-view.test.cjs'
+      - '.github/workflows/field-physical-scale-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-field-view.js'
+      - 'desktop/tests/physical-3d-scale.test.cjs'
+      - 'desktop/tests/field-view.test.cjs'
+      - '.github/workflows/field-physical-scale-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physical-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source OpenFOAM mesh scale and metric interactions
+        run: node desktop/tests/physical-3d-scale.test.cjs
+      - name: Run production Field View scientific regression suite
+        run: node desktop/tests/field-view.test.cjs
+      - name: Validate large-coordinate physical-region midpoint
+        run: node desktop/tests/field-region-camera-midpoint.test.cjs
