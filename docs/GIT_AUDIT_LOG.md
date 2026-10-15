@@ -4669,3 +4669,10 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Added a local Node.js report comparison utility and executable regression tests for two FoamLens Ready-screen `foamlens-scientific-import-performance-v1` exports. Rejects version/mode/file/series/case/source-volume and file-kind mismatches, preserves missing audit timings as null and never fabricates speedups from absent or zero elapsed times.
 - Output contains only bounded scientific import stage timing statistics and explicitly warns that privacy-safe reports cannot verify exact input identity or physical values. No private names, paths, mesh values or field arrays are exported.
 - Added `docs/OWNER_IMPORT_TIMINGS.md` with correct same-dataset first/repeated methodology. This comparison is a reproducibility aid, **not** a measured improvement of the owner's original 184.8 s / 3,008-file case. Full cold/warm owner benchmark, peak memory and exact Windows binary validation remain #117/#131 gates.
+
+
+### 2026-10-15 — Desktop v1.8.4 release candidate and scientific acceptance gate
+
+- Grouped merged changes #132, #133, #134 and #135 with Field workspace UX fixes, two-variable synchronized profiles, native structural inventory and profile time-index performance. Candidate aligns C# AssemblyVersion/FileVersion, Inno installer, frontend version, root and Desktop README and Changelog at 1.8.4 without altering Web frontend v51.
+- Publication must be triggered only by exact `release:` commit on `main` following candidate QuickCup/VTK, native cache, profile-time, real installed/portable and rendered UI checks. The same main commit must pass publication integrity and SHA-256 redownload checks. Do not claim v1.8.4 is publicly downloadable until GitHub Release verification.
+- Owner real 3,008-file cold/warm timing remains an explicit open performance requirement; no invented speedup or fabricated physical values.

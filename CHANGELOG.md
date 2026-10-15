@@ -1,5 +1,15 @@
 # Changelog
 
+## Desktop v1.8.4 — 2026-10-15
+
+- **Field workspace polish:** repair native cache-menu geometry and camera controls with seven distinct, legible orientation presets, compact Ribbon layout, preserved physical-time readout and correct Data/Field ownership. Spatial Profiles, Time Series and Solver Logs remain in Data; 3D field visualization remains in Field. Preserve the selected Data view across session restoration.
+- **Two-variable spatial profiles:** independently named physical quantities (for example, temperature and liquid fraction) can share case/line/time selections, compare on separate Y axes and synchronize playback with no fabricated samples.
+- **Responsive scientific imports:** native folder enumeration makes detected files available before the optional structural-cache checkpoint writes to disk. Structural inventory classifies physical-time folders including decomposed `processorN` cases, with checksum-protected local metadata. OpenFOAM data still come from authoritative files and separately verified scientific caches.
+- **Large-time-grid profile controls:** indexed selection for 3,008+ physical-time profiles replaces repeated linear matching while preserving scientific tolerance and the original first-match display label. No interpolation or raw measurement values are modified.
+- **Reproducible performance evidence:** privacy-safe import timing exports can be compared locally with `tools/compare-import-performance.cjs`; incompatible datasets or missing audit measurements are not silently treated as validated speedups.
+- **Scientific regression gates:** require QuickCup/VTK, native cache integrity, numerical dual-variable/profile playback, 3,008-series import checks, Windows portable and installed-app smokes, camera/cache geometry, visual screenshots and cryptographic artifact validation before publishing.
+- **Important limitation:** the earlier owner screenshot showed 3,008 files taking 184.8 seconds in an older version. This release does **not** claim an owner-device cold/warm speedup until that same real case is retested. All calculations retain measured physical units and provenance.
+
 ## Desktop v1.8.3 — 2026-10-13
 
 - **Native scientific disk cache:** persist supported parsed OpenFOAM temporal columns/probes and completed ASCII scalar/vector/tensor fields, including native field metadata and boundary patches. Reimporting unchanged results can reuse the decoded scientific arrays rather than repeating the parser.

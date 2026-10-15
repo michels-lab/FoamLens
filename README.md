@@ -4,10 +4,11 @@ Scientific analysis and post-processing workspace for OpenFOAM simulation data, 
 
 FoamLens is designed for thesis and research workflows where simulation data need to be discovered, compared, inspected, styled, animated, and exported without building a separate plotting script for every case.
 
-## Published version
+## Release information
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.8.3** for Windows ([official Setup and Portable downloads](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.3)) (public Setup and Portable downloads; frontend v51). The native scientific cache release passed real QuickCup/VTK, Windows portable/installed, UI/installer gates and post-publication SHA-256 verification. [v1.8.2](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.2) remains archived. Owner-device large-case speedup has not been measured.
+- **FoamLens Desktop v1.8.4** — Windows source and release candidate. [Official latest release and Setup/Portable downloads](https://github.com/michels-lab/FoamLens/releases/latest). A release becomes downloadable only after automated Windows validation and the GitHub publication gate pass.
+- The previous verified [v1.8.3 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.3) remains available. Improvements to 3,008-file cold/warm import time on the owner's machine are not yet measured.
 
 ## Features
 
