@@ -636,7 +636,7 @@ function fvRegionLegendMarkup(layer,choice){
   const prefix=fvEsc((layer.field||'')+' · t='+fvFmt(sourceTime)+' s · '+fvAssociationLabel(layer.storage));
   const lo=fvEsc(fvFmtRange(range.min,range)),hi=fvEsc(fvFmtRange(range.max,range)),suffix=unit?' '+fvEsc(unit):'';
   if(range.min===range.max){
-    const rgb=fvColorMap(range.min,0,1,palette).map(v=>Math.round(255*v));
+    const rgb=fvColorMap(range.min,range.min,range.max,palette).map(v=>Math.round(255*v));
     return '<div class="fvRegionLegendLabel">'+prefix+'</div>'+
       '<div class="fvUniformRange"><span class="fvUniformSwatch" style="background:rgb('+rgb.join(',')+')"></span>'+
       flUi('Uniform field','Campo uniforme')+': <b>'+lo+suffix+'</b></div>'
@@ -1525,7 +1525,7 @@ function fvMetricScale(span){
   return a>0&&a<1e-3?{factor:1e6,unit:'µm'}:a>0&&a<.1?{factor:1000,unit:'mm'}:{factor:1,unit:'m'}
 }
 function fvMetricLabel(value,scale){
-  const n=value*scale.factor;return Number.isFinite(n)?Number(n.toPrecision(5)).toLocaleString('en-US',{maximumFractionDigits:6}):'—'
+  const n=value*scale.factor;return Number.isFinite(n)?Number(n.toPrecision(15)).toLocaleString('en-US',{maximumFractionDigits:10}):'—'
 }
 function fvMeshVertexNearestAt(meshes,x,y,mvp,width,height,radius=18){
   let best=null,bestD=radius*radius;
@@ -1883,7 +1883,7 @@ function fvSetStats(mesh,range,parsed){
 }
 function fvLegend(range,parsed){
   const e=document.getElementById('fvLegend');if(!e)return;const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',palette=document.getElementById('fvPalette')?.value||'viridis',uniform=fvRangeUniform(range),mode=fvCurrentRangeMode(),title=fvEsc(parsed?.object||fvState.fieldName||'Field');
-  if(uniform){const rgb=fvColorMap(range?.min,0,1,palette).map(v=>Math.round(v*255));e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvUniformRange"><span class="fvUniformSwatch" style="background:rgb(${rgb.join(',')})"></span><b>${flUi('Uniform field','Campo uniforme')}: ${fvFmtRange(range?.min,range)}</b></div><div class="fvLegendMode">${fvEsc(mode)}</div>`;return}
+  if(uniform){const rgb=fvColorMap(range?.min,range?.min,range?.max,palette).map(v=>Math.round(v*255));e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvUniformRange"><span class="fvUniformSwatch" style="background:rgb(${rgb.join(',')})"></span><b>${flUi('Uniform field','Campo uniforme')}: ${fvFmtRange(range?.min,range)}</b></div><div class="fvLegendMode">${fvEsc(mode)}</div>`;return}
   e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvLegendBar" style="background:${fvEsc(fvLegendGradient(palette))}"></div><div class="fvLegendTicks"><span>${fvFmtRange(range?.min,range)}</span><span>${fvFmtRange((range?.min+range?.max)/2,range)}</span><span>${fvFmtRange(range?.max,range)}</span></div><div class="fvLegendMode">${fvEsc(mode)} · Δ ${fvFmtRange(Number(range?.max)-Number(range?.min),{min:0,max:Math.abs(Number(range?.max)-Number(range?.min))})}</div>`
 }
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
