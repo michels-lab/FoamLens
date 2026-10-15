@@ -1063,7 +1063,7 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
   <div class="brand flSidebarBrandLegacy"><div class="logo"><img id="sidebarOfficialLogo" class="officialBrandAsset sidebarOfficialMark" src="assets/branding/official-mark.svg" alt="" aria-hidden="true"></div><div><div class="byline">by Michel Duarte</div><small>OpenFOAM analysis workspace</small><span class="desktopVersionBadge" data-desktop-version>Desktop v—</span></div></div>
 
   <div class="card">
-    <div class="cardhead"><strong>Load data</strong><span class="badge" id="countBadge">0 series</span></div>
+    <div class="cardhead"><strong id="dataLoadCardTitle">Load data</strong><span class="badge" id="countBadge">0 series</span></div>
     <section class="dataCompareExisting hidden" id="dataCompareExisting" aria-label="Compare previously loaded cases">
       <div class="dataCompareHeading"><strong id="dataCompareTitle">Compare loaded cases</strong><span class="badge" id="dataCompareCount">0 cases</span></div>
       <p class="smallnote" id="dataCompareHelp">Choose two or more imported cases. No need to add files again.</p>
@@ -2540,6 +2540,7 @@ function applyGlobalContext(){
   renderList();updateMeta();if(currentDataView!=='catalog')draw();refreshWorkspaceReview()
 }
 function isCaseVisible(caseId){
+  if(dataCompareState.active&&['profile','timeseries'].includes(currentDataView)&&dataCompareState.selected.has(Number(caseId)))return true;
   if(caseId==null)return true;
   const c=caseById(caseId);
   return !c||c.visible!==false
@@ -6220,7 +6221,8 @@ function dataCompareRefresh(){
     importer.open=!relevant;dataCompareState.importConfigured=true
   }
   $('dataImportMoreTitle').textContent=relevant?flUi('Import additional data','Importar más datos'):flUi('Import OpenFOAM data','Importar datos OpenFOAM');
-  if(!relevant)return;
+  if(!relevant){$('dataLoadCardTitle').textContent=flUi('Load data','Cargar datos');return}
+  $('dataLoadCardTitle').textContent=flUi('Loaded cases','Casos cargados');
   $('dataCompareTitle').textContent=flUi('Compare loaded cases','Comparar casos cargados');
   $('dataCompareHelp').textContent=flUi('Select previously imported cases. No need to import them again. Only real available curves can be compared.','Selecciona casos ya importados. No necesitas volverlos a importar. Solo se comparan curvas realmente disponibles.');
   $('dataCompareSelectAll').textContent=flUi('Select all','Seleccionar todos');
@@ -6228,6 +6230,7 @@ function dataCompareRefresh(){
   $('dataCompareReset').textContent=flUi('Single case','Un solo caso');
   $('dataCompareProfiles').textContent=flUi('Compare profiles','Comparar perfiles');
   $('dataCompareTimeSeries').textContent=flUi('Compare time series','Comparar series temporales');
+  const scrollBefore=list.scrollTop;
   list.innerHTML=candidates.map(c=>{
     const counts=dataCompareCounts(c.id);
     return '<label class="dataCompareCase"><input type="checkbox" data-compare-case="'+c.id+'" '+(dataCompareState.selected.has(c.id)?'checked':'')+'>'+
@@ -6236,6 +6239,7 @@ function dataCompareRefresh(){
       ' · '+counts.times+' '+flUi('time series','series temporales')+
       ' · '+counts.logs+' '+flUi('logs','registros')+'</span></span></label>'
   }).join('');
+  list.scrollTop=scrollBefore;
   const selected=candidates.filter(c=>dataCompareState.selected.has(c.id));
   $('dataCompareCount').textContent=selected.length+' / '+candidates.length+' '+flUi('cases','casos');
   const profiles=selected.filter(c=>{const d=dataCompareCounts(c.id);return d.profiles+d.indexed>0}).length,
