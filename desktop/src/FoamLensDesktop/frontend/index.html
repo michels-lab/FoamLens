@@ -6199,22 +6199,42 @@ function dataCompareCaseAllowed(seriesCaseId,view){
   return dataCompareState.selected.has(Number(seriesCaseId))
 }
 function dataCompareAvailableCases(){
-  return cases.filter(c=>series.some(s=>s.caseId===c.id)||pendingLazyProfileCount(c.id)>0);
+  // Include every already imported OpenFOAM case, even if it contains only
+  // native mesh/volume fields and has no parsed postProcessing profiles yet.
+  return cases.slice()
 }
-function dataCompareCounts(caseId){
+function dataCompareCountIndex(){
+  const index=new Map();
+  for(const s of series){
+    const id=Number(s.caseId);if(!Number.isFinite(id))continue;
+    let rec=index.get(id);
+    if(!rec){rec={profiles:0,times:0,logs:0};index.set(id,rec)}
+    const kind=datasetTypeOf(s);
+    if(kind==='profile'&&s.derivedKind!=='difference')rec.profiles++;
+    else if(kind==='timeseries')rec.times++;
+    else if(kind==='log')rec.logs++
+  }
+  return index
+}
+function dataCompareCounts(caseId,index=null){
+  const counted=(index||dataCompareCountIndex()).get(Number(caseId));
   return{
-    profiles:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference').length,
+    profiles:counted?.profiles||0,
     indexed:pendingLazyProfileCount(caseId),
-    times:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='timeseries').length,
-    logs:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='log').length
+    times:counted?.times||0,
+    logs:counted?.logs||0
   }
 }
 function dataCompareRefresh(){
   const root=$('dataCompareExisting'),list=$('dataCompareCaseList'),importer=$('dataImportMore');
   if(!root||!list||!importer)return;
-  const candidates=dataCompareAvailableCases(),availableIds=new Set(candidates.map(c=>c.id));
+  const candidates=dataCompareAvailableCases(),availableIds=new Set(candidates.map(c=>c.id)),
+    countsIndex=dataCompareCountIndex();
   for(const id of dataCompareState.selected)if(!availableIds.has(id))dataCompareState.selected.delete(id);
-  if(!dataCompareState.touched)for(const c of candidates)if(c.visible!==false)dataCompareState.selected.add(c.id);
+  if(!dataCompareState.touched)for(const c of candidates){
+    const d=dataCompareCounts(c.id,countsIndex);
+    if(c.visible!==false&&d.profiles+d.indexed+d.times+d.logs>0)dataCompareState.selected.add(c.id)
+  }
   const relevant=['profile','timeseries'].includes(currentDataView)&&candidates.length>0;
   root.classList.toggle('hidden',!relevant);
   if(!dataCompareState.importConfigured||(!relevant&&!importer.open)){
@@ -6232,7 +6252,7 @@ function dataCompareRefresh(){
   $('dataCompareTimeSeries').textContent=flUi('Compare time series','Comparar series temporales');
   const scrollBefore=list.scrollTop;
   list.innerHTML=candidates.map(c=>{
-    const counts=dataCompareCounts(c.id);
+    const counts=dataCompareCounts(c.id,countsIndex);
     return '<label class="dataCompareCase"><input type="checkbox" data-compare-case="'+c.id+'" '+(dataCompareState.selected.has(c.id)?'checked':'')+'>'+
       '<span class="dataCompareCaseInfo"><b>'+esc(c.name)+'</b><span>'+
       counts.profiles+' '+flUi('profiles','perfiles')+(counts.indexed?' + '+counts.indexed+' '+flUi('indexed','indexados'):'')+
@@ -6242,8 +6262,8 @@ function dataCompareRefresh(){
   list.scrollTop=scrollBefore;
   const selected=candidates.filter(c=>dataCompareState.selected.has(c.id));
   $('dataCompareCount').textContent=selected.length+' / '+candidates.length+' '+flUi('cases','casos');
-  const profiles=selected.filter(c=>{const d=dataCompareCounts(c.id);return d.profiles+d.indexed>0}).length,
-    times=selected.filter(c=>dataCompareCounts(c.id).times>0).length;
+  const profiles=selected.filter(c=>{const d=dataCompareCounts(c.id,countsIndex);return d.profiles+d.indexed>0}).length,
+    times=selected.filter(c=>dataCompareCounts(c.id,countsIndex).times>0).length;
   $('dataCompareProfiles').disabled=profiles<2;
   $('dataCompareTimeSeries').disabled=times<2;
   $('dataCompareReset').disabled=!dataCompareState.active;
@@ -6253,8 +6273,9 @@ function dataCompareRefresh(){
 }
 function dataCompareApply(view){
   if(!['profile','timeseries'].includes(view))return;
-  const candidates=dataCompareAvailableCases().filter(c=>dataCompareState.selected.has(c.id));
-  const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
+  const candidates=dataCompareAvailableCases().filter(c=>dataCompareState.selected.has(c.id)),
+    countsIndex=dataCompareCountIndex();
+  const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id,countsIndex);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
   if(ready.length<2)return;
   stopAllPlayback();
   if(!dataCompareState.active){
