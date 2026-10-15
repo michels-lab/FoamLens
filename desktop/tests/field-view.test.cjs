@@ -862,6 +862,12 @@ test('Field selector remount prefers the loaded renderer field and component',()
 const regionBegin=source.indexOf('const fvRegionScene='),regionEnd=source.indexOf('function fvEsc(s)',regionBegin);
 assert(regionBegin>0&&regionEnd>regionBegin,'Physical-region scene code missing.');
 const regionCode=source.slice(regionBegin,regionEnd);
+const scaleStart=source.indexOf('/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_START */');
+const scaleEnd=source.indexOf('/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_END */',scaleStart);
+assert(scaleStart>=0&&scaleEnd>scaleStart,'Physical 3D scale production kernels missing');
+const physicalScaleCore=source.slice(scaleStart,scaleEnd);
+const cameraFitStub='const fvCameraBasis=()=>({right:[1,0,0],up:[0,1,0],z:[0,0,1]});\n'+physicalScaleCore+'\n';
+const physicalFit=new Function(cameraFitStub+';return fvFitDistance')();
 const regionApi=new Function(
   'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
   regionCode+';return {fvRegionNames,fvRegionExactTime,fvRegionUnionBounds,fvRegionBeginVideoRangeScan,fvRegionObserveRange,fvRegionMeasuredRange,fvRegionEndVideoRangeScan,fvRegionSetVideoRanges,fvRegionRangeKey,fvRegionScene,fvSurfaceDepthWritable};'
@@ -1182,10 +1188,10 @@ test('camera fit excludes hidden primary and secondary regions without inventing
     'const none=fvRegionFitCamera();',
     'return {fit,target,distance,none};'
   ].join('\n');
-  const observed=new Function(setup+regionCode+exercise)();
+  const observed=new Function(setup+cameraFitStub+regionCode+exercise)();
   assert.equal(observed.fit,true,'A visible non-primary region must define the camera');
   assert.deepStrictEqual(observed.target,[3,1,1],'Hidden primary geometry must not affect framing');
-  assert(Math.abs(observed.distance-Math.sqrt(12)*1.65)<1e-12);
+  near(observed.distance,physicalFit(regionApi.fvRegionUnionBounds([{boundsMin:[2,0,0],boundsMax:[4,2,2]}]),{projection:'orthographic'},null));
   assert.equal(observed.none,false,'Nothing visible means there is no camera bound to fit');
   assert(source.includes("if(c&&!fvRegionChoice(c,primary).visible)return;"),
     'Single-region fallback must not refit a hidden primary mesh');
@@ -1217,14 +1223,14 @@ test('real union-bounds camera fit rejects unrepresentable distance without pois
     'return {mixedSign,multiplierOverflow,cameraAfterMixedSign,cameraAfterMultiplier,',
     'valid,target:fvState.camera.target,distance:fvState.camera.distance,renders};'
   ].join('\n');
-  const result=new Function(setup+regionCode+exercise)();
+  const result=new Function(setup+cameraFitStub+regionCode+exercise)();
   assert.equal(result.mixedSign,false,'Unrepresentable mixed-sign physical bounds must not fit');
   assert.equal(result.multiplierOverflow,false,'Finite diagonal with overflowing distance multiplier must not fit');
   assert.deepStrictEqual(result.cameraAfterMixedSign,{target:[2,3,4],distance:5});
   assert.deepStrictEqual(result.cameraAfterMultiplier,{target:[2,3,4],distance:5});
   assert.equal(result.valid,true,'A normal measured region still fits correctly');
   assert.deepStrictEqual(result.target,[1,1,1]);
-  near(result.distance,Math.sqrt(12)*1.65);
+  near(result.distance,physicalFit(regionApi.fvRegionUnionBounds([{boundsMin:[0,0,0],boundsMax:[2,2,2]}]),{projection:'orthographic'},null));
   assert.equal(result.renders,1,'Invalid physical fits must not trigger extra renderer frames');
 });
 
@@ -1242,7 +1248,7 @@ test('single-region camera fallback preserves valid view when physical bounds or
     'const fvRender=()=>{renders++};',
     'const fvState={mesh:null,camera:{target:[4,5,6],distance:8}};'
   ].join('\n');
-  const run=new Function(setup+regionCode+code+`
+  const run=new Function(setup+cameraFitStub+regionCode+code+`
     fvRegionFitCamera=()=>false; // Force the real single-region fallback; regionCode declares this function.
     fvState.mesh={boundsMin:[-1e308,0,0],boundsMax:[1e308,0,0]};
     fvCameraFitCurrent();
@@ -1257,7 +1263,7 @@ test('single-region camera fallback preserves valid view when physical bounds or
   assert.deepStrictEqual(run.mixed,{target:[4,5,6],distance:8});
   assert.deepStrictEqual(run.scaled,{target:[4,5,6],distance:8});
   assert.deepStrictEqual(run.final.target,[1,1,1]);
-  near(run.final.distance,Math.sqrt(12)*1.65);
+  near(run.final.distance,physicalFit(regionApi.fvRegionUnionBounds([{boundsMin:[0,0,0],boundsMax:[2,2,2]}]),{projection:'orthographic'},null));
   assert.equal(run.renders,1,'Invalid region bounds must not trigger extra frames');
 });
 
@@ -1831,7 +1837,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'const fvSurfaceDepthWritable=(opacity,opts={})=>Number.isFinite(Number(opacity))&&Number(opacity)>=.99&&!opts.interior&&!opts.faceField;',
     'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);',
     'const fvDrawWeightedOit=()=>false;const fvDrawGlobalTransparentTriangles=()=>false;',
-    'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};',
+    'const fvRegionRenderLayers=(pass,drawPrimary)=>{draws.push({pos:"region-pass-"+pass,depth});if(drawPrimary)drawPrimary()};const fvUpdateAxisGizmo=()=>{};const fvPhysicalOverlayRender=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     implementation,
     'fvRender();return {draws,depth};'
@@ -1902,7 +1908,7 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
     'fvRegionApplyVisibility(c);',
     'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
   ].join('\n');
-  const observed=new Function(setup+regionCode+exercise)();
+  const observed=new Function(setup+cameraFitStub+regionCode+exercise)();
   assert.equal(observed.remaining,0,'Hidden secondary geometry must not remain in memory');
   assert.deepStrictEqual(observed.deletions,[1,2,3,4],'Every hidden layer GL buffer must be released');
   assert.deepStrictEqual(observed.camera,[.5,.5,.5],'Hidden physical geometry must not affect camera fitting');
@@ -2280,7 +2286,7 @@ test('actual Field renderer composites opaque physical regions before transparen
     'const fvRegionScene={layers:new Map([["mold",{gl,mesh:moldMesh,surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
     'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
     'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
-    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
+    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};const fvPhysicalOverlayRender=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     regionCode.slice(regionBegin,regionEnd),
     source.slice(renderBegin,renderEnd),

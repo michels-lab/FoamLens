@@ -1096,7 +1096,11 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const required=[
                     'fvCanvas','fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera','fvResetCamera',
-                    'fvAxisGizmo','fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
+                    'fvAxisGizmo','fvProjectionOrtho','fvProjectionPerspective',
+                    'fvShowDimensions','fvPhysicalAxes','fvMeshDimensions',
+                    'fvMeasureTool','fvMeasureClear','fvMeasureInfo',
+                    'fvRegionScaleDock','fvSecondaryScaleLegends',
+                    'fvRangeMode','fvCacheLimit','fcEnabled','fcAddView',
                     'fvAnimationPanel','fvVideoExport','fvVideoResolution','fvVideoFormat',
                     'fcSwapCases','fcDifferenceMode','fcPrimaryTimeBadge','fcCompareTimeBadge',
                     'meDialog','ppPanel','uxViewNamesPanel','uxComparisonStatus','uxSplitterA','hrHelpOverlay'

@@ -1,5 +1,15 @@
 # Changelog
 
+## Desktop v1.8.5 — 2026-10-15
+
+- **True Scale 3D by default:** orthographic Field View retains X/Y/Z *proportions* from original OpenFOAM `polyMesh` source coordinates; Perspective is an explicit alternative. No hidden axis/thickness stretching, invented geometry or modified scientific values.
+- **Fit Model from physical corner geometry:** camera fits all eight corners of visible region mesh bounds in its current orientation, accounting for actual viewport aspect and nominal 14% margin; invalid/unrepresentable coordinates do not corrupt the view.
+- **Graduated XYZ rulers:** optional mesh bounding box and physical minimum/maximum/extents with SI m/mm/µm readouts, refreshed when the camera, view presets or source data change.
+- **Real vertex measurement:** click two exterior `polyMesh` vertices for a Euclidean source-distance result, independently of projection, with clear/reset controls; no guessed/interpolated hit coordinates.
+- **Independent measured region legends:** primary and every visible secondary region have separate field, time, physical units, minimum/maximum and colormap. Uniform values render a constant swatch instead of a false gradient; geometry-only data are never represented as measured fields.
+- **Validation gates:** require production physical-coordinate regressions, real QuickCup/VTK, installed + Portable Windows visual/native smoke, and post-publication SHA-256 verification before public distribution.
+- **Benchmark caveat:** no claim of improved owner-device cold/warm runtime for the original 3,008-file 2D case without re-measurement.
+
 ## Desktop v1.8.4 — 2026-10-15
 
 - **Field workspace polish:** repair native cache-menu geometry and camera controls with seven distinct, legible orientation presets, compact Ribbon layout, preserved physical-time readout and correct Data/Field ownership. Spatial Profiles, Time Series and Solver Logs remain in Data; 3D field visualization remains in Field. Preserve the selected Data view across session restoration.

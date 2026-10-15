@@ -523,6 +523,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-view.test.cjs
 
+      - name: Verify physical 3D scale, mesh dimensions and metric measurement
+        shell: pwsh
+        run: node desktop/tests/physical-3d-scale.test.cjs
+
       - name: Test Windows WebView2 GPU counter evidence attribution
         shell: pwsh
         run: ./tools/test_gpu_process_memory.ps1
