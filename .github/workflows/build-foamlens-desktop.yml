@@ -357,6 +357,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/profile-playback.test.cjs
 
+      - name: Compare already-loaded Data cases without reimport or fabricated profiles
+        shell: pwsh
+        run: node desktop/tests/data-loaded-case-comparison.test.cjs
+
       - name: Dual Spatial Profiles variable comparison
         run: node desktop/tests/dual-profiles.test.cjs
 

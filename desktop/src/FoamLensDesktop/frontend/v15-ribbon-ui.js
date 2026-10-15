@@ -359,6 +359,15 @@ function flRibbonOpenData2DCompare(){
     if(defaultView&&!defaultView.disabled)defaultView.click()
   }
   requestAnimationFrame(()=>{
+    // Profiles/Time Series already have an in-context multi-case chooser.
+    // Link "Compare curves" to that visible selector rather than a distant
+    // case manager at the bottom of the imported-data sidebar.
+    const loaded=document.getElementById('dataCompareExisting');
+    if(loaded&&!loaded.classList.contains('hidden')&&
+      loaded.querySelectorAll('[data-compare-case]').length>1){
+      loaded.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+      return
+    }
     const card=document.getElementById('flDataComparisonCard');
     if(!card)return;
     window.FoamLensSidebarSections?.sbSetCollapsed?.(card,false);
