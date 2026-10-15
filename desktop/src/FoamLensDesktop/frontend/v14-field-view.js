@@ -1682,6 +1682,117 @@ function fvUpdateSlice(range=null){
   const meta=document.getElementById('fvSliceMeta');if(meta)meta.textContent=`${axis.toUpperCase()} = ${fvFmt(geom.coordinate)} · ${geom.triangleCount.toLocaleString()} ${flUi('triangles','triángulos')} · ${pointAssoc?flUi('point-field reconstruction','reconstrucción de campo de puntos'):flUi('cell-centred reconstruction','reconstrucción desde centros de celda')}`;
   fvRender()
 }
+
+function fvPhysicalSceneMeshes(){
+  const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'',meshes=[];
+  if(fvState.mesh&&(!c||fvRegionChoice(c,primary).visible))meshes.push(fvState.mesh);
+  for(const [region,layer] of fvRegionScene.layers)
+    if(fvRegionScene.choices.get(region)?.visible&&layer?.mesh)meshes.push(layer.mesh);
+  return meshes
+}
+const fvPhysicalMeasure={active:false,points:[]};
+function fvPhysicalOverlayRender(canvas){
+  const root=document.getElementById('fvPhysicalAxes'),metrics=document.getElementById('fvMeshDimensions'),
+    note=document.getElementById('fvMeasureInfo'),dock=document.getElementById('fvSecondaryScaleLegends'),
+    title=document.getElementById('fvPrimaryScaleName');
+  if(!root)return;
+  const bounds=fvRegionUnionBounds(fvPhysicalSceneMeshes()),w=canvas.width,h=canvas.height,
+    mvp=fvMvp(canvas),axes=!!document.getElementById('fvShowDimensions')?.checked;
+  root.setAttribute('viewBox','0 0 '+w+' '+h);
+  const primary=document.getElementById('fvRegion')?.value||'';
+  if(title)title.textContent=(primary||flUi('Default region','Región predeterminada'))+' · '+flUi('Primary','Principal');
+  if(dock){
+    dock.innerHTML=[...fvRegionScene.layers].filter(([region,layer])=>
+      fvRegionScene.choices.get(region)?.visible&&layer).map(([region,layer])=>
+      '<div class="fvSecondaryScale"><strong>'+fvEsc(region||flUi('Default region','Región predeterminada'))+'</strong>'+
+      fvRegionLegendMarkup(layer,fvRegionScene.choices.get(region))+'</div>').join('')
+  }
+  if(!bounds){
+    root.replaceChildren();if(metrics)metrics.textContent=flUi('No valid mesh dimensions','Sin dimensiones de malla válidas');
+    if(note)note.textContent=fvPhysicalMeasure.active?flUi('Select a loaded mesh to measure','Selecciona una malla cargada para medir'):'';
+    return
+  }
+  const span=bounds.max.map((x,i)=>x-bounds.min[i]);
+  if(metrics){
+    metrics.hidden=!axes;
+    const lines=['X','Y','Z'].map((label,i)=>{
+      const u=fvMetricScale(span[i]);
+      return label+': '+fvMetricLabel(bounds.min[i],u)+' → '+fvMetricLabel(bounds.max[i],u)+
+        ' '+u.unit+' (Δ'+fvMetricLabel(span[i],u)+' '+u.unit+')'
+    });
+    metrics.textContent=lines.join('  |  ')+'  ·  '+(fvState.camera.projection==='perspective'?
+      flUi('Perspective · lengths from source mesh','Perspectiva · cotas de la malla original'):
+      flUi('Orthographic · true aspect ratio','Ortográfica · proporciones reales'))
+  }
+  let markup='';
+  const project=p=>fvProjectWorld(p,mvp,w,h);
+  const line=(a,b,stroke,alpha=.75,width=1)=>{
+    if(!a||!b)return '';
+    return '<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+
+      '" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+
+      '" stroke="'+stroke+'" stroke-opacity="'+alpha+'" stroke-width="'+width+'"/>'
+  };
+  if(axes){
+    const edgePairs=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]],
+      corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),
+      screen=corners.map(project);
+    for(const [a,b] of edgePairs)markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
+    for(let axis=0;axis<3;axis++){
+      const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]),
+        end=bounds.min.map((v,i)=>axis===i?bounds.max[i]:v);
+      markup+=line(project(bounds.min),project(end),color,1,2);
+      if(!(span[axis]>0))continue;
+      for(let j=0;j<=4;j++){
+        const world=bounds.min.map((v,i)=>i===axis?v+span[i]*j/4:v),p=project(world);
+        if(!p)continue;
+        const t=fvMetricLabel(world[axis],u)+(j===4?' '+u.unit:'');
+        markup+='<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+
+          '" r="2.7" fill="'+color+'"/><text x="'+(p.x+6).toFixed(2)+
+          '" y="'+(p.y-7).toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="2.5" paint-order="stroke" font-size="11">'+
+          fvEsc((j===4?['X','Y','Z'][axis]+' ':'')+t)+'</text>'
+      }
+    }
+  }
+  if(fvPhysicalMeasure.points.length){
+    const a=project(fvPhysicalMeasure.points[0]),b=fvPhysicalMeasure.points[1]?project(fvPhysicalMeasure.points[1]):null;
+    markup+=line(a,b,'#ffd166',1,2.4);
+    for(const p of [a,b].filter(Boolean))markup+='<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+
+      '" r="5.5" stroke="#ffd166" fill="#071420" stroke-width="2"/>';
+  }
+  root.innerHTML=markup;
+  if(note){
+    note.hidden=!fvPhysicalMeasure.active&&!fvPhysicalMeasure.points.length;
+    if(fvPhysicalMeasure.points.length===2){
+      const d=fvPhysicalDistance(...fvPhysicalMeasure.points),u=fvMetricScale(d);
+      note.textContent=flUi('Vertex-to-vertex distance','Distancia entre vértices')+': '+
+        fvMetricLabel(d,u)+' '+u.unit+' · '+flUi('Source mesh','Malla original')
+    }else if(fvPhysicalMeasure.active){
+      note.textContent=fvPhysicalMeasure.points.length?flUi('Select second mesh vertex','Selecciona el segundo vértice'):
+        flUi('Click a visible mesh vertex, then a second one','Selecciona dos vértices visibles de la malla')
+    }else note.textContent=''
+  }
+}
+function fvMeasurePick(e,canvas){
+  const rect=canvas.getBoundingClientRect(),w=canvas.width,h=canvas.height;
+  if(!(rect.width>0&&rect.height>0))return;
+  const hit=fvMeshVertexNearestAt(fvPhysicalSceneMeshes(),(e.clientX-rect.left)*w/rect.width,
+    (e.clientY-rect.top)*h/rect.height,fvMvp(canvas),w,h,
+    18*w/rect.width);
+  if(!hit){const info=document.getElementById('fvMeasureInfo');
+    if(info)info.textContent=flUi('No mesh vertex within 18 px · zoom closer','No hay vértice a menos de 18 px · acerca la vista');
+    return}
+  if(fvPhysicalMeasure.points.length>=2)fvPhysicalMeasure.points=[];
+  fvPhysicalMeasure.points.push(hit.point);
+  fvRender()
+}
+function fvSetPhysicalProjection(name){
+  if(!['orthographic','perspective'].includes(name))return;
+  fvState.camera.projection=name;
+  for(const key of ['orthographic','perspective'])
+    document.getElementById('fvProjection'+(key==='orthographic'?'Ortho':'Perspective'))?.classList.toggle('active',key===name);
+  fvCameraFitCurrent()
+}
+
 function fvRender(exportSize=null){
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
@@ -1731,7 +1842,7 @@ function fvRender(exportSize=null){
   // A pin may belong to any physical region, including a mold behind an
   // enclosing translucent shell. Draw its scientific marker after ALL regions.
   if(r.probeCount){gl.depthFunc(gl.ALWAYS);gl.depthMask(false);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1);gl.depthMask(true);gl.depthFunc(gl.LEQUAL)}
-  fvUpdateAxisGizmo()
+  fvUpdateAxisGizmo();fvPhysicalOverlayRender(canvas)
 }
 function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);mesh._internalTriangleFaces=fb.triangleFaces;
@@ -1914,7 +2025,7 @@ function fvSchedulePlayback(){
 function fvInstallCamera(){
   const canvas=document.getElementById('fvCanvas');if(!canvas||canvas.dataset.fvCamera)return;canvas.dataset.fvCamera='1';
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);const mode=e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit';fvState.drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch,distance:fvState.camera.distance,mode}});
+  canvas.addEventListener('pointerdown',e=>{if(fvPhysicalMeasure.active&&e.button===0){fvMeasurePick(e,canvas);return}canvas.setPointerCapture?.(e.pointerId);const mode=e.button===1||e.button===2?'pan':fvState.interactionMode||'orbit';fvState.drag={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,yaw:fvState.camera.yaw,pitch:fvState.camera.pitch,distance:fvState.camera.distance,mode}});
   canvas.addEventListener('pointermove',e=>{const d=fvState.drag;if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;if(d.mode==='orbit'){fvState.camera.yaw=d.yaw+dx*.008;fvState.camera.pitch=fvClamp(d.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4);fvRender()}else if(d.mode==='pan'){fvCameraPanPixels(e.clientX-d.lastX,e.clientY-d.lastY,canvas);d.lastX=e.clientX;d.lastY=e.clientY}else if(d.mode==='zoom'){fvState.camera.distance=Math.max(1e-10,d.distance*Math.exp(dy*.01));fvRender()}});
   const end=()=>{fvState.drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
   canvas.addEventListener('wheel',e=>{e.preventDefault();fvCameraZoomFactor(Math.exp(e.deltaY*.001))},{passive:false});canvas.addEventListener('dblclick',fvCameraFitCurrent)
@@ -2011,12 +2122,25 @@ function fvUiHtml(){
 function fvPanelHtml(){
   return`<div class="fieldViewPanel" id="fieldViewPanel">
       <div class="fvViewTools" aria-label="3D navigation controls">
-        <div class="fvToolRow"><button class="btn tiny active" id="fvOrbitMode" type="button" data-fl-en="Orbit" data-fl-es="Orbitar">Orbit</button><button class="btn tiny" id="fvPanMode" type="button" data-fl-en="Pan" data-fl-es="Desplazar">Pan</button><button class="btn tiny" id="fvZoomMode" type="button">Zoom</button><button class="btn tiny" id="fvFitCamera" type="button">Fit</button><button class="btn tiny" id="fvResetCamera" type="button" data-fl-en="Reset" data-fl-es="Restablecer">Reset</button></div>
+        <div class="fvToolRow"><button class="btn tiny active" id="fvOrbitMode" type="button" data-fl-en="Orbit" data-fl-es="Orbitar">Orbit</button><button class="btn tiny" id="fvPanMode" type="button" data-fl-en="Pan" data-fl-es="Desplazar">Pan</button><button class="btn tiny" id="fvZoomMode" type="button">Zoom</button><button class="btn tiny" id="fvFitCamera" type="button" data-fl-en="Fit Model" data-fl-es="Ajustar modelo">Fit Model</button><button class="btn tiny" id="fvResetCamera" type="button" data-fl-en="Reset" data-fl-es="Restablecer">Reset</button></div>
+        <div class="fvToolRow fvPhysicalToolbar" aria-label="Dimensional inspection">
+          <button class="btn tiny active" id="fvProjectionOrtho" type="button" data-fl-en="True Scale · Ortho" data-fl-es="Escala real · Orto">True Scale · Ortho</button>
+          <button class="btn tiny" id="fvProjectionPerspective" type="button" data-fl-en="Perspective" data-fl-es="Perspectiva">Perspective</button>
+          <label class="inlineCheck"><input type="checkbox" id="fvShowDimensions" checked> <span data-fl-en="Dimensions" data-fl-es="Cotas">Dimensions</span></label>
+          <button class="btn tiny" id="fvMeasureTool" type="button" data-fl-en="Measure" data-fl-es="Medir">Measure</button>
+          <button class="btn tiny" id="fvMeasureClear" type="button" data-fl-en="Clear measurement" data-fl-es="Borrar medida">Clear measurement</button>
+        </div>
         <details class="fvNavPresets"><summary>Camera directions</summary><div class="fvToolRow fvPresetRow"><button class="btn tiny" data-fv-view="front" type="button" data-fl-en="Front" data-fl-es="Frontal">Front</button><button class="btn tiny" data-fv-view="back" type="button" data-fl-en="Back" data-fl-es="Posterior">Back</button><button class="btn tiny" data-fv-view="left" type="button" data-fl-en="Left" data-fl-es="Izquierda">Left</button><button class="btn tiny" data-fv-view="right" type="button" data-fl-en="Right" data-fl-es="Derecha">Right</button><button class="btn tiny" data-fv-view="top" type="button" data-fl-en="Top" data-fl-es="Superior">Top</button><button class="btn tiny" data-fv-view="bottom" type="button" data-fl-en="Bottom" data-fl-es="Inferior">Bottom</button><button class="btn tiny" data-fv-view="iso" type="button" data-fl-en="Isometric" data-fl-es="Isométrica">Isometric</button></div></details>
       </div>
     <div class="fvViewport">
       <canvas id="fvCanvas" aria-label="3D OpenFOAM field visualization"></canvas>
-      <div class="fvLegend" id="fvLegend"></div>
+      <svg id="fvPhysicalAxes" class="fvPhysicalAxes" role="img" aria-label="Metric axes and mesh bounds from OpenFOAM points"></svg>
+      <div id="fvMeshDimensions" class="fvMeshDimensions" aria-live="polite"></div>
+      <div id="fvMeasureInfo" class="fvMeasureInfo" aria-live="polite" hidden></div>
+      <div class="fvRegionScaleDock" id="fvRegionScaleDock">
+        <div class="fvPrimaryScale"><strong id="fvPrimaryScaleName"></strong><div class="fvLegend" id="fvLegend"></div></div>
+        <div id="fvSecondaryScaleLegends"></div>
+      </div>
       <div class="fvAxisGizmo" id="fvAxisGizmo" aria-label="Interactive XYZ orientation gizmo">
         <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="3" class="fvGizmoOrigin"/><line x1="40" y1="40" x2="67" y2="40" data-axis-line="x" class="fvAxisLine fvAxisX"/><line x1="40" y1="40" x2="40" y2="13" data-axis-line="y" class="fvAxisLine fvAxisY"/><line x1="40" y1="40" x2="40" y2="67" data-axis-line="z" class="fvAxisLine fvAxisZ"/></svg>
         <button type="button" data-axis-button="x" data-fv-view="right" aria-label="View along positive X">X</button><button type="button" data-axis-button="y" data-fv-view="top" aria-label="View along positive Y">Y</button><button type="button" data-axis-button="z" data-fv-view="front" aria-label="View along positive Z">Z</button>
@@ -2027,7 +2151,7 @@ function fvPanelHtml(){
   </div>`
 }
 function fvCss(){
-  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:6px 10px;align-items:center;margin:6px 0;padding:7px;border:1px solid var(--line);border-radius:10px;min-width:0}.fvRegionRow .fvRegionStatus{color:var(--muted);font-size:10px;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fvRegionRow .fvRegionPaletteLabel span{flex:1;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel select{flex:1;min-width:0}.fvRegionRow .fvRegionLegend{grid-column:1/-1;min-width:0;padding-top:6px;border-top:1px solid var(--line);font-size:10px}.fvRegionRow .fvRegionLegendLabel{color:var(--muted);overflow-wrap:anywhere}.fvRegionRow .fvRegionLegendBar{height:9px;border-radius:5px;margin:5px 0}.fvRegionRow .fvRegionLegendBounds{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}.fvRegionRow select,.fvRegionRow input[type=range]{width:100%;min-width:0}.fvRegionRow .inlineCheck{overflow-wrap:anywhere}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
+  return`.fieldViewPanel{display:none;min-height:560px;padding:12px}.fieldViewPanel.active{display:block}.workspace.fvMode{grid-template-columns:minmax(0,1fr)}.workspace.fvMode #seriesPanel{display:none}.fvViewport{position:relative;min-height:500px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,rgba(40,64,90,.23),rgba(5,13,23,.96) 68%)}#fvCanvas{display:block;width:100%;height:500px;touch-action:none;cursor:grab}#fvCanvas:active{cursor:grabbing}.fvLegend{position:absolute;right:14px;bottom:14px;width:min(240px,42%);padding:10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(8px);font-size:10px}.fvPhysicalAxes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}.fvMeshDimensions,.fvMeasureInfo{position:absolute;left:12px;max-width:calc(100% - 132px);border:1px solid var(--line);border-radius:10px;background:rgba(7,20,34,.86);color:#e9f3ff;backdrop-filter:blur(6px);padding:7px 9px;font:11px/1.45 ui-monospace,monospace;overflow-wrap:anywhere;pointer-events:none}.fvMeshDimensions{top:12px}.fvMeasureInfo{bottom:12px}.fvRegionScaleDock{position:absolute;right:14px;bottom:14px;max-height:calc(100% - 118px);overflow-y:auto;overflow-x:hidden;width:min(245px,43%);display:grid;gap:6px;pointer-events:none}.fvRegionScaleDock .fvLegend{position:static;width:auto;background:none;padding:6px 0 0;border:0;backdrop-filter:none}.fvPrimaryScale,.fvSecondaryScale{padding:9px;border:1px solid var(--line);border-radius:12px;background:rgba(7,20,34,.9);color:#ecf5ff;font-size:10px;overflow-wrap:anywhere}.fvPrimaryScale strong,.fvSecondaryScale strong{color:#e9f3ff}.fvSecondaryScale .fvRegionLegendBar{height:10px;border-radius:9px;margin:5px 0}.fvSecondaryScale .fvRegionLegendBounds{display:flex;justify-content:space-between;gap:8px}.fvSecondaryScale .fvRegionLegendLabel{color:#abc0d9}.fvPhysicalToolbar{align-items:center}.fvPhysicalToolbar .inlineCheck{margin:0 3px;font-size:10px}.fvRegionScaleDock .fvLegendTicks{color:#c3d6e8}.fvLegendTitle{font-weight:700;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis}.fvLegendTitle span{color:var(--muted);font-weight:500}.fvLegendBar{height:12px;border-radius:999px;background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}.fvLegendTicks{display:flex;justify-content:space-between;gap:4px;margin-top:5px;color:var(--muted)}.fvViewTools{position:static;display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:100%;margin:0 0 9px;padding:6px 7px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}.fvViewTools .btn{font-size:10px;min-height:30px;padding:5px 8px}.fvNavPresets{min-width:0}.fvNavPresets[open]{flex:1 0 100%}.fvNavPresets summary{cursor:pointer;font-size:10px;padding:5px 9px;border:1px solid var(--line);border-radius:9px}.fvPresetRow{margin-top:6px}.fvToolRow{display:flex;gap:5px;flex-wrap:wrap}.fvViewTools .btn.active{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fvAxisGizmo{position:absolute;right:12px;top:12px;width:80px;height:80px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(8px)}.fvAxisGizmo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.fvAxisLine{stroke-width:2.5;stroke-linecap:round}.fvAxisX{stroke:#ef5350}.fvAxisY{stroke:#66bb6a}.fvAxisZ{stroke:#42a5f5}.fvGizmoOrigin{fill:var(--text)}.fvAxisGizmo button{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:10px;font-weight:900;cursor:pointer}.fvAxisGizmo button[data-axis-button=x]{border-color:#ef5350}.fvAxisGizmo button[data-axis-button=y]{border-color:#66bb6a}.fvAxisGizmo button[data-axis-button=z]{border-color:#42a5f5}.fvUniformRange{display:flex;align-items:center;gap:7px;color:var(--text)}.fvUniformSwatch{width:18px;height:12px;border-radius:999px;border:1px solid var(--line)}.fvLegendMode{margin-top:5px;color:var(--muted);font-size:9px}.fvStats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px}.fvStats>div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}.fvStats span{display:block;color:var(--muted);font-size:9px}.fvStats b{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fvRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:6px 10px;align-items:center;margin:6px 0;padding:7px;border:1px solid var(--line);border-radius:10px;min-width:0}.fvRegionRow .fvRegionStatus{color:var(--muted);font-size:10px;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fvRegionRow .fvRegionPaletteLabel span{flex:1;overflow-wrap:anywhere}.fvRegionRow .fvRegionPaletteLabel select{flex:1;min-width:0}.fvRegionRow .fvRegionLegend{grid-column:1/-1;min-width:0;padding-top:6px;border-top:1px solid var(--line);font-size:10px}.fvRegionRow .fvRegionLegendLabel{color:var(--muted);overflow-wrap:anywhere}.fvRegionRow .fvRegionLegendBar{height:9px;border-radius:5px;margin:5px 0}.fvRegionRow .fvRegionLegendBounds{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}.fvRegionRow select,.fvRegionRow input[type=range]{width:100%;min-width:0}.fvRegionRow .inlineCheck{overflow-wrap:anywhere}.fvHelp{margin-top:8px}.fvChecks{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.fvVizToggle{margin:9px 0 5px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fvVizSubpanel{margin:0 0 10px 12px;padding:9px 10px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--panel2) 72%,transparent);border-radius:0 10px 10px 0}.fvVizSubpanel.hidden{display:none!important}.fvTimeline{margin:9px 0 12px}.fvTimeline>input[type=range]{width:100%}.fvTimelineActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}.fvTimelineActions select{width:auto;min-width:72px}.fvStatus.error{color:#d85b65}.fieldViewControls input[type=range]{width:100%}@media(max-width:780px){.fvStats{grid-template-columns:repeat(2,minmax(0,1fr))}.fvViewport,#fvCanvas{min-height:420px;height:420px}.fvLegend{width:min(220px,55%)}}`
 }
 function fvInstallUi(){
   if(document.getElementById('fieldViewControls')&&document.getElementById('fieldViewPanel'))return true;
@@ -2057,6 +2181,15 @@ function fvInstallUi(){
   document.getElementById('fvPrev').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,-1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvNext').onclick=()=>{fvStopPlayback();const s=document.getElementById('fvTimeSlider');fvLoadFrame(fvAdvanceIndex(s.value,1,Number(s.max)+1)).catch(e=>fvSetStatus(String(e?.message||e),true))};
   document.getElementById('fvPlay').onclick=()=>fvState.playing?fvStopPlayback():fvSchedulePlayback();document.getElementById('fvResetCamera').onclick=fvCameraReset;document.getElementById('fvFitCamera').onclick=fvCameraFitCurrent;
+  document.getElementById('fvProjectionOrtho').onclick=()=>fvSetPhysicalProjection('orthographic');
+  document.getElementById('fvProjectionPerspective').onclick=()=>fvSetPhysicalProjection('perspective');
+  document.getElementById('fvShowDimensions').onchange=()=>fvRender();
+  document.getElementById('fvMeasureTool').onclick=()=>{
+    fvPhysicalMeasure.active=!fvPhysicalMeasure.active;
+    document.getElementById('fvMeasureTool').classList.toggle('active',fvPhysicalMeasure.active);
+    fvState.drag=null;fvRender()
+  };
+  document.getElementById('fvMeasureClear').onclick=()=>{fvPhysicalMeasure.points=[];fvRender()};
   const setMode=mode=>{fvState.interactionMode=mode;for(const [id,value] of [['fvOrbitMode','orbit'],['fvPanMode','pan'],['fvZoomMode','zoom']])document.getElementById(id)?.classList.toggle('active',value===mode)};
   document.getElementById('fvOrbitMode').onclick=()=>setMode('orbit');document.getElementById('fvPanMode').onclick=()=>setMode('pan');document.getElementById('fvZoomMode').onclick=()=>setMode('zoom');
   document.querySelectorAll('[data-fv-view]').forEach(b=>b.addEventListener('click',()=>fvCameraPreset(b.dataset.fvView)));
