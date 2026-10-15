@@ -6,6 +6,7 @@ on:
       - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
+      - 'tools/tests/native-folder-completion.test.cjs'
       - '.github/workflows/native-temporal-cache-fast.yml'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
+      - 'tools/tests/native-folder-completion.test.cjs'
       - '.github/workflows/native-temporal-cache-fast.yml'
   workflow_dispatch:
 
