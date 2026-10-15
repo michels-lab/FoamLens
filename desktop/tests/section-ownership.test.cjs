@@ -26,6 +26,29 @@ for(const src of [plotSurfaces,field,fieldView,ribbon,activity,analysisScope,com
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
+test('Field 3D companion restore does not overwrite the separately saved Data plot selection',()=>{
+  const start=field.indexOf('function fwSetCompanion(mode){');
+  const end=field.indexOf('function fwUpdateTimeBadge(){',start);
+  assert(start>=0&&end>start,'Missing Field companion navigation function');
+  const implementation=field.slice(start,end);
+  const state={active:true,view:'3d',layout:'3d',companion:'profile'};
+  let hijacks=0;
+  const select={value:'profile'};
+  const nodes={fwCompanion:select};
+  const chart={classList:{remove(){hijacks++}}};
+  const apply=new Function('fwState','document','fwUi','fwOwnCompanionControls','fwPrevSetDataView','window',
+    'fwRefreshFieldTsControls','fwFieldTsReadyCases','profileOptionsBase','timeSeriesOptionsBase','logContextOptionsBase',
+    'fwScheduleRender','setTimeout',implementation+';return fwSetCompanion')(
+      state,{getElementById:id=>nodes[id]||null},s=>s,()=>{hijacks++},()=>{hijacks++},
+      {FoamLensPlotSurfaces:{surface:()=>chart}},()=>{hijacks++},()=>[],()=>[],()=>[],()=>[],
+      ()=>{},()=>{});
+  apply('profile');
+  apply('timeseries');
+  assert.strictEqual(hijacks,0,'3D-only Field settings must not activate plot surfaces, move Data controls or call setDataView');
+  assert.strictEqual(state.view,'3d');
+  assert(implementation.includes("fwState.active&&fwState.view!=='3d'"));
+  assert(!implementation.includes("setTimeout(()=>fwBuildFieldTimeSeries()"),'Field companion changes must not auto-parse thousands of OpenFOAM frames');
+});
 test('3D and 3D comparison remain Field-owned across top-level section switches',()=>{
   assert(field.includes("fwAdoptFieldNode('fieldViewPanel','fw3DHost')"));
   assert(field.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"));

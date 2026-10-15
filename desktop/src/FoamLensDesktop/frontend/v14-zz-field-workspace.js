@@ -636,13 +636,19 @@ function fwSetCompanion(mode){
   if(title)title.textContent=fwCompanionTitle(mode);if(controlTitle)controlTitle.textContent=fwCompanionTitle(mode)+' '+fwUi('controls','controles');
   if(mode==='none'){if(empty){empty.classList.remove('hidden');empty.textContent=fwUi('3D-only workspace. Choose a companion plot at any time.','Workspace solo 3D. Elige una gráfica complementaria cuando quieras.')}return}
   const coreMode=mode==='profile'?'profile':mode==='log'?'log':'timeseries';
-  try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
-  const chart=window.FoamLensPlotSurfaces?.surface?.('field');if(chart)chart.classList.remove('hidden','flPlotSurfaceInactive');
+  // A 3D-only Field session cannot change the current Data plot or its saved
+  // catalog/profile choice. This path was silently mutating Data to 'profile'
+  // during Field workspace settings/session restore, corrupting round-trips.
+  if(fwState.active&&fwState.view!=='3d'){
+    try{fwPrevSetDataView(coreMode)}catch(e){console.error(e)}
+  }
+  const chart=window.FoamLensPlotSurfaces?.surface?.('field');if(chart&&fwState.view!=='3d')chart.classList.remove('hidden','flPlotSurfaceInactive');
   if(fwState.view!=='3d')fwRefreshFieldTsControls();
   const fieldHistoryAvailable=mode==='timeseries'&&fwFieldTsReadyCases().some(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,null,'any').some(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length)));
   if(empty){const has=mode==='profile'?profileOptionsBase().length:mode==='timeseries'?(timeSeriesOptionsBase().length||fieldHistoryAvailable):logContextOptionsBase().length;empty.classList.toggle('hidden',!!has);empty.textContent=has?'':fwUi('No compatible data are loaded for this companion view.','No hay datos compatibles cargados para esta vista complementaria.')}
-  if(mode==='timeseries'&&fieldHistoryAvailable)setTimeout(()=>fwBuildFieldTimeSeries().catch(e=>fwFieldTsSetStatus(String(e?.message||e),true)),0);
-  fwScheduleRender({threeD:fwState.layout!=='plot',twoD:true});setTimeout(fwUpdateTimeBadge,0)
+  // Expensive 3D field histories are explicitly generated under Data
+  // Time Series only; no automatic parse from a hidden Field companion.
+  fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.view!=='3d'});setTimeout(fwUpdateTimeBadge,0)
 }
 function fwUpdateTimeBadge(){
   const e=document.getElementById('fwPlotTime');if(!e)return;
