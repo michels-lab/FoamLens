@@ -38,9 +38,19 @@ internal static class NativeCaseCatalog
         else if (segments.Length > 0 && (segments[0].Equals("logs", StringComparison.OrdinalIgnoreCase) ||
                  segments[0].StartsWith("log.", StringComparison.OrdinalIgnoreCase)))
             kind = "logCandidate";
-        else if (segments.Any(s => double.TryParse(s, NumberStyles.Float,
-                     CultureInfo.InvariantCulture, out var value) && double.IsFinite(value)))
-            kind = "timeFieldCandidate";
+        else
+        {
+            // Only a physical-time directory at the case root (or immediately below
+            // processorN in a decomposed case) identifies a time field. An unrelated
+            // numeric subfolder must not fabricate time metadata.
+            var timeIndex = segments.Length > 1 && segments[0].StartsWith("processor", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(segments[0]["processor".Length..], NumberStyles.None,
+                    CultureInfo.InvariantCulture, out _) ? 1 : 0;
+            if (segments.Length > timeIndex + 1 &&
+                double.TryParse(segments[timeIndex], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var time) && double.IsFinite(time))
+                kind = "timeFieldCandidate";
+        }
         // Categories reflect paths only; no physical header or field class is inferred.
         return new Entry(path, Math.Max(0, bytes), ticks, kind);
     }
@@ -129,6 +139,13 @@ internal static class NativeCaseCatalog
                 var f = new FileInfo(file);
                 return FileEntry("0/metal/T", f.Length, f.LastWriteTimeUtc.Ticks);
             }
+            if (FileEntry("0/metal/T", 1, 1).Category != "timeFieldCandidate" ||
+                FileEntry("processor12/0.025/T", 1, 1).Category != "timeFieldCandidate" ||
+                FileEntry("processor12/-1.5/region/T", 1, 1).Category != "timeFieldCandidate" ||
+                FileEntry("misc/2026/T", 1, 1).Category == "timeFieldCandidate" ||
+                FileEntry("processorNote/0/T", 1, 1).Category == "timeFieldCandidate" ||
+                FileEntry("constant/2026/table", 1, 1).Category != "dictionaryCandidate")
+                throw new Exception("Physical-time path classification regression");
             var dirs = new[] { new DirectoryEntry(".", Directory.GetLastWriteTimeUtc(root).Ticks) };
             var files = new[] { Record() };
             if ((await CommitAsync(root, files, dirs, true, CancellationToken.None, cache)).Status != "recorded" ||
