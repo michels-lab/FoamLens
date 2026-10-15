@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../desktop/src/FoamLensDesktop/NativeTemporalCache.cs" Link="NativeTemporalCache.cs" />
+    <Compile Include="../../desktop/src/FoamLensDesktop/NativeCaseCatalog.cs" Link="NativeCaseCatalog.cs" />
   </ItemGroup>
 </Project>
