@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
       - '.github/workflows/native-temporal-cache-fast.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/src/FoamLensDesktop/NativeTemporalCache.cs'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
       - '.github/workflows/native-temporal-cache-fast.yml'
   workflow_dispatch:
@@ -29,3 +31,5 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Native source cache integrity regressions
         run: dotnet run --project tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj -c Release
+      - name: Folder availability vs optional cache contract
+        run: node tools/tests/native-folder-completion.test.cjs
