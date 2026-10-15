@@ -1,8 +1,8 @@
-# FoamLens Desktop v1.8.4
+# FoamLens Desktop v1.8.5
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-**FoamLens Desktop v1.8.4 with frontend v51** is the source candidate. It adds synchronized two-variable spatial profiles, seven 3D orientation controls, corrected Data/Field workspace ownership and faster native folder handoff and physical-time selectors. [Official latest Setup and Portable release](https://github.com/michels-lab/FoamLens/releases/latest). Publication is gated on packaged Windows, real OpenFOAM and SHA-256 checks; the [verified v1.8.3 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.3) remains available until a newer version passes those gates. No owner-machine 3,008-file speedup has yet been measured.
+**FoamLens Desktop v1.8.5 with frontend v51** is the source candidate. It adds synchronized two-variable spatial profiles, seven 3D orientation controls, corrected Data/Field workspace ownership and faster native folder handoff and physical-time selectors. [Official latest Setup and Portable release](https://github.com/michels-lab/FoamLens/releases/latest). Publication is gated on packaged Windows, real OpenFOAM and SHA-256 checks; the [verified v1.8.4 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.4) remains available until a newer version passes those gates. No owner-machine 3,008-file speedup has yet been measured.
 
 ## Architecture
 

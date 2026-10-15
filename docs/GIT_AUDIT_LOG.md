@@ -4686,3 +4686,9 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Added on-demand **Measure** interaction: select two actual OpenFOAM exterior mesh vertices by screen proximity; display Euclidean source-mesh distance, never an invented continuous point. Measurements remain in physical mesh coordinates across camera rotations; Clear measurement releases selected points.
 - Multi-region render now shows a separate Field viewport legend for every visible loaded region, with its own field name, time, color scale and SI unit. Flat fields show **Uniform field: value**, not a visually fabricated color gradient; geometry-only/missing data never become fake measured values. The pre-existing full per-region sidebar legends remain.
 - Added a production-functions regression for aspect changes, exact source mesh point XYZ, metric vertex selection, distance and uniform secondary scale. Windows full workflow will compile and execute these together with QuickCup/VTK, user interface, installer and scientific gates before integration. Owner physical bounds and ruler visuals still require actual packed WebView2 smoke review; no claimed owner-case benchmark speedup.
+
+
+### 2026-10-15 — Desktop v1.8.5 physical-scale release candidate
+
+- Align .NET assembly, Inno Setup, frontend version, root/Desktop README and changelog to the grouped new Field features on PR #138. No changes to Web v51 or scientific input values.
+- Exact-head real QuickCup/VTK, numeric dimension, packaged Setup/Portable camera/view UI and source/asset integrity must pass before explicit `release:` promotion on main. The publish workflow must verify the actual re-downloaded public binaries; owner's real-case 2D cold/warm speedup remains unmeasured.
