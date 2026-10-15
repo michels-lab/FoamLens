@@ -27,7 +27,7 @@ test('Field Workspace persists v2 view state instead of obsolete permanent split
 test('saved workspace state restores active Field tab and optional Split companion',()=>{
   for(const token of [
     "set('fwCompanion',saved.companion)",
-    "FoamLensFieldWorkspace?.setView?.(saved.view||saved.layout||'3d')",
+    "FoamLensFieldWorkspace?.setView?.('3d')",
     "setInspector?.(!!saved.inspector)",
     "check('fcLinkCameras',saved.camerasLinked)",
     "check('fcSyncVisuals',saved.visualsSynced)",
@@ -50,15 +50,11 @@ test('layout reset returns to a single 3D view',()=>{
   assert(!ux.includes("set('fwLayout','split')"),'Reset still forces Split.');
 });
 
-test('Field workspace exposes one central tab model and explicit Split',()=>{
-  for(const token of [
-    'id="fwViewTabs"','data-fw-view="3d"','data-fw-view="profile"',
-    'data-fw-view="timeseries"','data-fw-view="log"','data-fw-view="split"',
-    "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
-    "fwActivateView(view)","fwGrid.layout-3d .fwPlotCard{display:none}",
-    "fwGrid.layout-plot .fw3DCard{display:none}",
-    "fwGrid.layout-split"
-  ])assert(field.includes(token),'Missing central-view token: '+token);
+test('Field navigation offers only 3D; Data owns profiles, histories and logs',()=>{
+  for(const token of ['id="fwViewTabs"','data-fw-view="3d"',"fwActivateView('3d')","view='3d';fwState.view=view;"])
+    assert(field.includes(token),'Missing 3D-only view contract: '+token);
+  for(const view of ['profile','timeseries','log','split'])
+    assert(!field.includes('data-fw-view="'+view+'"'),'Data plot view leaked into Field: '+view);
 });
 
 test('3D Field DOM is adopted once and never restored to Data on section switch',()=>{

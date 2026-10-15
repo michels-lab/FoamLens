@@ -4596,3 +4596,48 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 ### 2026-10-14 — Privacy-safe import diagnostics carried through native temporal-worker integration
 
 - After #126 was independently validated on Windows and merged into main, #125 is reconciled without reverting that real off-dispatcher parser. Retains the feature's exact input-report source and regression canaries, dual-variable profiles and publicly verified v1.8.3 README. Full current-head 3,008-series and installed/portable Windows/OpenFOAM tests required before integration. Owner cold/warm and memory benchmark remain open; no release authorized.
+
+Field UI PR #128 CI regression triage and main reconciliation
+
+- Previous Windows failure came from scientific section-ownership test fixture lacking activeAppMode/currentDataView. Updated Data + Time Series fixture and tested Field-mode no-side-effects, preserving staged atomic scientific history behavior.
+- A 3,008-curve fast import runner exceeded its existing 2,000 ms wall-clock threshold; the fast-import source was not modified by this UI branch. Retain benchmark bound and retest on exact reconciled head.
+- Reconciled approved Field UI fix onto main including integrated dual-variable Spatial Profiles #129 and its Windows tests. Exact installed/portable Windows OpenFOAM and screenshot validation required before merge. No release or version bump.
+
+### 2026-10-14 — Field packaged smoke failure: preserve render-level evidence, fail closed
+
+- PR #128 exact-head Windows run #38655966974 passed real QuickCup and source scientific suites but installed/portable smoke ended before GPU-loaded readiness marker. Initial evidence ZIP contained real Home/About launch pixels but omitted the native failure log, so failure origin could not be diagnosed reliably. Another exact-head run exceeded an existing CPU-congested synthetic import wall clock, which is independently tracked.
+- Added a real WebView2 Field screenshot on failed measured 3D/toolbar contract before throwing, and made the GPU readiness helper print a short redacted set of relevant native smoke exception lines when the host dies early. This is diagnostic only: all scientific/physical render failure gates still fail closed. New exact-head CI is required; do not report Field fixed or merged from this step.
+
+### 2026-10-14 — Fixed packaged native Ribbon expectation uncovered by GPU diagnostic
+
+- Exact PR #128 Windows run #38656872770 exposed the actual regression previously masked by an early GPU readiness failure: native smoke expected four legacy Field actions (Profile, Time Series, Logs, Split) and insisted that the old Profile subbar become visible. The production UI correctly removed those 2D-only actions and retained only the 3D tab; native smoke failed on obsolete assertions before any OpenFOAM GPU marker could be written.
+- Updated the *real packaged WebView2* validation to require Data-specific plot actions plus all seven 3D camera shortcuts, to reject a legacy Field-profile view request, to keep Data context hidden in Field, and to assert exactly one 3D internal tab. Rendering/scientific provenance gates remain enforced; both portable and installed candidate tests need fresh full CI. No public release authorized.
+
+### 2026-10-14 — Seven-camera Ribbon: bounded laptop width and named-camera fallbacks
+
+- Found an additional compact-screen risk during native-contract review: a CSS !important override kept all seven quick-camera *text labels* expanded despite the existing 1460px button-width cap; this could violate the nonclipping one-row Ribbon contract. Corrected breakpoints to retain full text labels at wide widths, use seven direction-specific 29px accessible/tooltip-labeled quick icons between 760px and 1460px, and defer to the fully named Camera shelf under 760px. Other Field actions use icons below 1800px to avoid hiding the physical-time playback control.
+- Actual native render contract checks physical width and accessible name at laptop sizes and visible names at wide size; it must still fail if essential toolbar or canvas geometry is clipped. No new scientific interpolations, camera geometry or field reading logic.
+
+### 2026-10-14 — 3,008-series CI timing regression gate repair
+
+- Identical synthetic fast-import elapsed wall-time > 2 s failures occurred on unmodified main and the 3D UX branch despite real QuickCup passing. Since this test simulates filesystem/UI I/O with immediate mock promises, Windows runner descheduling is not scientific CPU work. The test now measures real CPU consumption via process.cpuUsage() against the original 2,000 ms budget, logs wall time separately, and retains every no-eager-audit, truthful pending state, small-case correctness and visible-plot assertion. This does not establish a cold/warm benchmark on the owner's real 3,008-file case.
+- Candidate also reconciles actual Field UI source with the latest main native Task.Run temporal parsing and dual-variable Spatial Profiles. Windows QuickCup, installed/portable, visual geometry and exact-head CI still required before integration; no new release.
+
+### 2026-10-14 — Exact main/PR native temporal worker regression fixed
+
+- Current-commit Windows native-performance tests failed on both verified QuickCup candidates: the PR #128 `Program.cs` assembly had preserved an old direct `await NativeTemporalCache.GetOrParseAsync(...)` inside `HandleTemporalFileAsync`, despite the newer `main` using cancellable `await Task.Run(() => NativeTemporalCache.GetOrParseAsync(...), operation.Token)`. This is an actual UI-thread responsiveness regression caused by manual tree reconciliation, not a stale assertion. Restored the exact current-main handler into the UI candidate, preserving scientific source hashes, cache, reply marshaling and cancellation. Updated exact-head .NET 8 installed/portable CI + OpenFOAM required; no release authorization.
+
+### 2026-10-14 — Real Field sidebar overlap: synchronize Ribbon chrome geometry
+
+- Native packaged Windows smoke showed header 58 px, Ribbon 83 px, and sidebar beginning at 131 px (10 px overlap). The CSS already positions the sidebar using measured header + Ribbon variables; however, measurement ran before synchronous tab/mode height changes, leaving stale values until ResizeObserver executes. Expose the existing measure callback and synchronously recompute on Ribbon panel activation and mode changes, retaining observer updates for subsequent layout/resize. No arbitrary padding or fake visual acceptance. Re-run real Windows portable+installed smoke before merging.
+
+### 2026-10-15 — Verified compact Ribbon physics-clock clipping and fixed row collision
+
+- Two independent real Windows portable smoke runs (#38663779506, #38663774566) passed camera labels, all seven unique icons, cache popover, active physics field, region legends/palette and Play button. Compact clock reported exactly 9.8 s in both the rendered readout and actual loaded frame but failed its combined verification. The inherited `@media(max-width:900px)` workspace CSS forced `#fwTimeReadout` and `#fwTimeSpeed` onto CSS grid row 2 even though the Ribbon uses a six-column, one-row time transport whose first three columns are only 28 px. Restored these two controls to normal grid auto-placement within the Ribbon with an explicit max-content minimum so the measured physical-time text cannot silently clip. No time values, solver data, interpolation, provenance or tolerance changed.
+- Native rendered validator continues requiring actual frame time equality, displayed time, correct slider aria-valuetext and physical clock bounds; now logs each subcondition and measured clock geometry separately on failure. Added source regression to the exact-head Windows candidate. Rebuild/retest current PR before merge. No version bump or public release.
+
+### 2026-10-15 — Real installed Windows session Data-view corruption (PR #128)
+
+- Exact-head Windows candidate #38768331755 passed QuickCup/VTK and packed Portable 3D/compact camera/cache clock validation, but installed smoke exposed a separate real cross-session ownership bug: saved Data surface `catalog` came back as `profile` after restoring a Field session. Region, case, time, physical scene, and Field state were all valid; no reason to weaken the session invariant.
+- Root cause was `fwSetCompanion` invoking `fwPrevSetDataView('profile')` unconditionally during Field 3D workspace state restoration, leaking a hidden legacy companion selection into the shared Data state. Guarded legacy companion plot activation behind an actually active non-3D view; removed auto-triggered native OpenFOAM field-history parsing from invisible companion changes. Data Time Series retains its existing explicit Build action.
+- Added an executed production-function test that calls companion selection while the Field view is 3D and verifies no Data plot hijack, history parse, 3D control reparent or plot-surface activation. Re-run exact-head real Windows Portable/Setup session round-trip and source CI before merge. No release.

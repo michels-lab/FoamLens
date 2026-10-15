@@ -44,6 +44,23 @@ if($MyInvocation.InvocationName -ne '.'){
       $p=[Diagnostics.Process]::GetProcessById($RootProcessId)
       if($p.HasExited){throw 'FoamLens exited before loaded OpenFOAM GPU sampling'}
     } catch {
+      # The prior GPU wait exception masked the actual native smoke failure
+      # and prevented its diagnostic message reaching CI. Preserve fail-closed
+      # behavior while surfacing only concise redacted exception lines.
+      if($env:LOCALAPPDATA){
+        $nativeLog=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+        if(Test-Path -LiteralPath $nativeLog){
+          Write-Host '---- Sanitized native Field smoke diagnostics ----'
+          $matching=Get-Content -LiteralPath $nativeLog | Where-Object {
+            $_ -match 'Real Field toolbar/canvas|scientific|smoke test failed|Smoke test failed|Exception'
+          } | Select-Object -Last 12
+          foreach($entry in $matching){
+            $safe=[regex]::Replace([string]$entry,'(?i)\b[a-z]:\\[^,;"\s]+','[local-path]')
+            Write-Host $safe
+          }
+          Write-Host '---- End native Field diagnostics ----'
+        }
+      }
       throw "FoamLens executable no longer available while waiting for rendered case: $_"
     } finally {
       if($null -ne $p){$p.Dispose();$p=$null}

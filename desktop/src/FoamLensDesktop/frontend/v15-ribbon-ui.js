@@ -18,6 +18,12 @@ function flRibbonIcon(name){
     profile:'<path d="M4 19h16M5 16c2-6 5-8 8-5s4 1 6-5"/>',
     log:'<path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     cube:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+    viewFront:'<rect x="5" y="6" width="14" height="12" rx="2"/><path d="M12 3v8m-3-3 3 3 3-3"/>',
+    viewBack:'<rect x="5" y="6" width="14" height="12" rx="2"/><path d="M12 21v-8m-3 3 3-3 3 3"/>',
+    viewLeft:'<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M3 12h9m-3-3 3 3-3 3"/>',
+    viewRight:'<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M21 12h-9m3-3-3 3 3 3"/>',
+    viewTop:'<path d="M4 8 12 4l8 4-8 4z"/><path d="M12 12v8m-3-3 3 3 3-3"/>',
+    viewBottom:'<path d="M4 16 12 12l8 4-8 4z"/><path d="M12 3v9m-3-6 3-3 3 3"/>',
     add:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>',
     grid:'<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M12 4v16M3.5 12h17"/>',
     sliders:'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h8M16 18h4"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="14" cy="18" r="2"/>',
@@ -88,17 +94,16 @@ function flRibbonBuild(){
   const field=[
     flRibbonGroup('Views','Vistas',[
       flRibbonActionHtml('flRaFieldWorkspace','cube','3D','3D'),
-      flRibbonActionHtml('flRaFieldProfile','profile','Spatial profile','Perfil espacial'),
-      flRibbonActionHtml('flRaFieldTimeSeries','chart','Time series','Series temporales'),
-      flRibbonActionHtml('flRaFieldLogs','log','Solver logs','Logs solver'),
-      flRibbonActionHtml('flRaSplit','grid','Split','Dividida'),
       flRibbonActionHtml('flRaInspector','sliders','Inspector','Inspector')
     ]),
     flRibbonGroup('Camera shortcuts','Cámaras',[ 
       flRibbonActionHtml('flRaQuickIso','cube','Isometric','Isométrica'),
-      flRibbonActionHtml('flRaQuickFront','eye','Front','Frontal'),
-      flRibbonActionHtml('flRaQuickTop','eye','Top','Superior'),
-      flRibbonActionHtml('flRaQuickRight','eye','Right','Derecha')
+      flRibbonActionHtml('flRaQuickFront','viewFront','Front','Frontal'),
+      flRibbonActionHtml('flRaQuickBack','viewBack','Back','Posterior'),
+      flRibbonActionHtml('flRaQuickLeft','viewLeft','Left','Izquierda'),
+      flRibbonActionHtml('flRaQuickRight','viewRight','Right','Derecha'),
+      flRibbonActionHtml('flRaQuickTop','viewTop','Top','Superior'),
+      flRibbonActionHtml('flRaQuickBottom','viewBottom','Bottom','Inferior')
     ]),
     flRibbonGroup('Inspect','Inspeccionar',[
       flRibbonActionHtml('flRaProbe','probe','Probe','Sonda'),
@@ -122,12 +127,12 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaFitAll','fit','Fit all','Ajustar todas'),
       flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer'),
       flRibbonActionHtml('flRaCameraIso','cube','Isometric','Isométrica'),
-      flRibbonActionHtml('flRaCameraFront','eye','Front','Frontal'),
-      flRibbonActionHtml('flRaCameraBack','eye','Back','Posterior'),
-      flRibbonActionHtml('flRaCameraLeft','eye','Left','Izquierda'),
-      flRibbonActionHtml('flRaCameraRight','eye','Right','Derecha'),
-      flRibbonActionHtml('flRaCameraTop','eye','Top','Superior'),
-      flRibbonActionHtml('flRaCameraBottom','eye','Bottom','Inferior')
+      flRibbonActionHtml('flRaCameraFront','viewFront','Front','Frontal'),
+      flRibbonActionHtml('flRaCameraBack','viewBack','Back','Posterior'),
+      flRibbonActionHtml('flRaCameraLeft','viewLeft','Left','Izquierda'),
+      flRibbonActionHtml('flRaCameraRight','viewRight','Right','Derecha'),
+      flRibbonActionHtml('flRaCameraTop','viewTop','Top','Superior'),
+      flRibbonActionHtml('flRaCameraBottom','viewBottom','Bottom','Inferior')
     ])
   ];
   const analysis=[
@@ -224,8 +229,25 @@ function flRibbonCss(){
     // turn Field actions into labeled-on-hover icons; Camera shortcuts stay
     // visible down to tablet widths, then live in the Camera subbar.
     '@media(max-width:1460px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}#flRibbonPanel-field .flRibbonGroup{padding-right:4px}#flRibbonPanel-field .flRibbonActions{gap:1px}#flRibbonPanel-field .flRibbonTimeGroup{min-width:210px;flex:1 1 240px}#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 210px;gap:3px;grid-template-columns:auto auto auto minmax(42px,1fr) auto auto}#flFieldContextTabs .flFieldContextTab{padding:5px 7px}}',
-    '@media(max-width:760px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none}#flRibbonPanel-field .flRibbonTimeGroup{min-width:180px;flex:1 1 180px}#flFieldContextTabs .flFieldContextTab{font-size:9px;padding:5px 5px}}',
-    'body.flRibbonReady.appMode-field #fwWorkspaceBar{display:none!important}',
+    '@media(max-width:760px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none}#flRibbonPanel-field .flRibbonTimeGroup{min-width:300px;flex:0 0 auto}#flFieldContextTabs .flFieldContextTab{font-size:9px;padding:5px 5px}}',
+    '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{min-width:43px!important;width:auto!important;max-width:none!important;padding:5px 7px!important;gap:4px}',
+    '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important;font-size:10px;max-width:none}',
+    '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonIcon{width:14px;height:14px}',
+    '#flRibbonPanel-field .flRibbonTimeGroup{min-width:310px;flex:0 0 auto}',
+    '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:310px;width:310px;flex:0 0 310px;grid-template-columns:28px 28px 28px minmax(82px,1fr) auto auto}',
+    '#flRibbonPanel-field .fwTimeTransport .btn{white-space:nowrap;word-break:normal;min-width:28px}',
+    // The legacy Field Workspace @media(max-width:900px) moved these
+    // controls into grid row two. The Ribbon's fixed 6-column transport
+    // gives row two a 28px first track, clipping the true measured clock.
+    // Keep all six controls on one real row at compact viewport widths.
+    '#flRibbonPanel-field .fwTimeReadout,#flRibbonPanel-field #fwTimeSpeed{grid-row:auto;min-width:max-content}',
+    '#flRibbonPanel-field .flRibbonQuickCameraGroup{flex:0 0 auto}',
+    // Keep 7 semantic camera controls without crushing playback on laptops.
+    // Full directional names are always in the Camera shelf; quick buttons
+    // show distinct icons and retain bilingual aria-label/title below 1460px.
+    '@media(max-width:1800px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}}',
+    '@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:none!important}#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{width:29px!important;min-width:29px!important;max-width:29px!important;padding:4px!important}}',
+    'body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
     'body.flRibbonReady.appMode-field .fwHeader p{display:none}',
@@ -279,7 +301,15 @@ function flRibbonCss(){
     '#flFieldContextShelf #fw3DProfileStatus{margin:0;max-width:240px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.flRibbonCacheAdvanced{position:relative;flex:0 0 auto;align-self:center}',
     '.flRibbonCacheAdvanced>summary{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-size:9px;cursor:pointer}',
-    '.flRibbonCacheAdvanced[open]{flex:1 0 100%;display:flex;align-items:center;gap:9px;padding:5px}',
+    '.flRibbonCacheAdvanced[open]{flex:0 0 auto;display:block;padding:0}',
+    '.flRibbonCachePopover{display:none;position:fixed;z-index:950;top:var(--flCacheTop,147px);left:var(--flCacheLeft,340px);width:252px;max-width:calc(100vw - 24px);padding:13px;box-sizing:border-box;grid-template-columns:minmax(0,1fr);gap:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 16px 38px rgba(0,0,0,.32)}',
+    '#flRibbonCacheAdvanced[open] .flRibbonCachePopover{display:grid}',
+    '.flRibbonCachePopover .flRibbonCacheField{display:grid;grid-template-columns:1fr;gap:5px;width:100%;min-width:0!important}',
+    '.flRibbonCachePopover .flRibbonCacheField label{font-size:11px!important;white-space:normal}',
+    '.flRibbonCachePopover .flRibbonCacheField select{width:100%;height:34px!important;min-width:0!important;font-size:11px!important}',
+    '.flRibbonCachePopover .flRibbonCacheReadout{display:block;min-width:0;white-space:normal;font-size:11px;line-height:1.4}',
+    '.flRibbonCacheAdvanced>summary{white-space:nowrap;list-style:none}',
+    '.flRibbonCacheAdvanced>summary::-webkit-details-marker{display:none}',
     '.flRibbonFieldOptionsGroup{min-width:150px}',
     '.flRibbonFieldOptionsGroup .flRibbonActions{align-items:center}',
     '.flRibbonFieldOptionsGroup .fwSplitChooser{margin:0;display:flex;align-items:center;gap:5px}',
@@ -304,6 +334,7 @@ function flRibbonSelectTab(key){
   flRibbonState.activeTab=key;
   document.querySelectorAll('.flRibbonTab').forEach(b=>{const on=b.dataset.ribbonTab===key;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on))});
   document.querySelectorAll('.flRibbonPanel').forEach(p=>p.classList.toggle('active',p.dataset.ribbonPanel===key));
+  window.FoamLensRibbonMeasureChrome?.();
 }
 function flRibbonClick(id){
   const el=document.getElementById(id);if(!el||el.disabled)return false;el.click();return true
@@ -346,10 +377,7 @@ function flRibbonSetLayout(value){
 function flRibbonContextNeeded(){
   if(typeof activeAppMode==='string'&&activeAppMode==='analysis')return true;
   if(typeof activeAppMode==='string'&&activeAppMode==='data')return typeof currentDataView==='string'&&currentDataView!=='catalog';
-  if(typeof activeAppMode==='string'&&activeAppMode==='field'){
-    const state=window.FoamLensFieldWorkspace?.getState?.()||{};
-    return ['profile','timeseries','log','split'].includes(state.view)
-  }
+  if(typeof activeAppMode==='string'&&activeAppMode==='field')return false; // 2D scope lives in Data
   return false
 }
 function flRibbonUpdateContextVisibility(){
@@ -365,10 +393,10 @@ function flRibbonUpdateFieldScope(){
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
     'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
     'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom',
-    'flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'];
+    'flRaQuickIso','flRaQuickFront','flRaQuickBack','flRaQuickLeft','flRaQuickRight','flRaQuickTop','flRaQuickBottom'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
   flRibbonMountFieldOptions();
-  document.getElementById('flRibbonFieldOptionsGroup')?.classList.toggle('flScopeHidden',view!=='split');
+  document.getElementById('flRibbonFieldOptionsGroup')?.classList.add('flScopeHidden');
   document.querySelectorAll('#flRibbonPanel-field .flRibbonGroup, #flFieldContextShelf .flRibbonGroup').forEach(group=>{
     const actions=[...group.querySelectorAll('.flRibbonAction')];
     group.classList.toggle('flScopeHidden',actions.length>0&&actions.every(a=>a.classList.contains('flScopeHidden')))
@@ -376,6 +404,13 @@ function flRibbonUpdateFieldScope(){
 }
 function flRibbonAnalysis(name,tabKey){
   flRibbonSelectTab(tabKey||'analysis');try{setAppMode('analysis')}catch{};requestAnimationFrame(()=>document.querySelector('.analysisSubBtn[data-analysis="'+name+'"]')?.click())
+}
+function flRibbonPlaceCachePopover(){
+  const advanced=document.getElementById('flRibbonCacheAdvanced'),trigger=advanced?.querySelector('summary');
+  if(!advanced?.open||!trigger)return;
+  const r=trigger.getBoundingClientRect(),width=Math.min(252,Math.max(200,window.innerWidth-24));
+  advanced.style.setProperty('--flCacheLeft',Math.max(12,Math.min(r.left,window.innerWidth-width-12))+'px');
+  advanced.style.setProperty('--flCacheTop',Math.min(r.bottom+8,Math.max(12,window.innerHeight-130))+'px');
 }
 function flRibbonMountFieldTimeTransport(){
   const panel=document.getElementById('flRibbonPanel-field'),transport=document.getElementById('fwTimeTransport');
@@ -391,9 +426,17 @@ function flRibbonMountFieldTimeTransport(){
   const cache=document.getElementById('fvCacheLimit'),cacheField=cache?.closest?.('.field'),cacheReadout=document.getElementById('fvCacheReadout');
   if(host&&cacheField){
     let advanced=document.getElementById('flRibbonCacheAdvanced');
-    if(!advanced){advanced=document.createElement('details');advanced.className='flRibbonCacheAdvanced';advanced.id='flRibbonCacheAdvanced';advanced.innerHTML='<summary>Cache</summary>';host.appendChild(advanced)}
-    cacheField.classList.add('flRibbonCacheField');if(cacheField.parentElement!==advanced)advanced.appendChild(cacheField);
-    if(cacheReadout){cacheReadout.classList.add('flRibbonCacheReadout');if(cacheReadout.parentElement!==advanced)advanced.appendChild(cacheReadout)}
+    if(!advanced){
+      advanced=document.createElement('details');advanced.className='flRibbonCacheAdvanced';advanced.id='flRibbonCacheAdvanced';
+      advanced.innerHTML='<summary data-ri-en="Cache settings" data-ri-es="Opciones de caché" title="Frame cache settings" aria-label="Frame cache settings">Cache</summary><div class="flRibbonCachePopover" role="group" aria-label="Frame cache size"></div>';host.appendChild(advanced);
+      advanced.addEventListener('toggle',()=>{if(advanced.open)flRibbonPlaceCachePopover()});
+      window.addEventListener('resize',flRibbonPlaceCachePopover);
+      document.addEventListener('keydown',e=>{if(e.key==='Escape')advanced.open=false});
+      document.addEventListener('pointerdown',e=>{if(advanced.open&&!advanced.contains(e.target))advanced.open=false},true);
+    }
+    const popup=advanced.querySelector('.flRibbonCachePopover');
+    cacheField.classList.add('flRibbonCacheField');if(cacheField.parentElement!==popup)popup.appendChild(cacheField);
+    if(cacheReadout){cacheReadout.classList.add('flRibbonCacheReadout');if(cacheReadout.parentElement!==popup)popup.appendChild(cacheReadout)}
   }
   return true
 }
@@ -516,6 +559,7 @@ function flRibbonInstallChromeMeasurement(){
     app.style.setProperty('--flChromeTop',headerHeight+'px');
     app.style.setProperty('--flRibbonHeight',ribbonHeight+'px');
   };
+  window.FoamLensRibbonMeasureChrome=measure;
   if(typeof ResizeObserver!=='undefined'){
     const watcher=new ResizeObserver(measure);watcher.observe(header);watcher.observe(ribbon);
     window.FoamLensRibbonChromeObserver=watcher;
@@ -531,7 +575,6 @@ function flRibbonInstall(){
   const trail=document.getElementById('contextTrail'),trailHost=document.getElementById('flRibbonTrailHost');if(trail&&trailHost)trailHost.appendChild(trail);
   const casePanel=document.getElementById('caseQuickPanel'),ribbon=document.getElementById('flRibbon');if(casePanel&&ribbon)ribbon.appendChild(casePanel);
   flRibbonMountFieldTimeTransport();
-  flRibbonMountFieldOptions();
   flRibbonFieldSubbars();
   document.getElementById('modeField')?.remove();
   document.body.classList.add('flRibbonReady');flRibbonState.installed=true;
@@ -543,6 +586,7 @@ function flRibbonInstall(){
     else if(key==='data')try{setAppMode('data')}catch{}
     else if(key==='field')try{setAppMode('field')}catch{}
     else if(key==='analysis')try{setAppMode('analysis')}catch{}
+    window.FoamLensRibbonMeasureChrome?.();
     setTimeout(flRibbonUpdateContextVisibility,0)
   }));
 
@@ -565,10 +609,6 @@ function flRibbonInstall(){
   flRibbonBind('flRaClear',()=>flRibbonClick('clear'));
 
   flRibbonBind('flRaFieldWorkspace',()=>flRibbonSetLayout('3d'));
-  flRibbonBind('flRaFieldProfile',()=>flRibbonSetLayout('profile'));
-  flRibbonBind('flRaFieldTimeSeries',()=>flRibbonSetLayout('timeseries'));
-  flRibbonBind('flRaFieldLogs',()=>flRibbonSetLayout('log'));
-  flRibbonBind('flRaSplit',()=>flRibbonSetLayout('split'));
   flRibbonBind('flRaInspector',()=>flRibbonField(()=>window.FoamLensFieldWorkspace?.setInspector?.(true),'field'));
   flRibbonBind('flRaProbe',()=>flRibbonField(()=>flRibbonClick('fvProbeMode'),'field'));
   flRibbonBind('flRaProfileLine',()=>flRibbonField(()=>window.FoamLensFieldWorkspace?.toggle3DProfile?.(),'field'));
@@ -580,7 +620,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaVisualSync',()=>flRibbonField(()=>flRibbonToggleCheck('fcSyncVisuals'),'field'));
   flRibbonBind('flRaFitAll',()=>flRibbonField(()=>flRibbonClick('fcFitAll'),'field'));
   flRibbonBind('flRaResetCamera',()=>flRibbonField(()=>flRibbonClick('fvResetCamera'),'field'));
-  for(const [id,preset] of [['flRaQuickIso','iso'],['flRaQuickFront','front'],['flRaQuickTop','top'],['flRaQuickRight','right']])flRibbonBind(id,()=>flRibbonField(()=>document.querySelector('[data-fv-view="'+preset+'"]')?.click(),'field'));
+  for(const [id,preset] of [['flRaQuickIso','iso'],['flRaQuickFront','front'],['flRaQuickBack','back'],['flRaQuickLeft','left'],['flRaQuickRight','right'],['flRaQuickTop','top'],['flRaQuickBottom','bottom']])flRibbonBind(id,()=>flRibbonField(()=>document.querySelector('[data-fv-view="'+preset+'"]')?.click(),'field'));
   for(const [id,preset] of [['flRaCameraIso','iso'],['flRaCameraFront','front'],['flRaCameraBack','back'],['flRaCameraLeft','left'],['flRaCameraRight','right'],['flRaCameraTop','top'],['flRaCameraBottom','bottom']])flRibbonBind(id,()=>flRibbonField(()=>document.querySelector('[data-fv-view="'+preset+'"]')?.click(),'field'));
 
   flRibbonBind('flRaAnalysisGeneral',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('generalAnalysisNav'))});
@@ -589,8 +629,8 @@ function flRibbonInstall(){
   flRibbonBind('flRaDifference',()=>flRibbonOpenData2DCompare());
   flRibbonBind('flRaMapping',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmMappingNav'))});
   flRibbonBind('flRaPhaseMomentum',()=>{flRibbonMode('analysis','analysis');requestAnimationFrame(()=>flRibbonClick('pmPhaseNav'))});
-  flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonSetLayout('timeseries'));
-  flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonSetLayout('profile'));
+  flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonOpenDataView('timeseries'));
+  flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonOpenDataView('profile'));
 
   flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>{
     window.FoamLensFieldWorkspace?.requestCompare?.();
@@ -629,7 +669,7 @@ function flRibbonInstall(){
     setTimeout(flRibbonSyncStates,0)
   },true);
   document.addEventListener('change',()=>setTimeout(()=>{flRibbonSyncStates();flRibbonUpdateContextVisibility()},0),true);
-  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonMountFieldOptions();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
+  document.addEventListener('foamlens-field-view-change',()=>{flRibbonMountFieldTimeTransport();flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope()});
   document.addEventListener('foamlens-language-change',flRibbonApplyLanguage);
   document.getElementById('language')?.addEventListener('change',flRibbonApplyLanguage);
   flRibbonApplyLanguage();flRibbonSyncStates();flRibbonSelectTab('home');flRibbonUpdateContextVisibility();flRibbonUpdateFieldScope();

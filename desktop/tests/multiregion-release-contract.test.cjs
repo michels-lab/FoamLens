@@ -24,6 +24,8 @@ test('actual installed and portable Field wide/compact screenshots assert measur
     'Math.abs(displayedTime-loadedTime)<=1e-6',
     "timeSlider?.getAttribute('aria-valuetext')===readoutText",
     'clockMatchesRealFrame;',
+    'clockWidth:clockRect?.width',
+    "clockAriaText:timeSlider?.getAttribute('aria-valuetext')",
     'field-{size.Name}.png'
   ])assert(capture.includes(token),'Missing real packaged UI timeline evidence: '+token);
 });

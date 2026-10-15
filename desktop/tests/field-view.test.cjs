@@ -479,10 +479,10 @@ test('Field workspace can define a native Spatial Profile by picking A and B in 
   ])assert((workspaceSource+'\n'+source).includes(token),'Missing 3D-defined Spatial Profile token: '+token);
 });
 
-test('Field workspace shows one view by default and supports explicit 3D + Spatial Profile Split',()=>{
+test('Field workspace shows 3D only while preserving internal scientific plot-surface compatibility',()=>{
   for(const token of [
     'fw3DHost','fw2DHost','fwCompanion','Spatial Profile','fwSetCompanion',
-    'data-fw-view="3d"','data-fw-view="profile"','data-fw-view="split"',
+    'data-fw-view="3d"',"view='3d';fwState.view=view;",
     "fwState={active:false,companion:'profile',layout:'3d',view:'3d'",
     "view==='split'","fwSetLayout('split')",
     "FoamLensPlotSurfaces?.ensure?.('field',host)",
@@ -490,6 +490,8 @@ test('Field workspace shows one view by default and supports explicit 3D + Spati
     "fwAdoptFieldNode('fieldViewPanel','fw3DHost')","fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')",
     'fwSyncCompanionTime','applyProfileTimeValue'
   ])assert(workspaceSource.includes(token),'Missing explicit Field view/Split token: '+token);
+  for(const hidden of ['profile','timeseries','log','split'])
+    assert(!workspaceSource.includes('data-fw-view="'+hidden+'"'),'Data view leaked into Field: '+hidden);
   assert(!workspaceSource.includes("fwMove('canvas'?.parentElement?.id"),
     'Dead/invalid canvas move remains in the Field workspace.');
   assert(!workspaceSource.includes('appendChild(chart)'),

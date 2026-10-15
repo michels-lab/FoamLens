@@ -344,13 +344,51 @@ internal sealed class FoamLensForm : Form
                       const shown=/^\s*t\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s\s*$/.exec(readoutText);
                       const displayedTime=shown?Number(shown[1]):NaN;
                       const clockRect=clock?.getBoundingClientRect();
+                      const physicalFrameMatches=Number.isFinite(fieldPhysicalTime)&&Number.isFinite(loadedTime)&&
+                        Math.abs(loadedTime-fieldPhysicalTime)<1e-9;
+                      const displayedTimeMatches=Number.isFinite(displayedTime)&&Number.isFinite(loadedTime)&&
+                        Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime));
+                      const clockAriaMatches=timeSlider?.getAttribute('aria-valuetext')===readoutText;
+                      const clockVisible=!!clockRect&&clockRect.width>30&&clockRect.height>12;
                       const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
                         Number.isFinite(loadedTime)&&Number.isFinite(displayedTime)&&
                         Math.abs(loadedTime-fieldPhysicalTime)<1e-9&&
                         Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime))&&
                         timeSlider?.getAttribute('aria-valuetext')===readoutText&&
                         clockRect?.width>30&&clockRect?.height>12;
+                      const timelineEvidence=clockMatchesRealFrame;
                       const hasField=!!primary?.range?.valid;
+                      // User-reported installed-WebView2 regressions: 7 distinguishable
+                      // camera presets, no duplicate 2D Field bar, no vertical Play,
+                      // and a cache panel that does not grow the command row.
+                      const names=['Iso','Front','Back','Left','Right','Top','Bottom'];
+                      const quick=names.map(name=>document.getElementById('flRaQuick'+name));
+                      const distinctCameras=quick.every(Boolean)&&
+                        new Set(quick.map(el=>el.querySelector('svg')?.innerHTML)).size===7;
+                      const cameraNamesReadable=innerWidth<=760||quick.every(el=>{
+                        const label=el?.querySelector('.flRibbonLabel'),rect=el?.getBoundingClientRect();
+                        const named=!!el?.getAttribute('title')&&!!el?.getAttribute('aria-label')&&
+                          el.getAttribute('aria-label')===label?.textContent;
+                        return named&&!!rect&&rect.width>=(innerWidth<=1460?28:43)&&
+                          (innerWidth<=1460||getComputedStyle(label).display!=='none'&&label.getBoundingClientRect().width>=15)
+                      });
+                      const internalBar=document.querySelector('#fieldSurface .fwWorkspaceBar');
+                      const fieldNavHidden=!!internalBar&&getComputedStyle(internalBar).display==='none'&&
+                        window.FoamLensFieldWorkspace?.getState?.().view==='3d';
+                      const playRect=document.getElementById('fwTimePlay')?.getBoundingClientRect();
+                      const playNotCollapsed=!!playRect&&playRect.width>=25&&playRect.height>=24;
+                      const cache=document.getElementById('flRibbonCacheAdvanced');
+                      if(cache)cache.open=true;
+                      if(typeof flRibbonPlaceCachePopover==='function')flRibbonPlaceCachePopover();
+                      const popup=cache?.querySelector('.flRibbonCachePopover');
+                      const popupRect=popup?.getBoundingClientRect();
+                      const selectorRect=document.getElementById('fvCacheLimit')?.getBoundingClientRect();
+                      const cachePopoverValid=!!cache?.open&&!!popupRect&&
+                        getComputedStyle(popup).display==='grid'&&popupRect.width>=200&&
+                        popupRect.left>=0&&popupRect.right<=innerWidth+1&&
+                        !!selectorRect&&selectorRect.width>=80&&
+                        selectorRect.left>=popupRect.left&&selectorRect.right<=popupRect.right+1;
+                      if(cache)cache.open=false;
                       const cameraDocked=!!cameraTab&&cameraTab.classList.contains('active')&&
                         !!shelf&&!shelf.classList.contains('hidden')&&
                         ribbon?.contains(shelf)&&shelf.contains(tools)&&tools?.contains(probe);
@@ -359,16 +397,20 @@ internal sealed class FoamLensForm : Form
                         b.right>0&&b.left<innerWidth&&b.bottom>0&&b.top<innerHeight&&
                         !!v&&v.width>180&&overlap<1&&hasField&&
                         physical?.layers?.size>0&&regionLegendMeasured&&independentRegionPalette&&
-                        clockMatchesRealFrame;
+                        clockMatchesRealFrame&&distinctCameras&&cameraNamesReadable&&fieldNavHidden&&
+                        playNotCollapsed&&cachePopoverValid;
                       return {ok,viewport:innerWidth,canvasWidth:a?.width,canvasHeight:a?.height,
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
-                        cameraDocked,toolbarHeight:b?.height,toolbarWidth:b?.width,
+                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,
+                        toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
-                        clockMatchesRealFrame,clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
+                        clockMatchesRealFrame,physicalFrameMatches,displayedTimeMatches,clockAriaMatches,clockVisible,
+                        clockWidth:clockRect?.width,clockHeight:clockRect?.height,
+                        clockAriaText:timeSlider?.getAttribute('aria-valuetext'),clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                       }catch(error){
                         return {ok:false,stage:'native-field-wide-compact',error:String(error?.message||error),
@@ -381,7 +423,13 @@ internal sealed class FoamLensForm : Form
                     throw new InvalidOperationException("Native Field UI JavaScript evaluation returned null in " + size.Name +
                         "; inspect WebView2 runtime JavaScript syntax/errors: " + fieldState);
                 if (!JsonDocument.Parse(fieldState).RootElement.GetProperty("ok").GetBoolean())
+                {
+                    // A failed renderer contract must leave real pixels for
+                    // debugging, not just an early process death in GPU capture.
+                    try { await CaptureCdpPngAsync(Path.Combine(root, $"field-failed-{size.Name}.png")); }
+                    catch (Exception captureError) { Log("Failed Field evidence screenshot: " + captureError.Message); }
                     throw new InvalidOperationException("Real Field toolbar/canvas geometry or physical region evidence failed in " + size.Name + ": " + fieldState);
+                }
                 await Task.Delay(180);
                 await CaptureCdpPngAsync(Path.Combine(root, $"field-{size.Name}.png"));
 
@@ -752,7 +800,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','aboutDeveloperBtn','flGlobalUpdates'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare','flRaFieldWorkspace','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','aboutDeveloperBtn','flGlobalUpdates',...['Iso','Front','Back','Left','Right','Top','Bottom'].map(name=>'flRaQuick'+name)];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -770,9 +818,11 @@ internal sealed class FoamLensForm : Form
                   const contextHost=document.getElementById('flRibbonContextHost');
                   const timeTransportInRibbon=document.getElementById('fwTimeTransport')?.parentElement?.id==='flRibbonTimeHost';
                   const contextHidden3D=!!contextHost&&getComputedStyle(contextHost).display==='none';
-                  document.querySelector('#fwViewTabs [data-fw-view="profile"]')?.click();
-                  const contextVisibleProfile=!!contextHost&&getComputedStyle(contextHost).display!=='none';
-                  document.querySelector('#fwViewTabs [data-fw-view="3d"]')?.click();
+                  // A persisted or legacy Profile request must not resurrect Data plots in Field.
+                  window.FoamLensFieldWorkspace?.setView?.('profile');
+                  const contextRejectsLegacyProfile=!!contextHost&&getComputedStyle(contextHost).display==='none'&&
+                    window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+                    internalTabs.length===1&&internalTabs[0]==='3d';
                   document.getElementById('flRibbonTab-home')?.click();
                   document.getElementById('flRaCases')?.click();
                   const casePanel=document.getElementById('caseQuickPanel');
@@ -799,7 +849,7 @@ internal sealed class FoamLensForm : Form
                     contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
                     timeTransportInRibbon,
                     contextHidden3D,
-                    contextVisibleProfile,
+                    contextRejectsLegacyProfile,
                     internalTabs,
                     workspaceView,
                     casePanelParent,
@@ -815,7 +865,7 @@ internal sealed class FoamLensForm : Form
                     !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean() ||
                     !root.TryGetProperty("timeTransportInRibbon", out var timeTransportInRibbonNode) || !timeTransportInRibbonNode.GetBoolean() ||
                     !root.TryGetProperty("contextHidden3D", out var contextHidden3DNode) || !contextHidden3DNode.GetBoolean() ||
-                    !root.TryGetProperty("contextVisibleProfile", out var contextVisibleProfileNode) || !contextVisibleProfileNode.GetBoolean())
+                    !root.TryGetProperty("contextRejectsLegacyProfile", out var contextRejectsLegacyProfileNode) || !contextRejectsLegacyProfileNode.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon did not mount: {ribbonUiJson}");
                 foreach (var property in new[] { "missingTabs", "missingActions" })
@@ -1473,7 +1523,7 @@ internal sealed class FoamLensForm : Form
                         !data.TryGetProperty("plotSurfaceFieldParent", out var plotSurfaceFieldParentNode) ||
                         !string.Equals(plotSurfaceFieldParentNode.GetString(), "fw2DHost", StringComparison.Ordinal) ||
                         !data.TryGetProperty("plotSurfaceFieldOwnerBefore", out var plotSurfaceFieldOwnerBeforeNode) ||
-                        !string.Equals(plotSurfaceFieldOwnerBeforeNode.GetString(), "field", StringComparison.Ordinal) ||
+                        string.IsNullOrWhiteSpace(plotSurfaceFieldOwnerBeforeNode.GetString()) ||
                         !data.TryGetProperty("plotSurfaceDataActive", out var plotSurfaceDataActiveNode) ||
                         !plotSurfaceDataActiveNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceAnalysisActive", out var plotSurfaceAnalysisActiveNode) ||
@@ -1482,11 +1532,11 @@ internal sealed class FoamLensForm : Form
                         !plotSurfaceDataRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceFieldRestored", out var plotSurfaceFieldRestoredNode) ||
                         !plotSurfaceFieldRestoredNode.GetBoolean() ||
-                        !data.TryGetProperty("plotSurfaceFieldPlotCaptured", out var plotSurfaceFieldPlotCapturedNode) ||
+                        !data.TryGetProperty("plotSurfaceFieldDataPlotBlocked", out var plotSurfaceFieldPlotCapturedNode) ||
                         !plotSurfaceFieldPlotCapturedNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceDataAfterFieldRoundTrip", out var plotSurfaceDataAfterFieldRoundTripNode) ||
                         !plotSurfaceDataAfterFieldRoundTripNode.GetBoolean() ||
-                        !data.TryGetProperty("plotSurfaceFieldPlotRestored", out var plotSurfaceFieldPlotRestoredNode) ||
+                        !data.TryGetProperty("plotSurfaceField3DRestored", out var plotSurfaceFieldPlotRestoredNode) ||
                         !plotSurfaceFieldPlotRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("plotSurfaceError", out var plotSurfaceErrorNode) ||
                         !string.IsNullOrWhiteSpace(plotSurfaceErrorNode.GetString()))
@@ -2239,19 +2289,22 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const dataRestored=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
 
     setAppMode('field');
-    const fieldRestored=ps.active?.()==='field'&&owner()==='field';
-    // Exercise a real Data -> Field time-series -> Data -> Field round trip.
-    // The outgoing Field view must be captured before Data restores its own
-    // independent catalog/plot choice. This caught a previously silent bug.
+    const fieldRestored=window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d';
+    // Legacy Field plot views must not hijack Data's independent plot context.
+    // Field stays physically 3D even if an imported workspace asks for Time Series.
+    const dataViewBeforeLegacyRequest=String(currentDataView||'');
     window.FoamLensFieldWorkspace?.setView?.('timeseries');
-    const requestedFieldPlotView=String(currentDataView||'');
+    const blockedDataPlot=window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d'&&
+      String(currentDataView||'')===dataViewBeforeLegacyRequest;
     setAppMode('data');
-    const fieldPlotCaptured=ps.state?.('field')?.view===requestedFieldPlotView;
     const dataAfterFieldRoundTrip=ps.active?.()==='data'&&owner()==='data'&&String(currentDataView||'')===requestedDataView;
     setAppMode('field');
-    const fieldPlotRestored=ps.active?.()==='field'&&owner()==='field'&&String(currentDataView||'')===requestedFieldPlotView&&requestedFieldPlotView==='timeseries';
-    // Leave subsequent scientific smoke in its required 3D-focused state.
-    window.FoamLensFieldWorkspace?.setView?.('3d');
+    const field3DRestored=ps.active?.()==='data'&&owner()==='data'&&
+      window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+      window.FoamLensFieldWorkspace?.getState?.().layout==='3d'&&
+      String(currentDataView||'')===requestedDataView;
     const parentsAfter={
       data:dataSurface.parentElement?.id||'',
       analysis:analysisSurface.parentElement?.id||'',
@@ -2268,10 +2321,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       analysisActive,
       dataRestored,
       fieldRestored,
-      fieldPlotCaptured,
+      blockedDataPlot,
       dataAfterFieldRoundTrip,
-      fieldPlotRestored,
-      requestedFieldPlotView,
+      field3DRestored,
+      dataViewBeforeLegacyRequest,
       requestedDataView
     };
   }catch(e){
@@ -2705,10 +2758,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     plotSurfaceAnalysisActive:!!plotSurfaceSmoke?.analysisActive,
     plotSurfaceDataRestored:!!plotSurfaceSmoke?.dataRestored,
     plotSurfaceFieldRestored:!!plotSurfaceSmoke?.fieldRestored,
-    plotSurfaceFieldPlotCaptured:!!plotSurfaceSmoke?.fieldPlotCaptured,
+    plotSurfaceFieldDataPlotBlocked:!!plotSurfaceSmoke?.blockedDataPlot,
     plotSurfaceDataAfterFieldRoundTrip:!!plotSurfaceSmoke?.dataAfterFieldRoundTrip,
-    plotSurfaceFieldPlotRestored:!!plotSurfaceSmoke?.fieldPlotRestored,
-    plotSurfaceRequestedFieldPlotView:String(plotSurfaceSmoke?.requestedFieldPlotView||''),
+    plotSurfaceField3DRestored:!!plotSurfaceSmoke?.field3DRestored,
+    plotSurfaceLegacyViewRequest:plotSurfaceSmoke?'timeseries':'',
     plotSurfaceRequestedDataView:String(plotSurfaceSmoke?.requestedDataView||''),
     plotSurfaceError,
     sessionRestored:!!sessionSmoke?.restored,
@@ -3185,11 +3238,6 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         try
         {
-            // Streaming text parsing performs CPU work on every line. Running
-            // the full cache/checksum/parse pipeline on a bounded caller-owned
-            // worker keeps WinForms/WebView2 input and cancellation responsive.
-            // The frontend already limits simultaneous file requests; native
-            // Post() marshals scientific progress messages back to the UI.
             var result = await Task.Run(
                 () => NativeTemporalCache.GetOrParseAsync(
                     path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token),
