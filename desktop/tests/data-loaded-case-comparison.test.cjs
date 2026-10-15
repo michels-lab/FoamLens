@@ -22,14 +22,14 @@ const el={};const $=id=>el[id]||(el[id]={textContent:'',innerHTML:'',disabled:fa
  classList:{state:new Map(),toggle(k,v){this.state.set(k,v)}},value:''});
 const modules=new Function('cases','series','pendingLazyProfileCount','datasetTypeOf','$','flUi','esc',
  'stopAllPlayback','refreshGlobalContext','resetProfilePlaybackState','clearProfilePlaybackFrameCache',
- 'refreshDatasetControls','renderList','updateMeta','draw','hydrateLazyProfilesForContext','profileOptionsBase','lazyProfileCountForContext',`
+ 'refreshDatasetControls','renderList','updateMeta','draw','hydrateLazyProfilesForContext','profileOptionsBase','lazyProfileCountForContext','saveCurrentXRange','restoreXRange',`
 let activeContextCaseId=10,activeContextRegion='',currentDataView='profile';
 ${source}
 return{state:dataCompareState,dataCompareAvailableCases,dataCompareCounts,dataCompareRefresh,dataCompareApply,dataCompareReset,
  dataCompareCaseAllowed,seriesMatchesGlobalContext,scope:()=>({activeContextCaseId,activeContextRegion,currentDataView})}`)(
 cases,series,id=>indexed.get(id)||0,s=>s.datasetType,$,(a,b)=>a,
 s=>String(s).replace(/[&<>"']/g,'_'),()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>false,
-()=>series.filter(s=>s.datasetType==='profile'),()=>0);
+()=>series.filter(s=>s.datasetType==='profile'),()=>0,()=>{},()=>{});
 const state=modules.state;
 assert.equal(modules.dataCompareAvailableCases().length,5,'Show all imported cases, including time-only and logs-only');
 assert.deepEqual(modules.dataCompareCounts(50),{profiles:0,indexed:12,times:0,logs:0},
@@ -56,6 +56,7 @@ assert.equal(modules.seriesMatchesGlobalContext({caseId:30}),false);
 assert.equal($('profileSet').dataset.compareDefault,'1','Comparison cannot inherit an unrelated case-specific output folder');
 assert.equal($('profileLine').dataset.compareDefault,'1','Keep optional line choice without excluding other cases');
 modules.dataCompareReset();
+assert.equal(modules.scope().currentDataView,'profile','Single-case comparison restores earlier Profiles view');
 assert.equal(modules.scope().activeContextCaseId,10,'Restore exact single-case choice');
 assert.equal(modules.seriesMatchesGlobalContext({caseId:20}),false,'Return to single case filter after comparison');
 state.selected=new Set([10,20,30]);state.touched=true;
