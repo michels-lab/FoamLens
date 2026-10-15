@@ -789,7 +789,7 @@ internal sealed class FoamLensForm : Form
                 (()=>{
                   const tabs=['home','data','field','analysis','export','view'];
                   const missingTabs=tabs.filter(x=>!document.getElementById('flRibbonTab-'+x)||!document.getElementById('flRibbonPanel-'+x));
-                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaFieldWorkspace','flRaFieldProfile','flRaFieldTimeSeries','flRaFieldLogs','flRaSplit','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','aboutDeveloperBtn','flGlobalUpdates'];
+                  const requiredActions=['flRaOpenFolder','flRaCases','flRaCatalog','flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare','flRaFieldWorkspace','flRaInspector','flRaProbe','flRaDifference','flRaCompare3D','flRaExportPng','flRaTheme','aboutDeveloperBtn','flGlobalUpdates',...['Iso','Front','Back','Left','Right','Top','Bottom'].map(name=>'flRaQuick'+name)];
                   const missingActions=requiredActions.filter(id=>!document.getElementById(id));
                   const ribbon=document.getElementById('flRibbon');
                   const labels=[...document.querySelectorAll('#flRibbon .flRibbonLabel')];
@@ -807,9 +807,11 @@ internal sealed class FoamLensForm : Form
                   const contextHost=document.getElementById('flRibbonContextHost');
                   const timeTransportInRibbon=document.getElementById('fwTimeTransport')?.parentElement?.id==='flRibbonTimeHost';
                   const contextHidden3D=!!contextHost&&getComputedStyle(contextHost).display==='none';
-                  document.querySelector('#fwViewTabs [data-fw-view="profile"]')?.click();
-                  const contextVisibleProfile=!!contextHost&&getComputedStyle(contextHost).display!=='none';
-                  document.querySelector('#fwViewTabs [data-fw-view="3d"]')?.click();
+                  // A persisted or legacy Profile request must not resurrect Data plots in Field.
+                  window.FoamLensFieldWorkspace?.setView?.('profile');
+                  const contextRejectsLegacyProfile=!!contextHost&&getComputedStyle(contextHost).display==='none'&&
+                    window.FoamLensFieldWorkspace?.getState?.().view==='3d'&&
+                    internalTabs.length===1&&internalTabs[0]==='3d';
                   document.getElementById('flRibbonTab-home')?.click();
                   document.getElementById('flRaCases')?.click();
                   const casePanel=document.getElementById('caseQuickPanel');
@@ -836,7 +838,7 @@ internal sealed class FoamLensForm : Form
                     contextPreserved:document.getElementById('globalContextBar')?.parentElement?.id==='flRibbonContextHost',
                     timeTransportInRibbon,
                     contextHidden3D,
-                    contextVisibleProfile,
+                    contextRejectsLegacyProfile,
                     internalTabs,
                     workspaceView,
                     casePanelParent,
@@ -852,7 +854,7 @@ internal sealed class FoamLensForm : Form
                     !root.TryGetProperty("updateApi", out var updateApiNode) || !updateApiNode.GetBoolean() ||
                     !root.TryGetProperty("timeTransportInRibbon", out var timeTransportInRibbonNode) || !timeTransportInRibbonNode.GetBoolean() ||
                     !root.TryGetProperty("contextHidden3D", out var contextHidden3DNode) || !contextHidden3DNode.GetBoolean() ||
-                    !root.TryGetProperty("contextVisibleProfile", out var contextVisibleProfileNode) || !contextVisibleProfileNode.GetBoolean())
+                    !root.TryGetProperty("contextRejectsLegacyProfile", out var contextRejectsLegacyProfileNode) || !contextRejectsLegacyProfileNode.GetBoolean())
                     throw new InvalidOperationException(
                         $"FoamLens ribbon did not mount: {ribbonUiJson}");
                 foreach (var property in new[] { "missingTabs", "missingActions" })

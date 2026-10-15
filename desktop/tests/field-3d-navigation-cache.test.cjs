@@ -38,3 +38,10 @@ console.log('Field-only 3D nav, seven unique camera shortcuts and anchored cache
 
 assert(native.includes('field-failed-{size.Name}.png'),'Failed real Field smoke must preserve rendered UI screenshot evidence');
 assert(gpu.includes('Sanitized native Field smoke diagnostics'),'Premature Field exit must not be masked by GPU readiness-wait exception');
+
+assert(native.includes("'flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'"),
+  'Native packaged smoke must require Data-owned plot navigation, not removed Field companion buttons');
+assert(native.includes('contextRejectsLegacyProfile')&&native.includes("internalTabs.length===1&&internalTabs[0]==='3d'"),
+  'Native packaged smoke must reject legacy Field profile and require exactly one 3D tab');
+assert(!native.includes('contextVisibleProfile')&&!native.includes("'flRaFieldProfile','flRaFieldTimeSeries'"),
+  'Native packaged smoke still requires removed Field 2D tabs');
