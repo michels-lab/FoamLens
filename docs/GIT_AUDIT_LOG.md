@@ -4726,3 +4726,11 @@ Field UI PR #128 CI regression triage and main reconciliation
 ### 2026-10-15 — Unified Data and Field v1.8.6 candidate
 
 - Reconciled the already merged loaded-case Profiles/Time series comparison with looping Field playback and camera controls. Preserve the per-view Data case selector, Data Ribbon routing and both separate Windows regression gates on the exact source candidate. Original case filtering, real profile provenance and source data are unchanged.
+
+
+### 2026-10-15 — FoamLENS Desktop v1.8.6 public release verified
+
+- Merged integrated Data loaded-case comparison and Field continuous-loop playback / readable seven-view camera controls as `f2077e115dca1a41f494d664083838059fba3bbc` (PR #139), retaining the exact previous release v1.8.5 data and its scientific source values.
+- Exact main publication workflow run #38824955976 completed successfully: real QuickCup/VTK, full Windows Setup/Portable build, installed visual smoke, loop/camera and loaded-case regressions. Publish job #116733259130 confirmed both public Setup and Portable assets and verified actual newly published file SHA-256 checksums.
+- Release: https://github.com/michels-lab/FoamLens/releases/tag/v1.8.6 with `FoamLens-Setup-v1.8.6.exe` and `FoamLens-Portable-v1.8.6.exe`. Released case comparison lists all imported cases, hides redundant import until asked, and enables spatial-profile or time-series comparison **only** when two real suitable cases are available; imported 3D fields or solver logs alone do not imply existing spatial probe profiles.
+- Owner's exact 3,008-file cold/warm import benchmark remains unresolved; screenshot showing `0 profiles` cannot be reinterpreted as measured profile data. No scientifically fabricated profiles, fields or speedups are advertised.
