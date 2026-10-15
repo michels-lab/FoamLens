@@ -30,4 +30,4 @@ jobs:
       - name: Preserve synchronized actual spatial-profile playback and two variables
         run: node desktop/tests/profile-playback.test.cjs
       - name: Preserve independent profile source variables
-        run: node desktop/tests/dual-spatial-profiles.test.cjs
+        run: node desktop/tests/dual-profiles.test.cjs
