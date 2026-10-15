@@ -1490,6 +1490,10 @@ function fvPhysicalBoundsForScene(){
 }
 function fvFitDistance(bounds,camera,canvas,padding=1.14){
   if(!bounds?.min||!bounds?.max||!bounds.center?.every(Number.isFinite))return NaN;
+  // WebGL vertex attributes use Float32. A mathematically finite, but
+  // non-representable source coordinate must never produce a fake camera fit.
+  const glMax=3.402823466e38;
+  if([...bounds.min,...bounds.max].some(v=>!Number.isFinite(v)||Math.abs(v)>glMax))return NaN;
   const w=Number(canvas?.clientWidth)||Number(canvas?.width)||800,
     h=Number(canvas?.clientHeight)||Number(canvas?.height)||500;
   const aspect=w/Math.max(1,h),tanHalf=Math.tan(Math.PI/8),basis=fvCameraBasis(camera),
