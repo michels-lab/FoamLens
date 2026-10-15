@@ -4583,7 +4583,21 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 
 - Two-field figure titles and the per-case/per-variable native/interpolated playback statuses now name each real field distinctly. Same-case dual-variable playback displays its common physical-time range instead of misleading native-only text.
 
-### 2026-10-14 — Field UI PR #128 CI regression triage and main reconciliation
+### 2026-10-14 — Public v1.8.3 documentation CI reconciliation
+
+- Public v1.8.3 publication and exact downloaded Setup/Portable checksum evidence recorded independently. Repaired README's exact-version native regression contract by retaining standalone bold Desktop v1.8.3 / frontend v51 release identity while placing real GitHub release download links separately. No false v1.8.3 release candidate language.
+- Corrected user-facing outdated claim that embedded Spatial Profile/Time Series/Solver Logs controls must remain simultaneously visible inside Field: Data already owns these datasets; a separate, still-validated Field UX PR retires their legacy companion tabs. Updated docs do not assert unpublished UI changes are shipped. No release or updater change.
+
+### 2026-10-14 — Native temporal parsing off the UI dispatcher (PR #126 reconciliation)
+
+- Reused the previously Windows/QuickCup-validated source delta of PR #126: native temporal file checksum, persistent cache and streaming parser execute through cancellable Task.Run outside WinForms/WebView2's UI synchronization context. Source hash/cache payload integrity, exact scientific data and UI-thread marshaling remain unchanged.
+- Reconciled onto current v1.8.3 public documentation / dual-variable profile main without restoring an old full tree or published version. Fresh exact-head Windows, real QuickCup/VTK and installed/portable tests required. Responsiveness improvement has no claimed measured owner's real large-case speedup; issue #117 stays open.
+
+### 2026-10-14 — Privacy-safe import diagnostics carried through native temporal-worker integration
+
+- After #126 was independently validated on Windows and merged into main, #125 is reconciled without reverting that real off-dispatcher parser. Retains the feature's exact input-report source and regression canaries, dual-variable profiles and publicly verified v1.8.3 README. Full current-head 3,008-series and installed/portable Windows/OpenFOAM tests required before integration. Owner cold/warm and memory benchmark remain open; no release authorized.
+
+Field UI PR #128 CI regression triage and main reconciliation
 
 - Previous Windows failure came from scientific section-ownership test fixture lacking activeAppMode/currentDataView. Updated Data + Time Series fixture and tested Field-mode no-side-effects, preserving staged atomic scientific history behavior.
 - A 3,008-curve fast import runner exceeded its existing 2,000 ms wall-clock threshold; the fast-import source was not modified by this UI branch. Retain benchmark bound and retest on exact reconciled head.

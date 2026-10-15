@@ -13,7 +13,7 @@ const ctx={
   console:{warn:()=>{}}
 };
 vm.createContext(ctx);
-vm.runInContext(html.slice(start,end)+';globalThis.performanceReport=flSanitizedImportPerformanceReport;globalThis.exportReport=flExportImportPerformanceReport',ctx,{timeout:1000});
+vm.runInContext(html.slice(start,end)+';globalThis.performanceReport=flSanitizedImportPerformanceReport;globalThis.exportReport=flExportImportPerformanceReport;globalThis.sourceSummary=flSummarizeImportSourceFiles',ctx,{timeout:1000});
 assert.strictEqual(ctx.performanceReport(),null,'No import means no invented report');
 assert.strictEqual(ctx.exportReport(),false,'Do not download a fake performance report');
 vm.runInContext(`flImportPerformance={
@@ -23,8 +23,26 @@ vm.runInContext(`flImportPerformance={
   privatePath:'C:\\\\private\\\\secret',caseName:'CONFIDENTIAL_PATIENT_OR_CASE_NAME',
   filename:'Confidential-data.csv',scientificField:[1,2,3]
 }`,ctx);
+const summary=ctx.sourceSummary([
+  {file:{name:'CONFIDENTIAL_PRIVATE_01',size:2048},kind:'timeseries'},
+  {file:{name:'CONFIDENTIAL_PRIVATE_02',size:0},kind:'field'},
+  {file:{name:'CONFIDENTIAL_PRIVATE_03',size:512},kind:'INJECTED_PRIVATE_KIND'},
+  {file:{name:'CONFIDENTIAL_PRIVATE_04',size:128},kind:'profile'}
+]);
+assert.strictEqual(summary.sourceBytesKnown,2688,'Only known positive source sizes are summed');
+assert.strictEqual(summary.sourceBytesSizedFiles,3);
+assert.strictEqual(summary.sourceBytesUnknownFiles,1,'Unknown directory handle size must not be reported as zero-byte input');
+assert.strictEqual(summary.sourceKindCounts.unknown,1,'Kinds are hard-coded and cannot leak arbitrary labels');
+ctx.sourceInputSummary=summary;
+vm.runInContext('Object.assign(flImportPerformance,globalThis.sourceInputSummary)',ctx);
 const result=ctx.performanceReport();
 assert.strictEqual(result.fileCount,3008);
+assert.strictEqual(result.sourceBytesKnown,2688);
+assert.strictEqual(result.sourceBytesSizedFiles,3);
+assert.strictEqual(result.sourceBytesUnknownFiles,1);
+assert.strictEqual(result.sourceKindCounts.timeseries,1);
+assert.strictEqual(result.sourceKindCounts.field,1);
+assert.strictEqual(result.sourceKindCounts.unknown,1);
 assert.strictEqual(result.mode,'indexed-fast');
 assert.strictEqual(result.totalParseAndMetadataMs,120000);
 assert.strictEqual(result.firstInteractiveMs,185000);
