@@ -237,6 +237,11 @@ function flRibbonCss(){
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:310px;width:310px;flex:0 0 310px;grid-template-columns:28px 28px 28px minmax(82px,1fr) auto auto}',
     '#flRibbonPanel-field .fwTimeTransport .btn{white-space:nowrap;word-break:normal;min-width:28px}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup{flex:0 0 auto}',
+    // Keep 7 semantic camera controls without crushing playback on laptops.
+    // Full directional names are always in the Camera shelf; quick buttons
+    // show distinct icons and retain bilingual aria-label/title below 1460px.
+    '@media(max-width:1800px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}}',
+    '@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:none!important}#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{width:29px!important;min-width:29px!important;max-width:29px!important;padding:4px!important}}',
     'body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',

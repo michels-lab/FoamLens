@@ -45,3 +45,8 @@ assert(native.includes('contextRejectsLegacyProfile')&&native.includes("internal
   'Native packaged smoke must reject legacy Field profile and require exactly one 3D tab');
 assert(!native.includes('contextVisibleProfile')&&!native.includes("'flRaFieldProfile','flRaFieldTimeSeries'"),
   'Native packaged smoke still requires removed Field 2D tabs');
+
+assert(ribbon.includes('@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:none!important}'),
+  'Laptop quick camera toolbar must remain one row; complete named presets stay in Camera subbar');
+assert(native.includes('innerWidth<=1460?28:43')&&native.includes("el.getAttribute('aria-label')===label?.textContent"),
+  'Packaged UI must test actual responsive camera sizing and readable accessible names');

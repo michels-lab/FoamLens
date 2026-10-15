@@ -359,10 +359,13 @@ internal sealed class FoamLensForm : Form
                       const quick=names.map(name=>document.getElementById('flRaQuick'+name));
                       const distinctCameras=quick.every(Boolean)&&
                         new Set(quick.map(el=>el.querySelector('svg')?.innerHTML)).size===7;
-                      const cameraNamesReadable=innerWidth<=760||
-                        quick.every(el=>!!el&&el.getBoundingClientRect().width>=43&&
-                          getComputedStyle(el.querySelector('.flRibbonLabel')).display!=='none'&&
-                          el.querySelector('.flRibbonLabel').getBoundingClientRect().width>=15);
+                      const cameraNamesReadable=innerWidth<=760||quick.every(el=>{
+                        const label=el?.querySelector('.flRibbonLabel'),rect=el?.getBoundingClientRect();
+                        const named=!!el?.getAttribute('title')&&!!el?.getAttribute('aria-label')&&
+                          el.getAttribute('aria-label')===label?.textContent;
+                        return named&&!!rect&&rect.width>=(innerWidth<=1460?28:43)&&
+                          (innerWidth<=1460||getComputedStyle(label).display!=='none'&&label.getBoundingClientRect().width>=15)
+                      });
                       const internalBar=document.querySelector('#fieldSurface .fwWorkspaceBar');
                       const fieldNavHidden=!!internalBar&&getComputedStyle(internalBar).display==='none'&&
                         window.FoamLensFieldWorkspace?.getState?.().view==='3d';
