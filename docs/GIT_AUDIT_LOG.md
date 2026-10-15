@@ -4655,3 +4655,11 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Collected file size and timestamp once from each file snapshot, tracked saturation-safe known source bytes and actual enumeration milliseconds, and retained partial/cancelled scan safety. The eventual checkpoint still runs with the existing cancellation token; cancellation after delivered completion cannot falsely invalidate the already-enumerated files. Catalog status reports `deferred`, not a fabricated completed cache result.
 - Added a source-order CI contract to the native scientific cache job, and it continues running the production .NET numerical/cache integrity regressions. Follow up with real QuickCup/VTK and exact packed Portable/Setup tests.
 - This is a *latency dependency improvement*, not a verified speedup. Owner's 3,008-file cold/warm import, CPU/RAM measurements and time to first interactive plot are still required. No release or version bump solely on source checks.
+
+### 2026-10-15 — Indexed spatial-profile physical-time labels (3k+ source datasets)
+
+- The existing `refreshProfileTimes` resolved a sample for every time value by scanning every selected profile with `profiles.find(profileTimeEqual)`, causing O(profiles × times) comparisons when 2D experiments contain thousands of physical-time folders.
+- Added a sorted numerical time index plus bounded neighborhood scan using the exact existing `profileTimeEqual` scientific tolerance. Ties preserve **the earliest source profile**, so subtle near-equal timestamps retain the same display labels as before; negative and nonfinite time inputs are handled explicitly.
+- Bypass sample lookup altogether for a common multi-case/two-variable physical-time clock because those labels are generated from the authoritative common clock. No physical times, interpolation, scientific values or comparison axes are modified.
+- Integrated a production-source Node regression comparing the new index against the original scan for 3,008 unique times, near-equal and high-magnitude times, missing/nonfinite values, and shared-clock mode into the Windows build gate.
+- Requires packed Windows validation and owner case measurement. This removes one identified quadratic UI path; no whole-import benchmark speedup is claimed yet.
