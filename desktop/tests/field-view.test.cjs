@@ -1908,7 +1908,7 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
     'fvRegionApplyVisibility(c);',
     'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
   ].join('\n');
-  const observed=new Function(setup+regionCode+exercise)();
+  const observed=new Function(setup+cameraFitStub+regionCode+exercise)();
   assert.equal(observed.remaining,0,'Hidden secondary geometry must not remain in memory');
   assert.deepStrictEqual(observed.deletions,[1,2,3,4],'Every hidden layer GL buffer must be released');
   assert.deepStrictEqual(observed.camera,[.5,.5,.5],'Hidden physical geometry must not affect camera fitting');
