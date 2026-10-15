@@ -635,6 +635,12 @@ function fvRegionLegendMarkup(layer,choice){
     ?pmUnitFromDimensions(layer.parsed.dimensions):'';
   const prefix=fvEsc((layer.field||'')+' · t='+fvFmt(sourceTime)+' s · '+fvAssociationLabel(layer.storage));
   const lo=fvEsc(fvFmtRange(range.min,range)),hi=fvEsc(fvFmtRange(range.max,range)),suffix=unit?' '+fvEsc(unit):'';
+  if(range.min===range.max){
+    const rgb=fvColorMap(range.min,0,1,palette).map(v=>Math.round(255*v));
+    return '<div class="fvRegionLegendLabel">'+prefix+'</div>'+
+      '<div class="fvUniformRange"><span class="fvUniformSwatch" style="background:rgb('+rgb.join(',')+')"></span>'+
+      flUi('Uniform field','Campo uniforme')+': <b>'+lo+suffix+'</b></div>'
+  }
   return '<div class="fvRegionLegendLabel">'+prefix+'</div>'+
     '<div class="fvRegionLegendBar" style="background:'+fvLegendGradient(palette)+'" aria-hidden="true"></div>'+
     '<div class="fvRegionLegendBounds"><span>'+lo+suffix+'</span><span>'+hi+suffix+'</span></div>'
