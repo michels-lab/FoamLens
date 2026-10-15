@@ -360,6 +360,9 @@ jobs:
       - name: Dual Spatial Profiles variable comparison
         run: node desktop/tests/dual-profiles.test.cjs
 
+      - name: Indexed 3,008-time profile lookup scientific equivalence
+        run: node desktop/tests/profile-time-index.test.cjs
+
       - name: Test Phase Change / Momentum analysis
         shell: pwsh
         run: node desktop/tests/phase-momentum.test.cjs
