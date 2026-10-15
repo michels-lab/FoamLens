@@ -8494,7 +8494,15 @@ function draw(){
   $('workspaceHint').style.display=exact?'none':'block';
 
   if(!vis.length){
-    $('plotInfo').textContent=tr('noData');
+    if(currentDataView==='profile'){
+      $('plotTitle').textContent=flUi('Spatial profiles · none available','Perfiles espaciales · no disponibles');
+      $('plotInfo').textContent=flUi('0 measured spatial-profile curves','0 curvas de perfil espacial medidas');
+      $('empty').innerHTML='<div><b>'+flUi('No spatial-profile outputs detected','No se detectaron perfiles espaciales')+
+        '</b><p>'+flUi('Imported time frames and solver logs are not spatial profiles. Select loaded cases to compare real outputs, compare available time series, or import postProcessing profiles.','Los tiempos importados y los registros del solver no son perfiles espaciales. Selecciona casos cargados con perfiles reales, compara series temporales o importa perfiles de postProcessing.')+'</p></div>'
+    }else{
+      $('plotInfo').textContent=tr('noData');
+      $('empty').innerHTML='<div><b>'+flUi('No matching curves','Sin curvas coincidentes')+'</b></div>'
+    }
     c.style.width='';
     c.style.height='';
     return
