@@ -7,6 +7,8 @@ on:
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
       - 'tools/tests/native-folder-completion.test.cjs'
+      - 'tools/compare-import-performance.cjs'
+      - 'tools/tests/compare-import-performance.test.cjs'
       - '.github/workflows/native-temporal-cache-fast.yml'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'tools/native-temporal-cache-tests/**'
       - 'tools/tests/native-folder-completion.test.cjs'
+      - 'tools/compare-import-performance.cjs'
+      - 'tools/tests/compare-import-performance.test.cjs'
       - '.github/workflows/native-temporal-cache-fast.yml'
   workflow_dispatch:
 
@@ -35,3 +39,5 @@ jobs:
         run: dotnet run --project tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj -c Release
       - name: Folder availability vs optional cache contract
         run: node tools/tests/native-folder-completion.test.cjs
+      - name: Compare privacy-safe owner import reports without false speedups
+        run: node tools/tests/compare-import-performance.test.cjs
