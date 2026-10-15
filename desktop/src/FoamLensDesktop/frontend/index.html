@@ -2521,7 +2521,12 @@ function projectDisplayName(){
   return common.at(-1)||roots[0][0]||'OpenFOAM Project'
 }
 function seriesRegion(s){const c=caseById(s.caseId),regions=c?.discovery?.regions||[];if(!regions.length)return'';const parts=String(s.sourcePath||s.fileName||'').replace(/\\\\/g,'/').split('/');return regions.find(r=>parts.includes(r))||(regions.length===1?regions[0]:'')}
-function seriesMatchesGlobalContext(s){if(activeContextCaseId!=null&&Number(s.caseId)!==Number(activeContextCaseId))return false;if(activeContextRegion&&seriesRegion(s)!==activeContextRegion)return false;return true}
+function seriesMatchesGlobalContext(s){
+  if(dataCompareState.active&&['profile','timeseries'].includes(currentDataView)){
+    if(!dataCompareCaseAllowed(s.caseId,currentDataView))return false;
+  }else if(activeContextCaseId!=null&&Number(s.caseId)!==Number(activeContextCaseId))return false;
+  if(activeContextRegion&&seriesRegion(s)!==activeContextRegion)return false;return true
+}
 function refreshGlobalContext(){
   if(!$('globalCaseSelect'))return;$('globalProjectName').textContent=projectDisplayName();
   const old=activeContextCaseId==null?'':String(activeContextCaseId);$('globalCaseSelect').innerHTML=`<option value="">${diagEs()?'Todos los casos':'All cases'}</option>`+cases.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
@@ -3322,6 +3327,7 @@ function pendingLazyProfileCount(caseId=null){
   let n=0;for(const b of lazyProfileFilesByCase.values())n+=b.size;return n
 }
 function lazyProfileCountForContext(){
+  if(dataCompareState.active&&currentDataView==='profile')return [...dataCompareState.selected].reduce((n,id)=>n+pendingLazyProfileCount(id),0);
   if(activeContextCaseId!=null)return pendingLazyProfileCount(activeContextCaseId);
   let n=0;for(const c of cases.filter(c=>c.visible!==false))n+=pendingLazyProfileCount(c.id);return n
 }
@@ -3332,7 +3338,8 @@ function indexedProfileSets(caseId){
 }
 async function hydrateLazyProfilesForContext(){
   if(lazyProfileHydrationPromise)return lazyProfileHydrationPromise;
-  const ids=activeContextCaseId!=null?[Number(activeContextCaseId)]:cases.filter(c=>c.visible!==false).map(c=>c.id);
+  const ids=dataCompareState.active&&currentDataView==='profile'?[...dataCompareState.selected]:
+    activeContextCaseId!=null?[Number(activeContextCaseId)]:cases.filter(c=>c.visible!==false).map(c=>c.id);
   const todo=ids.map(id=>({id,files:[...(lazyProfileFilesByCase.get(id)?.values()||[])]})).filter(x=>x.files.length);
   if(!todo.length)return false;
   lazyProfileHydrationPromise=(async()=>{
@@ -5864,7 +5871,6 @@ function restoreXRange(){
 }
 function setDataView(mode){
   if(mode==='profile'&&!profileOptionsBase().length&&lazyProfileCountForContext()>0){hydrateLazyProfilesForContext().then(ok=>{if(ok)setDataView('profile')});return}
-  if(mode==='profile'&&!series.some(s=>datasetTypeOf(s)==='profile')){flSetIssue('status','no spatial profiles',{view:'Spatial Profiles'});return;}
   if(mode==='log'&&!series.some(s=>datasetTypeOf(s)==='log')){flSetIssue('status','no solver logs',{view:'Solver Logs'});return;}
   if(mode==='catalog'&&!cases.some(c=>c.discoveryModel)){flSetIssue('status','selection-missing',{view:'Data Catalog'});return;}
   stopAllPlayback();if(currentDataView!=='catalog')saveCurrentXRange();
@@ -6185,6 +6191,91 @@ let activeReviewPane='auditor';
 let currentFindings=[];
 let activeContextCaseId=null;
 let activeContextRegion='';
+/* FOAMLENS_DATA_LOADED_CASE_COMPARISON_START */
+const dataCompareState={active:false,mode:'profile',selected:new Set(),touched:false,importConfigured:false};
+function dataCompareCaseAllowed(seriesCaseId,view){
+  if(!dataCompareState.active||!['profile','timeseries'].includes(view))return true;
+  return dataCompareState.selected.has(Number(seriesCaseId))
+}
+function dataCompareAvailableCases(){
+  return cases.filter(c=>series.some(s=>s.caseId===c.id)||pendingLazyProfileCount(c.id)>0);
+}
+function dataCompareCounts(caseId){
+  return{
+    profiles:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='profile'&&s.derivedKind!=='difference').length,
+    indexed:pendingLazyProfileCount(caseId),
+    times:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='timeseries').length,
+    logs:series.filter(s=>s.caseId===caseId&&datasetTypeOf(s)==='log').length
+  }
+}
+function dataCompareRefresh(){
+  const root=$('dataCompareExisting'),list=$('dataCompareCaseList'),importer=$('dataImportMore');
+  if(!root||!list||!importer)return;
+  const candidates=dataCompareAvailableCases(),availableIds=new Set(candidates.map(c=>c.id));
+  for(const id of dataCompareState.selected)if(!availableIds.has(id))dataCompareState.selected.delete(id);
+  if(!dataCompareState.touched)for(const c of candidates)if(c.visible!==false)dataCompareState.selected.add(c.id);
+  const relevant=['profile','timeseries'].includes(currentDataView)&&candidates.length>0;
+  root.classList.toggle('hidden',!relevant);
+  if(!dataCompareState.importConfigured||(!relevant&&!importer.open)){
+    importer.open=!relevant;dataCompareState.importConfigured=true
+  }
+  $('dataImportMoreTitle').textContent=relevant?flUi('Import additional data','Importar más datos'):flUi('Import OpenFOAM data','Importar datos OpenFOAM');
+  if(!relevant)return;
+  $('dataCompareTitle').textContent=flUi('Compare loaded cases','Comparar casos cargados');
+  $('dataCompareHelp').textContent=flUi('Select previously imported cases. No need to import them again. Only real available curves can be compared.','Selecciona casos ya importados. No necesitas volverlos a importar. Solo se comparan curvas realmente disponibles.');
+  $('dataCompareSelectAll').textContent=flUi('Select all','Seleccionar todos');
+  $('dataCompareClear').textContent=flUi('Clear','Limpiar');
+  $('dataCompareReset').textContent=flUi('Single case','Un solo caso');
+  $('dataCompareProfiles').textContent=flUi('Compare profiles','Comparar perfiles');
+  $('dataCompareTimeSeries').textContent=flUi('Compare time series','Comparar series temporales');
+  list.innerHTML=candidates.map(c=>{
+    const counts=dataCompareCounts(c.id);
+    return '<label class="dataCompareCase"><input type="checkbox" data-compare-case="'+c.id+'" '+(dataCompareState.selected.has(c.id)?'checked':'')+'>'+
+      '<span class="dataCompareCaseInfo"><b>'+esc(c.name)+'</b><span>'+
+      counts.profiles+' '+flUi('profiles','perfiles')+(counts.indexed?' + '+counts.indexed+' '+flUi('indexed','indexados'):'')+
+      ' · '+counts.times+' '+flUi('time series','series temporales')+
+      ' · '+counts.logs+' '+flUi('logs','registros')+'</span></span></label>'
+  }).join('');
+  const selected=candidates.filter(c=>dataCompareState.selected.has(c.id));
+  $('dataCompareCount').textContent=selected.length+' / '+candidates.length+' '+flUi('cases','casos');
+  const profiles=selected.filter(c=>{const d=dataCompareCounts(c.id);return d.profiles+d.indexed>0}).length,
+    times=selected.filter(c=>dataCompareCounts(c.id).times>0).length;
+  $('dataCompareProfiles').disabled=profiles<2;
+  $('dataCompareTimeSeries').disabled=times<2;
+  $('dataCompareReset').disabled=!dataCompareState.active;
+  $('dataCompareStatus').textContent=profiles<2?
+    flUi('Spatial-profile comparison needs two cases with real profile outputs. Imported time steps or solver logs are not spatial profiles; compare time series instead if available.','La comparación de perfiles requiere dos casos con perfiles espaciales reales. Los tiempos importados o logs no son perfiles; puedes comparar las series temporales si existen.'):
+    flUi('Select cases, then compare their actual physical-time profiles on the same chart.','Selecciona casos y compara sus perfiles de tiempo físico en la misma gráfica.');
+}
+function dataCompareApply(view){
+  if(!['profile','timeseries'].includes(view))return;
+  const candidates=dataCompareAvailableCases().filter(c=>dataCompareState.selected.has(c.id));
+  const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
+  if(ready.length<2)return;
+  stopAllPlayback();
+  dataCompareState.active=true;dataCompareState.mode=view;
+  activeContextCaseId=null;activeContextRegion='';
+  if($('globalCaseSelect'))$('globalCaseSelect').value='';
+  refreshGlobalContext();
+  currentDataView=view;
+  resetProfilePlaybackState();clearProfilePlaybackFrameCache();
+  if(view==='profile'){
+    // All output sets/lines remain selectable; a case-specific source folder
+    // must never silently exclude the other selected OpenFOAM case.
+    $('profileSet').dataset.compareDefault='1';
+    $('profileLine').dataset.compareDefault='1'
+  }
+  refreshDatasetControls();renderList();updateMeta();draw();
+  if(view==='profile'&&!profileOptionsBase().length&&lazyProfileCountForContext()>0)
+    hydrateLazyProfilesForContext().then(loaded=>{if(loaded){refreshDatasetControls();renderList();updateMeta();draw()}});
+}
+function dataCompareReset(){
+  stopAllPlayback();dataCompareState.active=false;
+  resetProfilePlaybackState();clearProfilePlaybackFrameCache();
+  refreshDatasetControls();renderList();updateMeta();draw()
+}
+/* FOAMLENS_DATA_LOADED_CASE_COMPARISON_END */
+
 let pendingWorkspaceRestore=null;
 let pinnedFindingKeys=new Set();
 let dismissedFindingKeys=new Set();
@@ -7390,15 +7481,16 @@ function refreshDatasetControls(options={}){
   $('profileCount').textContent=String(knownProfiles);
   $('logCount').textContent=String(uniqueLogFiles().size);
   const catalogN=flAllCatalogRows().length;$('catalogCount').textContent=String(catalogN);
-  $('profileTab').disabled=!(profiles.length||lazyProfiles);$('logTab').disabled=!logs.length;$('catalogTab').disabled=!catalogN;
+  $('profileTab').disabled=!(profiles.length||lazyProfiles||dataCompareAvailableCases().length);$('logTab').disabled=!logs.length;$('catalogTab').disabled=!catalogN;
   $('datasetSummary').textContent=`${times.length} + ${knownProfiles} + ${uniqueLogFiles().size} + ${catalogN}`;
   refreshTimeSeriesControls();
 
   const sSel=$('profileSet'),vSel=$('profileVariable'),v2Sel=$('profileVariable2'),lSel=$('profileLine'),tSel=$('profileTime');
   const ps=sSel.value,pv=vSel.value,pv2=v2Sel.value,pl=lSel.value,pt=tSel.value;
   const sets=[...new Map(profiles.map(s=>[s.profileOutputPath||'',s])).entries()].map(([path,sample])=>({path,sample})).sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));
-  sSel.innerHTML=sets.map(o=>`<option value="${esc(o.path)}">${esc(profileSetDisplay(o.path,o.sample))}</option>`).join('');
-  if(sets.some(o=>o.path===ps))sSel.value=ps;
+  sSel.innerHTML=(dataCompareState.active&&currentDataView==='profile'?'<option value="">'+flUi('All profile sets · selected cases','Todos los conjuntos · casos seleccionados')+'</option>':'')+sets.map(o=>`<option value="${esc(o.path)}">${esc(profileSetDisplay(o.path,o.sample))}</option>`).join('');
+  if(dataCompareState.active&&currentDataView==='profile'&&sSel.dataset.compareDefault==='1'){sSel.value='';delete sSel.dataset.compareDefault}
+  else if(sets.some(o=>o.path===ps))sSel.value=ps;
   const bySet=profiles.filter(s=>!sSel.value||(s.profileOutputPath||'')===sSel.value);
   const vars=[...new Map(bySet.map(s=>[s.field.canonical,s.field])).values()].sort((a,b)=>profileVariablePriority(a.canonical)-profileVariablePriority(b.canonical)||a.display.localeCompare(b.display));
   vSel.innerHTML=vars.map(f=>`<option value="${esc(f.canonical)}">${esc(localizedFieldName(f))}${f.unit==='-'?'':` [${esc(f.unit)}]`}</option>`).join('');
@@ -7410,8 +7502,9 @@ function refreshDatasetControls(options={}){
   v2Sel.disabled=!vSel.value||!secondaryOptions.length;
   const byVar=bySet.filter(s=>profileMatchesVariable(s.field?.canonical,vSel.value,v2Sel.value));
   const lines=[...new Map(byVar.map(s=>[s.profileLineKey,{key:s.profileLineKey,label:s.profileLine,sort:s.profileLineSort||0}])).values()].sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,undefined,{numeric:true}));
-  lSel.innerHTML=lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
-  if(lines.some(l=>l.key===pl))lSel.value=pl;
+  lSel.innerHTML=(dataCompareState.active&&currentDataView==='profile'?'<option value="">'+flUi('All matching profile lines','Todas las líneas de perfiles')+'</option>':'')+lines.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join('');
+  if(dataCompareState.active&&currentDataView==='profile'&&lSel.dataset.compareDefault==='1'){lSel.value='';delete lSel.dataset.compareDefault}
+  else if(lines.some(l=>l.key===pl))lSel.value=pl;
 
   const byLine=byVar.filter(s=>!lSel.value||s.profileLineKey===lSel.value);
   const timesVals=[...new Map(byLine.filter(s=>Number.isFinite(s.profileTime)).map(s=>[String(Number(s.profileTime)),{value:Number(s.profileTime),label:s.profileTimeLabel||String(s.profileTime)}])).values()].sort((a,b)=>a.value-b.value);
@@ -7419,7 +7512,8 @@ function refreshDatasetControls(options={}){
   if(timesVals.some(t=>profileTimeEqual(t.value,pt)))tSel.value=String(Number(pt));
 
   if(currentDataView==='timeseries'&&!times.length){currentDataView=profiles.length?'profile':logs.length?'log':catalogN?'catalog':'timeseries'}
-  if(currentDataView==='profile'&&!profiles.length&&!lazyProfiles)currentDataView=times.length?'timeseries':logs.length?'log':'profile';
+  // Keep requested Profiles view visible to explain missing spatial-profile outputs.
+  // Never silently switch to Time Series and disguise the lack of profile data.
   if(currentDataView==='log'&&!logs.length)currentDataView=times.length?'timeseries':profiles.length?'profile':'log';
   if(currentDataView==='catalog'&&!catalogN)currentDataView=times.length?'timeseries':profiles.length?'profile':logs.length?'log':'timeseries';
   if(options?.deferHeavy){updateDatasetViewUI();return}
@@ -7495,6 +7589,7 @@ function updateDatasetViewUI(){
   $('profileControls').classList.toggle('hidden',currentDataView!=='profile');
   $('logControls').classList.toggle('hidden',currentDataView!=='log');
   $('catalogControls').classList.toggle('hidden',currentDataView!=='catalog');
+  dataCompareRefresh();
   $('playbackGlobal')?.classList.toggle('hidden',currentDataView==='timeseries'||currentDataView==='catalog');
   $('xRangePresetField').style.display=(currentDataView==='profile'||currentDataView==='catalog')?'none':'';
   const xLab=$('xmin').closest('.field')?.querySelector('label'),xMaxLab=$('xmax').closest('.field')?.querySelector('label');
@@ -9562,7 +9657,7 @@ $('scanContinue')?.addEventListener('click',()=>{setOverlayOpen('scanOverlay',fa
 $('scanCancel')?.addEventListener('click',()=>{cancelActiveDataReads();pendingScanFiles=[];pendingScanCandidates=[];stopOperationClock();setOverlayOpen('scanOverlay',false)});
 $('readyOpen')?.addEventListener('click',()=>{setOverlayOpen('readyOverlay',false);setAppMode('workspace');refreshWorkspaceReview()});
 $('readyPerformanceReport')?.addEventListener('click',flExportImportPerformanceReport);
-$('globalCaseSelect')?.addEventListener('change',()=>{activeContextCaseId=$('globalCaseSelect').value?Number($('globalCaseSelect').value):null;activeContextRegion='';refreshGlobalContext();applyGlobalContext()});
+$('globalCaseSelect')?.addEventListener('change',()=>{dataCompareState.active=false;activeContextCaseId=$('globalCaseSelect').value?Number($('globalCaseSelect').value):null;activeContextRegion='';refreshGlobalContext();applyGlobalContext()});
 $('globalRegionSelect')?.addEventListener('change',()=>{activeContextRegion=$('globalRegionSelect').value||'';applyGlobalContext()});
 for(const id of ['saveWorkspaceTop','projectSaveWorkspace'])$(id)?.addEventListener('click',saveFoamLensWorkspace);
 for(const id of ['openWorkspaceTop','projectOpenWorkspace'])$(id)?.addEventListener('click',()=>$('workspaceStateInput').click());
@@ -9599,6 +9694,24 @@ $('liveChooseFolder')?.addEventListener('click',chooseLiveFolder);
 $('liveRefreshNow')?.addEventListener('click',inspectLiveDirectory);
 $('liveStop')?.addEventListener('click',stopLiveWatch);
 $('liveOpenNumerical')?.addEventListener('click',openLiveNumericalPerformance);
+$('dataCompareCaseList')?.addEventListener('change',event=>{
+  const input=event.target.closest('input[data-compare-case]');
+  if(!input)return;
+  const id=Number(input.dataset.compareCase);
+  dataCompareState.touched=true;
+  if(input.checked)dataCompareState.selected.add(id);else dataCompareState.selected.delete(id);
+  dataCompareRefresh()
+});
+$('dataCompareSelectAll')?.addEventListener('click',()=>{
+  dataCompareState.touched=true;dataCompareState.selected=new Set(dataCompareAvailableCases().map(c=>c.id));dataCompareRefresh()
+});
+$('dataCompareClear')?.addEventListener('click',()=>{
+  dataCompareState.touched=true;dataCompareState.selected.clear();dataCompareRefresh()
+});
+$('dataCompareProfiles')?.addEventListener('click',()=>dataCompareApply('profile'));
+$('dataCompareTimeSeries')?.addEventListener('click',()=>dataCompareApply('timeseries'));
+$('dataCompareReset')?.addEventListener('click',dataCompareReset);
+
 $('profileSet').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshDatasetControls();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
 
 $('timeSeriesVariable').addEventListener('change',()=>{stopAllPlayback();animationLockedRanges=null;refreshTimeSeriesControls();activeId=null;pinnedPoints=[];renderList();updateMeta();draw()});
