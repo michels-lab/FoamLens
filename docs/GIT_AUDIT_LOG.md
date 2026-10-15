@@ -4663,3 +4663,9 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Bypass sample lookup altogether for a common multi-case/two-variable physical-time clock because those labels are generated from the authoritative common clock. No physical times, interpolation, scientific values or comparison axes are modified.
 - Integrated a production-source Node regression comparing the new index against the original scan for 3,008 unique times, near-equal and high-magnitude times, missing/nonfinite values, and shared-clock mode into the Windows build gate.
 - Requires packed Windows validation and owner case measurement. This removes one identified quadratic UI path; no whole-import benchmark speedup is claimed yet.
+
+### 2026-10-15 — Comparable privacy-safe owner import timing evidence
+
+- Added a local Node.js report comparison utility and executable regression tests for two FoamLens Ready-screen `foamlens-scientific-import-performance-v1` exports. Rejects version/mode/file/series/case/source-volume and file-kind mismatches, preserves missing audit timings as null and never fabricates speedups from absent or zero elapsed times.
+- Output contains only bounded scientific import stage timing statistics and explicitly warns that privacy-safe reports cannot verify exact input identity or physical values. No private names, paths, mesh values or field arrays are exported.
+- Added `docs/OWNER_IMPORT_TIMINGS.md` with correct same-dataset first/repeated methodology. This comparison is a reproducibility aid, **not** a measured improvement of the owner's original 184.8 s / 3,008-file case. Full cold/warm owner benchmark, peak memory and exact Windows binary validation remain #117/#131 gates.
