@@ -3153,6 +3153,8 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         var catalogDirs = new List<NativeCaseCatalog.DirectoryEntry>();
         bool complete = true;
         var nextProgress = Stopwatch.StartNew();
+        var scanClock = Stopwatch.StartNew();
+        long scannedBytes = 0;
 
         while (stack.Count > 0)
         {
@@ -3177,16 +3179,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     _fileTokens[token] = path;
                     var info = new FileInfo(path);
                     var relative = Path.GetRelativePath(rootPath, path).Replace('\\', '/');
-                    if (!info.Exists) complete = false;
-                    catalogFiles.Add(NativeCaseCatalog.FileEntry(relative,
-                        info.Exists ? info.Length : 0,
-                        info.Exists ? info.LastWriteTimeUtc.Ticks : 0));
+                    var exists = info.Exists;
+                    if (!exists) complete = false;
+                    var size = exists ? info.Length : 0;
+                    var modifiedUtc = exists ? info.LastWriteTimeUtc : DateTime.MinValue;
+                    scannedBytes = size >= long.MaxValue - scannedBytes ? long.MaxValue : scannedBytes + size;
+                    catalogFiles.Add(NativeCaseCatalog.FileEntry(relative, size, modifiedUtc.Ticks));
                     chunk.Add(new NativeFileRef(
                         token,
                         info.Name,
                         $"{rootName}/{relative}",
-                        info.Exists ? info.Length : 0,
-                        info.Exists ? new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds() : 0));
+                        size,
+                        exists ? new DateTimeOffset(modifiedUtc).ToUnixTimeMilliseconds() : 0));
 
                     if (chunk.Count >= 250)
                     {
@@ -3205,14 +3209,30 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         }
 
         if (chunk.Count > 0) Post(new { type = "folderChunk", requestId, files = chunk.ToArray() });
-        // Checkpoint only a fully enumerated inventory. Physical measurements and
-        // dimensions always come from fresh reads / independent SHA-verified caches.
-        var checkpoint = NativeCaseCatalog.CommitAsync(rootPath, catalogFiles, catalogDirs,
-            complete, cancellationToken).GetAwaiter().GetResult();
+        cancellationToken.ThrowIfCancellationRequested();
+        var enumerationMilliseconds = scanClock.ElapsedMilliseconds;
+        // The scientific folder is ready as soon as its complete listing has arrived.
+        // Persisting an optional structural catalog must never hold the first plot hostage.
         Post(new {
             type = "folderComplete", requestId, folderName = rootName, files, folders,
-            catalogStatus = checkpoint.Status, sourceBytes = checkpoint.SourceBytes, partial = !complete
+            catalogStatus = "deferred", sourceBytes = scannedBytes, partial = !complete,
+            enumerationMilliseconds
         });
+
+        try
+        {
+            // A fresh listing and all actual data reads remain authoritative; this
+            // local checkpoint never supplies numerical values or field dimensions.
+            var checkpoint = NativeCaseCatalog.CommitAsync(rootPath, catalogFiles, catalogDirs,
+                complete, cancellationToken).GetAwaiter().GetResult();
+            Log($"Native inventory: {checkpoint.Status}; scan={enumerationMilliseconds}ms; " +
+                $"checkpoint={scanClock.ElapsedMilliseconds - enumerationMilliseconds}ms");
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation after folderComplete may skip optional catalog persistence,
+            // but must not retract the already delivered, valid file listing.
+        }
     }
 
     private async Task HandleReadTextAsync(JsonElement root, string requestId)
