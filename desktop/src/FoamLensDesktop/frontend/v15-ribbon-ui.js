@@ -236,6 +236,11 @@ function flRibbonCss(){
     '#flRibbonPanel-field .flRibbonTimeGroup{min-width:310px;flex:0 0 auto}',
     '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:310px;width:310px;flex:0 0 310px;grid-template-columns:28px 28px 28px minmax(82px,1fr) auto auto}',
     '#flRibbonPanel-field .fwTimeTransport .btn{white-space:nowrap;word-break:normal;min-width:28px}',
+    // The legacy Field Workspace @media(max-width:900px) moved these
+    // controls into grid row two. The Ribbon's fixed 6-column transport
+    // gives row two a 28px first track, clipping the true measured clock.
+    // Keep all six controls on one real row at compact viewport widths.
+    '#flRibbonPanel-field .fwTimeReadout,#flRibbonPanel-field #fwTimeSpeed{grid-row:auto;min-width:max-content}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup{flex:0 0 auto}',
     // Keep 7 semantic camera controls without crushing playback on laptops.
     // Full directional names are always in the Camera shelf; quick buttons

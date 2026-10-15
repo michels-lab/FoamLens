@@ -344,6 +344,12 @@ internal sealed class FoamLensForm : Form
                       const shown=/^\s*t\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s\s*$/.exec(readoutText);
                       const displayedTime=shown?Number(shown[1]):NaN;
                       const clockRect=clock?.getBoundingClientRect();
+                      const physicalFrameMatches=Number.isFinite(fieldPhysicalTime)&&Number.isFinite(loadedTime)&&
+                        Math.abs(loadedTime-fieldPhysicalTime)<1e-9;
+                      const displayedTimeMatches=Number.isFinite(displayedTime)&&Number.isFinite(loadedTime)&&
+                        Math.abs(displayedTime-loadedTime)<=1e-6*Math.max(1,Math.abs(loadedTime));
+                      const clockAriaMatches=timeSlider?.getAttribute('aria-valuetext')===readoutText;
+                      const clockVisible=!!clockRect&&clockRect.width>30&&clockRect.height>12;
                       const clockMatchesRealFrame=Number.isFinite(fieldPhysicalTime)&&
                         Number.isFinite(loadedTime)&&Number.isFinite(displayedTime)&&
                         Math.abs(loadedTime-fieldPhysicalTime)<1e-9&&
@@ -402,7 +408,9 @@ internal sealed class FoamLensForm : Form
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
                         shelfClientWidth:shelf?.clientWidth,
                         primaryField:primary?.fieldName||'',primaryTime:primary?.time,
-                        clockMatchesRealFrame,clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
+                        clockMatchesRealFrame,physicalFrameMatches,displayedTimeMatches,clockAriaMatches,clockVisible,
+                        clockWidth:clockRect?.width,clockHeight:clockRect?.height,
+                        clockAriaText:timeSlider?.getAttribute('aria-valuetext'),clockText:clock?.textContent,displayedClockTime:displayedTime,activeClockTime:loadedTime,
                         secondaryRegions:physical?.layers?.size||0,probeRegions:probe?.options?.length||0};
                       }catch(error){
                         return {ok:false,stage:'native-field-wide-compact',error:String(error?.message||error),
