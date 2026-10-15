@@ -4583,7 +4583,11 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 
 - Two-field figure titles and the per-case/per-variable native/interpolated playback statuses now name each real field distinctly. Same-case dual-variable playback displays its common physical-time range instead of misleading native-only text.
 
-### 2026-10-14 — Reconcile privacy-safe import report onto dual-profile main (PR #125)
+### 2026-10-14 — Public v1.8.3 documentation CI reconciliation
 
-- Kept the tested source-file byte lower bound, explicit unknown-size count, fixed-enum file types and opt-in local performance JSON report from PR #125; merged with the current Dual Spatial Profiles code rather than copying a stale full index.html. Reused existing production test and diagnostic documentation without inventing owner timing or private paths.
-- Preserve all scientific plot filters, direct-directory placeholder size semantics, no automatic getFile() scans for diagnostics, and additive backwards-compatible report fields. Current exact-head Windows/QuickCup tests required before merging. Owner cold/warm case benchmark still pending under issue #117. No release authorization.
+- Public v1.8.3 publication and exact downloaded Setup/Portable checksum evidence recorded independently. Repaired README's exact-version native regression contract by retaining standalone bold Desktop v1.8.3 / frontend v51 release identity while placing real GitHub release download links separately. No false v1.8.3 release candidate language.
+- Corrected user-facing outdated claim that embedded Spatial Profile/Time Series/Solver Logs controls must remain simultaneously visible inside Field: Data already owns these datasets; a separate, still-validated Field UX PR retires their legacy companion tabs. Updated docs do not assert unpublished UI changes are shipped. No release or updater change.
+
+### 2026-10-14 — Reconciled native import-volume diagnostics after public 1.8.3 documentation
+
+- PR #125 preserves user-controlled local JSON scientific import diagnostics with enumerated input kinds and sourceBytesKnown lower bound plus unknown-size counts, without filenames, research values or private paths. The feature has a prior exact-head Windows/QuickCup pass, but this new head recombines its tested files with the already merged public v1.8.3 documentation and dual Spatial Profiles changes. Rerun full candidate-scoped Windows validation; no actual owner-case benchmark speedup claim or new release.
