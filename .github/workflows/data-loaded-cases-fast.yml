@@ -1,0 +1,33 @@
+name: Data loaded-case comparison contract
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/index.html'
+      - 'desktop/tests/data-loaded-case-comparison.test.cjs'
+      - '.github/workflows/data-loaded-cases-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/index.html'
+      - 'desktop/tests/data-loaded-case-comparison.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  loaded-cases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify comparison of previously loaded case results with truthful profile availability
+        run: node desktop/tests/data-loaded-case-comparison.test.cjs
+      - name: Preserve synchronized actual spatial-profile playback and two variables
+        run: node desktop/tests/profile-playback.test.cjs
+      - name: Preserve independent profile source variables
+        run: node desktop/tests/dual-spatial-profiles.test.cjs
