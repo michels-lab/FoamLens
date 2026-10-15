@@ -1531,7 +1531,13 @@ function fvMeshVertexNearestAt(meshes,x,y,mvp,width,height,radius=18){
   let best=null,bestD=radius*radius;
   for(const mesh of meshes||[]){
     const points=mesh?.points||[];
-    for(let i=0;i+2<points.length;i+=3){
+    // Measurement picks an actual external surface vertex, not an arbitrary
+    // interior point merely overlapping the cursor in 2D projection.
+    const surface=mesh?.surfaceEdges?.length?mesh.surfaceEdges:mesh?.surfaceTriangles;
+    const vertices=surface?.length?new Set(surface):null;
+    const candidates=vertices||Array.from({length:Math.floor(points.length/3)},(_,i)=>i);
+    for(const vertex of candidates){
+      const i=3*Number(vertex);if(!Number.isSafeInteger(i)||i<0||i+2>=points.length)continue;
       const point=[Number(points[i]),Number(points[i+1]),Number(points[i+2])],
         hit=fvProjectWorld(point,mvp,width,height);
       if(!hit?.inside)continue;
