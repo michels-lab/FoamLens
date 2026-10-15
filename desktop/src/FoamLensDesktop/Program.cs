@@ -3230,8 +3230,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         try
         {
-            var result = await NativeTemporalCache.GetOrParseAsync(
-                path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token);
+            var result = await Task.Run(
+                () => NativeTemporalCache.GetOrParseAsync(
+                    path, ct => ParseTemporalFileAsync(path, requestId, ct), operation.Token),
+                operation.Token);
             completedBytes = totalBytes;
             Reply(requestId, true, result, null);
             Post(new { type = "operationComplete", requestId, operation = "temporalFile", completedBytes, totalBytes });
