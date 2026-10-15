@@ -638,6 +638,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/ribbon-ui.test.cjs
 
+      - name: Field looping playback and readable seven-camera controls
+        shell: pwsh
+        run: node desktop/tests/field-loop-playback.test.cjs
+
       - name: Field camera, cache, ownership regression
         shell: pwsh
         run: node desktop/tests/field-3d-navigation-cache.test.cjs

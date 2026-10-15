@@ -366,18 +366,35 @@ internal sealed class FoamLensForm : Form
                       const quick=names.map(name=>document.getElementById('flRaQuick'+name));
                       const distinctCameras=quick.every(Boolean)&&
                         new Set(quick.map(el=>el.querySelector('svg')?.innerHTML)).size===7;
-                      const cameraNamesReadable=innerWidth<=760||quick.every(el=>{
+                      const cameraNamesReadable=innerWidth<=1200?(()=>{
+                        // Camera shelf is active here: assert the full named
+                        // physical-axis presets instead of duplicate quick icons.
+                        const menu=tools?.querySelector('.fvNavPresets');
+                        const wasOpen=!!menu?.open;if(menu)menu.open=true;
+                        const items=[...(menu?.querySelectorAll('[data-fv-view]')||[])];
+                        const good=items.length===7&&items.every(el=>{
+                          const r=el.getBoundingClientRect();
+                          return r.width>=60&&getComputedStyle(el).display!=='none'&&
+                            /X|Y|Z/.test(el.textContent||'')&&!!el.getAttribute('aria-label')
+                        });
+                        if(menu)menu.open=wasOpen;
+                        return good
+                      })():quick.every(el=>{
                         const label=el?.querySelector('.flRibbonLabel'),rect=el?.getBoundingClientRect();
                         const named=!!el?.getAttribute('title')&&!!el?.getAttribute('aria-label')&&
-                          el.getAttribute('aria-label')===label?.textContent;
-                        return named&&!!rect&&rect.width>=(innerWidth<=1460?28:43)&&
-                          (innerWidth<=1460||getComputedStyle(label).display!=='none'&&label.getBoundingClientRect().width>=15)
+                          el.getAttribute('aria-label').startsWith(label?.textContent||'__missing__');
+                        return named&&!!rect&&rect.width>=55&&
+                          getComputedStyle(label).display!=='none'&&label.getBoundingClientRect().width>=20
                       });
                       const internalBar=document.querySelector('#fieldSurface .fwWorkspaceBar');
                       const fieldNavHidden=!!internalBar&&getComputedStyle(internalBar).display==='none'&&
                         window.FoamLensFieldWorkspace?.getState?.().view==='3d';
                       const playRect=document.getElementById('fwTimePlay')?.getBoundingClientRect();
-                      const playNotCollapsed=!!playRect&&playRect.width>=25&&playRect.height>=24;
+                      const playButton=document.getElementById('fwTimePlay');
+                      const playNotCollapsed=!!playRect&&playRect.width>=100&&playRect.height>=28&&
+                        playButton.scrollWidth<=playButton.clientWidth+2&&
+                        /Play|Reproducir/.test(playButton.textContent||'')&&
+                        /(loop|bucle)/i.test(playButton.getAttribute('aria-label')||'');
                       const cache=document.getElementById('flRibbonCacheAdvanced');
                       if(cache)cache.open=true;
                       if(typeof flRibbonPlaceCachePopover==='function')flRibbonPlaceCachePopover();
@@ -927,6 +944,16 @@ internal sealed class FoamLensForm : Form
                   const iso=document.getElementById('flRaCameraIso'),front=document.getElementById('flRaCameraFront');
                   checks.cameraOpens=!!shelf&&!shelf.classList.contains('hidden')&&shelf.classList.contains('flCameraToolsActive');
                   checks.presetsVisible=!!iso&&!!front&&iso.getBoundingClientRect().width>=20&&front.getBoundingClientRect().width>=20;
+                  // When compact, seven labeled camera presets must be reachable
+                  // through the Camera subbar even if quick actions are hidden.
+                  const namedMenu=shelf?.querySelector('.fvNavPresets');
+                  if(namedMenu)namedMenu.open=true;
+                  const namedPresets=[...(namedMenu?.querySelectorAll('[data-fv-view]')||[])];
+                  checks.namedCameraMenu=!!namedMenu&&namedPresets.length===7&&
+                    namedPresets.every(button=>/X|Y|Z/.test(button.textContent||'')&&
+                      button.getBoundingClientRect().width>=60&&
+                      getComputedStyle(button).display!=='none');
+                  if(namedMenu)namedMenu.open=false;
                   cameraTab?.click();
                   checks.cameraCloses=!!shelf&&shelf.classList.contains('hidden');
                   return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled,compareUserRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,ribbonHeight:bounds?.height||0,
@@ -984,9 +1011,31 @@ internal sealed class FoamLensForm : Form
                     sidebarBelowRibbon:!!side&&!!before&&side.top>=before.bottom-3,
                     sidebarNotOverHeader:!!side&&!!head&&side.top>=head.bottom-3,
                     chromeMeasured:!!app&&parseFloat(app.style.getPropertyValue('--flRibbonHeight'))>=60,
-                    directCameraViews:['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'].every(id=>{
-                      const el=document.getElementById(id);return !!el&&rect(el)?.width>=25&&getComputedStyle(el).display!=='none'
-                    }),
+                    directCameraViews:(()=>{
+                      // A compact 1024px ribbon intentionally moves duplicate
+                      // quick camera actions into the labeled Camera shelf.
+                      // Test actual reachability, not a hidden duplicate icon.
+                      if(innerWidth>1200)return ['flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'].every(id=>{
+                        const el=document.getElementById(id),b=rect(el);
+                        return !!el&&!!b&&b.width>=55&&getComputedStyle(el).display!=='none'&&
+                          el.querySelector('.flRibbonLabel')?.getBoundingClientRect().width>=20
+                      });
+                      const tab=document.querySelector('#flFieldContextTabs [data-fl-subbar="camera"]');
+                      if(!tab)return false;
+                      const wasActive=tab.classList.contains('active');
+                      if(!wasActive)tab.click();
+                      const menu=document.querySelector('#flFieldContextShelf .fvNavPresets');
+                      const previouslyOpen=!!menu?.open;if(menu)menu.open=true;
+                      const views=[...(menu?.querySelectorAll('[data-fv-view]')||[])];
+                      const valid=views.length===7&&views.every(button=>{
+                        const b=rect(button);
+                        return !!b&&b.width>=60&&getComputedStyle(button).display!=='none'&&
+                          /X|Y|Z/.test(button.textContent||'')&&!!button.getAttribute('aria-label')
+                      });
+                      if(menu)menu.open=previouslyOpen;
+                      if(!wasActive)tab.click();
+                      return valid
+                    })(),
                     typographyUniform:['flRaQuickIso','flRaQuickTop','flRaFieldWorkspace'].every(id=>{
                       const label=document.querySelector('#'+id+' .flRibbonLabel');
                       return !!label&&getComputedStyle(label).fontSize==='10px'

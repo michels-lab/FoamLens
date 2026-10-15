@@ -4703,3 +4703,26 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Profiles remains navigable with zero actual profile outputs and explicitly explains the difference between imported cases, time series, logs and spatial profiles rather than silently switching views; a usable time-series comparison remains available when those curves exist.
 - New `desktop/tests/data-loaded-case-comparison.test.cjs` executes production selection/filter functions with real-vs-indexed vs time-only/log-only cases, verifies case restoration and prevents duplicate import controls, and is included in Windows release gates and lightweight Data CI.
 - Status: candidate changes and tests committed on feature branch, integration/public release **not yet claimed**. Unresolved owner real-case profile provenance requires actual OpenFOAM postProcessing/spatial sampling output if count remains 0.
+
+### 2026-10-15 — Desktop v1.8.6 Field transport looping and named camera controls
+
+- Screenshot-driven UI defect: Field Ribbon visible playback used `fwTimePlay` rather than the independent `fvSchedulePlayback` 3D engine. `fwTimePlay` stopped at the last physical snapshot despite the 3D engine's existing wraparound. Repaired the Field-owned timer to loop on actual selected available timestamps, serially awaiting each verified frame and respecting pause/async cancellation and speed; changes to the Field time state never invent missing data.
+- The Ribbon compact CSS compressed the entire Play label into a 28px grid column and hid seven direction names at laptop widths. Increased the one-row transport width and tested actual label visibility. Camera buttons now show semantic names and source-axis directions with selection feedback; context Camera menu exposes all seven on smaller viewports.
+- Added `desktop/tests/field-loop-playback.test.cjs`, updated existing Ribbon/camera acceptance assertions and native Windows smoke; new lightweight CI runs tests on source changes, Windows release job gates the same playback regression. Candidate Desktop v1.8.6 aligns native/installer/frontend versions, root and Desktop README and changelog. Must pass real QuickCup, scientific cache and packed Portable/Setup before release. Historical 3,008-file cold/warm import performance remains unmeasured; no fabricated numerical claims.
+
+
+### 2026-10-15 — Exact installed-UI narrow Ribbon release blocker and repair (v1.8.6)
+
+- Actual Windows Portable smoke on 1024px (run #38813160913) blocked publication, reporting `noClippedPrimaryRow=false` and Ribbon scroll width 1350px for a 1024px viewport. This proved that making seven quick cameras permanently labeled in the primary row was insufficient despite passing the new Node unit suite and QuickCup scientific tests.
+- Corrected the responsive ownership of seven full view controls: keep **fully readable** named direct shortcuts at larger laptop widths, but at <=1200px remove only their redundant main Ribbon quick group. The visible **Camera** contextual shelf retains a named seven-direction menu (from +X/−X/+Y/−Y/+Z/−Z and Isometric); full Play/Pause keeps its own 106px grid track without overflow. Do not fake UI success by relaxing the `noClippedPrimaryRow` assertion.
+- Strengthened the exact packaged WebView2 smoke to open the real Camera list and assert all seven physically labeled direction buttons are visible, and strengthened the Ribbon regression to require this 1024px fallback. Re-run full Windows installed/portable and on-screen checks before public version promotion.
+
+
+### 2026-10-15 — Long-label native smoke checks compact Camera fallback
+
+- Exact Windows Setup/Portable run #38814314089 advanced past the original compact Ribbon `noClippedPrimaryRow` check but failed a *different* geometry assertion requiring the four direct camera shortcuts to be visible even at narrow widths (`directCameraViews=false`). This contradicted the new responsive ownership design, not any OpenFOAM data/camera calculation.
+- Replaced that assertion with a physically useful two-mode acceptance: for wide views, require readable direct camera labels; for screens <=1200px, open the **actual Camera shelf** and require all seven labeled physical-axis direction buttons to be visible and accessible at usable widths, then restore the shelf's original state. Keep the no-overflow/uncut Play acceptance intact and repeat the full installed/Portable verification; no skipped tests or fabricated success.
+
+### 2026-10-15 — Unified Data and Field v1.8.6 candidate
+
+- Reconciled the already merged loaded-case Profiles/Time series comparison with looping Field playback and camera controls. Preserve the per-view Data case selector, Data Ribbon routing and both separate Windows regression gates on the exact source candidate. Original case filtering, real profile provenance and source data are unchanged.

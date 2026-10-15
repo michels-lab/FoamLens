@@ -195,7 +195,17 @@ assert(compactCss.includes('#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTim
   'Field icon controls need bounded button widths in a one-row Ribbon');
 assert(compactCss.includes('@media(max-width:760px)')&&compactCss.includes('.flRibbonQuickCameraGroup{display:none}'),
   'On compact viewports, duplicate quick cameras must yield to the Camera subbar');
-assert(source.includes("aria-label=\"'+en.replace"),'Icon-only Ribbon controls need accessible names');
+assert(source.includes("aria-label=\"'+label.replace"),'Camera preset accessibility must use labeled physical viewing direction');
+assert(source.includes("flRibbonCameraDirection(id)")&&source.includes("Front · view from +Z"),
+  'Front/Back and left/right camera directions must be clearly identified by physical axis');
+assert(source.includes('grid-template-columns:32px 106px 32px'),
+  'Ribbon playback must reserve space for the complete Play/Pause label');
+assert(source.includes('.flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important'),
+  'Compact Ribbon must not replace all camera names with ambiguous tiny icons');
+assert(source.includes('@media(max-width:1200px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none!important'),
+  'At 1024px the duplicate seven-camera quick row must yield to the fully named Camera menu');
+assert(source.includes('#flFieldContextShelf .flRibbonCameraTools .fvNavPresets{display:block'),
+  'All seven direction labels must remain usable via Camera when narrow Ribbon hides quick actions');
 
 for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
   assert(source.includes(id),'Data must expose its own plotting and compare actions: '+id);

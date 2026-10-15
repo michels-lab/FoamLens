@@ -46,8 +46,21 @@ function flRibbonIcon(name){
   };
   return '<svg class="flRibbonIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.info)+'</svg>';
 }
+function flRibbonCameraDirection(id){
+  const keys={Iso:['Isometric · X/Y/Z','Isométrica · X/Y/Z'],
+    Front:['Front · view from +Z','Frontal · desde +Z'],
+    Back:['Back · view from −Z','Posterior · desde −Z'],
+    Left:['Left · view from −X','Izquierda · desde −X'],
+    Right:['Right · view from +X','Derecha · desde +X'],
+    Top:['Top · view from +Y','Superior · desde +Y'],
+    Bottom:['Bottom · view from −Y','Inferior · desde −Y']};
+  const suffix=String(id).replace(/^flRa(?:Quick|Camera)/,'');
+  return keys[suffix]||null
+}
 function flRibbonActionHtml(id,icon,en,es,group,extraClass){
-  return '<button class="flRibbonAction '+(extraClass||'')+'" id="'+id+'" type="button" data-ri-en="'+en.replace(/"/g,'&quot;')+'" data-ri-es="'+es.replace(/"/g,'&quot;')+'" title="'+en.replace(/"/g,'&quot;')+'" aria-label="'+en.replace(/"/g,'&quot;')+'">'+flRibbonIcon(icon)+'<span class="flRibbonLabel">'+en+'</span></button>';
+  const camera=flRibbonCameraDirection(id);
+  const label=camera?camera[0]:en,spanLabel=camera?en:en;
+  return '<button class="flRibbonAction '+(extraClass||'')+'" id="'+id+'" type="button" data-ri-en="'+spanLabel.replace(/"/g,'&quot;')+'" data-ri-es="'+es.replace(/"/g,'&quot;')+'" title="'+label.replace(/"/g,'&quot;')+'" aria-label="'+label.replace(/"/g,'&quot;')+'">'+flRibbonIcon(icon)+'<span class="flRibbonLabel">'+spanLabel+'</span></button>';
 }
 function flRibbonGroup(labelEn,labelEs,actions){
   return '<div class="flRibbonGroup'+(labelEn==='Camera shortcuts'?' flRibbonQuickCameraGroup':'')+'"><div class="flRibbonActions">'+actions.join('')+'</div><div class="flRibbonGroupLabel" data-ri-en="'+labelEn+'" data-ri-es="'+labelEs+'">'+labelEn+'</div></div>';
@@ -229,13 +242,14 @@ function flRibbonCss(){
     // turn Field actions into labeled-on-hover icons; Camera shortcuts stay
     // visible down to tablet widths, then live in the Camera subbar.
     '@media(max-width:1460px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}#flRibbonPanel-field .flRibbonGroup{padding-right:4px}#flRibbonPanel-field .flRibbonActions{gap:1px}#flRibbonPanel-field .flRibbonTimeGroup{min-width:210px;flex:1 1 240px}#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:0;flex:1 1 210px;gap:3px;grid-template-columns:auto auto auto minmax(42px,1fr) auto auto}#flFieldContextTabs .flFieldContextTab{padding:5px 7px}}',
+    '@media(max-width:1200px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none!important}#flRibbonPanel-field .flRibbonTimeGroup{flex:0 0 472px}#flFieldContextShelf .flRibbonCameraTools .fvNavPresets>summary{font-size:12px}}',
     '@media(max-width:760px){#flRibbonPanel-field .flRibbonQuickCameraGroup{display:none}#flRibbonPanel-field .flRibbonTimeGroup{min-width:300px;flex:0 0 auto}#flFieldContextTabs .flFieldContextTab{font-size:9px;padding:5px 5px}}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{min-width:43px!important;width:auto!important;max-width:none!important;padding:5px 7px!important;gap:4px}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important;font-size:10px;max-width:none}',
     '#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonIcon{width:14px;height:14px}',
-    '#flRibbonPanel-field .flRibbonTimeGroup{min-width:310px;flex:0 0 auto}',
-    '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{min-width:310px;width:310px;flex:0 0 310px;grid-template-columns:28px 28px 28px minmax(82px,1fr) auto auto}',
-    '#flRibbonPanel-field .fwTimeTransport .btn{white-space:nowrap;word-break:normal;min-width:28px}',
+    '#flRibbonPanel-field .flRibbonTimeGroup{min-width:472px;flex:0 0 472px}',
+    '#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{box-sizing:border-box;min-width:460px;width:460px;max-width:none;flex:0 0 460px;gap:5px;grid-template-columns:32px 106px 32px minmax(78px,1fr) max-content 66px}',
+    '#flRibbonPanel-field .fwTimeTransport .btn{box-sizing:border-box;white-space:nowrap;word-break:normal;overflow:visible;text-overflow:clip}#flRibbonPanel-field #fwTimePlay{min-width:106px!important;width:106px!important;max-width:none!important;padding:7px 8px!important;font-size:12px!important;text-align:center;justify-content:center;flex-shrink:0}',
     // The legacy Field Workspace @media(max-width:900px) moved these
     // controls into grid row two. The Ribbon's fixed 6-column transport
     // gives row two a 28px first track, clipping the true measured clock.
@@ -246,7 +260,7 @@ function flRibbonCss(){
     // Full directional names are always in the Camera shelf; quick buttons
     // show distinct icons and retain bilingual aria-label/title below 1460px.
     '@media(max-width:1800px){#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonLabel{display:none}#flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup):not(.flRibbonQuickCameraGroup) .flRibbonAction{width:29px;min-width:29px;max-width:29px;padding:4px;justify-content:center}}',
-    '@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:none!important}#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{width:29px!important;min-width:29px!important;max-width:29px!important;padding:4px!important}}',
+    '@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important;font-size:10px!important}#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{width:auto!important;min-width:59px!important;max-width:none!important;padding:4px 7px!important;gap:4px!important}}',
     'body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
@@ -293,7 +307,7 @@ function flRibbonCss(){
     '#flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools{display:flex}',
     '#flFieldContextShelf .flRibbonCameraTools .fvToolRow{flex-wrap:nowrap}',
     '#flFieldContextShelf .flRibbonCameraTools .btn{font-size:9px;min-height:30px;padding:4px 7px}',
-    '#flFieldContextShelf .flRibbonCameraTools .fvNavPresets{display:none}',
+    '#flFieldContextShelf .flRibbonCameraTools .fvNavPresets{display:block;position:relative;margin:0}#flFieldContextShelf .flRibbonCameraTools .fvNavPresets>summary{padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer}#flFieldContextShelf .flRibbonCameraTools .fvNavPresets[open] .fvPresetRow{position:absolute;z-index:1200;top:calc(100% + 6px);left:0;min-width:380px;max-width:min(600px,calc(100vw - 30px));padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 15px 35px rgba(0,0,0,.4);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#flFieldContextShelf .flRibbonCameraTools .fvNavPresets .fvPresetRow .btn{font-size:11px;text-align:left;min-height:34px;padding:6px 10px}#flFieldContextShelf .flRibbonCameraTools [data-fv-view].active,#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction.active{background:var(--accentSoft)!important;border-color:var(--accent)!important;color:var(--text)!important}',
     '#flFieldContextShelf .flRibbonProfileSamples{margin:0!important;display:flex;align-items:center;gap:6px;flex:0 0 auto}',
     '#flFieldContextShelf .flRibbonProfileSamples label{font-size:10px!important;margin:0!important;color:var(--muted)}',
     '#flFieldContextShelf .flRibbonProfileSamples input{width:66px;min-height:29px;padding:4px 6px;font-size:10px}',
