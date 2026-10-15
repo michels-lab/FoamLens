@@ -6296,8 +6296,13 @@ function dataCompareApply(view){
     $('profileLine').dataset.compareDefault='1'
   }
   refreshDatasetControls();renderList();updateMeta();draw();
-  if(view==='profile'&&!profileOptionsBase().length&&lazyProfileCountForContext()>0)
-    hydrateLazyProfilesForContext().then(loaded=>{if(loaded){refreshDatasetControls();renderList();updateMeta();draw()}});
+  // Import only the already indexed profile outputs belonging to checked
+  // cases, even if another checked case already supplied real profile curves.
+  // Otherwise the second case can appear in the checklist but not the chart.
+  if(view==='profile'&&lazyProfileCountForContext()>0)
+    hydrateLazyProfilesForContext().then(loaded=>{if(loaded&&dataCompareState.active&&currentDataView==='profile'){
+      refreshDatasetControls();renderList();updateMeta();draw()
+    }});
 }
 function dataCompareReset(){
   stopAllPlayback();dataCompareState.active=false;
