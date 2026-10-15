@@ -47,3 +47,7 @@ Any future provider tokens, signing keys, private fixture tokens or service cred
 
 5. Microsoft Store MSIX validation now runs on `main` as well as `distribution/**`, so shared-source changes cannot silently bypass the Store packaging contract after integration.
 6. Runtime version identity no longer falls back to a prior real release literal; missing assembly metadata fails explicitly instead of reporting stale version identity.
+
+## 2026-10-15 — Private case structural catalog candidate
+- Stores relative case filenames/sizes/modification ticks and directory identities exclusively in %LOCALAPPDATA%/FoamLens/Desktop/ScientificCache/case-inventory-v1; research filenames are private local metadata and are not uploaded or included in exported performance reports.
+- SHA-256 protects checkpoint integrity, while each use compares against a newly enumerated current inventory. Never use this structural cache to claim content-level identity or reuse scientific measurements: NativeTemporalCache independently verifies full raw source SHA-256. Can disable with FOAMLENS_DISABLE_CASE_CATALOG=1. Source directories remain read-only.

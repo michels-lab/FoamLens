@@ -21,6 +21,7 @@ internal static class Program
         if (args.Any(arg => string.Equals(arg, "--temporal-cache-self-test", StringComparison.OrdinalIgnoreCase)))
         {
             NativeTemporalCache.RunSelfTestAsync().GetAwaiter().GetResult();
+            NativeCaseCatalog.RunSelfTestAsync().GetAwaiter().GetResult();
             FoamLensForm.RunTemporalRecordCacheSelfTestAsync().GetAwaiter().GetResult();
             FoamLensForm.RunFieldRecordCacheSelfTestAsync().GetAwaiter().GetResult();
             return;
@@ -3148,6 +3149,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         stack.Push(rootPath);
         var chunk = new List<NativeFileRef>(250);
         long files = 0, folders = 0;
+        var catalogFiles = new List<NativeCaseCatalog.Entry>();
+        var catalogDirs = new List<NativeCaseCatalog.DirectoryEntry>();
+        bool complete = true;
         var nextProgress = Stopwatch.StartNew();
 
         while (stack.Count > 0)
@@ -3157,6 +3161,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
             folders++;
             try
             {
+                catalogDirs.Add(new NativeCaseCatalog.DirectoryEntry(
+                    Path.GetRelativePath(rootPath, dir).Replace('\\', '/'),
+                    new DirectoryInfo(dir).LastWriteTimeUtc.Ticks));
                 foreach (var sub in Directory.EnumerateDirectories(dir))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -3170,6 +3177,10 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     _fileTokens[token] = path;
                     var info = new FileInfo(path);
                     var relative = Path.GetRelativePath(rootPath, path).Replace('\\', '/');
+                    if (!info.Exists) complete = false;
+                    catalogFiles.Add(NativeCaseCatalog.FileEntry(relative,
+                        info.Exists ? info.Length : 0,
+                        info.Exists ? info.LastWriteTimeUtc.Ticks : 0));
                     chunk.Add(new NativeFileRef(
                         token,
                         info.Name,
@@ -3189,12 +3200,19 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     }
                 }
             }
-            catch (UnauthorizedAccessException ex) { Log($"Skipped {dir}: {ex.Message}"); }
-            catch (IOException ex) { Log($"Skipped {dir}: {ex.Message}"); }
+            catch (UnauthorizedAccessException ex) { complete = false; Log($"Skipped {dir}: {ex.Message}"); }
+            catch (IOException ex) { complete = false; Log($"Skipped {dir}: {ex.Message}"); }
         }
 
         if (chunk.Count > 0) Post(new { type = "folderChunk", requestId, files = chunk.ToArray() });
-        Post(new { type = "folderComplete", requestId, folderName = rootName, files, folders });
+        // Checkpoint only a fully enumerated inventory. Physical measurements and
+        // dimensions always come from fresh reads / independent SHA-verified caches.
+        var checkpoint = NativeCaseCatalog.CommitAsync(rootPath, catalogFiles, catalogDirs,
+            complete, cancellationToken).GetAwaiter().GetResult();
+        Post(new {
+            type = "folderComplete", requestId, folderName = rootName, files, folders,
+            catalogStatus = checkpoint.Status, sourceBytes = checkpoint.SourceBytes, partial = !complete
+        });
     }
 
     private async Task HandleReadTextAsync(JsonElement root, string requestId)
