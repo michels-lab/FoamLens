@@ -34,6 +34,7 @@ assert(ribbon.includes('position:fixed;z-index:950'),'Frame-cache UI can still g
 assert(ribbon.includes('flRibbonCachePopover .flRibbonCacheField select{width:100%'));
 assert(ribbon.includes('flRibbonBind(\'flRaAnalysisTimeResult\',()=>flRibbonOpenDataView(\'timeseries\'))'));
 assert(ribbon.includes('flRibbonBind(\'flRaAnalysisProfileResult\',()=>flRibbonOpenDataView(\'profile\'))'));
+assert(ribbon.includes("'flRaQuickIso','flRaQuickFront','flRaQuickBack','flRaQuickLeft','flRaQuickRight','flRaQuickTop','flRaQuickBottom'];"),'3D scope must include all seven camera shortcuts');
 console.log('Field-only 3D nav, seven unique camera shortcuts and anchored cache popover contracts passed.');
 
 assert(native.includes('field-failed-{size.Name}.png'),'Failed real Field smoke must preserve rendered UI screenshot evidence');

@@ -387,7 +387,7 @@ function flRibbonUpdateFieldScope(){
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
     'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
     'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom',
-    'flRaQuickIso','flRaQuickFront','flRaQuickTop','flRaQuickRight'];
+    'flRaQuickIso','flRaQuickFront','flRaQuickBack','flRaQuickLeft','flRaQuickRight','flRaQuickTop','flRaQuickBottom'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
   flRibbonMountFieldOptions();
   document.getElementById('flRibbonFieldOptionsGroup')?.classList.add('flScopeHidden');
