@@ -4592,3 +4592,7 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 
 - Reused the previously Windows/QuickCup-validated source delta of PR #126: native temporal file checksum, persistent cache and streaming parser execute through cancellable Task.Run outside WinForms/WebView2's UI synchronization context. Source hash/cache payload integrity, exact scientific data and UI-thread marshaling remain unchanged.
 - Reconciled onto current v1.8.3 public documentation / dual-variable profile main without restoring an old full tree or published version. Fresh exact-head Windows, real QuickCup/VTK and installed/portable tests required. Responsiveness improvement has no claimed measured owner's real large-case speedup; issue #117 stays open.
+
+### 2026-10-14 — Privacy-safe import diagnostics carried through native temporal-worker integration
+
+- After #126 was independently validated on Windows and merged into main, #125 is reconciled without reverting that real off-dispatcher parser. Retains the feature's exact input-report source and regression canaries, dual-variable profiles and publicly verified v1.8.3 README. Full current-head 3,008-series and installed/portable Windows/OpenFOAM tests required before integration. Owner cold/warm and memory benchmark remain open; no release authorized.
