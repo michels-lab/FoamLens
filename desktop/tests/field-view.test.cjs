@@ -866,7 +866,7 @@ const scaleStart=source.indexOf('/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_START */');
 const scaleEnd=source.indexOf('/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_END */',scaleStart);
 assert(scaleStart>=0&&scaleEnd>scaleStart,'Physical 3D scale production kernels missing');
 const physicalScaleCore=source.slice(scaleStart,scaleEnd);
-const cameraFitStub='const fvCameraBasis=()=>({right:[1,0,0],up:[0,1,0],z:[0,0,1]});\\n'+physicalScaleCore+'\\n';
+const cameraFitStub='const fvCameraBasis=()=>({right:[1,0,0],up:[0,1,0],z:[0,0,1]});\n'+physicalScaleCore+'\n';
 const physicalFit=new Function(cameraFitStub+';return fvFitDistance')();
 const regionApi=new Function(
   'const window={}; const fvTimeEqual=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a)-Number(b))<=Math.max(1e-10,Math.max(Math.abs(Number(a)),Math.abs(Number(b)),1)*1e-10);'+
