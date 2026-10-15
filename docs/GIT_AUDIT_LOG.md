@@ -4588,6 +4588,11 @@ Synchronized only the managed blocks in AGENTS.md and .github/copilot-instructio
 - Public v1.8.3 publication and exact downloaded Setup/Portable checksum evidence recorded independently. Repaired README's exact-version native regression contract by retaining standalone bold Desktop v1.8.3 / frontend v51 release identity while placing real GitHub release download links separately. No false v1.8.3 release candidate language.
 - Corrected user-facing outdated claim that embedded Spatial Profile/Time Series/Solver Logs controls must remain simultaneously visible inside Field: Data already owns these datasets; a separate, still-validated Field UX PR retires their legacy companion tabs. Updated docs do not assert unpublished UI changes are shipped. No release or updater change.
 
-### 2026-10-14 — Reconciled native import-volume diagnostics after public 1.8.3 documentation
+### 2026-10-14 — Native temporal parsing off the UI dispatcher (PR #126 reconciliation)
 
-- PR #125 preserves user-controlled local JSON scientific import diagnostics with enumerated input kinds and sourceBytesKnown lower bound plus unknown-size counts, without filenames, research values or private paths. The feature has a prior exact-head Windows/QuickCup pass, but this new head recombines its tested files with the already merged public v1.8.3 documentation and dual Spatial Profiles changes. Rerun full candidate-scoped Windows validation; no actual owner-case benchmark speedup claim or new release.
+- Reused the previously Windows/QuickCup-validated source delta of PR #126: native temporal file checksum, persistent cache and streaming parser execute through cancellable Task.Run outside WinForms/WebView2's UI synchronization context. Source hash/cache payload integrity, exact scientific data and UI-thread marshaling remain unchanged.
+- Reconciled onto current v1.8.3 public documentation / dual-variable profile main without restoring an old full tree or published version. Fresh exact-head Windows, real QuickCup/VTK and installed/portable tests required. Responsiveness improvement has no claimed measured owner's real large-case speedup; issue #117 stays open.
+
+### 2026-10-14 — Privacy-safe import diagnostics carried through native temporal-worker integration
+
+- After #126 was independently validated on Windows and merged into main, #125 is reconciled without reverting that real off-dispatcher parser. Retains the feature's exact input-report source and regression canaries, dual-variable profiles and publicly verified v1.8.3 README. Full current-head 3,008-series and installed/portable Windows/OpenFOAM tests required before integration. Owner cold/warm and memory benchmark remain open; no release authorized.
