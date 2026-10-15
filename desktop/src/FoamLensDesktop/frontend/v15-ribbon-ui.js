@@ -329,6 +329,7 @@ function flRibbonSelectTab(key){
   flRibbonState.activeTab=key;
   document.querySelectorAll('.flRibbonTab').forEach(b=>{const on=b.dataset.ribbonTab===key;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on))});
   document.querySelectorAll('.flRibbonPanel').forEach(p=>p.classList.toggle('active',p.dataset.ribbonPanel===key));
+  window.FoamLensRibbonMeasureChrome?.();
 }
 function flRibbonClick(id){
   const el=document.getElementById(id);if(!el||el.disabled)return false;el.click();return true
@@ -553,6 +554,7 @@ function flRibbonInstallChromeMeasurement(){
     app.style.setProperty('--flChromeTop',headerHeight+'px');
     app.style.setProperty('--flRibbonHeight',ribbonHeight+'px');
   };
+  window.FoamLensRibbonMeasureChrome=measure;
   if(typeof ResizeObserver!=='undefined'){
     const watcher=new ResizeObserver(measure);watcher.observe(header);watcher.observe(ribbon);
     window.FoamLensRibbonChromeObserver=watcher;
@@ -579,6 +581,7 @@ function flRibbonInstall(){
     else if(key==='data')try{setAppMode('data')}catch{}
     else if(key==='field')try{setAppMode('field')}catch{}
     else if(key==='analysis')try{setAppMode('analysis')}catch{}
+    window.FoamLensRibbonMeasureChrome?.();
     setTimeout(flRibbonUpdateContextVisibility,0)
   }));
 

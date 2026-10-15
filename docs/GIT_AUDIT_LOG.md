@@ -4626,3 +4626,7 @@ Field UI PR #128 CI regression triage and main reconciliation
 ### 2026-10-14 — Exact main/PR native temporal worker regression fixed
 
 - Current-commit Windows native-performance tests failed on both verified QuickCup candidates: the PR #128 `Program.cs` assembly had preserved an old direct `await NativeTemporalCache.GetOrParseAsync(...)` inside `HandleTemporalFileAsync`, despite the newer `main` using cancellable `await Task.Run(() => NativeTemporalCache.GetOrParseAsync(...), operation.Token)`. This is an actual UI-thread responsiveness regression caused by manual tree reconciliation, not a stale assertion. Restored the exact current-main handler into the UI candidate, preserving scientific source hashes, cache, reply marshaling and cancellation. Updated exact-head .NET 8 installed/portable CI + OpenFOAM required; no release authorization.
+
+### 2026-10-14 — Real Field sidebar overlap: synchronize Ribbon chrome geometry
+
+- Native packaged Windows smoke showed header 58 px, Ribbon 83 px, and sidebar beginning at 131 px (10 px overlap). The CSS already positions the sidebar using measured header + Ribbon variables; however, measurement ran before synchronous tab/mode height changes, leaving stale values until ResizeObserver executes. Expose the existing measure callback and synchronously recompute on Ribbon panel activation and mode changes, retaining observer updates for subsequent layout/resize. No arbitrary padding or fake visual acceptance. Re-run real Windows portable+installed smoke before merging.

@@ -100,6 +100,8 @@ assert(source.includes("body.flRibbonReady #modeNavBar{display:none!important}")
 assert(source.includes("body.flRibbonReady .top .tools{display:none!important}"));
 assert(source.includes('window.FoamLensRibbon'));
 
+assert(source.includes('window.FoamLensRibbonMeasureChrome=measure')&&source.includes('window.FoamLensRibbonMeasureChrome?.()'),
+  'Ribbon navigation must synchronously measure the chrome before placing the sidebar');
 console.log('FoamLens v1.6 Ribbon/context/activity scope audit passed:',tabs.length,'top-level tabs.');
 
 assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.classList.toggle('hidden',!enabled)"),'One-at-a-time contextual 3D subbars are missing.');
