@@ -38,10 +38,10 @@ test('Field 3D companion restore does not overwrite the separately saved Data pl
   const chart={classList:{remove(){hijacks++}}};
   const apply=new Function('fwState','document','fwUi','fwOwnCompanionControls','fwPrevSetDataView','window',
     'fwRefreshFieldTsControls','fwFieldTsReadyCases','profileOptionsBase','timeSeriesOptionsBase','logContextOptionsBase',
-    'fwScheduleRender','setTimeout',implementation+';return fwSetCompanion')(
+    'fwScheduleRender','setTimeout','fwUpdateTimeBadge',implementation+';return fwSetCompanion')(
       state,{getElementById:id=>nodes[id]||null},s=>s,()=>{hijacks++},()=>{hijacks++},
       {FoamLensPlotSurfaces:{surface:()=>chart}},()=>{hijacks++},()=>[],()=>[],()=>[],()=>[],
-      ()=>{},()=>{});
+      ()=>{},()=>{},()=>{});
   apply('profile');
   apply('timeseries');
   assert.strictEqual(hijacks,0,'3D-only Field settings must not activate plot surfaces, move Data controls or call setDataView');
