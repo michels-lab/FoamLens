@@ -499,7 +499,7 @@ const fvState={
   fieldValues:null,fieldParsed:null,surfaceBoundary:null,surfaceBoundaryGeometry:null,vectorName:'',vectorValues:null,vectorTime:NaN,
   rangeMode:'current',manualRange:null,globalRange:null,globalRangeKey:'',globalRangeSeq:0,videoRangeOverride:null,
   fieldInflight:new Map(),prefetchSeq:0,
-  frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0]},
+  frameSeq:0,playing:false,timer:null,renderer:null,meshSnapshot:null,meshCacheKey:'',camera:{yaw:.72,pitch:.42,distance:2.8,target:[0,0,0],projection:'orthographic'},
   drag:null,interactionMode:'orbit',streamlines:[],spatialHash:null,sliceGeometry:null,lastStatus:''
 };
 
@@ -1265,7 +1265,7 @@ function fvRegionFitCamera(){
   if(fvState.mesh&&(!c||fvRegionChoice(c,primary).visible))meshes.push(fvState.mesh);
   for(const [region,layer] of fvRegionScene.layers)if(fvRegionScene.choices.get(region)?.visible)meshes.push(layer.mesh);
   const bounds=fvRegionUnionBounds(meshes);
-  const distance=bounds?.diagonal*1.65;
+  const distance=fvFitDistance(bounds,fvState.camera,document.getElementById('fvCanvas'));
   // Finite mesh endpoints do not guarantee a representable union span:
   // a mixed-sign extremum can overflow Math.hypot or the fit multiplier.
   // Preserve the last valid view instead of poisoning the camera with Infinity.
@@ -1468,6 +1468,81 @@ function fvMeshStateLabel(){
 
 function fvMat4Mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o}
 function fvPerspective(fovy,aspect,near,far){const f=1/Math.tan(fovy/2),nf=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*nf,-1,0,0,2*far*near*nf,0])}
+
+/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_START */
+// Projection affects only the display matrix, never OpenFOAM mesh coordinates.
+function fvOrtho(left,right,bottom,top,near,far){
+  return new Float32Array([2/(right-left),0,0,0,0,2/(top-bottom),0,0,0,0,-2/(far-near),0,
+    -(right+left)/(right-left),-(top+bottom)/(top-bottom),-(far+near)/(far-near),1])
+}
+function fvPhysicalBoundsForScene(){
+  const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'',meshes=[];
+  if(fvState.mesh&&(!c||fvRegionChoice(c,primary).visible))meshes.push(fvState.mesh);
+  for(const [region,layer] of fvRegionScene.layers)
+    if(fvRegionScene.choices.get(region)?.visible&&layer?.mesh)meshes.push(layer.mesh);
+  return fvRegionUnionBounds(meshes)
+}
+function fvFitDistance(bounds,camera,canvas,padding=1.14){
+  if(!bounds?.min||!bounds?.max||!bounds.center?.every(Number.isFinite))return NaN;
+  const w=Number(canvas?.clientWidth)||Number(canvas?.width)||800,
+    h=Number(canvas?.clientHeight)||Number(canvas?.height)||500;
+  const aspect=w/Math.max(1,h),tanHalf=Math.tan(Math.PI/8),basis=fvCameraBasis(camera),
+    half=[0,1,2].map(i=>(bounds.max[i]-bounds.min[i])/2);
+  if(!half.every(v=>Number.isFinite(v)&&v>=0)||!(aspect>0))return NaN;
+  let required=0;
+  for(const x of [-half[0],half[0]])for(const y of [-half[1],half[1]])
+    for(const z of [-half[2],half[2]]){
+      const p=[x,y,z],right=Math.abs(p.reduce((v,c,i)=>v+c*basis.right[i],0)),
+        up=Math.abs(p.reduce((v,c,i)=>v+c*basis.up[i],0)),
+        depth=p.reduce((v,c,i)=>v+c*basis.z[i],0);
+      if(camera.projection==='perspective')
+        required=Math.max(required,depth+padding*Math.max(up,right/aspect)/tanHalf);
+      else required=Math.max(required,padding*Math.max(up,right/aspect)/tanHalf);
+    }
+  // Camera remains outside the bounding sphere with safe clipping depth.
+  const dist=Math.max(required,Math.hypot(...half)*2.05,1e-10);
+  return Number.isFinite(dist)?dist:NaN
+}
+function fvProjectWorld(point,mvp,w,h){
+  if(!point||point.length<3||![...point].every(Number.isFinite))return null;
+  const [x,y,z]=point,px=mvp[0]*x+mvp[4]*y+mvp[8]*z+mvp[12],
+    py=mvp[1]*x+mvp[5]*y+mvp[9]*z+mvp[13],
+    pz=mvp[2]*x+mvp[6]*y+mvp[10]*z+mvp[14],
+    pw=mvp[3]*x+mvp[7]*y+mvp[11]*z+mvp[15];
+  if(!Number.isFinite(pw)||pw<=0)return null;
+  const a=px/pw,b=py/pw,c=pz/pw;
+  if(![a,b,c].every(Number.isFinite))return null;
+  return {x:(a+1)*w/2,y:(1-b)*h/2,depth:c,inside:c>=-1.00001&&c<=1.00001}
+}
+function fvMetricScale(span){
+  const a=Math.abs(span);
+  return a>0&&a<1e-3?{factor:1e6,unit:'µm'}:a>0&&a<.1?{factor:1000,unit:'mm'}:{factor:1,unit:'m'}
+}
+function fvMetricLabel(value,scale){
+  const n=value*scale.factor;return Number.isFinite(n)?Number(n.toPrecision(5)).toLocaleString('en-US',{maximumFractionDigits:6}):'—'
+}
+function fvMeshVertexNearestAt(meshes,x,y,mvp,width,height,radius=18){
+  let best=null,bestD=radius*radius;
+  for(const mesh of meshes||[]){
+    const points=mesh?.points||[];
+    for(let i=0;i+2<points.length;i+=3){
+      const point=[Number(points[i]),Number(points[i+1]),Number(points[i+2])],
+        hit=fvProjectWorld(point,mvp,width,height);
+      if(!hit?.inside)continue;
+      const d=(hit.x-x)**2+(hit.y-y)**2;
+      if(d<=bestD&&(d<bestD||!best||hit.depth<best.hit.depth)){
+        best={point,hit};bestD=d
+      }
+    }
+  }
+  return best
+}
+function fvPhysicalDistance(a,b){
+  return a?.length===3&&b?.length===3&&[...a,...b].every(Number.isFinite)?
+    Math.hypot(...a.map((n,i)=>n-b[i])):NaN
+}
+/* FOAMLENS_PHYSICAL_3D_SCALE_CORE_END */
+
 function fvLookAt(eye,center,up){
   let zx=eye[0]-center[0],zy=eye[1]-center[1],zz=eye[2]-center[2],zl=Math.hypot(zx,zy,zz)||1;zx/=zl;zy/=zl;zz/=zl;
   let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx,xl=Math.hypot(xx,xy,xz)||1;xx/=xl;xy/=xl;xz/=xl;
@@ -1552,7 +1627,7 @@ function fvCameraFitCurrent(){
   // The single-region fallback must meet the SAME physical bounds contract as
   // multi-region fit; otherwise an overflowed union re-poisons a valid camera.
   const bounds=fvRegionUnionBounds([m]);
-  const distance=bounds?.diagonal*1.65;
+  const distance=fvFitDistance(bounds,fvState.camera,document.getElementById('fvCanvas'));
   if(!bounds||!bounds.center.every(Number.isFinite)||
     !Number.isFinite(distance)||!(distance>0))return;
   fvState.camera.target=bounds.center;fvState.camera.distance=distance;fvRender()
@@ -1585,7 +1660,11 @@ function fvUpdateAxisGizmo(){
 }
 function fvMvp(canvas){
   const c=fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],basis=fvCameraBasis(c);
-  const near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,basis.upRef);return fvMat4Mul(proj,view)
+  const near=Math.max(d/10000,1e-10),far=Math.max(d*20,near*100),
+    aspect=Math.max(1,canvas.width)/Math.max(1,canvas.height),halfHeight=d*Math.tan(Math.PI/8),
+    proj=c.projection==='perspective'?fvPerspective(Math.PI/4,aspect,near,far):
+      fvOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,near,far),
+    view=fvLookAt(eye,c.target,basis.upRef);return fvMat4Mul(proj,view)
 }
 function fvBindDraw(r,posBuffer,colorBuffer,count,mode,opacity){
   if(!posBuffer||!colorBuffer||!count)return;const gl=r.gl;gl.bindBuffer(gl.ARRAY_BUFFER,posBuffer);gl.enableVertexAttribArray(r.pos);gl.vertexAttribPointer(r.pos,3,gl.FLOAT,false,0,0);
