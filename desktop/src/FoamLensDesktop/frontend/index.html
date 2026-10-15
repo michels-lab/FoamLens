@@ -1064,11 +1064,49 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
 
   <div class="card">
     <div class="cardhead"><strong>Load data</strong><span class="badge" id="countBadge">0 series</span></div>
-    <div class="row2"><button class="btn primary" id="addFiles">Add files</button><button class="btn soft" id="addFolder">Add folder</button></div>
-    <div class="drop" id="drop">Drop OpenFOAM probe files or a postProcessing folder here</div>
+    <section class="dataCompareExisting hidden" id="dataCompareExisting" aria-label="Compare previously loaded cases">
+      <div class="dataCompareHeading"><strong id="dataCompareTitle">Compare loaded cases</strong><span class="badge" id="dataCompareCount">0 cases</span></div>
+      <p class="smallnote" id="dataCompareHelp">Choose two or more imported cases. No need to add files again.</p>
+      <div class="dataCompareCaseList" id="dataCompareCaseList" role="group" aria-label="Loaded OpenFOAM cases"></div>
+      <div class="dataCompareButtons">
+        <button class="btn tiny" id="dataCompareSelectAll" type="button">Select all cases</button>
+        <button class="btn tiny" id="dataCompareClear" type="button">Clear selection</button>
+        <button class="btn soft" id="dataCompareReset" type="button">Single-case view</button>
+      </div>
+      <div class="dataCompareButtons">
+        <button class="btn primary" id="dataCompareProfiles" type="button">Compare spatial profiles</button>
+        <button class="btn soft" id="dataCompareTimeSeries" type="button">Compare time series</button>
+      </div>
+      <p class="smallnote" id="dataCompareStatus" aria-live="polite"></p>
+    </section>
+    <details class="dataImportMore" id="dataImportMore" open>
+      <summary id="dataImportMoreTitle">Import data / add files</summary>
+      <div class="row2"><button class="btn primary" id="addFiles">Add files</button><button class="btn soft" id="addFolder">Add folder</button></div>
+      <div class="drop" id="drop">Drop OpenFOAM probe files or a postProcessing folder here</div>
+    </details>
     <input id="filesInput" class="hidden" type="file" multiple>
     <input id="folderInput" class="hidden" type="file" webkitdirectory multiple>
 
+    <style id="flLoadedCaseCompareStyle">
+  .dataCompareExisting{display:grid;gap:9px;margin:3px 0 10px;padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}
+  .dataCompareExisting.hidden{display:none!important}
+  .dataCompareHeading{display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .dataCompareHeading strong{font-size:14px}
+  .dataCompareExisting .smallnote{margin:0;font-size:11px;line-height:1.55}
+  .dataCompareCaseList{display:grid;gap:5px;max-height:280px;overflow-y:auto;padding:3px 2px}
+  .dataCompareCase{display:flex;gap:10px;align-items:center;min-height:47px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+  .dataCompareCase:has(input:checked){border-color:var(--accent)}
+  .dataCompareCase input{flex:0 0 auto;accent-color:var(--accent);width:16px;height:16px}
+  .dataCompareCaseInfo{display:grid;gap:3px;min-width:0;flex:1}
+  .dataCompareCaseInfo b{font-size:11px;overflow-wrap:anywhere}
+  .dataCompareCaseInfo span{font-size:10px;color:var(--muted)}
+  .dataCompareButtons{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .dataCompareButtons .btn{min-height:33px;font-size:11px}
+  .dataCompareButtons .btn:disabled{opacity:.5;cursor:not-allowed}
+  .dataImportMore{border:1px solid var(--line);border-radius:12px;padding:0 11px 9px;margin:5px 0 9px}
+  .dataImportMore>summary{cursor:pointer;font-size:12px;font-weight:750;color:var(--muted);padding:10px 0}
+  .dataImportMore .row2{margin:5px 0}
+</style>
     <div class="datasetModeBlock" id="datasetModeBlock">
       <div class="datasetModeHead"><strong id="dataViewTitle">Data view</strong><span class="badge" id="datasetSummary">0 datasets</span></div>
       <div class="datasetTabs">
