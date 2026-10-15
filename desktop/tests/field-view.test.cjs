@@ -2286,7 +2286,7 @@ test('actual Field renderer composites opaque physical regions before transparen
     'const fvRegionScene={layers:new Map([["mold",{gl,mesh:moldMesh,surfacePos:"mold",surfaceColor:"mold-col",surfaceCount:3,edgeCount:0,faceFieldCount:0}]]),',
     'choices:new Map([["mold",{visible:showMold,opacity:moldOpacity}]])};',
     'const fvClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)));',
-    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};',
+    'const fvRegionPrimaryVisible=()=>true;const fvMvp=()=>new Float32Array(16);const fvUpdateAxisGizmo=()=>{};const fvPhysicalOverlayRender=()=>{};',
     'const fvBindDraw=(renderer,pos,col,count,mode,opacity)=>draws.push({pos,depth,opacity});',
     regionCode.slice(regionBegin,regionEnd),
     source.slice(renderBegin,renderEnd),
