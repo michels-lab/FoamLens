@@ -49,7 +49,14 @@ assert(native.includes('contextRejectsLegacyProfile')&&native.includes("internal
 assert(!native.includes('contextVisibleProfile')&&!native.includes("'flRaFieldProfile','flRaFieldTimeSeries'"),
   'Native packaged smoke still requires removed Field 2D tabs');
 
-assert(ribbon.includes('@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:none!important}'),
-  'Laptop quick camera toolbar must remain one row; complete named presets stay in Camera subbar');
-assert(native.includes('innerWidth<=1460?28:43')&&native.includes("el.getAttribute('aria-label')===label?.textContent"),
-  'Packaged UI must test actual responsive camera sizing and readable accessible names');
+assert(ribbon.includes('@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important'),
+  'Laptop quick cameras must display readable directional names, not ambiguous icon-only controls');
+assert(native.includes('rect.width>=55')&&native.includes("el.getAttribute('aria-label').startsWith(label?.textContent")&&
+  native.includes('playRect.width>=100'),
+  'Packaged Windows smoke must reject cropped Play text and unlabeled camera views');
+assert(native.includes('if(innerWidth>1200)return')&&
+  native.includes("menu?.querySelectorAll('[data-fv-view]')")&&native.includes('views.length===7'),
+  'Native shell geometry smoke must inspect all seven visible camera choices on compact screens, not demand duplicated hidden buttons');
+assert(native.includes('cameraNamesReadable=innerWidth<=1200')&&
+  native.includes("tools?.querySelector('.fvNavPresets')"),
+  'Real loaded OpenFOAM scene must accept a readable seven-preset Camera shelf on compact screens');

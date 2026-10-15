@@ -1,0 +1,43 @@
+name: Field playback and camera usability
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-field-view.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/tests/field-loop-playback.test.cjs'
+      - 'desktop/tests/ribbon-ui.test.cjs'
+      - 'desktop/tests/field-3d-navigation-cache.test.cjs'
+      - '.github/workflows/field-playback-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-field-view.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/tests/field-loop-playback.test.cjs'
+      - 'desktop/tests/ribbon-ui.test.cjs'
+      - 'desktop/tests/field-3d-navigation-cache.test.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Loop physical-time frames; pause/async/speed behavior
+        run: node desktop/tests/field-loop-playback.test.cjs
+      - name: Check compact Ribbon controls and camera accessibility
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Confirm seven distinct Field navigation controls
+        run: node desktop/tests/field-3d-navigation-cache.test.cjs
+      - name: Preserve Field workspace time accuracy and layout
+        run: node desktop/tests/workspace-ux.test.cjs

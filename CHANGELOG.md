@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.6 — 2026-10-15
+
+- **Continuous 3D Field playback:** the visible Ribbon player repeats the physically available OpenFOAM time sequence automatically: after the last valid snapshot it starts again from the first. The playback timer awaits each real frame load before scheduling the next; no duplicate clocks, invented intermediate field values or temporal interpolation. Manual pause, speed changes, single-frame cases and late asynchronous results are handled safely.
+- **Readable Play/Pause:** the Field toolbar reserves real space for the full Play / Pause label with a permanent ↻ loop indicator instead of truncating the word to `Pla` in a 28px Ribbon column. The 3D time slider, speed and actual physical-time readout remain separate, accessible controls.
+- **Seven clearly labeled camera views:** Isometric, Front +Z, Back −Z, Left −X, Right +X, Top +Y and Bottom −Y have visible names, directional tooltips, keyboard/accessibility labels and selected-view feedback. Camera view choices are available in the contextual Camera menu even on narrow screens.
+- **Release regression gates:** repeat several full physical-time cycles and test pause during pending file load, speed changes, existing workspace controls, native Windows camera/button visibility at actual viewport sizes, QuickCup/VTK and packed Setup/Portable before public release. Publish actual SHA-256 verified artifacts only after exact-main build succeeds.
+- **Scientific integrity:** do not fabricate missing frames or hide field load errors to achieve looping. Source OpenFOAM physical timestamps, coordinate units, color ranges and calculations are unchanged.
+
 ## Desktop v1.8.5 — 2026-10-15
 
 - **True Scale 3D by default:** orthographic Field View retains X/Y/Z *proportions* from original OpenFOAM `polyMesh` source coordinates; Perspective is an explicit alternative. No hidden axis/thickness stretching, invented geometry or modified scientific values.

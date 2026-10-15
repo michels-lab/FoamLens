@@ -7,8 +7,8 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Release information
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.8.5** for Windows — source and release candidate. [Official latest release and Setup/Portable downloads](https://github.com/michels-lab/FoamLens/releases/latest). A release becomes downloadable only after automated Windows validation and the GitHub publication gate pass.
-- The previous verified [v1.8.4 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.4) remains available. Improvements to 3,008-file cold/warm import time on the owner's machine are not yet measured.
+- **FoamLens Desktop v1.8.6** for Windows — source and release candidate. [Official latest release and Setup/Portable downloads](https://github.com/michels-lab/FoamLens/releases/latest). A release becomes downloadable only after automated Windows validation and the GitHub publication gate pass.
+- The previous verified [v1.8.5 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.5) remains available. Improvements to 3,008-file cold/warm import time on the owner's machine are not yet measured.
 
 ## Features
 

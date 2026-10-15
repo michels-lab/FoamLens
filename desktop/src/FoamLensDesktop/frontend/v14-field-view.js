@@ -1653,7 +1653,22 @@ function fvCameraPreset(name){
     front:[0,0],back:[Math.PI,0],right:[Math.PI/2,0],left:[-Math.PI/2,0],
     top:[0,Math.PI/2-1e-4],bottom:[0,-Math.PI/2+1e-4],iso:[.72,.42]
   },p=presets[String(name||'').toLowerCase()];if(!p)return;
-  fvState.camera.yaw=p[0];fvState.camera.pitch=p[1];fvCameraFitCurrent()
+  fvState.camera.yaw=p[0];fvState.camera.pitch=p[1];
+  // Keep all seven viewport and Ribbon presets visibly in sync.
+  const active=String(name).toLowerCase();
+  document.querySelectorAll('[data-fv-view]').forEach(b=>{
+    const selected=b.dataset.fvView===active;
+    b.classList.toggle('active',selected);b.setAttribute('aria-pressed',selected?'true':'false')
+  });
+  for(const [suffix,preset] of [['Iso','iso'],['Front','front'],['Back','back'],['Left','left'],['Right','right'],['Top','top'],['Bottom','bottom']]){
+    for(const prefix of ['flRaQuick','flRaCamera']){
+      const button=document.getElementById(prefix+suffix);
+      if(!button)continue;
+      const selected=preset===active;button.classList.toggle('active',selected);
+      button.setAttribute('aria-pressed',selected?'true':'false')
+    }
+  }
+  fvCameraFitCurrent()
 }
 function fvCameraReset(){fvCameraPreset('iso')}
 function fvCameraBasis(camera=fvState.camera){
@@ -2146,7 +2161,7 @@ function fvPanelHtml(){
           <button class="btn tiny" id="fvMeasureTool" type="button" data-fl-en="Measure" data-fl-es="Medir">Measure</button>
           <button class="btn tiny" id="fvMeasureClear" type="button" data-fl-en="Clear measurement" data-fl-es="Borrar medida">Clear measurement</button>
         </div>
-        <details class="fvNavPresets"><summary>Camera directions</summary><div class="fvToolRow fvPresetRow"><button class="btn tiny" data-fv-view="front" type="button" data-fl-en="Front" data-fl-es="Frontal">Front</button><button class="btn tiny" data-fv-view="back" type="button" data-fl-en="Back" data-fl-es="Posterior">Back</button><button class="btn tiny" data-fv-view="left" type="button" data-fl-en="Left" data-fl-es="Izquierda">Left</button><button class="btn tiny" data-fv-view="right" type="button" data-fl-en="Right" data-fl-es="Derecha">Right</button><button class="btn tiny" data-fv-view="top" type="button" data-fl-en="Top" data-fl-es="Superior">Top</button><button class="btn tiny" data-fv-view="bottom" type="button" data-fl-en="Bottom" data-fl-es="Inferior">Bottom</button><button class="btn tiny" data-fv-view="iso" type="button" data-fl-en="Isometric" data-fl-es="Isométrica">Isometric</button></div></details>
+        <details class="fvNavPresets"><summary data-fl-en="Camera views · X/Y/Z" data-fl-es="Vistas de cámara · X/Y/Z">Camera views · X/Y/Z</summary><div class="fvToolRow fvPresetRow" aria-label="Seven physical camera directions"><button class="btn tiny" data-fv-view="front" type="button" title="Front · view from +Z toward −Z" aria-label="Front view from positive Z toward negative Z" data-fl-en="Front · +Z" data-fl-es="Frontal · +Z">Front · +Z</button><button class="btn tiny" data-fv-view="back" type="button" title="Back · view from −Z toward +Z" aria-label="Back view from negative Z toward positive Z" data-fl-en="Back · −Z" data-fl-es="Posterior · −Z">Back · −Z</button><button class="btn tiny" data-fv-view="left" type="button" title="Left · view from −X toward +X" aria-label="Left view from negative X toward positive X" data-fl-en="Left · −X" data-fl-es="Izquierda · −X">Left · −X</button><button class="btn tiny" data-fv-view="right" type="button" title="Right · view from +X toward −X" aria-label="Right view from positive X toward negative X" data-fl-en="Right · +X" data-fl-es="Derecha · +X">Right · +X</button><button class="btn tiny" data-fv-view="top" type="button" title="Top · view from +Y toward −Y" aria-label="Top view from positive Y toward negative Y" data-fl-en="Top · +Y" data-fl-es="Superior · +Y">Top · +Y</button><button class="btn tiny" data-fv-view="bottom" type="button" title="Bottom · view from −Y toward +Y" aria-label="Bottom view from negative Y toward positive Y" data-fl-en="Bottom · −Y" data-fl-es="Inferior · −Y">Bottom · −Y</button><button class="btn tiny" data-fv-view="iso" type="button" title="Isometric · view from +X/+Y/+Z" aria-label="Isometric view from positive X Y and Z" data-fl-en="Isometric · XYZ" data-fl-es="Isométrica · XYZ">Isometric · XYZ</button></div></details>
       </div>
     <div class="fvViewport">
       <canvas id="fvCanvas" aria-label="3D OpenFOAM field visualization"></canvas>

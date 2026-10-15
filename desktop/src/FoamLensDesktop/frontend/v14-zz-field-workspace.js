@@ -2,7 +2,7 @@
 
 const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
-const fwTimeState={playing:false,timer:null};
+const fwTimeState={playing:false,timer:null,epoch:0};
 let fwRenderFrame=0,fwRenderNeeds3D=false,fwRenderNeeds2D=false;
 function fwScheduleRender({threeD=false,twoD=false}={}){
   fwRenderNeeds3D=fwRenderNeeds3D||!!threeD;fwRenderNeeds2D=fwRenderNeeds2D||!!twoD;
@@ -79,9 +79,9 @@ function fwCreateSurface(){
         </div>
         <div class="fwSplitChooser hidden" id="fwSplitChooser"><label for="fwCompanion" data-fl-en="Second pane" data-fl-es="Segundo panel">Second pane</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option></select></div>
         <div class="fwTimeTransport" id="fwTimeTransport" aria-label="Physical time playback">
-          <button class="btn tiny" id="fwTimePrev" type="button" title="Previous physical-time frame">‹</button>
-          <button class="btn soft" id="fwTimePlay" type="button" aria-pressed="false">▶ Play</button>
-          <button class="btn tiny" id="fwTimeNext" type="button" title="Next physical-time frame">›</button>
+          <button class="btn tiny" id="fwTimePrev" type="button" title="Previous physical-time frame" aria-label="Previous frame">‹</button>
+          <button class="btn soft fwPlayControl" id="fwTimePlay" type="button" aria-pressed="false" aria-label="Play continuously in a loop" title="Play continuously · repeats after last frame">▶ Play <span aria-hidden="true">↻</span></button>
+          <button class="btn tiny" id="fwTimeNext" type="button" title="Next physical-time frame" aria-label="Next frame">›</button>
           <input id="fwTimeSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Physical time">
           <span class="fwTimeReadout" id="fwTimeReadout">t = —</span>
           <select id="fwTimeSpeed" aria-label="Playback speed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
@@ -113,7 +113,7 @@ function fwCreateSurface(){
     .fwWorkspaceBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
     .fwViewTabs{display:flex;gap:4px;flex-wrap:wrap}.fwViewTab{border:1px solid transparent;background:transparent;color:var(--muted);padding:7px 10px;border-radius:9px;font-size:9px;font-weight:800}.fwViewTab:hover{border-color:var(--line);color:var(--text)}.fwViewTab.active{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--text)}
     .fwSplitChooser{display:flex;align-items:center;gap:6px}.fwSplitChooser label{font-size:8px;color:var(--muted);font-weight:800}.fwSplitChooser.hidden{display:none!important}
-    .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:auto auto auto minmax(140px,320px) auto auto;align-items:center;gap:6px;min-width:min(100%,540px)}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
+    .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,320px) max-content 68px;align-items:center;gap:6px;min-width:0;width:max-content;max-width:100%}.fwTimeTransport #fwTimePlay{box-sizing:border-box;min-width:100px;width:max-content!important;max-width:none!important;white-space:nowrap;overflow:visible;text-overflow:clip;display:inline-flex;gap:6px;align-items:center;justify-content:center;line-height:1.15;font-size:12px;font-weight:800;padding:8px 11px!important}.fwTimeTransport #fwTimePlay[aria-pressed="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fwTimeTransport #fwTimePlay span{color:var(--accent);font-size:13px}.fwTimeTransport #fwTimePrev,.fwTimeTransport #fwTimeNext{min-width:32px;width:32px;padding:5px;text-align:center}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
     body.appMode-field .fvTimeline,body.appMode-field #profileTimeline,body.appMode-field #playbackGlobal,body.appMode-field #logPlayTime,body.appMode-field #logTimePrev,body.appMode-field #logTimeSlider,body.appMode-field #logTimeNext{display:none!important}
     .fwHeader{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
     .fwEyebrow{font-size:8px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
@@ -135,7 +135,7 @@ function fwCreateSurface(){
     .fwDataFieldHistories{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--panel2)}.fwDataFieldHistories>summary{cursor:pointer;font-size:11px;font-weight:800;padding:7px 5px;color:var(--text)}.fwDataFieldHistories[open]>summary{margin-bottom:9px}.fwDataFieldHistories .fwFieldTsControls{padding:6px;min-width:0}.fwDataFieldHistories #fwBuildFieldHistories{justify-self:start}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
-    @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:auto auto auto minmax(90px,1fr);}.fwTimeReadout,#fwTimeSpeed{grid-row:2}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
+    @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,1fr) max-content 68px;}.fwTimeReadout,#fwTimeSpeed{grid-row:auto}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
@@ -215,7 +215,7 @@ function fwRefreshGlobalTime(){
   slider.setAttribute('aria-valuetext',hasFrame?readout.textContent:fwUi('No measured frame loaded','Sin frame medido cargado'))
 }
 async function fwTimeLoadIndex(index){
-  const times=fwTimeTimes();if(!times.length)return;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0))),time=times[i],mode=fwTimeMode();
+  const times=fwTimeTimes();if(!times.length)return false;const i=Math.max(0,Math.min(times.length-1,Math.round(Number(index)||0))),time=times[i],mode=fwTimeMode();
   try{
     if(mode==='profile'){
       try{stopProfileAnimation()}catch{}
@@ -226,17 +226,47 @@ async function fwTimeLoadIndex(index){
     }else{
       fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(time)
     }
-    fwUpdateTimeBadge();fwRefreshGlobalTime()
-  }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}}
+    fwUpdateTimeBadge();fwRefreshGlobalTime();return true
+  }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}return false}
 }
 function fwTimeStep(delta){const slider=document.getElementById('fwTimeSlider');fwTimeStop();return fwTimeLoadIndex((Number(slider?.value)||0)+Number(delta||0))}
+/* FOAMLENS_FIELD_LOOP_PLAYBACK_START */
+function fwPlaybackNextIndex(current,length){
+  const count=Math.max(0,Math.trunc(Number(length)||0));
+  if(count<2)return -1;
+  const i=Math.max(0,Math.min(count-1,Math.trunc(Number(current)||0)));
+  return i===count-1?0:i+1
+}
+function fwTimeSetPlayLabel(playing){
+  const b=document.getElementById('fwTimePlay');if(!b)return;
+  b.textContent=(playing?'⏸ '+fwUi('Pause','Pausa'):'▶ '+fwUi('Play','Reproducir'))+' ↻';
+  b.setAttribute('aria-pressed',playing?'true':'false');
+  b.setAttribute('aria-label',playing?fwUi('Pause looping playback','Pausar reproducción en bucle'):fwUi('Play continuously in a loop','Reproducir continuamente en bucle'));
+  b.title=playing?fwUi('Pause playback','Pausar reproducción'):fwUi('Repeat automatically from first time after last','Repetir automáticamente desde el primer tiempo al terminar')
+}
 function fwTimeStop(){
-  fwTimeState.playing=false;if(fwTimeState.timer){clearTimeout(fwTimeState.timer);fwTimeState.timer=null}const b=document.getElementById('fwTimePlay');if(b){b.textContent='▶ '+fwUi('Play','Reproducir');b.setAttribute('aria-pressed','false')}
+  fwTimeState.playing=false;fwTimeState.epoch=(fwTimeState.epoch||0)+1;
+  if(fwTimeState.timer){clearTimeout(fwTimeState.timer);fwTimeState.timer=null}
+  fwTimeSetPlayLabel(false)
 }
 function fwTimePlay(){
-  const times=fwTimeTimes();if(times.length<2)return;fwTimeStop();fwTimeState.playing=true;const b=document.getElementById('fwTimePlay');if(b){b.textContent='⏸ '+fwUi('Pause','Pausa');b.setAttribute('aria-pressed','true')}
-  const tick=async()=>{if(!fwTimeState.playing)return;const s=document.getElementById('fwTimeSlider'),current=Number(s?.value)||0;if(current>=times.length-1){fwTimeStop();return}await fwTimeLoadIndex(current+1);if(fwTimeState.playing){const speed=Math.max(.1,Number(document.getElementById('fwTimeSpeed')?.value)||1);fwTimeState.timer=setTimeout(tick,Math.max(40,500/speed))}};tick()
+  if(fwTimeTimes().length<2)return;
+  fwTimeStop();fwTimeState.playing=true;
+  const epoch=fwTimeState.epoch;fwTimeSetPlayLabel(true);
+  const tick=async()=>{
+    if(!fwTimeState.playing||fwTimeState.epoch!==epoch)return;
+    const count=fwTimeTimes().length,slider=document.getElementById('fwTimeSlider'),
+      next=fwPlaybackNextIndex(slider?.value,count);
+    if(next<0){fwTimeStop();return}
+    const loaded=await fwTimeLoadIndex(next);
+    if(!fwTimeState.playing||fwTimeState.epoch!==epoch)return;
+    if(!loaded){fwTimeStop();return}
+    const speed=Math.max(.1,Number(document.getElementById('fwTimeSpeed')?.value)||1);
+    fwTimeState.timer=setTimeout(tick,Math.max(40,500/speed))
+  };
+  tick()
 }
+/* FOAMLENS_FIELD_LOOP_PLAYBACK_END */
 
 function fwFieldTsReadyCases(){return (cases||[]).filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c))}
 function fwFieldTsCase(slot){return (cases||[]).find(c=>String(c.id)===String(document.getElementById('fwTsCase'+slot)?.value||''))}
