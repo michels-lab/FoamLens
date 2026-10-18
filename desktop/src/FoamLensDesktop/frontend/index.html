@@ -1076,6 +1076,7 @@ body:not(.appMode-field) .fieldViewControls{display:none!important}
       <div class="dataCompareButtons">
         <button class="btn primary" id="dataCompareProfiles" type="button">Compare spatial profiles</button>
         <button class="btn soft" id="dataCompareTimeSeries" type="button">Compare time series</button>
+        <button class="btn tiny" id="dataCompareRetry" type="button" disabled title="Retry only indexed spatial profiles that did not load">Retry pending profiles</button>
       </div>
       <p class="smallnote" id="dataCompareStatus" aria-live="polite"></p>
     </section>
@@ -6258,6 +6259,9 @@ function dataCompareCounts(caseId,index=null){
     logs:counted?.logs||0
   }
 }
+function selectedPendingProfiles(){
+  return [...dataCompareState.selected].reduce((sum,id)=>sum+pendingLazyProfileCount(id),0)
+}
 function dataCompareRefresh(){
   const root=$('dataCompareExisting'),list=$('dataCompareCaseList'),importer=$('dataImportMore');
   if(!root||!list||!importer)return;
@@ -6283,6 +6287,9 @@ function dataCompareRefresh(){
   $('dataCompareReset').textContent=flUi('Single case','Un solo caso');
   $('dataCompareProfiles').textContent=flUi('Compare profiles','Comparar perfiles');
   $('dataCompareTimeSeries').textContent=flUi('Compare time series','Comparar series temporales');
+  const pending=selectedPendingProfiles();
+  $('dataCompareRetry').textContent=flUi('Retry pending profiles','Reintentar perfiles pendientes')+(pending?' ('+pending+')':'');
+  $('dataCompareRetry').disabled=!dataCompareState.active||currentDataView!=='profile'||pending===0;
   const scrollBefore=list.scrollTop;
   list.innerHTML=candidates.map(c=>{
     const counts=dataCompareCounts(c.id,countsIndex);
@@ -9828,6 +9835,18 @@ $('dataCompareClear')?.addEventListener('click',()=>{
 });
 $('dataCompareProfiles')?.addEventListener('click',()=>dataCompareApply('profile'));
 $('dataCompareTimeSeries')?.addEventListener('click',()=>dataCompareApply('timeseries'));
+$('dataCompareRetry')?.addEventListener('click',async()=>{
+  if(!dataCompareState.active||currentDataView!=='profile'||!selectedPendingProfiles())return;
+  const button=$('dataCompareRetry');button.disabled=true;
+  $('dataCompareStatus').textContent=flUi('Retrying previously indexed spatial profiles…','Reintentando perfiles espaciales previamente indexados…');
+  try{
+    if(lazyProfileHydrationPromise)await lazyProfileHydrationPromise;
+    if(selectedPendingProfiles())await hydrateLazyProfilesForContext();
+    refreshDatasetControls({deferHeavy:true});renderList();updateMeta();draw()
+  }catch(error){
+    $('dataCompareStatus').textContent=flUi('Could not retry pending profile files: ','No se pudieron reintentar los archivos de perfil pendientes: ')+String(error?.message||error)
+  }finally{dataCompareRefresh()}
+});
 $('dataCompareReset')?.addEventListener('click',dataCompareReset);
 
 $('profileSet').addEventListener('change',()=>{resetProfilePlaybackState();animationLockedRanges=null;refreshDatasetControls();activeId=null;pinnedPoints=[];renderList();updateMeta();renderPhaseFront();draw()});
