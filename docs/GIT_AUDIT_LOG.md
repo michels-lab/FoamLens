@@ -33,6 +33,15 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - Source compatibility: optional desktop shortcut remains unchecked; taskbar help is a separate, explicitly unchecked final-page choice (`postinstall skipifsilent unchecked`). No unsupported silent taskbar pinning. The initial candidate failed because two historical tests asserted the old Tasks-page behavior and the native shortcut test had a brittle line-matching expression; tests were corrected, then all exact candidate and main checks passed. Release contains no changes to measured OpenFOAM numerical inputs.
 - Remaining manual scientific evidence: owner's real 3,008-file cold/warm case benchmark, memory and interactive-plot timing (#117). Owner-specific screenshots and review (#131) remain separate; neither is claimed completed by generic CI.
 
+## 2026-10-18 — Field viewport controls and Ribbon collision repair (PR #144, candidate)
+
+- Owner's v1.8.9 Windows screenshot exposed a real UI discoverability regression: Field's `+ Add 3D View` was inside an intentionally hidden header, B/C/D case+field selectors were buried in the inspector, and the quick Camera/Compare/Cache/physical-time ribbon painted over neighboring controls at compact width.
+- **Implemented in PR #144:** visible `+ Add view` on the permanent 3D card header, supporting up to four views of the **same or different already-imported OpenFOAM cases**. Each viewport now has directly accessible independent source-backed case, property, region and component selectors. No duplication or fabrication of field values or geometry.
+- Added view-header drag/drop reordering, with keyboard arrow fallback, retaining the existing DOM WebGL renderer/canvas/probe/time metadata; per-view +/- camera zoom, independent by default, with an explicit shared-camera toggle.
+- Corrected Field Ribbon intrinsic group sizing and measured wrap rows so the 7 camera presets, playback, cache, Compare and Camera buttons do not overlap. Existing data-only Profiles / Time Series ownership, true-aspect ratio, physical units and scientific OpenFOAM parsers remain unchanged.
+- Executable regression `desktop/tests/field-multiview-ux.test.cjs` covers independent/linked camera zoom, binding identity, pane reordering and toolbar constraints; added to Windows full CI and Field fast CI.
+- Candidate branch `feat/field-multiview-drag-zoom-20261018`. **No release or version bump** authorized by this screenshot. Exact packaged Windows screenshots, high-DPI viewport interaction and owner real-case review remain pending until verified; issue #117 real 3,008-file measured performance remains open.
+
 ## Current repository state
 
 | Item | State |
