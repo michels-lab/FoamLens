@@ -6273,6 +6273,7 @@ function dataCompareRefresh(){
 }
 function dataCompareApply(view){
   if(!['profile','timeseries'].includes(view))return;
+  ++dataCompareSelectionEpoch;
   const candidates=dataCompareAvailableCases().filter(c=>dataCompareState.selected.has(c.id)),
     countsIndex=dataCompareCountIndex();
   const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id,countsIndex);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
@@ -6339,6 +6340,7 @@ function dataCompareSelectionChanged(){
   }
 }
 function dataCompareReset(){
+  ++dataCompareSelectionEpoch;
   stopAllPlayback();dataCompareState.active=false;
   activeContextCaseId=dataCompareState.previousCaseId;
   activeContextRegion=dataCompareState.previousRegion;
