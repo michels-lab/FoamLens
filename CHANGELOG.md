@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.7 — 2026-10-17
+
+- **Live case selection in Data:** in an active Profiles or Time series comparison, checking, unchecking, selecting all or clearing previously imported OpenFOAM cases now updates actual plotted curves immediately. Users no longer need to repeatedly click Compare to apply each change.
+- **Real-source integrity:** reuse existing scientifically loaded time series and spatial profiles, preserving case provenance, dual-variable axes and physical time. Source-derived indexed `postProcessing` profile files are hydrated only on demand for the selected cases; imported mesh fields, solver logs and timesteps remain distinct from actual spatial profile outputs.
+- **Asynchronous case safety:** a selection epoch and single-flight lazy-profile synchronization prevent a late previous load from repainting a stale curve after a user changes the comparison.
+- **Release checks:** production-source live-selection regression with async race tests, all existing Data/Field and 3,008-series scientific tests, real QuickCup/VTK, installed Windows Setup/Portable and SHA-256 post-publication artifact verification required.
+- **Benchmark caveat:** the user's exact 3,008-file real-case cold/warm loading speedup remains unmeasured; no invented values are advertised.
+
 ## Desktop v1.8.6 — 2026-10-15
 
 - **Continuous 3D Field playback:** the visible Ribbon player repeats the physically available OpenFOAM time sequence automatically: after the last valid snapshot it starts again from the first. The playback timer awaits each real frame load before scheduling the next; no duplicate clocks, invented intermediate field values or temporal interpolation. Manual pause, speed changes, single-frame cases and late asynchronous results are handled safely.
