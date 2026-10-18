@@ -16,6 +16,13 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - Update `tools/test_installer_shortcuts.ps1` to require the exact final-page consent flags, reject old task-based wiring, and continue verifying installed shortcuts, guide contents, silent opt-in/opt-out installation and uninstall.
 - Local source-pattern assertion: passed for the changed `.iss` script; packaged Windows CI, interactive wizard screenshot and master validator recheck remain **pending** at this entry. No tag, version increment or public release authorized for this candidate.
 
+## 2026-10-18 — Desktop v1.8.9 release candidate (owner explicitly authorized)
+
+- The owner authorized completing the outstanding FoamLens tasks and publishing a release. Candidate PR #143 includes the corrected Inno `[Run]` unchecked taskbar instructions and updated packaging/installer tests; see issue #137.
+- Align Windows `AssemblyVersion`, `FileVersion`, `Version`, Inno Setup fallback, frontend/Desktop About fallback and README with `1.8.9`; add matching changelog notes to ensure immutable versioned release artifacts.
+- Scope is an installer consent bugfix, not new scientific algorithms or a claim of real owner-case speedup. Issue #117 remains explicitly open for cold/warm 3,008-file measurements; #131 should be reconciled only against verified exact binary acceptance evidence.
+- **Validation / release status at candidate creation:** Windows CI and master governance recheck pending. Do not state published Setup/Portable, SHA-256 integrity, or Windows interactive wizard passes until the exact v1.8.9 main run verifies them.
+
 ## Current repository state
 
 | Item | State |
