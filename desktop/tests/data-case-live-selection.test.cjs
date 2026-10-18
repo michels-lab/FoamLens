@@ -8,14 +8,18 @@ function harness(mode='timeseries'){
   const counts={refreshed:0,cleared:0,reset:0,stopped:0,rendered:0,metadata:0,drawn:0,hydrated:0};
   const state={active:true,selected:new Set([1,2]),mode};
   const nodes={profileSet:{dataset:{}},profileLine:{dataset:{}},dataCompareStatus:{textContent:''}};
-  let pending=0,resolveLoad=null;
+  let pending=0,resolveLoad=null,activeHydration=null;
   const module=new Function('dataCompareState','$','stopAllPlayback','resetProfilePlaybackState',
     'clearProfilePlaybackFrameCache','dataCompareRefresh','refreshDatasetControls','renderList','updateMeta',
     'draw','lazyProfileCountForContext','hydrateLazyProfilesForContext','flUi',source+
     'let currentDataView='+JSON.stringify(mode)+';return {changed:dataCompareSelectionChanged,epoch:()=>dataCompareSelectionEpoch,setView:v=>currentDataView=v}')(
     state,id=>nodes[id],()=>counts.stopped++,()=>counts.reset++,()=>counts.cleared++,
     ()=>counts.refreshed++,()=>{counts.refreshed++},()=>counts.rendered++,()=>counts.metadata++,()=>counts.drawn++,
-    ()=>pending,()=>{counts.hydrated++;pending=0;return new Promise(resolve=>{resolveLoad=resolve})},(en)=>en);
+    ()=>pending,()=>{counts.hydrated++;pending=0;
+      // Match the real single-flight lazyProfileHydrationPromise: two
+      // checkbox changes during one IO batch await the same promise.
+      if(!activeHydration)activeHydration=new Promise(resolve=>{resolveLoad=resolve});
+      return activeHydration},(en)=>en);
   return{counts,state,module,nodes,setPending:n=>pending=n,resolve:()=>resolveLoad?.(true)}
 }
 async function flush(){for(let i=0;i<12;i++)await Promise.resolve()}
