@@ -13,17 +13,18 @@ $link=Join-Path $desktop 'FoamLens.lnk'
 if (Test-Path -LiteralPath $link) { throw "Refusing to replace existing user desktop shortcut: $link" }
 $expectedGuide=(Resolve-Path -LiteralPath 'desktop/installer/TaskbarPinning.txt').Path
 $installerSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../desktop/installer/FoamLens.iss') -Raw
-if($installerSource -notmatch '(?m)^Name: "taskbarhelp";[^\r\n]*Flags: unchecked\s*$'){
-  throw 'Installer taskbar guidance must be an unchecked wizard Tasks-page option'
+# Taskbar assistance belongs on the final Setup page, unchecked by default.
+if($installerSource -notmatch '(?m)^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Flags: (?=[^\r\n]*\bpostinstall\b)(?=[^\r\n]*\bskipifsilent\b)(?=[^\r\n]*\bunchecked\b)[^\r\n]*$'){
+  throw 'Taskbar guide must be an unchecked, skipifsilent postinstall final-page action'
 }
-if($installerSource -notmatch '(?m)^Filename: "\{sys\}\\notepad.exe";[^\r\n]*Tasks: taskbarhelp\s*$'){
-  throw 'Taskbar guide must only open for an explicit taskbarhelp selection'
+if($installerSource -match '(?m)^Name: "taskbarhelp";|^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Tasks: taskbarhelp'){
+  throw 'Taskbar guide must not depend on a prior Tasks-page selection'
 }
 
 function Invoke-FoamSetup([string]$exe,[string]$destination,[bool]$withShortcut) {
   $dirArg='/DIR="' + $destination + '"'
   $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER',$dirArg)
-  if($withShortcut){$args+='/TASKS=desktopicon,taskbarhelp'}else{$args+='/MERGETASKS=!desktopicon,!taskbarhelp'}
+  if($withShortcut){$args+='/TASKS=desktopicon'}else{$args+='/MERGETASKS=!desktopicon'}
   $proc=Start-Process -FilePath $exe -ArgumentList $args -PassThru
   if(-not $proc.WaitForExit(90000)){
     try{$proc.Kill($true)}catch{}
