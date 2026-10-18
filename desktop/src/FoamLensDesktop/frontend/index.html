@@ -6323,7 +6323,7 @@ function dataCompareSelectionChanged(){
   // Loading indexed profiles is still a real on-demand file operation.
   // If a previous load is in progress, wait for it, then hydrate the newly
   // selected cases rather than silently leaving an empty second-case plot.
-  if(currentDataView==='profile'&&lazyProfileCountForContext()>0){
+  if(currentDataView==='profile'&&(lazyProfileCountForContext()>0||lazyProfileHydrationPromise)){
     (async()=>{
       try{
         await hydrateLazyProfilesForContext();
