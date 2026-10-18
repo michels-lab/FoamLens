@@ -20,6 +20,9 @@ if($installerSource -notmatch '(?m)^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Fl
 if($installerSource -match '(?m)^Name: "taskbarhelp";|^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Tasks: taskbarhelp'){
   throw 'Taskbar guide must not depend on a prior Tasks-page selection'
 }
+if($installerSource -notmatch 'Description: "Show how to pin FoamLens to the taskbar"'){
+  throw 'Final-page taskbar help must use an explicit user-facing instruction label'
+}
 
 function Invoke-FoamSetup([string]$exe,[string]$destination,[bool]$withShortcut) {
   $dirArg='/DIR="' + $destination + '"'
