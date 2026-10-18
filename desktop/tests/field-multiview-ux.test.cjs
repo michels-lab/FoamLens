@@ -60,7 +60,8 @@ for(const fragment of [
   "FC_MAX_TOTAL_VIEWS=4","if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))"
 ])assert(source.includes(fragment),'Missing production multi-view mechanism: '+fragment);
 for(const fragment of [
-  'id="fwAdd3DViewVisible"','id="fwLinkCamerasVisible"',
+  'id="fwAdd3DViewVisible"','id="fwImport3DCase"','id="fwLinkCamerasVisible"',
+  "document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click())",
   "document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView)",
   "const enabled=document.getElementById('fcEnabled')","fcExtraAdd();fwUpdateViewCount()",
   'document.querySelector(\'#fcViewport [data-fc-bind="Case"]\')'
