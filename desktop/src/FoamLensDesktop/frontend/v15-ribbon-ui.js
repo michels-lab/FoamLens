@@ -340,6 +340,17 @@ function flRibbonCss(){
     '.flRibbonContextHost select{padding:4px 7px!important;font-size:10px!important;min-height:29px!important}',
     '.flRibbonContextHost .contextActions .btn{padding:4px 7px!important;font-size:10px!important;border-radius:7px!important}',
     '@media(max-width:980px){.flRibbonTrailHost{display:none}.flRibbonAction{padding-inline:7px}.flRibbonLabel{font-size:10px}.flRibbonPanel{min-height:40px}.flRibbonPanels{min-height:40px}}',
+    
+// Field commands may not paint on top of the transport or context tabs:
+// each group has intrinsic width and wraps to a new measured ribbon row.
+'#flRibbonPanel-field.active{flex-wrap:wrap!important;align-content:flex-start!important;overflow:visible!important;row-gap:6px!important;column-gap:10px!important;padding-bottom:7px!important}',
+'#flRibbonPanel-field .flRibbonGroup{flex-shrink:0!important;min-width:max-content!important}',
+'#flRibbonPanel-field .flRibbonTimeGroup{flex:0 0 auto!important;width:auto!important;max-width:100%!important}',
+'#flRibbonPanel-field .flRibbonTimeGroup .flRibbonActions{display:flex!important;flex-wrap:wrap!important;width:auto!important;max-width:100%!important;gap:7px!important}',
+'#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{box-sizing:border-box!important;flex:0 1 460px!important;width:min(460px,calc(100vw - 35px))!important;min-width:0!important;max-width:100%!important;grid-template-columns:32px 106px 32px minmax(55px,1fr) max-content 66px!important}',
+'#flRibbonPanel-field .flRibbonCacheAdvanced{flex:0 0 auto!important;min-width:max-content!important}',
+'#flRibbonPanel-field #flFieldContextTabs{flex:0 0 auto;white-space:nowrap}',
+'@media(max-width:600px){#flRibbonPanel-field .flRibbonTimeGroup{min-width:0!important;width:100%!important}#flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{width:100%!important;grid-template-columns:28px 94px 28px minmax(40px,1fr) max-content 60px!important}#flRibbonPanel-field #fwTimePlay{width:94px!important;min-width:94px!important;font-size:10px!important}}',
     '@media(max-width:640px){.flRibbonContextHost{display:none}.flRibbonAction{padding-inline:6px}.flRibbonIcon{width:15px;height:15px}.flRibbonTab{padding-inline:7px}}'
   ].join('');
 }
