@@ -173,7 +173,10 @@ test('alignment status metadata', () => {
 test('playback reuses hydrated in-memory profiles instead of reading disk per frame', () => {
   assert(html.includes('const lazyProfileFilesByCase=new Map()'));
   assert(html.includes('if(lazyProfileHydrationPromise)return lazyProfileHydrationPromise'));
-  assert(html.includes('lazyProfileFilesByCase.delete(part.id)'));
+  assert(html.includes('finalizeLazyProfileSources(part.id,part.files,successful)'),
+    'Only valid source measurements may be removed from the pending import index');
+  assert(!html.includes('lazyProfileFilesByCase.delete(part.id)'),
+    'A partial profile failure must not silently erase the case retry index');
   const start=html.indexOf('function buildProfilePlaybackAtTime(tPlay)');
   const end=html.indexOf('function profilePlaybackStatusText',start);
   assert(start>=0&&end>start,'Playback render function is missing.');
