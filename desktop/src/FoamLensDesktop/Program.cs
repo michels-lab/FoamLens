@@ -911,7 +911,8 @@ internal sealed class FoamLensForm : Form
             Log($"FoamLens ribbon runtime UI smoke passed: {ribbonUiJson}");
 
             // Run real WebView2 geometry/interaction checks for the compact
-            // Field command surface. A green static test is not visual acceptance.
+            // Field command surface: responsive wrapping is valid, overlap is not.
+            // A green static test is not visual acceptance.
             var fieldCompactUiJson = await _web.CoreWebView2.ExecuteScriptAsync(
                 """
                 (()=>{
@@ -928,10 +929,24 @@ internal sealed class FoamLensForm : Form
                   const bounds=ribbon?.getBoundingClientRect();
                   const checks={
                     fieldActive:document.body.classList.contains('appMode-field'),
-                    oneRow:!!ribbon&&getComputedStyle(ribbon).flexWrap==='nowrap'&&Number(bounds?.height||0)<=92,
+                    nonOverlappingRows:(()=>{
+                      if(!ribbon||!bounds)return false;
+                      const parts=[...ribbon.children].filter(el=>{
+                        const r=el.getBoundingClientRect();
+                        return getComputedStyle(el).display!=='none'&&r.width>0&&r.height>0
+                      });
+                      const inside=parts.every(el=>{const r=el.getBoundingClientRect();return r.left>=bounds.left-2&&r.right<=bounds.right+2&&r.top>=bounds.top-2&&r.bottom<=bounds.bottom+2});
+                      const overlap=(a,b)=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2;
+                      return inside&&parts.every((el,i)=>parts.slice(i+1).every(other=>!overlap(el.getBoundingClientRect(),other.getBoundingClientRect())))
+                    })(),
                     noClippedPrimaryRow:!!ribbon&&ribbon.scrollWidth<=ribbon.clientWidth+8,
                     subbarsInitiallyClosed:!!shelf&&shelf.classList.contains('hidden'),
                     caseSelectorsIndependent:!!caseHost&&caseHost.contains(a)&&caseHost.contains(b)&&a!==b,
+                    addViewVisible:(()=>{const el=document.getElementById('fwAdd3DViewVisible');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
+                    importCaseVisible:(()=>{const el=document.getElementById('fwImport3DCase');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
+                    primaryViewPropertyVisible:(()=>{const el=document.querySelector('#fcViewGrid [data-fc-toolbar="A"] [data-fc-bind="Field"]');return !!el&&el.getBoundingClientRect().width>60})(),
+                    primaryViewZoomVisible:(()=>{const bar=document.querySelector('#fcViewGrid [data-fc-toolbar="A"]');return !!bar&&['in','out'].every(dir=>bar.querySelector('[data-fc-zoom="'+dir+'"]')?.getBoundingClientRect().width>=28)&&!!bar.querySelector('.fcMoveHandle[draggable="true"]')})(),
+                    caseCanCompareItself:!!a&&!!b&&[...b.options].some(opt=>opt.value===a.value),
                     primarySelectorVisible:!!a&&a.getBoundingClientRect().width>30,
                     compareOffByDefault:!!compare&&!compare.checked&&compareRuntimeEnabled===false,
                     secondaryCaseHidden:!!b&&getComputedStyle(b.closest('.row2')).display==='none',
