@@ -89,7 +89,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead"><strong>3D</strong><span class="badge" id="fw3DCount">1 view</span></div>
+          <div class="fwCardHead fw3DCardHead"><strong>3D</strong><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -126,7 +126,7 @@ function fwCreateSurface(){
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
@@ -147,6 +147,9 @@ function fwCreateSurface(){
   document.getElementById('fwTimeSlider')?.addEventListener('input',e=>{fwTimeStop();fwTimeLoadIndex(Number(e.target.value))});
   document.getElementById('fwTimeSpeed')?.addEventListener('change',()=>{if(fwTimeState.playing){fwTimeStop();fwTimePlay()}});
   document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
+   document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView);
+   const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
+   if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
@@ -707,7 +710,8 @@ function fwSyncCompanionTime(time){
 }
 function fwUpdateViewCount(){
   const e=document.getElementById('fw3DCount');if(!e)return;let n=1;
-  try{if(fcState.enabled)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'))
+  try{if(fcState.enabled)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
+  const add=document.getElementById('fwAdd3DViewVisible');if(add){add.disabled=n>=4;add.title=n>=4?fwUi('Maximum of four views','Máximo de cuatro vistas'):fwUi('Add a view: same case or another loaded case, with its own property','Añadir vista del mismo caso u otro, con variable independiente')}
 }
 function fwAdd3DView(){
   fwComparisonExplicitlyRequested();
@@ -716,11 +720,11 @@ function fwAdd3DView(){
     const enabled=document.getElementById('fcEnabled');
     if(enabled&&!enabled.checked){
       enabled.checked=true;enabled.dispatchEvent(new Event('change',{bubbles:true}));
-      fwUpdateViewCount();setTimeout(()=>document.getElementById('fcCase')?.focus(),0);return
+      fwUpdateViewCount();setTimeout(()=>(document.querySelector('#fcViewport [data-fc-bind="Case"]')||document.getElementById('fcCase'))?.focus(),0);return
     }
     if(typeof fcExtraAdd==='function'&&2+fcExtraViews.length<FC_MAX_TOTAL_VIEWS){
       fcExtraAdd();fwUpdateViewCount();
-      const id=fcExtraViews.at(-1)?.id;if(id)setTimeout(()=>document.getElementById('fcExtra'+id+'Case')?.focus(),0);
+      const id=fcExtraViews.at(-1)?.id;if(id)setTimeout(()=>(document.querySelector('#fcExtra'+id+'Viewport [data-fc-bind="Case"]')||document.getElementById('fcExtra'+id+'Case'))?.focus(),0);
       return
     }
     fvSetStatus(fwUi('Maximum of four synchronized 3D views reached.','Se alcanzó el máximo de cuatro vistas 3D sincronizadas.'),false)
