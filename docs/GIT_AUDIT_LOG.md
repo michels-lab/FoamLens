@@ -23,6 +23,16 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - Scope is an installer consent bugfix, not new scientific algorithms or a claim of real owner-case speedup. Issue #117 remains explicitly open for cold/warm 3,008-file measurements; #131 should be reconciled only against verified exact binary acceptance evidence.
 - **Validation / release status at candidate creation:** Windows CI and master governance recheck pending. Do not state published Setup/Portable, SHA-256 integrity, or Windows interactive wizard passes until the exact v1.8.9 main run verifies them.
 
+## 2026-10-18 — Desktop v1.8.9 publicly released and checksum verified
+
+- Owner explicitly authorized the release. PR [#143](https://github.com/michels-lab/FoamLens/pull/143) merged with release-triggering main commit `ca3f1e6e804cc33c84ff76a6f27f066a6f985ff5` after exact candidate head `26a60f5c4fa6a83515436759e93b63ba3fc946a3` passed the four candidate workflows.
+- Public immutable normal release: https://github.com/michels-lab/FoamLens/releases/tag/v1.8.9, published 2026-10-18 08:38:21 UTC; draft=false, prerelease=false.
+- Exact main Windows CI [#39111599721](https://github.com/michels-lab/FoamLens/actions/runs/39111599721) **SUCCESS**: QuickCup/VTK, Windows release build, actual Portable/Setup, real installed launch/uninstall, bilingual Setup/EULA controls, desktop icon/taskbar optional-help contract, packaged scientific runtime smoke and rendered Home/About/Data/Field at two sizes.
+- Main scientific fast-import, loaded-case comparison and published release audit workflows also succeeded for the release commit. Main publish job **SUCCESS** through `Verify actual newly published Windows Setup and Portable checksums` after GitHub redownload.
+- Published binaries: `FoamLens-Portable-v1.8.9.exe` (73,870,471 bytes), `FoamLens-Setup-v1.8.9.exe` (68,525,781 bytes), with a separate `.sha256` file for each. These are the real published assets, not candidate build artifacts.
+- Source compatibility: optional desktop shortcut remains unchecked; taskbar help is a separate, explicitly unchecked final-page choice (`postinstall skipifsilent unchecked`). No unsupported silent taskbar pinning. The initial candidate failed because two historical tests asserted the old Tasks-page behavior and the native shortcut test had a brittle line-matching expression; tests were corrected, then all exact candidate and main checks passed. Release contains no changes to measured OpenFOAM numerical inputs.
+- Remaining manual scientific evidence: owner's real 3,008-file cold/warm case benchmark, memory and interactive-plot timing (#117). Owner-specific screenshots and review (#131) remain separate; neither is claimed completed by generic CI.
+
 ## Current repository state
 
 | Item | State |
