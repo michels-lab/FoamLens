@@ -4766,3 +4766,9 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Added a production-helper regression for success/failure, empty files, stale in-flight file replacement, cross-case isolation, and second-attempt completion. Both the loaded-case fast CI and complete Windows release CI gate the test. No public version bump or release until packed Windows passes.
 
 - Exposed **Retry pending profiles** in the active Profiles multi-case comparison. Enabled only when selected cases still have real indexed, unparsed files; waits for any in-flight load, retries the remaining source references, updates loaded plots, and never reimports successfully hydrated profiles. A source that still fails remains pending for another manual attempt.
+
+
+### 2026-10-18 — Windows Desktop v1.8.8 candidate
+
+- Prepared native .NET, Inno Setup, frontend Desktop fallback, root/Desktop READMEs and changelog with one consistent 1.8.8 identity; Web frontend remains v51. Candidate groups PR #142's retryable real OpenFOAM per-file import and direct selected-case retry UX.
+- Full Windows QuickCup/VTK + Setup/Portable and asset integrity on exact PR head remain release gates. Publish only via the guarded `release:` merge commit to main after candidate approval; verify actual public assets by independent re-download and SHA-256. Never imply measured owner's machine import speedup from synthetic 3,008-series regression.
