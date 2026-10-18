@@ -28,9 +28,10 @@ assert(installer.includes('DisableWelcomePage=no')&&installer.includes('LicenseF
 assert(license.includes('FoamLens')&&license.length>500,'Setup EULA must be the full product license.');
 assert(/Name:\s*"desktopicon"[^\n]*Flags:\s*unchecked/.test(installer),'Desktop shortcut must be optional.');
 assert(/Tasks:\s*desktopicon/.test(installer),'Optional shortcut task must be connected to a real icon.');
-assert(/Name:\s*"taskbarhelp"[^\n]*Flags:\s*unchecked/.test(installer)&&
-  /notepad\.exe[^\n]*TaskbarPinning\.txt[^\n]*postinstall skipifsilent; Tasks:\s*taskbarhelp/.test(installer),
-  'User-only taskbar pin help must be chosen on the Tasks page and remain silent-safe.');
+assert(/notepad\.exe[^\n]*TaskbarPinning\.txt[^\n]*postinstall skipifsilent unchecked/.test(installer)&&
+  !/Name:\s*"taskbarhelp"/.test(installer)&&
+  !/notepad\.exe[^\n]*Tasks:\s*taskbarhelp/.test(installer),
+  'User-only taskbar pin instructions must be an unchecked final-page postinstall action, skipped during silent setup.');
 assert(/Pin to Windows taskbar/.test(guide)&&/Anclar a la barra de tareas/.test(guide),'Bilingual pinning help required.');
 const iconPath=path.join(root,'src','FoamLensDesktop','Assets','FoamLens.ico');
 const icon=fs.readFileSync(iconPath);
@@ -62,8 +63,8 @@ const realChoiceScript=fs.readFileSync(path.join(root,'..','tools','test_install
 assert(realChoiceScript.includes('CreateShortcut($link)')&&realChoiceScript.includes('Invoke-FoamUninstall'),
   'Installer must verify actual shortcut target and uninstaller cleanup');
 const windowsWorkflow=fs.readFileSync(path.join(root,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
-assert(realChoiceScript.includes('/TASKS=desktopicon,taskbarhelp')&&
-  realChoiceScript.includes('/MERGETASKS=!desktopicon,!taskbarhelp')&&
+assert(realChoiceScript.includes('/TASKS=desktopicon')&&
+  realChoiceScript.includes('/MERGETASKS=!desktopicon')&&
   windowsWorkflow.includes('/MERGETASKS=!desktopicon'),
   'Installer must test actual selected and unselected Windows desktop shortcut task');
 

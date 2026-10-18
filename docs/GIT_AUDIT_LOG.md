@@ -9,6 +9,20 @@
 
 This file is the durable project bitácora. After any meaningful Git operation—commit, branch change, pull request action, release/prerelease, CI failure or recovery, packaging change, or important prerelease finding—append/update the relevant section here. Do not rely only on chat history.
 
+## 2026-10-18 — Windows installer taskbar-help consent reconciliation (candidate; unreleased)
+
+- Tracked finding: issue #137; master cross-app installer validator requires an explicit **unchecked final-page** `[Run]` action for the bilingual TaskbarPinning guide, not solely an unchecked `[Tasks]` checkbox.
+- On development branch `fix/installer-final-page-taskbar-consent-20261018`, remove the extra Tasks-page `taskbarhelp` entry and expose the existing Notepad guide in `[Run]` using `nowait postinstall skipifsilent unchecked`. Preserve the existing optional unchecked desktop shortcut and shipped bilingual guide. Do not invoke unsupported automatic taskbar pinning.
+- Update `tools/test_installer_shortcuts.ps1` to require the exact final-page consent flags, reject old task-based wiring, and continue verifying installed shortcuts, guide contents, silent opt-in/opt-out installation and uninstall.
+- Local source-pattern assertion: passed for the changed `.iss` script; packaged Windows CI, interactive wizard screenshot and master validator recheck remain **pending** at this entry. No tag, version increment or public release authorized for this candidate.
+
+## 2026-10-18 — Desktop v1.8.9 release candidate (owner explicitly authorized)
+
+- The owner authorized completing the outstanding FoamLens tasks and publishing a release. Candidate PR #143 includes the corrected Inno `[Run]` unchecked taskbar instructions and updated packaging/installer tests; see issue #137.
+- Align Windows `AssemblyVersion`, `FileVersion`, `Version`, Inno Setup fallback, frontend/Desktop About fallback and README with `1.8.9`; add matching changelog notes to ensure immutable versioned release artifacts.
+- Scope is an installer consent bugfix, not new scientific algorithms or a claim of real owner-case speedup. Issue #117 remains explicitly open for cold/warm 3,008-file measurements; #131 should be reconciled only against verified exact binary acceptance evidence.
+- **Validation / release status at candidate creation:** Windows CI and master governance recheck pending. Do not state published Setup/Portable, SHA-256 integrity, or Windows interactive wizard passes until the exact v1.8.9 main run verifies them.
+
 ## Current repository state
 
 | Item | State |

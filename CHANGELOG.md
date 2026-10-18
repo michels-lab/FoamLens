@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.9 — 2026-10-18
+
+- **Windows installer consent correction:** show the shipped bilingual taskbar-pinning guide on the final Setup page as an explicitly **unchecked** optional action. The installation never pins anything automatically; the user may choose whether to read the instructions.
+- **Preserve optional desktop shortcut:** keep the unchecked `desktopicon` Tasks-page action, program entry, welcome and full EULA agreement, installed app launch, silent installation behavior, update integrity and clean uninstall. Silent installs skip the final-page guide.
+- **Governance and regression:** align Inno Setup `[Run]` with the Michel's Lab cross-app Windows installer validator; update both Windows icon/packaging and actual Setup task-choice tests to enforce the new consent contract.
+- **Scientific behavior unchanged:** OpenFOAM measurements, physical-time playback loops, seven camera views, multi-case profile comparison, retryable indexed profile import, true-scale 3D visualization and physical units are unaffected. Exact source QuickCup/VTK, native installed/portable, rendered UI and published SHA-256 checks remain release gates.
+- **Limitations:** the owner's measured cold/warm 3,008-file OpenFOAM performance comparison and review of the user's original case remain pending (#117); do not claim a verified speedup without that evidence.
+
 ## Desktop v1.8.8 — 2026-10-18
 
 - **Repair incomplete multi-case Profiles imports:** indexing previously allowed one partially unreadable `postProcessing` profile to clear *every* pending file in that case. The native-backed parser now reports each source file's actual outcome, and only exact successfully parsed, nonempty measured profiles are removed from the retry queue. Missing and failed data remain explicitly pending instead of being represented as valid curves.
