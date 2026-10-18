@@ -5,12 +5,14 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - 'desktop/tests/data-loaded-case-comparison.test.cjs'
+      - 'desktop/tests/data-case-live-selection.test.cjs'
       - '.github/workflows/data-loaded-cases-fast.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - 'desktop/tests/data-loaded-case-comparison.test.cjs'
+      - 'desktop/tests/data-case-live-selection.test.cjs'
   workflow_dispatch:
 
 permissions:
@@ -27,6 +29,8 @@ jobs:
           node-version: '22'
       - name: Verify comparison of previously loaded case results with truthful profile availability
         run: node desktop/tests/data-loaded-case-comparison.test.cjs
+      - name: Redraw live loaded-case scientific charts on checkbox changes
+        run: node desktop/tests/data-case-live-selection.test.cjs
       - name: Preserve synchronized actual spatial-profile playback and two variables
         run: node desktop/tests/profile-playback.test.cjs
       - name: Preserve independent profile source variables
