@@ -89,7 +89,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><strong>3D</strong><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><strong>3D</strong><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -148,6 +148,7 @@ function fwCreateSurface(){
   document.getElementById('fwTimeSpeed')?.addEventListener('change',()=>{if(fwTimeState.playing){fwTimeStop();fwTimePlay()}});
   document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
    document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView);
+   document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click());
    const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
    if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
