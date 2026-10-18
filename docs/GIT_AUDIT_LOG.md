@@ -4734,3 +4734,17 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Exact main publication workflow run #38824955976 completed successfully: real QuickCup/VTK, full Windows Setup/Portable build, installed visual smoke, loop/camera and loaded-case regressions. Publish job #116733259130 confirmed both public Setup and Portable assets and verified actual newly published file SHA-256 checksums.
 - Release: https://github.com/michels-lab/FoamLens/releases/tag/v1.8.6 with `FoamLens-Setup-v1.8.6.exe` and `FoamLens-Portable-v1.8.6.exe`. Released case comparison lists all imported cases, hides redundant import until asked, and enables spatial-profile or time-series comparison **only** when two real suitable cases are available; imported 3D fields or solver logs alone do not imply existing spatial probe profiles.
 - Owner's exact 3,008-file cold/warm import benchmark remains unresolved; screenshot showing `0 profiles` cannot be reinterpreted as measured profile data. No scientifically fabricated profiles, fields or speedups are advertised.
+
+
+### 2026-10-17 — Live Data comparison selection after v1.8.6 shipped
+
+- Verified public v1.8.6 Setup/Portable includes direct selection of **previously imported OpenFOAM cases** and moves redundant "Add files / Add folder" under the collapsed import action. Correctly distinguishes actual imported spatial-profile outputs from 3D fields, time series and 81+ solver logs; `0 profiles` in owner screenshot cannot be magically treated as actual profile measurement data.
+- Additional observed UX defect: while a loaded-case multi-case comparison was already active, changing, selecting all or clearing case checkboxes refreshed the list only; plotted curves did not update until the user pressed Compare again.
+- Fixed the actual Data checkbox/list handlers to update plotted Profiles/Time series, playback cache and selection-aware selectors immediately. Existing case data are reused, not reimported; indexed spatial-profile files are hydrated only when really needed. An epoch guard discards late redraws from previous checkboxes/comparison modes.
+- New native-source JavaScript regression covers live chart updates, no data reload in time-series mode, lazy indexed-profile loading, out-of-order asynchronous completion, and live select-all/clear wiring. Fast and full Windows CI gates run this without removing earlier scientific checks. Public v1.8.6 unchanged until a separately verified new release.
+
+
+### 2026-10-17 — Desktop v1.8.7 live loaded-case comparison release candidate
+
+- Version aligned across .NET assembly, Inno Setup, native frontend fallback, root/desktop README and changelog with production Data case-selection fix and its green fast-source scientific regression. Preserve public v1.8.6 as last verified distribution until exact-head v1.8.7 Windows Setup/Portable, real QuickCup/VTK, native screenshots, and public SHA-256 checks all pass.
+- Follow-up CI exposed a missing asynchronous case-selection race: selecting another case while a shared indexed-profile hydration was still underway could skip repainting the newest selection. Fixed by attaching the latest render epoch to in-flight hydration; the revised test mimics the actual shared pending promise and passes. No previously loaded scientific values are fabricated or changed.

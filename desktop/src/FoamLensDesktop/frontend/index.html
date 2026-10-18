@@ -5890,7 +5890,7 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
-function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.6'}
+function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.7'}
 function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}
 function flSyncVersionLabels(){
   const label='Desktop v'+flDesktopVersion();
@@ -6273,6 +6273,7 @@ function dataCompareRefresh(){
 }
 function dataCompareApply(view){
   if(!['profile','timeseries'].includes(view))return;
+  ++dataCompareSelectionEpoch;
   const candidates=dataCompareAvailableCases().filter(c=>dataCompareState.selected.has(c.id)),
     countsIndex=dataCompareCountIndex();
   const ready=candidates.filter(c=>{const d=dataCompareCounts(c.id,countsIndex);return view==='profile'?d.profiles+d.indexed>0:d.times>0});
@@ -6304,7 +6305,42 @@ function dataCompareApply(view){
       refreshDatasetControls();renderList();updateMeta();draw()
     }});
 }
+// Keep the plotted scientific curves in sync with checkbox changes.
+// Previously the case list changed but the active plot stayed stale until
+// the user pressed Compare again, which was especially confusing in Profiles.
+let dataCompareSelectionEpoch=0;
+function dataCompareSelectionChanged(){
+  ++dataCompareSelectionEpoch;
+  dataCompareRefresh();
+  if(!dataCompareState.active||!['profile','timeseries'].includes(currentDataView))return;
+  const epoch=dataCompareSelectionEpoch;
+  stopAllPlayback();resetProfilePlaybackState();clearProfilePlaybackFrameCache();
+  if(currentDataView==='profile'){
+    $('profileSet').dataset.compareDefault='1';
+    $('profileLine').dataset.compareDefault='1';
+  }
+  refreshDatasetControls({deferHeavy:true});renderList();updateMeta();draw();
+  // Loading indexed profiles is still a real on-demand file operation.
+  // If a previous load is in progress, wait for it, then hydrate the newly
+  // selected cases rather than silently leaving an empty second-case plot.
+  if(currentDataView==='profile'&&(lazyProfileCountForContext()>0||lazyProfileHydrationPromise)){
+    (async()=>{
+      try{
+        await hydrateLazyProfilesForContext();
+        if(epoch!==dataCompareSelectionEpoch||!dataCompareState.active||currentDataView!=='profile')return;
+        if(lazyProfileCountForContext()>0)await hydrateLazyProfilesForContext();
+        if(epoch!==dataCompareSelectionEpoch||!dataCompareState.active||currentDataView!=='profile')return;
+        refreshDatasetControls({deferHeavy:true});renderList();updateMeta();draw()
+      }catch(error){
+        if(epoch===dataCompareSelectionEpoch){
+          $('dataCompareStatus').textContent=flUi('Selected profile files could not be loaded: ','No se pudieron cargar los perfiles seleccionados: ')+String(error?.message||error)
+        }
+      }
+    })()
+  }
+}
 function dataCompareReset(){
+  ++dataCompareSelectionEpoch;
   stopAllPlayback();dataCompareState.active=false;
   activeContextCaseId=dataCompareState.previousCaseId;
   activeContextRegion=dataCompareState.previousRegion;
@@ -9749,13 +9785,13 @@ $('dataCompareCaseList')?.addEventListener('change',event=>{
   const id=Number(input.dataset.compareCase);
   dataCompareState.touched=true;
   if(input.checked)dataCompareState.selected.add(id);else dataCompareState.selected.delete(id);
-  dataCompareRefresh()
+  dataCompareSelectionChanged()
 });
 $('dataCompareSelectAll')?.addEventListener('click',()=>{
-  dataCompareState.touched=true;dataCompareState.selected=new Set(dataCompareAvailableCases().map(c=>c.id));dataCompareRefresh()
+  dataCompareState.touched=true;dataCompareState.selected=new Set(dataCompareAvailableCases().map(c=>c.id));dataCompareSelectionChanged()
 });
 $('dataCompareClear')?.addEventListener('click',()=>{
-  dataCompareState.touched=true;dataCompareState.selected.clear();dataCompareRefresh()
+  dataCompareState.touched=true;dataCompareState.selected.clear();dataCompareSelectionChanged()
 });
 $('dataCompareProfiles')?.addEventListener('click',()=>dataCompareApply('profile'));
 $('dataCompareTimeSeries')?.addEventListener('click',()=>dataCompareApply('timeseries'));
