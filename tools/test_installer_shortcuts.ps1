@@ -14,7 +14,15 @@ if (Test-Path -LiteralPath $link) { throw "Refusing to replace existing user des
 $expectedGuide=(Resolve-Path -LiteralPath 'desktop/installer/TaskbarPinning.txt').Path
 $installerSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../desktop/installer/FoamLens.iss') -Raw
 # Taskbar assistance belongs on the final Setup page, unchecked by default.
-if($installerSource -notmatch '(?m)^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Flags: (?=[^\r\n]*\bpostinstall\b)(?=[^\r\n]*\bskipifsilent\b)(?=[^\r\n]*\bunchecked\b)[^\r\n]*$'){
+# Check a real [Run] instruction entry rather than relying on whole-file
+# multiline regex anchors (the checkout uses Windows CRLF line endings).
+$guideRuns=@($installerSource -split '[\r\n]+' | Where-Object {
+  $_.Contains('notepad.exe') -and $_.Contains('TaskbarPinning.txt')
+})
+if($guideRuns.Count -ne 1){
+  throw 'Installer must offer exactly one taskbar guidance action'
+}
+if($guideRuns[0] -notmatch 'Flags:\s*nowait\s+postinstall\s+skipifsilent\s+unchecked\s*$'){
   throw 'Taskbar guide must be an unchecked, skipifsilent postinstall final-page action'
 }
 if($installerSource -match '(?m)^Name: "taskbarhelp";|^Filename: "\{sys\}\\notepad\.exe";[^\r\n]*Tasks: taskbarhelp'){
