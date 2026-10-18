@@ -9,6 +9,13 @@
 
 This file is the durable project bitácora. After any meaningful Git operation—commit, branch change, pull request action, release/prerelease, CI failure or recovery, packaging change, or important prerelease finding—append/update the relevant section here. Do not rely only on chat history.
 
+## 2026-10-18 — Windows installer taskbar-help consent reconciliation (candidate; unreleased)
+
+- Tracked finding: issue #137; master cross-app installer validator requires an explicit **unchecked final-page** `[Run]` action for the bilingual TaskbarPinning guide, not solely an unchecked `[Tasks]` checkbox.
+- On development branch `fix/installer-final-page-taskbar-consent-20261018`, remove the extra Tasks-page `taskbarhelp` entry and expose the existing Notepad guide in `[Run]` using `nowait postinstall skipifsilent unchecked`. Preserve the existing optional unchecked desktop shortcut and shipped bilingual guide. Do not invoke unsupported automatic taskbar pinning.
+- Update `tools/test_installer_shortcuts.ps1` to require the exact final-page consent flags, reject old task-based wiring, and continue verifying installed shortcuts, guide contents, silent opt-in/opt-out installation and uninstall.
+- Local source-pattern assertion: passed for the changed `.iss` script; packaged Windows CI, interactive wizard screenshot and master validator recheck remain **pending** at this entry. No tag, version increment or public release authorized for this candidate.
+
 ## Current repository state
 
 | Item | State |
