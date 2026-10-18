@@ -361,6 +361,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/data-loaded-case-comparison.test.cjs
 
+      - name: Indexed OpenFOAM profile retry and source provenance
+        shell: pwsh
+        run: node desktop/tests/lazy-profile-retry.test.cjs
+
       - name: Live selected-case chart and indexed profile regression
         shell: pwsh
         run: node desktop/tests/data-case-live-selection.test.cjs

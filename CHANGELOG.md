@@ -1,5 +1,12 @@
 # Changelog
 
+## Desktop v1.8.8 — 2026-10-18
+
+- **Repair incomplete multi-case Profiles imports:** indexing previously allowed one partially unreadable `postProcessing` profile to clear *every* pending file in that case. The native-backed parser now reports each source file's actual outcome, and only exact successfully parsed, nonempty measured profiles are removed from the retry queue. Missing and failed data remain explicitly pending instead of being represented as valid curves.
+- **Retry pending profiles from the existing project:** an enabled **Retry pending profiles** action in the active case-comparison panel retries only selected indexed OpenFOAM sources, waits safely for an in-flight parse, and keeps previously loaded curves and independently selected cases intact. There is no need to re-import an entire case or falsely synthesize a spatial profile from log data, time folders or 3D mesh fields.
+- **Scientific provenance and regression:** per-case remaining profile counts are truthful, stale in-flight files cannot delete newly reindexed replacements, and failed or empty files stay retriable. Check partial parse failures, source replacement and successful second load using production code; retain exact 3,008-curve and physical-time alignment validation.
+- **Protected Windows release:** QuickCup/VTK, installed and Portable Windows tests, Data comparison controls and the actual public Setup/Portable SHA-256 verification must all pass before distribution. A passing synthetic test does not establish a measured speedup on the owner's 3,008-file device dataset.
+
 ## Desktop v1.8.7 — 2026-10-17
 
 - **Live case selection in Data:** in an active Profiles or Time series comparison, checking, unchecking, selecting all or clearing previously imported OpenFOAM cases now updates actual plotted curves immediately. Users no longer need to repeatedly click Compare to apply each change.
