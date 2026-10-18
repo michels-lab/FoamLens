@@ -3337,6 +3337,22 @@ function knownProfileFileCount(){return uniqueProfileFiles().size+pendingLazyPro
 function indexedProfileSets(caseId){
   const c=caseById(Number(caseId));return [...new Set((c?.discovery?.dataIndex||[]).filter(x=>x.kind==='profile').map(x=>x.path).filter(Boolean))].sort()
 }
+/* FOAMLENS_LAZY_PROFILE_RETRY_START */
+// Keep every unparsed source available for an explicit retry. Never announce
+// a failed OpenFOAM file as a successfully imported spatial measurement.
+function finalizeLazyProfileSources(caseId,files,successfulFiles){
+  const id=Number(caseId),bucket=lazyProfileFilesByCase.get(id);
+  if(!bucket)return 0;
+  for(const file of files){
+    const key=file.webkitRelativePath||file.name;
+    if(successfulFiles.has(file)&&bucket.get(key)===file)bucket.delete(key)
+  }
+  if(!bucket.size)lazyProfileFilesByCase.delete(id);
+  const c=caseById(id);
+  if(c)c.discovery={...(c.discovery||{}),lazyProfileFileCount:bucket.size};
+  return bucket.size
+}
+/* FOAMLENS_LAZY_PROFILE_RETRY_END */
 async function hydrateLazyProfilesForContext(){
   if(lazyProfileHydrationPromise)return lazyProfileHydrationPromise;
   const ids=dataCompareState.active&&currentDataView==='profile'?[...dataCompareState.selected]:
@@ -3350,14 +3366,22 @@ async function hydrateLazyProfilesForContext(){
     try{
       for(const part of todo){
         const c=caseById(part.id),name=c?.name||`Case ${part.id}`;
+        const successful=new Set();
         const r=await loadFiles(part.files,part.id,info=>{
           if(info.stage==='file')updateAppActivity(diagEs()?'Cargando perfiles espaciales':'Loading Spatial Profiles',`${name} · ${(done+info.index).toLocaleString()} / ${total.toLocaleString()} · ${scanPathLabel(info.file)}`)
-        },{deferUi:true,deferDerived:true,identitySet,kindHint:'profile',concurrency:Math.max(4,Math.min(12,(navigator.hardwareConcurrency||8)))});
-        loaded+=r.loaded;failed+=r.failed;done+=part.files.length;lazyProfileFilesByCase.delete(part.id);if(c)c.discovery.lazyProfileFileCount=0;await scannerYield()
+        },{deferUi:true,deferDerived:true,identitySet,kindHint:'profile',
+          onFileResult:(file,valid)=>{if(valid)successful.add(file)},
+          concurrency:Math.max(4,Math.min(12,(navigator.hardwareConcurrency||8)))});
+        loaded+=r.loaded;failed+=r.failed;done+=part.files.length;
+        finalizeLazyProfileSources(part.id,part.files,successful);
+        await scannerYield()
       }
       ensureVelocityDerivedSeries();refreshDatasetControls({deferHeavy:true});refreshProfileTimes('');refreshDifferenceControls();renderPhaseFront();renderList();updateMeta();draw();
-      $('status').textContent=diagEs()?`Perfiles espaciales cargados · ${loaded} series`:`Spatial Profiles loaded · ${loaded} series`;
-      return true
+      const remaining=lazyProfileCountForContext();
+      $('status').textContent=diagEs()?
+        `Perfiles espaciales · ${loaded} series cargadas${remaining?' · '+remaining+' archivos pendientes/reintentables':''}`:
+        `Spatial Profiles · ${loaded} series loaded${remaining?' · '+remaining+' files pending/retriable':''}`;
+      return loaded>0
     }finally{stopOperationClock();popAppActivity(diagEs()?'Perfiles espaciales listos':'Spatial Profiles ready');lazyProfileHydrationPromise=null}
   })();
   return lazyProfileHydrationPromise
@@ -3748,6 +3772,7 @@ async function loadFiles(files,caseId=null,onProgress=null,options={}){
   const concurrency=Math.max(2,Math.min(32,Number(options.concurrency)||Math.max(8,Math.min(24,(navigator.hardwareConcurrency||8)*2))));
   const identitySet=options.identitySet||new Set(series.map(seriesIdentityKey));
   const deferDerived=!!options.deferDerived,deferUi=!!options.deferUi,forcedKind=options.kindHint||'';
+  const onFileResult=typeof options.onFileResult==='function'?options.onFileResult:null;
 
   for(let base=0;base<files.length;base+=concurrency){
     const batch=files.slice(base,base+concurrency),configFiles=[],logFiles=[],otherFiles=[];
@@ -3771,7 +3796,15 @@ async function loadFiles(files,caseId=null,onProgress=null,options={}){
     const otherResults=await Promise.all(otherFiles.map(async ({file,kind})=>{
       try{return{file,series:await parseAnyOpenFOAMFileFast(file,kind)}}catch(error){return{file,error:String(error),series:[]}}
     }));
-    for(const r of otherResults){processed++;if(r.error){failed++;continue}parsedRows.push(r)}
+    for(const r of otherResults){
+      processed++;
+      const valid=!(r.error)&&Array.isArray(r.series)&&r.series.length>0;
+      // Native/indexed postProcessing imports need per-source provenance:
+      // an unsuccessful or empty profile is not a completed measurement.
+      if(onFileResult)onFileResult(r.file,valid);
+      if(r.error){failed++;continue}
+      parsedRows.push(r)
+    }
 
     for(const row of parsedRows){
       for(const s of row.series||[]){
