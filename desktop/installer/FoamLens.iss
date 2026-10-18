@@ -40,4 +40,4 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 ; Windows does not expose a supported unattended taskbar pinning API.
 ; Taskbar guidance is offered on the final wizard page, unchecked by default.
 Filename: "{app}\FoamLens.exe"; Description: "Launch FoamLens"; Flags: nowait postinstall skipifsilent
-Filename: "{sys}\notepad.exe"; Parameters: """{app}\TaskbarPinning.txt"""; Description: "Show FoamLens taskbar pinning instructions"; Flags: nowait postinstall skipifsilent unchecked
+Filename: "{sys}\notepad.exe"; Parameters: """{app}\TaskbarPinning.txt"""; Description: "Show how to pin FoamLens to the taskbar"; Flags: nowait postinstall skipifsilent unchecked
