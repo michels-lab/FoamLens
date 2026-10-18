@@ -41,4 +41,13 @@ assert(hyd.includes('finalizeLazyProfileSources(part.id,part.files,successful)')
 assert(!hyd.includes('lazyProfileFilesByCase.delete(part.id)'),'Never drop entire case after partial failure');
 assert(hyd.includes('files pending/retriable'),
   'Partial import status must be explicit and must not claim full completion');
+assert(src.includes('id="dataCompareRetry"'),'Profiles case comparison must provide a direct retry control');
+assert(src.includes("function selectedPendingProfiles()"),
+  'Retry must count only selected cases, not unrelated OpenFOAM source files');
+assert(src.includes("dataCompareRetry').disabled=!dataCompareState.active"),
+  'Retry must be enabled only for active spatial-profile comparisons');
+assert(src.includes("if(lazyProfileHydrationPromise)await lazyProfileHydrationPromise"),
+  'Retry must wait for the current loader, not race and duplicate the same files');
+assert(src.includes("if(selectedPendingProfiles())await hydrateLazyProfilesForContext()"),
+  'Retry must process only source files remaining after previous load');
 console.log('FoamLens indexed case profile retry: successful, failed, empty, stale replacement and later retry PASS');
