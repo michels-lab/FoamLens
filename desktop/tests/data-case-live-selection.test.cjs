@@ -44,7 +44,7 @@ async function flush(){for(let i=0;i<12;i++)await Promise.resolve()}
   assert(profile.counts.refreshed>=3,'Dataset selectors and case list must stay current');
   assert(html.includes("dataCompareState.selected.clear();dataCompareSelectionChanged()"),
     'Clear selection must refresh plot immediately');
-  assert(html.includes("dataCompareState.selected.add(id);else dataCompareState.selected.delete(id);\n  dataCompareSelectionChanged()"),
+  assert(/dataCompareState\.selected\.add\(id\);else dataCompareState\.selected\.delete\(id\);\s*dataCompareSelectionChanged\(\)/.test(html),
     'Checkbox edits must update actual plotted data, not only the checklist');
   assert(html.includes("new Set(dataCompareAvailableCases().map(c=>c.id));dataCompareSelectionChanged()"),
     'Select all must update actual plotted data');
