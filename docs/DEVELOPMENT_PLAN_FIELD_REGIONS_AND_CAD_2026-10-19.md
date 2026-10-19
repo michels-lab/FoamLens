@@ -7,6 +7,14 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 
 **Referencia pública verificada:** FoamLENS Desktop v1.8.10. **Este registro NO implica que las funciones estén programadas, probadas o publicadas.** La rama de experimentación `feat/field-per-view-regions-dimensions-20261019` contiene código F1 todavía **sin verificar y no fusionado**. Este documento es una incorporación **solo de documentación a `main`**.
 
+### Separate developer-only diagnostic twin — #158 (implementation candidate; NOT shipped)
+
+- **FoamLens Developer** is a separate compiled Windows executable (`FoamLensDeveloper.exe`), with own installer AppId, install path and isolated `%LOCALAPPDATA%\FoamLensDeveloper` profile; not a secret checkbox in the public app.
+- Developer-only compiled, embedded WebView2 audit resource: observed JS errors/promise rejections, local resource failures, WebView2 process failure, bounded interactive UI layout checks, reproducible action-target history, timestamp/version/DPI and explicitly uninspected scope.
+- On-demand local **AI debugging prompt** text, copy and JSON exports, sanitized/redacted paths/tokens and no automatic network sharing. Exports may still contain sensitive exception messages; developer reviews before transmitting to any third party.
+- CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
+- Scope tracked [#158](https://github.com/michels-lab/FoamLens/issues/158) and [Developer Edition design and build](FOAMLENS_DEVELOPER_EDITION_2026-10-19.md). **Software auditor (#158) is distinct from scientific Mesh Auditor (#150)**.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
