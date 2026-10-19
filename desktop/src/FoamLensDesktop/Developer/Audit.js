@@ -50,7 +50,7 @@
         typeof v.comment==='string'&&typeof v.page==='string').slice(-MAX_NOTES).map(v=>({
         id:String(v.id).slice(0,80),page:String(v.page).slice(0,180),
         selector:String(v.selector).slice(0,260),section:String(v.section||'Unlabeled section').slice(0,180),
-        targetTag:String(v.targetTag||'').slice(0,32),rect:v.rect||null,
+        targetTag:String(v.targetTag||'').slice(0,32),rect:v.rect||null,point:v.point||null,
         comment:v.comment.slice(0,MAX_NOTE_CHARS),
         createdAt:String(v.createdAt||new Date().toISOString()),
         updatedAt:String(v.updatedAt||v.createdAt||new Date().toISOString())
@@ -91,14 +91,19 @@
     return clean([container.id||container.getAttribute?.('aria-label')||container.tagName,
       (h?.textContent||'').trim().slice(0,75)].filter(Boolean).join(' · ')||'Selected element')
   }
-  function targetFromElement(node){
+  function targetFromElement(node,point=null){
     if(!node||node.nodeType!==1)return null;
     const el=node.closest?.('button,select,input,textarea,canvas,[role="button"]')||node;
     const rect=el.getBoundingClientRect?.();
     return {page:location.pathname,selector:safeSelector(el),section:sectionLabel(el),
       targetTag:String(el.tagName||'').toLowerCase(),
       rect:rect?{x:Math.round(rect.x),y:Math.round(rect.y),
-        width:Math.round(rect.width),height:Math.round(rect.height)}:null}
+        width:Math.round(rect.width),height:Math.round(rect.height)}:null,
+      // Percentages anchor the precise click inside a resizing chart or panel.
+      point:point&&rect&&rect.width>0&&rect.height>0?{
+        x:Math.max(0,Math.min(1,Number(((point.x-rect.left)/rect.width).toFixed(4)))),
+        y:Math.max(0,Math.min(1,Number(((point.y-rect.top)/rect.height).toFixed(4))))
+      }:null}
   }
   function annotationsSnapshot(){
     return annotations.map(note=>({...note,section:clean(note.section),
@@ -131,12 +136,17 @@
     if(!note||note.page!==location.pathname)return null;
     try{return document.querySelector(note.selector)}catch{return null}
   }
-  function highlightTarget(el){
+  function highlightTarget(el,point=null){
     if(!el)return false;
     el.scrollIntoView?.({block:'center',inline:'nearest'});
     const previous=el.style?.outline||'',offset=el.style?.outlineOffset||'';
     if(el.style){el.style.outline='3px solid #ffb347';el.style.outlineOffset='3px'}
-    setTimeout(()=>{if(el.style){el.style.outline=previous;el.style.outlineOffset=offset}},2800);
+    const box=el.getBoundingClientRect(),marker=document.createElement('div');
+    marker.className='fldaTargetPin';marker.textContent='◎';
+    marker.style.left=(box.left+box.width*(point?.x??.5))+'px';
+    marker.style.top=(box.top+box.height*(point?.y??.5))+'px';
+    document.body.append(marker);
+    setTimeout(()=>{marker.remove();if(el.style){el.style.outline=previous;el.style.outlineOffset=offset}},2800);
     return true
   }
   function annotationStatus(message){
@@ -156,8 +166,8 @@
     picking=false;
     const tip=document.getElementById?.('fldaPickHint');if(tip)tip.hidden=true
   }
-  function chooseElement(el){
-    const target=targetFromElement(el);if(!target)return null;
+  function chooseElement(el,point=null){
+    const target=targetFromElement(el,point);if(!target)return null;
     draftTarget=target;endPick();
     const panel=document.getElementById?.('flDeveloperAuditPanel');
     panel?.classList.add('open');panel?.setAttribute('aria-hidden','false');
@@ -173,7 +183,7 @@
     if(!picking)return;
     if(e.target?.closest?.('#flDeveloperAuditRoot,#fldaPickHint'))return;
     e.preventDefault();e.stopImmediatePropagation();
-    chooseElement(e.target)
+    chooseElement(e.target,{x:e.clientX,y:e.clientY})
   },true);
   function renderNotes(){
     if(!noteList)return;
@@ -193,7 +203,7 @@
       const edit=document.createElement('button');edit.textContent='Edit';
       edit.onclick=()=>{
         draftTarget={page:note.page,selector:note.selector,section:note.section,
-          targetTag:note.targetTag,rect:note.rect};
+          targetTag:note.targetTag,rect:note.rect,point:note.point};
         const input=document.getElementById('fldaComment');
         if(input){input.value=note.comment;input.dataset.editId=note.id;input.focus()}
         document.getElementById('fldaSelected').textContent=
@@ -202,7 +212,7 @@
       const locate=document.createElement('button');locate.textContent='Locate';
       locate.onclick=()=>{
         const el=resolveTarget(note);
-        if(!highlightTarget(el))
+        if(!highlightTarget(el,note.point))
           annotationStatus('The saved section is not visible on this page; the note stays in the export.')
       };
       const del=document.createElement('button');del.textContent='Delete';
@@ -329,6 +339,7 @@
         'Screen / page: '+a.page,'DOM target selector: '+a.selector,
         'Target element: '+a.targetTag,
         'Saved screen bounds: '+JSON.stringify(a.rect||{}),
+        'Selected point within element (fractional x/y): '+JSON.stringify(a.point||{}),
         'Developer comment: '+a.comment,
         'Saved: '+a.createdAt+' | Last edited: '+a.updatedAt
       ].join('\n')),
@@ -377,7 +388,7 @@
   function mount(){
     if(document.getElementById('flDeveloperAuditRoot')||!document.body)return;
     const style=document.createElement('style');
-    style.textContent='.fldaToggle{position:fixed;right:16px;bottom:16px;z-index:2147483645;background:#1f73bd;color:#fff;border:1px solid #85cdff;border-radius:10px;padding:11px 14px;font:700 12px system-ui;cursor:pointer;box-shadow:0 3px 16px #0008}.fldaPanel{position:fixed;z-index:2147483646;right:16px;bottom:65px;width:min(510px,calc(100vw - 30px));max-height:min(76vh,720px);display:none;flex-direction:column;gap:9px;padding:15px;background:#0c1725;color:#e6f4ff;border:2px solid #438abd;border-radius:13px;font:12px/1.45 system-ui;box-shadow:0 6px 30px #000a}.fldaPanel.open{display:flex}.fldaPanel h2{font-size:16px;margin:0}.fldaPanel p{margin:2px 0 8px;color:#adcbdf}.fldaPanel .fldaTools{display:flex;flex-wrap:wrap;gap:6px}.fldaPanel button{border:1px solid #4e7899;border-radius:6px;padding:7px 9px;color:#fff;background:#174363;cursor:pointer}.fldaEntries{overflow:auto;min-height:60px;max-height:45vh;display:flex;flex-direction:column;gap:7px}.fldaEntry{border:1px solid #31485a;padding:8px;border-radius:7px;overflow-wrap:anywhere}.fldaEntry strong,.fldaEntry small{display:block}.fldaEntry small{color:#b3c8d8}.fldaState{font-size:11px;color:#c1d5e7}.fldaNotes{border-top:1px solid #36516a;padding-top:9px;display:flex;flex-direction:column;gap:6px}.fldaNotes label{font-weight:700}.fldaNotes textarea{box-sizing:border-box;width:100%;min-height:67px;max-height:160px;resize:vertical;background:#11283a;color:#fff;border:1px solid #628cad;border-radius:6px;padding:7px;font:12px/1.45 system-ui}.fldaNoteList{max-height:25vh;overflow:auto;display:grid;gap:6px}.fldaNoteActions{display:flex;gap:6px;margin-top:6px}.fldaNoteActions button{font-size:11px}#fldaPickHint:not([hidden]){position:fixed;z-index:2147483647;left:50%;top:12px;transform:translateX(-50%);padding:13px 20px;color:#fff;background:#14588b;border:2px solid #a7e2ff;border-radius:9px;pointer-events:none;box-shadow:0 5px 25px #0008}.fldaPanel{max-height:85vh!important;overflow:auto!important}';
+    style.textContent='.fldaToggle{position:fixed;right:16px;bottom:16px;z-index:2147483645;background:#1f73bd;color:#fff;border:1px solid #85cdff;border-radius:10px;padding:11px 14px;font:700 12px system-ui;cursor:pointer;box-shadow:0 3px 16px #0008}.fldaPanel{position:fixed;z-index:2147483646;right:16px;bottom:65px;width:min(510px,calc(100vw - 30px));max-height:min(76vh,720px);display:none;flex-direction:column;gap:9px;padding:15px;background:#0c1725;color:#e6f4ff;border:2px solid #438abd;border-radius:13px;font:12px/1.45 system-ui;box-shadow:0 6px 30px #000a}.fldaPanel.open{display:flex}.fldaPanel h2{font-size:16px;margin:0}.fldaPanel p{margin:2px 0 8px;color:#adcbdf}.fldaPanel .fldaTools{display:flex;flex-wrap:wrap;gap:6px}.fldaPanel button{border:1px solid #4e7899;border-radius:6px;padding:7px 9px;color:#fff;background:#174363;cursor:pointer}.fldaEntries{overflow:auto;min-height:60px;max-height:45vh;display:flex;flex-direction:column;gap:7px}.fldaEntry{border:1px solid #31485a;padding:8px;border-radius:7px;overflow-wrap:anywhere}.fldaEntry strong,.fldaEntry small{display:block}.fldaEntry small{color:#b3c8d8}.fldaState{font-size:11px;color:#c1d5e7}.fldaNotes{border-top:1px solid #36516a;padding-top:9px;display:flex;flex-direction:column;gap:6px}.fldaNotes label{font-weight:700}.fldaNotes textarea{box-sizing:border-box;width:100%;min-height:67px;max-height:160px;resize:vertical;background:#11283a;color:#fff;border:1px solid #628cad;border-radius:6px;padding:7px;font:12px/1.45 system-ui}.fldaNoteList{max-height:25vh;overflow:auto;display:grid;gap:6px}.fldaNoteActions{display:flex;gap:6px;margin-top:6px}.fldaNoteActions button{font-size:11px}#fldaPickHint:not([hidden]){position:fixed;z-index:2147483647;left:50%;top:12px;transform:translateX(-50%);padding:13px 20px;color:#fff;background:#14588b;border:2px solid #a7e2ff;border-radius:9px;pointer-events:none;box-shadow:0 5px 25px #0008}.fldaPanel{max-height:85vh!important;overflow:auto!important}.fldaTargetPin{position:fixed;z-index:2147483647;transform:translate(-50%,-50%);border:2px solid #ffd087;background:#6b3e11;color:#fff;padding:1px 6px;border-radius:50%;font-size:20px;pointer-events:none;box-shadow:0 2px 14px #000b}';
     const root=document.createElement('div');root.id='flDeveloperAuditRoot';
     root.innerHTML='<button class="fldaToggle" id="flDeveloperAuditToggle" aria-controls="flDeveloperAuditPanel" aria-expanded="false">Dev Audit</button><section class="fldaPanel" id="flDeveloperAuditPanel" role="dialog" aria-label="FoamLens Developer audit" aria-hidden="true"><h2>FoamLENS Developer · Audit</h2><p>Developer-only copy. Observed errors + bounded checks, no automatic upload. Scientific case data is not included.</p><div class="fldaTools"><button id="fldaPick">Point to section</button><button id="fldaScan">Run Audit checks</button><button id="fldaCopy">Copy AI prompt</button><button id="fldaPrompt">Export AI prompt</button><button id="fldaJson">Export JSON</button><button id="fldaClear">Clear</button><button id="fldaClose">Close</button></div><div class="fldaState" id="fldaState" role="status">Waiting for inspection</div><div class="fldaNotes"><strong>Persistent section comments</strong><div class="fldaState" id="fldaSelected">Select any control, chart or view using Point to section</div><label for="fldaComment">Comment about this precise section</label><textarea id="fldaComment" rows="3" maxlength="2000" placeholder="What is wrong here, what you expect, and how to reproduce it?"></textarea><div class="fldaTools"><button id="fldaSave">Save note</button><button id="fldaCancelNote">Clear editor</button></div><div class="fldaNoteList" id="fldaNoteList"></div></div><strong>Observed errors and layout checks</strong><div class="fldaEntries" id="fldaEntries"></div></section><div id="fldaPickHint" hidden aria-live="polite">Select a FoamLENS section (Esc to cancel)</div>';
     document.head.append(style);document.body.append(root);
