@@ -140,3 +140,11 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 | F3 CAD Viewer/Converter | PLANNED | Kernel/licensing/RFC |
 | F4 OpenFOAM export | PLANNED | edition-aware mesh prep |
 | F5 meshing | PLANNED | separate solver/toolchain gates |
+
+
+### Operación Granada #153 — 3D Solidification Front Tracker: candidato parcial 2026-10-19
+
+- Rama independiente feat/granada-153-solidification-front-evidence-20261019, sin tocar PRs #162/#164/#165/#166/#167/#168/#169. New v24 Scientific Analysis module and Linux/Windows test workflow.
+- Region/field/role/threshold/time original selection, signed positive closed polyMesh cell volumes, phase-volume statistics, interior shared-face iso crossings and source-time centroid proxy with local provenance JSON; rejects incompatible/missing physical evidence rather than inventing volume, phase fraction, interpolation or speed.
+- Existing 3D Iso-Surface renderer and solidification temporal analysis remain intact; **front crossing face proxy is not a true triangulated iso-surface or front normal velocity**.
+- Pending: actual 3D multi-region rendered front mapping, front gradient/direction velocity physics, real-case nonconvex/adaptive mesh verification, owner case + installed Windows Setup/Portable acceptance. No release or closing #153.
