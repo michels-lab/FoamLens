@@ -1,0 +1,39 @@
+name: Granada 156 — Phase Momentum evidence explorer
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-physics-evidence-explorer.js'
+      - 'desktop/tests/physics-evidence-explorer.spec.cjs'
+      - 'desktop/tests/physics-evidence-loader.spec.cjs'
+      - '.github/workflows/granada-physics-evidence.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-physics-evidence-explorer.js'
+      - 'desktop/tests/physics-evidence-explorer.spec.cjs'
+      - 'desktop/tests/physics-evidence-loader.spec.cjs'
+      - '.github/workflows/granada-physics-evidence.yml'
+  workflow_dispatch:
+jobs:
+  phase-momentum:
+    name: Scientific phase momentum / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing generic phase and momentum regression
+        run: node desktop/tests/phase-momentum.test.cjs
+      - name: Existing region-aware mapping
+        run: node desktop/tests/field-mapping.test.cjs
+      - name: Existing momentum mechanism engine
+        run: node desktop/tests/momentum-mechanisms.test.cjs
+      - name: New source backed evidence query regression
+        run: node desktop/tests/physics-evidence-explorer.spec.cjs
+      - name: Native loader and existing source workflow contracts
+        run: node desktop/tests/physics-evidence-loader.spec.cjs
