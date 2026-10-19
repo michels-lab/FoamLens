@@ -16,6 +16,8 @@ for(const token of ['generalAnalysisModules',"box.id='tcTools'","tcEl('tcImport'
  "tcEl('tcCalculate').onclick","tcEl('tcExportJson').onclick",
  "tcEl('tcExportCsv').onclick","tcInvalidate("])
   assert(tcModule.includes(token),'Thermocouple Analysis UI absent: '+token);
+assert(tcModule.includes('tcActiveMesh(source)!==tcRuntime.mesh')&&tcModule.includes('series.includes(source)'),
+ 'Export must invalidate if real case mesh or sampled probe source changes after evaluation');
 assert(!tcModule.includes('fetch(')&&!tcModule.includes('XMLHttpRequest'),'No uploads or case mutation in XYZ tool');
 assert(!tcModule.includes('createTimeseries')&&!tcModule.includes('postProcessing/'+'metal'),
   'Do not generate fabricated OpenFOAM output');
