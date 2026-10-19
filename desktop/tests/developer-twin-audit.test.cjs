@@ -80,7 +80,7 @@ const target={
   getAttribute:k=>k==='id'?'fcExtra3Viewport':null,
   closest(){return this},
   querySelector:()=>null,
-  getBoundingClientRect:()=>({x:36,y:152,width:635,height:504})
+  getBoundingClientRect:()=>({x:36,y:152,left:36,top:152,width:635,height:504})
 };
 const locationInfo=author.targetFromElement(target,{x:36+635*.25,y:152+504*.75});
 assert.strictEqual(locationInfo.point.x,.25,'Pinpoint location must retain horizontal fractional click position');
