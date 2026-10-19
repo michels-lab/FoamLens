@@ -132,7 +132,8 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
     totalVolumeM3:geometry.totalVolumeM3,volumesM3:volumes,fractions,cellCounts:counts,
     volumeWeightedLiquidFraction:alphaWeighted/total,
     front,frontIso:iso,phaseThresholds:{solidMushy:lo,mushyLiquid:hi},
-    axis:config.axis,method:'physical polyMesh tetrahedral cell volumes + signed internal-face iso-crossing proxy',
+    axis:config.axis,meshIdentity:config.meshIdentity??null,
+    method:'physical polyMesh tetrahedral cell volumes + signed internal-face iso-crossing proxy',
     caveats:[
       'The front is estimated at crossing CELL FACES, not an exact reconstructed continuous iso-surface.',
       'The coordinate is an area-weighted CENTROID of crossing source faces, not the leading edge or a physical local interface position.',
@@ -140,18 +141,23 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
       'Liquid/mushy/solid categories are user threshold observations, not a claim of nucleation, metallurgical microstructure or recalescence.'
     ]}
 }
-function pfEvolution(frames){
-  const valid=(frames||[]).filter(x=>x?.ok).slice().sort((a,b)=>a.timeS-b.timeS),rows=[];
+function pfEvolution(frames,expectedTimes=[]){
+  // A missing written time never becomes an implicit valid intermediate snapshot.
+  if((frames||[]).some(x=>!x?.ok))return{ok:false,reason:'Input contains an unverified frame; report it separately before evolution',rows:[]};
+  const valid=(frames||[]).slice().sort((a,b)=>a.timeS-b.timeS),rows=[];
   for(let i=0;i<valid.length;i++){
     const current=valid[i],prev=i?valid[i-1]:null,dt=prev?current.timeS-prev.timeS:null;
     if(prev&&!(dt>0))return{ok:false,reason:'Duplicate or decreasing source physical time',rows:[]};
     const same=prev&&current.region===prev.region&&current.axis===prev.axis&&
+      current.meshIdentity!=null&&current.meshIdentity===prev.meshIdentity&&
       current.meshCells===prev.meshCells&&
       Math.abs(current.totalVolumeM3-prev.totalVolumeM3)<=1e-8*Math.max(current.totalVolumeM3,prev.totalVolumeM3);
+    const missingIntermediate=!!prev&&expectedTimes.some(t=>t>prev.timeS&&t<current.timeS&&!valid.some(f=>f.timeS===t));
     const f0=prev?.front?.coordinateProxyM,f1=current.front?.coordinateProxyM;
-    const measuredDifference=same&&f0!==null&&f1!==null&&Number.isFinite(f0)&&Number.isFinite(f1);
+    const measuredDifference=same&&!missingIntermediate&&f0!==null&&f1!==null&&Number.isFinite(f0)&&Number.isFinite(f1);
     rows.push({...current,frontCentroidVelocityProxyMPerS:measuredDifference?(f1-f0)/dt:null,
       timeGapS:dt,velocityStatus:!prev?'first-sample':!same?'not-comparable-geometry-or-region':
+        missingIntermediate?'missing-original-snapshot-between':
         !measuredDifference?'no-front-in-one-or-both-times':'apparent-centroid-displacement',
       prevTimeS:prev?.timeS??null})
   }
@@ -163,10 +169,14 @@ function pfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{re
 function pfEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function pfEl(id){return document.getElementById(id)}
 let pfToken=0,pfLast=null,pfBinding=null,pfCaseRef=null,pfGroupRef=null;
-const pfGeomCache=new WeakMap();
+const pfGeomCache=new WeakMap(),pfMeshIds=new WeakMap();let pfNextMeshId=1;
+function pfRuntimeMeshIdentity(mesh){
+  if(!pfMeshIds.has(mesh))pfMeshIds.set(mesh,pfNextMeshId++);
+  return pfMeshIds.get(mesh)
+}
 function pfInvalidate(note=''){
   pfToken++;pfLast=null;pfBinding=null;
-  const b=pfEl('pfExport');if(b)b.disabled=true;
+  for(const id of ['pfExport','pfExportCsv']){const b=pfEl(id);if(b)b.disabled=true}
   const out=pfEl('pfResult');if(out)out.textContent='';
   const plot=pfEl('pfPlot'),ctx=plot?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,plot.width,plot.height);
   if(note&&pfEl('pfStatus'))pfEl('pfStatus').textContent=note
@@ -237,7 +247,10 @@ async function pfRun(){
       if(frame.storage!=='volume'||dimensions!=='[0 0 0 0 0 0 0]')
         throw new Error('Source is not a verified dimensionless volume-cell liquid-fraction field');
       let geometry=pfGeomCache.get(mesh);if(!geometry){geometry=pfMeshGeometry(mesh);if(geometry.ok)pfGeomCache.set(mesh,geometry)}
-      const current=pfSnapshot(mesh,geometry,frame.fieldValues,{time:t,low:lo,high:hi,iso:cut,axis,region,dimensions});
+      const current=pfSnapshot(mesh,geometry,frame.fieldValues,{
+        time:t,low:lo,high:hi,iso:cut,axis,region,dimensions,
+        meshIdentity:pfRuntimeMeshIdentity(mesh)
+      });
       if(!current.ok)throw new Error(current.reason);
       frames.push(current);
       sourceFrames.push({timeS:t,sourcePaths:(g.records||[]).filter(r=>String(r.region||'')===region&&Math.abs(Number(r.time)-t)<1e-10*Math.max(1,Math.abs(t))).map(r=>r.sourcePath),
@@ -253,7 +266,7 @@ async function pfRun(){
      c.discoveryModel!==discovery||c.meshInventory!==meshInventory){
     pfInvalidate('Source case/mesh inventory changed during analysis. Re-run to preserve physical provenance.');return
   }
-  const evolution=pfEvolution(frames);
+  const evolution=pfEvolution(frames,times);
   if(!evolution.ok){status.textContent=evolution.reason;return}
   pfLast={schema:'foamlens/solidification-front-proxy/1',caseId:c.id,caseName:c.name,
     region,field:g.name,dimensions:g.dimensions,axis,parameters:{low:lo,high:hi,iso:cut},
@@ -278,7 +291,7 @@ async function pfRun(){
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
   status.textContent=frames.length+' verified physical-time snapshot(s), '+excluded.length+
     ' excluded. Regional volumes measured from source polyMesh. Apparent centroid speed is NOT local front velocity.';
-  pfPlot(pfLast);pfEl('pfExport').disabled=false
+  pfPlot(pfLast);pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
 }
 function pfDownload(name,content,type){
   if(typeof downloadText==='function'){downloadText(name,content,type);return}
