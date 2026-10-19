@@ -1,5 +1,14 @@
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #154: source-backed 2D/3D observables candidate
+
+- Owner named the permanent cross-app workflow **Granada**: when a task remains unfinished/actively developed, skip it and choose a separate non-overlapping block, preserving original issues and not claiming release. Master standard `standards/OPERACION_GRANADA_STANDARD.md` merged; FoamLens inherits this in `MICHELS_LAB_PROJECT.md`. Deliberately **skipped active PR #162** (Field A–D multiregion geometry) and **PR #164** (CAD STL/OBJ) instead of rebasing/altering their candidate code.
+- On independent branch `feat/granada-2d3d-observables-20261019`, new Analysis section exposes a rigorous comparison of **source-backed two-case real time-series observables only**, with explicit user-declared 2D/3D labels and location/region/mapping statement. Reuses imported `series`/case catalog; never subtracts unmatched mesh cells or manufactures OpenFOAM fields.
+- Unit conversion only for explicitly recognized compatible units; reject mismatch in original OpenFOAM dimensions. Time alignment strictly within intersection, interpolate temporally (not spatially), record measured vs interpolated samples, sample counts/MAE/RMSE/3D−2D bias/max |Δ|, source paths and labels. Export observed aligned CSV/JSON only on click; simulation cases remain read-only.
+- `desktop/tests/equivalent-observables.test.cjs` and isolated fast GitHub Actions workflow; added mandatory test to the full Windows CI and actual packaged WebView2 smoke for panel/API mounting and good/mismatched-unit samples. Full current-SHA Windows Setup/Portable and human acceptance must be separately verified before merge/release.
+- **Remaining #154:** proven 2D/3D geometry identification, mapping physical locations to real OpenFOAM cell coordinates or spatial integration, normalized phase/energy/front observable equivalence and real 2D/3D owner-case validation. Source tree untouched in existing Field/CAD PRs; no app version bump or public release authorized.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
