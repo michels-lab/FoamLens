@@ -15,6 +15,7 @@ reporting:
   project_logs:
     - "docs/GIT_AUDIT_LOG.md"
     - "docs/INFRASTRUCTURE_AUDIT.md"
+    - "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md"
   escalate_to_master:
     - "release_or_version_policy_change"
     - "cross_app_architecture_decision"
