@@ -1,0 +1,33 @@
+name: Granada 151 — multiregion energy scientific gates
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
+      - 'desktop/tests/multiregion-energy-conservation.test.cjs'
+      - '.github/workflows/granada-multiregion-energy.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
+      - 'desktop/tests/multiregion-energy-conservation.test.cjs'
+      - '.github/workflows/granada-multiregion-energy.yml'
+  workflow_dispatch:
+jobs:
+  energy-evidence:
+    name: Source-backed conservation / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing energy audit (unchanged)
+        run: node desktop/tests/energy-audit.test.cjs
+      - name: Independent multiregion energy balance regression
+        run: node desktop/tests/multiregion-energy-conservation.test.cjs
+      - name: Scientific frontend and source loader contract
+        run: node desktop/tests/multiregion-energy-loader.test.cjs
