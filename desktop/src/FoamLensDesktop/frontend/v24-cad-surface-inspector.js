@@ -176,6 +176,7 @@ async function cgImport(){
       if(['step','stp','iges','igs','brep'].includes(ext))throw new Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
       const result=ext==='stl'?cgParseStl(await f.arrayBuffer(),f.name):ext==='obj'?cgParseObj(await f.text(),f.name):null;
       if(!result)throw new Error('Supported in this preview: STL and OBJ');
+      if(cgModels.reduce((n,m)=>n+m.triangles.length,0)+result.triangles.length>300000)throw new Error('Combined imported geometry exceeds 300,000-triangle interactive preview limit');
       const sum=cgSummary(result.triangles);
       cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,warnings:result.warnings||[],visible:true});
       added++;
@@ -207,26 +208,30 @@ function cgDraw(){
   if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=w*dpr;canvas.height=h*dpr}
   const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   ctx.fillStyle='#101b2c';ctx.fillRect(0,0,w,h);
-  const triangles=cgModels.filter(m=>m.visible).flatMap(m=>m.triangles);
-  if(!triangles.length){ctx.fillStyle='#bdcbdc';ctx.font='15px sans-serif';ctx.fillText('Import STL/OBJ to inspect surface geometry',20,34);return}
-  const all=cgSummary(triangles),mid=all.bounds.min.map((x,i)=>(x+all.bounds.max[i])/2);
-  const size=Math.max(...all.bounds.size,1e-12),scale=Math.min(w*.76,h*.76)/size*cgZoom;
+  const active=cgModels.filter(m=>m.visible),total=active.reduce((n,m)=>n+m.triangles.length,0);
+  if(!total){ctx.fillStyle='#bdcbdc';ctx.font='15px sans-serif';ctx.fillText('Import STL/OBJ to inspect surface geometry',20,34);return}
+  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(const m of active)for(let i=0;i<3;i++){min[i]=Math.min(min[i],m.summary.bounds.min[i]);max[i]=Math.max(max[i],m.summary.bounds.max[i])}
+  const bounds={min,max,size:max.map((v,i)=>v-min[i])},mid=min.map((x,i)=>(x+max[i])/2);
+  const size=Math.max(...bounds.size,1e-12),scale=Math.min(w*.76,h*.76)/size*cgZoom;
   const rotate=v=>{
     const x=v[0]-mid[0],y=v[1]-mid[1],z=v[2]-mid[2],
       cy=Math.cos(cgYaw),sy=Math.sin(cgYaw),cp=Math.cos(cgPitch),sp=Math.sin(cgPitch);
     const a=cy*x+sy*z,b=-sy*x+cy*z;
     return [w/2+scale*a,h/2-scale*(cp*y-sp*b),sp*y+cp*b]
   };
-  const step=Math.max(1,Math.ceil(triangles.length/2800)),polys=[];
-  for(let k=0;k<triangles.length;k+=step){
-    const p=triangles[k].vertices.map(rotate);
+  const step=Math.max(1,Math.ceil(total/2800)),polys=[];
+  let ordinal=0;
+  for(const model of active)for(const tri of model.triangles){
+    if((ordinal++%step)!==0)continue;
+    const p=tri.vertices.map(rotate);
     polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3})
   }
   polys.sort((a,b)=>a.z-b.z);
   for(const {p} of polys){ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();ctx.fillStyle='rgba(65,170,205,.27)';ctx.fill();ctx.strokeStyle='rgba(121,209,243,.44)';ctx.lineWidth=.6;ctx.stroke()}
   ctx.font='12px sans-serif';ctx.fillStyle='#d6e7f1';
-  const b=all.bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  (unverified source units)',16,24);
-  ctx.fillText('Surface preview · '+polys.length+' / '+triangles.length+' triangles displayed · not an OpenFOAM volume mesh',16,h-15)
+  const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  (unverified source units)',16,24);
+  ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · not an OpenFOAM volume mesh',16,h-15)
 }
 function cgInstall(){
   if(document.getElementById('cgShell'))return;
