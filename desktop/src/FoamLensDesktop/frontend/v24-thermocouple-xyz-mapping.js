@@ -155,7 +155,11 @@ function tcSensitivity(baseSim,all,experimental,config){
     const pos=tcProbePoint(s);if(!pos)continue;
     const d=Math.hypot(...pos.map((v,i)=>v-mapped[i]));
     if(!(d>0&&d<=radius))continue;
-    const next=tcCompare(s,experimental,{...config,maxOffsetM:radius});
+    // A candidate alternate point needs its OWN verified containing OpenFOAM cell.
+    // The primary sensor-cell mapping must never be reused for nearby probes.
+    const alternateLocation=typeof config.locateAlternative==='function'?config.locateAlternative(pos):null;
+    if(!alternateLocation?.verified||alternateLocation.status!=='contained')continue;
+    const next=tcCompare(s,experimental,{...config,location:alternateLocation,maxOffsetM:radius});
     if(!next.valid)continue;
     results.push({probeSource:s.sourcePath,probeXYZm:pos,distanceFromSensorM:d,
       rmseK:next.metrics.rmse,deltaRMSEK:next.metrics.rmse-root.metrics.rmse,
@@ -253,7 +257,7 @@ function tcRun(){
     mesh=tcActiveMesh(source),loc=tcLocateLive(mesh,point),
     options={caseId:source.caseId,region:tcRegion(source),targetXYZ:xyz,coordinateUnit:unit,location:loc,
       maxOffsetM:tcEl('tcTolerance').value,timeShiftS:tcEl('tcTimeShift').value,
-      sensitivityRadiusM:tcEl('tcSensitivityRadius').value};
+      sensitivityRadiusM:tcEl('tcSensitivityRadius').value,locateAlternative:p=>tcLocateLive(mesh,p)};
   const result=tcCompare(source,exp,options);
   if(!result.valid){tcEl('tcStatus').textContent=result.reason+' · Mapping: '+loc.status+' ('+loc.reason+'). Load the exact 3D case/region in Field to verify the cell.';return}
   const sensitivity=tcSensitivity(source,tcSources,exp,options);
