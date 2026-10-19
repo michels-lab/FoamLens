@@ -122,13 +122,15 @@ function sftSelectFill(id,items,value){
 function sftRefresh(level='case'){
   const oldCase=sftEl('sftCase')?.value,oldRegion=sftEl('sftRegion')?.value,oldField=sftEl('sftField')?.value;
   if(level==='case'){
-    sftSelectFill('sftCase',(cases||[]).filter(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r.region,'scalar','volume').length)).map(c=>({value:String(c.id),label:c.name})),oldCase)
+    sftSelectFill('sftCase',(cases||[]).filter(c=>fvReadyRegions(c).some(r=>fvFieldGroups(c,r,'scalar','volume').length)).map(c=>({value:String(c.id),label:c.name})),oldCase)
   }
   const c=sftCase();
-  const regions=c?[...new Set(fvReadyRegions(c).map(x=>String(x.region||'')))].filter(r=>fvFieldGroups(c,r,'scalar','volume').length):[];
+  const regions=c?[...new Set(fvReadyRegions(c).map(x=>String(x||'')))].filter(r=>fvFieldGroups(c,r,'scalar','volume').length):[];
   sftSelectFill('sftRegion',regions.map(r=>({value:r,label:r||sftUi('default region','región predeterminada')})),oldRegion);
   const region=sftEl('sftRegion')?.value||'';
   sftSelectFill('sftField',c?fvFieldGroups(c,region,'scalar','volume').map(g=>({value:g.name,label:g.name+' · '+(g.dimensions||'?')+' · '+g.times.length+' t'})):[],oldField);
+  const n=sftSelected().group?.times?.length||1;
+  sftEl('sftFrom').value='0';sftEl('sftTo').value=String(Math.min(120,n));
   sftInvalidate();
   sftStatus(sftUi('Select a measured cell scalar, declare the role, then analyze. No field is inferred to be a phase fraction.','Selecciona un escalar de celdas medido, declara su papel y analiza. No se supone que un campo sea fracción de fase.'))
 }
