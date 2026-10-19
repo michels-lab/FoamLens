@@ -1,5 +1,16 @@
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #156: independent source-backed Phase/Momentum evidence query
+
+- Read current main `cbf384b81948334b71f1fc67096b026e65b79583`, checked all open PRs and selected #156 as independent from Field #162, CAD #164, 2D/3D #165, multiregion Energy #166, Thermocouple #167 and Case Health #168. Fresh branch `feat/granada-156-physics-evidence-explorer-20261019`. Shared Program.cs, main Windows pipeline and other PR branches untouched.
+- Audited main Phase/Momentum core tests and reusable `v13-field-mapping.js`, existing `pmLoadFieldSet`, `pmAlignedComponents`, `pmFilterByPhase`, `pmStats`, native metadata inspection, `v14-momentum-mechanisms.js` and generic derived formula/physical analysis. These already exist; do not duplicate or call them new.
+- Added `v24-physics-evidence-explorer.js`: explicit source Case → Analysis Type → Region → Field → Component → Phase Subset → Statistic query, computed at source OpenFOAM **written physical times only**. Field names, region and time sourced from original `volumeFieldInventory`; source kind/dimensions from enriched `discoveryModel.fields`. Original per-region Field Mapping provides role suggestions, editable externally, without case mutation.
+- Phase segmentation requires a source-identified matching-region **dimensionless** alphaL, validated configurable thresholds, aligned original partitions and liquid fraction in [0,1]. Invalid/missing data or inconsistent dimensional metadata are rejected; uncertain uniform cell population never reported as definite total. Statistics are unweighted cell-data descriptions and do not prove physically volume-weighted means.
+- New chart renders **only original sampled-time points**; deliberately does not join missing times. Read-only source-path evidence JSON on demand, with source warnings and explicit separation of observation vs interpretation. No automatic mechanism/recalescence verdict, no implied cause, no solver operation or upload.
+- Added independent Ubuntu/Windows `granada-physics-evidence.yml`, pure regression `physics-evidence-explorer.spec.cjs`, loader/integration spec `physics-evidence-loader.spec.cjs`, together with original unchanged mapping/momentum tests. Exact-commit CI and native Windows/owner-case acceptance are separate required gates.
+- Still pending in #156: full fvModels/fvOptions/fvSchemes physics/context source interpretation, general scalar/vector/tensor unit-checked derived-field verification, volume-weighted source statistics, field-history interoperability, extreme-large-file stress, installed WebView2 Setup/Portable acceptance. No version bump, merge or release.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
