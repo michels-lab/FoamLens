@@ -578,13 +578,25 @@ internal sealed class FoamLensForm : Form
                   if(!audit||!button||!panel)return {ok:false,reason:'Developer panel is missing'};
                   button.click();
                   audit.event('developer-smoke','Sanitized developer audit smoke event','info','self-test');
+                  const section=document.getElementById('launchTitle')||document.getElementById('flRibbon');
+                  const selected=section?audit.chooseElement(section):null;
+                  const input=document.getElementById('fldaComment');
+                  if(input)input.value='Developer smoke: verify this exact section stays linked to its comment.';
+                  document.getElementById('fldaSave')?.click();
                   const check=audit.runChecks(),prompt=audit.prompt(),json=audit.snapshot();
+                  const note=json.sectionAnnotations?.[0];
                   return {ok:panel.classList.contains('open')&&
                     typeof audit.downloadDeveloperAudit==='function'&&
+                    !!document.getElementById('fldaPick')&&
+                    selected?.selector===note?.selector&&
+                    note?.comment==='Developer smoke: verify this exact section stays linked to its comment.'&&
+                    prompt.includes('DOM target selector: '+note.selector)&&
+                    prompt.includes(note.comment)&&
                     prompt.includes('AI debugging request')&&
                     json.observedErrors.some(e=>e.kind==='developer-smoke')&&
                     check.status!=='not-inspected',
                     panel:panel.classList.contains('open'),errorCount:json.observedErrors.length,
+                    annotations:json.sectionAnnotations?.length,annotationSection:note?.section,
                     status:check.status};
                 })()
                 """);
