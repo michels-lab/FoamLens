@@ -24,6 +24,16 @@ function peDescriptors(c,region,type,mapping={}){
     if(r.kind)x.kind.add(String(r.kind));
     x.partitions.add(String(r.partition||''));groups.set(name,x)
   }
+  // The inventory records only original file paths/time/partition. The independently
+  // inspected Discovery field headers carry the authoritative dimensions and kind.
+  for(const group of groups.values()){
+    const inspected=(c?.discoveryModel?.fields||[]).filter(f=>
+      String(f.name||'')===group.name&&String(f.region||'')===group.region);
+    for(const metadata of inspected){
+      if(metadata.dimensions)group.dimensions.add(String(metadata.dimensions));
+      if(metadata.kind)group.kind.add(String(metadata.kind));
+    }
+  }
   const alpha=String(mapping.liquidFraction||'');
   const momentum=[mapping.velocity,mapping.darcyAcceleration,mapping.buoyancyAcceleration,mapping.pressureGradientAcceleration].filter(Boolean).map(String);
   const phase=[alpha,mapping.solidFraction,mapping.temperature,mapping.coolingRate,mapping.solidificationRate].filter(Boolean).map(String);
