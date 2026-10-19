@@ -892,4 +892,27 @@ function fcProbeDescriptors(){
   for(const s of fcExtraViews)if(measured(s.probe))out.push({id:'view'+s.id,view:Number(s.id),caseId:Number(s.caseId),caseName:fcExtraCase(s)?.name||'',region:s.region||'',field:s.fieldName||'',component:s.component||'value',point:s.probe.point.map(fcPhysicalNumber),cell:s.probe.cell??null,face:s.probe.face??null,value:fcPhysicalNumber(s.probe.value)});
   return out
 }
-window.FoamLensFieldCompare={isEnabled:()=>fcState.enabled,fcCloseTime,fcNearestTime,fcTimeBracket,fcResolveTime,fcInterpolateValues,fcLoadSynchronizedVectors,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcDifferenceRange,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras,updateStats:fcUpdateStatsGrid,getProbeDescriptors:fcProbeDescriptors,getViewStates:fcViewStateDescriptors,resyncCameras:fcResyncCameras,fitAllCameras:fcFitAllCameras,copyPrimarySettingsToCompare:fcCopyPrimarySettingsToCompare,swapPrimaryCompare:fcSwapPrimaryCompare,flushLayoutRender:fcFlushLayoutRender,renderAtSize(key,width,height){if(key==='view2'){fcRender({width,height});return document.getElementById('fcCanvas')}if(key==='difference'){fcRenderDifference({width,height});return document.getElementById('fcDifferenceCanvas')}const id=Number(String(key||'').replace(/^view/,'')),state=fcExtraViews.find(x=>Number(x.id)===id);if(state){fcExtraRender(state,{width,height});return fcExtraDom(state.id,'Canvas')}return null}};
+function fcPhysicalRegionDescriptors(){
+  const descriptor=(view,state)=>{
+    const scene=fcPhysicalFor(state),bounds=fcPhysicalBoundsFor(state);
+    const viewport=view==='view2'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
+    return{id:view,caseId:String(state.caseId||''),primaryRegion:String(state.region||''),
+      time:Number.isFinite(fcPhysicalNumber(state.time))?fcPhysicalNumber(state.time):null,
+      bounds:bounds?{min:[...bounds.min],max:[...bounds.max]}:null,
+      metricsText:viewport?.querySelector('.fcMetricBounds')?.textContent||'',
+      dimensionsVisible:viewport?.querySelector('[data-fc-dimensions]')?.checked!==false,
+      regions:[...scene.choices].map(([region,choice])=>{
+        const layer=scene.layers.get(region),primary=region===String(state.region||'');
+        return{region,visible:!!choice.visible,field:choice.field,component:choice.component,
+          opacity:choice.opacity,primary,loaded:primary?!!state.mesh:!!layer,
+          sourceTime:primary?(Number.isFinite(fcPhysicalNumber(state.time))?fcPhysicalNumber(state.time):null):(layer?.sourceTime??null),
+          geometryOnly:!primary&&!!layer?.geometryOnly,
+          gpuPayloadBytes:primary?null:(layer?.gpuPayloadBytes??null)}
+      })}
+  };
+  const views=[];
+  if(fcState.enabled)views.push(descriptor('view2',fcState));
+  for(const state of fcExtraViews)views.push(descriptor('view'+state.id,state));
+  return views
+}
+window.FoamLensFieldCompare={isEnabled:()=>fcState.enabled,fcCloseTime,fcNearestTime,fcTimeBracket,fcResolveTime,fcInterpolateValues,fcLoadSynchronizedVectors,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcMeshesEquivalent,fcDifferenceValues,fcDifferenceRange,fcSymmetricDifferenceRange,fcRefreshFrame,getVideoDescriptors:fcVideoDescriptors,setVideoRanges:fcSetVideoRanges,refreshExtras:fcRefreshExtras,updateStats:fcUpdateStatsGrid,getProbeDescriptors:fcProbeDescriptors,getViewStates:fcViewStateDescriptors,getPhysicalRegionDescriptors:fcPhysicalRegionDescriptors,resyncCameras:fcResyncCameras,fitAllCameras:fcFitAllCameras,copyPrimarySettingsToCompare:fcCopyPrimarySettingsToCompare,swapPrimaryCompare:fcSwapPrimaryCompare,flushLayoutRender:fcFlushLayoutRender,renderAtSize(key,width,height){if(key==='view2'){fcRender({width,height});return document.getElementById('fcCanvas')}if(key==='difference'){fcRenderDifference({width,height});return document.getElementById('fcDifferenceCanvas')}const id=Number(String(key||'').replace(/^view/,'')),state=fcExtraViews.find(x=>Number(x.id)===id);if(state){fcExtraRender(state,{width,height});return fcExtraDom(state.id,'Canvas')}return null}};
