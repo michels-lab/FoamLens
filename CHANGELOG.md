@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — FoamLENS Developer (internal-only variant)
+
+- Add separately compiled `FoamLensDeveloper.exe` and optional isolated Developer installer, independent settings/log/cache and WebView2 profile. This is **not** a hidden menu in regular FoamLens.
+- Developer-only runtime/renderer error evidence and explicit UI inspection, local redacted AI troubleshooting prompt and JSON downloads, session clear, capped incident history and privacy safeguards.
+- Native-only embedded audit resource, regression and real Windows Developer smoke gate; build script makes a local developer binary without uploading public assets.
+- Work in progress (#158); not included in published Desktop v1.8.10.
+
 ## Desktop v1.8.10 — 2026-10-19 · Field multi-view and responsive toolbar
 
 - Reveal a permanent **+ Add view** control in 3D Field Workspace; display up to four panels from the same imported OpenFOAM case or different imported cases without introducing fake values.
