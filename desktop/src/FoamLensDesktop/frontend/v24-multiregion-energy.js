@@ -40,6 +40,9 @@ function mecSource(s,expected,region,caseId){
   if(!u||u.dimension!==expected)return{ok:false,reason:'required measured '+expected+' units not established'};
   const dims=mecDimensions(s.dimensions,expected);
   if(dims==='invalid'||dims==='incompatible')return{ok:false,reason:'OpenFOAM dimensions contradict selected '+expected+' source'};
+  const times=s.t||[],values=s.y||[];
+  if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length||times.some((v,i)=>!Number.isFinite(mecFinite(v))||!Number.isFinite(mecFinite(values[i]))))
+    return{ok:false,reason:'missing, invalid or unmatched measured readings; no interpolation across missing samples'};
   const pairs=mecPhysicalPairs(s);if(pairs.length<2)return{ok:false,reason:'fewer than two finite physical-time source samples'};
   return{ok:true,series:s,pairs:pairs.map(([t,v])=>[t,v*u.factor]),dimensionEvidence:dims,
     provenance:{caseId:Number(caseId),region,sourcePath:s.sourcePath,field:String(s.field||''),
