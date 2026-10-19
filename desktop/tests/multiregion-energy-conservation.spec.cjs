@@ -86,6 +86,21 @@ for(const r of rejects){
  const x=input();r.fn(x);const v=lib.eval(x);
  assert(!v.valid,r.name+' unexpectedly accepted');assert(v.status==='not-evaluated',r.name)
 }
+const missingInterior=input();
+missingInterior.regions[0].interfaceFlux.y[1]=null;
+const gap=lib.eval(missingInterior);
+assert(!gap.valid,'A missing intermediate measurement must block conservation rather than being interpolated away');
+assert.match(gap.reason,/missing, invalid or unmatched measured readings/);
+const provenance=input();
+provenance.regions[0].interfaceFlux.patch='metal_to_mold';
+provenance.regions[0].interfaceFlux.patches=['metal_to_mold'];
+provenance.regions[0].interfaceFlux.functionObject='interfacePower';
+provenance.regions[0].interfaceFlux.operation='orientedSum';
+const withPatch=lib.eval(provenance);
+assert(withPatch.valid,withPatch.reason);
+assert.strictEqual(withPatch.regions[0].provenance[1].patch,'metal_to_mold');
+assert.deepStrictEqual(withPatch.regions[0].provenance[1].patches,['metal_to_mold']);
+assert.strictEqual(withPatch.regions[0].provenance[1].functionObject,'interfacePower');
 const missingDims=input();
 missingDims.regions[0].inventory.dimensions='';
 const caution=lib.eval(missingDims);assert(caution.valid);
