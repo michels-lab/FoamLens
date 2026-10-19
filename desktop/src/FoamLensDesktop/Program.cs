@@ -753,14 +753,15 @@ internal sealed class FoamLensForm : Form
                 """
                 (() => {
                   const api=window.FoamLensCadSurface,launch=document.getElementById('cgLaunch'),
+                    nav=document.getElementById('cgNav'),
                     panel=document.getElementById('cgShell'),canvas=document.getElementById('cgCanvas');
-                  if(!api||!launch||!panel||!canvas)return{ok:false,reason:'CAD inspector not mounted'};
+                  if(!api||!launch||!nav||!panel||!canvas)return{ok:false,reason:'CAD inspector not mounted'};
                   const obj=api.parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3','native-smoke.obj');
                   const sum=api.summarize(obj.triangles);
                   const ascii=api.exportAsciiStl(obj.triangles,'native-smoke',.001);
                   const stl=api.parseStl(new TextEncoder().encode(ascii).buffer,'native-smoke.stl');
                   const exportBtn=document.getElementById('cgExportStl');
-                  launch.click();
+                  nav.click();
                   const opened=!panel.hidden&&canvas.getBoundingClientRect().width>200;
                   panel.querySelector('#cgClose')?.click();
                   const closed=panel.hidden;
