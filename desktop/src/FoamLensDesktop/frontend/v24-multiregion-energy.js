@@ -200,16 +200,22 @@ function mecOptions(rows,kind){
   return'<option value="">'+mecEsc(mecUi('Choose measured source','Elige serie medida'))+'</option>'+
     rows.filter(({item})=>item.kind===kind).map(({index,item})=>
       '<option value="'+index+'">'+mecEsc(item.field+' ['+item.unit+'] · '+item.sourcePath.split(/[\\/]/).at(-1)+
+       ' · '+(item.patch||item.patches?.join(', ')||'patch unknown')+
        ' · '+mecPhysicalPairs(item).length+' samples')+'</option>').join('')
 }
-function mecUpdateSources(){
-  mecInvalidate();mecSources=mecSeriesIndex();
+function mecUpdateSources(force=false){
+  const latest=mecSeriesIndex();
+  // A refresh cannot reuse an old index after a new OpenFOAM import or case switch.
+  // If the exact source objects are unchanged, preserve user selections.
+  if(!force&&latest.length===mecSources.length&&
+     latest.every((item,i)=>item.source===mecSources[i].source))return;
+  mecInvalidate();mecSources=latest;
   const groups=[...new Set(mecSources.map(s=>s.region))].sort();
   for(const letter of ['A','B']){
-    const region=mecEl('mecRegion'+letter),old=region.value;
+    const region=mecEl('mecRegion'+letter);
     region.innerHTML='<option value="">'+mecEsc(mecUi('Choose actual region','Selecciona región real'))+'</option>'+
       groups.map(g=>'<option value="'+mecEsc(g)+'">'+mecEsc(g)+'</option>').join('');
-    if(groups.includes(old))region.value=old
+    region.value=''
   }
   mecRefreshSelectors()
 }
@@ -320,7 +326,7 @@ function mecInstall(){
     if(!mecEl('mecCase').value&&cases?.length)mecEl('mecCase').value=String(cases[0].id)
   };
   const refresh=()=>{fillCases();mecUpdateSources()};
-  mecEl('mecCase').addEventListener('change',mecUpdateSources);
+  mecEl('mecCase').addEventListener('change',()=>mecUpdateSources(true));
   for(const l of ['A','B']){
     mecEl('mecRegion'+l).addEventListener('change',mecRefreshSelectors);
     for(const name of ['Inventory','Interface','InterfaceSign','Boundary','BoundarySign','Source','SourceSign'])
