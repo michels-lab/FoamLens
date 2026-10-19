@@ -74,15 +74,62 @@ function tsdMatchesFilters(s){
   if(caseFilter&&caseFilter.startsWith('case:')&&String(s.caseId)!==caseFilter.slice(5))return false;
   return true
 }
+// Existing curves and available 3D OpenFOAM fields are different catalogs.
+// Preview field identity only; parsing thousands of frames requires Build.
+function tsdSourceFieldCatalog(){
+  const fields=[];
+  try{
+    for(const c of (typeof fwFieldTsReadyCases==='function'?fwFieldTsReadyCases():[])){
+      const regions=typeof fvReadyRegions==='function'?fvReadyRegions(c):[];
+      for(const region of regions){
+        const groups=typeof fvFieldGroups==='function'?fvFieldGroups(c,region,null,'any'):[];
+        for(const group of groups)if(['scalar','vector'].includes(group.kind)&&group.name&&(group.times||[]).length){
+          fields.push({caseId:c.id,caseName:c.name||String(c.id),region,name:group.name,
+            kind:group.kind,components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
+            timeCount:(group.times||[]).length})
+        }
+      }
+    }
+  }catch(e){console.error('Time Series field inventory',e)}
+  return fields
+}
+function tsdUpdateSourceCatalog(){
+  const panel=document.getElementById('timeSeriesControls');
+  if(!panel)return;
+  let info=document.getElementById('tsdSourceFieldCount');
+  if(!info){
+    info=document.createElement('div');info.id='tsdSourceFieldCount';info.className='timeSeriesHint';
+    info.setAttribute('role','status');
+    const actions=panel.querySelector('.timeSeriesActions');
+    (actions||panel).insertAdjacentElement('afterend',info)
+  }
+  const catalog=tsdSourceFieldCatalog(),datasets=timeSeriesOptionsBase();
+  const unique=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region)+'|'+g.name)).size;
+  info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+'.',
+    'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.');
+  const details=document.getElementById('fwDataFieldHistories');
+  if(details&&catalog.length&&datasets.length===0){
+    details.open=true;
+    try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(e){console.error(e)}
+  }
+}
 function tsdRefreshTimeSeriesControls(){
   const panel=document.getElementById('timeSeriesControls'),vSel=document.getElementById('timeSeriesVariable'),v2Sel=document.getElementById('timeSeriesVariable2'),pSel=document.getElementById('timeSeriesProbe'),fSel=document.getElementById('timeSeriesFamily');
   if(!panel||!vSel||!v2Sel||!pSel||!fSel)return;
   const ts=timeSeriesOptionsBase();
   if(!ts.length){
-    panel.classList.add('hidden');vSel.innerHTML='';v2Sel.innerHTML='';pSel.innerHTML='';fSel.innerHTML='';
-    document.getElementById('timeSeriesFocusBadge').textContent=tsdUi('0 curves','0 curvas');
-    document.getElementById('timeSeriesFilterHint').textContent=tsdUi('Load probe time-series data to focus the comparison panel.','Carga series temporales de sondas para enfocar el panel de comparación.');
-    delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;return
+    // Never hide the Field History builder merely because no histories have
+    // been generated; that is precisely when it must be discoverable.
+    panel.classList.remove('hidden');
+    vSel.innerHTML='<option value="">'+tsdEsc(tsdUi('No generated curves yet','Aún no hay curvas generadas'))+'</option>';
+    v2Sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>';
+    v2Sel.disabled=true;pSel.innerHTML='';fSel.innerHTML='';
+    document.getElementById('timeSeriesFocusBadge').textContent=tsdUi('0 existing curves','0 curvas existentes');
+    document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
+      'No measured time-series has been imported or built. Select an available 3D field below and explicitly build its physical-time history.',
+      'No se ha importado o calculado una serie temporal medida. Selecciona abajo un campo 3D disponible y construye explícitamente su historia en tiempo físico.');
+    delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
+    tsdUpdateSourceCatalog();return
   }
   panel.classList.remove('hidden');
   const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
@@ -115,6 +162,8 @@ function tsdRefreshTimeSeriesControls(){
     `Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${varsText} · ${probeText}.`,
     `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varsText} · ${probeText}.`
   )
+;
+  tsdUpdateSourceCatalog()
 }
 function tsdPatchAssignments(){
   if(typeof assignments!=='function'||assignments.__tsdPatched)return;
