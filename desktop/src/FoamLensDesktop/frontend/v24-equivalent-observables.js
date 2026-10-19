@@ -192,6 +192,16 @@ function eoRun(){
     '<p class="smallnote">'+eoEsc(result.spatialMappingNote)+' · '+eoEsc(result.limitations.join(' '))+'</p>';
   eoDraw(result);eoSelect('eoExportJson').disabled=false;eoSelect('eoExportCsv').disabled=false
 }
+function eoInvalidate(){
+  // A prior result is no longer attributable to newly selected source or settings.
+  eoLast=null;const report=eoSelect('eoReport');if(report)report.textContent='';
+  for(const id of ['eoExportJson','eoExportCsv']){const button=eoSelect(id);if(button)button.disabled=true}
+  const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');
+  if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
+  const status=eoSelect('eoStatus');if(status)status.textContent=eoUi(
+    'Comparison inputs changed. Recalculate before exporting.',
+    'Cambiaste los datos de comparación. Recalcula antes de exportar.')
+}
 function eoDraw(result){
   const canvas=eoSelect('eoPlot');if(!canvas||!result?.rows?.length)return;
   const width=Math.max(280,canvas.clientWidth||700),height=230,ratio=Math.min(2,window.devicePixelRatio||1);
@@ -248,6 +258,10 @@ function eoInstall(){
   el.addEventListener('toggle',()=>{if(el.open)eoRefresh()});
   eoSelect('eoRefresh').onclick=eoRefresh;eoSelect('eoCalculate').onclick=eoRun;
   eoSelect('eoExportJson').onclick=()=>eoExport('json');eoSelect('eoExportCsv').onclick=()=>eoExport('csv');
+  for(const id of ['eoSource2d','eoSource3d','eoBasis','eoConfirm','eoPoints','eoObservable','eoMapping']){
+    const input=eoSelect(id);
+    if(input)input.addEventListener(['eoObservable','eoMapping','eoPoints'].includes(id)?'input':'change',eoInvalidate)
+  }
   window.addEventListener('resize',()=>{if(eoLast&&el.open)eoDraw(eoLast)});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(el)}catch{}
   eoRefresh()
