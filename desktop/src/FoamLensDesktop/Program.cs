@@ -1898,6 +1898,77 @@ internal sealed class FoamLensForm : Form
 
                 if (expectedPhysicalRegions.Length > 1)
                 {
+                    // Regression for the owner-reported View B defect: A shows
+                    // metal+mold while B previously painted only its primary
+                    // metal mesh and omitted physical X/Y/Z axes.
+                    await _web.CoreWebView2.ExecuteScriptAsync(
+                        """
+                        window.__foamLensPhysicalViewBSmoke=null;
+                        (async()=>{
+                          try{
+                            const api=window.FoamLensFieldCompare;
+                            if(typeof api?.getPhysicalRegionDescriptors!=='function'||
+                               typeof api?.fcRefreshFrame!=='function')
+                              throw new Error('Independent physical-region API unavailable');
+                            const enabled=document.getElementById('fcEnabled'),
+                              caseSel=document.getElementById('fcCase'),
+                              regionSel=document.getElementById('fvRegion'),
+                              primaryCase=document.getElementById('fvCase')?.value;
+                            if(!enabled||!caseSel||!regionSel||!primaryCase)
+                              throw new Error('Physical Field comparison selectors unavailable');
+                            if(!enabled.checked){
+                              enabled.checked=true;enabled.dispatchEvent(new Event('change',{bubbles:true}));
+                            }
+                            caseSel.value=String(primaryCase);
+                            caseSel.dispatchEvent(new Event('change',{bubbles:true}));
+                            await api.fcRefreshFrame();
+                            await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+                            const desc=api.getPhysicalRegionDescriptors().find(v=>v.id==='view2');
+                            const visible=desc?.regions?.filter(region=>region.visible)||[];
+                            const secondary=visible.filter(region=>!region.primary);
+                            const canvas=document.getElementById('fcCanvas');
+                            const axes=document.querySelector('#fcViewport .fcMetricAxes');
+                            const ok=!!desc&&String(desc.caseId)===String(primaryCase)&&
+                              visible.length>=2&&secondary.some(r=>r.loaded)&&
+                              !!desc.bounds&&desc.bounds.min.length===3&&
+                              desc.bounds.max.length===3&&
+                              ['X:','Y:','Z:'].every(t=>desc.metricsText.includes(t))&&
+                              !!axes&&axes.querySelectorAll('line').length>=3&&
+                              (canvas?.getBoundingClientRect().width||0)>0;
+                            window.__foamLensPhysicalViewBSmoke={
+                              ok,caseId:desc?.caseId,visible:visible.map(r=>r.region),
+                              secondary:secondary.map(r=>({region:r.region,loaded:r.loaded,
+                                geometryOnly:r.geometryOnly,sourceTime:r.sourceTime})),
+                              bounds:desc?.bounds,metricsText:desc?.metricsText,
+                              axisLines:axes?.querySelectorAll('line').length||0
+                            };
+                          }catch(e){
+                            window.__foamLensPhysicalViewBSmoke={ok:false,error:String(e?.stack||e)};
+                          }
+                        })()
+                        """);
+                    string viewBSmoke = "null";
+                    var viewBDeadline = Stopwatch.StartNew();
+                    while (viewBDeadline.Elapsed < TimeSpan.FromSeconds(70))
+                    {
+                        await Task.Delay(130);
+                        viewBSmoke=await _web.CoreWebView2.ExecuteScriptAsync(
+                            "window.__foamLensPhysicalViewBSmoke");
+                        if (!string.Equals(viewBSmoke.Trim(),"null",StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(viewBSmoke.Trim(),"undefined",StringComparison.OrdinalIgnoreCase))
+                            break;
+                    }
+                    using (var smoke = JsonDocument.Parse(viewBSmoke))
+                    {
+                        if (!smoke.RootElement.TryGetProperty("ok",out var ok) || !ok.GetBoolean())
+                            throw new InvalidOperationException(
+                                "FoamLens real multi-region View B with independent XYZ dimensions failed: " + viewBSmoke);
+                    }
+                    Log("FoamLens real OpenFOAM View B metal+mold and metric XYZ smoke passed: " + viewBSmoke);
+                }
+
+                if (expectedPhysicalRegions.Length > 1)
+                {
                     var evidence = Environment.GetEnvironmentVariable("FOAMLENS_BRAND_EVIDENCE_DIR");
                     if (!string.IsNullOrWhiteSpace(evidence))
                     {

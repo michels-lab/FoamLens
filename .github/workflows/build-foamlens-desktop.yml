@@ -582,6 +582,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/surface-boundary.test.cjs
 
+      - name: Test real source-backed multi-region per-view geometry and metric XYZ axes
+        shell: pwsh
+        run: node desktop/tests/field-multiregion-views.test.cjs
+
       - name: Test independent Field views, drag positioning and zoom
         shell: pwsh
         run: node desktop/tests/field-multiview-ux.test.cjs

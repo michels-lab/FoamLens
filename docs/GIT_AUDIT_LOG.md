@@ -5,6 +5,14 @@
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
+## 2026-10-19 — Larger implementation block: independent B/C/D physical regions (candidate #145)
+
+- Owner reiterated large implementation blocks for outstanding FoamLENS work. Work started from fresh main after PRs #159 (Developer twin) and #161 (Time Series source discovery) were already merged, so those features remain intact.
+- Implemented and isolated per-view multi-physical-region rendering from existing `fvRegionScene` code: each B/C/D scene loads real OpenFOAM field arrays and geometry through its *own* WebGL renderer. Each view has metal/mold and other valid region checkbox selectors, per-region field/component/opacity, source-backed surface colors, legend and metric X/Y/Z mesh bounds with view-local axis projections. A retains established region renderer.
+- Independent view choices persist in memory when switching case IDs; missing field at actual t becomes geometry-only with a clear label; stale layers and WebGL buffers are invalidated on case/frame transitions, preventing accidental reuse of old data.
+- Scientific code/fixtures gate: new `desktop/tests/field-multiregion-views.test.cjs`, fast Field CI, full Windows Setup/Portable scientific tests. Status at entry **candidate only, not merged and not released**; physical owner-case B + mold/metal screenshot is still required for final acceptance. Distinct future #149 resize/DPI work remains open.
+- Mesh quality report #150 and all CAD/STL #147–#148, physics #151–#156, user benchmark #117 and visual #131 stay tracked. No release/version bump was requested in this turn.
+
 ## 2026-10-19 — Developer section annotations with persistent location/comment and IA handoff (#158)
 
 - Owner requested direct pinpointing of specific FoamLENS Developer sections, with a remembered comment for each that **survives closing/reopening Developer**, and all comments auto-included in subsequent exported IA debugging context.
