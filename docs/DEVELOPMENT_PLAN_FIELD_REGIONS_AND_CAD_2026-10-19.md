@@ -16,6 +16,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
 - Scope tracked [#158](https://github.com/michels-lab/FoamLens/issues/158) and [Developer Edition design and build](FOAMLENS_DEVELOPER_EDITION_2026-10-19.md). **Software auditor (#158) is distinct from scientific Mesh Auditor (#150)**.
 
+### #150 Mesh quality report inspector implementation candidate
+
+- **Source-backed first stage:** Data → Mesh & Geometry Auditor accepts an existing local `checkMesh` report, identifies topological/metric quantities and warnings, preserves per-region evidence, explicit nulls for unreported metrics, and locally exports JSON with source/provenance limitations. Does not call `checkMesh` nor write a simulation case.
+- New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
+- Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
