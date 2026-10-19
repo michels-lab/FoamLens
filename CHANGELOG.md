@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada: source-backed Solidification Front Tracker (#153)
+
+- New Analysis-only 3D tracker reads a user-chosen original dimensionless OpenFOAM phase scalar, source region and exact physical times. Mesh and field source correspondence is checked for each written frame.
+- Computes per-cell signed polyhedral volumes from actual owner/neighbour faces with closure/positivity checks; reports solid/mushy/liquid volume fractions and source cell counts under explicit thresholds.
+- Adds an **internal-face iso-crossing proxy**, its face area and weighted centroid, plus a strictly labeled centroid-displacement rate. Never claims exact 3D interpolated iso-surface, local front speed, nucleation or recalescence.
+- Rejects missing or invalid phase data, records excluded physical frames, plots discrete source-time points and exports on demand to local provenance JSON. Linux/Windows tests added; real owner case and packaged Setup/Portable acceptance still open. No version bump, merge or public release.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
