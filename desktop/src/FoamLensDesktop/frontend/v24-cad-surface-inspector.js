@@ -224,7 +224,7 @@ function cgDraw(){
   if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=w*dpr;canvas.height=h*dpr}
   const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   ctx.fillStyle='#101b2c';ctx.fillRect(0,0,w,h);
-  const active=cgModels.filter(m=>m.visible),
+  const active=cgModels.filter(m=>m.visible&&[...m.partsVisible.values()].some(Boolean)),
     total=active.reduce((n,m)=>n+[...m.partsVisible].reduce((k,[part,visible])=>k+(visible?(m.partSummaries.get(part)?.triangles||0):0),0),0);
   if(!total){ctx.fillStyle='#bdcbdc';ctx.font='15px sans-serif';ctx.fillText('Import STL/OBJ to inspect surface geometry',20,34);return}
   const physical=active.every(m=>cgUnitScale(m.unit)!==null);
@@ -267,6 +267,8 @@ function cgInstall(){
   if(document.getElementById('cgShell'))return;
   const anchor=document.getElementById('dataImportMore')||document.getElementById('datasetModeBlock');if(!anchor)return;
   const launch=document.createElement('button');launch.id='cgLaunch';launch.type='button';launch.className='btn soft';launch.textContent='CAD & Geometry · STL/OBJ';launch.style.cssText='width:100%;margin:6px 0 10px';anchor.insertAdjacentElement('afterend',launch);
+  const nav=document.createElement('button');nav.id='cgNav';nav.type='button';nav.className='modeNavBtn';nav.textContent='CAD';
+  document.getElementById('modeData')?.insertAdjacentElement('afterend',nav);
   const sheet=document.createElement('section');sheet.id='cgShell';sheet.hidden=true;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-modal','true');sheet.setAttribute('aria-label','CAD & Geometry');
   const css=document.createElement('style');css.textContent=
     '#cgShell[hidden]{display:none!important}#cgShell{position:fixed;inset:0;z-index:12000;background:rgba(5,12,23,.96);color:#eaf1fc;overflow:auto;padding:18px;box-sizing:border-box}' +
@@ -287,8 +289,10 @@ function cgInstall(){
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
   document.body.appendChild(sheet);
-  launch.onclick=()=>{cgActive=true;sheet.hidden=false;cgDraw();document.getElementById('cgClose').focus()};
-  const close=()=>{sheet.hidden=true;cgActive=false;launch.focus()};
+  let cgReturnFocus=launch;
+  const open=e=>{cgReturnFocus=e?.currentTarget||launch;cgActive=true;sheet.hidden=false;nav.classList.add('active');cgDraw();document.getElementById('cgClose').focus()};
+  launch.onclick=open;nav.onclick=open;
+  const close=()=>{sheet.hidden=true;cgActive=false;nav.classList.remove('active');cgReturnFocus.focus()};
   document.getElementById('cgClose').onclick=close;
   document.addEventListener('keydown',e=>{if(cgActive&&e.key==='Escape')close()});
   document.getElementById('cgImport').onclick=()=>void cgImport();
