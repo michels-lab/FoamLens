@@ -1,0 +1,33 @@
+name: Granada 153 solidification front scientific regression
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-tracker.js'
+      - 'desktop/tests/solidification-front-tracker.test.cjs'
+      - '.github/workflows/solidification-front-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-tracker.js'
+      - 'desktop/tests/solidification-front-tracker.test.cjs'
+      - '.github/workflows/solidification-front-fast.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scientific:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node desktop/tests/solidification-front-tracker.test.cjs
+      - run: node desktop/tests/solidification-analysis.test.cjs
+      - run: node desktop/tests/isosurface.test.cjs
+      - run: node desktop/tests/phase-momentum.test.cjs
