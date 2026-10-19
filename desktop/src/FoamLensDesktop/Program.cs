@@ -34,9 +34,11 @@ internal static class Program
         }
 #endif
         ApplicationConfiguration.Initialize();
+        var developerSmoke = args.Any(arg =>
+            string.Equals(arg, "--developer-audit-smoke-test", StringComparison.OrdinalIgnoreCase));
         var smokeTest = args.Any(arg =>
             string.Equals(arg, "--smoke-test", StringComparison.OrdinalIgnoreCase));
-        using var form = new FoamLensForm(smokeTest);
+        using var form = new FoamLensForm(smokeTest || developerSmoke, developerSmoke);
         Application.Run(form);
         if (smokeTest)
             Environment.ExitCode = form.SmokeTestExitCode;
@@ -47,6 +49,7 @@ internal sealed class FoamLensForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly bool _smokeTest;
+    private readonly bool _developerAuditSmoke;
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
@@ -95,9 +98,10 @@ internal sealed class FoamLensForm : Form
 
     public int SmokeTestExitCode { get; private set; }
 
-    public FoamLensForm(bool smokeTest = false)
+    public FoamLensForm(bool smokeTest = false, bool developerAuditSmoke = false)
     {
         _smokeTest = smokeTest;
+        _developerAuditSmoke = developerAuditSmoke;
         SmokeTestExitCode = smokeTest ? 1 : 0;
         Text = DeveloperEdition ? "FoamLens Developer · Diagnostic Edition" : "FoamLens Desktop";
         var executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
@@ -183,7 +187,12 @@ internal sealed class FoamLensForm : Form
 
             if (_smokeTest)
             {
+#if FOAMLENS_DEVELOPER
+                if (_developerAuditSmoke) await RunDeveloperAuditSmokeAsync();
+                else await RunSmokeTestAsync();
+#else
                 await RunSmokeTestAsync();
+#endif
             }
             else
             {
@@ -542,6 +551,56 @@ internal sealed class FoamLensForm : Form
         if (png.Length < 10_000) throw new InvalidOperationException("Rendered branding PNG evidence is unexpectedly small: " + fullPath);
         await File.WriteAllBytesAsync(fullPath, png);
     }
+
+#if FOAMLENS_DEVELOPER
+    // Real packaged WebView2 proof: Developer overlay must exist in the
+    // independently compiled app. A static bundle check cannot prove that.
+    private async Task RunDeveloperAuditSmokeAsync()
+    {
+        var complete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void NavDone(object? _, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            complete.TrySetResult(e.IsSuccess);
+        }
+        _web.CoreWebView2.NavigationCompleted += NavDone;
+        try
+        {
+            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
+            if (!await complete.Task.WaitAsync(TimeSpan.FromSeconds(35)))
+                throw new InvalidOperationException("Developer audit WebView2 navigation failed.");
+            await Task.Delay(350);
+            var report = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const audit=window.__foamLensDeveloperAudit;
+                  const button=document.getElementById('flDeveloperAuditToggle');
+                  const panel=document.getElementById('flDeveloperAuditPanel');
+                  if(!audit||!button||!panel)return {ok:false,reason:'Developer panel is missing'};
+                  button.click();
+                  audit.event('developer-smoke','Sanitized developer audit smoke event','info','self-test');
+                  const check=audit.runChecks(),prompt=audit.prompt(),json=audit.snapshot();
+                  return {ok:panel.classList.contains('open')&&
+                    typeof audit.downloadDeveloperAudit==='function'&&
+                    prompt.includes('AI debugging request')&&
+                    json.observedErrors.some(e=>e.kind==='developer-smoke')&&
+                    check.status!=='not-inspected',
+                    panel:panel.classList.contains('open'),errorCount:json.observedErrors.length,
+                    status:check.status};
+                })()
+                """);
+            using var json = JsonDocument.Parse(report);
+            if (!json.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                throw new InvalidOperationException("FoamLens Developer real WebView2 smoke failed: " + report);
+            SmokeTestExitCode = 0;
+            Log("Developer edition real WebView2 audit and sanitized prompt smoke passed: " + report);
+            BeginInvoke(Close);
+        }
+        finally
+        {
+            _web.CoreWebView2.NavigationCompleted -= NavDone;
+        }
+    }
+#endif
 
     private async Task RunSmokeTestAsync()
     {
