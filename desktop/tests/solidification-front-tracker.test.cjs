@@ -69,6 +69,9 @@ test('source-only dimensional, provenance and time-window constraints exist',()=
   for(const term of ["fvLoadFrameData(c,group,region,time,'value'","parsedDim!=='[0 0 0 0 0 0 0]'","end-start>120",
     "sftState.result=null","No nucleation, recalescence","originalField:group.name"])
     assert(js.includes(term),'Missing evidence guard: '+term);
+  assert(js.includes("fvReadyRegions(c).some(r=>fvFieldGroups(c,r,'scalar','volume').length)"));
+  assert(js.includes('geometryCache.get(data.mesh)'));
+  assert(js.includes('current.group!==sftState.sourceGroup'));
   assert(!js.includes('QuickCup'))
 });
 console.log('Granada #153 source-only front tracker passed '+passed.length+' regression checks');
