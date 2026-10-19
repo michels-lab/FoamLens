@@ -4,11 +4,13 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
       - 'desktop/tests/multiregion-energy-conservation.spec.cjs'
+      - 'desktop/tests/multiregion-energy-loader.spec.cjs'
       - '.github/workflows/granada-multiregion-energy.yml'
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
       - 'desktop/tests/multiregion-energy-conservation.spec.cjs'
+      - 'desktop/tests/multiregion-energy-loader.spec.cjs'
       - '.github/workflows/granada-multiregion-energy.yml'
   workflow_dispatch:
 jobs:
