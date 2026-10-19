@@ -173,7 +173,12 @@ async function sftRun(){
         let geom=geometryCache.get(data.mesh);
         if(!geom){geom=sftGeometry(data.mesh);geometryCache.set(data.mesh,geom)}
         const frame=sftFrame(data.mesh,geom,data.fieldValues,{time,role,low,high,iso});
-        frames.push({...frame,sourcePath:data.parsed?.sourcePath||null,meshSourcePaths:data.meshInfo?.snapshot?.sourcePaths||null});
+        frames.push({...frame,
+          sourcePath:data.parsed?.sourcePath||null,
+          sourceFieldPartitions:(data.set||[]).map(p=>({partition:p.partition||'',sourcePath:p.sourcePath||null,sourceTime:p.time??time})),
+          meshSourcePaths:data.meshInfo?.snapshot?.sourcePaths||null,
+          meshPartitions:(data.meshInfo?.snapshot?.parts||[]).map(p=>({partition:p.partition||'',sourcePaths:p.snapshot?.sourcePaths||null}))
+        });
       }catch(err){excluded.push({time,reason:String(err?.message||err)});frames.push(null)}
       await new Promise(resolve=>setTimeout(resolve,0))
     }
