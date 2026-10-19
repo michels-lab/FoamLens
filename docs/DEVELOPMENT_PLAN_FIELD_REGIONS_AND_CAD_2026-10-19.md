@@ -16,6 +16,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
 - Scope tracked [#158](https://github.com/michels-lab/FoamLens/issues/158) and [Developer Edition design and build](FOAMLENS_DEVELOPER_EDITION_2026-10-19.md). **Software auditor (#158) is distinct from scientific Mesh Auditor (#150)**.
 
+### Current implementation batch: scientific checkMesh audit (candidate PR, #150)
+
+- **Implemented in feature branch:** a separately displayed Data panel imports user-selected existing `checkMesh` text reports, transcribes source-backed mesh topology and quality metrics, preserves unreported quantities as absent and exports a local evidence JSON.
+- **Limitations:** it is a log/report analyzer, not the final `polyMesh` scanner; cannot claim numerical mesh integrity independently of OpenFOAM's output. Per-region reports are kept separate and no global aggregate is fabricated.
+- **Acceptance:** parser and fast workflow, Windows Setup/Portable scientific regression, rendering the Data pane and exercising import/export; only after tests may this be considered ready for release. Explicitly preserve future native cell/patch overlays, interoperability with CAD & Geometry and edition-specific `checkMesh` execution as open work.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

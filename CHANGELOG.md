@@ -7,6 +7,14 @@
 
 # Changelog
 
+## Unreleased — source-based scientific Mesh & Geometry audit (#150)
+
+- Add an on-demand checkMesh report panel to Data, with local text import and scientifically labeled mesh topology, bounding box, non-orthogonality, skewness, aspect ratio, openness, area and volume metrics.
+- Treat missing metrics as unreported rather than zero; separate multiple region outputs without mixing data; show source warnings/failures and export an auditable JSON.
+- Keep advanced polyMesh geometry diagnosis, cell-level visualization and optional native checkMesh execution as future work. No version change or public release in this development candidate.
+
+# Changelog
+
 ## Unreleased — FoamLENS Developer (internal-only variant)
 
 - Add separately compiled `FoamLensDeveloper.exe` and optional isolated Developer installer, independent settings/log/cache and WebView2 profile. This is **not** a hidden menu in regular FoamLens.

@@ -37,6 +37,15 @@
 - **Zero existing curves now keeps the panel and generation path visible**, and expands the existing Build field histories control when a real 3D field is available. No fabricated time history and no automatic reading of every time-directory on selector entry. Actual `fwBuildFieldTimeSeries` remains the explicit calculated-data path.
 - Executable regression `desktop/tests/timeseries-source-catalog.test.cjs` passed with multiple real-identity cases/regions and vector fields; connected to fast and Windows CI. **Candidate only**, version/release not changed. Remaining #146: header-bearing multi-column postProcessing parser correctness, scientific real-case generation verification and user-specific Time Series acceptance.
 
+## 2026-10-19 — Mesh & Geometry Auditor #150, source-backed checkMesh parser and local review candidate
+
+- Existing coupling and energy scientific diagnostics were audited before adding a new module. This block adds an **independent checkMesh text report inspector** under Data without duplicating OpenFOAM's native mesh-quality computation.
+- New `v20-mesh-quality-audit.js`: on-demand local `.log/.txt` import, capped at 12 MiB; parses *reported* points, faces, cells, patches, zones, geometric bounding box, face areas, volumes, non-orthogonality, skewness, openness, aspect ratio, and failed-check/warning lines. Missing measurements remain `null/not-reported`; a reported `Mesh OK` is attributed to the source, not treated as an independent certification.
+- Multi-region reports keep each region's metrics distinct; no accidental last-region-as-global readings. The UI labels provenance, missing metrics, check failures and offers local JSON export. Does **not** run OpenFOAM, automatically modify cases, or claim to inspect the actual `polyMesh` if only text is supplied.
+- `desktop/tests/mesh-quality-audit.test.cjs` tests successful/failing/incomplete/unrecognized reports, independent regions, preservation of unknowns and bounded input; native Windows CI and a dedicated fast mesh CI added.
+- **Candidate only:** PR feature branch `feat/openfoam-checkmesh-auditor-20261019`, not yet published. Remaining #150 scope includes native read-only checkMesh execution (only when installation exists, explicit consent), patch interface integrity/geometry overlays and mesh cell-level inspection. Scientific CI must verify actual installed Windows UI before merge and future release.
+- Do not confuse scientific mesh auditor #150 with the separate developer-only software QA twin #158.
+
 ## Maintenance rule
 
 This file is the durable project bitácora. After any meaningful Git operation—commit, branch change, pull request action, release/prerelease, CI failure or recovery, packaging change, or important prerelease finding—append/update the relevant section here. Do not rely only on chat history.
