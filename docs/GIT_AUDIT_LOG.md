@@ -42,6 +42,14 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - Executable regression `desktop/tests/field-multiview-ux.test.cjs` covers independent/linked camera zoom, binding identity, pane reordering and toolbar constraints; added to Windows full CI and Field fast CI.
 - Candidate branch `feat/field-multiview-drag-zoom-20261018`. **No release or version bump** authorized by this screenshot. Exact packaged Windows screenshots, high-DPI viewport interaction and owner real-case review remain pending until verified; issue #117 real 3,008-file measured performance remains open.
 
+## 2026-10-19 — FoamLens Desktop v1.8.10 release authorized; exact version candidate
+
+- Owner explicitly requested finishing the formerly unmerged PR #144 **and actually publishing a new release**. Previous release v1.8.9 did not include the screenshot-driven 3D controls and Ribbon corrections.
+- PR #144 base commit `3c01dbe43d8f44055be6c80f0589030cd5016fb7` completed QuickCup/VTK, full Windows Setup/Portable installed-source tests and field playback/camera/native scientific cache CI successfully. Earlier candidate failed the outdated single-row native smoke gate; the corrected exact WebView2 gate rejects real panel overlap/clipping and verifies Add/Import/Property/Zoom controls.
+- Release candidate metadata updated coherently to **1.8.10**: .NET `Version`, `AssemblyVersion`, `FileVersion`, Inno fallback `MyAppVersion`, frontend/About fallback, README and changelog. These are the *same* tested UI/physics code paths; no OpenFOAM numerics, geometry units or proprietary dataset changed.
+- Required remaining acceptance at candidate creation: the exact version-bumped PR SHA must pass quick Field/camera, QuickCup/VTK and complete Windows installed + portable smoke. Merge squash commit must start with `release:`; only the resulting `main` workflow may publish new v1.8.10 Setup/Portable and validate public SHA-256 redownload.
+- Benchmarks on owner's original 3,008-file case (#117) and owner-specific visual review (#131) remain distinct and cannot be claimed as completed by fixture testing.
+
 ## Current repository state
 
 | Item | State |
