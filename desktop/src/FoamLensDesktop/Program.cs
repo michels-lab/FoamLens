@@ -40,7 +40,7 @@ internal static class Program
             string.Equals(arg, "--smoke-test", StringComparison.OrdinalIgnoreCase));
         using var form = new FoamLensForm(smokeTest || developerSmoke, developerSmoke);
         Application.Run(form);
-        if (smokeTest)
+        if (smokeTest || developerSmoke)
             Environment.ExitCode = form.SmokeTestExitCode;
     }
 }
