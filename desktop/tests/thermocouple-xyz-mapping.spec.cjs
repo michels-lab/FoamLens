@@ -84,7 +84,7 @@ assert.equal(api.number(null)!==api.number(null),true,'Null is not physical zero
 assert.equal(api.units('°C').offset,273.15);
 assert.deepEqual(api.pairs([0,1,2],[0,0,0]),[[0,0],[1,0],[2,0]]);
 for(const token of ["id='tcTools'","id=\"tcFile\"","id=\"tcCalculate\"","id=\"tcExportJson\"",
- "id=\"tcExportCsv\"","evParseTable(raw)","fvCellContainsPoint","fvNearbyCells",
+ "id=\"tcExportCsv\"","id=\"tcPlot\"","function tcDraw(result)","Alternative measured probe XYZ [m]","evParseTable(raw)","fvCellContainsPoint","fvNearbyCells",
  "noAutomaticRecalescenceLabel:true","window.FoamLensThermocoupleXYZ",
  "sourcePath:'derived:'+k"]) {
  if(token==="sourcePath:'derived:'+k")continue;
