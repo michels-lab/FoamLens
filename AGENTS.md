@@ -7,6 +7,8 @@ Every desktop application must display a clearly labeled, usable **About** actio
 
 FoamLens is a scientific OpenFOAM analysis product with a Web frontend and a Windows C#/.NET 8/WinForms/WebView2 desktop host. Before editing, read `.michelslab/project.yml`, `MICHELS_LAB_PROJECT.md`, `docs/GIT_AUDIT_LOG.md`, `docs/INFRASTRUCTURE_AUDIT.md`, and the tests/workflows that own the affected behavior.
 
+Current 2026-10-19 **canonical owner-requested backlog** in `docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md` also covers Field multi-region/dimensions, Time Series, CAD/STEP/STL/OpenFOAM triSurface, mesh inspection, conservation, thermocouple mapping, solidification fronts, 2D/3D comparisons, case health and Phase Change/Momentum (#145–#156). Read the roadmap before implementing or claiming completion; unmerged WIP branches are NOT released features.
+
 Shared Michel's Lab rules live in `michels-lab/Michel-Software-Standards`.
 
 ## Product constraints

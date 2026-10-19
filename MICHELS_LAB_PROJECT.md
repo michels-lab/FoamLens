@@ -24,6 +24,12 @@ This repository is monitored by the master standards repository. Changes that af
 - reusable CI/release practices;
 - cross-app gaps or decisions.
 
+## Active FoamLENS product backlog — 2026-10-19
+
+- **Canonical work source in main:** `docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md`. Include all documented pending areas: independent Field view regions/dimensions (#145), Time Series variable catalog and measured histories (#146), viewport layout/DPI (#149), CAD viewer/conversion STEP/IGES/STL/OBJ/BREP (#147), OpenFOAM triSurface/meshing prep (#148), and scientific analysis checkMesh, energy, thermocouple mapping, front evolution, 2D/3D, health, phase-change/momentum (#150–#156). Measured #117 and owner acceptance #131 remain open.
+- The **published v1.8.10** is not evidence that newly proposed work is implemented. Implementation must audit existing code to avoid duplicate modules, use generic source-driven OpenFOAM rules (QuickCup only for test fixtures) and verify real Windows Setup/Portable, scientific output and release SHA-256.
+- Keep `docs/GIT_AUDIT_LOG.md` and the plan current with actual commits, remaining blockers and exact acceptance evidence; no unauthorized release.
+
 ## Secret boundary
 
 Only secret **names and storage locations** may be documented. Passwords, tokens, signing passwords, private keys, database passwords, refresh tokens and privileged service credentials must never be committed.

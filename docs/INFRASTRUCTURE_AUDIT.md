@@ -4,6 +4,12 @@ Last reviewed: **2026-10-06**
 
 This file records FoamLens infrastructure decisions separately from scientific feature work.
 
+## Planned CAD/STEP/IGES/STL native geometry worker — 2026-10-19 (not implemented)
+
+- Product plan: [`DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md`](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md), issues #147 and #148. Native geometry kernel **candidate** Open CASCADE/OCCT, not yet installed/redistributed; perform platform binary + LGPL exception analysis first. Gmsh/DXF, WSL and possible mesh generation are future optional dependencies with distinct license/version gates, never cloud requirements.
+- Preserve original source STEP/IGES and CAD units; STL triangulates *surfaces*, has no reliable built-in physical unit and is not an OpenFOAM volume mesh. Confirm exact Foundation or OpenFOAM.com edition before writing `constant/geometry` vs `constant/triSurface` and dictionary templates. Export separate named regions and provenance for metal/mold only if genuinely present in the imported source.
+- Continue local-only work, no automatic solver execution in GitHub Actions, no case mutation without explicit user action. Implement as independently cancellable .NET/WebView2 native worker with progress and caps only after validation. This audit records planned architecture, **not shipped capability**.
+
 ## Current architecture
 - Primary data model: **local-first** OpenFOAM case analysis.
 - User simulation/case data are not uploaded to a cloud backend by the application.

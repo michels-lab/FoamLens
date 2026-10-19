@@ -1,5 +1,7 @@
 # FoamLENS — Closure blocks (2026-10-11)
 
+**Historical snapshot:** for the consolidated active 2026-10-19 backlog, see [`DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md`](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md). This covers both the recent Field A–D/CAD/STEP/STL/Time Series issues #145–#149 and earlier scientific work #150–#156 (mesh checkMesh, multiregion energy, thermocouples, 3D front, 2D/3D comparison, case health, Phase Change/Momentum). #117/#131 still open. Experimental code is NOT merged; v1.8.10 remains latest known published baseline.
+
 This is the executable acceptance plan for the work that remains after main `a3540fe` (PR #58). Status is **evidence-based**, not an overall product-completion percentage. The desktop UI must preserve the approved visual design. Release publication is not authorized by this document.
 
 | Block | Scope | Hard exit criteria | Evidence |
