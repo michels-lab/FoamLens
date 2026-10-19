@@ -138,10 +138,16 @@ function eoCatalogItems(){
   return usable
 }
 function eoRefresh(){
-  eoCatalog=eoCatalogItems();
   const a=eoSelect('eoSource2d'),b=eoSelect('eoSource3d');
   if(!a||!b)return;
-  const old=[a.value,b.value],labels=eoCatalog.map((x,i)=>{
+  const previousCatalog=eoCatalog,selected=[a,b].map(el=>el.value===''?null:previousCatalog[Number(el.value)]?.s||null);
+  eoCatalog=eoCatalogItems();
+  // A refreshed source list must never silently rebind an old selector index
+  // to a different physical dataset after imports/retries.
+  eoLast=null;eoSelect('eoReport').textContent='';
+  eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;
+  const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
+  const labels=eoCatalog.map((x,i)=>{
     const d=eoDescriptor({...x.s,datasetType:'timeseries'});
     const name=(caseById(Number(d.caseId))?.name||d.caseName||('Case '+d.caseId));
     return '<option value="'+i+'">'+eoEsc(name+' · '+(d.field||'measured output')+
@@ -149,7 +155,14 @@ function eoRefresh(){
   });
   a.innerHTML='<option value="">Select measured 2D-case observable</option>'+labels.join('');
   b.innerHTML='<option value="">Select measured 3D-case observable</option>'+labels.join('');
-  [a,b].forEach((el,i)=>{if(old[i]!==''&&eoCatalog[Number(old[i])])el.value=old[i]});
+  [a,b].forEach((el,i)=>{
+    const original=selected[i];if(!original)return;
+    const match=eoCatalog.findIndex(x=>x.s===original||
+      (original.id!=null&&x.s.id===original.id&&
+       Number(x.s.caseId)===Number(original.caseId)&&
+       String(x.s.sourcePath||x.s.fileName||'')===String(original.sourcePath||original.fileName||'')));
+    if(match>=0)el.value=String(match)
+  });
   const status=eoSelect('eoStatus');
   if(status)status.textContent=eoUi('Eligible measured time series: ','Series temporales medidas elegibles: ')+eoCatalog.length+
     eoUi('. Cases must differ; 2D/3D and equivalent position are explicitly supplied by you.','. Los casos deben diferir; tú designas 2D/3D y posición equivalente.');
