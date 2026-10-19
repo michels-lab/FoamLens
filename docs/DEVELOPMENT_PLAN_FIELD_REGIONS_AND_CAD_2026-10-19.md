@@ -7,6 +7,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 
 **Referencia pública verificada:** FoamLENS Desktop v1.8.10. **Este registro NO implica que las funciones estén programadas, probadas o publicadas.** La rama de experimentación `feat/field-per-view-regions-dimensions-20261019` contiene código F1 todavía **sin verificar y no fusionado**. Este documento es una incorporación **solo de documentación a `main`**.
 
+### Current implementation batch: scientific checkMesh audit (candidate PR, #150)
+
+- **Implemented in feature branch:** a separately displayed Data panel imports user-selected existing `checkMesh` text reports, transcribes source-backed mesh topology and quality metrics, preserves unreported quantities as absent and exports a local evidence JSON.
+- **Limitations:** it is a log/report analyzer, not the final `polyMesh` scanner; cannot claim numerical mesh integrity independently of OpenFOAM's output. Per-region reports are kept separate and no global aggregate is fabricated.
+- **Acceptance:** parser and fast workflow, Windows Setup/Portable scientific regression, rendering the Data pane and exercising import/export; only after tests may this be considered ready for release. Explicitly preserve future native cell/patch overlays, interoperability with CAD & Geometry and edition-specific `checkMesh` execution as open work.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
