@@ -582,6 +582,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/surface-boundary.test.cjs
 
+      - name: Test independent Field views, drag positioning and zoom
+        shell: pwsh
+        run: node desktop/tests/field-multiview-ux.test.cjs
+
       - name: Test strict 3D difference field comparison
         shell: pwsh
         run: node desktop/tests/field-compare.test.cjs

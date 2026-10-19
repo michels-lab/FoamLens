@@ -1,5 +1,13 @@
 # Changelog
 
+## Desktop v1.8.10 — 2026-10-19 · Field multi-view and responsive toolbar
+
+- Reveal a permanent **+ Add view** control in 3D Field Workspace; display up to four panels from the same imported OpenFOAM case or different imported cases without introducing fake values.
+- Expose case, region, property and component selection individually in each pane instead of hiding comparison settings in the inspector.
+- Drag a view's heading to rearrange WebGL panes while retaining its scientific state; zoom each pane with +/− buttons, independently by default, with optional linked cameras.
+- Prevent Ribbon Compare/Camera/Cache/playback overlap on compact desktops by wrapping groups and measuring actual chrome height.
+- Scientific, Field quick and exact Windows Setup/Portable candidate checks passed on PR #144 before the release version bump. This release has its own final version/build/checksum gates.
+
 ## Desktop v1.8.9 — 2026-10-18
 
 - **Windows installer consent correction:** show the shipped bilingual taskbar-pinning guide on the final Setup page as an explicitly **unchecked** optional action. The installation never pins anything automatically; the user may choose whether to read the instructions.
