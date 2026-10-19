@@ -50,6 +50,16 @@ This file is the durable project bitácora. After any meaningful Git operation�
 - Required remaining acceptance at candidate creation: the exact version-bumped PR SHA must pass quick Field/camera, QuickCup/VTK and complete Windows installed + portable smoke. Merge squash commit must start with `release:`; only the resulting `main` workflow may publish new v1.8.10 Setup/Portable and validate public SHA-256 redownload.
 - Benchmarks on owner's original 3,008-file case (#117) and owner-specific visual review (#131) remain distinct and cannot be claimed as completed by fixture testing.
 
+## 2026-10-19 — Desktop v1.8.10 public release completed, installed and SHA-256 verified
+
+- Owner explicitly required **merging and actually publishing** all screenshot-driven Field fixes. PR [#144](https://github.com/michels-lab/FoamLens/pull/144) was merged by squash as release-triggering `main` commit `768413b1f5ba7c6c77be0ddad98fbd741d210f48`. Prior branch candidate `b35b0a4f726dbcd5035020d2d4d7836f5459a3e4` passed all six matching workflows, including native scientific cache, Data comparison, quick Field playback and full Windows Setup/Portable tests.
+- **Release verified live:** https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10 — published 2026-10-19 12:33:26 UTC, draft=false, prerelease=false.
+- [Exact published-main build](https://github.com/michels-lab/FoamLens/actions/runs/39251777721): QuickCup/VTK **success**; full Windows build and real installer/portable scientific/visual acceptance **success**; `Publish after automated candidate validation` **success**, including the public Setup/Portable redownload checksum verification step.
+- Published assets: `FoamLens-Portable-v1.8.10.exe` (73,876,105 bytes), `FoamLens-Setup-v1.8.10.exe` (68,526,622 bytes), plus independent `.sha256` files for both.
+- User-visible fixes: permanent **+ Add view** and **Import case** on the 3D card, independently selectable imported case/region/field/component per A–D view; same-case comparisons; pan/drag reorder viewport headings; per-view +/− zoom with optional linked cameras; Field Ribbon wrapping without Cache/Compare/Camera/physical-time overlap.
+- The earlier single-row Ribbon smoke restriction was removed **only** in favor of stronger real WebView2 checks of bounding-box non-overlap, no clipping, visible Add/Import and per-view controls. Physical mesh aspect ratio, scientific sample values and playback clocks remain source-backed.
+- Outstanding unrelated owner-specific proof: run a measured cold/warm benchmark on the original 3,008-file case (#117), and verify original desktop screenshots/on-device review (#131). Neither blocks the now-published v1.8.10 and neither is falsely marked done.
+
 ## Current repository state
 
 | Item | State |
