@@ -54,7 +54,7 @@ assert.deepStrictEqual(truncated.times,[1,3]);
 assert.strictEqual(unit('watts').canonical,'watts');
 assert.strictEqual(unit(''),null);
 for(const token of [
- 'id="eoPanel"','id="eoSource2d"','id="eoSource3d"','id="eoMapping"',
+ "el.id='eoPanel'",'id="eoSource2d"','id="eoSource3d"','id="eoMapping"',
  'id="eoConfirm"','id="eoExportJson"','id="eoExportCsv"','noCaseMutation:true',
  'noFieldSubtraction:true','noExtrapolation:true','window.FoamLensEquivalentObservables',
  'document.getElementById(\'paTools\')'
