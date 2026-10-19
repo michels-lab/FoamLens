@@ -147,9 +147,14 @@ function cgRenderInventory(){
       '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':'Open, inconsistent or degenerate surface')+
       ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
       '<div>Volume estimate: '+(sum.enclosedVolumeEstimate===null?'unavailable':fmt(sum.enclosedVolumeEstimate)+' ['+cgEscape(unit)+'³]')+'</div>'+
+      '<div class="cgParts">Visible named parts: '+sum.parts.map(p=>'<label style="margin:4px 12px 4px 0;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" data-cg-part="'+i+'|'+cgEscape(p.name)+'" '+(m.partsVisible.get(p.name)?'checked':'')+'> '+cgEscape(p.name)+' ('+p.count+')</label>').join('')+'</div>'+
       (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
   }).join('');
   el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgDraw()}));
+  el.querySelectorAll('[data-cg-part]').forEach(ch=>ch.addEventListener('change',()=>{
+    const key=ch.dataset.cgPart,sep=key.indexOf('|'),i=Number(key.slice(0,sep)),part=key.slice(sep+1),m=cgModels[i];
+    if(m)m.partsVisible.set(part,ch.checked);cgDraw()
+  }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
     m.unit=sel.value;cgRenderInventory()
@@ -183,8 +188,13 @@ async function cgImport(){
       const result=ext==='stl'?cgParseStl(await f.arrayBuffer(),f.name):ext==='obj'?cgParseObj(await f.text(),f.name):null;
       if(!result)throw new Error('Supported in this preview: STL and OBJ');
       if(cgModels.reduce((n,m)=>n+m.triangles.length,0)+result.triangles.length>300000)throw new Error('Combined imported geometry exceeds 300,000-triangle interactive preview limit');
-      const sum=cgSummary(result.triangles);
-      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,warnings:result.warnings||[],unit:'unknown',visible:true});
+      const sum=cgSummary(result.triangles),byPart=new Map();
+      for(const tri of result.triangles){if(!byPart.has(tri.part))byPart.set(tri.part,[]);byPart.get(tri.part).push(tri)}
+      if(byPart.size>1000)throw new Error('Geometry exceeds named-part safety limit (1000)');
+      const partSummaries=new Map([...byPart].map(([name,subset])=>[name,cgSummary(subset)])),
+        partsVisible=new Map([...byPart.keys()].map(name=>[name,true]));
+      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,
+        partSummaries,partsVisible,warnings:result.warnings||[],unit:'unknown',visible:true});
       added++;
     }catch(e){errors.push(f.name+': '+String(e?.message||e))}
     // Relinquish the UI turn during large batches.
@@ -214,10 +224,14 @@ function cgDraw(){
   if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=w*dpr;canvas.height=h*dpr}
   const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   ctx.fillStyle='#101b2c';ctx.fillRect(0,0,w,h);
-  const active=cgModels.filter(m=>m.visible),total=active.reduce((n,m)=>n+m.triangles.length,0);
+  const active=cgModels.filter(m=>m.visible),
+    total=active.reduce((n,m)=>n+[...m.partsVisible].reduce((k,[part,visible])=>k+(visible?(m.partSummaries.get(part)?.triangles||0):0),0),0);
   if(!total){ctx.fillStyle='#bdcbdc';ctx.font='15px sans-serif';ctx.fillText('Import STL/OBJ to inspect surface geometry',20,34);return}
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
-  for(const m of active)for(let i=0;i<3;i++){min[i]=Math.min(min[i],m.summary.bounds.min[i]);max[i]=Math.max(max[i],m.summary.bounds.max[i])}
+  for(const m of active)for(const [part,visible] of m.partsVisible){
+    if(!visible)continue;const b=m.partSummaries.get(part)?.bounds;if(!b)continue;
+    for(let i=0;i<3;i++){min[i]=Math.min(min[i],b.min[i]);max[i]=Math.max(max[i],b.max[i])}
+  }
   const bounds={min,max,size:max.map((v,i)=>v-min[i])},mid=min.map((x,i)=>(x+max[i])/2);
   const size=Math.max(...bounds.size,1e-12),scale=Math.min(w*.76,h*.76)/size*cgZoom;
   const rotate=v=>{
@@ -229,6 +243,7 @@ function cgDraw(){
   const step=Math.max(1,Math.ceil(total/2800)),polys=[];
   let ordinal=0;
   for(const model of active)for(const tri of model.triangles){
+    if(!model.partsVisible.get(tri.part))continue;
     if((ordinal++%step)!==0)continue;
     const p=tri.vertices.map(rotate);
     polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3})
@@ -237,7 +252,7 @@ function cgDraw(){
   for(const {p} of polys){ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();ctx.fillStyle='rgba(65,170,205,.27)';ctx.fill();ctx.strokeStyle='rgba(121,209,243,.44)';ctx.lineWidth=.6;ctx.stroke()}
   ctx.font='12px sans-serif';ctx.fillStyle='#d6e7f1';
   const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  (unverified source units)',16,24);
-  ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · not an OpenFOAM volume mesh',16,h-15)
+  ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · selected visible parts only · not an OpenFOAM volume mesh',16,h-15)
 }
 function cgInstall(){
   if(document.getElementById('cgShell'))return;
