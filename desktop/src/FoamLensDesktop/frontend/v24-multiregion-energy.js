@@ -43,7 +43,7 @@ function mecSource(s,expected,region,caseId){
   const pairs=mecPhysicalPairs(s);if(pairs.length<2)return{ok:false,reason:'fewer than two finite physical-time source samples'};
   return{ok:true,series:s,pairs:pairs.map(([t,v])=>[t,v*u.factor]),dimensionEvidence:dims,
     provenance:{caseId:Number(caseId),region,sourcePath:s.sourcePath,field:String(s.field||''),
-      unit:s.unit,dimensions:String(s.dimensions||''),samples:pairs.length}}
+      unit:s.unit,dimensions:String(s.dimensions||''),column:String(s.column||''),samples:pairs.length}}
 }
 function mecSample(pairs,t){
   if(!pairs.length||t<pairs[0][0]||t>pairs.at(-1)[0])return null;
@@ -103,7 +103,13 @@ function mecEvaluate(input={}){
     byRegion.push(row)
   }
   const unique=new Set(sources.map(s=>s.series));
-  if(unique.size!==sources.length)return blocked('One measurement was assigned to multiple physical energy terms; potential double counting.');
+  // A source can be materialized as separate objects after reimport. De-duplicate
+  // by actual case/region/path/field/column, not only JavaScript object identity.
+  const evidenceKeys=sources.map(({provenance:d})=>[
+    d.caseId,d.region,d.sourcePath,d.field,d.column
+  ].join('|'));
+  if(unique.size!==sources.length||new Set(evidenceKeys).size!==evidenceKeys.length)
+    return blocked('One measured source column was assigned to multiple energy terms; potential double counting.');
   const attest=input.attestations||{};
   const missing=[
     ...(!attest.interfaceSameSurfaceAndNormals?['interface geometry/normal orientation']:[]),
@@ -182,7 +188,7 @@ function mecSeriesIndex(){
     const d=eaDescriptor(s),unit=String(s.field?.unit||'').trim();
     return{source:s,caseId:Number(s.caseId),region:d.region||'',
       field:d.fieldName,sourcePath:d.sourcePath,unit,dimensions:String(s.field?.dimensions||''),
-      derived:s.derived===true,t:s.t,y:s.y,kind:mecUnit(unit)?.dimension||null}
+      derived:s.derived===true,column:String(d.column||''),t:s.t,y:s.y,kind:mecUnit(unit)?.dimension||null}
   }).filter(s=>s.region&&s.sourcePath&&!s.derived&&s.kind&&mecPhysicalPairs(s).length>=2)
 }
 function mecOptions(rows,kind){
