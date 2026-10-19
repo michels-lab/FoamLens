@@ -104,7 +104,7 @@ function peAssemble(config,descriptor,samples,stats){
     ],
     interpretation:{status:'not-provided',userText:'',noAutomaticPhysicsInference:true},
     noExtrapolation:true,noCaseMutation:true,sourceBacked:true,
-    completion:excluded.length?'partial-evidence':'sourced-evidence'
+    completion:excluded.length||rows.some(r=>r.issues.length)?'partial-evidence':'sourced-evidence'
   }
 }
 /* FOAMLENS_PHYSICS_EXPLORER_CORE_END */
@@ -166,6 +166,7 @@ async function peRead(c,descriptor,alpha,config,time){
   if(config.subset==='whole'){
     const aligned=pmAlignedComponents(fieldSet,config.component);
     issues.push(...aligned.issues);
+    if(issues.length)return{time,ok:false,reason:'Incomplete or unaligned original partitions: '+issues.join('; ')};
     for(const chunk of aligned.chunks)records.push(...chunk.a);
     if(!aligned.chunks.length)return{time,ok:false,reason:issues.join('; ')||'no aligned source'};
     const known=aligned.chunks.every(x=>x.countKnown!==false);
@@ -179,7 +180,10 @@ async function peRead(c,descriptor,alpha,config,time){
   if(!phaseSet?.length)return{time,ok:false,reason:'phase subset source missing'};
   const aligned=pmAlignedComponents(fieldSet,config.component,phaseSet,'value');
   issues.push(...aligned.issues);
-  if(!aligned.chunks.length)return{time,ok:false,reason:issues.join('; ')||'no cell-aligned source'};
+  if(issues.length)return{time,ok:false,reason:'Incomplete or unaligned source/phase partitions: '+issues.join('; ')};
+  if(!aligned.chunks.length)return{time,ok:false,reason:'no cell-aligned source'};
+  if(aligned.chunks.some(chunk=>chunk.b.some(v=>!Number.isFinite(peFinite(v))||peFinite(v)<0||peFinite(v)>1)))
+    return{time,ok:false,reason:'Source liquid fractions outside [0, 1] or non-finite; phase membership cannot be inferred'};
   let total=0;
   for(const chunk of aligned.chunks){
     const selection=pmFilterByPhase(chunk.a,chunk.b,config.subset,config.low,config.high);
@@ -219,7 +223,8 @@ async function peRun(){
       low:peEl('peLow').value,high:peEl('peHigh').value};
   const checked=peValidate(cfg,d,alpha);
   if(!checked.ok){peEl('peStatus').textContent=checked.reason;return}
-  const allTimes=d.times.slice(),limit=600;
+  const initialInventory=c.volumeFieldInventory,initialModel=c.discoveryModel,
+    allTimes=d.times.slice(),limit=600;
   if(allTimes.length>limit){peEl('peStatus').textContent='Over 600 source times. Narrow the case/source before plotting; no hidden truncation.';return}
   const samples=[];
   for(let i=0;i<allTimes.length;i++){
@@ -229,6 +234,10 @@ async function peRun(){
     if(i%8===0&&typeof scannerYield==='function')await scannerYield();
   }
   if(token!==peRequest)return;
+  if(peSelectedCase()!==c||c.volumeFieldInventory!==initialInventory||
+     c.discoveryModel!==initialModel){
+    peInvalidate('Case or source inventory changed during analysis. Run again to avoid stale evidence.');return
+  }
   const report=peAssemble(cfg,d,samples,pmStats);
   if(!report.ok){peEl('peStatus').textContent=report.reason;return}
   peLast=report;peBound={case:c,inventory:c.volumeFieldInventory,model:c.discoveryModel,
