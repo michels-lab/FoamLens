@@ -4,6 +4,13 @@ Last reviewed: **2026-10-06**
 
 This file records FoamLens infrastructure decisions separately from scientific feature work.
 
+## Planned Developer-only application variant and audit infrastructure — 2026-10-19
+
+- `FoamLensDeveloper.exe` compiled by `FoamLensDeveloper=true` from same .NET/WebView2 source, developer-only embedded JS resource and distinct local profile/caches and Setup AppId. The regular product is not a mode toggle.
+- No Developer binary attached to public GitHub Releases or Microsoft Store. CI may compile/test the private variant but must not upload it by default; authenticated private channels remain a separate distribution decision.
+- Audit evidence consists of locally observed incidents and bounded checks; sanitized prompt and JSON exported only by user click. Best-effort secret/path redaction is not a substitute for manual review. See `docs/FOAMLENS_DEVELOPER_EDITION_2026-10-19.md` / #158.
+- Developer software errors and scientific OpenFOAM `checkMesh` integrity (#150) are different domains and separate evidence.
+
 ## Planned CAD/STEP/IGES/STL native geometry worker — 2026-10-19 (not implemented)
 
 - Product plan: [`DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md`](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md), issues #147 and #148. Native geometry kernel **candidate** Open CASCADE/OCCT, not yet installed/redistributed; perform platform binary + LGPL exception analysis first. Gmsh/DXF, WSL and possible mesh generation are future optional dependencies with distinct license/version gates, never cloud requirements.
