@@ -18,7 +18,7 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 
 ### F3/F4 partial STL/OBJ surface inspector candidate — #147 / #148 (NOT released)
 
-- Candidate branch `feat/cad-stl-obj-inspector-20261019`: dedicated local CAD & Geometry dialog, ASCII/binary STL and OBJ named-part import, projected orbit/zoom preview, real unscaled source-coordinate bounds, triangle/surface diagnostics, and per-part ASCII STL export to meters **only after explicit source-unit selection** with a source manifest.
+- Candidate branch `feat/cad-stl-obj-inspector-20261019`: dedicated local CAD & Geometry dialog, ASCII/binary STL and OBJ named-part import, projected orbit/zoom preview with independent named-part visibility and cross-file metric positioning only after per-source unit confirmation, real source-coordinate bounds, triangle/surface diagnostics, and per-part ASCII STL export to meters **only after explicit source-unit selection** with a source manifest.
 - Source filenames/components are retained; no assumed metal/mold identity. Uses 32 MiB/file, 200,000 triangles/file, 300,000 triangles in combined interactive preview, and no automatic remote uploads.
 - It is a **surface parser and viewer**, not native OCCT STEP/IGES/BREP conversion or mesh generation. Shell self-intersection, true CAD assembly, CAD native unit metadata, geometrical exactness, native worker cancellation and CPU/GPU stress are not certified.
 - No automatic case output into `constant/geometry` or `constant/triSurface` until the user's actual OpenFOAM edition/version is verified. No solver, mesher or `surfaceCheck` execution. Remaining F3/F4/F5 tickets stay open.
