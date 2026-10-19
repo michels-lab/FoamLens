@@ -17,7 +17,7 @@ for(const token of ['function fvCellFaces(','function fvMeshFacePoints(','functi
   assert(field.includes(token),'Existing real polyMesh/field source parser required '+token);
 assert(solid.includes('function saAnalyzePhaseSignal('),'Existing phase time-signal analysis must remain independent');
 for(const token of ["el.id='pfPanel'","id=\"pfCase\"","id=\"pfRegion\"","id=\"pfAlpha\"",
-  "id=\"pfIso\"","id=\"pfAxis\"","id=\"pfExport\"","id=\"pfExportCsv\"",
+  "id=\"pfIso\"","id=\"pfAxis\"","id=\"pfConfirmAlpha\"","id=\"pfExport\"","id=\"pfExportCsv\"",
   "id=\"pfPlot\"","function pfRun()","function pfExport(","sourceFrames",
   "pfGeomCache","geometryGuarantee","fvLoadFrameData(c,g,region,t,'value'","pfSnapshot(",
   "window.FoamLensSolidificationFrontProxy","automaticRecalescence:false"])
