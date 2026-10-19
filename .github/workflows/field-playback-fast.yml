@@ -12,6 +12,7 @@ on:
       - 'desktop/tests/ribbon-ui.test.cjs'
       - 'desktop/tests/field-multiview-ux.test.cjs'
       - 'desktop/tests/field-multiregion-views.test.cjs'
+      - 'desktop/tests/field-compare.test.cjs'
       - 'desktop/tests/field-3d-navigation-cache.test.cjs'
       - '.github/workflows/field-playback-fast.yml'
   push:
@@ -26,6 +27,7 @@ on:
       - 'desktop/tests/ribbon-ui.test.cjs'
       - 'desktop/tests/field-multiview-ux.test.cjs'
       - 'desktop/tests/field-multiregion-views.test.cjs'
+      - 'desktop/tests/field-compare.test.cjs'
       - 'desktop/tests/field-3d-navigation-cache.test.cjs'
   workflow_dispatch:
 permissions:
@@ -45,6 +47,8 @@ jobs:
         run: node desktop/tests/ribbon-ui.test.cjs
       - name: Field multi-view zoom, movable panels and responsive Ribbon
         run: node desktop/tests/field-multiview-ux.test.cjs
+      - name: Strict 3D comparator stale-frame and independent region regression
+        run: node desktop/tests/field-compare.test.cjs
       - name: Independent real OpenFOAM regions, measured layers and XYZ axes
         run: node desktop/tests/field-multiregion-views.test.cjs
       - name: Confirm seven distinct Field navigation controls
