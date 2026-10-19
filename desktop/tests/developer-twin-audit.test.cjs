@@ -56,4 +56,55 @@ assert(audit.prompt().includes('No solver execution')||audit.prompt().includes('
 for(let i=0;i<275;i++)audit.event('synthetic-test','incident '+i,'warning','test');
 assert(audit.snapshot().observedErrors.length<=200,'Audit must cap captured incident history');
 assert(!script.includes('case.data')&&!script.includes('file.contents'));
+
+// Persistent user-authored pinpoint annotations survive app reload in the
+// isolated Developer profile. The AI export must preserve both DOM location
+// and the full typed comment, without exposing original local user paths.
+const memoryStore=new Map();
+const storage={getItem:k=>memoryStore.get(k)||null,setItem:(k,v)=>memoryStore.set(k,v)};
+const boot=()=>{
+  const win={localStorage:storage,addEventListener:()=>{}};
+  const doc={readyState:'loading',addEventListener:()=>{},querySelector:()=>null};
+  vm.runInNewContext(script,{
+    window:win,document:doc,location:{pathname:'/index.html'},
+    navigator:{userAgent:'CI Developer regression'},innerWidth:1340,
+    innerHeight:900,devicePixelRatio:1,
+    performance:{getEntriesByType:()=>[]},URL,Date,RegExp,Object,Array,String,
+    Set,Map,Math,Number,JSON,console
+  },{timeout:2000});
+  return win.__foamLensDeveloperAudit
+};
+const author=boot();
+const target={
+  nodeType:1,id:'fcExtra3Viewport',tagName:'DIV',parentElement:null,
+  getAttribute:k=>k==='id'?'fcExtra3Viewport':null,
+  closest(){return this},
+  querySelector:()=>null,
+  getBoundingClientRect:()=>({x:36,y:152,width:635,height:504})
+};
+const locationInfo=author.targetFromElement(target);
+assert.strictEqual(locationInfo.section,'fcExtra3Viewport');
+assert(locationInfo.selector.includes('fcExtra3Viewport'),'Precise panel selector must be recorded');
+const message='View C mold must be visible beside the metal; the X dimensions are missing. This comment must survive restart.';
+const note=author.saveAnnotation(locationInfo,message);
+assert(note.id&&note.createdAt);
+assert.strictEqual(author.snapshot().sectionAnnotations.length,1);
+const reloaded=boot();
+const restored=reloaded.snapshot().sectionAnnotations;
+assert.strictEqual(restored.length,1,'Developer notes must persist across WebView2 navigation/restarts');
+assert.strictEqual(restored[0].comment,message);
+assert.strictEqual(restored[0].section,'fcExtra3Viewport');
+assert.strictEqual(restored[0].selector,locationInfo.selector);
+assert(reloaded.prompt().includes(message),'AI prompt must include developer-authored comment');
+assert(reloaded.prompt().includes('DOM target selector'),'AI prompt must include exact section location');
+const longer='The Field A/B region selector is inconsistent: '+('x'.repeat(1700));
+reloaded.saveAnnotation(locationInfo,longer,note.id);
+assert.strictEqual(reloaded.annotationsSnapshot().length,1,'Editing must update existing annotation');
+assert.strictEqual(reloaded.snapshot().sectionAnnotations[0].comment.length,1700+('The Field A/B region selector is inconsistent: '.length));
+const secrets=reloaded.saveAnnotation(locationInfo,'Do not share C:\\Users\\SensitiveOwner\\private\\case with token=verysecret');
+assert(!reloaded.prompt().includes('SensitiveOwner'),'Prompt must redact local paths in explicit comments');
+assert(!reloaded.prompt().includes('verysecret'),'Prompt must redact obvious token assignments in comments');
+assert(reloaded.removeAnnotation(secrets.id),'Developer must be able to delete a note');
+assert.strictEqual(boot().snapshot().sectionAnnotations.length,1,'Deletion must persist across restarts');
+
 console.log('FoamLens Developer twin regression PASS: separate binary/profile, private build, audit privacy and bounded AI prompt export.');
