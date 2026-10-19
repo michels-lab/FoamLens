@@ -2972,6 +2972,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     private async Task CheckForUpdatesAsync(bool userInitiated)
     {
+        if (DeveloperEdition)
+        {
+            if (userInitiated)
+                MessageBox.Show(this,
+                    "FoamLens Developer is updated only by rebuilding the private developer edition.",
+                    "FoamLens Developer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         if (Interlocked.Exchange(ref _updateCheckInProgress, 1) != 0)
         {
             if (userInitiated)
@@ -3171,6 +3179,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     HandleCancelOperation(root, requestId);
                     break;
                 case "checkForUpdates":
+                    if (DeveloperEdition)
+                    {
+                        MessageBox.Show(this, "Developer builds are updated only by private recompilation.",
+                            "FoamLens Developer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        break;
+                    }
                     if (StoreDistributionChannel)
                     {
                         MessageBox.Show(this,
