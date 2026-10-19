@@ -366,7 +366,7 @@ function tcInstall(){
     'tcTimeColumn','tcTempColumn','tcExperimentalUnit','tcTimeShift']){
     const el=tcEl(id);el.addEventListener(el.tagName==='INPUT'?'input':'change',()=>tcInvalidate('Inputs changed; verify again before exporting.'))
   }
-  tcEl('tcFile').addEventListener('change',()=>{tcRows=null;tcInvalidate('New experiment file chosen; import it before comparing.')});
+  tcEl('tcFile').addEventListener('change',()=>{tcSequence++;tcRows=null;tcInvalidate('New experiment file chosen; import it before comparing.')});
   box.addEventListener('toggle',()=>{if(box.open)tcRefreshSources()});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(box)}catch{}
   tcRefreshSources()
