@@ -30,6 +30,6 @@ jobs:
       - name: Existing energy audit (unchanged)
         run: node desktop/tests/energy-audit.test.cjs
       - name: Independent multiregion energy balance regression
-        run: node desktop/tests/multiregion-energy-conservation.test.cjs
+        run: node desktop/tests/multiregion-energy-conservation.spec.cjs
       - name: Scientific frontend and source loader contract
         run: node desktop/tests/multiregion-energy-loader.spec.cjs
