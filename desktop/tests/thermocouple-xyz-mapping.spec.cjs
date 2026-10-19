@@ -27,7 +27,7 @@ const history=(probeId,xyz,t=[0,1,2],y=[300,310,320],more={})=>{
 const sim=history('a',point),exp={fileName:'sensor.csv',unit:'K',timeColumn:'time_s',temperatureColumn:'T',
   t:[0,1,2],y:[299,309,319]};
 const config={caseId:31,region:'metal',targetXYZ:[200,300,400],coordinateUnit:'mm',
- location:mapped,maxOffsetM:1e-8,timeShiftS:0,sensitivityRadiusM:.1};
+ location:mapped,probeLocation:mapped,maxOffsetM:1e-8,timeShiftS:0,sensitivityRadiusM:.1};
 const good=api.compare(sim,exp,config);assert(good.valid,good.reason);
 near(good.metrics.rmse,1);near(good.metrics.mae,1);near(good.metrics.bias,1);
 near(good.metrics.maxAbs,1);assert.equal(good.metrics.n,3);
@@ -58,7 +58,9 @@ assert.equal(unmatched.status,'unavailable');assert.equal(unmatched.results.leng
 const wrongCase=history('b',[.23,.3,.4],[0,1,2],[301,311,321],{caseId:98});
 assert.equal(api.sensitivity(sim,[sim,wrongCase],exp,{...config,locateAlternative:()=>mapped}).results.length,0);
 const badCases=[
- ['cell verification',{...config,location:{status:'unverified',verified:false}}],['wrong region',{...config,region:'mold'}],
+ ['cell verification',{...config,location:{status:'unverified',verified:false}}],
+ ['unverified original probe',{...config,probeLocation:{status:'unverified',verified:false}}],
+ ['mismatched mapping XYZ',{...config,location:{...mapped,pointM:[.5,.5,.5]}}],['wrong region',{...config,region:'mold'}],
  ['wrong case',{...config,caseId:42}],['wrong units',{...config,coordinateUnit:''}],
  ['invalid XYZ',{...config,targetXYZ:[200,'',400]}],
  ['exceeded offset',{...config,targetXYZ:[700,300,400]}],
