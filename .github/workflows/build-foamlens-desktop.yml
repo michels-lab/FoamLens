@@ -602,6 +602,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs
 
+      - name: Test source-backed Mesh & Geometry checkMesh evidence auditor
+        shell: pwsh
+        run: node desktop/tests/mesh-quality-audit.test.cjs
+
       - name: Test formal convergence audit
         shell: pwsh
         run: node desktop/tests/coupling-audit.test.cjs
