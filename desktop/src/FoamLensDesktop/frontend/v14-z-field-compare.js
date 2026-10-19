@@ -271,6 +271,18 @@ function fcAddViewportToolbar(viewport,view){
       }
     })
   }
+  if(mapping&&view!=='A'){
+    const scene=viewport.querySelector('.fcViewportScene');
+    if(scene){
+      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.classList.add('fcMetricAxes');svg.setAttribute('role','img');
+      svg.setAttribute('aria-label',fcUi('Physical OpenFOAM mesh dimensions','Dimensiones físicas de malla OpenFOAM'));
+      const dims=document.createElement('div');dims.className='fcMetricBounds';dims.setAttribute('aria-live','polite');
+      scene.append(svg,dims)
+    }
+    const caption=viewport.querySelector('.fcViewportCaption');
+    if(caption){const legends=document.createElement('div');legends.className='fcPhysicalLegends';caption.appendChild(legends)}
+  }
   viewport.insertBefore(bar,viewport.firstChild);
   bar.querySelectorAll('[data-fc-bind]').forEach(mirror=>mirror.addEventListener('change',()=>{
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
@@ -473,6 +485,8 @@ function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
   const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
   const scene=fcPhysicalFor(state);
+  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity])]);
+  if(dock.dataset.fcCaptionKey===key)return;dock.dataset.fcCaptionKey=key;
   dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
     const layer=scene.layers.get(region),error=scene.errors.get(region);
     return '<div class="fcPhysicalLegend"><b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b> '+
@@ -524,6 +538,7 @@ function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===S
 function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
+  fcPhysicalRelease(fcState);
   const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
@@ -559,12 +574,16 @@ function fcRender(exportSize=null){
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
-  if(showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
-  if(showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
-  if(showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
-  if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
+  const showPrimary=fcPhysicalFor(fcState).choices.get(fcState.region)?.visible!==false;
+  if(showPrimary&&showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
+  if(showPrimary&&showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
+  if(showPrimary&&showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
+  if(showPrimary&&showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(visual.vectors)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(visual.streamlines)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  fcPhysicalRenderLayers(fcState,visual);
+  fcPhysicalOverlayFor('B',fcState,canvas,fcMvp(canvas),fcCameraFor(fcState,fcState.mesh));
+  fcPhysicalCaption(fcState,'B');
   fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas))
 }
 function fcUploadMesh(mesh){
@@ -658,6 +677,9 @@ async function fcRefreshFrame(){
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.sync=sync;fcState.range=data.range;
     const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared,fcVisualFor(fcState,'fcView2').palette);fcUpdateStatsGrid();fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
+    fcPhysicalMenu('B');
+    await fcPhysicalLoad(fcState,selected,region,fcState.time,fcRender);
+    if(seq!==fcState.seq)return;
     fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+fcSyncText(sync))
   }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
 }
@@ -677,10 +699,14 @@ function fcExtraRender(state,exportSize=null){
   if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
-  if(visual.surface){if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,(showSlice||showIso)?Math.min(opacity,.28):opacity)}
-  if(showSlice&&interior)fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
-  if(showIso&&interior)fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
-  if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  const showPrimary=fcPhysicalFor(state).choices.get(state.region)?.visible!==false;
+  if(showPrimary&&visual.surface){if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,(showSlice||showIso)?Math.min(opacity,.28):opacity)}
+  if(showPrimary&&showSlice&&interior)fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
+  if(showPrimary&&showIso&&interior)fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
+  if(showPrimary&&showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  fcPhysicalRenderLayers(state,visual);
+  fcPhysicalOverlayFor(String(state.id),state,canvas,fcExtraMvp(state,canvas),fcCameraFor(state,state.mesh));
+  fcPhysicalCaption(state,String(state.id));
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
@@ -711,6 +737,7 @@ function fcExtraInvalidateFrame(state,message){
   // A past measured frame must not survive a missing physical timestamp in UI or exports.
   ++state.seq;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
+  fcPhysicalRelease(state);
   state.mesh=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
   fcExtraUpdateLabel(state);
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
@@ -720,12 +747,15 @@ async function fcExtraRefreshFrame(state){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
+  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
+    await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
+    if(seq!==state.seq)return;
+    if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
 function fcExtraRemove(id){
-  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync()
+  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync()
 }
 function fcExtraAdd(){
   if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
