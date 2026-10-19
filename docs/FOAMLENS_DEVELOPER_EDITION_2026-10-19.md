@@ -23,6 +23,15 @@ To skip creating the separate Setup executable: `-SkipInstaller`. The script bui
 
 **Only distribute this edition to the authorized developer.** Build availability in a repository does not constitute binary access control. If the repo or CI workflow artifacts are public, do **not** upload the developer binary there. For true restricted access, use a private release/deployment channel with GitHub user permissions or equivalent access controls. No login/auth feature is claimed.
 
+## Developer's persistent section annotations (requested 2026-10-19)
+
+- **Point to section** enters a selection mode. The developer clicks the actual control/graph/viewport/section, and the click is intercepted so an OpenFOAM action is not accidentally executed while annotating.
+- The app binds a local note to a **DOM selector, route/page, section heading, element tag, screen coordinates/size, created and updated timestamps**; the developer then writes a free-text comment. UI supports **Save, Edit, Locate (highlight target), Delete**, and a list of previous notes.
+- Notes are persisted in **WebView2 localStorage exclusively in the FoamLensDeveloper profile**, scoped to the local app origin; they survive application restarts and normal audit-session clearing. Storage failure is surfaced to the user; export is a backup.
+- The on-demand JSON and AI debugging prompt include **all saved section locations and the exact user-authored comments** (up to the documented 2,000-character bound per note), alongside observed errors. Missing targets are retained as notes instead of being discarded. This gives the AI a stable pointer, not an invented source filename.
+- Up to 100 notes, explicit user edits/deletions, no automatic upload. Contents are redacted for known path/secret patterns at export; developer must review before sharing with an AI. The annotation text itself is intentionally stored locally in full as entered.
+- Added persisted-note regression across simulated reloads, sanitization and a real WebView2 smoke that selects an element, saves an actual UI note and asserts its appearance in the generated AI prompt.
+
 ## Developer Audit (not the scientific Mesh Auditor)
 
 The visible **Dev Audit** dock in the Developer edition can:
