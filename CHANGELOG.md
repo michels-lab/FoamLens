@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Unreleased — Independent Field physical regions per viewport (#145)
+
+- Offer a source-backed Physical regions expander in A/B/C/D; secondary view regions render real meshes and fields independently (including metal and mold in the same viewport).
+- Show view-local metric X/Y/Z bounds and axis labels from actually visible meshes rather than reusing view A's geometry.
+- Keep real case-specific region visibility/component/opacity in memory across case switching, and display geometry-only when a field is absent at physical time.
+- Add explicit per-view and fast/Windows regression gates. Candidate only; no public Windows release or scientific owner-case validation claimed.
+
 ## Unreleased — FoamLENS Developer (internal-only variant)
 
 - Add separately compiled `FoamLensDeveloper.exe` and optional isolated Developer installer, independent settings/log/cache and WebView2 profile. This is **not** a hidden menu in regular FoamLens.
