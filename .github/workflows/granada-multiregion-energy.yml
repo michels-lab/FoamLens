@@ -3,12 +3,12 @@ on:
   push:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
-      - 'desktop/tests/multiregion-energy-conservation.test.cjs'
+      - 'desktop/tests/multiregion-energy-conservation.spec.cjs'
       - '.github/workflows/granada-multiregion-energy.yml'
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js'
-      - 'desktop/tests/multiregion-energy-conservation.test.cjs'
+      - 'desktop/tests/multiregion-energy-conservation.spec.cjs'
       - '.github/workflows/granada-multiregion-energy.yml'
   workflow_dispatch:
 jobs:
@@ -30,4 +30,4 @@ jobs:
       - name: Independent multiregion energy balance regression
         run: node desktop/tests/multiregion-energy-conservation.test.cjs
       - name: Scientific frontend and source loader contract
-        run: node desktop/tests/multiregion-energy-loader.test.cjs
+        run: node desktop/tests/multiregion-energy-loader.spec.cjs
