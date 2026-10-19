@@ -30,6 +30,13 @@
 - **Product constraints:** remain generic read-only scientific OpenFOAM analysis. QuickCup C14/B14/B15/B16/C15/C16 can be test fixtures but not production constants/labels; no CFD solver execution in CI. Audit existing scientific modules before implementing extensions. Source-backed measurements, dimensional consistency, physical mesh provenance, experimental coordinates and no implicit falsification.
 - Code in branch `feat/field-per-view-regions-dimensions-20261019` is **unmerged experimental work**, not completed/validated. New scope is documentation only on a separate branch/PR; no version bump, no release and no claims of new features being operative in v1.8.10. Future tasks update plan + bitácora with source SHA/CI and Windows Setup + Portable evidence.
 
+## 2026-10-19 — Time Series field discoverability and Variable 0 fix candidate (#146)
+
+- Root cause confirmed: `v14-dual-timeseries.js` hid the entire Time Series focus panel when `timeSeriesOptionsBase()` was empty. That hid its child `fwDataFieldHistories` builder even though actual OpenFOAM 3D fields were present in `fvFieldGroups`.
+- Implemented **separate read-only source inventory** from `fwFieldTsReadyCases`, `fvReadyRegions` and `fvFieldGroups`, keeping same-named properties distinct by case and region; preserve vector X/Y/Z/magnitude as relevant. New Time Series hint distinguishes existing measured series counts from available source 3D fields.
+- **Zero existing curves now keeps the panel and generation path visible**, and expands the existing Build field histories control when a real 3D field is available. No fabricated time history and no automatic reading of every time-directory on selector entry. Actual `fwBuildFieldTimeSeries` remains the explicit calculated-data path.
+- Executable regression `desktop/tests/timeseries-source-catalog.test.cjs` passed with multiple real-identity cases/regions and vector fields; connected to fast and Windows CI. **Candidate only**, version/release not changed. Remaining #146: header-bearing multi-column postProcessing parser correctness, scientific real-case generation verification and user-specific Time Series acceptance.
+
 ## Maintenance rule
 
 This file is the durable project bitácora. After any meaningful Git operation—commit, branch change, pull request action, release/prerelease, CI failure or recovery, packaging change, or important prerelease finding—append/update the relevant section here. Do not rely only on chat history.

@@ -80,6 +80,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 6. Implement targeted JS regression of two distinct viewports with same case but different region visibility/fields; real Windows installed and Portable multi-region case screenshots for compact/wide/high DPI. **No success claim without real rendered B with mold+metal and B metric axes.**
 7. Exit: A=metal+mold, B=metal+mold or only metal, C=another case, each independent; dimensions update after pan/orbit/zoom/time and do not refer to A; missing field means explicit geometry-only, not colored fake data.
 
+### T1 partial implementation candidate: visible source fields (#146)
+
+- A scoped Time Series fix now keeps its builder visible when no precomputed history exists; shows a distinct real 3D field inventory count and opens the explicit history builder. Source identity is keyed by actual case/region/field, not labels fabricated as `Variable 0`.
+- Regression covers scalar and vector fields across multiple case/region choices without parsing time frames on refresh; the existing measured-history calculations and plot integration remain unchanged.
+- **Not a complete implementation:** multi-column named source files, exact scientific Windows output and owner fixture checks remain open. Version v1.8.10 public remains unchanged pending release authorization.
+
 ### T1 — Time Series: all real OpenFOAM fields and honest variable catalog (P0, TRACKED #146)
 - User screenshot: Data → Time Series variable selector presents only **Variable 0** even though the imported OpenFOAM case exposes additional 3D fields. A single already-built curve is not equivalent to the full field inventory.
 - Root finding: the active `v14-dual-timeseries.js` selector reads `timeSeriesOptionsBase()` (already imported/generated *series only*), while actual 3D fields are discovered separately via `fvReadyRegions`/`fvFieldGroups` and the `Create time series from 3D OpenFOAM fields` generator is collapsed. Do not assume every real field already has a time-series curve.

@@ -598,6 +598,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/smart-import-groups.test.cjs
 
+      - name: Test available source OpenFOAM fields inside Time Series
+        shell: pwsh
+        run: node desktop/tests/timeseries-source-catalog.test.cjs
+
       - name: Test dual-variable Time-Series Focus
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs

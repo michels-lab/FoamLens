@@ -1,3 +1,10 @@
+## Unreleased — Time Series field-source discovery (#146)
+
+- Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
+- Display distinct counts of preexisting measured curves versus eligible source-backed OpenFOAM 3D fields, without inventing temporal values.
+- Open the existing explicit history builder when the case has real fields and no time-series data; no automatic expensive field loading.
+- Candidate only: final Windows scientific validation and multi-column source-file handling remain pending.
+
 # Changelog
 
 ## Unreleased — FoamLENS Developer (internal-only variant)

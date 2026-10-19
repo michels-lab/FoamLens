@@ -1,0 +1,32 @@
+name: Time Series OpenFOAM source field catalog
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
+      - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - '.github/workflows/timeseries-source-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
+      - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - '.github/workflows/timeseries-source-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  field-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing Time Series and available OpenFOAM field inventory
+        run: |
+          node desktop/tests/timeseries-source-catalog.test.cjs
+          node desktop/tests/dual-timeseries.test.cjs
