@@ -63,6 +63,6 @@ assert.strictEqual(unitScale('in'),.0254);
 assert.strictEqual(unitScale('unknown'),null,'Never guess STL/OBJ units');
 assert.throws(()=>exportAsciiStl(tri.triangles,'unconfirmed',0),/Explicit positive/);
 assert(!script.includes('constant/triSurface'),'Do not silently assume an OpenFOAM distribution path');
-for(const s of ['id="cgFiles"','id="cgCanvas"','data-cg-view="top"','cgUnitWarning','cgUnitScale','sourceUnitConfirmedByUser','openFoamCaseMutated:false','FOAMLENS_CAD_CORE_END'])
+for(const s of ['data-cg-part','data-cg-unit','partsVisible','partSummaries','unit:\'unknown\'','id="cgFiles"','id="cgCanvas"','data-cg-view="top"','cgUnitWarning','cgUnitScale','sourceUnitConfirmedByUser','openFoamCaseMutated:false','FOAMLENS_CAD_CORE_END'])
   assert(script.includes(s),'CAD provenance/UI contract missing '+s);
 console.log('FoamLens CAD surface PASS: OBJ groups/negative indices, closed/open topology, winding, ASCII/binary STL, units and export.');
