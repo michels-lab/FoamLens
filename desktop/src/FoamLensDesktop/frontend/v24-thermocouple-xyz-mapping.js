@@ -188,6 +188,7 @@ function tcEl(id){return document.getElementById(id)}
 function tcInvalidate(message=''){
   tcLast=null;for(const id of ['tcExportJson','tcExportCsv']){const el=tcEl(id);if(el)el.disabled=true}
   const out=tcEl('tcReport');if(out)out.textContent='';
+  const canvas=tcEl('tcPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
   const s=tcEl('tcStatus');if(s&&message)s.textContent=message
 }
 function tcSourceCatalog(){
@@ -278,7 +279,41 @@ function tcRun(){
     '<p class="smallnote">Position sensitivity: '+tcEsc(sensitivity.status)+' · '+tcEsc(sensitivity.reason||'')+
     ' · '+sensitivity.results.length+' independent alternative probe histories. No spatial values inferred.</p>'+
     '<p class="smallnote">'+tcEsc(result.limitations.join(' '))+'</p>';
+  const sensitivities=sensitivity.results.map(row=>'<tr>'+[
+    row.probeXYZm.map(x=>x.toPrecision(5)).join(', '),fmt(row.distanceFromSensorM),
+    fmt(row.rmseK),fmt(row.deltaRMSEK),row.n
+  ].map(v=>'<td>'+tcEsc(v)+'</td>').join('')+'</tr>').join('');
+  if(sensitivities)tcEl('tcReport').innerHTML+='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
+    ['Alternative measured probe XYZ [m]','Sensor distance [m]','RMSE [K]','ΔRMSE [K]','N']
+       .map(x=>'<th>'+tcEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+sensitivities+'</tbody></table></div>';
+  tcDraw(result);
   tcEl('tcExportJson').disabled=false;tcEl('tcExportCsv').disabled=false
+}
+function tcDraw(result){
+  const canvas=tcEl('tcPlot');if(!canvas)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const width=Math.max(280,canvas.clientWidth||700),height=220,ratio=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+  ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
+  if(!result?.rows?.length)return;
+  const rows=result.rows,t0=rows[0].timeS,t1=rows.at(-1).timeS;
+  let min=Math.min(...rows.map(r=>Math.min(r.simulationK,r.experimentK))),
+      max=Math.max(...rows.map(r=>Math.max(r.simulationK,r.experimentK)));
+  if(max===min){min-=.5;max+=.5}
+  const left=50,right=15,top=24,bottom=30;
+  const x=t=>left+(t-t0)/(t1-t0)*(width-left-right);
+  const y=v=>top+(max-v)/(max-min)*(height-top-bottom);
+  ctx.strokeStyle='#778899';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,height-bottom);
+  ctx.lineTo(width-right,height-bottom);ctx.stroke();
+  for(const [key,color,label] of [['simulationK','#41b5e5','Sim'],['experimentK','#e8aa56','Exp']]){
+    ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.beginPath();
+    rows.forEach((r,i)=>{if(i===0)ctx.moveTo(x(r.timeS),y(r[key]));else ctx.lineTo(x(r.timeS),y(r[key]))});
+    ctx.stroke();
+    ctx.fillStyle=color;ctx.font='12px sans-serif';ctx.fillText(label,key==='simulationK'?left+9:left+55,15);
+  }
+  ctx.fillStyle='#a8b2c4';ctx.font='11px sans-serif';ctx.fillText(t0.toPrecision(5)+' s',left,height-8);
+  ctx.fillText(t1.toPrecision(5)+' s',Math.max(left,width-right-80),height-8);
+  ctx.fillText('K',17,top+5)
 }
 function tcDownload(name,content,mime){
   if(typeof downloadText==='function'){downloadText(name,content,mime);return}
@@ -316,7 +351,7 @@ function tcInstall(){
     '<div class="extActions"><button id="tcCalculate" type="button" class="btn primary">Verify cell and compare measured curves</button>'+
     '<button id="tcExportJson" type="button" class="btn soft" disabled>Export evidence JSON</button>'+
     '<button id="tcExportCsv" type="button" class="btn soft" disabled>Export paired CSV</button></div>'+
-    '<p class="smallnote" id="tcStatus" aria-live="polite"></p><div id="tcReport"></div>'+
+    '<p class="smallnote" id="tcStatus" aria-live="polite"></p><canvas id="tcPlot" style="width:100%;height:220px" aria-label="Simulated and experimental Kelvin curves over common physical time"></canvas><div id="tcReport"></div>'+
     '<p class="smallnote">Mapping uses verified polyhedral containment from the current loaded 3D Field case/region. Absent topology or a missing source history blocks comparison. No automatic recalescence diagnosis.</p>';
   host.appendChild(box);
   tcEl('tcImport').onclick=()=>void tcImport();
