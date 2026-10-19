@@ -52,6 +52,10 @@ const multi=parse('Exec : checkMesh -region fluid\nRegion: fluid\nMesh stats\n c
 assert.deepStrictEqual(multi.regionLabels,['fluid','metal']);
 assert.strictEqual(multi.metrics.regions.value,2);
 assert.strictEqual(multi.metrics.regions.status,'observed-labels-only');
+assert.strictEqual(multi.metrics.cells.value,null,'Last mesh region may not overwrite global metric');
+assert.strictEqual(multi.regionAudits.length,2,'Independent region audits must be preserved');
+assert.strictEqual(multi.regionAudits[0].metrics.cells.value,29);
+assert.strictEqual(multi.regionAudits[1].metrics.cells.value,12);
 assert.strictEqual(multi.status,'incomplete','Do not imply success without checkMesh result');
 const unknown=parse('alphaL: 0.5\nU: (1 2 3)\nrandom contents');
 assert.strictEqual(unknown.status,'unrecognized');
