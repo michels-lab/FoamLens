@@ -7,6 +7,12 @@
 
 # Changelog
 
+## Unreleased — Mesh & Geometry Auditor: measured checkMesh report (#150)
+
+- Import an existing local checkMesh log into Data and inspect source-reported mesh/region counts, geometry bounds, skewness, non-orthogonality, cell volumes and warnings.
+- Explicitly mark absent metrics unknown rather than zero; display independent region reports and provenance limitations, with JSON export.
+- Include fast parser tests and a native Windows WebView2 smoke to verify the module actually appears in the packaged app. No automatic solver execution, geometry correction or native polyMesh inspection yet.
+
 ## Unreleased — FoamLENS Developer (internal-only variant)
 
 - Add separately compiled `FoamLensDeveloper.exe` and optional isolated Developer installer, independent settings/log/cache and WebView2 profile. This is **not** a hidden menu in regular FoamLens.
