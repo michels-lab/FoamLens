@@ -21,6 +21,13 @@
 - Privacy: best-effort redaction of paths, query credentials and Bearer secrets; manual review before sharing a report is mandatory. This is **not** exhaustive source auditing, silent monitoring of all computers, authentication, an AI model embedded into FoamLens, or a guarantee of scientific correctness.
 - Build & evidence: local script `desktop/developer/build-developer.ps1`, `desktop/installer/FoamLensDeveloper.iss`, WebView2 real-audit smoke and `desktop/tests/developer-twin-audit.test.cjs`. **Candidate / unmerged at entry**, exact CI and installed acceptance pending; neither edition's public release bumped. Technical documentation `docs/FOAMLENS_DEVELOPER_EDITION_2026-10-19.md`. Scientific Mesh Auditor #150 remains separate.
 
+## 2026-10-19 — Scientific Mesh & Geometry checkMesh report candidate (#150), clean-main branch
+
+- Recovered source-only Mesh report inspector from stale candidate PR #160 **without rebasing in its unintended duplicate Developer/Time Series commits**. Fresh branch `feat/mesh-quality-source-report-clean-20261019` starts from current `main`, retains merged FoamLENS Developer and Time Series unchanged.
+- New `v20-mesh-quality-audit.js` locally imports a selected `.log/.txt` from `checkMesh`; bounds input size; parses OpenFOAM topology, geometry, bounds, cell counts, volume, skewness, aspect ratio, non-orthogonality, warnings/failures. Separates multiple named regions and labels all missing data null/not-reported. Export JSON retains provenance and caution flags; no CFD solver, cloud upload or case mutation.
+- Fast scientific regression plus full Windows suite and **real packaged WebView2 inspector assertion**, ensuring the module is truly loaded by the versioned extension injector.
+- Still not native polyMesh analysis, automatic `checkMesh`, source defect location visualizations, cross-CAD quality certification, measured owner-case benchmark or release. Candidate only; gates pending.
+
 ## 2026-10-19 — Full FoamLENS pending work inventory from other conversations added to main roadmap (documentation-only)
 
 - Owner required permanently preserving **both** newer CAD/STEP/IGES/STL, independent A/B/C/D physical regions and XYZ dimension overlays, Time Series `Variable 0` fixes **and** all previously identified scientific features in other chats. This work adds a canonical plan without claiming completion or shipping new executables.
