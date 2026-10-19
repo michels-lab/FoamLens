@@ -57,7 +57,7 @@ for(const token of [
  "el.id='eoPanel'",'id="eoSource2d"','id="eoSource3d"','id="eoMapping"',
  'id="eoConfirm"','id="eoExportJson"','id="eoExportCsv"','noCaseMutation:true',
  'noFieldSubtraction:true','noExtrapolation:true','window.FoamLensEquivalentObservables',
- 'document.getElementById(\'paTools\')'
+ 'document.getElementById(\'paTools\')','function eoInvalidate','previousCatalog=eoCatalog','eoLast=null'
 ])assert(source.includes(token),'UI / scientific contract missing '+token);
 for(const banned of ['QuickCup','C14','B14','metalTop','T_mold'])
  assert(!source.includes(banned),'Case-specific lab fixture token found in generic production module: '+banned);
