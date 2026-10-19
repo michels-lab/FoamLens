@@ -10,6 +10,7 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 ### Separate developer-only diagnostic twin — #158 (implementation candidate; NOT shipped)
 
 - **FoamLens Developer** is a separate compiled Windows executable (`FoamLensDeveloper.exe`), with own installer AppId, install path and isolated `%LOCALAPPDATA%\FoamLensDeveloper` profile; not a secret checkbox in the public app.
+- Per-section developer comments: **Point to section** catches the next click, records an exact DOM selector, page, section, physical viewport bounds and timestamps, then saves/edit/locates/deletes a developer-entered note. Store it in isolated Developer WebView2 localStorage across sessions. Include comments and locations in sanitized AI prompt and JSON; source file mappings remain hypotheses unless verified.
 - Developer-only compiled, embedded WebView2 audit resource: observed JS errors/promise rejections, local resource failures, WebView2 process failure, bounded interactive UI layout checks, reproducible action-target history, timestamp/version/DPI and explicitly uninspected scope.
 - On-demand local **AI debugging prompt** text, copy and JSON exports, sanitized/redacted paths/tokens and no automatic network sharing. Exports may still contain sensitive exception messages; developer reviews before transmitting to any third party.
 - CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
