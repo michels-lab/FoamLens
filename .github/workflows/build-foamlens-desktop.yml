@@ -670,6 +670,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/v16-final-ux-audit.test.cjs
 
+      - name: Test developer-only app isolation and redacted AI report
+        shell: pwsh
+        run: node desktop/tests/developer-twin-audit.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
@@ -693,6 +697,18 @@ jobs:
       - name: Test bilingual UI and overflow hardening
         shell: pwsh
         run: node desktop/tests/bilingual-ui.test.cjs
+
+      - name: Build and verify independent private FoamLens Developer twin
+        shell: pwsh
+        run: |
+          ./desktop/developer/build-developer.ps1 -SkipInstaller
+          if (-not (Test-Path 'desktop/artifacts/developer-publish/FoamLensDeveloper.exe')) {
+            throw 'Developer edition did not create independent executable'
+          }
+          if (Test-Path 'desktop/artifacts/developer-publish/FoamLens.exe') {
+            throw 'Developer output must not reuse public executable identity'
+          }
+          Write-Host 'Developer binary was compiled and tested locally; never added to public release assets.'
 
       - name: Publish portable Windows executable
         shell: pwsh

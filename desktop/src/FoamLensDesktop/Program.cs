@@ -26,12 +26,21 @@ internal static class Program
             FoamLensForm.RunFieldRecordCacheSelfTestAsync().GetAwaiter().GetResult();
             return;
         }
+#if FOAMLENS_DEVELOPER
+        if (args.Any(arg => string.Equals(arg, "--developer-audit-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            FoamLensForm.ValidateDeveloperAuditResource();
+            return;
+        }
+#endif
         ApplicationConfiguration.Initialize();
+        var developerSmoke = args.Any(arg =>
+            string.Equals(arg, "--developer-audit-smoke-test", StringComparison.OrdinalIgnoreCase));
         var smokeTest = args.Any(arg =>
             string.Equals(arg, "--smoke-test", StringComparison.OrdinalIgnoreCase));
-        using var form = new FoamLensForm(smokeTest);
+        using var form = new FoamLensForm(smokeTest || developerSmoke, developerSmoke);
         Application.Run(form);
-        if (smokeTest)
+        if (smokeTest || developerSmoke)
             Environment.ExitCode = form.SmokeTestExitCode;
     }
 }
@@ -40,6 +49,7 @@ internal sealed class FoamLensForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly bool _smokeTest;
+    private readonly bool _developerAuditSmoke;
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
@@ -47,6 +57,32 @@ internal sealed class FoamLensForm : Form
     private static readonly Uri LatestReleaseApi = new("https://api.github.com/repos/michels-lab/FoamLens/releases/latest");
     private static readonly HttpClient UpdateHttpClient = CreateUpdateHttpClient();
     private int _updateCheckInProgress;
+#if FOAMLENS_DEVELOPER
+    private const bool DeveloperEdition = true;
+    private const string ProductDataFolder = "FoamLensDeveloper";
+#else
+    private const bool DeveloperEdition = false;
+    private const string ProductDataFolder = "FoamLens";
+#endif
+#if FOAMLENS_DEVELOPER
+    internal static string DeveloperAuditScript()
+    {
+        using var source = Assembly.GetExecutingAssembly().GetManifestResourceStream("FoamLensDesktop.Developer.Audit.js")
+            ?? throw new InvalidOperationException("FoamLens Developer audit resource is missing.");
+        using var reader = new StreamReader(source);
+        var script = reader.ReadToEnd();
+        if (!script.Contains("FOAMLENS_DEVELOPER_AUDIT_V1", StringComparison.Ordinal))
+            throw new InvalidOperationException("FoamLens Developer audit resource identity failed.");
+        return script;
+    }
+
+    internal static void ValidateDeveloperAuditResource()
+    {
+        var script = DeveloperAuditScript();
+        if (script.Length < 4000 || !script.Contains("downloadDeveloperAudit", StringComparison.Ordinal))
+            throw new InvalidOperationException("Developer audit must include local export tools.");
+    }
+#endif
 #if FOAMLENS_STORE
     private const bool StoreDistributionChannel = true;
 #else
@@ -58,15 +94,16 @@ internal sealed class FoamLensForm : Form
 
     private string AppRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FoamLens", "Desktop", DesktopVersionText, "app");
+        ProductDataFolder, "Desktop", DesktopVersionText, "app");
 
     public int SmokeTestExitCode { get; private set; }
 
-    public FoamLensForm(bool smokeTest = false)
+    public FoamLensForm(bool smokeTest = false, bool developerAuditSmoke = false)
     {
         _smokeTest = smokeTest;
+        _developerAuditSmoke = developerAuditSmoke;
         SmokeTestExitCode = smokeTest ? 1 : 0;
-        Text = "FoamLens Desktop";
+        Text = DeveloperEdition ? "FoamLens Developer · Diagnostic Edition" : "FoamLens Desktop";
         var executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         if (executableIcon is not null) Icon = executableIcon;
         StartPosition = FormStartPosition.CenterScreen;
@@ -86,7 +123,7 @@ internal sealed class FoamLensForm : Form
             ValidateMaterializedFrontend();
             Directory.CreateDirectory(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FoamLens", "Desktop", "WebView2"));
+                ProductDataFolder, "Desktop", "WebView2"));
 
             // These Chromium switches are intentional: FoamLens performs long scientific
             // analyses and must not be throttled merely because its window is minimized,
@@ -103,7 +140,7 @@ internal sealed class FoamLensForm : Form
             };
             var userData = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FoamLens", "Desktop", "WebView2");
+                ProductDataFolder, "Desktop", "WebView2");
             var environment = await CoreWebView2Environment.CreateAsync(null, userData, options);
             await _web.EnsureCoreWebView2Async(environment);
 
@@ -113,6 +150,12 @@ internal sealed class FoamLensForm : Form
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+#if FOAMLENS_DEVELOPER
+            // Inject the developer-only auditor at document creation.
+            // This assembly resource is not embedded in the normal FoamLens binary
+            // or its shared scientific AppBundle.zip.
+            await _web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(DeveloperAuditScript());
+#endif
             _web.CoreWebView2.NewWindowRequested += (_, e) =>
             {
                 e.Handled = true;
@@ -129,17 +172,33 @@ internal sealed class FoamLensForm : Form
                 }
             };
             _web.CoreWebView2.ProcessFailed += (_, e) =>
+            {
                 Log($"WebView2 process failed: {e.ProcessFailedKind}");
+#if FOAMLENS_DEVELOPER
+                try
+                {
+                    _web.CoreWebView2.PostWebMessageAsJson(
+                        JsonSerializer.Serialize(new { type = "developerHostEvent", kind = "renderer-failure",
+                            message = $"WebView2 process failed: {e.ProcessFailedKind}" }));
+                }
+                catch (Exception) { /* A failed renderer may not accept messages. */ }
+#endif
+            };
 
             if (_smokeTest)
             {
+#if FOAMLENS_DEVELOPER
+                if (_developerAuditSmoke) await RunDeveloperAuditSmokeAsync();
+                else await RunSmokeTestAsync();
+#else
                 await RunSmokeTestAsync();
+#endif
             }
             else
             {
                 var channelQuery = StoreDistributionChannel ? "&store=1" : "";
                 _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1" + channelQuery);
-                if (!StoreDistributionChannel)
+                if (!StoreDistributionChannel && !DeveloperEdition)
                     _ = CheckForUpdatesAsync(userInitiated: false);
             }
         }
@@ -492,6 +551,68 @@ internal sealed class FoamLensForm : Form
         if (png.Length < 10_000) throw new InvalidOperationException("Rendered branding PNG evidence is unexpectedly small: " + fullPath);
         await File.WriteAllBytesAsync(fullPath, png);
     }
+
+#if FOAMLENS_DEVELOPER
+    // Real packaged WebView2 proof: Developer overlay must exist in the
+    // independently compiled app. A static bundle check cannot prove that.
+    private async Task RunDeveloperAuditSmokeAsync()
+    {
+        var complete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void NavDone(object? _, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            complete.TrySetResult(e.IsSuccess);
+        }
+        _web.CoreWebView2.NavigationCompleted += NavDone;
+        try
+        {
+            _web.CoreWebView2.Navigate("https://foamlens.local/index.html?desktop=1");
+            if (!await complete.Task.WaitAsync(TimeSpan.FromSeconds(35)))
+                throw new InvalidOperationException("Developer audit WebView2 navigation failed.");
+            await Task.Delay(350);
+            var report = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const audit=window.__foamLensDeveloperAudit;
+                  const button=document.getElementById('flDeveloperAuditToggle');
+                  const panel=document.getElementById('flDeveloperAuditPanel');
+                  if(!audit||!button||!panel)return {ok:false,reason:'Developer panel is missing'};
+                  button.click();
+                  audit.event('developer-smoke','Sanitized developer audit smoke event','info','self-test');
+                  const section=document.getElementById('launchTitle')||document.getElementById('flRibbon');
+                  const selected=section?audit.chooseElement(section):null;
+                  const input=document.getElementById('fldaComment');
+                  if(input)input.value='Developer smoke: verify this exact section stays linked to its comment.';
+                  document.getElementById('fldaSave')?.click();
+                  const check=audit.runChecks(),prompt=audit.prompt(),json=audit.snapshot();
+                  const note=json.sectionAnnotations?.[0];
+                  return {ok:panel.classList.contains('open')&&
+                    typeof audit.downloadDeveloperAudit==='function'&&
+                    !!document.getElementById('fldaPick')&&
+                    selected?.selector===note?.selector&&
+                    note?.comment==='Developer smoke: verify this exact section stays linked to its comment.'&&
+                    prompt.includes('DOM target selector: '+note.selector)&&
+                    prompt.includes(note.comment)&&
+                    prompt.includes('AI debugging request')&&
+                    json.observedErrors.some(e=>e.kind==='developer-smoke')&&
+                    check.status!=='not-inspected',
+                    panel:panel.classList.contains('open'),errorCount:json.observedErrors.length,
+                    annotations:json.sectionAnnotations?.length,annotationSection:note?.section,
+                    status:check.status};
+                })()
+                """);
+            using var json = JsonDocument.Parse(report);
+            if (!json.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                throw new InvalidOperationException("FoamLens Developer real WebView2 smoke failed: " + report);
+            SmokeTestExitCode = 0;
+            Log("Developer edition real WebView2 audit and sanitized prompt smoke passed: " + report);
+            BeginInvoke(Close);
+        }
+        finally
+        {
+            _web.CoreWebView2.NavigationCompleted -= NavDone;
+        }
+    }
+#endif
 
     private async Task RunSmokeTestAsync()
     {
@@ -2922,6 +3043,14 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
     private async Task CheckForUpdatesAsync(bool userInitiated)
     {
+        if (DeveloperEdition)
+        {
+            if (userInitiated)
+                MessageBox.Show(this,
+                    "FoamLens Developer is updated only by rebuilding the private developer edition.",
+                    "FoamLens Developer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         if (Interlocked.Exchange(ref _updateCheckInProgress, 1) != 0)
         {
             if (userInitiated)
@@ -3121,6 +3250,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                     HandleCancelOperation(root, requestId);
                     break;
                 case "checkForUpdates":
+                    if (DeveloperEdition)
+                    {
+                        MessageBox.Show(this, "Developer builds are updated only by private recompilation.",
+                            "FoamLens Developer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        break;
+                    }
                     if (StoreDistributionChannel)
                     {
                         MessageBox.Show(this,
@@ -4939,7 +5074,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     {
         try
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FoamLens", "Desktop");
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ProductDataFolder, "Desktop");
             Directory.CreateDirectory(dir);
             File.AppendAllText(Path.Combine(dir, "foamlens-desktop.log"),
                 $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}");

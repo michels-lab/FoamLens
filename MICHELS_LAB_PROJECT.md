@@ -30,6 +30,12 @@ This repository is monitored by the master standards repository. Changes that af
 - The **published v1.8.10** is not evidence that newly proposed work is implemented. Implementation must audit existing code to avoid duplicate modules, use generic source-driven OpenFOAM rules (QuickCup only for test fixtures) and verify real Windows Setup/Portable, scientific output and release SHA-256.
 - Keep `docs/GIT_AUDIT_LOG.md` and the plan current with actual commits, remaining blockers and exact acceptance evidence; no unauthorized release.
 
+## FoamLENS Developer twin — #158
+
+- Developer-only Windows application is a separate compiler variant, **not** an unlockable public mode. Keep its own installer AppId, executable, local cache and WebView2 profile. Embed auditor code only in the Developer binary; public releases and Store distributions exclude it.
+- Internal auditor gathers observed errors/UI evidence, avoids collecting raw OpenFOAM case data, and exports an AI debugging prompt and JSON only on explicit local action. Sensitive strings are automatically redacted where practical and must be reviewed before sharing.
+- Canonical specification and local build: `docs/FOAMLENS_DEVELOPER_EDITION_2026-10-19.md`. Track actual CI and status under #158; retain independent scientific user-facing Mesh Auditor #150.
+
 ## Secret boundary
 
 Only secret **names and storage locations** may be documented. Passwords, tokens, signing passwords, private keys, database passwords, refresh tokens and privileged service credentials must never be committed.

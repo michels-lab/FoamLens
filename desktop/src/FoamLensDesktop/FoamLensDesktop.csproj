@@ -5,22 +5,38 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>FoamLens</AssemblyName>
+    <AssemblyName Condition="'$(FoamLensDeveloper)' != 'true'">FoamLens</AssemblyName>
+    <AssemblyName Condition="'$(FoamLensDeveloper)' == 'true'">FoamLensDeveloper</AssemblyName>
     <RootNamespace>FoamLensDesktop</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\FoamLens.ico</ApplicationIcon>
     <Version>1.8.10</Version>
     <AssemblyVersion>1.8.10.0</AssemblyVersion>
     <FileVersion>1.8.10.0</FileVersion>
-    <Product>FoamLens Desktop</Product>
+    <Product Condition="'$(FoamLensDeveloper)' != 'true'">FoamLens Desktop</Product>
+    <Product Condition="'$(FoamLensDeveloper)' == 'true'">FoamLens Developer</Product>
     <Company>Michel's Lab</Company>
     <Authors>Michel Armando Duarte Flores</Authors>
     <Description>Native Windows host for FoamLens OpenFOAM Analysis Workspace.</Description>
     <DefineConstants Condition="'$(FoamLensStoreChannel)' == 'true'">$(DefineConstants);FOAMLENS_STORE</DefineConstants>
+    <DefineConstants Condition="'$(FoamLensDeveloper)' == 'true'">$(DefineConstants);FOAMLENS_DEVELOPER</DefineConstants>
   </PropertyGroup>
+
+  <!-- Both editions may be built sequentially. Exclude old default obj
+       even when Developer uses a separate BaseIntermediateOutputPath. -->
+  <ItemGroup>
+    <Compile Remove="obj\**\*.cs" />
+    <Compile Remove="bin\**\*.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FoamLensDeveloper)' == 'true'">
+    <EmbeddedResource Include="Developer\Audit.js">
+      <LogicalName>FoamLensDesktop.Developer.Audit.js</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

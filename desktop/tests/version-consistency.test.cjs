@@ -39,7 +39,10 @@ assert(!rootLicense.includes('OpenFOAM PostPlotter'),'Legacy OpenFOAM PostPlotte
 
 const fieldView=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
 assert(fieldView.includes("typeof flDesktopVersion==='function'?flDesktopVersion():'—'"),'Field View version dialog does not derive Desktop identity from the shared version helper.');
-assert(program.includes('"FoamLens", "Desktop", DesktopVersionText, "app"'),'Desktop app bundle root is not derived from assembly version metadata.');
+assert(program.includes('ProductDataFolder, "Desktop", DesktopVersionText, "app"')&&
+  program.includes('private const string ProductDataFolder = "FoamLens";')&&
+  program.includes('private const string ProductDataFolder = "FoamLensDeveloper";'),
+  'Edition-specific Desktop app roots must use assembly version metadata and keep public and Developer profiles isolated.');
 assert(program.includes('private static string DesktopVersionText'),'Desktop host does not expose one shared assembly-version source for runtime paths/UI.');
 assert(!/"FoamLens",\s*"Desktop",\s*"\d+\.\d+\.\d+",\s*"app"/.test(program),
   'Desktop app bundle root must not be pinned to any release version');
