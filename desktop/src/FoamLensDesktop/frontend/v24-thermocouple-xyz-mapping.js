@@ -96,6 +96,13 @@ function tcCompare(sim,experimental,settings={}){
     return invalid('Physical XYZ is not mapped to a confirmed OpenFOAM cell');
   const measuredPoint=tcXYZ(settings.targetXYZ,settings.coordinateUnit);
   if(!measuredPoint)return invalid('Thermocouple position/unit invalid');
+  if(!Array.isArray(location.pointM)||location.pointM.length!==3||
+     Math.hypot(...location.pointM.map((v,i)=>v-measuredPoint[i]))>1e-9)
+    return invalid('Cell containment evidence belongs to a different physical sensor XYZ');
+  if(!settings.probeLocation?.verified||settings.probeLocation.status!=='contained'||
+     !Array.isArray(settings.probeLocation.pointM)||
+     Math.hypot(...settings.probeLocation.pointM.map((v,i)=>v-simPoint[i]))>1e-9)
+    return invalid('Original 3D probe point is not independently contained in the selected mesh');
   const discrepancy=Math.hypot(...simPoint.map((v,i)=>v-measuredPoint[i]));
   const maxOffset=tcNumber(settings.maxOffsetM);
   if(!Number.isFinite(maxOffset)||maxOffset<0||discrepancy>maxOffset)
@@ -128,7 +135,7 @@ function tcCompare(sim,experimental,settings={}){
     maxAbs:Math.max(...rows.map(r=>Math.abs(r.simMinusExpK)))};
   return{valid:true,schema:'foamlens/thermocouple-mapping/1',caseId:Number(sim.caseId),region,
     targetXYZm:measuredPoint,simProbeXYZm:simPoint,probeOffsetM:discrepancy,maxOffsetM:maxOffset,
-    meshEvidence:{...location},sourceEvidence:{path:sim.sourcePath,fieldHistoryKey:sim.fieldHistoryKey,
+    meshEvidence:{...location},probeCellEvidence:{...settings.probeLocation},sourceEvidence:{path:sim.sourcePath,fieldHistoryKey:sim.fieldHistoryKey,
       originalField:sim.field?.original||'',caseId:sim.caseId,region,probe:sim.probe||null,
       sourceUnit:sim.field?.unit,dimensions:dimensions||null},
     experimentalEvidence:{fileName:experimental.fileName||'',unit:experimental.unit,
@@ -159,7 +166,7 @@ function tcSensitivity(baseSim,all,experimental,config){
     // The primary sensor-cell mapping must never be reused for nearby probes.
     const alternateLocation=typeof config.locateAlternative==='function'?config.locateAlternative(pos):null;
     if(!alternateLocation?.verified||alternateLocation.status!=='contained')continue;
-    const next=tcCompare(s,experimental,{...config,location:alternateLocation,maxOffsetM:radius});
+    const next=tcCompare(s,experimental,{...config,probeLocation:alternateLocation,maxOffsetM:radius});
     if(!next.valid)continue;
     results.push({probeSource:s.sourcePath,probeXYZm:pos,distanceFromSensorM:d,
       rmseK:next.metrics.rmse,deltaRMSEK:next.metrics.rmse-root.metrics.rmse,
@@ -254,9 +261,9 @@ function tcRun(){
   if(!source||!exp){tcEl('tcStatus').textContent='Select a source 3D probe history and valid experimental time/temperature columns';return}
   const xyz=[tcEl('tcX').value,tcEl('tcY').value,tcEl('tcZ').value],
     unit=tcEl('tcXYZUnit').value,point=tcXYZ(xyz,unit),
-    mesh=tcActiveMesh(source),loc=tcLocateLive(mesh,point),
+    mesh=tcActiveMesh(source),loc=tcLocateLive(mesh,point),probeLoc=tcLocateLive(mesh,tcProbePoint(source)),
     options={caseId:source.caseId,region:tcRegion(source),targetXYZ:xyz,coordinateUnit:unit,location:loc,
-      maxOffsetM:tcEl('tcTolerance').value,timeShiftS:tcEl('tcTimeShift').value,
+      probeLocation:probeLoc,maxOffsetM:tcEl('tcTolerance').value,timeShiftS:tcEl('tcTimeShift').value,
       sensitivityRadiusM:tcEl('tcSensitivityRadius').value,locateAlternative:p=>tcLocateLive(mesh,p)};
   const result=tcCompare(source,exp,options);
   if(!result.valid){tcEl('tcStatus').textContent=result.reason+' · Mapping: '+loc.status+' ('+loc.reason+'). Load the exact 3D case/region in Field to verify the cell.';return}
