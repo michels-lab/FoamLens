@@ -28,6 +28,8 @@ $exe=Join-Path $publish 'FoamLensDeveloper.exe'
 if(-not (Test-Path $exe)){throw 'Missing Developer EXE'}
 & $exe --developer-audit-self-test
 if($LASTEXITCODE -ne 0){throw 'Developer audit resource self-test failed'}
+& $exe --developer-audit-smoke-test
+if($LASTEXITCODE -ne 0){throw 'Developer real WebView2 audit surface smoke failed'}
 Write-Host "Developer-only EXE: $exe"
 if(-not $SkipInstaller){
   $isccCommand=Get-Command ISCC.exe -ErrorAction SilentlyContinue
