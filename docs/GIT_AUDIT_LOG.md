@@ -5,6 +5,14 @@
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
+## 2026-10-19 — Developer section annotations with persistent location/comment and IA handoff (#158)
+
+- Owner requested direct pinpointing of specific FoamLENS Developer sections, with a remembered comment for each that **survives closing/reopening Developer**, and all comments auto-included in subsequent exported IA debugging context.
+- Implemented **Point to section** (click interception), per-element CSS anchor/route/section label/viewport position, user-authored text, created/edited timestamps, editable/deletable note list, Locate/highlight and explicit Save. Stored under dedicated Developer WebView2 localStorage key, up to 100 notes, 2,000 characters per note.
+- `Developer/Audit.js` now includes the structured `sectionAnnotations` in local JSON snapshot and annotated IA prompt, with best-effort path/secret redaction at export. Existing Run Audit checks/errors remain a distinct source of evidence and never substitute a human annotation. Annotation text is not captured from other app forms.
+- Regression `desktop/tests/developer-twin-audit.test.cjs` verifies saving, app reload persistence, edit/delete, exact section and full note in exported prompt, plus no accidental credential/path inclusion. Native packaged Developer WebView2 smoke now saves a real annotation via UI and validates prompt identity.
+- Candidate branch/PR #159, not yet published. This is developer-only software QA; public FoamLENS and scientific Mesh Auditor #150 must stay separate.
+
 ## 2026-10-19 — Developer-only twin and AI-exportable software audit candidate (#158)
 
 - User corrected prior interpretation: **not** a Developer button inside the public app. FoamLens Developer must be a separately compiled Windows twin for programmer-only distribution. Share core scientific/UI frontend with normal FoamLENS but isolate binary, installer AppId, program folder, WebView2 profile, cache and host logs.
