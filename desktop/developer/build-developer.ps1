@@ -19,10 +19,13 @@ if(-not (Test-Path $bundle)){
   } finally { if(Test-Path $tmp){Remove-Item $tmp -Recurse -Force} }
 }
 $publish='desktop/artifacts/developer-publish'
-$msb='obj/developer/'
-dotnet restore $proj -r win-x64 -p:FoamLensDeveloper=true -p:MSBuildProjectExtensionsPath=$msb -p:BaseIntermediateOutputPath=$msb
+# Keep generated C# and NuGet assets OUTSIDE the project folder. Otherwise
+# obj/developer generated attributes are accidentally compiled with public obj.
+$msb=(Join-Path $root 'desktop/artifacts/developer-obj') + [System.IO.Path]::DirectorySeparatorChar
+New-Item -ItemType Directory -Force $msb | Out-Null
+dotnet restore $proj -r win-x64 -p:FoamLensDeveloper=true "-p:MSBuildProjectExtensionsPath=$msb" "-p:BaseIntermediateOutputPath=$msb"
 if($LASTEXITCODE -ne 0){throw 'Developer restore failed'}
-dotnet publish $proj -r win-x64 -c Release --self-contained true --no-restore -p:FoamLensDeveloper=true -p:MSBuildProjectExtensionsPath=$msb -p:BaseIntermediateOutputPath=$msb -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
+dotnet publish $proj -r win-x64 -c Release --self-contained true --no-restore -p:FoamLensDeveloper=true "-p:MSBuildProjectExtensionsPath=$msb" "-p:BaseIntermediateOutputPath=$msb" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
 if($LASTEXITCODE -ne 0){throw 'Developer publish failed'}
 $exe=Join-Path $publish 'FoamLensDeveloper.exe'
 if(-not (Test-Path $exe)){throw 'Missing Developer EXE'}
