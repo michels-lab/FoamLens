@@ -183,10 +183,10 @@ function tcSensitivity(baseSim,all,experimental,config){
 
 function tcUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function tcEsc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let tcFile=null,tcRows=null,tcSources=[],tcLast=null,tcSequence=0;
+let tcFile=null,tcRows=null,tcSources=[],tcLast=null,tcRuntime=null,tcSequence=0;
 function tcEl(id){return document.getElementById(id)}
 function tcInvalidate(message=''){
-  tcLast=null;for(const id of ['tcExportJson','tcExportCsv']){const el=tcEl(id);if(el)el.disabled=true}
+  tcLast=null;tcRuntime=null;for(const id of ['tcExportJson','tcExportCsv']){const el=tcEl(id);if(el)el.disabled=true}
   const out=tcEl('tcReport');if(out)out.textContent='';
   const canvas=tcEl('tcPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
   const s=tcEl('tcStatus');if(s&&message)s.textContent=message
@@ -269,7 +269,7 @@ function tcRun(){
   const result=tcCompare(source,exp,options);
   if(!result.valid){tcEl('tcStatus').textContent=result.reason+' · Mapping: '+loc.status+' ('+loc.reason+'). Load the exact 3D case/region in Field to verify the cell.';return}
   const sensitivity=tcSensitivity(source,tcSources,exp,options);
-  tcLast={...result,sensitivity};
+  tcLast={...result,sensitivity};tcRuntime={mesh,source};
   const fmt=x=>Number(x).toLocaleString(undefined,{maximumSignificantDigits:7});
   tcEl('tcStatus').textContent='Cell '+loc.cellId+' verified in source region · '+result.metrics.n+' paired measurements · no extrapolation';
   const m=result.metrics;
@@ -322,7 +322,12 @@ function tcDownload(name,content,mime){
   setTimeout(()=>URL.revokeObjectURL(u),1500)
 }
 function tcExport(kind){
-  if(!tcLast)return;
+  if(!tcLast||!tcRuntime)return;
+  const source=tcRuntime.source;
+  if(!Array.isArray(series)||!series.includes(source)||tcActiveMesh(source)!==tcRuntime.mesh){
+    tcInvalidate('OpenFOAM case/region, geometry or probe source changed since verification. Recalculate before exporting.');
+    return
+  }
   if(kind==='json')return tcDownload('FoamLens_thermocouple_XYZ.json',
     JSON.stringify({...tcLast,exportedAt:new Date().toISOString()},null,2),'application/json');
   const h='time_s,simulation_K,experiment_K,sim_minus_exp_K,simulation_temporal_method';
