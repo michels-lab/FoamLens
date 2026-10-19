@@ -103,7 +103,7 @@ function sftEvolution(frames){
 }
 /* FOAMLENS_FRONT_TRACKER_CORE_END */
 
-const sftState={result:null,running:false,generation:0};
+const sftState={result:null,running:false,generation:0,sourceCase:null,sourceGroup:null};
 function sftUi(en,es){try{return flUi(en,es)}catch{return en}}
 function sftEl(id){return document.getElementById(id)}
 function sftEscape(x){return String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
@@ -113,7 +113,7 @@ function sftSelected(){
   return{c,region,group:c?fvFieldGroups(c,region,'scalar','volume').find(x=>x.name===name):null}
 }
 function sftStatus(msg){const e=sftEl('sftStatus');if(e)e.textContent=msg}
-function sftInvalidate(){sftState.result=null;sftState.generation++;if(sftEl('sftResults'))sftEl('sftResults').replaceChildren()}
+function sftInvalidate(){sftState.result=null;sftState.sourceCase=null;sftState.sourceGroup=null;sftState.generation++;if(sftEl('sftResults'))sftEl('sftResults').replaceChildren()}
 function sftSelectFill(id,items,value){
   const el=sftEl(id);if(!el)return;
   el.innerHTML=items.map(x=>'<option value="'+sftEscape(x.value)+'">'+sftEscape(x.label)+'</option>').join('')||'<option value="">—</option>';
@@ -161,7 +161,7 @@ async function sftRun(){
     if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>times.length||end<=start||end-start>120)throw Error('Select a valid index window: up to 120 original frames; no implicit downsampling.');
     const dim=String(group.dimensions||'').replace(/\s+/g,' ').trim();
     if(dim&&dim!=='[0 0 0 0 0 0 0]')throw Error('Original field is not dimensionless; phase fraction cannot be assumed.');
-    sftState.running=true;const frames=[],excluded=[];
+    sftState.running=true;const frames=[],excluded=[],geometryCache=new WeakMap();
     for(let i=start;i<end;i++){
       if(seq!==sftState.generation)throw Error('Selection changed; analysis canceled.');
       const time=times[i];sftStatus(sftUi('Reading source frame','Leyendo cuadro original')+' '+(i-start+1)+'/'+(end-start)+' · t='+time+' s');
@@ -170,7 +170,8 @@ async function sftRun(){
         if(data.storage!=='volume'||data.mesh?.cellCount!==data.fieldValues?.length)throw Error('Cell-association mismatch.');
         const parsedDim=String(data.parsed?.dimensions||dim).replace(/\s+/g,' ').trim();
         if(parsedDim!=='[0 0 0 0 0 0 0]')throw Error('Dimensionless source field header is required.');
-        const geom=sftGeometry(data.mesh);
+        let geom=geometryCache.get(data.mesh);
+        if(!geom){geom=sftGeometry(data.mesh);geometryCache.set(data.mesh,geom)}
         const frame=sftFrame(data.mesh,geom,data.fieldValues,{time,role,low,high,iso});
         frames.push({...frame,sourcePath:data.parsed?.sourcePath||null,meshSourcePaths:data.meshInfo?.snapshot?.sourcePaths||null});
       }catch(err){excluded.push({time,reason:String(err?.message||err)});frames.push(null)}
@@ -190,7 +191,7 @@ async function sftRun(){
         'Geometry closure checks are not equivalent to full checkMesh certification.',
         'No nucleation, recalescence or microstructure conclusion. No temporal interpolation or extrapolation.',
         'Only physically written source times and explicitly selected region and phase role.']};
-    sftState.result=result;const host=sftEl('sftResults');
+    sftState.result=result;sftState.sourceCase=c;sftState.sourceGroup=group;const host=sftEl('sftResults');
     const rows=evolved.map(f=>'<tr><td>'+sftEscape(f.time)+'</td><td>'+sftEscape((100*f.fractions.solid).toFixed(4))+'</td><td>'+
       sftEscape((100*f.fractions.mushy).toFixed(4))+'</td><td>'+sftEscape((100*f.fractions.liquid).toFixed(4))+'</td><td>'+
       sftEscape(f.front.crossingFaceCount)+'</td><td>'+sftEscape(f.centroidDisplacementRate==null?'—':f.centroidDisplacementRate.toPrecision(5))+'</td></tr>').join('');
@@ -220,7 +221,10 @@ function sftMount(){
   sftEl('sftRefresh').addEventListener('click',()=>sftRefresh());
   sftEl('sftRun').addEventListener('click',sftRun);
   sftEl('sftExport').addEventListener('click',()=>{
-    if(!sftState.result){sftStatus(sftUi('Analyze first; no result is available.','Analiza primero; aún no hay resultado.'));return}
+    const current=sftSelected();
+    if(!sftState.result||current.c!==sftState.sourceCase||current.group!==sftState.sourceGroup||current.region!==sftState.result.region){
+      sftInvalidate();sftStatus(sftUi('Source selection changed: rerun analysis before exporting.','Cambió la selección de fuente: analiza de nuevo antes de exportar.'));return
+    }
     downloadText('FoamLens_front_evidence.json',JSON.stringify({...sftState.result,exportedAt:new Date().toISOString()},null,2),'application/json')
   });
   sftRefresh();return true
