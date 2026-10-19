@@ -71,7 +71,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 
 ## Blocks, acceptance gates and evidence
 
-### F1 — View-local regions, selected field and overlays (P0, STARTED)
+### F1 — View-local regions, selected field and overlays (P0, CANDIDATE — #145)
+
+- Branch `feat/field-f1-multiregion-source-backed-20261019` rebased onto main after Developer and Time Series merges. B/C/D now have their own source-backed OpenFOAM region selection/field/component/opacity plus multi-region WebGL layers; true X/Y/Z axis overlay and measured union bounds per view. Return to a previously selected case retains view-specific choices.
+- Source-backed time rule: if secondary region has no actual measured field at t, render geometry only with an explicit status; never synthesize field values or timestamp zero. Dispose prior WebGL buffers on refresh and case change.
+- New `desktop/tests/field-multiregion-views.test.cjs` runs both fast Linux and full Windows CI, checking independence B/C, per-case preferences, actual measured arrays, geometry-only fallback and XYZ overlay. **Candidate does not become released until exact test pass and real Windows installed UI verification.**
+
 1. Identify source ownership bug: `fvRegionScene` and `fvPhysicalOverlayRender` are primary-only. B/C/D currently render only one mesh/field.
 2. Store region choices *by viewport and case identity*, with real mesh names, per-region fields/components, visibility, opacity, palette, and source physical-time metadata; no implicit global A state sharing.
 3. Render all selected physical region meshes in each viewport's actual WebGL context (including metal + mold in B/C/D), keeping each source association and its own legend. Treat transparent boundaries with a deliberate depth policy and tests.
