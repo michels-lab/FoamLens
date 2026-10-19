@@ -67,7 +67,7 @@ test('rate uses actual physical delta t and is NOT local normal velocity',()=>{
 });
 test('source-only dimensional, provenance and time-window constraints exist',()=>{
   for(const term of ["fvLoadFrameData(c,group,region,time,'value'","parsedDim!=='[0 0 0 0 0 0 0]'","end-start>120",
-    "sftState.result=null","No nucleation, recalescence","originalField:group.name"])
+    "sftState.result=null","No nucleation, recalescence","originalField:group.name","sourceFieldPartitions:(data.set||[])","meshPartitions:(data.meshInfo?.snapshot?.parts||[])"])
     assert(js.includes(term),'Missing evidence guard: '+term);
   assert(js.includes("fvReadyRegions(c).some(r=>fvFieldGroups(c,r,'scalar','volume').length)"));
   assert(js.includes('geometryCache.get(data.mesh)'));
