@@ -106,10 +106,12 @@ function chAudit(input={}){
   else if(!runtime.recognized)record('completion','Solver run completion','insufficient-information',
     'Selected text does not contain recognized OpenFOAM runtime lines.',runtime.sourceFile?[runtime.sourceFile]:[]);
   else record('completion','Solver run completion',
-      runtime.completion==='failed'?'error':runtime.completion==='explicit-end-reported'?'verified':'warning',
+      runtime.completion==='failed'||runtime.nondecreasingTime===false?'error':
+      runtime.completion==='explicit-end-reported'?'verified':'warning',
       runtime.completion==='explicit-end-reported'?'Original user-selected log reports End marker (run-log evidence only).':
        runtime.completion==='failed'?'Original user-selected log contains a fatal/abort event.':
-       'OpenFOAM execution evidence found, but no explicit End marker.',
+       'OpenFOAM execution evidence found, but no explicit End marker.'+
+       (runtime.nondecreasingTime===false?' Solver time decreased inside the same log.':''),
        runtime.sourceFile?[runtime.sourceFile]:[],
        'The log is manually selected and not independently proven to belong to this case.');
   const maxCo=chLogMetrics(rawLogs,'Courant','courantMax'),validCo=maxCo.filter(x=>x.rows);
@@ -119,9 +121,9 @@ function chAudit(input={}){
   else{
     const observations=validCo.flatMap(s=>s.rows.map(p=>p[1])),maximum=Math.max(...observations),
       limit=configuredMaxCo!=null&&configuredMaxCo>0?configuredMaxCo:null,
-      alert=limit!==null&&maximum>limit;
-    record('courant','Courant number',alert?'warning':limit===null?'insufficient-information':'verified',
-      'Observed CourantMax peak '+maximum+' across '+observations.length+' samples.'+
+      alert=limit!==null&&maximum>limit,invalid=maxCo.length-validCo.length;
+    record('courant','Courant number',invalid?'error':alert?'warning':limit===null?'insufficient-information':'verified',
+      'Observed CourantMax peak '+maximum+' across '+observations.length+' samples; invalid source histories '+invalid+'.'+
        (limit!==null?' Case controlDict maxCo='+limit+'.':' No sourced maxCo limit; no generic numerical pass threshold inferred.'),
       paths(validCo.map(x=>x.source)),'A Courant below a configured limit is not a universal stability guarantee.');
   }
@@ -150,7 +152,9 @@ function chAudit(input={}){
   }
   if(!cfgSource.fvSolution)record('pimple','PIMPLE/PISO/SIMPLE settings','insufficient-information',
     'fvSolution not available; coupling topology and number of correctors cannot be certified.');
-  else record('pimple','PIMPLE/PISO/SIMPLE settings','verified',
+  else record('pimple','PIMPLE/PISO/SIMPLE settings',
+    Number.isInteger(config.nOuterCorrectors)&&config.nOuterCorrectors>0&&
+    Number.isInteger(config.nCorrectors)&&config.nCorrectors>0?'verified':'warning',
     'fvSolution source present; declared nOuter='+String(config.nOuterCorrectors??'unavailable')+
     ', nCorrectors='+String(config.nCorrectors??'unavailable')+
     '. Presence does not prove nonlinear convergence.',paths(dictionary),
@@ -161,7 +165,7 @@ function chAudit(input={}){
   else if(!mesh.recognized||info==='unrecognized')record('mesh','checkMesh independent audit','insufficient-information',
     'Selected checkMesh-like text is not recognized.',mesh.sourceFile?[mesh.sourceFile]:[]);
   else record('mesh','checkMesh independent audit',
-    info==='failed'?'error':info==='reported-ok'?'verified':'warning',
+    info==='failed'?'error':info==='reported-ok'&&!mesh.messages?.warnings?.length?'verified':'warning',
     'User-selected checkMesh report status: '+info+'. '+(mesh.regionAudits?.length||0)+' separate region report(s).'+
     (mesh.messages?.warnings?.length?' Warnings reported: '+mesh.messages.warnings.length+'.':''),
     mesh.sourceFile?[mesh.sourceFile]:[],
@@ -229,12 +233,16 @@ function chSelectedCase(){
 }
 function chRefresh(){
   const sel=chEl('chCase');if(!sel)return;
-  const old=sel.value,options=Array.isArray(cases)?cases:[];
+  const old=sel.value,options=Array.isArray(cases)?cases:[],prior=chSelectedCase();
   sel.innerHTML='<option value="">'+chEsc(chUi('Select OpenFOAM case','Seleccionar caso OpenFOAM'))+'</option>'+
     options.map(c=>'<option value="'+chEsc(c.id)+'">'+chEsc(c.name||c.id)+'</option>').join('');
   if(options.some(c=>String(c.id)===old))sel.value=old;
   else if(typeof activeContextCaseId!=='undefined'&&activeContextCaseId!=null&&
       options.some(c=>String(c.id)===String(activeContextCaseId)))sel.value=String(activeContextCaseId);
+  if(prior!==chSelectedCase()){chSelectionVersion++;chMesh=null;chRuntimeLog=null;
+    const runtimeInput=chEl('chRuntimeFile'),meshInput=chEl('chMeshFile');
+    if(runtimeInput)runtimeInput.value='';if(meshInput)meshInput.value='';
+  }
   chInvalidate(chUi('Choose case, optionally attach original reports, then run evidence audit.',
     'Elige caso, adjunta reportes si existen y ejecuta la auditoría de evidencia.'))
 }
@@ -302,7 +310,7 @@ function chInstall(){
     '<p id="chStatus" class="extStatus" aria-live="polite"></p><div id="chBody"></div>';
   host.appendChild(panel);
   chEl('chRefresh').onclick=chRefresh;chEl('chAudit').onclick=chRun;chEl('chExport').onclick=chExport;
-  chEl('chCase').addEventListener('change',()=>{chMesh=null;chRuntimeLog=null;
+  chEl('chCase').addEventListener('change',()=>{chSelectionVersion++;chMesh=null;chRuntimeLog=null;
     chEl('chRuntimeFile').value='';chEl('chMeshFile').value='';
     chInvalidate('Case changed. Optional reports cleared to prevent cross-case misattribution.')});
   for(const [id,key,bytes] of [['chRuntimeFile','runtime',4*1024*1024],['chMeshFile','mesh',12*1024*1024]]){
