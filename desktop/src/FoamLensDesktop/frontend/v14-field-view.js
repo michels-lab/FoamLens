@@ -771,10 +771,10 @@ function fvRegionMakeBuffer(gl,values,layer){
     throw error
   }
 }
-function fvRegionBuildLayer(region,mesh,data,choice,time){
-  const gl=fvState.renderer?.gl;if(!gl)return null;
+function fvRegionBuildLayer(region,mesh,data,choice,time,renderer=fvState.renderer){
+  const gl=renderer?.gl;if(!gl)return null;
   const shape=fvBuildSurfaceBuffers(mesh),palette=fvRegionPalette(choice);
-  const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]||range;
+  const storage=data?.storage||'',range=data?.range,values=data?.fieldValues,paintRange=(renderer===fvState.renderer?fvRegionScene.videoRanges?.[fvRegionRangeKey(region,choice,data)]:null)||range;
   const measuredPaintRange=fvRegionMeasuredRange(range)&&fvRegionMeasuredRange(paintRange);
   let colors,colored=false;
   if(storage==='volume'&&values?.length===mesh.cellCount&&measuredPaintRange){
