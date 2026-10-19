@@ -24,6 +24,15 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 6. Implement targeted JS regression of two distinct viewports with same case but different region visibility/fields; real Windows installed and Portable multi-region case screenshots for compact/wide/high DPI. **No success claim without real rendered B with mold+metal and B metric axes.**
 7. Exit: A=metal+mold, B=metal+mold or only metal, C=another case, each independent; dimensions update after pan/orbit/zoom/time and do not refer to A; missing field means explicit geometry-only, not colored fake data.
 
+### T1 — Time Series: all real OpenFOAM fields and honest variable catalog (P0, ADDED 2026-10-19)
+- User screenshot: Data → Time Series variable selector presents only **Variable 0** even though the imported OpenFOAM case exposes additional 3D fields. A single already-built curve is not equivalent to the full field inventory.
+- Root finding: the active `v14-dual-timeseries.js` selector reads `timeSeriesOptionsBase()` (already imported/generated *series only*), while actual 3D fields are discovered separately via `fvReadyRegions`/`fvFieldGroups` and the `Create time series from 3D OpenFOAM fields` generator is collapsed. Do not assume every real field already has a time-series curve.
+- Show **two distinct catalogs**: (1) existing time-series datasets/curves, and (2) available OpenFOAM case → region → scalar/vector field → component (including X/Y/Z/magnitude where valid) that the user can generate on demand.
+- Promote `Generate field history` as an immediately visible action from Time Series. Reuse the existing field-history engine (source-backed physical times, exact mesh/field association, mean/min/max or measured 3D probe/profile) with cancel/progress and clear source/units metadata. Accept one or two selections, with independent Y axes when dimensions differ.
+- When an imported numeric postProcessing file has multiple *genuine* named columns, keep each source's header and unit/probe provenance; never invent `T`, `U` etc. A probes file containing only one physical field may correctly present one existing variable, but explain the other fields are available for generation.
+- Never populate a chart with synthetic curves merely because a 3D field is in inventory. Do not implicitly read thousands of frames on dropdown open, and prevent expensive re-computation without user approval.
+- Exit tests: load multi-field OpenFOAM case with real `T`, `U`, `alpha` (where present) and no precomputed probe series; Time Series must show all available fields in the generation picker with field types/components, an explicit not-yet-generated badge, and after Build display the correct scientifically measured time histories and units. If only one series exists, the existing-series selector must report 1 and offer the generation path; no deceptive `Variable 0` as the sole capability.
+
 ### F2 — Viewport layout and full controls (P1)
 - Per-view layout sizing, maximize/restore, physical scale fit, drag/rearrange and optional synchronized camera/time. Fix 3D headers and legend occlusion (screenshot shows top controls scrolled under ribbon, secondary legend overlapping loading indicator).
 - Tooltips/shortcut accessibility; region visibility and dimensions controls available without scrolling through view A. Re-test DPI and Windows 1024/1280/1920 window widths.
@@ -57,6 +66,7 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 | F1 per-view native scene geometry / metric axes | STARTED | Development branch `feat/field-per-view-regions-dimensions-20261019` |
 | F1 independent region controls / field + GPU layers | TODO | B mold+metal acceptance required |
 | F1 exact Windows/WebView2 2+ region visual CI | TODO | New hard gate required |
+| T1 Time Series full field catalog + generate real histories | STARTED | imported vs generated separation + multi-field fixture required |
 | F2 layout / DPI | TODO | 1024/1280/1920 & scales |
 | F3 CAD Viewer/Converter | PLANNED | Kernel/licensing/RFC |
 | F4 OpenFOAM export | PLANNED | edition-aware mesh prep |
