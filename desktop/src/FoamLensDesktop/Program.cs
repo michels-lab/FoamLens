@@ -710,6 +710,42 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException(
                     $"FoamLens launch surface was not visibly rendered after navigation: {launchStateJson}");
             Log($"FoamLens launch surface smoke passed: {launchStateJson}");
+            // The Mesh & Geometry Auditor is a public scientific report
+            // inspector, separate from the private Developer software auditor.
+            // Confirm that the *packaged* frontend loaded it into WebView2.
+            var meshAuditSurfaceJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const api=window.FoamLensMeshAuditor;
+                  const panel=document.getElementById('maPanel');
+                  if(!api||!panel)return{ok:false,reason:'Mesh report inspector is not mounted'};
+                  const report=api.parse([
+                    'Exec : checkMesh -allTopology -allGeometry',
+                    'Mesh stats',
+                    ' points: 4',
+                    ' faces: 4',
+                    ' cells: 1',
+                    'Mesh OK.'
+                  ].join('\n'),'CI-smoke-checkMesh.log');
+                  const ok=report.recognized&&report.status==='reported-ok'&&
+                    report.metrics.cells.value===1&&
+                    report.metrics.minVolume.value===null&&
+                    panel.querySelector('#maAnalyze')!==null&&
+                    panel.querySelector('#maExport')!==null;
+                  return{ok,status:report.status,cellCount:report.metrics.cells.value,
+                    missingVolume:report.metrics.minVolume.status};
+                })()
+                """);
+            using (var auditJson = JsonDocument.Parse(meshAuditSurfaceJson))
+            {
+                if (!auditJson.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                    throw new InvalidOperationException(
+                        "FoamLens scientific checkMesh inspector packaged WebView2 smoke failed: " +
+                        meshAuditSurfaceJson);
+            }
+            Log("FoamLens checkMesh scientific report inspector WebView2 smoke passed: " +
+                meshAuditSurfaceJson);
+
 
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");

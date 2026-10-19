@@ -602,6 +602,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/timeseries-source-catalog.test.cjs
 
+      - name: Test source-only OpenFOAM checkMesh report and explicit missing metrics
+        shell: pwsh
+        run: node desktop/tests/mesh-quality-audit.test.cjs
+
       - name: Test dual-variable Time-Series Focus
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs

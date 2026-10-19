@@ -1,0 +1,30 @@
+name: OpenFOAM checkMesh audit fast regression
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v20-mesh-quality-audit.js'
+      - 'desktop/tests/mesh-quality-audit.test.cjs'
+      - '.github/workflows/mesh-audit-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v20-mesh-quality-audit.js'
+      - 'desktop/tests/mesh-quality-audit.test.cjs'
+      - '.github/workflows/mesh-audit-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkmesh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source-only OpenFOAM mesh diagnostic parser
+        run: node desktop/tests/mesh-quality-audit.test.cjs
