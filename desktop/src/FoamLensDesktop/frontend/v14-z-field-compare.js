@@ -245,6 +245,7 @@ function fcSyncToolbars(){
       if(mirror.value!==actual.value)mirror.value=actual.value;
       mirror.disabled=!!actual.disabled||!actual.options.length
     }
+    fcPhysicalMenu(toolbar.dataset.fcToolbar)
   })
 }
 function fcAddViewportToolbar(viewport,view){
@@ -255,6 +256,33 @@ function fcAddViewportToolbar(viewport,view){
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
     (mapping?'<div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div>':'<span class="fcViewDiffLabel">Δ</span>')+
     '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button></div>';
+  if(mapping){
+    const holder=document.createElement('div');holder.className='fcPhysicalMenu';holder.dataset.fcRegions='1';
+    const dim=document.createElement('label');dim.className='fcDimensionSwitch';
+    dim.innerHTML='<input type="checkbox" data-fc-dimensions checked> '+fcUi('Dimensions','Cotas');
+    bar.append(dim,holder);
+    dim.querySelector('input').addEventListener('change',e=>{
+      if(view==='A'){
+        const actual=document.getElementById('fvShowDimensions');if(actual){actual.checked=e.target.checked;actual.dispatchEvent(new Event('change',{bubbles:true}))}
+      }else{
+        const state=view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
+        if(!state)return;fcPhysicalFor(state).dimensions=e.target.checked;
+        if(view==='B')fcRender();else fcExtraRender(state)
+      }
+    })
+  }
+  if(mapping&&view!=='A'){
+    const scene=viewport.querySelector('.fcViewportScene');
+    if(scene){
+      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.classList.add('fcMetricAxes');svg.setAttribute('role','img');
+      svg.setAttribute('aria-label',fcUi('Physical OpenFOAM mesh dimensions','Dimensiones físicas de malla OpenFOAM'));
+      const dims=document.createElement('div');dims.className='fcMetricBounds';dims.setAttribute('aria-live','polite');
+      scene.append(svg,dims)
+    }
+    const caption=viewport.querySelector('.fcViewportCaption');
+    if(caption){const legends=document.createElement('div');legends.className='fcPhysicalLegends';caption.appendChild(legends)}
+  }
   viewport.insertBefore(bar,viewport.firstChild);
   bar.querySelectorAll('[data-fc-bind]').forEach(mirror=>mirror.addEventListener('change',()=>{
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
@@ -270,6 +298,202 @@ function fcAddViewportToolbar(viewport,view){
   viewport.addEventListener('drop',e=>{if(!fcDraggedView)return;e.preventDefault();viewport.classList.remove('fcDropTarget');const rect=viewport.getBoundingClientRect();fcMoveViewport(viewport.parentElement,fcDraggedView,viewport,e.clientX>rect.left+rect.width/2);fcDraggedView.classList.remove('fcDraggingView');fcDraggedView=null});
   fcScheduleToolbarSync()
 }
+
+// Independent multi-region GPU scenes and metric overlays for B/C/D.
+// A continues to own its proven fvRegionScene, but now exposes it in its own view.
+function fcPhysicalFor(state){
+  if(!state._fcPhysical)state._fcPhysical={caseId:null,choices:new Map(),layers:new Map(),seq:0,dimensions:true,errors:new Map()};
+  return state._fcPhysical
+}
+function fcPhysicalRelease(state,{clearChoices=false}={}){
+  if(!state)return;
+  const scene=fcPhysicalFor(state);scene.seq++;
+  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
+  scene.layers.clear();scene.errors.clear();
+  if(clearChoices){scene.choices.clear();scene.caseId=null}
+}
+function fcPhysicalChoiceList(state,c,primary){
+  const scene=fcPhysicalFor(state),key=String(c?.id??'');
+  if(scene.caseId!==key){fcPhysicalRelease(state,{clearChoices:true});scene.caseId=key}
+  const regions=c?fvRegionNames(c):[],allowed=new Set(regions);
+  for(const region of [...scene.choices.keys()])if(!allowed.has(region))scene.choices.delete(region);
+  for(const region of regions)if(!scene.choices.has(region)){
+    const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const preferred=state.fieldName||'';
+    scene.choices.set(region,{visible:true,field:fields.some(g=>g.name===preferred)?preferred:(fields[0]?.name||''),component:'value',opacity:region===primary?1:.48,palette:'viridis'})
+  }
+  return regions
+}
+function fcPhysicalViewContext(view){
+  if(view==='A')return{view,c:fvCase(),primary:document.getElementById('fvRegion')?.value||'',state:fvState,viewport:document.getElementById('fcViewGrid')?.querySelector('#fvCanvas')?.closest('.fvViewport')};
+  const state=view==='B'?fcState:fcExtraViews.find(v=>v.id===Number(view));
+  const c=view==='B'?fcCase():state?fcExtraCase(state):null;
+  const primary=view==='B'?fcRegion():state?fcExtraRegion(state):'';
+  const viewport=view==='B'?document.getElementById('fcViewport'):state?fcExtraDom(state.id,'Viewport'):null;
+  return state?{view,c,primary,state,viewport}:null
+}
+function fcPhysicalMenu(view){
+  const ctx=fcPhysicalViewContext(view),bar=ctx?.viewport?.querySelector('[data-fc-toolbar]');
+  if(!ctx||!bar)return;
+  const holder=bar.querySelector('[data-fc-regions]');if(!holder)return;
+  const names=ctx.c?fvRegionNames(ctx.c):[];
+  if(view!=='A')fcPhysicalChoiceList(ctx.state,ctx.c,ctx.primary);
+  const choice=region=>view==='A'?fvRegionChoice(ctx.c,region):fcPhysicalFor(ctx.state).choices.get(region);
+  const key=JSON.stringify([ctx.c?.id,ctx.primary,...names.map(region=>{const ch=choice(region);return[region,ch?.visible,ch?.field,ch?.component,ch?.opacity,view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)]})]);
+  if(holder.dataset.fcMenuKey===key)return;holder.dataset.fcMenuKey=key;
+  const current=holder.querySelector('details')?.open||false;
+  const rows=names.map(region=>{
+    const ch=choice(region),groups=fvFieldGroups(ctx.c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const field=groups.find(g=>g.name===ch.field);
+    const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
+    const selection=ch.component||'value';
+    return '<div class="fcPhysicalRegionRow" data-fc-region="'+fcEsc(region)+'">'+
+      '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+'> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
+      '<select data-fc-region-field aria-label="'+fcUi('Property for region','Propiedad de región')+' '+fcEsc(region)+'">'+
+      groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
+      '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
+      components.map(o=>'<option value="'+fcEsc(o.v)+'" '+(o.v===selection?'selected':'')+'>'+fcEsc(o.t)+'</option>').join('')+'</select>'+
+      '<label class="fcPhysicalOpacity">'+fcUi('Opacity','Opacidad')+' <input type="range" data-fc-region-opacity min=".1" max="1" step=".05" value="'+Number(ch.opacity||1)+'"></label>'+
+      '<span class="fcPhysicalRegionStatus" data-fc-region-status>'+fcEsc(view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)||'')+'</span></div>'
+  }).join('');
+  const visible=names.filter(name=>choice(name)?.visible).length;
+  holder.innerHTML='<details '+(current?'open':'')+'><summary>'+fcUi('Physical regions','Regiones físicas')+' · '+visible+'/'+names.length+'</summary>'+
+    '<div class="fcPhysicalRows">'+(rows||'<span class="smallnote">'+fcUi('No physical regions for this case','Sin regiones físicas para este caso')+'</span>')+'</div></details>';
+  holder.querySelectorAll('[data-fc-region]').forEach(row=>{
+    const region=row.dataset.fcRegion,ch=choice(region);
+    row.querySelector('[data-fc-visible]').onchange=e=>{
+      ch.visible=e.target.checked;if(view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-field]').onchange=e=>{
+      ch.field=e.target.value;ch.component='value';
+      if(view==='A'){fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);fvRegionRefreshList()}else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-comp]').onchange=e=>{
+      ch.component=e.target.value;
+      if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-opacity]').oninput=e=>{
+      ch.opacity=Math.max(.1,Math.min(1,Number(e.target.value)||.5));
+      if(view==='A')fvRender();else if(view==='B')fcRender();else fcExtraRender(ctx.state)
+    }
+  })
+}
+function fcPhysicalReload(ctx){
+  const state=ctx.state;fcPhysicalMenu(ctx.view);
+  const redraw=()=>ctx.view==='B'?fcRender():fcExtraRender(state);
+  const time=state.time;
+  if(Number.isFinite(time))fcPhysicalLoad(state,ctx.c,ctx.primary,time,redraw).catch(e=>console.error('Field physical regions:',e))
+  else redraw()
+}
+async function fcPhysicalLoad(state,c,primary,time,redraw){
+  const scene=fcPhysicalFor(state),regions=fcPhysicalChoiceList(state,c,primary),seq=++scene.seq;
+  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
+  scene.layers.clear();scene.errors.clear();redraw();
+  if(!c||!Number.isFinite(fcPhysicalNumber(time))||!state.renderer)return;
+  for(const region of regions){
+    if(seq!==scene.seq)return;
+    const choice=scene.choices.get(region);
+    if(region===primary||!choice?.visible)continue;
+    try{
+      const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
+        group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+      let frame=null,mesh=null,reason='';
+      if(exact!==undefined){
+        frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
+        mesh=frame.mesh
+      }else{
+        mesh=await fvRegionGeometryAtTime(c,region,time);
+        reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+      }
+      if(seq!==scene.seq)return;
+      const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
+      const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
+      if(layer){scene.layers.set(region,layer);redraw()}
+    }catch(error){
+      if(seq===scene.seq){scene.errors.set(region,String(error?.message||error));redraw()}
+    }
+  }
+  if(seq===scene.seq)redraw()
+}
+function fcPhysicalRenderLayers(state,visual){
+  const renderer=state?.renderer,scene=state?fcPhysicalFor(state):null;if(!renderer||!scene)return;
+  const gl=renderer.gl,regionNames=[...scene.layers.keys()].sort((a,b)=>a.localeCompare(b));
+  for(const region of regionNames){
+    const layer=scene.layers.get(region),choice=scene.choices.get(region);
+    if(!layer||!choice?.visible||layer.gl!==gl)continue;
+    const opacity=fvClamp(choice.opacity,.1,1),faceField=layer.faceFieldCount>0;
+    gl.depthFunc(gl.LEQUAL);
+    if(visual.surface){
+      const shellAlpha=faceField?Math.min(opacity,.14):opacity;
+      gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
+      fvBindDraw(renderer,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha);
+      if(faceField){
+        gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField:true}));
+        fvBindDraw(renderer,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
+      }
+    }
+    if(visual.edges){
+      gl.depthMask(false);
+      fvBindDraw(renderer,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
+    }
+    gl.depthMask(true)
+  }
+}
+function fcPhysicalBoundsFor(state){
+  const scene=fcPhysicalFor(state),meshes=[];
+  const primary=state.region||'',main=scene.choices.get(primary);
+  if(state.mesh&&(!main||main.visible))meshes.push(state.mesh);
+  for(const [region,layer] of scene.layers)if(scene.choices.get(region)?.visible&&layer?.mesh)meshes.push(layer.mesh);
+  return fvRegionUnionBounds(meshes)
+}
+function fcPhysicalOverlayFor(view,state,canvas,mvp,camera){
+  const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
+  if(!viewport||!canvas)return;
+  const svg=viewport.querySelector('.fcMetricAxes'),readout=viewport.querySelector('.fcMetricBounds');
+  if(!svg||!readout)return;
+  const show=viewport.querySelector('[data-fc-dimensions]')?.checked!==false,bounds=fcPhysicalBoundsFor(state),
+    w=canvas.width,h=canvas.height;
+  svg.setAttribute('viewBox','0 0 '+w+' '+h);
+  if(!show||!bounds){svg.innerHTML='';readout.textContent=show?fcUi('No valid mesh dimensions','Sin dimensiones de malla válidas'):'';readout.hidden=!show;return}
+  const span=bounds.max.map((v,i)=>v-bounds.min[i]),labels=['X','Y','Z'].map((name,i)=>{
+    const u=fvMetricScale(span[i]);return name+': '+fvMetricLabel(bounds.min[i],u)+' → '+
+      fvMetricLabel(bounds.max[i],u)+' '+u.unit+' (Δ'+fvMetricLabel(span[i],u)+' '+u.unit+')'
+  });
+  readout.textContent=labels.join(' | ')+' · '+(camera?.projection==='perspective'?fcUi('Perspective','Perspectiva'):fcUi('Orthographic · true aspect ratio','Ortográfica · escala real'));readout.hidden=false;
+  const project=p=>fvProjectWorld(p,mvp,w,h),line=(a,b,color,alpha=.8,width=1)=>{
+    if(!a||!b)return '';
+    return '<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+'" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+'" stroke="'+color+'" stroke-opacity="'+alpha+'" stroke-width="'+width+'"/>'
+  };
+  let markup='',edges=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+  const corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),screen=corners.map(project);
+  for(const [a,b] of edges)markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
+  for(let axis=0;axis<3;axis++){
+    const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]);
+    const end=bounds.min.map((v,i)=>i===axis?bounds.max[i]:v);
+    markup+=line(project(bounds.min),project(end),color,1,2);
+    if(!(span[axis]>0))continue;
+    for(let i=0;i<=4;i++){
+      const world=bounds.min.map((v,j)=>axis===j?v+span[j]*i/4:v),pt=project(world);if(!pt)continue;
+      const label=(i===4?['X','Y','Z'][axis]+' ':'')+fvMetricLabel(world[axis],u)+(i===4?' '+u.unit:'');
+      markup+='<circle cx="'+pt.x.toFixed(2)+'" cy="'+pt.y.toFixed(2)+'" r="2.5" fill="'+color+'"/>'+
+        '<text x="'+(pt.x+6).toFixed(2)+'" y="'+(pt.y-7).toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="2.5" paint-order="stroke" font-size="11">'+fcEsc(label)+'</text>'
+    }
+  }
+  svg.innerHTML=markup
+}
+function fcPhysicalCaption(state,view){
+  const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
+  const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
+  const scene=fcPhysicalFor(state);
+  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity])]);
+  if(dock.dataset.fcCaptionKey===key)return;dock.dataset.fcCaptionKey=key;
+  dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
+    const layer=scene.layers.get(region),error=scene.errors.get(region);
+    return '<div class="fcPhysicalLegend"><b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b> '+
+      (error?'<span class="smallnote">'+fcEsc(error)+'</span>':fvRegionLegendMarkup(layer,ch))+'</div>'
+  }).join('')
+}
+
 function fcStatsMarkup(label,mesh,range,parsed,storage,probe){
   if(!mesh||!range?.valid)return'<div class="fcStatsTitle" title="'+fcEsc(label)+'">'+fcEsc(label)+'</div><div class="smallnote">—</div>';
   const unit=fcUnit(parsed),suffix=unit?' '+fcEsc(unit):'',delta=Number(range.max)-Number(range.min),selected=probe&&Number.isFinite(Number(probe.value))?(probe.cell!=null?fcUi('Cell','Celda')+' #'+Number(probe.cell).toLocaleString():probe.face!=null?fcUi('Face','Cara')+' #'+Number(probe.face).toLocaleString():fcUi('Selected','Seleccionado'))+' · '+fcFmt(probe.value)+suffix:'—';
@@ -314,6 +538,7 @@ function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===S
 function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
+  fcPhysicalRelease(fcState);
   const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
@@ -349,12 +574,16 @@ function fcRender(exportSize=null){
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
-  if(showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
-  if(showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
-  if(showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
-  if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
+  const showPrimary=fcPhysicalFor(fcState).choices.get(fcState.region)?.visible!==false;
+  if(showPrimary&&showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
+  if(showPrimary&&showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
+  if(showPrimary&&showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
+  if(showPrimary&&showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
   if(visual.vectors)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
   if(visual.streamlines)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
+  fcPhysicalRenderLayers(fcState,visual);
+  fcPhysicalOverlayFor('B',fcState,canvas,fcMvp(canvas),fcCameraFor(fcState,fcState.mesh));
+  fcPhysicalCaption(fcState,'B');
   fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas))
 }
 function fcUploadMesh(mesh){
@@ -448,6 +677,9 @@ async function fcRefreshFrame(){
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.sync=sync;fcState.range=data.range;
     const shared=fcApplySharedRange(data.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',field,component,data.parsed,shared,fcVisualFor(fcState,'fcView2').palette);fcUpdateStatsGrid();fcUpdateDifference(fvState.mesh,mesh,fvState.fieldValues,data.fieldValues);await fcUpdateVectors(target,seq);if(seq!==fcState.seq)return;fcUpdateLabels();
+    fcPhysicalMenu('B');
+    await fcPhysicalLoad(fcState,selected,region,fcState.time,fcRender);
+    if(seq!==fcState.seq)return;
     fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+fcSyncText(sync))
   }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
 }
@@ -467,10 +699,14 @@ function fcExtraRender(state,exportSize=null){
   if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
-  if(visual.surface){if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,(showSlice||showIso)?Math.min(opacity,.28):opacity)}
-  if(showSlice&&interior)fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
-  if(showIso&&interior)fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
-  if(showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  const showPrimary=fcPhysicalFor(state).choices.get(state.region)?.visible!==false;
+  if(showPrimary&&visual.surface){if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,(showSlice||showIso)?Math.min(opacity,.28):opacity)}
+  if(showPrimary&&showSlice&&interior)fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
+  if(showPrimary&&showIso&&interior)fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
+  if(showPrimary&&showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+  fcPhysicalRenderLayers(state,visual);
+  fcPhysicalOverlayFor(String(state.id),state,canvas,fcExtraMvp(state,canvas),fcCameraFor(state,state.mesh));
+  fcPhysicalCaption(state,String(state.id));
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
@@ -501,6 +737,7 @@ function fcExtraInvalidateFrame(state,message){
   // A past measured frame must not survive a missing physical timestamp in UI or exports.
   ++state.seq;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
+  fcPhysicalRelease(state);
   state.mesh=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
   fcExtraUpdateLabel(state);
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
@@ -510,12 +747,15 @@ async function fcExtraRefreshFrame(state){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
+  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
+    await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
+    if(seq!==state.seq)return;
+    if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
 function fcExtraRemove(id){
-  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync()
+  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync()
 }
 function fcExtraAdd(){
   if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
@@ -607,7 +847,7 @@ function fcInstallUi(){
   const diff=document.createElement('div');diff.id='fcDifferenceViewport';diff.className='fvViewport fcViewport hidden';diff.innerHTML='<canvas id="fcDifferenceCanvas" aria-label="3D OpenFOAM difference field visualization"></canvas><div class="fcTimeBadge" id="fcDifferenceTimeBadge">Δ · —</div><div class="fcViewLabel" id="fcDifferenceLabel">Δ field · A − B</div><div class="extStatus fcDifferenceStatus" id="fcDifferenceStatus"></div>';grid.appendChild(diff);
   for(const viewport of [primary,second,diff])fcComposeViewport(viewport);fcAddViewportToolbar(primary,'A');fcAddViewportToolbar(second,'B');fcAddViewportToolbar(diff,'Δ');
   const statsGrid=document.createElement('div');statsGrid.id='fcStatsGrid';statsGrid.className='fcStatsGrid hidden';grid.insertAdjacentElement('afterend',statsGrid);
-  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-items:start}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))}.fcViewport.hidden{display:none}.fcComposedViewport{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.fcViewportScene{position:relative;min-width:0;height:clamp(340px,36vw,500px);min-height:340px;flex:0 0 auto;overflow:hidden}.fcViewportCaption{display:flex;align-items:start;min-width:0;max-width:100%;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2)}.fcViewportCaption:empty{display:none}.fcComposedViewport .fcViewportScene>canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcComposedViewport .fcViewportScene>#fvCanvas{height:100%;min-height:0}.fcViewport .fcViewportScene>#fcCanvas,.fcViewport .fcViewportScene>#fcDifferenceCanvas,.fcViewport .fcViewportScene>canvas[id^="fcExtra"]{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcTimeBadge{position:absolute;left:12px;top:12px;z-index:8;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 90%,transparent);font-size:8px;font-weight:850;backdrop-filter:blur(8px)}.fcViewLabel{position:static;display:block;min-width:0;max-width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:11px;line-height:1.45;font-weight:750;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;box-shadow:none;backdrop-filter:none}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:8px;color:var(--muted)}.fcLegendTicks span{display:block;min-width:0;overflow-wrap:anywhere;text-align:center}.fcLegendTicks span:first-child{text-align:left}.fcLegendTicks span:last-child{text-align:right}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));align-items:start;gap:10px;margin-top:10px;min-width:0}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:10px;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:11px;line-height:1.45;font-weight:850;margin-bottom:9px;overflow-wrap:anywhere;white-space:normal;max-width:100%}.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}.fcStatsCells>div{padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0;min-height:56px}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:3px;font-size:12px;line-height:1.4;white-space:normal;overflow:visible;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.fcSelectedStat{grid-column:span 2}.fcViewToolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}.fcMoveHandle{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:7px 9px;color:var(--text);cursor:grab;white-space:nowrap;font-weight:800;font-size:10px}.fcMoveHandle:active{cursor:grabbing}.fcDropTarget{outline:2px solid var(--accent);outline-offset:-2px}.fcDraggingView{opacity:.48}.fcViewFieldRow{display:flex;flex:1 1 240px;min-width:0;flex-wrap:wrap;gap:6px}.fcViewPicker{display:grid;gap:3px;flex:1 1 115px;min-width:88px;max-width:265px;margin:0}.fcViewPicker span{font-size:9px;font-weight:750;color:var(--muted)}.fcViewPicker select{height:32px;padding:4px 6px;width:100%;min-width:0!important;max-width:100%;font-size:11px;text-overflow:ellipsis}.fcPickerRegion,.fcPickerComponent{flex:1 1 88px;max-width:145px}.fcViewZoom{display:flex;gap:3px;margin-left:auto;flex:0 0 auto}.fcViewZoom button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);width:34px;height:34px;font-size:19px;font-weight:750;cursor:pointer}.fcViewZoom button:hover{border-color:var(--accent);color:var(--accent)}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcComposedViewport .fcViewportScene{height:420px}}';document.head.appendChild(style);
+  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-items:start}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))}.fcViewport.hidden{display:none}.fcComposedViewport{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.fcViewportScene{position:relative;min-width:0;height:clamp(340px,36vw,500px);min-height:340px;flex:0 0 auto;overflow:hidden}.fcViewportCaption{display:flex;align-items:start;min-width:0;max-width:100%;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2)}.fcViewportCaption:empty{display:none}.fcComposedViewport .fcViewportScene>canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcComposedViewport .fcViewportScene>#fvCanvas{height:100%;min-height:0}.fcViewport .fcViewportScene>#fcCanvas,.fcViewport .fcViewportScene>#fcDifferenceCanvas,.fcViewport .fcViewportScene>canvas[id^="fcExtra"]{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcTimeBadge{position:absolute;left:12px;top:12px;z-index:8;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 90%,transparent);font-size:8px;font-weight:850;backdrop-filter:blur(8px)}.fcViewLabel{position:static;display:block;min-width:0;max-width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:11px;line-height:1.45;font-weight:750;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;box-shadow:none;backdrop-filter:none}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:8px;color:var(--muted)}.fcLegendTicks span{display:block;min-width:0;overflow-wrap:anywhere;text-align:center}.fcLegendTicks span:first-child{text-align:left}.fcLegendTicks span:last-child{text-align:right}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));align-items:start;gap:10px;margin-top:10px;min-width:0}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:10px;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:11px;line-height:1.45;font-weight:850;margin-bottom:9px;overflow-wrap:anywhere;white-space:normal;max-width:100%}.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}.fcStatsCells>div{padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0;min-height:56px}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:3px;font-size:12px;line-height:1.4;white-space:normal;overflow:visible;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.fcSelectedStat{grid-column:span 2}.fcViewToolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}.fcMoveHandle{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:7px 9px;color:var(--text);cursor:grab;white-space:nowrap;font-weight:800;font-size:10px}.fcMoveHandle:active{cursor:grabbing}.fcDropTarget{outline:2px solid var(--accent);outline-offset:-2px}.fcDraggingView{opacity:.48}.fcViewFieldRow{display:flex;flex:1 1 240px;min-width:0;flex-wrap:wrap;gap:6px}.fcViewPicker{display:grid;gap:3px;flex:1 1 115px;min-width:88px;max-width:265px;margin:0}.fcViewPicker span{font-size:9px;font-weight:750;color:var(--muted)}.fcViewPicker select{height:32px;padding:4px 6px;width:100%;min-width:0!important;max-width:100%;font-size:11px;text-overflow:ellipsis}.fcPickerRegion,.fcPickerComponent{flex:1 1 88px;max-width:145px}.fcViewZoom{display:flex;gap:3px;margin-left:auto;flex:0 0 auto}.fcViewZoom button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);width:34px;height:34px;font-size:19px;font-weight:750;cursor:pointer}.fcViewZoom button:hover{border-color:var(--accent);color:var(--accent)}.fcPhysicalMenu{flex:1 0 100%;min-width:0}.fcPhysicalMenu details{border-top:1px solid var(--line);padding-top:5px}.fcPhysicalMenu summary{cursor:pointer;font-weight:750;font-size:10px;color:var(--text);width:max-content;max-width:100%;padding:4px 7px;border:1px solid var(--line);border-radius:7px}.fcPhysicalRows{display:flex;flex-direction:column;gap:7px;margin-top:7px}.fcPhysicalRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(110px,1.6fr) minmax(90px,1fr) minmax(110px,1fr);align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:7px}.fcPhysicalToggle{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fcPhysicalRegionRow select{min-width:0;width:100%;height:30px}.fcPhysicalOpacity{display:flex;align-items:center;gap:4px;font-size:9px}.fcPhysicalOpacity input{min-width:45px;width:100%}.fcPhysicalRegionStatus{grid-column:1/-1;font-size:9px;color:var(--muted)}.fcDimensionSwitch{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;white-space:nowrap}.fcMetricAxes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}.fcMetricBounds{position:absolute;z-index:6;top:39px;left:9px;max-width:calc(100% - 20px);border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--panel) 90%,transparent);padding:5px 7px;font-size:9px;line-height:1.45;pointer-events:none}.fcMetricBounds[hidden]{display:none}.fcPhysicalLegends{display:flex;flex-wrap:wrap;gap:8px;width:100%}.fcPhysicalLegend{min-width:120px;max-width:220px;font-size:9px}.fcPhysicalLegend .fvRegionLegendBar{height:8px}.fcViewportCaption:has(.fcPhysicalLegends:not(:empty)){flex-wrap:wrap}.fcPhysicalLegend .fvRegionLegendBounds{display:flex;justify-content:space-between}@media(max-width:700px){.fcPhysicalRegionRow{grid-template-columns:minmax(90px,1fr) minmax(100px,1.2fr)}.fcPhysicalRegionStatus{grid-column:1/-1}}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcComposedViewport .fcViewportScene{height:420px}}';document.head.appendChild(style);
   try{flApplyBilingualText(box)}catch{}
   document.getElementById('fcEnabled').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
   document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcState.probe=null;fcRefreshFrame()});
