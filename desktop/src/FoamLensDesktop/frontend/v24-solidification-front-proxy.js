@@ -208,7 +208,8 @@ function pfRefresh(scope='cases'){
 }
 function pfParams(){
   const {c,region,groups}=pfCurrent(),g=groups.find(g=>g.name===pfEl('pfAlpha')?.value);
-  return{c,region,g,low:pfEl('pfLow')?.value,high:pfEl('pfHigh')?.value,iso:pfEl('pfIso')?.value,axis:pfEl('pfAxis')?.value}
+  return{c,region,g,low:pfEl('pfLow')?.value,high:pfEl('pfHigh')?.value,iso:pfEl('pfIso')?.value,
+    axis:pfEl('pfAxis')?.value,liquidFractionConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
 }
 function pfPlot(report){
   const canvas=pfEl('pfPlot');if(!canvas||!report?.evolution?.rows?.length)return;
@@ -229,8 +230,12 @@ function pfPlot(report){
 }
 async function pfRun(){
   pfInvalidate('Computing measured cell volumes and threshold-crossing face proxies…');
-  const token=pfToken,{c,region,g,low,high,iso,axis}=pfParams(),status=pfEl('pfStatus');
+  const token=pfToken,{c,region,g,low,high,iso,axis,liquidFractionConfirmed}=pfParams(),status=pfEl('pfStatus');
   if(!c||!g){status.textContent='Choose a source region and dimensionless volume alpha field.';return}
+  if(!liquidFractionConfirmed){
+    status.textContent='Confirm that the selected original dimensionless field physically represents liquid fraction αL. Names alone are not sufficient.';
+    return
+  }
   const lo=pfNumber(low),hi=pfNumber(high),cut=pfNumber(iso);
   if(!(lo>=0&&lo<=hi&&hi<=1&&cut>0&&cut<1)){status.textContent='Phase thresholds [0,1] and front iso (0,1) invalid.';return}
   const times=[...new Set(g.times.map(pfNumber).filter(Number.isFinite))].sort((a,b)=>a-b);
@@ -269,7 +274,9 @@ async function pfRun(){
   const evolution=pfEvolution(frames,times);
   if(!evolution.ok){status.textContent=evolution.reason;return}
   pfLast={schema:'foamlens/solidification-front-proxy/1',caseId:c.id,caseName:c.name,
-    region,field:g.name,dimensions:g.dimensions,axis,parameters:{low:lo,high:hi,iso:cut},
+    region,field:g.name,dimensions:g.dimensions,axis,
+    fieldRole:{liquidFraction:'user-confirmed',verifiedThermophysicalModel:false},
+    parameters:{low:lo,high:hi,iso:cut},
     sourceFrames,evolution,excluded,completion:excluded.length?'partial-evidence':'source-backed-evidence',
     interpretations:{automaticNucleation:false,automaticRecalescence:false,automaticMicrostructure:false},
     caveats:[
@@ -327,7 +334,8 @@ function pfInstall(){
   '<div class="field"><label>Solid / mushy α threshold</label><input id="pfLow" type="number" min="0" max="1" step="any" value=".05"></div>'+
   '<div class="field"><label>Mushy / liquid α threshold</label><input id="pfHigh" type="number" min="0" max="1" step="any" value=".95"></div>'+
   '<div class="field"><label>Internal-face front crossing α iso</label><input id="pfIso" type="number" min="0" max="1" step="any" value=".5"></div>'+
-  '</div><div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
+  '</div><label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified this ORIGINAL dimensionless OpenFOAM field represents liquid fraction αL for the chosen material, not another scalar.</label>'+
+  '<div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
   '<button id="pfExport" class="btn soft" type="button" disabled>Export JSON</button>'+
   '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button></div>'+
@@ -339,8 +347,8 @@ function pfInstall(){
   pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');
   for(const [id,scope] of [['pfCase','cases'],['pfRegion','field'],['pfAlpha','field']])
     pfEl(id).addEventListener('change',()=>pfRefresh(scope));
-  for(const id of ['pfLow','pfHigh','pfIso','pfAxis'])
-    pfEl(id).addEventListener(['pfAxis'].includes(id)?'change':'input',
+  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfConfirmAlpha'])
+    pfEl(id).addEventListener(['pfAxis','pfConfirmAlpha'].includes(id)?'change':'input',
       ()=>pfInvalidate('Analysis parameters changed. Re-run before exporting physical evidence.'));
   el.addEventListener('toggle',()=>{if(el.open)pfRefresh('cases')});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(el)}catch{}
