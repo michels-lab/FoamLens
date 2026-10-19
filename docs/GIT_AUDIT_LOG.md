@@ -1,5 +1,15 @@
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #151: energy interfaces (unreleased candidate)
+
+- Branch `feat/granada-151-interface-energy-accounting-20261019` starts from main, isolating changes from pending Field #162, CAD #164 and 2D/3D #165.
+- Existing `v14-energy-audit.js` already validates the decomposition of energy flux and inventories. A companion `v24-multiregion-energy.js` uses the same discovered measured case series but analyzes signed regional storage and interface reciprocity instead of duplicating the original audit.
+- Regions A and B require measured total stored energy [J], same-interface power [W] with explicit outward signs, optional external boundary and source power, and user-confirmed normal/area, storage coverage and all other terms. Computes per-region energy residual and interface mismatch using common physical timestamps with no extrapolation; result is always conditional, never physically certified.
+- Unknown/missing units, inconsistent available OpenFOAM dimensions, wrong source region, missing evidence, reused source columns, out-of-range time, and invalid data block calculation. Export is explicit local JSON/CSV, with original source path/column and warnings. No simulations modified or uploaded.
+- Independent Ubuntu/Windows spec CI leaves shared Program.cs and original Windows build workflow untouched, preventing collisions with other Granada branches.
+- Still pending: actual OpenFOAM owner fixture/physical area and normal verification, multiple external terms, true energy inventory completeness, installed Setup/Portable/WebView2 validation. No version or release change.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
