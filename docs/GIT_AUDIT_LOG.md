@@ -5,6 +5,16 @@
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
+## 2026-10-19 — Granada independent Solidification Front Tracker candidate (#153)
+
+- Open issue #153 was unclaimed while scientific PRs #162/#164/#165/#166/#167/#168/#169 are active. Started independent branch feat/granada-153-solidification-front-evidence-20261019 from main; those PRs and Program.cs remain untouched.
+- Audited existing v13 solidification temporal analysis, v14 iso-surface renderer, native polyMesh Field View, fvReadyRegions (returns **strings**, not objects), fvLoadFrameData and phase Field Mapping before coding; corrected region-key use during new module integration.
+- New source-only v24 front module calculates actual cell geometric volumes from oriented mesh faces and requires positive closed-cell evidence; per explicit phase role and thresholds derives solid/mushy/liquid volumetric inventory. Internal neighbour-face iso crossings provide measured face-area/centroid **proxy**, not physical reconstructed interface; centroid shift / true dt is not local normal front speed.
+- Fail closed on invalid fields, mesh/source mismatch, incompatible dimensions, phase values outside [0,1] or broken geometry. Physical-time markers only; excluded source times with reasons, bounded interactive window and user-initiated local JSON provenance export. No CFD execution/data upload or case mutation.
+- Scientific core eight checks executed in V8 successfully using oriented unit and adjacent cubic meshes; node regression added in desktop/tests/solidification-front-tracker.test.cjs, plus standalone Linux/Windows workflow and pre-existing solidification, iso-surface, Phase/Momentum regression jobs.
+- NOT VERIFIED YET: GitHub Actions exact branch head, real Windows Setup+Portable WebView2, real owner multiregion/moving mesh validity, local interface front velocity and user acceptance. Public v1.8.10 remains unchanged, #153 still open.
+- Technical documentation: docs/GRANADA_153_SOLIDIFICATION_FRONT_TRACKER_2026-10-19.md.
+
 ## 2026-10-19 — Developer section annotations with persistent location/comment and IA handoff (#158)
 
 - Owner requested direct pinpointing of specific FoamLENS Developer sections, with a remembered comment for each that **survives closing/reopening Developer**, and all comments auto-included in subsequent exported IA debugging context.
