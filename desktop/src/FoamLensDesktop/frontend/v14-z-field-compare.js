@@ -302,7 +302,7 @@ function fcAddViewportToolbar(viewport,view){
 // Independent multi-region GPU scenes and metric overlays for B/C/D.
 // A continues to own its proven fvRegionScene, but now exposes it in its own view.
 function fcPhysicalFor(state){
-  if(!state._fcPhysical)state._fcPhysical={caseId:null,choices:new Map(),layers:new Map(),seq:0,dimensions:true,errors:new Map()};
+  if(!state._fcPhysical)state._fcPhysical={caseId:null,choices:new Map(),savedByCase:new Map(),layers:new Map(),seq:0,dimensions:true,errors:new Map()};
   return state._fcPhysical
 }
 function fcPhysicalRelease(state,{clearChoices=false}={}){
@@ -314,7 +314,12 @@ function fcPhysicalRelease(state,{clearChoices=false}={}){
 }
 function fcPhysicalChoiceList(state,c,primary){
   const scene=fcPhysicalFor(state),key=String(c?.id??'');
-  if(scene.caseId!==key){fcPhysicalRelease(state,{clearChoices:true});scene.caseId=key}
+  if(scene.caseId!==key){
+    if(scene.caseId!==null)scene.savedByCase.set(scene.caseId,new Map([...scene.choices].map(([region,choice])=>[region,{...choice}])));
+    fcPhysicalRelease(state,{clearChoices:true});
+    scene.caseId=key;
+    scene.choices=new Map([...scene.savedByCase.get(key)||[]].map(([region,choice])=>[region,{...choice}]));
+  }
   const regions=c?fvRegionNames(c):[],allowed=new Set(regions);
   for(const region of [...scene.choices.keys()])if(!allowed.has(region))scene.choices.delete(region);
   for(const region of regions)if(!scene.choices.has(region)){
@@ -406,6 +411,7 @@ async function fcPhysicalLoad(state,c,primary,time,redraw){
         reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
       }
       if(seq!==scene.seq)return;
+      if(!mesh)throw new Error(fcUi('Physical mesh is unavailable for this region/time.','No existe malla física para esta región/tiempo.'));
       const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
       const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
       if(layer){scene.layers.set(region,layer);redraw()}
