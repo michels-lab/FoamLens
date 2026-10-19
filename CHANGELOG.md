@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #155 · Scientific Case Health (candidate)
+
+- Reuse the existing Case Discovery, foamLog, Diagnostic/PIMPLE, checkMesh and Energy audits to create a **source-backed per-case scientific evidence ledger**; do not duplicate these physics engines.
+- New Analysis tool categorizes field inventory, written physical times, controlDict, explicitly sourced runtime End/fatal events, Courant history with case-configured maxCo only, solver residual/continuity evidence, fvSolution/PIMPLE, checkMesh warnings, field dimension/BC metadata, regions/interfaces and energy data coverage.
+- Six honest states (verified, warning, error, insufficient information, not analyzed, not applicable), original-source evidence, user-supplied log/checkMesh attribution limitations, explicit export and no global CFD validity certificate.
+- Source data and optional local report files remain local. Independent fast Linux/Windows regression covers complete/partial/fatal cases; existing scientific auditors remain unmodified. Full owner-case experiment and installed Windows Setup/Portable acceptance remain pending. **No release.**
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
