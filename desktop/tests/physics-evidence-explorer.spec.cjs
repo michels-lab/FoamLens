@@ -76,6 +76,13 @@ assert.equal(r.sourceBacked,true);assert.equal(r.interpretation.status,'not-prov
 assert.deepStrictEqual(r.rows.map(x=>x.timeS),[0,1]);
 assert.deepStrictEqual(r.rows[0].sources,['case/0/metal/T']);
 assert.equal(r.rows[0].totalCells,4);
+const qualityIssue=api.assemble({...cfg,subset:'whole'},T,[{...obs[0],issues:['missing original processor3']},obs[1]],stats);
+assert(qualityIssue.ok&&qualityIssue.completion==='partial-evidence',
+ 'Source alignment warnings must prevent all-green provenance classification');
+const inconsistentHeader={...T,dimensions:['[0 0 0 1 0 0 0]','[0 1 -1 0 0 0 0]']};
+assert(!api.validate(cfg,inconsistentHeader,alpha).ok,'Cross-time dimensional inconsistency is blocked');
+const unknownHeader={...T,kinds:[]};
+assert(!api.validate(cfg,unknownHeader,alpha).ok,'Missing field kind cannot be guessed from name');
 const incomplete=api.assemble({...cfg,subset:'whole'},T,[
  obs[0],{time:1,ok:false,reason:'source field missing'}],stats);
 assert(incomplete.ok&&incomplete.completion==='partial-evidence');
