@@ -82,7 +82,9 @@ const target={
   querySelector:()=>null,
   getBoundingClientRect:()=>({x:36,y:152,width:635,height:504})
 };
-const locationInfo=author.targetFromElement(target);
+const locationInfo=author.targetFromElement(target,{x:36+635*.25,y:152+504*.75});
+assert.strictEqual(locationInfo.point.x,.25,'Pinpoint location must retain horizontal fractional click position');
+assert.strictEqual(locationInfo.point.y,.75,'Pinpoint location must retain vertical fractional click position');
 assert.strictEqual(locationInfo.section,'fcExtra3Viewport');
 assert(locationInfo.selector.includes('fcExtra3Viewport'),'Precise panel selector must be recorded');
 const message='View C mold must be visible beside the metal; the X dimensions are missing. This comment must survive restart.';
@@ -95,6 +97,8 @@ assert.strictEqual(restored.length,1,'Developer notes must persist across WebVie
 assert.strictEqual(restored[0].comment,message);
 assert.strictEqual(restored[0].section,'fcExtra3Viewport');
 assert.strictEqual(restored[0].selector,locationInfo.selector);
+assert.strictEqual(restored[0].point.x,.25,'Precise click location must persist');
+assert(reloaded.prompt().includes('Selected point within element'),'AI prompt must include precise relative pin position');
 assert(reloaded.prompt().includes(message),'AI prompt must include developer-authored comment');
 assert(reloaded.prompt().includes('DOM target selector'),'AI prompt must include exact section location');
 const longer='The Field A/B region selector is inconsistent: '+('x'.repeat(1700));
