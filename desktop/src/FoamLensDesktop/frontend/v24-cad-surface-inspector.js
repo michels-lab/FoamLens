@@ -227,15 +227,23 @@ function cgDraw(){
   const active=cgModels.filter(m=>m.visible),
     total=active.reduce((n,m)=>n+[...m.partsVisible].reduce((k,[part,visible])=>k+(visible?(m.partSummaries.get(part)?.triangles||0):0),0),0);
   if(!total){ctx.fillStyle='#bdcbdc';ctx.font='15px sans-serif';ctx.fillText('Import STL/OBJ to inspect surface geometry',20,34);return}
+  const physical=active.every(m=>cgUnitScale(m.unit)!==null);
+  if(active.length>1&&!physical){
+    ctx.fillStyle='#d6e7f1';ctx.font='15px sans-serif';
+    ctx.fillText('Confirm units for EACH visible file before overlaying geometries.',20,40);
+    ctx.fillText('Geometry from different unknown coordinate systems cannot be compared.',20,65);
+    return
+  }
   const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
   for(const m of active)for(const [part,visible] of m.partsVisible){
     if(!visible)continue;const b=m.partSummaries.get(part)?.bounds;if(!b)continue;
-    for(let i=0;i<3;i++){min[i]=Math.min(min[i],b.min[i]);max[i]=Math.max(max[i],b.max[i])}
+    const factor=physical?cgUnitScale(m.unit):1;
+    for(let i=0;i<3;i++){min[i]=Math.min(min[i],b.min[i]*factor);max[i]=Math.max(max[i],b.max[i]*factor)}
   }
   const bounds={min,max,size:max.map((v,i)=>v-min[i])},mid=min.map((x,i)=>(x+max[i])/2);
   const size=Math.max(...bounds.size,1e-12),scale=Math.min(w*.76,h*.76)/size*cgZoom;
-  const rotate=v=>{
-    const x=v[0]-mid[0],y=v[1]-mid[1],z=v[2]-mid[2],
+  const rotate=(v,factor)=>{
+    const x=v[0]*factor-mid[0],y=v[1]*factor-mid[1],z=v[2]*factor-mid[2],
       cy=Math.cos(cgYaw),sy=Math.sin(cgYaw),cp=Math.cos(cgPitch),sp=Math.sin(cgPitch);
     const a=cy*x+sy*z,b=-sy*x+cy*z;
     return [w/2+scale*a,h/2-scale*(cp*y-sp*b),sp*y+cp*b]
@@ -245,13 +253,14 @@ function cgDraw(){
   for(const model of active)for(const tri of model.triangles){
     if(!model.partsVisible.get(tri.part))continue;
     if((ordinal++%step)!==0)continue;
-    const p=tri.vertices.map(rotate);
+    const factor=physical?cgUnitScale(model.unit):1;
+    const p=tri.vertices.map(v=>rotate(v,factor));
     polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3})
   }
   polys.sort((a,b)=>a.z-b.z);
   for(const {p} of polys){ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();ctx.fillStyle='rgba(65,170,205,.27)';ctx.fill();ctx.strokeStyle='rgba(121,209,243,.44)';ctx.lineWidth=.6;ctx.stroke()}
   ctx.font='12px sans-serif';ctx.fillStyle='#d6e7f1';
-  const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  (unverified source units)',16,24);
+  const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  ('+(physical?'meters':'unverified source coordinates')+')',16,24);
   ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · selected visible parts only · not an OpenFOAM volume mesh',16,h-15)
 }
 function cgInstall(){
