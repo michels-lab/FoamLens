@@ -726,7 +726,7 @@ internal sealed class FoamLensForm : Form
                     ' faces: 4',
                     ' cells: 1',
                     'Mesh OK.'
-                  ].join('\\n'),'CI-smoke-checkMesh.log');
+                  ].join('\n'),'CI-smoke-checkMesh.log');
                   const ok=report.recognized&&report.status==='reported-ok'&&
                     report.metrics.cells.value===1&&
                     report.metrics.minVolume.value===null&&
