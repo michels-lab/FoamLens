@@ -14,10 +14,10 @@
     [/\/(?:home|Users)\/[^\s"'<>|]+/g,'[LOCAL_PATH]'],
     [/https?:\/\/[^\s"'<>]+/gi,s=>{try{const u=new URL(s);return u.origin+u.pathname}catch{return '[URL]'}}]
   ];
-  const clean=value=>{
+  const clean=(value,maxLength=MAX_TEXT)=>{
     let s=String(value===undefined?'undefined':value===null?'null':value);
     for(const [regex,replacement] of sensitivePatterns)s=s.replace(regex,replacement);
-    return s.slice(0,MAX_TEXT)
+    return s.slice(0,maxLength)
   };
   function event(kind,message,severity='error',source='runtime',extra={}){
     const record={
@@ -102,7 +102,7 @@
   }
   function annotationsSnapshot(){
     return annotations.map(note=>({...note,section:clean(note.section),
-      page:clean(note.page),selector:clean(note.selector),comment:clean(note.comment)}))
+      page:clean(note.page),selector:clean(note.selector),comment:clean(note.comment,MAX_NOTE_CHARS)}))
   }
   function saveAnnotation(target,comment,editId=null){
     if(!target||!target.selector||!target.page)throw Error('Select a real interface section first.');
