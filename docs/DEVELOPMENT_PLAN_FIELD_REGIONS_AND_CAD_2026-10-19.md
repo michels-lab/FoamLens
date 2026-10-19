@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #152 — Thermocouple XYZ conditional physical mapping (candidate only)
+
+- Independent from active Field #162, CAD #164, 2D/3D #165 and Energy #166. Existing Experimental Validation, real 3D Probe source history and Field polyhedral cell-containment are reused. New `v24-thermocouple-xyz-mapping.js` is installed in scientific Analysis with no modification of other in-flight modules.
+- Real target thermocouple coordinate/unit and real imported experimental temperature series mapped only to matching case/region temperature Probe histories from `field3d-probe-history`. Both sensor and original simulated probe coordinates separately require verified containing-cell evidence in the actual loaded OpenFOAM mesh; source probe offset tolerance is explicitly chosen.
+- Strict time and units, no temporal extrapolation, RMSE/MAE/bias/max difference, plot, local JSON/CSV provenance, separately measured physical displacement sensitivity candidates; no automatic recalescence label or synthesized temperatures.
+- Ubuntu/Windows specs cover prior source contracts and new guards. Missing source/mesh/units explicitly blocks validation. Remaining #152: real owner experimental data, irregular cells, definitive material/sensor calibration and co-location, installed Windows Setup+Portable acceptance and full spatial sensitivity protocol. **Unreleased**.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
