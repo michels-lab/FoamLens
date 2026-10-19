@@ -760,7 +760,11 @@ internal sealed class FoamLensForm : Form
                   const ascii=api.exportAsciiStl(obj.triangles,'native-smoke',.001);
                   const stl=api.parseStl(new TextEncoder().encode(ascii).buffer,'native-smoke.stl');
                   const exportBtn=document.getElementById('cgExportStl');
-                  const ok=sum.triangles===1&&sum.boundaryEdges===3&&
+                  launch.click();
+                  const opened=!panel.hidden&&canvas.getBoundingClientRect().width>200;
+                  panel.querySelector('#cgClose')?.click();
+                  const closed=panel.hidden;
+                  const ok=opened&&closed&&sum.triangles===1&&sum.boundaryEdges===3&&
                     sum.enclosedVolumeEstimate===null&&sum.bounds.size[0]===1&&
                     stl.triangles.length===1&&api.unitScale('unknown')===null&&
                     exportBtn?.disabled===true;
