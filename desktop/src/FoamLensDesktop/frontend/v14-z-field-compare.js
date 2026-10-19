@@ -270,6 +270,198 @@ function fcAddViewportToolbar(viewport,view){
   viewport.addEventListener('drop',e=>{if(!fcDraggedView)return;e.preventDefault();viewport.classList.remove('fcDropTarget');const rect=viewport.getBoundingClientRect();fcMoveViewport(viewport.parentElement,fcDraggedView,viewport,e.clientX>rect.left+rect.width/2);fcDraggedView.classList.remove('fcDraggingView');fcDraggedView=null});
   fcScheduleToolbarSync()
 }
+
+// Independent multi-region GPU scenes and metric overlays for B/C/D.
+// A continues to own its proven fvRegionScene, but now exposes it in its own view.
+function fcPhysicalFor(state){
+  if(!state._fcPhysical)state._fcPhysical={caseId:null,choices:new Map(),layers:new Map(),seq:0,dimensions:true,errors:new Map()};
+  return state._fcPhysical
+}
+function fcPhysicalRelease(state,{clearChoices=false}={}){
+  if(!state)return;
+  const scene=fcPhysicalFor(state);scene.seq++;
+  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
+  scene.layers.clear();scene.errors.clear();
+  if(clearChoices){scene.choices.clear();scene.caseId=null}
+}
+function fcPhysicalChoiceList(state,c,primary){
+  const scene=fcPhysicalFor(state),key=String(c?.id??'');
+  if(scene.caseId!==key){fcPhysicalRelease(state,{clearChoices:true});scene.caseId=key}
+  const regions=c?fvRegionNames(c):[],allowed=new Set(regions);
+  for(const region of [...scene.choices.keys()])if(!allowed.has(region))scene.choices.delete(region);
+  for(const region of regions)if(!scene.choices.has(region)){
+    const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const preferred=state.fieldName||'';
+    scene.choices.set(region,{visible:true,field:fields.some(g=>g.name===preferred)?preferred:(fields[0]?.name||''),component:'value',opacity:region===primary?1:.48,palette:'viridis'})
+  }
+  return regions
+}
+function fcPhysicalViewContext(view){
+  if(view==='A')return{view,c:fvCase(),primary:document.getElementById('fvRegion')?.value||'',state:fvState,viewport:document.getElementById('fcViewGrid')?.querySelector('#fvCanvas')?.closest('.fvViewport')};
+  const state=view==='B'?fcState:fcExtraViews.find(v=>v.id===Number(view));
+  const c=view==='B'?fcCase():state?fcExtraCase(state):null;
+  const primary=view==='B'?fcRegion():state?fcExtraRegion(state):'';
+  const viewport=view==='B'?document.getElementById('fcViewport'):state?fcExtraDom(state.id,'Viewport'):null;
+  return state?{view,c,primary,state,viewport}:null
+}
+function fcPhysicalMenu(view){
+  const ctx=fcPhysicalViewContext(view),bar=ctx?.viewport?.querySelector('[data-fc-toolbar]');
+  if(!ctx||!bar)return;
+  const holder=bar.querySelector('[data-fc-regions]');if(!holder)return;
+  const names=ctx.c?fvRegionNames(ctx.c):[];
+  if(view!=='A')fcPhysicalChoiceList(ctx.state,ctx.c,ctx.primary);
+  const choice=region=>view==='A'?fvRegionChoice(ctx.c,region):fcPhysicalFor(ctx.state).choices.get(region);
+  const current=holder.querySelector('details')?.open||false;
+  const rows=names.map(region=>{
+    const ch=choice(region),groups=fvFieldGroups(ctx.c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const field=groups.find(g=>g.name===ch.field);
+    const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
+    const selection=ch.component||'value';
+    return '<div class="fcPhysicalRegionRow" data-fc-region="'+fcEsc(region)+'">'+
+      '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+'> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
+      '<select data-fc-region-field aria-label="'+fcUi('Property for region','Propiedad de región')+' '+fcEsc(region)+'">'+
+      groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
+      '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
+      components.map(o=>'<option value="'+fcEsc(o.v)+'" '+(o.v===selection?'selected':'')+'>'+fcEsc(o.t)+'</option>').join('')+'</select>'+
+      '<label class="fcPhysicalOpacity">'+fcUi('Opacity','Opacidad')+' <input type="range" data-fc-region-opacity min=".1" max="1" step=".05" value="'+Number(ch.opacity||1)+'"></label>'+
+      '<span class="fcPhysicalRegionStatus" data-fc-region-status>'+fcEsc(view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)||'')+'</span></div>'
+  }).join('');
+  const visible=names.filter(name=>choice(name)?.visible).length;
+  holder.innerHTML='<details '+(current?'open':'')+'><summary>'+fcUi('Physical regions','Regiones físicas')+' · '+visible+'/'+names.length+'</summary>'+
+    '<div class="fcPhysicalRows">'+(rows||'<span class="smallnote">'+fcUi('No physical regions for this case','Sin regiones físicas para este caso')+'</span>')+'</div></details>';
+  holder.querySelectorAll('[data-fc-region]').forEach(row=>{
+    const region=row.dataset.fcRegion,ch=choice(region);
+    row.querySelector('[data-fc-visible]').onchange=e=>{
+      ch.visible=e.target.checked;if(view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-field]').onchange=e=>{
+      ch.field=e.target.value;ch.component='value';
+      if(view==='A'){fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);fvRegionRefreshList()}else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-comp]').onchange=e=>{
+      ch.component=e.target.value;
+      if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)
+    };
+    row.querySelector('[data-fc-region-opacity]').oninput=e=>{
+      ch.opacity=Math.max(.1,Math.min(1,Number(e.target.value)||.5));
+      if(view==='A')fvRender();else if(view==='B')fcRender();else fcExtraRender(ctx.state)
+    }
+  })
+}
+function fcPhysicalReload(ctx){
+  const state=ctx.state;fcPhysicalMenu(ctx.view);
+  const redraw=()=>ctx.view==='B'?fcRender():fcExtraRender(state);
+  const time=state.time;
+  if(Number.isFinite(time))fcPhysicalLoad(state,ctx.c,ctx.primary,time,redraw).catch(e=>console.error('Field physical regions:',e))
+  else redraw()
+}
+async function fcPhysicalLoad(state,c,primary,time,redraw){
+  const scene=fcPhysicalFor(state),regions=fcPhysicalChoiceList(state,c,primary),seq=++scene.seq;
+  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
+  scene.layers.clear();scene.errors.clear();redraw();
+  if(!c||!Number.isFinite(fcPhysicalNumber(time))||!state.renderer)return;
+  for(const region of regions){
+    if(seq!==scene.seq)return;
+    const choice=scene.choices.get(region);
+    if(region===primary||!choice?.visible)continue;
+    try{
+      const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
+        group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+      let frame=null,mesh=null,reason='';
+      if(exact!==undefined){
+        frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
+        mesh=frame.mesh
+      }else{
+        mesh=await fvRegionGeometryAtTime(c,region,time);
+        reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+      }
+      if(seq!==scene.seq)return;
+      const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
+      const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
+      if(layer){scene.layers.set(region,layer);redraw()}
+    }catch(error){
+      if(seq===scene.seq){scene.errors.set(region,String(error?.message||error));redraw()}
+    }
+  }
+  if(seq===scene.seq)redraw()
+}
+function fcPhysicalRenderLayers(state,visual){
+  const renderer=state?.renderer,scene=state?fcPhysicalFor(state):null;if(!renderer||!scene)return;
+  const gl=renderer.gl,regionNames=[...scene.layers.keys()].sort((a,b)=>a.localeCompare(b));
+  for(const region of regionNames){
+    const layer=scene.layers.get(region),choice=scene.choices.get(region);
+    if(!layer||!choice?.visible||layer.gl!==gl)continue;
+    const opacity=fvClamp(choice.opacity,.1,1),faceField=layer.faceFieldCount>0;
+    gl.depthFunc(gl.LEQUAL);
+    if(visual.surface){
+      const shellAlpha=faceField?Math.min(opacity,.14):opacity;
+      gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
+      fvBindDraw(renderer,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha);
+      if(faceField){
+        gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField:true}));
+        fvBindDraw(renderer,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
+      }
+    }
+    if(visual.edges){
+      gl.depthMask(false);
+      fvBindDraw(renderer,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
+    }
+    gl.depthMask(true)
+  }
+}
+function fcPhysicalBoundsFor(state){
+  const scene=fcPhysicalFor(state),meshes=[];
+  const primary=state.region||'',main=scene.choices.get(primary);
+  if(state.mesh&&(!main||main.visible))meshes.push(state.mesh);
+  for(const [region,layer] of scene.layers)if(scene.choices.get(region)?.visible&&layer?.mesh)meshes.push(layer.mesh);
+  return fvRegionUnionBounds(meshes)
+}
+function fcPhysicalOverlayFor(view,state,canvas,mvp,camera){
+  const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
+  if(!viewport||!canvas)return;
+  const svg=viewport.querySelector('.fcMetricAxes'),readout=viewport.querySelector('.fcMetricBounds');
+  if(!svg||!readout)return;
+  const show=viewport.querySelector('[data-fc-dimensions]')?.checked!==false,bounds=fcPhysicalBoundsFor(state),
+    w=canvas.width,h=canvas.height;
+  svg.setAttribute('viewBox','0 0 '+w+' '+h);
+  if(!show||!bounds){svg.innerHTML='';readout.textContent=show?fcUi('No valid mesh dimensions','Sin dimensiones de malla válidas'):'';readout.hidden=!show;return}
+  const span=bounds.max.map((v,i)=>v-bounds.min[i]),labels=['X','Y','Z'].map((name,i)=>{
+    const u=fvMetricScale(span[i]);return name+': '+fvMetricLabel(bounds.min[i],u)+' → '+
+      fvMetricLabel(bounds.max[i],u)+' '+u.unit+' (Δ'+fvMetricLabel(span[i],u)+' '+u.unit+')'
+  });
+  readout.textContent=labels.join(' | ')+' · '+(camera?.projection==='perspective'?fcUi('Perspective','Perspectiva'):fcUi('Orthographic · true aspect ratio','Ortográfica · escala real'));readout.hidden=false;
+  const project=p=>fvProjectWorld(p,mvp,w,h),line=(a,b,color,alpha=.8,width=1)=>{
+    if(!a||!b)return '';
+    return '<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+'" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+'" stroke="'+color+'" stroke-opacity="'+alpha+'" stroke-width="'+width+'"/>'
+  };
+  let markup='',edges=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+  const corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),screen=corners.map(project);
+  for(const [a,b] of edges)markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
+  for(let axis=0;axis<3;axis++){
+    const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]);
+    const end=bounds.min.map((v,i)=>i===axis?bounds.max[i]:v);
+    markup+=line(project(bounds.min),project(end),color,1,2);
+    if(!(span[axis]>0))continue;
+    for(let i=0;i<=4;i++){
+      const world=bounds.min.map((v,j)=>axis===j?v+span[j]*i/4:v),pt=project(world);if(!pt)continue;
+      const label=(i===4?['X','Y','Z'][axis]+' ':'')+fvMetricLabel(world[axis],u)+(i===4?' '+u.unit:'');
+      markup+='<circle cx="'+pt.x.toFixed(2)+'" cy="'+pt.y.toFixed(2)+'" r="2.5" fill="'+color+'"/>'+
+        '<text x="'+(pt.x+6).toFixed(2)+'" y="'+(pt.y-7).toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="2.5" paint-order="stroke" font-size="11">'+fcEsc(label)+'</text>'
+    }
+  }
+  svg.innerHTML=markup
+}
+function fcPhysicalCaption(state,view){
+  const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
+  const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
+  const scene=fcPhysicalFor(state);
+  dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
+    const layer=scene.layers.get(region),error=scene.errors.get(region);
+    return '<div class="fcPhysicalLegend"><b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b> '+
+      (error?'<span class="smallnote">'+fcEsc(error)+'</span>':fvRegionLegendMarkup(layer,ch))+'</div>'
+  }).join('')
+}
+
 function fcStatsMarkup(label,mesh,range,parsed,storage,probe){
   if(!mesh||!range?.valid)return'<div class="fcStatsTitle" title="'+fcEsc(label)+'">'+fcEsc(label)+'</div><div class="smallnote">—</div>';
   const unit=fcUnit(parsed),suffix=unit?' '+fcEsc(unit):'',delta=Number(range.max)-Number(range.min),selected=probe&&Number.isFinite(Number(probe.value))?(probe.cell!=null?fcUi('Cell','Celda')+' #'+Number(probe.cell).toLocaleString():probe.face!=null?fcUi('Face','Cara')+' #'+Number(probe.face).toLocaleString():fcUi('Selected','Seleccionado'))+' · '+fcFmt(probe.value)+suffix:'—';
