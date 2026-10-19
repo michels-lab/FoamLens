@@ -138,9 +138,11 @@ function cgRenderInventory(){
   const el=document.getElementById('cgInventory');if(!el)return;
   if(!cgModels.length){el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');return}
   el.innerHTML=cgModels.map((m,i)=>{
-    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=document.getElementById('cgUnits')?.value||'unknown';
+    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=m.unit||'unknown';
     return '<div class="cgItem"><label><input type="checkbox" data-cg-show="'+i+'" '+(m.visible?'checked':'')+'> <strong>'+cgEscape(m.name)+'</strong></label>'+
       '<div>'+cgEscape(m.format)+' · '+sum.triangles+' triangles · '+sum.parts.length+' named parts</div>'+
+      '<label>Source coordinate unit (this file): <select data-cg-unit="'+i+'">'+
+      [['unknown','Unknown / not confirmed'],['m','Meters'],['mm','Millimeters'],['cm','Centimeters'],['in','Inches']].map(x=>'<option value="'+x[0]+'" '+(x[0]===unit?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></label>'+
       '<div>X '+fmt(sum.bounds.size[0])+' · Y '+fmt(sum.bounds.size[1])+' · Z '+fmt(sum.bounds.size[2])+' ['+cgEscape(unit)+'] · area '+fmt(sum.area)+' ['+cgEscape(unit)+'²]</div>'+
       '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':'Open, inconsistent or degenerate surface')+
       ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
@@ -148,6 +150,10 @@ function cgRenderInventory(){
       (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
   }).join('');
   el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgDraw()}));
+  el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
+    const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
+    m.unit=sel.value;cgRenderInventory()
+  }));
   cgRefreshExport();cgDraw()
 }
 function cgRefreshExport(){
@@ -157,7 +163,7 @@ function cgRefreshExport(){
   cgModels.forEach((m,i)=>m.summary.parts.forEach(p=>parts.push({key:i+'|'+p.name,label:m.name+' / '+p.name+' ('+p.count+')'})));
   select.innerHTML=parts.map(p=>'<option value="'+cgEscape(p.key)+'">'+cgEscape(p.label)+'</option>').join('');
   if(parts.some(p=>p.key===old))select.value=old;
-  const scale=cgUnitScale(document.getElementById('cgUnits')?.value);
+  const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
   exportBtn.disabled=!parts.length||!scale;
   const note=document.getElementById('cgUnitWarning');
   if(note)note.textContent=scale?
@@ -178,7 +184,7 @@ async function cgImport(){
       if(!result)throw new Error('Supported in this preview: STL and OBJ');
       if(cgModels.reduce((n,m)=>n+m.triangles.length,0)+result.triangles.length>300000)throw new Error('Combined imported geometry exceeds 300,000-triangle interactive preview limit');
       const sum=cgSummary(result.triangles);
-      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,warnings:result.warnings||[],visible:true});
+      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,warnings:result.warnings||[],unit:'unknown',visible:true});
       added++;
     }catch(e){errors.push(f.name+': '+String(e?.message||e))}
     // Relinquish the UI turn during large batches.
@@ -188,7 +194,7 @@ async function cgImport(){
 }
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
-  const unit=document.getElementById('cgUnits')?.value,scale=cgUnitScale(unit);
+  const unit=cgModels[index]?.unit,scale=cgUnitScale(unit);
   if(sep<0||!scale||!cgModels[index]){cgShow('Confirm source units and choose a named part.');return}
   const model=cgModels[index],subset=model.triangles.filter(t=>t.part===part),sum=cgSummary(subset),name=cgSafeName(part);
   if(sum.degenerate||sum.nonManifoldEdges||sum.boundaryEdges||sum.orientationConflicts){
@@ -252,7 +258,7 @@ function cgInstall(){
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
     '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL or OBJ from your computer.</div>'+
     '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
-    '<div class="cgTools"><label>Source coordinate unit <select id="cgUnits"><option value="unknown">Unknown (not confirmed)</option><option value="m">Meters (m)</option><option value="mm">Millimeters (mm)</option><option value="cm">Centimeters (cm)</option><option value="in">Inches (in)</option></select></label>'+
+    '<div class="cgTools">'+
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
@@ -263,7 +269,7 @@ function cgInstall(){
   document.addEventListener('keydown',e=>{if(cgActive&&e.key==='Escape')close()});
   document.getElementById('cgImport').onclick=()=>void cgImport();
   document.getElementById('cgExportStl').onclick=cgExport;
-  document.getElementById('cgUnits').addEventListener('change',()=>{cgRefreshExport();cgRenderInventory()});
+  document.getElementById('cgPart').addEventListener('change',cgRefreshExport);
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
   });
