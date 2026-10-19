@@ -5,6 +5,14 @@
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
+## 2026-10-19 — Developer-only twin and AI-exportable software audit candidate (#158)
+
+- User corrected prior interpretation: **not** a Developer button inside the public app. FoamLens Developer must be a separately compiled Windows twin for programmer-only distribution. Share core scientific/UI frontend with normal FoamLENS but isolate binary, installer AppId, program folder, WebView2 profile, cache and host logs.
+- Developer variant is built by `-p:FoamLensDeveloper=true`, resulting in `FoamLensDeveloper.exe`; developer Audit.js is embedded only when the developer compile constant is active. Regular `FoamLens.exe` / AppBundle do not contain developer audit tools. Developer Setup has its own AppId and uninstaller. Automatic/public updater disabled on Developer.
+- Developer audit captures actually observed JavaScript/window/promise/WebView2 failures and runs bounded, explicit UI checks for missing controls, duplicate IDs, clipping/overlap, device scaling and limited performance data. Includes local actions and source context without recording input field values. Locally exports sanitized JSON or AI troubleshooting prompt with evidence and honest coverage limitations; no automatic uploads.
+- Privacy: best-effort redaction of paths, query credentials and Bearer secrets; manual review before sharing a report is mandatory. This is **not** exhaustive source auditing, silent monitoring of all computers, authentication, an AI model embedded into FoamLens, or a guarantee of scientific correctness.
+- Build & evidence: local script `desktop/developer/build-developer.ps1`, `desktop/installer/FoamLensDeveloper.iss`, WebView2 real-audit smoke and `desktop/tests/developer-twin-audit.test.cjs`. **Candidate / unmerged at entry**, exact CI and installed acceptance pending; neither edition's public release bumped. Technical documentation `docs/FOAMLENS_DEVELOPER_EDITION_2026-10-19.md`. Scientific Mesh Auditor #150 remains separate.
+
 ## 2026-10-19 — Full FoamLENS pending work inventory from other conversations added to main roadmap (documentation-only)
 
 - Owner required permanently preserving **both** newer CAD/STEP/IGES/STL, independent A/B/C/D physical regions and XYZ dimension overlays, Time Series `Variable 0` fixes **and** all previously identified scientific features in other chats. This work adds a canonical plan without claiming completion or shipping new executables.
