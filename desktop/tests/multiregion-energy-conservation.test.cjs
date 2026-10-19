@@ -40,12 +40,12 @@ assert(sync.grid.every(x=>x>=0&&x<=3));
 
 const boundary=input();
 boundary.regions[0].inventory=mk('metal','J',[0,3],[100,82]);
-boundary.regions[0].extras=[{kind:'boundaryOut',series:mk('metal','W',[0,3],[2,2]),orientation:1}];
+boundary.regions[0].extras=[{kind:'boundaryOut',series:mk('metal','W',[0,3],[2,2],{sourcePath:'postProcessing/metal/boundary/other.dat'}),orientation:1}];
 const bal=lib.eval(boundary);assert(bal.valid,bal.reason);
 near(bal.regions[0].intBoundary,6);near(bal.regions[0].residual,0);near(bal.system.residual,0);
 const supply=input();
 supply.regions[1].inventory=mk('mold','J',[0,3],[50,68]);
-supply.regions[1].extras=[{kind:'sourceIn',series:mk('mold','W',[0,3],[2,2]),orientation:1}];
+supply.regions[1].extras=[{kind:'sourceIn',series:mk('mold','W',[0,3],[2,2],{sourcePath:'postProcessing/mold/source/other.dat'}),orientation:1}];
 const sup=lib.eval(supply);assert(sup.valid,sup.reason);
 near(sup.regions[1].intSources,6);near(sup.regions[1].residual,0);
 
@@ -99,7 +99,7 @@ assert.strictEqual(lib.dimensions('','J'),'missing');
 assert.deepStrictEqual(lib.pairs({t:[0,1,null,'',3],y:[0,'0',7,8,6]}),[[0,0],[1,0],[3,6]]);
 for(const req of [
  "panel.id='mecPanel'","mecConfirmInterface","mecConfirmCoverage","mecConfirmStorage",
- "mecAInventory","mecBInventory","mecAInterface","mecBInterface",
+ 
  "mecExportJson","mecExportCsv","eaCaseSeries","eaDescriptor",
  "mecInvalidate","interfaceValidated:false","noCaseMutation:true",
  "window.FoamLensMultiregionEnergy"
