@@ -78,6 +78,17 @@ const cross=api.audit({case:mkCase(),logs:other});
 assert.equal(by(cross,'courant').status,'insufficient-information','never use another case logs');
 const malformed=allLogs();malformed[0].t=[0,1,1];malformed[0].y=[0,.2,.3];
 assert.equal(by(api.audit({case:mkCase(),logs:malformed}),'courant').status,'error');
+const mixedInvalid=allLogs();mixedInvalid.push(l('Courant','courantMax',[.2,.1,.3],{t:[0,0,2]}));
+assert.equal(by(api.audit({case:mkCase(),logs:mixedInvalid}),'courant').status,'error',
+ 'One invalid Courant history must not be ignored because another history is valid');
+const nonmonotonic=api.audit({case:mkCase(),logs:allLogs(),runtime:api.runtime('Time = 2\nTime = 1\nEnd\n')});
+assert.equal(by(nonmonotonic,'completion').status,'error','Backwards time in selected run log cannot pass');
+const missingPimple=mkCase();delete missingPimple.config.nCorrectors;
+assert.equal(by(api.audit({case:missingPimple,logs:allLogs()}),'pimple').status,'warning',
+ 'Unverified corrector count is not equivalent to verified PIMPLE settings');
+const warnedMesh=parsedMesh('Exec : checkMesh\nMesh stats\n cells: 8\n***Max skewness exceeds recommended limit.\nMesh OK.');
+assert.equal(by(api.audit({case:mkCase(),logs:allLogs(),meshReport:warnedMesh}),'mesh').status,'warning',
+ 'Mesh OK with warnings must remain a caution not a green verified result');
 const missingFinal=allLogs().filter(s=>s.logMetric!=='finalResidual');
 assert.equal(by(api.audit({case:mkCase(),logs:missingFinal}),'residuals').status,'warning');
 const missingField=mkCase();missingField.discoveryModel.fields[0].dimensions='';
