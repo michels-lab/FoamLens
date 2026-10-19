@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #153: source-backed 3D solidification front **proxy** (candidate)
+
+- Add independent Analysis module for real OpenFOAM alphaL volume-scalar fields, user-verified liquid-fraction meaning, original regions and physical times. Reuse the existing Field polyMesh/dynamic-mesh loader and preserve prior Field isosurface and 1D solidification-signal engines unchanged.
+- Compute positive oriented source cell volumes [m³], volume-weighted phase fractions/liquid fraction, solid/mushy/liquid physical region volumes and original cell counts. Reject partial topology, inconsistent face orientation, nonfinite/out-of-range alpha or missing source field association.
+- Track an explicitly **approximate internal-face threshold-crossing proxy**: crossing face area [m²], area-weighted face centroid [m], and conservative apparent centroid displacement between source times. Never present this as exact reconstructed front area, local front speed or metallurgical recalescence.
+- Discrete physical-time plot, excluded file/time evidence, read-only local JSON/CSV exports invalidated after source/setting changes. Independent geometric reference regressions on Ubuntu/Windows. Original irregular/dynamic mesh, local experimental cases, installed Setup/Portable native checks and true continuous front interpretation remain open. **No release.**
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
