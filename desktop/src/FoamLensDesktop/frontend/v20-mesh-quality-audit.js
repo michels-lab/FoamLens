@@ -87,16 +87,33 @@ function maPureCheckMesh(text,sourceName=''){
     const e=/^\s*Errors?\s*:\s*(\d+)\s*$/i.exec(line);if(e)errorsCount=Number(e[1]);
     const w=/^\s*Warnings?\s*:\s*(\d+)\s*$/i.exec(line);if(w)warningCount=Number(w[1]);
   }
+  // Multiple region reports must not be collapsed into one "mesh". Preserve
+  // each region's metrics separately and leave global metrics unknown.
+  let regionAudits=[];
+  if(regionsSeen.size>1){
+    const heads=lines.map((line,i)=>({line,i,match:/^Region\s*:\s*([^\s]+)/i.exec(line)})).filter(x=>x.match);
+    for(let k=0;k<heads.length;k++){
+      const region=heads[k].match[1],chunk=lines.slice(heads[k].i,(heads[k+1]?.i??lines.length)).join('\n');
+      const result=maPureCheckMesh('Exec : checkMesh -region '+region+'\n'+chunk,cleanSource+' # '+region);
+      regionAudits.push({region,metrics:result.metrics,bounds:result.bounds,status:result.status,
+        reported:result.reported,messages:result.messages})
+    }
+    for(const key of Object.keys(records)){
+      records[key]={...records[key],value:null,status:'not-reported',line:null}
+    }
+  }
   const metricCount=Object.values(records).filter(v=>v.status==='reported').length;
   // Numeric reports without a checkMesh marker must not be certified checkMesh.
   if(metricCount>=3&&/^\s*(?:points|faces|cells)\s*:/im.test(raw))recognized=true;
   if(regionsSeen.size&&!Number.isFinite(records.regions.value))
     records.regions={...records.regions,value:regionsSeen.size,status:'observed-labels-only',line:null};
   const indicatesFailure=failures.length>0||(failedChecks!==null&&failedChecks>0)||(errorsCount!==null&&errorsCount>0);
-  const status=!recognized?'unrecognized':indicatesFailure?'failed':
+  const hasRegionFailure=regionAudits.some(v=>v.status==='failed');
+  const status=!recognized?'unrecognized':indicatesFailure||hasRegionFailure?'failed':
     meshOk&&failedChecks!==null&&failedChecks===0?'reported-ok':
     meshOk?'reported-ok':failedChecks===0?'no-failed-checks-reported':'incomplete';
   const flags=warnings.length?['Review warnings emitted by checkMesh.']:[];
+  if(regionAudits.length)flags.push('Multiple regions were reported separately; no global mesh metric is fabricated from the last region.');
   if(!recognized)flags.push('This input was not recognized as a checkMesh-like report.');
   if(!meshOk&&failedChecks===null)flags.push('No checkMesh pass/fail summary found; status is not a proof of mesh quality.');
   if(!records.maxNonOrthogonality.value&&records.maxNonOrthogonality.status==='not-reported')
@@ -104,7 +121,7 @@ function maPureCheckMesh(text,sourceName=''){
   return{
     schema:'foamlens/checkmesh-audit/1',sourceFile:cleanSource,sourceKind:'user-selected-checkMesh-text',
     recognized,status,regionLabel:lastRegion,regionLabels:[...regionsSeen],metrics:records,
-    bounds,reported:{meshOk,failedChecks,errorsCount,warningCount},
+    bounds:regionAudits.length?null:bounds,regionAudits,reported:{meshOk,failedChecks,errorsCount,warningCount},
     messages:{warnings,failures},notes:flags,
     limitations:[
       'Values are transcribed from a selected checkMesh text report, not independently computed from polyMesh.',
@@ -124,11 +141,14 @@ function maRender(report){
   if(!report){status.textContent=maUi('Select a local checkMesh output (.log/.txt). No case files are modified.','Selecciona un reporte checkMesh local (.log/.txt). No se modifican archivos.');body.textContent='';return}
   const r=report,colors={failed:'extWarn','reported-ok':'extGood',incomplete:'extWarn',unrecognized:'extWarn','no-failed-checks-reported':'extGood'};
   status.innerHTML='<strong class="'+(colors[r.status]||'')+'">'+maEsc(r.status)+'</strong> · '+maEsc(r.sourceFile||'file')+' · '+Object.values(r.metrics).filter(m=>m.status!=='not-reported').length+' '+maUi('reported metrics','métricas reportadas');
-  const rows=Object.values(r.metrics).map(m=>'<tr><td>'+maEsc(m.label)+'</td><td>'+maEsc(m.value===null?'—':Number(m.value).toLocaleString('en-US',{maximumSignificantDigits:8}))+'</td><td>'+maEsc(m.unit)+'</td><td>'+maEsc(m.status)+'</td></tr>').join('');
-  const bs=r.bounds?r.bounds.min.map((x,i)=>['X','Y','Z'][i]+': '+x+' → '+r.bounds.max[i]+' m').join(' · '):maUi('Not reported','No reportadas');
+  const groupRows=(metrics,region)=>Object.values(metrics).map(m=>'<tr><td>'+maEsc(region)+'</td><td>'+maEsc(m.label)+'</td><td>'+maEsc(m.value===null?'—':Number(m.value).toLocaleString('en-US',{maximumSignificantDigits:8}))+'</td><td>'+maEsc(m.unit)+'</td><td>'+maEsc(m.status)+'</td></tr>').join('');
+  const rows=r.regionAudits?.length?r.regionAudits.map(v=>groupRows(v.metrics,v.region)).join(''):groupRows(r.metrics,'—');
+  const bs=r.regionAudits?.length?
+    r.regionAudits.map(v=>maEsc(v.region)+': '+(v.bounds?v.bounds.min.map((x,i)=>['X','Y','Z'][i]+' '+x+' → '+v.bounds.max[i]+' m').join(' · '):maUi('Not reported','No reportadas'))).join(' | '):
+    (r.bounds?r.bounds.min.map((x,i)=>['X','Y','Z'][i]+': '+x+' → '+r.bounds.max[i]+' m').join(' · '):maUi('Not reported','No reportadas'));
   const msg=[...r.messages.failures.map(x=>'ERROR line '+x.line+': '+x.message),...r.messages.warnings.map(x=>'WARNING line '+x.line+': '+x.message),...r.notes].map(x=>'<li>'+maEsc(x)+'</li>').join('');
   body.innerHTML='<div class="extInfo"><b>'+maUi('Domain bounds','Límites del dominio')+':</b> '+maEsc(bs)+'</div>'+
-    '<div class="extTableWrap"><table><thead><tr><th>'+maUi('Measured quantity','Magnitud reportada')+'</th><th>'+maUi('Value','Valor')+'</th><th>'+maUi('Units','Unidades')+'</th><th>'+maUi('Evidence','Evidencia')+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="extTableWrap"><table><thead><tr><th>'+maUi('Region','Región')+'</th><th>'+maUi('Measured quantity','Magnitud reportada')+'</th><th>'+maUi('Value','Valor')+'</th><th>'+maUi('Units','Unidades')+'</th><th>'+maUi('Evidence','Evidencia')+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     (msg?'<ul class="smallnote">'+msg+'</ul>':'')+
     '<p class="smallnote">'+maEsc(r.limitations[0])+'</p>';
 }
