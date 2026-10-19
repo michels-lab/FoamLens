@@ -140,8 +140,8 @@ function sftChart(frames){
   const xx=t=>38+(t-x0)/(x1-x0||1)*620,yy=f=>185-150*f;
   const strokes={solid:'#d68e57',mushy:'#9b83d8',liquid:'#3fb69c'};
   const paths=Object.keys(strokes).map(k=>{
-    const pts=frames.map(f=>xx(f.time).toFixed(2)+','+yy(f.fractions[k]).toFixed(2)).join(' ');
-    return'<polyline fill="none" stroke="'+strokes[k]+'" stroke-width="2.5" points="'+pts+'"/>'
+    // Mark only the physically written times. No synthetic line across missing frames.
+    return frames.map(f=>'<circle cx="'+xx(f.time).toFixed(2)+'" cy="'+yy(f.fractions[k]).toFixed(2)+'" r="3" fill="'+strokes[k]+'"/>').join('')
   }).join('');
   return'<svg viewBox="0 0 690 210" role="img" aria-label="Measured source-time phase volume fractions" style="width:100%;max-height:240px"><path d="M38 28 V185 H660" stroke="currentColor" opacity=".5" fill="none"/>'+
   '<text x="3" y="35" fill="currentColor" font-size="12">100%</text><text x="14" y="185" fill="currentColor" font-size="12">0%</text>'+
