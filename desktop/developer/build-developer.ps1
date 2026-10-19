@@ -2,7 +2,7 @@ param(
     [switch]$SkipInstaller
 )
 $ErrorActionPreference='Stop'
-$root=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$root=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $root
 $proj='desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
 $projectFolder='desktop/src/FoamLensDesktop'
@@ -30,7 +30,8 @@ if(-not (Test-Path $exe)){throw 'Missing Developer EXE'}
 if($LASTEXITCODE -ne 0){throw 'Developer audit resource self-test failed'}
 Write-Host "Developer-only EXE: $exe"
 if(-not $SkipInstaller){
-  $iscc=(Get-Command ISCC.exe -ErrorAction SilentlyContinue)?.Source
+  $isccCommand=Get-Command ISCC.exe -ErrorAction SilentlyContinue
+  $iscc=if($isccCommand){$isccCommand.Source}else{$null}
   if(-not $iscc) {
     foreach($guess in @('C:\Program Files (x86)\Inno Setup 6\ISCC.exe','C:\Program Files\Inno Setup 6\ISCC.exe')){
       if(Test-Path $guess){$iscc=$guess;break}
