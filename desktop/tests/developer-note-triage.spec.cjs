@@ -6,7 +6,7 @@ const baseline=fs.readFileSync(path.join(__dirname,'developer-twin-audit.test.cj
 new Function(auditSource);
 const persistent=new Map();
 const storage={getItem:k=>persistent.get(k)||null,setItem:(k,v)=>persistent.set(k,v)};
-let activeTag='DIV',present=true,duplicates=false,route='/index.html';
+let activeTag='DIV',present=true,duplicates=false;const pageState={pathname:'/index.html'};
 const target={
  nodeType:1,id:'fcViewportC',tagName:'DIV',parentElement:null,
  getAttribute:key=>key==='id'?'fcViewportC':null,
@@ -25,7 +25,7 @@ const boot=()=>{
   },
   querySelector:query=>query===selector&&present?target:null
  };
- const ctx={window:win,document:doc,location:{pathname:route},navigator:{userAgent:'Unit test'},
+ const ctx={window:win,document:doc,location:pageState,navigator:{userAgent:'Unit test'},
    innerWidth:1280,innerHeight:720,devicePixelRatio:1,performance:{getEntriesByType:()=>[]},
    URL,Date,RegExp,Object,Array,String,Set,Map,Math,Number,JSON,console};
  vm.runInNewContext(auditSource,ctx,{timeout:2500});
@@ -65,10 +65,10 @@ present=true;duplicates=true;
 assert.equal(latest.inspectAnnotations().byState.ambiguous,1);
 duplicates=false;activeTag='SPAN';
 assert.equal(latest.inspectAnnotations().byState['changed-element'],1);
-activeTag='DIV';route='/another.html';
+activeTag='DIV';pageState.pathname='/another.html';
 assert.equal(latest.inspectAnnotations().byState['different-route'],1);
 assert.equal(latest.annotationsSnapshot()[0].status,'investigating');
-route='/index.html';assert.equal(latest.inspectAnnotations().byState.located,1);
+pageState.pathname='/index.html';assert.equal(latest.inspectAnnotations().byState.located,1);
 assert.equal(latest.saveAnnotation(place,'Resolved after review.',n.id,{status:'resolved'}).status,'resolved');
 assert.equal(boot().annotationsSnapshot()[0].status,'resolved');
 const e=latest.event('runtime-error','Observed browser error','error','browser',{
