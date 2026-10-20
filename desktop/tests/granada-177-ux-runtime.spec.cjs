@@ -37,7 +37,7 @@ class Node {
   if(selector==='.flRibbonGroup')return this.classSet.has('flRibbonGroup');
   if(selector==='.flRibbonPanel.active')return this.classSet.has('flRibbonPanel')&&this.classSet.has('active');
   if(selector==='.flRibbonLabel')return this.classSet.has('flRibbonLabel');
-  if(selector==='.gxFlyout')return this.classSet.has('gxFlyout');
+  if(selector==='.gxFlyout')return this.classSet.has('gxFlyout')||String(this.className).split(/\s+/).includes('gxFlyout');
   if(selector==='.flRibbonTab')return this.classSet.has('flRibbonTab');
   if(selector==='details:not([open])'||selector==='summary')return false;
   if(selector==='[data-gx-mode]')return!!this.dataset.gxMode;
