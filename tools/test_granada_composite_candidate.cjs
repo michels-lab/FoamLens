@@ -104,7 +104,7 @@ group('Pin tampering, owner duplication and unsafe publication flag are rejected
 group('Symlink source paths cannot escape candidate checkout',()=>block(x=>{
  const outside=fs.mkdtempSync(path.join(os.tmpdir(),'foamlens-other-repo-'));
  try{
-  const source=path.join(x.root,'tools');fs.renameSync(source,source+'-real');
+  const source=path.join(x.root,'tools');fs.mkdirSync(source,{recursive:true});fs.renameSync(source,source+'-real');
   fs.symlinkSync(outside,source,'dir');
   assert.throws(()=>resolveWithin(x.root,'tools/granada_visual_review.cjs'),/Symlinked source directory/);
  }finally{fs.rmSync(outside,{recursive:true,force:true})}
