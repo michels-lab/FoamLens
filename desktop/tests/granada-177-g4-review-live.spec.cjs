@@ -53,6 +53,8 @@ class N{
   if(selector==='.reviewTabs')return this.classList.contains('reviewTabs');
   if(selector==='.surfaceGrid')return this.classList.contains('surfaceGrid');
   if(selector==='.liveHero')return this.classList.contains('liveHero');
+  if(selector==='.liveRunHead')return this.classList.contains('liveRunHead');
+  if(selector==='.liveProgress')return this.classList.contains('liveProgress');
   if(selector==='.g4ReviewMore')return this.classList.contains('g4ReviewMore');
   if(selector==='.reviewTab.active')return this.classList.contains('reviewTab')&&this.classList.contains('active');
   return false
@@ -87,8 +89,15 @@ for(const name of ['auditor','findings','inspector','configuration','compare','o
 document.body.appendChild(review);
 const live=new N('section','liveSurface'),grid=new N('div');grid.classList.add('surfaceGrid');
 const livecard=new N('div');livecard.classList.add('surfaceCard');
+const liveHead=new N('div');liveHead.classList.add('surfaceCardHead');
 const body=new N('div'),hero=new N('div');hero.classList.add('liveHero');
-live.appendChild(grid);grid.appendChild(livecard);livecard.appendChild(body);body.appendChild(hero);
+const runHead=new N('div');runHead.classList.add('liveRunHead');
+const runState=new N('span','liveRunState');runHead.appendChild(runState);
+const progress=new N('div');progress.classList.add('liveProgress');
+const bar=new N('div','liveProgressBar');progress.appendChild(bar);
+live.appendChild(grid);grid.appendChild(livecard);
+livecard.appendChild(liveHead);livecard.appendChild(body);
+body.appendChild(hero);body.appendChild(runHead);body.appendChild(progress);
 const liveOriginal=new Map();
 for(const id of core.live){
  const el=new N(id==='liveStatus'?'div':'button',id);
@@ -111,6 +120,14 @@ for(const id of core.main)assert.equal(orig.get(id).parentElement,nav,'Primary R
 for(const id of core.secondary)assert(more.contains(orig.get(id)),'Advanced Review tab reparented into secondary navigation');
 assert.equal(live.children[0],liveDock);
 assert.equal(liveDock.querySelector('.liveHero'),hero,'Original live buttons, status and listeners preserved');
+assert.equal(liveDock.children[0],liveHead,'Original Watch Run title/capability always accessible');
+assert.equal(liveDock.children[1],hero,'Folder and original action buttons always accessible');
+assert.equal(liveDock.children[2],runHead,'Real solver state, case context and last update remain visible');
+assert.equal(liveDock.children[3],progress,'Original physical-time progress stays in live dock');
+assert.equal(ids.get('liveRunState'),runState);
+assert.equal(ids.get('liveProgressBar'),bar);
+assert.equal(livecard.children.includes(liveHead),false,'Do not clone original live state');
+assert.equal(body.children.includes(runHead),false,'Do not leave a duplicated solver status below');
 for(const id of core.live)assert(hero.contains(liveOriginal.get(id)));
 orig.get('reviewTabInspector').fire('click');api.sync();
 assert.equal(clickCount,1);
