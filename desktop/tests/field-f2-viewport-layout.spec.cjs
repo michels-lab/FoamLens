@@ -54,7 +54,7 @@ for(const dpr of [1,1.25,1.5,1.75,2]){
   }
 }
 for(const token of ["fcViewGrid","fcViewportScene","fcViewToolbar","id='pvAuditPanel'",
- "data-pv-control","pvGrip","role','separator'","aria-orientation','horizontal'",
+ "b.dataset.pvControl=action","pvGrip","role','separator'","aria-orientation','horizontal'",
  "window.addEventListener('resize'","pvResetFocus()","fcScheduleLayoutRender",
  "new ResizeObserver(","new MutationObserver(","data:","pvHeight","pvAuditPanel",
  "devicePixelRatio","capturedUtc","canvasPhysicalPx","visualViewportScale",
