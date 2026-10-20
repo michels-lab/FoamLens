@@ -12,6 +12,7 @@ const PRS={
 const HOST='desktop/src/FoamLensDesktop/Program.cs';
 const FIELD=['desktop/src/FoamLensDesktop/frontend/v14-field-view.js','desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js'];
 const FTEST=['desktop/tests/field-multiregion-views.test.cjs'];
+const FUPDATED=['desktop/tests/field-compare.test.cjs'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 const canonical=b=>b.toString('utf8').replace(/\r\n/g,'\n');
 const sourceMatches=(a,b)=>a.equals(b)||canonical(a)===canonical(b);
@@ -71,7 +72,7 @@ function assemble(root,options={}){
  }
  const merged=composeHost(main.toString('utf8'),owner[162],owner[164],owner[165]);
  const sources={};
- for(const p of [...FIELD,...FTEST]){
+ for(const p of [...FIELD,...FTEST,...FUPDATED]){
   const file=path.resolve(cwd,...p.split('/'));
   if(!file.startsWith(cwd+path.sep))throw Error('Unsafe original File path '+p);
   const added=FTEST.includes(p);
@@ -128,4 +129,4 @@ function main(){
   ' / original mesh check preserved / CAD, 2D3D and Field F1 smokes pinned / no release')
 }
 if(require.main===module)try{main()}catch(e){console.error('GRANADA NATIVE HOST BLOCKED: '+e.message);process.exitCode=2}
-module.exports={BASE,PRS,HOST,FIELD,FTEST,hash,canonical,sourceMatches,extract,composeHost,assemble};
+module.exports={BASE,PRS,HOST,FIELD,FTEST,FUPDATED,hash,canonical,sourceMatches,extract,composeHost,assemble};
