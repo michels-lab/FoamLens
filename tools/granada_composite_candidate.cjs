@@ -6,7 +6,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
 const {parseArgs}=require('node:util');
 const SCHEMA='foamlens-granada-composite-v1',SHA=/^[a-f0-9]{40}$/i;
-const EXPECTED_PRS=[164,165,166,167,168,169,170,171,174,175,179,180,181,182,183,184];
+const EXPECTED_PRS=[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184];
 const BASE_PATHS=[
  'desktop/src/FoamLensDesktop/frontend/index.html',
  'desktop/src/FoamLensDesktop/Program.cs',
