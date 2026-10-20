@@ -4862,3 +4862,12 @@ Field UI PR #128 CI regression triage and main reconciliation
 
 - Prepared native .NET, Inno Setup, frontend Desktop fallback, root/Desktop READMEs and changelog with one consistent 1.8.8 identity; Web frontend remains v51. Candidate groups PR #142's retryable real OpenFOAM per-file import and direct selected-case retry UX.
 - Full Windows QuickCup/VTK + Setup/Portable and asset integrity on exact PR head remain release gates. Publish only via the guarded `release:` merge commit to main after candidate approval; verify actual public assets by independent re-download and SHA-256. Never imply measured owner's machine import speedup from synthetic 3,008-series regression.
+
+
+## 2026-10-20 — Orden permanente GRANADA GRANDE (gobernanza; no release)
+
+- El propietario exige bloques **más grandes y ambiciosos**, con entregables relacionados y funcionamiento de extremo a extremo. Vigente el protocolo maestro en `michels-lab/Michel-Software-Standards/standards/GRANADA_CONTINUOUS_BLOCK_PROTOCOL.md` y la copia local `.michelslab/GRANADA.md`.
+- Para el siguiente comando GRANADA: leer HEAD, issues, PR abiertos, claims y este log; escoger un paquete de **tres o más entregables sustanciales relacionados cuando haya alcance real**, incluyendo implementación, prueba del flujo principal, errores/reintentos y validación. Un solo P0 indivisible puede ser suficiente; no inventar trabajo artificial.
+- Si cualquier parte está ocupada por otra rama, requiere equipo físico, una cuenta de proveedor, resultados científicos que solo existen en el portátil o autorización del propietario, **aparcar con evidencia y pasar a otra subparte independiente**. Conservar identidad visual, datos, credenciales y estándares de publicación.
+- Registro obligatorio: A/B/C con estados separados, ruta/PR/sha, QA **ejecutado** (no simplemente escrito), bloqueos, recuperación, reentrada. Esta actualización de política **no significa ninguna funcionalidad del producto implementada, probada ni publicada**.
+- Repositorio: `michels-lab/FoamLens`. En los siguientes bloques aplicar este alcance sin modificar los PR activos o trabajos no relacionados.
