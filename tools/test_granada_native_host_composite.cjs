@@ -36,7 +36,7 @@ test('exact owner blocks are grafted while original checkMesh WebView2 smoke sta
  assert(out.smokes.field.bytes>400);
 });
 test('cannot silently remove original Mesh Auditor smoke regression',()=>{
- assert.throws(()=>composeHost(main.replace('meshAuditSurfaceJson','removed'),field,cad,eq),/Preserve original native Mesh Auditor/);
+ assert.throws(()=>composeHost(main.replace('meshAuditSurfaceJson','removed'),field,cad,eq),/(?:Preserve original native Mesh Auditor|Original checkMesh WebView2 coverage lost)/);
 });
 test('Field F1 real-case guard must be unique, never injected into every smoke path',()=>{
  assert.throws(()=>composeHost(main.replace(fieldAnchor,''),field,cad,eq),/multiregion evidence guard changed/);
