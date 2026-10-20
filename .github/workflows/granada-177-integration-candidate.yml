@@ -69,7 +69,7 @@ jobs:
             desktop/tests/timeseries-source-catalog.test.cjs \
             desktop/tests/plot-surfaces.test.cjs \
             desktop/tests/field-compare.test.cjs \
-            desktop/tests/field-multiregion-views.test.cjs \
+            desktop/tests/field-multiview-ux.test.cjs \
             desktop/tests/review-case-binding.test.cjs \
             desktop/tests/reproducible-export.test.cjs \
             desktop/tests/test-suite-manifest.test.cjs; do
