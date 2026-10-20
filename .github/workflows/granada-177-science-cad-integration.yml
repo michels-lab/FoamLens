@@ -187,7 +187,20 @@ jobs:
             try { $app.Kill($true) } catch {}
             throw 'Native science preview smoke timeout'
           }
-          if ($app.ExitCode -ne 0) { throw "Native smoke failed $($app.ExitCode)" }
+          $diagnostics=Join-Path $env:LOCALAPPDATA 'FoamLens/Desktop/foamlens-desktop.log'
+          if (Test-Path $diagnostics) {
+            $lines=@(Get-Content $diagnostics -Tail 110)
+            # Keep failures explainable; do not leak runner's home path in artifacts.
+            $sanitized=@($lines | ForEach-Object {
+              $_ -replace [regex]::Escape($env:USERPROFILE), '[WINDOWS_RUNNER_HOME]'
+            })
+            $sanitized | Set-Content -Path 'artifacts/granada-science-native-ui/smoke-diagnostic.txt' -Encoding UTF8
+            if ($app.ExitCode -ne 0) {
+              Write-Host '== Native smoke diagnostic tail (runner paths redacted) =='
+              $sanitized | Select-Object -Last 26 | ForEach-Object { Write-Host $_ }
+            }
+          }
+          if ($app.ExitCode -ne 0) { throw "Native smoke failed $($app.ExitCode); see sanitized smoke-diagnostic.txt artifact" }
           Write-Host 'Scientific source modules loaded by native host; real OpenFOAM evidence and CAD native bridge NOT verified.'
       - name: Upload evidence, never installers or unsigned executables
         if: ${{ always() }}
