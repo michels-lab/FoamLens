@@ -1,5 +1,13 @@
 # FoamLens Git Audit Log
 
+## 2026-10-20 — Operación Granada G0–G5: global UI/UX requirements across ALL FoamLens tabs (backlog only)
+
+- User explicitly extended critique of the current Time Series interface to **Field/3D and every other tab**, not just the visible screenshot. The requested outcome is a consistent, professional UX with essential controls always visible, good grouping, clear canvas/data hierarchy, responsive layout and no accumulating CSS patches. New transversal issue [#177](https://github.com/michels-lab/FoamLens/issues/177), linked to focused [#176](https://github.com/michels-lab/FoamLens/issues/176) (Time Series T2), [#149](https://github.com/michels-lab/FoamLens/issues/149) (Field F2) and [#146](https://github.com/michels-lab/FoamLens/issues/146) (Time Series functional work).
+- Audit scope is the **actual existing** primary navigation Overview, Data, Analysis, Review and Live plus each real subtab; special attention to 3D Field A–D, source/case/region/component selectors, dimensions/legends, playback, data curves, analysis results and Developer-only controls. Classify controls per tab as **always visible / contextual / advanced**, inventory hidden accordions/conditional elements and responsive collisions, then implement by independent non-interfering modules G0–G5. Source/camera/solver/field engines are explicitly out of the design-only refactor.
+- Global acceptance requires real installed Windows Setup/Portable visual evidence, 1024/1280/1920 windows with 125–200% DPI, no missing functionality, accessible navigation and **user aesthetic approval**, not only static tests. Original approved themes/nav/visual assets remain the baseline unless specific improvements requested.
+- This is a **recorded requirement and planning action, not an implementation, pass, release or design approval**. Existing PR #162 and #164–#175 stay unmodified. The canonical backlog [#177](https://github.com/michels-lab/FoamLens/issues/177) contains detailed criteria and sequencing.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
