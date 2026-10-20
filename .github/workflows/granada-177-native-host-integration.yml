@@ -29,6 +29,9 @@ jobs:
       - name: Re-run canonical full main test manifest BEFORE staging extra original owner tests
         shell: bash
         run: node desktop/tests/test-suite-manifest.test.cjs
+      - name: Confirm original main Field comparison regression BEFORE staging new source signature
+        shell: bash
+        run: node desktop/tests/field-compare.test.cjs
       - name: Verify exact-source host graft and existing 16-PR source guards
         shell: bash
         run: |
