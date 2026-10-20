@@ -113,7 +113,7 @@ jobs:
           retention-days: 14
 
   native-science-preview:
-    name: Original Windows desktop: 15 combined modules, no native host cherry-pick
+    name: 'Original Windows desktop: 15 combined modules, no native host cherry-pick'
     runs-on: windows-latest
     needs: [sixteen-owner-regressions]
     timeout-minutes: 35
