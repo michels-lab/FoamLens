@@ -3,7 +3,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert');
 const base=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const moduleSrc=fs.readFileSync(path.join(base,'v24-field-f2-viewport-layout.js'),'utf8');
 const existing=fs.readFileSync(path.join(base,'v14-z-field-compare.js'),'utf8');
-const workspace=fs.readFileSync(path.join(base,'v14-zz-field-workspace.js'),'utf8');
+const workspace=fs.readFileSync(path.join(base,'v18-context-help-resize.js'),'utf8');
 const native=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8');
 new Function(moduleSrc);
 const start=moduleSrc.indexOf('/* FOAMLENS_F2_LAYOUT_CORE_START */');
