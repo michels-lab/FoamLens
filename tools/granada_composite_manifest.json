@@ -1,0 +1,72 @@
+{
+  "schema": "foamlens-granada-composite-v1",
+  "base_sha": "529d7055a6d97d06d2ee4158e858de94037228d7",
+  "purpose": "PREVIEW_ONLY_DO_NOT_MERGE_OR_RELEASE",
+  "components": [
+    {
+      "pr": 175,
+      "sha": "18cc6462f671f3138a9581326ccf6d76a3af528d",
+      "name": "Field F2 DPI/viewport",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js",
+        "desktop/tests/field-f2-runtime-interactions.spec.cjs",
+        "desktop/tests/field-f2-viewport-layout.spec.cjs"
+      ]
+    },
+    {
+      "pr": 179,
+      "sha": "9840252445c4a8b5a26a2ab53db6edc38575eded",
+      "name": "G0/G1 Ribbon information architecture",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js",
+        "desktop/tests/granada-177-global-ux.spec.cjs",
+        "desktop/tests/granada-177-ux-runtime.spec.cjs"
+      ]
+    },
+    {
+      "pr": 180,
+      "sha": "62c807f37b26b3dad70fc440c60c223455aef89d",
+      "name": "G4 Review/Live source docks",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js",
+        "desktop/tests/granada-177-g4-review-live.spec.cjs"
+      ]
+    },
+    {
+      "pr": 181,
+      "sha": "0b46e9049656f9f61c0ce89bd21965ec05447997",
+      "name": "G3 Time Series source-native",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js",
+        "desktop/tests/granada-176-timeseries-ui.spec.cjs"
+      ]
+    },
+    {
+      "pr": 182,
+      "sha": "a23df3e238056857137b3b0885b8325780aed9de",
+      "name": "G5 original-artifact visual review",
+      "files": [
+        "tools/granada_visual_review.cjs",
+        "tools/test_granada_visual_review.cjs"
+      ]
+    },
+    {
+      "pr": 183,
+      "sha": "1901bf7e58a0be2e066eb5c0b8ea4a7231fab6f1",
+      "name": "G2/G3 Data + Analysis",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
+        "desktop/tests/granada-177-g23-data-analysis.spec.cjs"
+      ]
+    },
+    {
+      "pr": 184,
+      "sha": "5ca1a6788bcca9fbd0eeb2afaa6a47ed3e5e5d7d",
+      "name": "G6 source-native Export preflight",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-granada-g6-export-preflight.js",
+        "desktop/tests/granada-177-g6-export-preflight.spec.cjs"
+      ]
+    }
+  ]
+}
