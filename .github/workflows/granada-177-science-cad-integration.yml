@@ -1,10 +1,11 @@
-name: Granada Science + CAD — pinned 15 PR integration
+name: Granada Science + CAD — restored checkMesh, 16 PR
 
 on:
   pull_request:
     branches:
       - main
       - feat/granada-177-integration-candidate-g0g6-20261020
+      - feat/granada-177-science-cad-composite-20261020
     paths:
       - 'tools/granada_composite_manifest.json'
       - 'tools/granada_composite_candidate.cjs'
@@ -12,6 +13,8 @@ on:
       - 'tools/granada_science_native_host_gate.cjs'
       - 'tools/test_granada_science_native_host_gate.cjs'
       - '.github/workflows/granada-177-science-cad-integration.yml'
+  push:
+    branches: [feat/granada-177-science-cad-checkmesh-reintegration-20261020]
   workflow_dispatch:
 
 permissions:
@@ -20,7 +23,7 @@ permissions:
 
 jobs:
   sixteen-owner-regressions:
-    name: Original 15 PR module science suites (${{ matrix.os }})
+    name: Original 16 PR module science suites (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -80,7 +83,9 @@ jobs:
             desktop/tests/physics-evidence-loader.spec.cjs \
             desktop/tests/solidification-front-loader.spec.cjs \
             desktop/tests/solidification-front-proxy.spec.cjs \
-            desktop/tests/solidification-front-tracker.test.cjs; do
+            desktop/tests/solidification-front-tracker.test.cjs \
+            desktop/tests/checkmesh-region-evidence.spec.cjs \
+            desktop/tests/checkmesh-multipanel-collision.spec.cjs; do
             echo "== Original owner-PR science/regression $f"
             node "$f"
           done
@@ -120,7 +125,7 @@ jobs:
           retention-days: 14
 
   native-science-preview:
-    name: 'Original Windows desktop: 14 combined modules, no native host cherry-pick'
+    name: 'Original Windows desktop: 15 combined modules, no native host cherry-pick'
     runs-on: windows-latest
     needs: [sixteen-owner-regressions]
     timeout-minutes: 35
@@ -134,7 +139,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Re-pin 15 owner PRs; generate full source provenance JSON
+      - name: Re-pin 16 owners including corrected checkMesh #187 and generate source SHA JSON
         shell: bash
         run: |
           mkdir -p artifacts
@@ -142,7 +147,7 @@ jobs:
             --manifest tools/granada_composite_manifest.json \
             --root . --report artifacts/granada-native-science-source.json
           node tools/granada_science_native_host_gate.cjs artifacts/granada-native-host-collision-gate.json
-      - name: Bundle original HTML + 14 isolated original scientific/UI modules
+      - name: Bundle original HTML + 15 isolated original scientific/UI modules
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
