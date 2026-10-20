@@ -55,6 +55,13 @@ class NativeEvidenceGate(unittest.TestCase):
         self.fixture = example_fixture()
         self.log = "\n".join(REQUIRED_LOGS)
 
+    def test_log_contract_uses_exact_shipped_original_windows_host_message(self):
+        original = (Path(__file__).resolve().parent.parent /
+                    "desktop/src/FoamLensDesktop/Program.cs").read_text(encoding="utf-8")
+        self.assertIn("FoamLens checkMesh scientific report inspector WebView2 smoke passed", original)
+        self.assertEqual(REQUIRED_LOGS[0],
+                         "FoamLens checkMesh scientific report inspector WebView2 smoke passed")
+
     def test_positive_contract_is_not_scientific_approval(self):
         proof = verify(self.log, self.fixture, self.path)
         self.assertEqual(proof["result"], "PASS_REAL_NATIVE_MULTIREGION_FIELD_F1")
