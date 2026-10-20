@@ -72,6 +72,10 @@ assert.equal(failing.regions[0].status,'error');
 const caution=me.audit([run('a',metal.replace('Mesh OK.','***Max skewness above recommended limit.\nMesh OK.'))],['metal']);
 assert.equal(caution.regions[0].status,'reported-ok-with-warnings');
 assert.equal(caution.overallScientificValidity,'not-certified');
+const numericWarnings=me.audit([run('a',metal.replace('Mesh OK.','Warnings: 2\nMesh OK.'))],['metal']);
+assert.equal(numericWarnings.regions[0].status,'reported-ok-with-warnings',
+ 'Reported warning count must not be discarded when warning lines are absent');
+assert.equal(numericWarnings.regions[0].warnings,2);
 const extra=me.audit([run('a',metal)],['mold']);
 assert.equal(extra.status,'conflicting-or-failed');
 assert.deepEqual(extra.missingRegions,['mold']);
