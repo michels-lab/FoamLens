@@ -45,6 +45,7 @@
     sheet.textContent=[
       '#timeSeriesControls.gr176TimeSeries{display:grid;gap:12px;min-width:0;margin-top:8px;align-items:start}',
       '#timeSeriesControls.gr176TimeSeries.hidden{display:none!important}',
+      '#fwDataFieldHistories.gr176SourceAnchor{display:none!important}',
       '.gr176Card{display:grid;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}',
       '.gr176CardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid var(--line)}',
       '.gr176CardHead h3{font-size:13px;line-height:1.35;font-weight:800;letter-spacing:0;margin:0;color:var(--text)}',
@@ -100,7 +101,9 @@
     history.appendChild(root);root.classList.remove('hidden');
     if(details){
       details.open=true;
-      details.remove();
+      // The historical generator refresh guard still checks this details.open.
+      // Keep a hidden anchor (not its controls) so late case imports refresh source lists.
+      details.classList.add('gr176SourceAnchor');
     }
     const actions=document.createElement('div');actions.className='gr176HistoryActions';
     build.parentNode.insertBefore(actions,build);actions.appendChild(build);
