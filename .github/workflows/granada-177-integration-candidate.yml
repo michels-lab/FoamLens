@@ -1,0 +1,167 @@
+name: Granada #177 — exact-SHA composite G0–G6 preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/granada_composite_manifest.json'
+      - 'tools/granada_composite_candidate.cjs'
+      - 'tools/test_granada_composite_candidate.cjs'
+      - '.github/workflows/granada-177-integration-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  original-source-regressions:
+    name: Seven PR heads and native module regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate source pin drift, baseline immutability, path and lexical conflicts
+        shell: bash
+        run: node tools/test_granada_composite_candidate.cjs
+      - name: Stage EXACT original PR files without merges or overwrites
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_composite_candidate.cjs \
+            --manifest tools/granada_composite_manifest.json \
+            --root . --report artifacts/granada-composite-ownership.json
+      - name: Run source PR tests with ALL modules coexisting in one checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in \
+            desktop/tests/field-f2-runtime-interactions.spec.cjs \
+            desktop/tests/field-f2-viewport-layout.spec.cjs \
+            desktop/tests/granada-177-global-ux.spec.cjs \
+            desktop/tests/granada-177-ux-runtime.spec.cjs \
+            desktop/tests/granada-177-g4-review-live.spec.cjs \
+            desktop/tests/granada-176-timeseries-ui.spec.cjs \
+            tools/test_granada_visual_review.cjs \
+            desktop/tests/granada-177-g23-data-analysis.spec.cjs \
+            desktop/tests/granada-177-g6-export-preflight.spec.cjs; do
+            echo "== Exact owner suite $spec"
+            node "$spec"
+          done
+      - name: Main baseline cross-tab science, UI and source ownership tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in \
+            desktop/tests/section-ownership.test.cjs \
+            desktop/tests/ribbon-ui.test.cjs \
+            desktop/tests/sidebar-sections.test.cjs \
+            desktop/tests/analysis-ui-organization.test.cjs \
+            desktop/tests/dual-timeseries.test.cjs \
+            desktop/tests/timeseries-source-catalog.test.cjs \
+            desktop/tests/plot-surfaces.test.cjs \
+            desktop/tests/field-compare.test.cjs \
+            desktop/tests/field-multiregion-views.test.cjs \
+            desktop/tests/review-case-binding.test.cjs \
+            desktop/tests/reproducible-export.test.cjs \
+            desktop/tests/test-suite-manifest.test.cjs; do
+            echo "== Baseline $spec"
+            node "$spec"
+          done
+      - name: Preserve only source ownership report, never binaries or case data
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granada-composite-provenance-${{ matrix.os }}
+          path: artifacts/granada-composite-ownership.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  native-host-smoke:
+    name: Native Windows WebView2 composite runtime, without release
+    needs: [original-source-regressions]
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Re-check exact source PR SHA pins and stage their original modules
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_composite_candidate.cjs \
+            --manifest tools/granada_composite_manifest.json \
+            --root . --report artifacts/granada-windows-composite-ownership.json
+      - name: Rebuild original embedded frontend resource from staged PRs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $tmp='granada-composite-bundle-tmp'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if (Test-Path $bundle) { throw 'Unexpected binary bundle in source checkout' }
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $tmp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $tmp 'LICENSE.txt')
+          Compress-Archive -Path "$tmp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $expected=@((Get-Content 'tools/granada_composite_manifest.json' -Raw | ConvertFrom-Json).components |
+              ForEach-Object { $_.files } | Where-Object { $_ -like 'desktop/src/FoamLensDesktop/frontend/v24-*.js' }).Count
+            $actual=@($zip.Entries | Where-Object { $_.FullName -like 'v24-*.js' }).Count
+            if ($actual -lt $expected) { throw "Missing staged modules: actual=$actual expected=$expected" }
+            if (-not ($zip.Entries | Where-Object { $_.FullName -eq 'index.html' })) { throw 'Missing canonical index.html' }
+            Write-Host "Original native resource contains $actual v24 executable modules"
+          } finally { $zip.Dispose() }
+      - name: Compile real Windows WebView2 desktop host
+        shell: pwsh
+        run: |
+          dotnet restore 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw 'NuGet native restore failed' }
+          dotnet build 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Native host composite build failed' }
+      - name: Exercise real compiled host smoke without distributing a release
+        shell: pwsh
+        env:
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/granada-native-ui
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/granada-native-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'Native candidate .exe missing' }
+          New-Item -ItemType Directory -Path 'artifacts/granada-native-ui' -Force | Out-Null
+          $app=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(420000)) {
+            try { $app.Kill($true) } catch {}
+            throw 'WebView2 smoke timeout'
+          }
+          if ($app.ExitCode -ne 0) { throw "Native WebView2 smoke failed: $($app.ExitCode)" }
+          Write-Host 'WebView2 smoke passed for staged candidate; not an installed Setup/Portable acceptance'
+      - name: Preserve only evidence, never executable/installers
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granada-composite-native-evidence
+          path: |
+            artifacts/granada-windows-composite-ownership.json
+            artifacts/granada-native-launch.png
+            artifacts/granada-native-ui/
+          if-no-files-found: warn
+          retention-days: 14
