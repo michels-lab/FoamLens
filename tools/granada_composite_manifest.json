@@ -144,7 +144,26 @@
         "desktop/src/FoamLensDesktop/frontend/v24-granada-g6-export-preflight.js",
         "desktop/tests/granada-177-g6-export-preflight.spec.cjs"
       ]
+    },
+    {
+      "pr": 187,
+      "sha": "f7fd6a1cf31278ef83395f96a9689fb68c16b263",
+      "name": "GRANADA #150 FIXED checkMesh regions — source owner #174, scoped cmr JS/DOM collision-free with Multi-panel",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
+        "desktop/tests/checkmesh-region-evidence.spec.cjs",
+        "desktop/tests/checkmesh-multipanel-collision.spec.cjs"
+      ]
     }
   ],
-  "integration_caveat": "PR #174 checkMesh region evidence is QUARANTINED from runtime assembly: meInstall/meExport collide with canonical v16-multipanel-export.js. Its original PR remains intact; no source rewrite or fake native integration. Program.cs owners #162/#164/#165 also remain unresolved."
+  "integration_caveat": "Source-native checkMesh #174 is temporarily staged from companion fix #187. Its original branch #174 remains untouched; Field F1/CAD/2D3D Program.cs collision remains BLOCKED. Real OpenFOAM multi-region validation, Setup/Portable and release remain pending.",
+  "fixed_owner_lineage": {
+    "checkMesh": {
+      "original_owner_pr": 174,
+      "original_sha": "cf2f0f65cb8099fdbb94ea52b62df45b6c0c565c",
+      "isolated_fix_pr": 187,
+      "fixed_sha": "f7fd6a1cf31278ef83395f96a9689fb68c16b263",
+      "merge_authorized": false
+    }
+  }
 }
