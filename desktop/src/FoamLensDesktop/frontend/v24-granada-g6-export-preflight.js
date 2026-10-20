@@ -18,7 +18,7 @@ function mode(){return document.body.classList.contains('appMode-field')?'field'
 function finiteSeries(data){
  const t=Array.isArray(data?.t)?data.t:[],y=Array.isArray(data?.y)?data.y:[];
  for(let i=0;i<Math.min(t.length,y.length);i++){
-   if(Number.isFinite(Number(t[i]))&&Number.isFinite(Number(y[i])))return true
+   if(t[i]!=null&&y[i]!=null&&String(t[i]).trim()!==''&&String(y[i]).trim()!==''&&Number.isFinite(Number(t[i]))&&Number.isFinite(Number(y[i])))return true
  }
  return false
 }
@@ -29,7 +29,9 @@ function plots(){
  return(Array.isArray(a)?a:[]).filter(finiteSeries)}catch{return[]}
 }
 function fieldSource(d){
- if(!d||!d.canvasId||d.type==='plot'||!(d.caseName||d.fieldName))return false;
+ if(!d||!d.canvasId||d.type==='plot'||!String(d.caseName||'').trim()||!String(d.fieldName||'').trim())return false;
+ if(!d.range?.valid||!Number.isFinite(Number(d.range.min))||!Number.isFinite(Number(d.range.max)))return false;
+ if(d.time==null||String(d.time).trim()===''||!Number.isFinite(Number(d.time)))return false;
  const canvas=$(d.canvasId),vp=canvas?.closest?.('.fvViewport');
  return !!canvas&&Number(canvas.width)>0&&Number(canvas.height)>0&&!canvas.classList?.contains('hidden')&&
    !vp?.classList?.contains('hidden')
