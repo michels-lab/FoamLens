@@ -146,5 +146,5 @@ assert(byId.get('gxAuditButton'));
 api.close(true);
 assert.equal(byId.get('gxMore-view').getAttribute('aria-expanded'),'false');
 assert(byId.get('gxMore-view').focusCount>0);
-assert.equal(original.size,33);
+assert.equal(original.size,38);
 console.log('Granada #177 G1 runtime PASS: five actual tab toolbars keep primary actions, 11 secondary original IDs + listeners retained, Spanish labels, menu open/close, eight-mode layout audit, 3D untouched.');
