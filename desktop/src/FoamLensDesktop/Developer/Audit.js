@@ -23,7 +23,10 @@
     const record={
       at:new Date().toISOString(),kind:clean(kind),severity:clean(severity),
       message:clean(message),source:clean(source),page:location.pathname,
-      ...Object.fromEntries(Object.entries(extra).slice(0,8).map(([k,v])=>[k,clean(v)]))
+      // Event metadata is an allowlist. Untrusted host messages must not
+      // override source/severity/message/page or attach private arbitrary data.
+      ...Object.fromEntries(Object.entries(extra).filter(([k])=>
+        ['stack','line','column','origin'].includes(k)).slice(0,4).map(([k,v])=>[k,clean(v)]))
     };
     const prev=events.at(-1);
     if(prev&&prev.kind===record.kind&&prev.message===record.message&&prev.source===record.source){
@@ -44,6 +47,14 @@
   const LOCATOR_STATES=['not-inspected','located','missing','ambiguous','changed-element','different-route'];
   let annotationSeq=0,picking=false,draftTarget=null,noteEditor=null,noteList=null;
   let annotations=[];
+  function safePoint(raw){
+    if(!raw||typeof raw!=='object'||!Number.isFinite(raw.x)||!Number.isFinite(raw.y))return null;
+    return{x:Math.max(0,Math.min(1,raw.x)),y:Math.max(0,Math.min(1,raw.y))}
+  }
+  function safeRect(raw){
+    if(!raw||typeof raw!=='object'||!['x','y','width','height'].every(k=>Number.isFinite(raw[k])))return null;
+    return Object.fromEntries(['x','y','width','height'].map(k=>[k,Math.max(-100000,Math.min(100000,raw[k]))]))
+  }
   function loadAnnotations(){
     try{
       const saved=JSON.parse(window.localStorage?.getItem(ANNOTATION_KEY)||'[]');
@@ -52,7 +63,7 @@
         typeof v.comment==='string'&&typeof v.page==='string').slice(-MAX_NOTES).map(v=>({
         id:String(v.id).slice(0,80),page:String(v.page).slice(0,180),
         selector:String(v.selector).slice(0,260),section:String(v.section||'Unlabeled section').slice(0,180),
-        targetTag:String(v.targetTag||'').slice(0,32),rect:v.rect||null,point:v.point||null,
+        targetTag:String(v.targetTag||'').slice(0,32),rect:safeRect(v.rect),point:safePoint(v.point),
         comment:v.comment.slice(0,MAX_NOTE_CHARS),
         priority:NOTE_PRIORITIES.includes(v.priority)?v.priority:'P1',
         status:NOTE_STATUSES.includes(v.status)?v.status:'open',
@@ -116,6 +127,7 @@
   function annotationsSnapshot(){
     return annotations.map(note=>({...note,section:clean(note.section),
       page:clean(note.page),selector:clean(note.selector),comment:clean(note.comment,MAX_NOTE_CHARS),
+      rect:safeRect(note.rect),point:safePoint(note.point),
       lastObserved:{...note.lastObserved,reason:clean(note.lastObserved?.reason||'',200)}}))
   }
   function inspectNote(note){
