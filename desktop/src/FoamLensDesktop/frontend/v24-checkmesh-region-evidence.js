@@ -41,7 +41,7 @@ function meEvidence(reports,expectedRegions=[]){
   if(normalized.some(x=>!x)||new Set(normalized).size!==normalized.length)
     return no('Case region labels contain missing, duplicate or unsupported values');
   const assigned=new Map(),unassigned=[],conflicts=[],defects=[],sources=[];
-  let rejected=0;
+  let rejected=0,unattributedFailures=0;
   for(let i=0;i<reports.length;i++){
     const r=reports[i];
     if(!r?.audit||typeof r.audit!=='object'){rejected++;continue}
@@ -60,7 +60,8 @@ function meEvidence(reports,expectedRegions=[]){
         reported:audit.reported||{},messages:audit.messages||{}}]
     }
     if(!groups.length||groups.some(x=>!x.label)){
-      unassigned.push({source,reason:!audit.recognized?'Unrecognized source text':
+      if(audit.status==='failed')unattributedFailures++;
+      unassigned.push({source,reportStatus:audit.status||'unknown',reason:!audit.recognized?'Unrecognized source text':
         'No unique explicit region label in report; cannot infer region from filename or selected case'});
     }else for(const g of groups){
       if(assigned.has(g.label)){
@@ -107,7 +108,7 @@ function meEvidence(reports,expectedRegions=[]){
   const expected=new Set(normalized),missing=normalized.filter(x=>!assigned.has(x));
   const extra=rows.filter(x=>expected.size&&!expected.has(x.region)).map(x=>x.region);
   if(extra.length)conflicts.push(...extra.map(region=>({region,reason:'Report region not found among the explicitly imported case regions'})));
-  const bad=rows.some(x=>x.status==='error')||conflicts.length>0;
+  const bad=rows.some(x=>x.status==='error')||conflicts.length>0||unattributedFailures>0;
   const full=normalized.length>0&&missing.length===0&&rows.length===normalized.length&&
     !rejected&&unassigned.length===0&&!bad;
   return{
@@ -116,7 +117,8 @@ function meEvidence(reports,expectedRegions=[]){
       'partial-or-unattributed',
     overallScientificValidity:'not-certified',
     coverage:{expected:normalized.length,evidenced:rows.filter(x=>expected.has(x.region)).length,
-      reportsSupplied:reports.length,rejected,unattributed:unassigned.length},
+      reportsSupplied:reports.length,rejected,unattributed:unassigned.length,
+      unattributedFailures},
     expectedRegions:normalized,regions:rows,missingRegions:missing,
     unassigned,conflicts,defects,sources,
     limitations:[
@@ -197,9 +199,10 @@ async function meAnalyze(){
 function meExport(){
   const c=meCase();
   if(!meLast||!meOwner)return;
+  const files=[...(meEl('meFiles')?.files||[])];
   if(c!==meOwner.case||c?.discoveryModel!==meOwner.model||
      meExpected(c).join('\0')!==meOwner.expected||
-     [...(meEl('meFiles')?.files||[])].some((f,i)=>f!==meInputs[i])){
+     files.length!==meInputs.length||files.some((f,i)=>f!==meInputs[i])){
     meReset('Case/regions/report selection changed; recalculate before exporting.');return
   }
   const payload=JSON.stringify({...meLast,exportedAt:new Date().toISOString(),
@@ -227,7 +230,7 @@ function meInstall(){
   meEl('meExport').onclick=meExport;
   meEl('meCase').onchange=()=>{meInputs=[];meEl('meFiles').value='';meReset('Case changed: report attachments cleared.')};
   meEl('meFiles').onchange=()=>{meInputs=[];meReset('Original reports changed: re-audit before exporting.')};
-  panel.addEventListener('toggle',()=>{if(panel.open)meRefresh()});
+  // Opening and closing the panel must not silently erase audited source files.
   meRefresh()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',meInstall,{once:true});else meInstall();
