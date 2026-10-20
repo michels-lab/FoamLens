@@ -30,6 +30,7 @@
 ## Dedicated candidate testing
 
 - `desktop/tests/field-f2-viewport-layout.spec.cjs`: viewport identity and height bounds, rectangle intersection/containment, source overlay collision/clip recognition, pixel backing buffers under synthetic DPR and screen sizes, native module contract, and no mutation of Field cameras or OpenFOAM cases.
+- `desktop/tests/field-f2-runtime-interactions.spec.cjs`: simulated real extension mounting API with DOM geometry elements, A/B independently persisted heights, maximize/restore, hidden-view focus refusal, correct current DPR, current canvas sizes and a deliberate newly overlapping panel label. These mocks are regression tests, NOT native screenshot proof.
 - **Unchanged existing regression suites**: `field-multiview-ux.test.cjs` (independent A–D zoom, dragging), `context-help-resize.test.cjs` (Split layout and help), `physical-3d-scale.test.cjs` (Field dimensions/scale), `test-suite-manifest.test.cjs`.
 - Dedicated `.github/workflows/granada-field-f2-dpi.yml` runs tests on Ubuntu and Windows; standard PR Windows build additionally checks existing native regression, Setup/Portable and OpenFOAM fixture when available. CI **must be checked at the exact candidate SHA** before declaring green.
 
