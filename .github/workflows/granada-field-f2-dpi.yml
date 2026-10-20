@@ -4,11 +4,13 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js'
       - 'desktop/tests/field-f2-viewport-layout.spec.cjs'
+      - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
       - '.github/workflows/granada-field-f2-dpi.yml'
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js'
       - 'desktop/tests/field-f2-viewport-layout.spec.cjs'
+      - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
       - '.github/workflows/granada-field-f2-dpi.yml'
   workflow_dispatch:
 jobs:
@@ -33,5 +35,7 @@ jobs:
         run: node desktop/tests/physical-3d-scale.test.cjs
       - name: New A–D viewport sizing and CSS/DPI evidence checks
         run: node desktop/tests/field-f2-viewport-layout.spec.cjs
+      - name: Runtime A/B resizing, focus/restore and captured overlap evidence
+        run: node desktop/tests/field-f2-runtime-interactions.spec.cjs
       - name: All original required monolithic suite tests remain registered
         run: node desktop/tests/test-suite-manifest.test.cjs
