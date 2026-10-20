@@ -13,7 +13,7 @@ import zlib
 from pathlib import Path
 
 REQUIRED_LOGS = (
-    "FoamLens scientific checkMesh inspector WebView2 smoke passed",
+    "FoamLens checkMesh scientific report inspector WebView2 smoke passed",
     "FoamLens CAD STL/OBJ WebView2 smoke passed",
     "FoamLens Granada equivalent-observables WebView2 smoke passed",
     "FoamLens real OpenFOAM physical multiregion WebGL smoke passed",
