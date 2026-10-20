@@ -6,7 +6,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
 const {parseArgs}=require('node:util');
 const SCHEMA='foamlens-granada-composite-v1',SHA=/^[a-f0-9]{40}$/i;
-const EXPECTED_PRS=[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184];
+const EXPECTED_PRS=[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184,187];
 const BASE_PATHS=[
  'desktop/src/FoamLensDesktop/frontend/index.html',
  'desktop/src/FoamLensDesktop/Program.cs',
@@ -48,6 +48,21 @@ function verify(manifest){
   if(c.pr!==182&&js.length!==1)throw Error('Exactly one frontend module needed from PR '+c.pr);
   if(c.pr===182&&js.length!==0)throw Error('G5 review tools are not frontend modules');
  }
+ // #174 uses the same meInstall/meExport symbols and DOM IDs as Multi-panel.
+ // Only the separately reviewed, exact-SHA namespaced source #187 is allowed
+ // back into this combined native preview. Never silently stage original #174.
+ const lineage=manifest.fixed_owner_lineage?.checkMesh,repair=manifest.components.find(c=>c.pr===187);
+ if(manifest.components.some(c=>c.pr===174)||!lineage||lineage.original_owner_pr!==174||
+    !SHA.test(lineage.original_sha||'')||lineage.isolated_fix_pr!==187||
+    lineage.fixed_sha!==repair?.sha||lineage.merge_authorized!==false)
+   throw Error('Original #174 checkMesh may only enter preview through exact namespaced #187 owner');
+ const required=[
+  'desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js',
+  'desktop/tests/checkmesh-region-evidence.spec.cjs',
+  'desktop/tests/checkmesh-multipanel-collision.spec.cjs'
+ ];
+ if(required.some(p=>!repair.files.includes(p))||repair.files.length!==required.length)
+   throw Error('Namespaced checkMesh original scientific and collision suites missing');
  if(EXPECTED_PRS.some(x=>!prs.includes(x)))throw Error('Missing owner');
  return{owners:prs.length,files:seen.size,frontend:[...seen].filter(x=>x.startsWith('desktop/src/FoamLensDesktop/frontend/'))}
 }
