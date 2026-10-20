@@ -51,6 +51,12 @@ const noName=me.audit([run('a',metal.replace('Region: metal',''))],['metal']);
 assert.equal(noName.status,'partial-or-unattributed');
 assert.equal(noName.coverage.unattributed,1);
 assert.deepEqual(noName.missingRegions,['metal']);
+const unassignedFailure=me.audit([run('private-user-report',
+ 'Exec : checkMesh\nMesh stats\n cells: 5\n2 mesh checks failed.')],['metal']);
+assert.equal(unassignedFailure.status,'conflicting-or-failed',
+ 'An unattributed failing original checkMesh report must never be treated as a mere absent region');
+assert.equal(unassignedFailure.coverage.unattributedFailures,1);
+assert.equal(unassignedFailure.regions.length,0,'Failure cannot be guessed into a specific material region');
 const unknown=me.audit([run('a','some random number 12')],['metal']);
 assert.equal(unknown.status,'partial-or-unattributed');
 assert.equal(unknown.regions.length,0);
