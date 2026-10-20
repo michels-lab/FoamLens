@@ -6,7 +6,7 @@ const code=fs.readFileSync(path.join(dir,'v24-checkmesh-region-evidence.js'),'ut
 new Function(code);
 const core=code.split('/* FOAMLENS_MESH_EVIDENCE_CORE_START */')[1].split('/* FOAMLENS_MESH_EVIDENCE_CORE_END */')[0];
 const oldCore=parser.split('/* FOAMLENS_CHECKMESH_CORE_START */')[1].split('/* FOAMLENS_CHECKMESH_CORE_END */')[0];
-const me=new Function(core+';return {audit:meEvidence,defects:meDefects,label:meLabel}')();
+const me=new Function(core+';return {audit:cmrEvidence,defects:cmrDefects,label:cmrLabel}')();
 const checkMesh=new Function(oldCore+';return maPureCheckMesh')();
 const run=(name,text)=>({rawText:text,audit:checkMesh(text,name)});
 const metal=[
@@ -106,8 +106,8 @@ assert.equal(clues.items[2].faceId,77);
 assert.deepEqual(clues.items[2].reportedCoordinateM,[-.002,0,3]);
 assert.equal(me.defects('X'.repeat(12*1024*1024+1)).unsupported,true);
 for(const token of ["maPureCheckMesh(contents,'local report '","window.FoamLensMultiRegionMeshEvidence",
- "generalAnalysisModules","id=\"meCase\"","id=\"meFiles\"","id=\"meExport\"",
- "meReset('Original reports changed: re-audit before exporting.')",
+ "generalAnalysisModules","id=\"cmrCase\"","id=\"cmrFiles\"","id=\"cmrExport\"",
+ "cmrReset('Original reports changed: re-audit before exporting.')",
  "caseBinding:'manual-attachment-not-cryptographically-verified'",
  'overallScientificValidity:\'not-certified\'']){
  assert(code.includes(token),'Missing source-backed UI contract '+token)
