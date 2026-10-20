@@ -61,6 +61,8 @@ async function fullDigest(index,signal){
 function uiReport(input){
   if(input==null)return null;
   const n=normalize(input);
+  if(!/^[A-Za-z0-9._+-]{1,50}$/.test(n.version)||!['full','indexed-fast'].includes(n.mode))
+    throw err('INVALID_UI_METADATA','UI version/mode must be a bounded product identifier, not a path or free-form user string.');
   return{schema:'foamlens-scientific-import-performance-v1',version:n.version,mode:n.mode,
     fileCount:n.fileCount,caseCount:n.caseCount,loadedSeries:n.loadedSeries,
     sourceBytesKnown:n.sourceBytesKnown,sourceKindCounts:n.sourceKindCounts,
@@ -159,7 +161,10 @@ async function cli(args){
 }
 if(require.main===module){
   cli(process.argv.slice(2)).catch(e=>{
-    const code=e?.code&&/^[A-Z_]+$/.test(e.code)?e.code:'IO_FAILURE';
+    const expected=new Set(['LABEL','INVALID_SOURCE','TOO_LARGE','SOURCE_CHANGED','CANCELLED',
+      'SYMLINK','UNSUPPORTED_ENTRY','OUTPUT_INSIDE_SOURCE','INPUT_SCHEMA','DATASET_CHANGED',
+      'USAGE','INVALID_UI_METADATA']);
+    const code=expected.has(e?.code)?e.code:'IO_FAILURE';
     process.stderr.write('FoamLens benchmark ['+code+']: '+
       (code==='IO_FAILURE'?'Local I/O error. Check access and free space.':e.message)+'\n');
     process.exitCode=1
