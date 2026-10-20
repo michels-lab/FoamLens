@@ -90,13 +90,14 @@ function meEvidence(reports,expectedRegions=[]){
         if(num('totalVolume')!==null&&num('totalVolume')<=0)
           topologyIssues.push('Reported total volume is nonpositive');
         const failed=(g.status==='failed'||g.reported?.failedChecks>0||
-          (g.messages?.failures||[]).length>0||topologyIssues.length>0);
+          g.reported?.errorsCount>0||(g.messages?.failures||[]).length>0||topologyIssues.length>0);
+        const reportedWarnings=Math.max(g.reported?.warningCount||0,(g.messages?.warnings||[]).length);
         assigned.set(g.label,{region:g.label,source,
-          status:failed?'error':g.status==='reported-ok'&&!(g.messages?.warnings||[]).length?
+          status:failed?'error':g.status==='reported-ok'&&reportedWarnings===0?
             'reported-ok-no-warnings':g.status==='reported-ok'?'reported-ok-with-warnings':
             'insufficient-evidence',
           originalReportStatus:g.status,metrics,topologyIssues,
-          warnings:(g.messages?.warnings||[]).length,failures:(g.messages?.failures||[]).length,
+          warnings:reportedWarnings,failures:(g.messages?.failures||[]).length,
           originalCheckMeshSummary:g.reported||{},conflicted:false,
           reportEvidence:'reported-only; not independently computed from actual polyMesh'});
       }
