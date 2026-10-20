@@ -4,6 +4,92 @@
   "purpose": "PREVIEW_ONLY_DO_NOT_MERGE_OR_RELEASE",
   "components": [
     {
+      "pr": 164,
+      "sha": "68f56e176e6f0ce9ac95833acb196451f9dcb35a",
+      "name": "CAD STL/OBJ original surface inspector (native bridge pending)",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js",
+        "desktop/tests/cad-surface-inspector.test.cjs"
+      ]
+    },
+    {
+      "pr": 165,
+      "sha": "af64ef2ffd8d2f12024654986120653583f2ffcb",
+      "name": "2D/3D comparable observables (native host pending)",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js",
+        "desktop/tests/equivalent-observables.test.cjs"
+      ]
+    },
+    {
+      "pr": 166,
+      "sha": "22a783735026cca8012e206b7c02e09abad0c0c8",
+      "name": "Conditional multi-region energy accounting",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
+        "desktop/tests/multiregion-energy-conservation.spec.cjs",
+        "desktop/tests/multiregion-energy-loader.spec.cjs"
+      ]
+    },
+    {
+      "pr": 167,
+      "sha": "eda84f68cfc8060faf19afa66d8e5b83c38560d0",
+      "name": "Source-backed thermocouple physical XYZ",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
+        "desktop/tests/thermocouple-xyz-loader.spec.cjs",
+        "desktop/tests/thermocouple-xyz-mapping.spec.cjs"
+      ]
+    },
+    {
+      "pr": 168,
+      "sha": "d1e4fce49a636c5db7ebb0541727c4f7a153c805",
+      "name": "Scientific Case Health source evidence",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js",
+        "desktop/tests/scientific-case-health-loader.spec.cjs",
+        "desktop/tests/scientific-case-health.spec.cjs"
+      ]
+    },
+    {
+      "pr": 169,
+      "sha": "a8185a147ab01eb0aa82fb7c7434bc9f660812a8",
+      "name": "Phase / Momentum source evidence explorer",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-physics-evidence-explorer.js",
+        "desktop/tests/physics-evidence-explorer.spec.cjs",
+        "desktop/tests/physics-evidence-loader.spec.cjs"
+      ]
+    },
+    {
+      "pr": 170,
+      "sha": "e065e791fab0984018427a23098c5093fcc21ea5",
+      "name": "Source-backed solidification front proxy",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-solidification-front-proxy.js",
+        "desktop/tests/solidification-front-loader.spec.cjs",
+        "desktop/tests/solidification-front-proxy.spec.cjs"
+      ]
+    },
+    {
+      "pr": 171,
+      "sha": "e743e2552c75605246d2f7a435f813b5858889de",
+      "name": "Source-backed solidification front tracker",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-solidification-front-tracker.js",
+        "desktop/tests/solidification-front-tracker.test.cjs"
+      ]
+    },
+    {
+      "pr": 174,
+      "sha": "cf2f0f65cb8099fdbb94ea52b62df45b6c0c565c",
+      "name": "Multi-region checkMesh original report audit",
+      "files": [
+        "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
+        "desktop/tests/checkmesh-region-evidence.spec.cjs"
+      ]
+    },
+    {
       "pr": 175,
       "sha": "18cc6462f671f3138a9581326ccf6d76a3af528d",
       "name": "Field F2 DPI/viewport",
@@ -68,5 +154,6 @@
         "desktop/tests/granada-177-g6-export-preflight.spec.cjs"
       ]
     }
-  ]
+  ],
+  "integration_caveat": "Frontend science/CAD candidates can be syntactically combined; three original native host Program.cs changes from PR #162/#164/#165 are NOT merged, so end-to-end Field F1/CAD/Equivalent source-native bridge remains pending."
 }
