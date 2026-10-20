@@ -4,7 +4,7 @@
 const pvViews={fvViewport:'A',fcViewport:'B',fcExtra3Viewport:'C',fcExtra4Viewport:'D',fcDifferenceViewport:'Δ'};
 const pvKey='foamlens.field.f2.viewheights.v1';
 function pvNumber(n){return typeof n==='number'&&Number.isFinite(n)?n:typeof n==='string'&&n.trim()&&Number.isFinite(Number(n))?Number(n):NaN}
-function pvMaxHeight(vh){return Number.isFinite(pvNumber(vh))&&vh>0?Math.max(340,Math.min(1050,Math.floor(vh*.82))):800}
+function pvMaxHeight(vh){return Number.isFinite(pvNumber(vh))&&vh>0?Math.max(340,Math.min(1050,Math.floor(vh*82/100+1e-9))):800}
 function pvHeight(value,vh){const n=pvNumber(value);return Number.isFinite(n)?Math.round(Math.max(340,Math.min(pvMaxHeight(vh),n))):460}
 function pvRect(r){
   if(!r)return null;
