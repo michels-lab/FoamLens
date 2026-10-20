@@ -27,22 +27,22 @@ function setup(){
  return{root,state,provider,cleanup(){fs.rmSync(root,{force:true,recursive:true})}}
 }
 function block(fn){const x=setup();try{return fn(x)}finally{x.cleanup()}}
-group('Manifest is sixteen pinned owner PRs with 39 executable/test files and no branch collision',()=>{
+group('Manifest is 15 pinned non-colliding owners, with #174 blocked pending source renaming',()=>{
  const out=verify(MANIFEST);
- assert.equal(out.owners,16);assert.equal(out.files,39);assert.equal(out.frontend.length,15);
- assert.equal(new Set(MANIFEST.components.map(x=>x.pr)).size,16);
- assert.deepEqual(MANIFEST.components.map(x=>x.pr),[164,165,166,167,168,169,170,171,174,175,179,180,181,182,183,184]);
+ assert.equal(out.owners,15);assert.equal(out.files,37);assert.equal(out.frontend.length,14);
+ assert.equal(new Set(MANIFEST.components.map(x=>x.pr)).size,15);
+ assert.deepEqual(MANIFEST.components.map(x=>x.pr),[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184]);
 });
-group('Staging copies 16 pinned PRs and compiles 15 frontend modules without mutating native host',()=>block(x=>{
+group('Staging copies 15 pinned PRs and compiles 14 frontend modules without mutating native host',()=>block(x=>{
  const before=new Map(BASE_PATHS.map(p=>[p,sha256(fs.readFileSync(path.join(x.root,p)))]));
  const report=compose(MANIFEST,x.provider,{root:x.root});
  assert.equal(report.status,'STAGED_UNMERGED');
- assert.equal(report.counts.frontend,15);assert.equal(report.counts.files,39);
- assert.equal(report.sources.length,16);
+ assert.equal(report.counts.frontend,14);assert.equal(report.counts.files,37);
+ assert.equal(report.sources.length,15);
  assert.equal(report.original_source_preserved,true);
  assert.equal(report.scientific_approval,false);assert.equal(report.release_authorized,false);
  assert.equal(report.installed_windows_approval,false);
- assert.deepEqual(x.state.fetched,[164,165,166,167,168,169,170,171,174,175,179,180,181,182,183,184]);
+ assert.deepEqual(x.state.fetched,[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184]);
  for(const p of BASE_PATHS)assert.equal(sha256(fs.readFileSync(path.join(x.root,p))),before.get(p));
  for(const owner of report.sources)for(const item of owner.files)
   assert.equal(sha256(fs.readFileSync(path.join(x.root,item.path))),item.sha256);
@@ -75,7 +75,7 @@ group('Partial/missing PR source and invalid syntax abort without staged files',
  assert.throws(()=>compose(MANIFEST,x.provider,{root:x.root}),/Syntax invalid/);
  assert.equal(fs.existsSync(path.join(x.root,MANIFEST.components[0].files[0])),false);
 }));
-group('Lexical collisions across 15 IIFE-injected modules fail closed even if each compiles alone',()=>block(x=>{
+group('Lexical collisions across 14 IIFE-injected modules fail closed even if each compiles alone',()=>block(x=>{
  x.state.globalConflict=true;
  assert.throws(()=>compose(MANIFEST,x.provider,{root:x.root}),/Runtime IIFE lexical collision/);
  for(const p of MANIFEST.components[0].files)assert.equal(fs.existsSync(path.join(x.root,p)),false);
