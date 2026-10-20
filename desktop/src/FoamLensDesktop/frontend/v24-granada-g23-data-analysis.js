@@ -23,7 +23,8 @@ function applyStyle(){
  if($('flG23Css'))return;
  const style=document.createElement('style');style.id='flG23Css';
  style.textContent=[
-'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"]>:not(.cardhead){display:block!important}',
+'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"].flSidebarSectionCollapsed > #datasetModeBlock{display:block!important}',
+'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"].flSidebarSectionCollapsed > #dataImportMore{display:block!important}',
 'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"] .flSidebarSectionToggle{display:none!important}',
 'body.flG23Ready.appMode-analysis #flAnalysisInspectorCard>:not(.cardhead){display:block!important}',
 'body.flG23Ready.appMode-analysis #flAnalysisInspectorCard .flSidebarSectionToggle{display:none!important}',
@@ -57,6 +58,7 @@ function getDataElements(){
 }
 function updateData(){
  const{tabs}=getDataElements(),note=$('flG23DataStatus');if(!tabs||!note)return;
+ if(mode()==='data'){const importer=$('dataImportMore');if(importer)importer.open=true;}
  const active=[...tabs.querySelectorAll('.datasetTab')].find(x=>x.classList.contains('active'));
  const label=active?.querySelector('span')?.textContent?.trim()||active?.textContent?.trim()||tr('None','Ninguna');
  note.textContent=tr('Current: ','Actual: ')+label+' · '+[...tabs.querySelectorAll('.datasetTab')].filter(validTab).length+
@@ -164,7 +166,10 @@ function install(){
  for(const name of ['foamlens-context-change','foamlens-field-view-change','foamlens-session-restored','foamlens-plot-surface-change'])
    document.addEventListener(name,refresh);
  document.addEventListener('foamlens-language-change',labels);
- state.observer=new MutationObserver(refresh);
+ // Ignore our own navigation labels/status to prevent a MutationObserver/rAF loop.
+ state.observer=new MutationObserver(records=>{
+  if(records.some(record=>!record.target?.closest?.('#flG23AnalysisGuide')))refresh()
+ });
  state.observer.observe(host,{attributes:true,subtree:true,childList:true,attributeFilter:['style','class']});
  new MutationObserver(refresh).observe(document.body,{attributes:true,attributeFilter:['class']});
  state.selected=restore();
