@@ -49,8 +49,15 @@ function times(){
    .map(x=>typeof x==='string'&&!x.trim()?NaN:Number(x)).filter(Number.isFinite))]}catch{return[]}
 }
 function encoder(){
- try{return typeof MediaRecorder!=='undefined'&&typeof HTMLCanvasElement!=='undefined'&&
-  typeof HTMLCanvasElement.prototype.captureStream==='function'}catch{return false}
+ try{
+  if(typeof MediaRecorder==='undefined'||typeof MediaRecorder.isTypeSupported!=='function'||
+     typeof HTMLCanvasElement==='undefined'||typeof HTMLCanvasElement.prototype.captureStream!=='function')return false;
+  const format=$('fvVideoFormat')?.value||'auto';
+  const formats=format==='mp4'?['video/mp4;codecs=avc1','video/mp4']:
+    format==='webm'?['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']:
+    ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  return formats.some(mime=>{try{return !!MediaRecorder.isTypeSupported(mime)}catch{return false}})
+ }catch{return false}
 }
 function inspect(){
  const sourcePlots=plots(),sourceFields=fields(),physicalTimes=times();
@@ -125,9 +132,9 @@ function install(){
  'body.flRibbonReady #flRibbonPanel-export.active .flRibbonActions{flex-wrap:wrap;row-gap:4px}',
  '#flG6Dock{width:100%;flex:1 1 100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.65fr);gap:12px;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;color:var(--text)}',
  '#flG6Heading{font-size:12px;font-weight:840;margin:0 0 5px}',
- '#flG6Sources,#flG6Note,#flG6Dimensions,#flG6Last{font-size:10px;line-height:1.5;color:var(--muted);margin:4px 0;overflow-wrap:anywhere}',
+ '#flG6Sources,#flG6Note,#flG6Dimensions,#flG6Last{font-size:11px;line-height:1.5;color:var(--muted);margin:4px 0;overflow-wrap:anywhere}',
  '#flG6States{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}',
- '.flG6State{padding:5px 7px;min-width:0;font-size:10px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}',
+ '.flG6State{padding:6px 8px;min-width:0;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}',
  '#flRibbonPanel-export .flRibbonAction:disabled{opacity:.46;cursor:not-allowed}',
  '#flRibbonPanel-export .flRibbonAction:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
  '@media(max-width:1050px){#flG6Dock{grid-template-columns:1fr}}',
@@ -143,11 +150,16 @@ function install(){
  for(const [id] of ACTIONS){const n=document.createElement('p');n.id='flG6-'+id;
   n.className='flG6State';right.appendChild(n)}
  dock.appendChild(left);dock.appendChild(right);ribbon.appendChild(dock);
- document.addEventListener('click',event=>{
-  const target=event.target?.closest?.('.flRibbonAction');
-  if(target&&ACTIONS.some(a=>a[0]===target.id)&&!target.disabled)s.lastRequested=target.id;
-  schedule()
- });
+ // Original Ribbon flRibbonBind() calls stopPropagation(), so document click
+ // listeners cannot reliably audit an export request. Register a capturing
+ // handler on the ORIGINAL native button before its bubble listener runs.
+ for(const [id] of ACTIONS){
+  const native=$(id);
+  native?.addEventListener('click',()=>{
+   if(!native.disabled){s.lastRequested=id;schedule()}
+  },true)
+ }
+ document.addEventListener('click',schedule);
  for(const name of ['change','foamlens-language-change','foamlens-plot-state-change',
   'foamlens-field-view-change','foamlens-case-imported','foamlens-session-restored']){
    document.addEventListener(name,schedule)
