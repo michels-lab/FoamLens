@@ -2,6 +2,9 @@
  * Calls the existing maPureCheckMesh; does not execute checkMesh, mutate
  * OpenFOAM source cases, or claim physical multi-region interface agreement.
  */
+/* Stable source-local namespace: scoped to prevent future globals overriding multipanel. */
+(function(){
+'use strict';
 /* FOAMLENS_MESH_EVIDENCE_CORE_START */
 const cmrMETRICS=['points','faces','internalFaces','cells','boundaryPatches','cellZones','faceZones',
   'maxNonOrthogonality','meanNonOrthogonality','maxSkewness','maxAspectRatio','maxOpenness',
@@ -236,3 +239,4 @@ function cmrInstall(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cmrInstall,{once:true});else cmrInstall();
 window.FoamLensMultiRegionMeshEvidence={analyze:cmrEvidence,parseLocators:cmrDefects};
+})();
