@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #177 G0/G1 — first five-tab original-command Ribbon and all-tab visibility evidence (candidate)
+
+- Global issue #177 still tracks **ALL** FoamLens tabs; scoped new independent `v24-granada-global-ux.js` delivers a first actual G1 change: Home/Data/Analysis/Export/View original primary action buttons directly visible, canonical secondary DOM actions moved (not cloned) into compact accessible multilingual More menus, 3D/Field F1/F2 unchanged.
+- G0 local opt-in View → More audit inventories prioritized actual source IDs in Home/Data/Field/Analysis/Export/View/Review/Live with current real DOM clipping/visibility, CSS viewport/DPR and states. Inactive screens explicitly not visually tested. No captured private project/case or original physical data.
+- Cross-platform Ubuntu/Windows new core and DOM-move runtime regression plus existing Ribbon/Field/Analysis tests. **Partial only:** does not solve complete deep tab hierarchy, 3D annotations, default scientific graph placement, Time Series T2, advanced analysis/live layouts or installed DPI/visual owner approval.
+- Still open #177 G0 full UI and screenshot census, G1 coherent component system, G2 3D/Field (#162/#149/#175), G3 source histories and Time Series T2 (#146/#176), G4 other tabs, G5 installed Windows 1024/1280/1920 at OS 125–200% and review. Candidate docs `docs/GRANADA_177_G0G1_PRIMARY_RIBBON_2026-10-20.md`; docs-only PR #178 remains separate until controlled integration. No release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
