@@ -81,15 +81,6 @@
       ]
     },
     {
-      "pr": 174,
-      "sha": "cf2f0f65cb8099fdbb94ea52b62df45b6c0c565c",
-      "name": "Multi-region checkMesh original report audit",
-      "files": [
-        "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
-        "desktop/tests/checkmesh-region-evidence.spec.cjs"
-      ]
-    },
-    {
       "pr": 175,
       "sha": "18cc6462f671f3138a9581326ccf6d76a3af528d",
       "name": "Field F2 DPI/viewport",
@@ -155,5 +146,5 @@
       ]
     }
   ],
-  "integration_caveat": "Frontend science/CAD candidates can be syntactically combined; three original native host Program.cs changes from PR #162/#164/#165 are NOT merged, so end-to-end Field F1/CAD/Equivalent source-native bridge remains pending."
+  "integration_caveat": "PR #174 checkMesh region evidence is QUARANTINED from runtime assembly: meInstall/meExport collide with canonical v16-multipanel-export.js. Its original PR remains intact; no source rewrite or fake native integration. Program.cs owners #162/#164/#165 also remain unresolved."
 }
