@@ -69,11 +69,18 @@ function g4Review(){
 }
 function g4Live(){
  const surface=g4El('liveSurface'),grid=surface?.querySelector('.surfaceGrid'),
-  card=grid?.querySelector('.surfaceCard'),hero=card?.querySelector('.liveHero');
- if(!surface||!grid||!hero||!g4LiveMain.every(id=>g4El(id)))return false;
+  card=grid?.querySelector('.surfaceCard'),head=card?.querySelector('.surfaceCardHead'),
+  hero=card?.querySelector('.liveHero'),run=card?.querySelector('.liveRunHead'),
+  progress=card?.querySelector('.liveProgress');
+ if(!surface||!grid||!hero||!head||!run||!progress||
+    !g4LiveMain.every(id=>g4El(id)))return false;
  if(g4El('g4LiveDock'))return true;
  const dock=document.createElement('div');dock.id='g4LiveDock';dock.className='g4LiveDock';
- dock.appendChild(hero);surface.insertBefore(dock,grid);
+ // Complete always-on run-control strip: original title/capability, log
+ // folder actions, solver state, source context, last update and time progress.
+ // Keep the large numerical metric grid in the results card below.
+ dock.appendChild(head);dock.appendChild(hero);dock.appendChild(run);dock.appendChild(progress);
+ surface.insertBefore(dock,grid);
  g4LiveDock=dock;return true
 }
 function g4CSS(){
@@ -101,17 +108,21 @@ function g4CSS(){
  '#reviewSurface .g4ReviewResults .reviewPane.active .auditCaseSelect .field{flex:1 1 260px}',
  '#reviewSurface .g4ReviewResults .reviewPane.active .auditCaseSelect select{min-height:37px}',
  '#reviewSurface .reviewTab:focus-visible,#reviewSurface .g4ReviewMore>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
- '#liveSurface .g4LiveDock{padding:12px 15px;border-radius:15px;margin-bottom:12px}',
+ '#liveSurface .g4LiveDock{padding:0 15px 12px;border-radius:15px;margin-bottom:12px}',
+ '#liveSurface .g4LiveDock>.surfaceCardHead{padding:12px 0 9px;margin:0 0 9px;border-bottom:1px solid var(--line);background:var(--panel);gap:9px;align-items:center}',
+ '#liveSurface .g4LiveDock>.surfaceCardHead .badge{max-width:50%;overflow-wrap:anywhere}',
  '#liveSurface .g4LiveDock .liveHero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}',
  '#liveSurface .g4LiveDock .liveStatus{font-size:11px;line-height:1.5;overflow-wrap:anywhere;min-width:0}',
  '#liveSurface .g4LiveDock .liveActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px}',
  '#liveSurface .g4LiveDock .liveActions .btn{min-width:110px;min-height:36px;font-size:11px;white-space:nowrap}',
  '#liveSurface .g4LiveDock .liveActions .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
- '#liveSurface .liveRunHead{margin-top:0;padding-top:0;border-top:0}',
+ '#liveSurface .g4LiveDock .liveRunHead{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);gap:9px;flex-wrap:wrap}',
+ '#liveSurface .g4LiveDock .liveRunState{font-size:15px}',
+ '#liveSurface .g4LiveDock .liveProgress{margin:8px 0 0}',
  '#liveSurface .liveMetricGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}',
  '#liveSurface .liveMetric{min-width:0;overflow-wrap:anywhere}',
  '@media(max-width:1250px){#liveSurface .g4LiveDock .liveHero{grid-template-columns:1fr}#liveSurface .g4LiveDock .liveActions{justify-content:flex-start}#liveSurface .liveMetricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
- '@media(max-width:760px){#reviewSurface .g4ReviewDock .reviewTabs{gap:5px;padding:7px 9px}#reviewSurface .g4ReviewDock .reviewTab{font-size:10px;padding:7px 9px}#reviewSurface .g4ReviewMore>summary{font-size:10px;padding:7px 8px;max-width:38vw}#liveSurface .g4LiveDock{padding:10px}#liveSurface .g4LiveDock .liveActions .btn{flex:1 1 115px;min-width:0}}',
+ '@media(max-width:760px){#reviewSurface .g4ReviewDock .reviewTabs{gap:5px;padding:7px 9px}#reviewSurface .g4ReviewDock .reviewTab{font-size:10px;padding:7px 9px}#reviewSurface .g4ReviewMore>summary{font-size:10px;padding:7px 8px;max-width:38vw}#liveSurface .g4LiveDock{padding:0 10px 10px}#liveSurface .g4LiveDock .liveActions .btn{flex:1 1 115px;min-width:0}}',
  '@media(max-width:510px){#liveSurface .liveMetricGrid{grid-template-columns:1fr}#reviewSurface .g4ReviewMore{margin-left:0}}'
  ].join('\n');document.head.appendChild(s)
 }
