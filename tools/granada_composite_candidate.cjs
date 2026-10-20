@@ -35,14 +35,16 @@ function verify(manifest){
     throw Error('Invalid source owner entry');
   if(prs.includes(c.pr))throw Error('Duplicate PR owner: '+c.pr);
   prs.push(c.pr);
-  const js=c.files.filter(p=>p.startsWith('desktop/src/FoamLensDesktop/frontend/'));
-  if(c.pr!==182&&js.length!==1)throw Error('Exactly one frontend module needed from PR '+c.pr);
-  if(c.pr===182&&js.length!==0)throw Error('G5 review tools are not frontend modules');
+  // Check unsafe file paths BEFORE structure/cardinality, so a traversal
+  // cannot be disguised by the generic "missing module" diagnostic.
   for(const p of c.files){
    if(typeof p!=='string'||!permitted(p))throw Error('Forbidden source overlay path: '+String(p));
    if(seen.has(p))throw Error('Overlapping source path between PR owners: '+p);
    seen.add(p)
   }
+  const js=c.files.filter(p=>p.startsWith('desktop/src/FoamLensDesktop/frontend/'));
+  if(c.pr!==182&&js.length!==1)throw Error('Exactly one frontend module needed from PR '+c.pr);
+  if(c.pr===182&&js.length!==0)throw Error('G5 review tools are not frontend modules');
  }
  if(EXPECTED_PRS.some(x=>!prs.includes(x)))throw Error('Missing owner');
  return{owners:prs.length,files:seen.size,frontend:[...seen].filter(x=>x.startsWith('desktop/src/FoamLensDesktop/frontend/'))}
