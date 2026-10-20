@@ -1,0 +1,38 @@
+name: Granada 176 — Time Series T2 source-native UX
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js'
+      - 'desktop/tests/granada-176-timeseries-ui.spec.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - '.github/workflows/granada-176-timeseries-t2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeseries-t2:
+    name: T2 source-owned DOM and cancel guards (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual original controls, atomic cancel and UI semantics
+        run: node desktop/tests/granada-176-timeseries-ui.spec.cjs
+      - name: Original two-variable time-series regression
+        run: node desktop/tests/dual-timeseries.test.cjs
+      - name: Native 3D source-field catalog regression
+        run: node desktop/tests/timeseries-source-catalog.test.cjs
+      - name: Original scientific UI ownership regression
+        run: node desktop/tests/section-ownership.test.cjs
+      - name: Original workflow suite coverage gate
+        run: node desktop/tests/test-suite-manifest.test.cjs
