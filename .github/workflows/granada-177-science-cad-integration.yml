@@ -1,0 +1,215 @@
+name: Granada Science + CAD — pinned 15 PR integration
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/granada-177-integration-candidate-g0g6-20261020
+    paths:
+      - 'tools/granada_composite_manifest.json'
+      - 'tools/granada_composite_candidate.cjs'
+      - 'tools/test_granada_composite_candidate.cjs'
+      - 'tools/granada_science_native_host_gate.cjs'
+      - 'tools/test_granada_science_native_host_gate.cjs'
+      - '.github/workflows/granada-177-science-cad-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sixteen-owner-regressions:
+    name: Original 15 PR module science suites (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fail closed on changed owner SHA, file collisions, malformed source and native-host claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/test_granada_composite_candidate.cjs
+          node tools/test_granada_science_native_host_gate.cjs
+      - name: Verify canonical main test registration BEFORE adding scientific test files
+        shell: bash
+        run: node desktop/tests/test-suite-manifest.test.cjs
+      - name: Stage all 15 LIVE pinned source PRs, without merging or modifying original host
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_composite_candidate.cjs \
+            --manifest tools/granada_composite_manifest.json \
+            --root . --report artifacts/granada-fifteen-owner-source.json
+      - name: Verify honest staged scientific suite registration and main merge blockers
+        shell: bash
+        run: |
+          node tools/granada_science_suite_registry.cjs
+          node tools/test_granada_science_suite_registry.cjs
+      - name: Test all source-PR-owned native frontend modules with shared lexical scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            desktop/tests/field-f2-runtime-interactions.spec.cjs \
+            desktop/tests/field-f2-viewport-layout.spec.cjs \
+            desktop/tests/granada-177-global-ux.spec.cjs \
+            desktop/tests/granada-177-ux-runtime.spec.cjs \
+            desktop/tests/granada-177-g4-review-live.spec.cjs \
+            desktop/tests/granada-176-timeseries-ui.spec.cjs \
+            tools/test_granada_visual_review.cjs \
+            desktop/tests/granada-177-g23-data-analysis.spec.cjs \
+            desktop/tests/granada-177-g6-export-preflight.spec.cjs \
+            desktop/tests/cad-surface-inspector.test.cjs \
+            desktop/tests/equivalent-observables.test.cjs \
+            desktop/tests/multiregion-energy-conservation.spec.cjs \
+            desktop/tests/multiregion-energy-loader.spec.cjs \
+            desktop/tests/thermocouple-xyz-loader.spec.cjs \
+            desktop/tests/thermocouple-xyz-mapping.spec.cjs \
+            desktop/tests/scientific-case-health-loader.spec.cjs \
+            desktop/tests/scientific-case-health.spec.cjs \
+            desktop/tests/physics-evidence-explorer.spec.cjs \
+            desktop/tests/physics-evidence-loader.spec.cjs \
+            desktop/tests/solidification-front-loader.spec.cjs \
+            desktop/tests/solidification-front-proxy.spec.cjs \
+            desktop/tests/solidification-front-tracker.test.cjs; do
+            echo "== Original owner-PR science/regression $f"
+            node "$f"
+          done
+      - name: Re-run original baseline science and cross-workspace ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            desktop/tests/section-ownership.test.cjs \
+            desktop/tests/ribbon-ui.test.cjs \
+            desktop/tests/sidebar-sections.test.cjs \
+            desktop/tests/analysis-ui-organization.test.cjs \
+            desktop/tests/dual-timeseries.test.cjs \
+            desktop/tests/timeseries-source-catalog.test.cjs \
+            desktop/tests/plot-surfaces.test.cjs \
+            desktop/tests/field-compare.test.cjs \
+            desktop/tests/field-multiview-ux.test.cjs \
+            desktop/tests/review-case-binding.test.cjs \
+            desktop/tests/reproducible-export.test.cjs; do
+            echo "== Canonical main $f"
+            node "$f"
+          done
+      - name: Compare native host Program.cs and build workflow changes of Field F1/CAD/2D3D
+        shell: bash
+        run: |
+          node tools/granada_science_native_host_gate.cjs artifacts/granada-native-host-collision-gate.json
+      - name: Preserve original owner SHA, executable module sequence and native-host BLOCKED report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granada-science-source-provenance-${{ matrix.os }}
+          path: |
+            artifacts/granada-fifteen-owner-source.json
+            artifacts/granada-native-host-collision-gate.json
+            artifacts/granada-science-suite-registration.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  native-science-preview:
+    name: 'Original Windows desktop: 14 combined modules, no native host cherry-pick'
+    runs-on: windows-latest
+    needs: [sixteen-owner-regressions]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Re-pin 15 owner PRs; generate full source provenance JSON
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_composite_candidate.cjs \
+            --manifest tools/granada_composite_manifest.json \
+            --root . --report artifacts/granada-native-science-source.json
+          node tools/granada_science_native_host_gate.cjs artifacts/granada-native-host-collision-gate.json
+      - name: Bundle original HTML + 14 isolated original scientific/UI modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          $tmp='granada-science-bundle-tmp'
+          if (Test-Path $bundle) { throw 'Unexpected preexisting native bundle' }
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $tmp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $tmp 'LICENSE.txt')
+          Compress-Archive -Path "$tmp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $expected=@((Get-Content 'tools/granada_composite_manifest.json' -Raw | ConvertFrom-Json).components |
+              ForEach-Object { $_.files } | Where-Object { $_ -like 'desktop/src/FoamLensDesktop/frontend/v24-*.js' }).Count
+            $n=@($zip.Entries | Where-Object { $_.FullName -like 'v24-*.js' }).Count
+            if ($n -lt $expected) { throw "Missing source modules $n < $expected" }
+            Write-Host "Bundled $n scientific/UX v24 modules; original host is unmodified"
+          } finally { $zip.Dispose() }
+      - name: Compile actual .NET Windows Forms/WebView2 host
+        shell: pwsh
+        run: |
+          dotnet restore 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw 'Native restore failed' }
+          dotnet build 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Real native Windows composite compilation failed' }
+      - name: Run WebView2 on desktop with 14 science/UI modules loaded
+        shell: pwsh
+        env:
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/granada-science-native-ui
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/granada-science-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'No native candidate executable' }
+          New-Item -ItemType Directory -Path 'artifacts/granada-science-native-ui' -Force | Out-Null
+          $app=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(420000)) {
+            try { $app.Kill($true) } catch {}
+            throw 'Native science preview smoke timeout'
+          }
+          $diagnostics=Join-Path $env:LOCALAPPDATA 'FoamLens/Desktop/foamlens-desktop.log'
+          if (Test-Path $diagnostics) {
+            $lines=@(Get-Content $diagnostics -Tail 110)
+            # Keep failures explainable; do not leak runner's home path in artifacts.
+            $sanitized=@($lines | ForEach-Object {
+              $_ -replace [regex]::Escape($env:USERPROFILE), '[WINDOWS_RUNNER_HOME]'
+            })
+            $sanitized | Set-Content -Path 'artifacts/granada-science-native-ui/smoke-diagnostic.txt' -Encoding UTF8
+            if ($app.ExitCode -ne 0) {
+              Write-Host '== Native smoke diagnostic tail (runner paths redacted) =='
+              $sanitized | Select-Object -Last 26 | ForEach-Object { Write-Host $_ }
+            }
+          }
+          if ($app.ExitCode -ne 0) { throw "Native smoke failed $($app.ExitCode); see sanitized smoke-diagnostic.txt artifact" }
+          Write-Host 'Scientific source modules loaded by native host; real OpenFOAM evidence and CAD native bridge NOT verified.'
+      - name: Upload evidence, never installers or unsigned executables
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granada-science-preview-native-evidence
+          path: |
+            artifacts/granada-native-science-source.json
+            artifacts/granada-native-host-collision-gate.json
+            artifacts/granada-science-launch.png
+            artifacts/granada-science-native-ui/
+          if-no-files-found: warn
+          retention-days: 14

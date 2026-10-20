@@ -6,9 +6,11 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
 const {parseArgs}=require('node:util');
 const SCHEMA='foamlens-granada-composite-v1',SHA=/^[a-f0-9]{40}$/i;
-const EXPECTED_PRS=[175,179,180,181,182,183,184];
+const EXPECTED_PRS=[164,165,166,167,168,169,170,171,175,179,180,181,182,183,184];
 const BASE_PATHS=[
  'desktop/src/FoamLensDesktop/frontend/index.html',
+ 'desktop/src/FoamLensDesktop/Program.cs',
+ '.github/workflows/build-foamlens-desktop.yml',
  'desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js',
  'desktop/src/FoamLensDesktop/frontend/v21-analysis-scope.js',
  'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js',
@@ -21,7 +23,7 @@ const BASE_PATHS=[
 const sha256=b=>crypto.createHash('sha256').update(b).digest('hex');
 const permitted=p=>
  /^desktop\/src\/FoamLensDesktop\/frontend\/v24-[a-zA-Z0-9_.-]+\.js$/.test(p)||
- /^desktop\/tests\/[a-zA-Z0-9_.-]+\.spec\.cjs$/.test(p)||
+ /^desktop\/tests\/[a-zA-Z0-9_.-]+\.(?:spec|test)\.cjs$/.test(p)||
  /^tools\/(?:granada_visual_review|test_granada_visual_review)\.cjs$/.test(p);
 function verify(manifest){
  if(manifest?.schema!==SCHEMA||!SHA.test(manifest.base_sha||''))throw Error('Invalid composite schema or base commit');
