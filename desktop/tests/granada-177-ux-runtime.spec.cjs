@@ -5,7 +5,12 @@ const byId=new Map(),eventHandlers=new Map();
 const bounds=(left=0,top=0,width=140,height=35)=>({left,top,width,height,right:left+width,bottom:top+height});
 class Node {
  constructor(tag='div',id=''){
-  this.tag=tag;this.id=id;this.children=[];this.parentElement=null;this.hidden=false;
+  this.tag=tag;this._id='';
+  Object.defineProperty(this,'id',{get:()=>this._id,set:value=>{
+    if(this._id)byId.delete(this._id);
+    this._id=String(value||'');if(this._id)byId.set(this._id,this)
+  }});
+  this.id=id;this.children=[];this.parentElement=null;this.hidden=false;
   this.dataset={};this.style={};this.attributes={};this.textContent='';
   this.listeners={};this.classSet=new Set();this.className='';
   this.classList={contains:v=>this.classSet.has(v),add:v=>this.classSet.add(v),
