@@ -34,6 +34,7 @@ function make(){
  const panel=element('flRibbonPanel-export','div','flRibbonPanel active');body.appendChild(panel);
  const native={};
  for(const id of ids){const b=element(id,'button','flRibbonAction');panel.appendChild(b);native[id]=b}
+ const format=element('fvVideoFormat','select');format.value='auto';body.appendChild(format);
  const seriesList=element('seriesList');body.appendChild(seriesList);
  const language=element('language');language.value='en';body.appendChild(language);
  const fv=element('fvCanvas','canvas');fv.width=100;fv.height=90;body.appendChild(fv);
@@ -52,7 +53,7 @@ function make(){
  const state={series:[],fieldSources:[],times:[],busy:false};
  class HTMLCanvasElement{}
  HTMLCanvasElement.prototype.captureStream=function(){};
- const sandbox={window,document,MutationObserver,HTMLCanvasElement,MediaRecorder:class{},
+ const sandbox={window,document,MutationObserver,HTMLCanvasElement,MediaRecorder:class{static isTypeSupported(){return true}},
   currentDataView:'timeseries',
   visibleCurrentSeries:()=>state.series,
   fvCurrentFieldGroup:()=>({times:state.times}),
@@ -124,6 +125,15 @@ test('video additionally requires physical timeline, runtime encoder and not alr
  m.state.busy=false;m.sandbox.MediaRecorder=undefined;m.api.refresh();assert.equal(m.native.flRaExportVideo.disabled,true);
  assert.equal(m.native.flRaExportMulti.disabled,false,'still-image export independent of encoder');
 });
+test('video codec follows original selected MP4/WebM format rather than generic MediaRecorder presence',()=>{
+ const m=make();changeMode(m,'field');setField(m);
+ const format=m.document.getElementById('fvVideoFormat');
+ m.sandbox.MediaRecorder=class{static isTypeSupported(mime){return mime.startsWith('video/webm')}};
+ format.value='mp4';m.api.refresh();
+ assert.equal(m.native.flRaExportVideo.disabled,true,'selected unsupported MP4 must fail closed');
+ format.value='webm';m.api.refresh();
+ assert.equal(m.native.flRaExportVideo.disabled,false,'supported WebM is allowed');
+});
 test('guards are reversible when source disappears or Export ribbon tab closes',()=>{
  const m=make();m.state.series=[{t:[0],y:[1]}];m.api.refresh();
  assert.equal(m.native.flRaExportPng.disabled,false);
@@ -144,8 +154,9 @@ test('bilingual source status and request audit never claim download success',()
  const m=make();m.state.series=[{t:[0],y:[1]}];m.api.refresh();
  m.language.value='es';for(const fn of m.handlers.get('foamlens-language-change')||[])fn();
  assert.match(m.document.getElementById('flG6Heading').textContent,/Exportación/);
- const event={target:m.native.flRaExportCsv};
- for(const fn of m.handlers.get('click')||[])fn(event);
+ m.native.flRaExportCsv.dispatch('click',{target:m.native.flRaExportCsv});
+ // The original Ribbon listener stops event propagation, so G6 must observe
+ // requests directly on the original element, NOT from document bubbling.
  assert.equal(m.api.audit().lastRequested,'flRaExportCsv');
  assert.equal(m.api.audit().downloadConfirmed,false);
  assert.match(m.document.getElementById('flG6Last').textContent,/no verificada/);
