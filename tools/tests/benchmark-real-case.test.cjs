@@ -39,7 +39,7 @@ const fixtureUi=(overrides={})=>({
   }
   const inv=await inventory(root);
   assert.equal(inv.files.length,3008);assert.equal(inv.byType.polyMesh>0,true);
-  assert.equal(inv.byType.postProcessing>0,true);assert.equal(inv.byType.time-field>0,true);
+  assert.equal(inv.byType.postProcessing>0,true);assert.equal(inv.byType['time-field']>0,true);
   assert.equal(Object.values(inv.byType).reduce((n,x)=>n+x,0),3008);
   const one=await capture(root,out1,{label:'first',ui:fixtureUi()});
   const two=await capture(root,out2,{label:'repeat',ui:fixtureUi({firstInteractiveMs:86000})});
