@@ -71,15 +71,21 @@ function assemble(root,options={}){
  const sources={};
  for(const p of [...FIELD,...FTEST]){
   const file=path.resolve(cwd,...p.split('/'));
-  if(!file.startsWith(cwd+path.sep)||!fs.existsSync(file)||fs.lstatSync(file).isSymbolicLink())throw Error('Unsafe original File path '+p);
-  const original=fs.readFileSync(file),baseline=git(['show',BASE+':'+p],cwd);
-  if(!original.equals(baseline))throw Error('Frontend baseline drift '+p);
+  if(!file.startsWith(cwd+path.sep))throw Error('Unsafe original File path '+p);
+  const added=FTEST.includes(p);
+  if(!added&&(!fs.existsSync(file)||fs.lstatSync(file).isSymbolicLink()))throw Error('Original frontend file unavailable '+p);
+  if(added&&fs.existsSync(file))throw Error('Refuse to overwrite original PR test path '+p);
+  const original=added?null:fs.readFileSync(file);
+  if(!added){
+    const baseline=git(['show',BASE+':'+p],cwd);
+    if(!original.equals(baseline))throw Error('Frontend baseline drift '+p);
+  }
   const contents=git(['show',PRS[162]+':'+p],cwd);
   if(!contents.length||contents.length>3*1024*1024)throw Error('Invalid Field F1 source '+p);
   if(p.endsWith('.js'))new Function(contents.toString('utf8'));
   if(p.endsWith('.cjs'))new Function('require','module','process',contents.toString('utf8'));
-  blobs[p]={old:original,new:contents};
-  sources[p]={original_sha256:hash(original),owner_sha256:hash(contents),source_pr:162};
+  blobs[p]={old:original,new:contents,added};
+  sources[p]={original_sha256:original?hash(original):null,owner_sha256:hash(contents),source_pr:162,created_only_in_ci:added};
  }
  const report={
   schema:'FoamLens-Granada-Native-Host-Merge-Candidate-v1',
@@ -94,11 +100,14 @@ function assemble(root,options={}){
   const written=[];
   try{
    for(const [p,pair] of Object.entries(blobs)){
-    fs.writeFileSync(path.join(cwd,...p.split('/')),pair.new);written.push([p,pair.old])
+    fs.writeFileSync(path.join(cwd,...p.split('/')),pair.new,pair.added?{flag:'wx'}:undefined);written.push([p,pair.old])
    }
    fs.writeFileSync(path.join(cwd,HOST),merged.content);written.push([HOST,originalHost])
   }catch(e){
-   for(const [p,old] of written.reverse())try{fs.writeFileSync(path.join(cwd,...p.split('/')),old)}catch{}
+   for(const [p,old] of written.reverse())try{
+    const target=path.join(cwd,...p.split('/'));
+    if(old===null)fs.unlinkSync(target);else fs.writeFileSync(target,old)
+   }catch{}
    throw e
   }
  }
