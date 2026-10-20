@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const {BASE,PRS,HOST,FIELD,FTEST,extract,composeHost,hash,sourceMatches}=require('./granada_native_host_composite.cjs');
+const {BASE,PRS,HOST,FIELD,FTEST,FUPDATED,extract,composeHost,hash,sourceMatches}=require('./granada_native_host_composite.cjs');
 let n=0;function test(label,fn){fn();n++;console.log(' ✓ '+label)}
 const originalMesh='            // The Mesh & Geometry Auditor is a public scientific report\n'+
  '            var meshAuditSurfaceJson = await _web.CoreWebView2.ExecuteScriptAsync("Mesh report inspector is not mounted");\n'+
@@ -22,7 +22,8 @@ test('pinned owner SHAs for Field F1, CAD and scientifically equivalent 2D/3D',(
  assert.deepEqual(Object.keys(PRS),['162','164','165']);
  for(const sha of Object.values(PRS))assert.match(sha,/^[a-f0-9]{40}$/);
  assert.match(BASE,/^[a-f0-9]{40}$/);
- assert.deepEqual(FIELD.length,2);assert.equal(FTEST.length,1);
+ assert.deepEqual(FIELD.length,2);assert.equal(FTEST.length,1);assert.equal(FUPDATED.length,1);
+ assert.equal(FUPDATED[0],'desktop/tests/field-compare.test.cjs');
  assert(HOST.endsWith('/Program.cs'));
 });
 test('Windows checkout CRLF differences are accepted but substantive host/field drift is still rejected',()=>{
