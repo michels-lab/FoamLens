@@ -106,7 +106,10 @@ function pvMeasure(viewport){
       ['physical-measure','.fvMeasureInfo'],['axis-gizmo','.fvAxisGizmo'],
       ['field-legend','.fvLegend'],['compare-legend','.fcLegend'],
       ['material-legend','.fvRegionScaleDock']];
-  const overlays=pieces.map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
+  const dock=scene?.querySelector('.fvRegionScaleDock');
+  const overlays=pieces.filter(([label])=>label!=='field-legend'||
+    !dock?.contains(scene?.querySelector('.fvLegend')))
+    .map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
   const snapshot={scene:pvRect(scene?.getBoundingClientRect()),canvas:pvRect(r),
     overlays,buffer:r?pvBuffer(r.width,r.height,dpr,canvas.width,canvas.height):null};
   return{id:viewport.id,view:pvViews[viewport.id],
@@ -264,7 +267,12 @@ function pvInstall(){
   window.addEventListener('resize',()=>{
     for(const [id,value] of Object.entries(pvHeights)){const el=pvEl(id);
       if(el)pvSetHeight(el,value,false)}
-  })
+  });
+  // The existing Field controller owns which views are visible. Restore focus
+  // when compare/difference is disabled, rather than hiding the only live view.
+  document.addEventListener('change',e=>{
+    if(['fcEnabled','fcDifference'].includes(e.target?.id))pvResetFocus()
+  },true)
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pvInstall,{once:true});
 else pvInstall();
