@@ -39,6 +39,9 @@ jobs:
           set -euo pipefail
           node tools/test_granada_composite_candidate.cjs
           node tools/test_granada_science_native_host_gate.cjs
+      - name: Verify canonical main test registration BEFORE adding scientific test files
+        shell: bash
+        run: node desktop/tests/test-suite-manifest.test.cjs
       - name: Stage all 16 LIVE pinned source PRs, without merging or modifying original host
         shell: bash
         run: |
@@ -46,6 +49,11 @@ jobs:
           node tools/granada_composite_candidate.cjs \
             --manifest tools/granada_composite_manifest.json \
             --root . --report artifacts/granada-sixteen-owner-source.json
+      - name: Verify honest staged scientific suite registration and main merge blockers
+        shell: bash
+        run: |
+          node tools/granada_science_suite_registry.cjs
+          node tools/test_granada_science_suite_registry.cjs
       - name: Test all source-PR-owned native frontend modules with shared lexical scope
         shell: bash
         run: |
@@ -92,8 +100,7 @@ jobs:
             desktop/tests/field-compare.test.cjs \
             desktop/tests/field-multiview-ux.test.cjs \
             desktop/tests/review-case-binding.test.cjs \
-            desktop/tests/reproducible-export.test.cjs \
-            desktop/tests/test-suite-manifest.test.cjs; do
+            desktop/tests/reproducible-export.test.cjs; do
             echo "== Canonical main $f"
             node "$f"
           done
@@ -109,6 +116,7 @@ jobs:
           path: |
             artifacts/granada-sixteen-owner-source.json
             artifacts/granada-native-host-collision-gate.json
+            artifacts/granada-science-suite-registration.json
           if-no-files-found: warn
           retention-days: 14
 
