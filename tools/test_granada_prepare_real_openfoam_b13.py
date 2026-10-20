@@ -59,12 +59,26 @@ class FixtureSafety(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-overlapping"):
             prepare(self.source, self.root)
 
-    def test_symlink_rejected_even_when_contents_seem_valid(self):
+    def test_internal_real_source_file_link_is_dereferenced_not_preserved_as_symlink(self):
         link = self.source / "3" / "T"
         link.parent.mkdir(parents=True, exist_ok=True)
         link.symlink_to(self.source / "0/metal/T")
-        with self.assertRaisesRegex(ValueError, "symlink"):
-            prepare(self.source, self.root / "clone")
+        summary = prepare(self.source, self.root / "clone")
+        self.assertEqual(summary["original_internal_file_links_dereferenced"], 1)
+        copied = self.root / "clone" / "SmokeCase_A/3/T"
+        self.assertTrue(copied.is_file())
+        self.assertFalse(copied.is_symlink())
+        self.assertEqual(sha256(copied), sha256(self.source / "0/metal/T"))
+
+    def test_external_or_directory_symlink_is_excluded_safely(self):
+        outside = self.root / "outside-secret"
+        outside.write_text("MUST NOT COPY")
+        link = self.source / "3" / "T"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(outside)
+        summary = prepare(self.source, self.root / "clone")
+        self.assertEqual(summary["outside_source_or_directory_symlinks_excluded"], 1)
+        self.assertFalse((self.root / "clone" / "SmokeCase_A/3/T").exists())
 
     def test_unsafe_windows_paths_rejected_without_changing_source(self):
         for path in ["CON", "LPT9/a", "mesh:bad", "mesh?.vtu", "long. ", "with|pipe"]:
