@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const {BASE,PRS,HOST,FIELD,FTEST,extract,composeHost,hash}=require('./granada_native_host_composite.cjs');
+const {BASE,PRS,HOST,FIELD,FTEST,extract,composeHost,hash,sourceMatches}=require('./granada_native_host_composite.cjs');
 let n=0;function test(label,fn){fn();n++;console.log(' ✓ '+label)}
 const originalMesh='            // The Mesh & Geometry Auditor is a public scientific report\n'+
  '            var meshAuditSurfaceJson = await _web.CoreWebView2.ExecuteScriptAsync("Mesh report inspector is not mounted");\n'+
@@ -24,6 +24,13 @@ test('pinned owner SHAs for Field F1, CAD and scientifically equivalent 2D/3D',(
  assert.match(BASE,/^[a-f0-9]{40}$/);
  assert.deepEqual(FIELD.length,2);assert.equal(FTEST.length,1);
  assert(HOST.endsWith('/Program.cs'));
+});
+test('Windows checkout CRLF differences are accepted but substantive host/field drift is still rejected',()=>{
+ const lf=Buffer.from("public class X {\n int a=2;\n}\n");
+ const crlf=Buffer.from("public class X {\r\n int a=2;\r\n}\r\n");
+ assert.equal(sourceMatches(lf,crlf),true);
+ assert.equal(sourceMatches(lf,Buffer.from("public class X {\n int a=3;\n}\n")),false);
+ assert.equal(sourceMatches(lf,Buffer.from("public class X {\n int a=2;\n}\nINJECTED")),false);
 });
 test('exact owner blocks are grafted while original checkMesh WebView2 smoke stays in place',()=>{
  const out=composeHost(main,field,cad,eq);
