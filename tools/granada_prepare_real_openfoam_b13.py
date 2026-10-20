@@ -67,11 +67,24 @@ def prepare(source: Path, destination: Path) -> dict:
         raise ValueError("Refusing to overwrite preexisting candidate fixture")
     files = []
     skipped_unsafe = 0
+    skipped_external_links = 0
+    copied_internal_links = 0
     for file in sorted(source.rglob("*")):
+        rel = file.relative_to(source)
         if file.is_symlink():
-            raise ValueError("Original source contains symlink; fail closed")
-        if file.is_file():
-            rel = file.relative_to(source)
+            # The PRIVATE QuickCup case genuinely uses symlinks. Dereference
+            # only normal files whose canonical content remains INSIDE B13.
+            # Never ship symlinks or fetch files outside the source tree.
+            target = file.resolve(strict=False)
+            if source not in target.parents or not target.is_file():
+                skipped_external_links += 1
+                continue
+            if safe_relative(rel):
+                files.append(rel)
+                copied_internal_links += 1
+            else:
+                skipped_unsafe += 1
+        elif file.is_file():
             if safe_relative(rel):
                 files.append(rel)
             else:
@@ -116,6 +129,8 @@ def prepare(source: Path, destination: Path) -> dict:
             "required_file_sizes": source_sizes,
             "source_file_count": len(files),
             "windows_unsafe_source_paths_excluded": skipped_unsafe,
+            "original_internal_file_links_dereferenced": copied_internal_links,
+            "outside_source_or_directory_symlinks_excluded": skipped_external_links,
             "asymmetric_source_omission": {
                 "case": "SmokeCase_Asymmetric",
                 "missing_file": "9.8/mold/T",
@@ -143,6 +158,8 @@ def main():
     args.manifest.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"Granada B13 measured source cloned: {len(NAMES)} case identities; "
           f"{manifest['source_file_count']} originals/case; "
+          f"{manifest['original_internal_file_links_dereferenced']} internal links resolved; "
+          f"{manifest['outside_source_or_directory_symlinks_excluded']} external/directory links excluded; "
           "metal/mold 9.8 T present; isolated asymmetric mold T REMOVED")
 
 
