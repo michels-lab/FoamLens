@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #117 — reproducible first/repeat real-case benchmark collection (candidate)
+
+- The actual native `NativeCaseCatalog`, UI `FoamLens_import_performance.json` report and UI timing comparison already exist on main; do not duplicate or claim cold/warm native optimization from CI fixtures.
+- New isolated `tools/benchmark-real-case.cjs`: read-only complete source-tree SHA-256 checks, path-private 3k/10k inventory/bytes/types and scan/read timing from real local cases. Only optional original UI export provides genuine measured import/first-interaction stages; report explicitly distinguishes app/UI metrics from Node I/O, user attribution and **unverified OS cold-cache**. Compare refuses changed full-content identity. No source OpenFOAM research data uploaded or modified.
+- Ubuntu/Windows synthetic 3008-file and 10000-file stress, privacy and source-change regressions, plus existing UI timing and large parser suites, provide implementation QA only; user-real 3008-file same-machine baseline and exact installed app remain required. Technical guide `docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md`.
+- Outstanding: owner case first/repeat/true cold profiling, end-to-end first interactive measurement, native pre-scan incrementally reusable catalog with invalidation, bounded asynchronous parsing, large 2D/3D field correctness, installed Setup/Portable acceptance. Issue #117 remains open; this does not authorize any release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
