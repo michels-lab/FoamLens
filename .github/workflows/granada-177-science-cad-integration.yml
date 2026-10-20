@@ -1,4 +1,4 @@
-name: Granada Science + CAD — pinned 16 PR integration
+name: Granada Science + CAD — pinned 15 PR integration
 
 on:
   pull_request:
@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   sixteen-owner-regressions:
-    name: Original 16 PR module science suites (${{ matrix.os }})
+    name: Original 15 PR module science suites (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -42,13 +42,13 @@ jobs:
       - name: Verify canonical main test registration BEFORE adding scientific test files
         shell: bash
         run: node desktop/tests/test-suite-manifest.test.cjs
-      - name: Stage all 16 LIVE pinned source PRs, without merging or modifying original host
+      - name: Stage all 15 LIVE pinned source PRs, without merging or modifying original host
         shell: bash
         run: |
           mkdir -p artifacts
           node tools/granada_composite_candidate.cjs \
             --manifest tools/granada_composite_manifest.json \
-            --root . --report artifacts/granada-sixteen-owner-source.json
+            --root . --report artifacts/granada-fifteen-owner-source.json
       - name: Verify honest staged scientific suite registration and main merge blockers
         shell: bash
         run: |
@@ -80,8 +80,7 @@ jobs:
             desktop/tests/physics-evidence-loader.spec.cjs \
             desktop/tests/solidification-front-loader.spec.cjs \
             desktop/tests/solidification-front-proxy.spec.cjs \
-            desktop/tests/solidification-front-tracker.test.cjs \
-            desktop/tests/checkmesh-region-evidence.spec.cjs; do
+            desktop/tests/solidification-front-tracker.test.cjs; do
             echo "== Original owner-PR science/regression $f"
             node "$f"
           done
@@ -114,14 +113,14 @@ jobs:
         with:
           name: Granada-science-source-provenance-${{ matrix.os }}
           path: |
-            artifacts/granada-sixteen-owner-source.json
+            artifacts/granada-fifteen-owner-source.json
             artifacts/granada-native-host-collision-gate.json
             artifacts/granada-science-suite-registration.json
           if-no-files-found: warn
           retention-days: 14
 
   native-science-preview:
-    name: 'Original Windows desktop: 15 combined modules, no native host cherry-pick'
+    name: 'Original Windows desktop: 14 combined modules, no native host cherry-pick'
     runs-on: windows-latest
     needs: [sixteen-owner-regressions]
     timeout-minutes: 35
@@ -135,7 +134,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Re-pin 16 owner PRs; generate full source provenance JSON
+      - name: Re-pin 15 owner PRs; generate full source provenance JSON
         shell: bash
         run: |
           mkdir -p artifacts
@@ -143,7 +142,7 @@ jobs:
             --manifest tools/granada_composite_manifest.json \
             --root . --report artifacts/granada-native-science-source.json
           node tools/granada_science_native_host_gate.cjs artifacts/granada-native-host-collision-gate.json
-      - name: Bundle original HTML + 15 isolated original scientific/UI modules
+      - name: Bundle original HTML + 14 isolated original scientific/UI modules
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
@@ -172,7 +171,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native restore failed' }
           dotnet build 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -c Release -r win-x64 --no-restore
           if ($LASTEXITCODE -ne 0) { throw 'Real native Windows composite compilation failed' }
-      - name: Run WebView2 on desktop with 15 science/UI modules loaded
+      - name: Run WebView2 on desktop with 14 science/UI modules loaded
         shell: pwsh
         env:
           FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/granada-science-native-ui
