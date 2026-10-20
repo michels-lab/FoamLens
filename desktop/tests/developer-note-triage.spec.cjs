@@ -88,5 +88,6 @@ for(const token of ['fldaPriority','fldaNoteStatus','fldaNoteFilter','fldaInspec
  "status:'changed-element'","status:'different-route'","source:'automated DOM locator lookup only"])
  assert(auditSource.includes(token),'Developer annotation triage UI/invariant missing: '+token);
 assert(!auditSource.includes('fetch(')&&!auditSource.includes('sendBeacon('));
-assert(baseline.includes('FoamLensDeveloper.exe'),'Existing separate compiled edition baseline not removed');
+assert(baseline.includes('FoamLensDeveloper')&&baseline.includes('developer-audit-self-test'),
+ 'Existing separate compiled edition baseline not removed');
 console.log('Granada #158 PASS: P0–P2/status triage, persistent annotation IDs, located/missing/ambiguous/changed/other-route, safe error metadata and combined AI export.');
