@@ -13,6 +13,8 @@ const HOST='desktop/src/FoamLensDesktop/Program.cs';
 const FIELD=['desktop/src/FoamLensDesktop/frontend/v14-field-view.js','desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js'];
 const FTEST=['desktop/tests/field-multiregion-views.test.cjs'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+const canonical=b=>b.toString('utf8').replace(/\r\n/g,'\n');
+const sourceMatches=(a,b)=>a.equals(b)||canonical(a)===canonical(b);
 function git(args,root,maxBuffer=16*1024*1024){
  const p=cp.spawnSync('git',args,{cwd:root,encoding:null,timeout:90000,maxBuffer,windowsHide:true});
  if(p.error||p.status!==0)throw Error('git '+args.slice(0,2).join(' ')+': '+String(p.stderr?.toString('utf8')||p.error?.message||p.status).slice(0,500));
@@ -55,7 +57,7 @@ function assemble(root,options={}){
  const cwd=fs.realpathSync(root);
  const originalHost=fs.readFileSync(path.join(cwd,HOST));
  const main=git(['show',BASE+':'+HOST],cwd);
- if(!originalHost.equals(main))throw Error('Native host drift from pinned baseline — refuse overwrite');
+ if(!sourceMatches(originalHost,main))throw Error('Native host drift from pinned baseline — refuse overwrite; actual='+hash(originalHost)+' expected='+hash(main));
  const owner={},blobs={};
  for(const [num,sha] of Object.entries(PRS)){
   const got=git(['ls-remote','origin','refs/pull/'+num+'/head'],cwd).toString('utf8').trim().split(/\s+/)[0];
@@ -78,7 +80,7 @@ function assemble(root,options={}){
   const original=added?null:fs.readFileSync(file);
   if(!added){
     const baseline=git(['show',BASE+':'+p],cwd);
-    if(!original.equals(baseline))throw Error('Frontend baseline drift '+p);
+    if(!sourceMatches(original,baseline))throw Error('Frontend baseline drift '+p+' actual='+hash(original)+' expected='+hash(baseline));
   }
   const contents=git(['show',PRS[162]+':'+p],cwd);
   if(!contents.length||contents.length>3*1024*1024)throw Error('Invalid Field F1 source '+p);
@@ -91,6 +93,7 @@ function assemble(root,options={}){
   schema:'FoamLens-Granada-Native-Host-Merge-Candidate-v1',
   base_sha:BASE,source_pr_sha:PRS,original_mesh_auditor_smoke_preserved:true,
   candidate_host_sha256:hash(Buffer.from(merged.content)),original_host_sha256:hash(originalHost),
+  original_host_line_endings_normalized:!originalHost.equals(main)&&sourceMatches(originalHost,main),
   composed_source_smokes:merged.smokes,staged_frontend:sources,
   native_host_status:preview?'COMPILED_SOURCE_PLAN_UNSTAGED':'TEMPORARY_CI_NATIVE_HOST_STAGED',
   release_authorized:false,merged_to_main:false,real_openfoam_multiregion_verified:false,
@@ -125,4 +128,4 @@ function main(){
   ' / original mesh check preserved / CAD, 2D3D and Field F1 smokes pinned / no release')
 }
 if(require.main===module)try{main()}catch(e){console.error('GRANADA NATIVE HOST BLOCKED: '+e.message);process.exitCode=2}
-module.exports={BASE,PRS,HOST,FIELD,FTEST,hash,extract,composeHost,assemble};
+module.exports={BASE,PRS,HOST,FIELD,FTEST,hash,canonical,sourceMatches,extract,composeHost,assemble};
