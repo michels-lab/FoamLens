@@ -26,7 +26,7 @@ function applyStyle(){
 'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"].flSidebarSectionCollapsed > #datasetModeBlock{display:block!important}',
 'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"].flSidebarSectionCollapsed > #dataImportMore{display:block!important}',
 'body.flG23Ready.appMode-data .sidebar>.card[data-sidebar-section-key="load-data"] .flSidebarSectionToggle{display:none!important}',
-'body.flG23Ready.appMode-analysis #flAnalysisInspectorCard>:not(.cardhead){display:block!important}',
+'body.flG23Ready.appMode-analysis #flAnalysisInspectorCard > #flAnalysisOwnedHost{display:block!important}',
 'body.flG23Ready.appMode-analysis #flAnalysisInspectorCard .flSidebarSectionToggle{display:none!important}',
 'body.flG23Ready.appMode-data .sidebar #datasetModeBlock>.datasetTabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;overflow:visible;margin:8px 0}',
 'body.flG23Ready.appMode-data .sidebar #datasetModeBlock .datasetTab{display:flex!important;min-height:38px;justify-content:space-between;align-items:center;min-width:0;gap:6px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:8px 10px;font-size:11px;color:var(--text);font-weight:750}',
