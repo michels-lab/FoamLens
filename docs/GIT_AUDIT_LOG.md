@@ -4879,3 +4879,10 @@ Field UI PR #128 CI regression triage and main reconciliation
 - Si cualquier parte está ocupada por otra rama, requiere equipo físico, una cuenta de proveedor, resultados científicos que solo existen en el portátil o autorización del propietario, **aparcar con evidencia y pasar a otra subparte independiente**. Conservar identidad visual, datos, credenciales y estándares de publicación.
 - Registro obligatorio: A/B/C con estados separados, ruta/PR/sha, QA **ejecutado** (no simplemente escrito), bloqueos, recuperación, reentrada. Esta actualización de política **no significa ninguna funcionalidad del producto implementada, probada ni publicada**.
 - Repositorio: `michels-lab/FoamLens`. En los siguientes bloques aplicar este alcance sin modificar los PR activos o trabajos no relacionados.
+
+## 2026-10-20 — GRANADA G2/G3 Data + Analysis source-native UX (candidate, NO RELEASE)
+
+- Branch `feat/granada-177-g2g3-data-analysis-native-docks-20261020` under #177. Module `desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js` restores original Data native tabs hidden by Ribbon CSS, exposes native Analysis modules with availability-driven jump navigation, preserves original listeners/disabled state and adds keyboard focus, context state, EN/ES and read-only DOM owner audit.
+- Source modules `v15-ribbon-ui.js`, `v14-sidebar-sections.js`, `v21-analysis-scope.js`, original Field/CAD and existing scientific parser untouched. No fabricated curves, no auto-analysis, no import mutation.
+- QA: `desktop/tests/granada-177-g23-data-analysis.spec.cjs`; dedicated Ubuntu/Windows workflow `.github/workflows/granada-177-g23-data-analysis.yml` plus original source-owner, Sidebar, Ribbon, Data, Analysis, Plot tests. **Actual CI results require confirmation of exact SHA.** Runtime native installed/portable screenshots and 125–200% DPI still pending; source mocks do not count as real installed software.
+- End-to-end evidence and merge order in `docs/GRANADA_177_G2G3_DATA_ANALYSIS_2026-10-20.md`. Collisions avoided with #179/#180/#181/#182, Field #162/#175, CAD #164. Parent #177 remains OPEN; **no merge, release or version bump**.
