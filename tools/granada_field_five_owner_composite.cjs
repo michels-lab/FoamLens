@@ -31,6 +31,9 @@ const WORKFLOW='.github/workflows/build-foamlens-desktop.yml';
 const UPDATED=new Set(OWNERS[0].files.slice(0,3));
 const SHA=/^[a-f0-9]{40}$/;
 const hash=buffer=>crypto.createHash('sha256').update(buffer).digest('hex');
+// Windows git autocrlf may change only line endings; NEVER accept semantic changes.
+const canonical=bytes=>Buffer.from(bytes).toString('utf8').replace(/\r\n/g,'\n');
+const sameSource=(a,b)=>Buffer.from(a).equals(Buffer.from(b))||canonical(a)===canonical(b);
 function shell(args,root){
  const r=cp.spawnSync('git',args,{cwd:root,encoding:null,maxBuffer:24*1024*1024,timeout:100000,windowsHide:true});
  if(r.error||r.status!==0)throw Error('Git '+args.slice(0,2).join(' ')+': '+String(r.error?.message||r.stderr?.toString('utf8')||r.status).slice(0,500));
@@ -87,7 +90,7 @@ function checkSource(root,readFromOwner,expectedHead,{verifyOnly=false}={}){
    if(UPDATED.has(filename)!==exists)throw Error('Unexpected existing/new source file: '+filename);
    if(exists){
     const before=fs.readFileSync(dest),canonical=readFromOwner(0,BASE,filename);
-    if(!Buffer.isBuffer(canonical)||hash(before)!==hash(canonical))throw Error('Base source drift: '+filename);
+    if(!Buffer.isBuffer(canonical)||!sameSource(before,canonical))throw Error('Base source drift: '+filename);
     baseline.set(filename,before);
    }
    const buf=readFromOwner(entry.pr,entry.sha,filename);
@@ -108,7 +111,7 @@ function checkSource(root,readFromOwner,expectedHead,{verifyOnly=false}={}){
  report.frontend_modules=ordered.map(p=>({name:path.basename(p),sha256:hash(bytes.get(p))}));
  const workflowPath=path.join(rootPath,WORKFLOW),currentWorkflow=fs.readFileSync(workflowPath,'utf8');
  const baseWorkflow=readFromOwner(0,BASE,WORKFLOW);
- if(!Buffer.isBuffer(baseWorkflow)||hash(Buffer.from(currentWorkflow))!==hash(baseWorkflow))
+ if(!Buffer.isBuffer(baseWorkflow)||!sameSource(Buffer.from(currentWorkflow),baseWorkflow))
   throw Error('Mandatory Windows workflow baseline drift');
  const augmented=workflowAdd(currentWorkflow);
  if(verifyOnly)return report;
@@ -160,4 +163,4 @@ function main(argv=process.argv.slice(2)){
  return report;
 }
 if(require.main===module)try{main()}catch(e){console.error('GRANADA FIELD COMPOSITE BLOCKED: '+e.message);process.exitCode=2;}
-module.exports={BASE,OWNERS,UPDATED,WORKFLOW,hash,safe,verifyManifest,workflowAdd,checkSource,main};
+module.exports={BASE,OWNERS,UPDATED,WORKFLOW,hash,sameSource,safe,verifyManifest,workflowAdd,checkSource,main};
