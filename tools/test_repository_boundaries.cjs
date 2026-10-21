@@ -26,9 +26,13 @@ const FOREIGN = [
 const OWNED = /^(?:desktop\/|tools\/|scripts\/|src\/|tests\/|assets\/|frontend\/|web\/|app\/|\.github\/workflows\/|index\.html$)/i;
 const TEXT = /\.(?:cs|csproj|vb|fs|py|js|cjs|mjs|ts|tsx|jsx|html|css|json|xml|props|targets|config|yml|yaml|ps1|iss|cmd|bat|sh)$/i;
 const CODE_REFERENCE = /\b(?:require\s*\(|import\s+|import\s*\(|from\s*['"]|using\s+|#include\s*[<"]|add_subdirectory\s*\(|source\s*\(|include\s*\()/i;
-const PRODUCT_ID = /\b(?:appId|productName|assemblyName|executableName|applicationName|bundleId|packageId|shortcutName|appTitle)\b\s*['"]?\s*[:=]/i;
+const PRODUCT_ID = /\b(?:appId|appName|appSlug|productName|displayName|packageName|assemblyName|executableName|applicationName|applicationId|bundleId|packageId|shortcutName|appTitle)\b\s*['"]?\s*[:=]/i;
 const DATA_REFERENCE = /(?:^|[^\w])(?:fixture|testdata|test[_-]?data|asset|resource|installer|release|artifact|binary|executable|targetpath|sourcepath|programfiles|appdata|desktopshortcut|appname)\b/i;
 const PATH_REFERENCE = /(?:[./\\]|['"])[^'"]{0,140}(?:\.exe|\.dll|\.csproj|\.appx|\.msix|\.js|\.json|\.zip)\b/i;
+// Detect foreign executable imports without a filename extension and package
+// identities even when the variable is generically named (e.g. "target").
+const QUOTED_PATH_REFERENCE = /["'\x60](?:\.{1,2}[\\/]|[\\/]|[A-Za-z]:[\\/]|[a-z0-9._-]+[\\/])[^"'\x60\r\n]{1,240}["'\x60]/i;
+const PACKAGE_REFERENCE = /\b(?:com|org|net|io)\.[a-z0-9_-]+(?:\.[a-z0-9_-]+){1,}\b/i;
 const MAX_BYTES = 2 * 1024 * 1024;
 
 function normalize(p) { return p.replace(/\\/g, '/'); }
@@ -49,7 +53,8 @@ function scanSource(relative, contents) {
     // statements are checked, not every natural-language mention.
     if (/^\s*(?:\/\/|#(?!include)|\*|<!--|--)/.test(line)) continue;
     if (!CODE_REFERENCE.test(line) && !PRODUCT_ID.test(line) &&
-        !DATA_REFERENCE.test(line) && !PATH_REFERENCE.test(line)) continue;
+        !DATA_REFERENCE.test(line) && !PATH_REFERENCE.test(line) &&
+        !QUOTED_PATH_REFERENCE.test(line) && !PACKAGE_REFERENCE.test(line)) continue;
     for (const app of FOREIGN) {
       if (app.re.test(line)) findings.push({path:relative, line:i+1, app:app.name, kind:'cross-app-reference'});
     }
