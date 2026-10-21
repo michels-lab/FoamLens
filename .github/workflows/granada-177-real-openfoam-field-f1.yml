@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -271,6 +271,20 @@ jobs:
           node --check "$file"
           node --test tools/granada_g10_preview_toolbar.test.cjs
           echo 'G10 original no-overlay toolbar: exact merged source, 9 DOM/keyboard/failure tests; staged only in temporary native host'
+      - name: Pin merged G11 viewport-first scientific chart without modifying source values
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='1cd0bc1a7d14e16e85acf4ec5cf1e24e344790ea'
+          file='desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g11-main'
+          git merge-base --is-ancestor "$expected" refs/remotes/granada/g11-main
+          test "$(git rev-parse "$expected:$file")" = '882bc133738040e4cc8012c57706501a45828c1d'
+          git show "$expected:$file" > "$file"
+          git show "$expected:tools/granada_g11_compact_chart_focus.test.cjs" > tools/granada_g11_compact_chart_focus.test.cjs
+          node --check "$file"
+          node --test tools/granada_g11_compact_chart_focus.test.cjs
+          echo 'Original G11 chart-focus source, bilingual user toggle, saved-series protection and 11 tests validated'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -291,7 +305,7 @@ jobs:
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
               'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js',
-              'v29-granada-plot-toolbar.js')) {
+              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
@@ -327,6 +341,21 @@ jobs:
               if (-not $content.Contains($required)) { throw "G10 native module missing original DOM safety assertion: $required" }
             }
             Write-Host 'G10 original source is in native package; preview/pin control identity retained'
+          } finally { $zip.Dispose() }
+      - name: Assert G11 accessible chart focus code exists in real native package
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $entry=$zip.GetEntry('v30-granada-chart-focus.js')
+            if (-not $entry) { throw 'Merged G11 source missing from the actual native package' }
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try { $content=$reader.ReadToEnd() } finally { $reader.Dispose() }
+            foreach ($required in @('g11ChartFocus', 'g11FocusToggle', 'seriesPanelHidden', 'sourceZoomUnmodified:true', 'humanVisualApproved:false')) {
+              if (-not $content.Contains($required)) { throw "G11 source/series safety missing: $required" }
+            }
+            Write-Host 'Exact G11 source is in real WebView2 AppBundle; original Fit/series preserved'
           } finally { $zip.Dispose() }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
