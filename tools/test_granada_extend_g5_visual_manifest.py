@@ -34,7 +34,7 @@ class NativeFiveTabContract(unittest.TestCase):
                     image=Image.effect_noise((640,480),55)
                     image.save(p)
                     (self.root/v/(s+"-"+w+".json")).write_text(json.dumps(
-                        {"ok":True,"surface":s,"caseCount":5,"actualMode":True,
+                        {"ok":True,"surface":s,"sourceRegionCount":2,"actualMode":True,
                          "realTab":True,"panelReady":True,"secondary":True}))
     def test_positive_contract_36_slots_are_not_human_or_dpi_approval(self):
         copy_doc=copy.deepcopy(self.doc)
@@ -53,7 +53,7 @@ class NativeFiveTabContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Wrong tab"):extend(self.doc,self.root)
     def test_placeholder_without_loaded_case_fails(self):
         p=self.root/"installed/live-wide.json"
-        d=json.loads(p.read_text());d["caseCount"]=0;p.write_text(json.dumps(d))
+        d=json.loads(p.read_text());d["sourceRegionCount"]=0;p.write_text(json.dumps(d))
         with self.assertRaisesRegex(ValueError,"source-less"):extend(self.doc,self.root)
     def test_bad_source_binary_hash_fails(self):
         self.doc["artifact_sha256"]={}
