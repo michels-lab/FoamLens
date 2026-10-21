@@ -49,7 +49,7 @@ function fixture(){
 function withFixture(fn){const f=fixture();try{return fn(f)}finally{f.cleanup()}}
 test('complete SYNTHETIC proof exercises all gates; never treated as real release evidence',()=>withFixture(f=>{
  const x=gate.inspect(f.github,f.proof,f.root);
- assert.equal(x.readyToPublish,true);assert.equal(x.gates.length,11);
+ assert.equal(x.readyToPublish,true);assert.equal(x.gates.length,12);
  assert.equal(x.counts.verifiedScreenshots,36);
  assert.equal(x.result,'READY_TO_PUBLISH_STABLE');
 }));
@@ -88,8 +88,8 @@ test('a 35-capture manifest fails instead of pretending completeness',()=>withFi
  assert.equal(x.gates.find(v=>v.id==='native-36-screenshot-matrix').passed,false);
 }));
 test('repeated or missing tabs cannot inflate the 36-slot matrix',()=>withFixture(f=>{
- f.proof.captures[0].tab='Home';
- f.proof.captures[8].tab='Home';
+ f.proof.captures[7].tab='Home';
+ f.proof.captures[15].tab='Home';
  const x=gate.inspect(f.github,f.proof,f.root);
  assert.equal(x.gates.find(v=>v.id==='native-36-screenshot-matrix').passed,false);
 }));
