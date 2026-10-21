@@ -8,6 +8,16 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #152: thermocouple XYZ mapping candidate
+
+- Fresh branch `feat/granada-152-thermocouple-xyz-validation-20261019` based on `cbf384b81948334b71f1fc67096b026e65b79583`. **Skipped existing open, unfinished** Field #162, CAD #164, 2D/3D #165 and Energy #166 PRs; no edits to those branches or their owning modules, original Windows build or Program.cs.
+- Audited preexisting `v14-experimental-validation.js` CSV/time-temperature validation and source-backed `v14-zz-field-workspace.js` 3D Probe field-history creation, plus actual `fvCellContainsPoint` mesh-face containment logic. The standalone `v24-thermocouple-xyz-mapping.js` connects them in Analysis without falsely presenting a nearest center as proof of containment.
+- Experimental thermocouple XYZ unit + coordinates, case, material region and measured temperature/time columns must be explicit. Both sensor and simulated 3D probe positions independently require a containing OpenFOAM polyhedral cell in the current loaded case/region. Missing topology, wrong source, non-overlapping time, unconfirmed units, repeated/missing experimental values, or spatial offset greater than user tolerance block evaluation.
+- Only real imported/field-derived temperature series are compared; Kelvin conversions, time interpolation only within overlap, n/RMSE/MAE/bias/max error, plot and original physical source/cell metadata exported locally as JSON or paired CSV. Displacement sensitivity requires **other** independently generated probe histories in the same case/region/field family, with separately confirmed cell membership; unavailable is explicit, not fabricated.
+- Isolated `desktop/tests/thermocouple-xyz-mapping.spec.cjs`, loader regression and `granada-thermocouple-xyz.yml` test existing probe/experiment contracts on Ubuntu/Windows. First CI loader failure was test-only `module` shadowing CommonJS built-in; corrected. Exact-head fast CI, full Windows setup/portable and real-owner experimental acceptance remain distinct gates; see `docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md`.
+- Still open: actual thermocouple material-contact/calibration proof, concave cell containment, source case coordinate verification with owner files, target real-world positional perturbation validation, packaged WebView2 visual/functional test and publication. No release authorized; issue #152 remains open.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
