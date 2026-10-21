@@ -81,6 +81,11 @@ jobs:
       - name: Confirm original main Field comparison regression BEFORE staging new source signature
         shell: bash
         run: node desktop/tests/field-compare.test.cjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow used only to validate decoded real PNG screens
+        run: python -m pip install --disable-pip-version-check Pillow
       - name: Verify exact-source host graft and existing 16-PR source guards
         shell: bash
         run: |
