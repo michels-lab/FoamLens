@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -275,15 +275,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected='1cd0bc1a7d14e16e85acf4ec5cf1e24e344790ea'
+          expected='dfe1735e3ec503728e3459a4a63fcaafe34e7445'
           file='desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
           git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g11-main'
           git merge-base --is-ancestor "$expected" refs/remotes/granada/g11-main
-          test "$(git rev-parse "$expected:$file")" = '882bc133738040e4cc8012c57706501a45828c1d'
+          test "$(git rev-parse "$expected:$file")" = 'dcb6ca9514ab1672ceda7e2d784e91102a6c57d0'
           git show "$expected:$file" > "$file"
           git show "$expected:tools/granada_g11_compact_chart_focus.test.cjs" > tools/granada_g11_compact_chart_focus.test.cjs
           node --check "$file"
           node --test tools/granada_g11_compact_chart_focus.test.cjs
+          grep -Fq 'max-height:225px!important' "$file" || { echo '::error::G11 secondary variable/cases selector regression'; exit 1; }
           echo 'Original G11 chart-focus source, bilingual user toggle, saved-series protection and 11 tests validated'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
