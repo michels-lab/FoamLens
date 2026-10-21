@@ -156,3 +156,19 @@ test('original FoamLens Ribbon includes all six tabs and original navigation eve
   'flRaDataLogs','flRaDataCompare','flRaCases','flRaHelp'])
   assert(original.includes("'"+id+"'"),'original handler missing: '+id);
 });
+
+test('changing app language relabels trigger, active dialogue and result names in-place',()=>{
+ const f=fixture(),api=f.window.FoamLensGranadaCommandSearch;
+ const trigger=f.doc.getElementById('fgpTriggerLabel');
+ assert.equal(trigger.textContent,'Find');
+ api.open();const input=f.doc.getElementById('fgpSearch');
+ input.value='series';input.emit('input');
+ const language=f.doc.getElementById('language');language.value='es';
+ f.doc.emit('change',{target:language});
+ assert.equal(trigger.textContent,'Buscar');
+ assert.equal(input.placeholder,'Buscar espacio o herramienta…');
+ assert.equal(f.doc.getElementById('fgpDialog').getAttribute('aria-label'),'Buscar comando FoamLens');
+ assert.equal(f.doc.getElementById('fgpFooter').textContent,'↑ ↓ elegir · Intro abrir · Esc cerrar');
+ assert.equal(api.search('series')[0].name,'Series temporales');
+ assert.equal(api.audit().open,true);
+});
