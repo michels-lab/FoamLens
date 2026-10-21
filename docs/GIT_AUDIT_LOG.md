@@ -1,3 +1,10 @@
+## 2026-10-21 — GRANADA FoamLens boundary protection merged (#208)
+
+- Completed one isolated cross-app repository integrity block, with no scientific engine, CAD/Field/Time Series UI or owner-case data modified. GitHub PR [#208](https://github.com/michels-lab/FoamLens/pull/208) merged to main at `18698eea67b60132d9060b9746dc5716964312e0`, exact reviewed head `b56ceaa0121d31f81ffb75662067ff7705094526`.
+- New source ownership guard `tools/test_repository_boundaries.cjs` uses tracked files only, detects foreign-app source imports, fixture paths and product identity, emits optional JSON, and fails for unreadable/oversized tracked source. Companion `tools/test_repository_boundaries_selftest.cjs` checks negative/positive and temporary real Git index behavior. Workflow `.github/workflows/foamlens-boundary-regression.yml` gates Linux/Windows PRs and reruns existing scientific File Steward checks on Linux.
+- **Actual CI evidence:** [run 39658724876](https://github.com/michels-lab/FoamLens/actions/runs/39658724876), both Linux and Windows SUCCESS. Linux: 32 assertions PASS, 174 tracked source/test files scanned, zero eligible foreign-app signatures, 12 existing File Steward tests PASS and inventory read-only PASS. Earlier red CI exposed an undetected JSON-quoted identity; fixed and verified before merge.
+- This is **source/test provenance QA**, not a desktop app release, human UX approval, native DPI acceptance, or CFD physical validation. The G0–G7 and installed B13 branches remain independent and in progress; no stable app release published here. Full handoff: [boundary validation](granada/FOAMLENS_REPOSITORY_BOUNDARY_20261021.md).
+
 ## 2026-10-21 — Correction: Perspective Council is for ChatGPT, not Copilot
 
 - Owner clarified these perspectives must help the assistant doing Michel's Lab development. The four mistakenly Copilot-specific perspective profiles are removed, replaced by four provider-neutral `.michelslab/agents/*.md` role instructions, readable through GitHub and usable with the master offline prompt pack.
