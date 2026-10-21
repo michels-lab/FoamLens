@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
 const test=require('node:test');
-const {BASE,OWNERS,UPDATED,WORKFLOW,hash,safe,verifyManifest,workflowAdd,checkSource}=require('./granada_field_five_owner_composite.cjs');
+const {BASE,OWNERS,UPDATED,WORKFLOW,hash,sameSource,safe,verifyManifest,workflowAdd,checkSource}=require('./granada_field_five_owner_composite.cjs');
 const anchor='      - name: Test CI suite manifest\n';
 function mock(){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'foamlens-field-five-')),baseline=new Map(),blobs=new Map();
@@ -94,3 +94,14 @@ test('source controls show PRs have actual new original camera workbench and mea
  assert(OWNERS[2].files.some(p=>p.endsWith('v24-granada-global-ux.js')));
  assert(OWNERS[3].files.some(p=>p.endsWith('audit-diff.cjs')));
 });
+
+test('Windows checkout CRLF matches pinned source LF, but physical source edits remain forbidden',()=>withFixture(f=>{
+ const target=OWNERS[0].files[0],source=f.baseline.get(target).toString('utf8');
+ assert.equal(sameSource(Buffer.from(source),Buffer.from(source.replace(/\n/g,'\r\n'))),true);
+ assert.equal(sameSource(Buffer.from(source),Buffer.from(source+'mutation')),false);
+ fs.writeFileSync(path.join(f.root,target),source.replace(/\n/g,'\r\n'));
+ const wf=f.baseline.get(WORKFLOW).toString('utf8');
+ fs.writeFileSync(path.join(f.root,WORKFLOW),wf.replace(/\n/g,'\r\n'));
+ const result=checkSource(f.root,f.source,f.head,{verifyOnly:true});
+ assert.equal(result.result,'VERIFIED_NOT_STAGED');
+}));
