@@ -226,7 +226,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected='062799febaedd0f93eda47dfcc58050da50281ed'
+          expected='770ebaf7ffee43089579fbe7e30fca63d8bf8df3'
           found="$(git ls-remote origin refs/pull/209/head | awk '{print $1}')"
           if [[ "$found" != "$expected" ]]; then
             echo '::error::G8 PR #209 head changed; recapture must use a new explicitly pinned reviewed SHA'
@@ -324,6 +324,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cannot validate installed binary without Inno Setup' }
           python -m pip install --disable-pip-version-check Pillow
           if ($LASTEXITCODE -ne 0) { throw 'Cannot validate real PNG pixels without Pillow' }
+      - name: Validate genuine G8 plot geometry detector against false positive screenshots
+        shell: pwsh
+        run: |
+          python tools/test_granada_g8_native_plot_visibility_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'G8 native screenshot geometry tests failed' }
       - name: Prove 20 source-bound native G5 screenshots cannot be missing or duplicated
         shell: pwsh
         run: |
@@ -336,6 +341,11 @@ jobs:
         run: |
           ./tools/granada_installed_portable_b13.ps1 -CaseRoot quickcup-runtime-fixture -OutputRoot artifacts/granada-installed-portable -Version 1.8.10
           if (-not $?) { throw 'Actual Setup/Portable real-case audit did not pass' }
+      - name: Require actual G8 full-width compact Time Series plots in BOTH installed and portable PNGs
+        shell: pwsh
+        run: |
+          python tools/granada_g8_native_plot_visibility_gate.py --root artifacts/granada-installed-portable --output artifacts/granada-installed-portable/evidence/granada-g8-chart-footprint.json
+          if ($LASTEXITCODE -ne 0) { throw 'G8 compact Time Series real chart footprint is too narrow or screenshot is missing' }
       - name: Ensure internal only — no RC, release, tag, unsigned executable or case data are uploaded
         shell: pwsh
         run: |
