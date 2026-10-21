@@ -23,7 +23,7 @@
 ## Últimas comprobaciones consultadas
 - [File Steward #39669374663](https://github.com/michels-lab/FoamLens/actions/runs/39669374663): SUCCESS, head `2237b525`.
 - [G5 Setup/Portable 36 workspaces #39666219171](https://github.com/michels-lab/FoamLens/actions/runs/39666219171) y [#39666208518](https://github.com/michels-lab/FoamLens/actions/runs/39666208518): SUCCESS sobre el head de integración `8538c95d`. La ejecución [#39666162518](https://github.com/michels-lab/FoamLens/actions/runs/39666162518) anterior fue FAILURE en otro head.
-- README identifica Web v51 y Desktop v1.8.10 en línea candidata de código: **no etiquetar RC ni afirmar publicación estable nueva** por los CI de integración. [Evaluación de release](GRANADA_RELEASE_READINESS_2026-10-21.md) deja bloqueados los criterios de aceptación que enumera.
+- GitHub [releases/latest](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10) confirmó **Desktop v1.8.10 publicado como release estable el 2026-10-19**, cuatro activos (Setup, Portable, sus SHA-256), `draft=false` y `prerelease=false`; el README menciona Web v51. **Esto NO prueba que los cambios posteriores de G5/integración estén incluidos o listos para nueva publicación.** [Evaluación de release](GRANADA_RELEASE_READINESS_2026-10-21.md) deja bloqueados los criterios de aceptación para la siguiente release.
 
 ## Pendientes concretos
 1. Resolver coherentemente integraciones pendientes de Field/UX, comparación multirregión A–D, campos/tiempos y trazabilidad de evidencia real.
@@ -32,4 +32,4 @@
 4. Comprobar desempeño de importación con medición del caso real; no presentar CI sintético como prueba del lote real de miles de archivos.
 5. Release **FINAL solamente** cuando pruebas y artefactos del mismo SHA estén completos; no RC, sin contratar hosting.
 
-**Estado:** AUDITADO DOCUMENTALMENTE / PUBLICACIÓN FINAL NO VERIFICADA por esta operación. Ver [documentación de release](GRANADA_RELEASE_READINESS_2026-10-21.md) y [auditoría central](https://github.com/michels-lab/Michel-Software-Standards/blob/main/reports/2026-10-21_GRANADA_13_REPOS_PLUGIN_AUDIT.md).
+**Estado:** AUDITADO DOCUMENTALMENTE / v1.8.10 PUBLICADA SEGÚN GITHUB / SIGUIENTE RELEASE NO APROBADA POR ESTA AUDITORÍA. Ver [documentación de release](GRANADA_RELEASE_READINESS_2026-10-21.md) y [auditoría central](https://github.com/michels-lab/Michel-Software-Standards/blob/main/reports/2026-10-21_GRANADA_13_REPOS_PLUGIN_AUDIT.md).
