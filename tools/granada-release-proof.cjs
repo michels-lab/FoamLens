@@ -3,6 +3,7 @@
 // GRANADA: read-only, fail-closed proof gate for a FINAL FoamLens stable release.
 // No GitHub writes, no release/tag, no private CFD data in output.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {imageStatus}=require('./granada-png-proof.cjs');
 const SCHEMA='foamlens/granada-final-release-proof/1';
 const SOURCE='foamlens/granada-github-snapshot/1';
 const REQUIRE_PRS=[162,175,179,180,181,183,184,194,195,196];
@@ -36,10 +37,9 @@ function verifyBytes(root,item,kind){
   const blob=fs.readFileSync(file);
   if(crypto.createHash('sha256').update(blob).digest('hex')!==item.sha256)return false;
   if(kind==='png'){
-   if(blob.length<33||blob.subarray(0,8).toString('hex')!=='89504e470d0a1a0a'||blob.toString('ascii',12,16)!=='IHDR')return false;
-   const w=blob.readUInt32BE(16),h=blob.readUInt32BE(20);
-   if(w<320||h<240||w>16384||h>16384)return false;
-  }
+   const dimensions=imageStatus(blob);
+   if(!dimensions||Math.abs(dimensions.width-Math.round(item.cssWidth*item.dpi))>4)return false;
+  }else if(blob[0]!==0x4d||blob[1]!==0x5a)return false; // Windows PE/installer MZ magic
   return true;
  }catch{return false;}
 }
@@ -93,7 +93,7 @@ function inspect(snapshot,proof,root){
  dev.redactedReport===true&&dev.sectionAnnotationsRetained===true)pass('developer-twin-isolation');
  else fail('developer-twin-isolation','Developer executable, isolated profile, annotations or privacy not verified');
  const screenshots=Array.isArray(proof.captures)?proof.captures:[];
- const seen=new Set(),valid=[];
+ const seen=new Set(),seenPixels=new Set(),valid=[];
  for(const s of screenshots){
   if(!TABS.includes(s?.tab)||!PLATFORMS.includes(s?.platform)||!Number.isInteger(s.cssWidth)||s.cssWidth<1024||
    ![1.25,1.5,1.75,2].includes(s.dpi)||s.sourceSha!==head||
@@ -101,8 +101,8 @@ function inspect(snapshot,proof,root){
   const a=artifacts.find(x=>x.platform===s.platform);
   if(!a||a.sha256!==s.artifactSha256||!verifyBytes(root,s,'png'))continue;
   const key=[s.platform,s.tab,s.cssWidth,s.dpi].join(':');
-  if(seen.has(key))continue;
-  seen.add(key);valid.push(s);
+  if(seen.has(key)||seenPixels.has(s.sha256))continue;
+  seen.add(key);seenPixels.add(s.sha256);valid.push(s);
  }
  const each=PLATFORMS.every(p=>{
   const found=valid.filter(s=>s.platform===p);
@@ -124,7 +124,7 @@ function inspect(snapshot,proof,root){
   result:gates.every(g=>g.passed)?'READY_TO_PUBLISH_STABLE':'RELEASE_BLOCKED',
   gates,counts:{passed:gates.filter(g=>g.passed).length,total:gates.length,verifiedScreenshots:valid.length},
   limits:[
-   'A validated JSON fixture does not itself prove external scientific truth; provenance comes from independent exact-SHA CI and real artifact data',
+   'The proof JSON must originate from independently audited native/scientific CI; synthetic/test JSON is never real release evidence',
    'This tool never merges code, creates tags or publishes releases',
    'Owner visual review is recorded after publication, not forged before release',
    'Latest public release, updater and remote assets must be rechecked after publishing'
