@@ -20,7 +20,7 @@ function activeMode(){
 function narrow(){return window.innerWidth<=MAX_WIDTH;}
 function originalA11y(){
  const node=sidebar;
- return node?{role:node.getAttribute('role'),label:node.getAttribute('aria-label'),hidden:node.getAttribute('aria-hidden'),tabindex:node.getAttribute('tabindex')}:null;
+ return node?{role:node.getAttribute('role'),label:node.getAttribute('aria-label'),hidden:node.getAttribute('aria-hidden'),tabindex:node.getAttribute('tabindex'),modal:node.getAttribute('aria-modal')}:null;
 }
 let oldAttrs=null;
 function restoreAttr(node,key,value){
@@ -65,6 +65,7 @@ function close(restoreFocus=true){
  restoreAttr(sidebar,'aria-label',oldAttrs.label);
  restoreAttr(sidebar,'aria-hidden',oldAttrs.hidden);
  restoreAttr(sidebar,'tabindex',oldAttrs.tabindex);
+ restoreAttr(sidebar,'aria-modal',oldAttrs.modal);
  oldAttrs=null;
  announce();
  const f=lastFocus;lastFocus=null;
