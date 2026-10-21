@@ -11,22 +11,21 @@
     "asset": 6,
     "bitacora": 2,
     "build_script": 4,
-    "config": 6,
+    "config": 7,
     "document": 37,
     "index": 5,
-    "license": 2,
+    "installer_metadata": 1,
+    "license": 1,
     "source": 61,
     "test": 94,
-    "unknown": 2,
+    "text_metadata": 1,
     "web_ui": 2,
     "workflow": 11
   },
-  "finding_counts": {
-    "UNKNOWN_PURPOSE": 2
-  },
-  "finding_total": 2,
-  "inventory_fingerprint": "f6edcfe7e2b9294b94a597ff5d69f271f5104efb84ba43f8e1b9c21f0b7d95ee",
-  "evidence_fingerprint": "ea7c6e5f35ee92c15f9c6e8f788e7e924abc9630d6381e8848cc35d3fcd0a8aa",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "be770587bc2f058283b7b2aa079577b30fdabc14ef891fb0cde829fda8acc16d",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -240,9 +239,9 @@
     },
     {
       "path": "desktop/LICENSE.txt",
-      "role": "license",
-      "purpose": "licensing/notice",
-      "certainty": "rule",
+      "role": "text_metadata",
+      "purpose": "plain-text source/release/installer metadata; specific purpose inferred",
+      "certainty": "inferred",
       "blob": "507c5c226e53b40faf17cdb83c35eeeb0a04c7f6"
     },
     {
@@ -275,9 +274,9 @@
     },
     {
       "path": "desktop/installer/TaskbarPinning.txt",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "installer_metadata",
+      "purpose": "Windows taskbar installer configuration",
+      "certainty": "inferred",
       "blob": "076d877924fc314e2a47264a05c5ac3ba998873c"
     },
     {
@@ -331,9 +330,9 @@
     },
     {
       "path": "desktop/src/FoamLensDesktop/app.manifest",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "config",
+      "purpose": "native application execution manifest",
+      "certainty": "rule",
       "blob": "0d45d37fcf848636bd5ef3bcfa790f52f96532e5"
     },
     {
@@ -1608,7 +1607,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5233e1e0466ce9bf333e24177d66e21b7d8fef84"
+      "blob": "50d28a76044b68d08461f77dca182750eaae8a92"
     },
     {
       "path": "tools/store_smoke_test.py",
@@ -1664,7 +1663,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "de43a587db0cf63a8dbe1045e00a81704b4a0d75"
+      "blob": "bbec7d5a91fc96ac4915b703dc31ea7c075475f3"
     },
     {
       "path": "tools/test_verify_published_release.py",
@@ -1716,26 +1715,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "802201151e86f352",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/installer/TaskbarPinning.txt",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "c5df95f0ae9304f6",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/src/FoamLensDesktop/app.manifest",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
