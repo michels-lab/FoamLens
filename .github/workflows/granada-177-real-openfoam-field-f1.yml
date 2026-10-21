@@ -2,7 +2,7 @@ name: Granada INTERNAL Real B13 — Setup and Portable validation; final-release
 
 on:
   push:
-    branches: [feat/granada-177-installed-portable-real-b13-qa-20261020]
+    branches: [feat/granada-177-installed-portable-real-b13-qa-20261020, feat/granada-177-g5-five-workspaces-native-20261020]
 
 permissions:
   contents: read
