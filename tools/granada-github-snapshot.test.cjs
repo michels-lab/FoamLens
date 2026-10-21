@@ -35,6 +35,6 @@ test('API lookup failure, missing source version and missing actions cannot prod
  await assert.rejects(()=>collect(url=>url.includes('/contents/')?Promise.resolve({content:null}):api(url)));
  await assert.rejects(()=>collect(url=>url.includes('/actions/workflows/')?Promise.resolve({}):api(url)));
 });
-test('cannot request a non-FoamLens API resource',async()=>{
- await assert.rejects(()=>request('/repos/other-owner/Other/private'));
+test('cannot request a non-FoamLens API resource',()=>{
+ assert.throws(()=>request('/repos/other-owner/Other/private'),/Unexpected GitHub API path/);
 });
