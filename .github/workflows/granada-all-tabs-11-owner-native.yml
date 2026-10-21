@@ -1,4 +1,4 @@
-name: GRANADA all workspaces — 11 exact source owners and real Windows WebView2
+name: GRANADA all workspaces — 12 exact source owners and real Windows WebView2
 on:
   pull_request:
     paths:
@@ -28,7 +28,7 @@ jobs:
           node-version: '22'
       - name: Pure all-owner fail-closed negative tests
         run: node --test tools/granada_all_tabs_11_owner.test.cjs
-      - name: Pin 11 live PR HEADs, preserve existing science, stage exact native source
+      - name: Pin 12 live PR HEADs, preserve existing science, stage exact native source
         shell: bash
         run: |
           mkdir -p artifacts
@@ -54,6 +54,7 @@ jobs:
             tools/test_granada_visual_review.cjs \
             tools/granada-ui-audit/audit-diff.test.cjs \
             tools/granada_command_search.test.cjs \
+            tools/granada_g7_compact_workbench.test.cjs \
             desktop/tests/ribbon-ui.test.cjs \
             desktop/tests/field-3d-navigation-cache.test.cjs \
             desktop/tests/field-multiview-ux.test.cjs \
@@ -66,7 +67,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: all-tabs-eleven-owner-${{ matrix.os }}
+          name: all-tabs-twelve-owner-${{ matrix.os }}
           path: artifacts/granada-all-tabs-sources.json
           if-no-files-found: warn
           retention-days: 14
@@ -98,7 +99,7 @@ jobs:
           $ErrorActionPreference='Stop'
           $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
           if(Test-Path $bundle){throw 'Unexpected preexisting bundle'}
-          $tmp='granada-eleven-source-native'
+          $tmp='granada-twelve-source-native'
           New-Item -ItemType Directory -Path $tmp -Force | Out-Null
           Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
           Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
@@ -113,7 +114,8 @@ jobs:
               'v24-field-f2-viewport-layout.js','v24-granada-global-ux.js',
               'v24-granada-g4-review-live.js','v24-granada-timeseries-t2.js',
               'v24-granada-g23-data-analysis.js','v24-granada-g6-export-preflight.js',
-              'v25-granada-field-source-dock.js','v26-granada-command-search.js')){
+              'v25-granada-field-source-dock.js','v26-granada-command-search.js',
+              'v27-granada-compact-workbench.js')){
               if($names -notcontains $name){throw "Real assembled frontend missing: $name"}
             }
           }finally{$zip.Dispose()}
@@ -127,13 +129,13 @@ jobs:
       - name: Run actual .NET Windows executable and capture technical screenshot
         shell: pwsh
         env:
-          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/eleven-native-images
-          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/eleven-startup.png
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/twelve-native-images
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/twelve-startup.png
         run: |
           $ErrorActionPreference='Stop'
           $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
           if(-not(Test-Path $exe)){throw 'Native executable missing'}
-          New-Item -Path 'artifacts/eleven-native-images' -ItemType Directory -Force | Out-Null
+          New-Item -Path 'artifacts/twelve-native-images' -ItemType Directory -Force | Out-Null
           $p=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
           if(-not $p.WaitForExit(420000)){try{$p.Kill($true)}catch{};throw 'Native smoke timed out'}
           if($p.ExitCode -ne 0){throw "Native smoke failed exit $($p.ExitCode)"}
@@ -142,10 +144,10 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: all-tabs-eleven-owner-native-webview2
+          name: all-tabs-twelve-owner-native-webview2
           path: |
             artifacts/granada-all-tabs-native.json
-            artifacts/eleven-startup.png
-            artifacts/eleven-native-images/
+            artifacts/twelve-startup.png
+            artifacts/twelve-native-images/
           if-no-files-found: warn
           retention-days: 14
