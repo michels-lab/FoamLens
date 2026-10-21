@@ -1,8 +1,8 @@
-name: Granada INTERNAL Real B13 — Setup and Portable validation; final-release-only policy
+name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-installed-portable-real-b13-qa-20261020]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021]
 
 permissions:
   contents: read
@@ -195,6 +195,11 @@ jobs:
             --root . --report artifacts/granada-full-native-16-owners.json
           node tools/granada_native_host_composite.cjs \
             --report=artifacts/granada-native-host-reconciliation.json
+      - name: Add fail-closed G5 native tab capture to TEMPORARY reconciled Windows host only
+        shell: bash
+        run: |
+          node tools/test_granada_g5_native_capture_host.cjs
+          node tools/granada_g5_native_capture_host.cjs --report=artifacts/granada-g5-native-host-graft.json
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -280,6 +285,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cannot validate installed binary without Inno Setup' }
           python -m pip install --disable-pip-version-check Pillow
           if ($LASTEXITCODE -ne 0) { throw 'Cannot validate real PNG pixels without Pillow' }
+      - name: Prove 20 source-bound native G5 screenshots cannot be missing or duplicated
+        shell: pwsh
+        run: |
+          python tools/test_granada_g5_append_native_captures.py
+          if ($LASTEXITCODE -ne 0) { throw 'Full G5 screenshot source-binding tests failed' }
+          python tools/test_granada_prepare_g5_review_manifest.py
+          if ($LASTEXITCODE -ne 0) { throw 'Full 36-slot review manifest regressions failed' }
       - name: Actually install Setup and run measured QuickCup B13 in BOTH installed and portable builds
         shell: pwsh
         run: |
@@ -298,7 +310,10 @@ jobs:
           }
           $g=Get-Content $visual -Raw | ConvertFrom-Json
           if ($g.human_approved -eq $true) { throw 'No automatic visual owner sign-off' }
-          Write-Host "Granada packaged B13 installed+portable scientific smoke validated: 16 existing original UI slots; G5 remaining screen gaps recorded, not hidden."
+          if ($g.captured_slots -ne 36 -or $g.status -ne 'REQUIRES_HUMAN_REVIEW') {
+            throw 'Granada G5 all 36 REAL original UI captures required; do not invent visual approval'
+          }
+          Write-Host "Granada packaged B13 installed+portable scientific smoke validated: 36 original installed/portable real UI slots captured; human approval and OS DPI remain pending."
       - name: Retain source proof, Windows screenshots and diagnostics, never installers
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -307,6 +322,7 @@ jobs:
           path: |
             artifacts/granada-full-native-16-owners.json
             artifacts/granada-native-host-reconciliation.json
+            artifacts/granada-g5-native-host-graft.json
             artifacts/granada-b13-fieldf1-verification.json
             artifacts/granada-b13-real-case.log
             artifacts/granada-native-host-launch.png
