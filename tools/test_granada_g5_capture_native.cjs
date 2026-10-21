@@ -45,10 +45,16 @@ test('captures two independent viewport sizes but makes no physical OS-DPI claim
  assert(!METHOD.includes('systemDpiVerified'));
 });
 test('requires panel visibility, right mode and real case, not simply a click',()=>{
- for(const token of ["panelReady=visible(panel)","actualMode&&realTab&&panelReady&&secondary",
+ for(const token of ["visible(document.getElementById('chartViewport'))","actualMode&&realTab&&panelReady&&secondary",
   "setDeviceMetricsOverride","clearDeviceMetricsOverride","catch(error)"]){
   assert(METHOD.includes(token),token)
  }
+});
+test('Time Series empty real B13 is photographed as an honest empty view, not certified curves',()=>{
+ assert(METHOD.includes("timeSeriesControlsVisible"));
+ assert(METHOD.includes("realTimeSeriesHasCurves"));
+ assert(METHOD.includes("panelReady=surface==='time-series'"));
+ assert(METHOD.includes("Number(document.getElementById('timeSeriesCount')?.textContent||0)>0"));
 });
 test('leaves exact original source bytes around the grafted blocks intact',()=>{
  const extra=" // ORIGINAL IMMUTABLE MESH AND OPENFOAM FRAME\n";
