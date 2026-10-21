@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "de5614d289c1d8bf47ea5a8b56e20757c95024783693b2bad010d0ded77068ac",
+  "inventory_fingerprint": "4f0efa609e6ff22c81d1c400e28e75f3bf4f22f19fb0325d01356fa9f3134a20",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -249,7 +249,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "b5fb31b9418537c8f41d3b4ca3515ef64a1f0cca"
+      "blob": "9aff01a22f214efb8bf01fe9800acda033994809"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -1355,7 +1355,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "74cc1356d697247a05d9fd5597ce2cd732689622"
+      "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
     },
     {
       "path": "docs/GRANADA_RELEASE_READINESS_2026-10-21.md",
