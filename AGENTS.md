@@ -266,3 +266,7 @@ Once a PR or current-commit build, GitHub Actions check, installer test, review 
 ## GRANADA — Regla permanente de continuación del propietario
 
 Cuando el propietario diga **GRANADA**, se aparca con trazabilidad cualquier pendiente inacabado/bloqueado/en QA/propiedad de otra rama, y se aborda **el siguiente bloque grande independiente**. Consultar primero `.michelslab/GRANADA.md` y la norma maestra `standards/GRANADA_CONTINUOUS_BLOCK_PROTOCOL.md`; respetar claims, PRs y colisiones de archivos. Registrar SHA, tests y punto de retorno; no cerrar pendientes falsamente ni publicar releases sin autorización.
+
+
+## Critical challenge gate — scientific UX and product alternatives (2026-10-21)
+For every substantial scientific analysis, UI/3D import or desktop changeset, consult [the independent critical review protocol](docs/CRITICAL_REVIEW_ES.md) and consider the specialist agents [User Experience Critic](.github/agents/user-experience-critic.agent.md) and [Scientific Product Skeptic](.github/agents/scientific-product-skeptic.agent.md). Report a counterargument, a simpler alternative, observed evidence versus a hypothesis, a decisive test and native Windows acceptance. This adds review instructions only; agents are not autonomous background processes, and no product feature is shipped by this documentation.
