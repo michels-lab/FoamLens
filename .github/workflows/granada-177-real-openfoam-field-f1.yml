@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -221,6 +221,23 @@ jobs:
           node --check desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js
           node --test tools/granada_g7_compact_workbench.test.cjs
           echo 'Exact PR #205 G7 source and original handler tests passed; bundling test-only'
+      - name: Add pinned G8 original Time Series compact UI to temporary Windows B13 app only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='77e74277ec434ecdbc297eca95d312beaf3bdb35'
+          found="$(git ls-remote origin refs/pull/209/head | awk '{print $1}')"
+          if [[ "$found" != "$expected" ]]; then
+            echo '::error::G8 PR #209 head changed; recapture must use a new explicitly pinned reviewed SHA'
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/pull/209/head:refs/remotes/granada/g8-pr209'
+          test "$(git rev-parse refs/remotes/granada/g8-pr209)" = "$expected"
+          git show "$expected:desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js" > desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js
+          git show "$expected:tools/granada_g8_compact_timeseries.test.cjs" > tools/granada_g8_compact_timeseries.test.cjs
+          node --check desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js
+          node --test tools/granada_g8_compact_timeseries.test.cjs
+          echo 'Exact PR #209 G8 source and original selector regression passed; packaging only in temporary checkout'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -240,7 +257,7 @@ jobs:
             $names=@($zip.Entries | ForEach-Object FullName)
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
-              'v16-multipanel-export.js','v27-granada-compact-workbench.js')) {
+              'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
