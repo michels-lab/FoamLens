@@ -1,8 +1,8 @@
-name: Granada REAL B13 — Field F1 CAD 2D/3D physical Windows QA
+name: Granada INTERNAL Real B13 — Setup and Portable validation; final-release-only policy
 
 on:
   push:
-    branches: [feat/granada-177-real-openfoam-fieldf1-qa-20261020]
+    branches: [feat/granada-177-installed-portable-real-b13-qa-20261020]
 
 permissions:
   contents: read
@@ -264,6 +264,39 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Real physical OpenFOAM Field F1 / View B validation FAILED' }
           Write-Host 'Measured QuickCup B13 OpenFOAM View B metal/mold physical XYZ PASS; no release'
 
+      - name: Regression-test exact installed vs portable proof and NO RELEASE CANDIDATE contract
+        shell: pwsh
+        run: |
+          python tools/test_granada_packaged_parity_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged scientific proof negative tests failed' }
+          python tools/test_granada_prepare_real_openfoam_b13.py
+          if ($LASTEXITCODE -ne 0) { throw 'QuickCup source integrity regressions failed' }
+      - name: Provision original Inno Setup and Pillow for internal installed + portable audit
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot validate installed binary without Inno Setup' }
+          python -m pip install --disable-pip-version-check Pillow
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot validate real PNG pixels without Pillow' }
+      - name: Actually install Setup and run measured QuickCup B13 in BOTH installed and portable builds
+        shell: pwsh
+        run: |
+          ./tools/granada_installed_portable_b13.ps1 -CaseRoot quickcup-runtime-fixture -OutputRoot artifacts/granada-installed-portable -Version 1.8.10
+          if (-not $?) { throw 'Actual Setup/Portable real-case audit did not pass' }
+      - name: Ensure internal only — no RC, release, tag, unsigned executable or case data are uploaded
+        shell: pwsh
+        run: |
+          $proof='artifacts/granada-installed-portable/evidence/installed-portable-parity.json'
+          $visual='artifacts/granada-installed-portable/evidence/granada-g5-review.json'
+          if (-not (Test-Path $proof) -or -not (Test-Path $visual)) { throw 'Missing genuine installed/portable evidence' }
+          $p=Get-Content $proof -Raw | ConvertFrom-Json
+          if ($p.result -ne 'BOTH_PHYSICAL_INSTALL_AND_PORTABLE_REAL_B13_PASS') { throw 'Internal packaged scientific QA did not prove real cases' }
+          if ($p.release_candidate_created -ne $false -or $p.published -ne $false -or $p.final_release_authorized -ne $false) {
+            throw 'Premature public release or RC forbidden'
+          }
+          $g=Get-Content $visual -Raw | ConvertFrom-Json
+          if ($g.human_approved -eq $true) { throw 'No automatic visual owner sign-off' }
+          Write-Host "Granada packaged B13 installed+portable scientific smoke validated: 16 existing original UI slots; G5 remaining screen gaps recorded, not hidden."
       - name: Retain source proof, Windows screenshots and diagnostics, never installers
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -276,5 +309,6 @@ jobs:
             artifacts/granada-b13-real-case.log
             artifacts/granada-native-host-launch.png
             artifacts/granada-native-host-ui/
+            artifacts/granada-installed-portable/evidence/
           if-no-files-found: warn
           retention-days: 14
