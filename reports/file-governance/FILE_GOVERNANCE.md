@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 252; classified: 248; readable documents: 45; above read cap: 1; findings: 0.
+Tracked: 252; classified: 248; readable documents: 45; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -28,6 +28,7 @@ Tracked: 252; classified: 248; readable documents: 45; above read cap: 1; findin
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 1 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID b85aa90f9d6a79e2)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
