@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 15
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "934954b7e04fa4f1d85690db6002255bd2ee901aba5936a7f780d56ed4bd6c43",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "e5437d0178227880960a123910e4d20fe19f110ebddf501fae11cbc05f122a71",
+  "evidence_fingerprint": "c2640351fd2fa077b98efcda6eb70897a6ee2a810c89edb2651c97e5767230e0",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -690,7 +692,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "882bc133738040e4cc8012c57706501a45828c1d"
+      "blob": "dcb6ca9514ab1672ceda7e2d784e91102a6c57d0"
     },
     {
       "path": "desktop/tests/actionable-diagnostics.test.cjs",
@@ -1642,7 +1644,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d4464357e054dc0331a65581acc427bc4f9d3348"
+      "blob": "758b5fcc9475512e7430a9686f937f9cd2680133"
     },
     {
       "path": "tools/make_visual_evidence.py",
@@ -1806,7 +1808,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "f58a5006dd35dca5",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js, tools/granada_g11_compact_chart_focus.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
