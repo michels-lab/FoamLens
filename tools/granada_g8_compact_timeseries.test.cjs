@@ -105,6 +105,8 @@ test('bilingual labels, chart width CSS and independent G7 namespace',()=>{
  const css=f.document.getElementById('g8Style').textContent;
  assert(css.includes('grid-template-columns:minmax(0,1fr)!important'));
  assert(css.includes('#timeSeriesControls'));assert(css.includes('#workspace>.plotcard'));
+ assert(css.includes('#workspace #seriesPanel{display:grid!important;grid-template-rows:auto minmax(0,1fr)'));
+ assert(fs.readFileSync(path.join(root,'index.html'),'utf8').includes('.listcard{display:none}'));
  assert(css.includes('.g8History{display:none;'));
  assert(css.includes('body.appMode-data .app.g8Compact .g8History{display:inline-flex'));
 
