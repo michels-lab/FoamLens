@@ -18,6 +18,16 @@ test('all five real UI screens are navigated by actual original controls, not sy
   "GetProperty(\"ok\")","File.WriteAllTextAsync"])assert(METHOD.includes(token),token);
  assert(!METHOD.includes("fake.png"));
 });
+test('actual embedded browser script compiles as JavaScript before any native capture',()=>{
+ const begin='var script = "(()=>{const surface=" + JsonSerializer.Serialize(name) + @"';
+ const a=METHOD.indexOf(begin);
+ assert(a>=0,'C# string source not found');
+ const start=a+begin.length,end=METHOD.indexOf('";',start);
+ assert(end>start,'C# JavaScript terminator missing');
+ const js="(()=>{const surface='analysis'"+METHOD.slice(start,end);
+ assert(js.includes("const sourceRegionCount=window.FoamLensRegionScene"));
+ new Function('window','document','getComputedStyle','setAppMode',js);
+});
 test('missing Mesh Auditor or physical B13 screenshot anchor rejects unsafe host',()=>{
  assert.throws(()=>compose(original.replace('FoamLensMeshAuditor','old')),/Refuse to remove/);
  assert.throws(()=>compose(original.replace('field-real-multiregion.png','old')),/Refuse to remove/);
