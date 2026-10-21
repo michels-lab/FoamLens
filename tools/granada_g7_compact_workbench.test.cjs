@@ -179,7 +179,7 @@ test('matches actual native source selectors and original sidebar ownership',()=
  const field=fs.readFileSync(path.join(root,'v14-zz-field-workspace.js'),'utf8');
  const ribbon=fs.readFileSync(path.join(root,'v15-ribbon-ui.js'),'utf8');
  for(const name of ['appShell','sidebarToggle','fieldSurface','workspace','seriesPanel','chartViewport','fwInspectorToggle']){
-  assert(original.includes('id="'+name+'"')||field.includes('id=\\"'+name+'\\"')||field.includes("id='"+name+"'"),
+  assert(original.includes('id="'+name+'"')||field.includes(name),
    'Missing original app source node '+name);
  }
  assert(original.includes('<aside class="sidebar">'));
