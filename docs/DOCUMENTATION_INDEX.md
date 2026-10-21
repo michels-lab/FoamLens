@@ -1,6 +1,6 @@
 # FoamLens — índice de documentación y bitácoras
 
-Índice **aditivo**. Los documentos históricos mantienen sus rutas para no romper PRs, guías, capturas ni scripts. FoamLens es software genérico autónomo: **QuickCup no es una dependencia del producto**.
+Índice **aditivo**. Los documentos históricos mantienen sus rutas para no romper PRs, guías, capturas ni scripts. FoamLens es software genérico autónomo: **MasterProject (anteriormente QuickCup-Solidification) no es una dependencia del producto**.
 
 ## Producto, desarrollo y gobernanza
 - [README principal](../README.md)
