@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 13
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "9ef8d9f3abc01240ce203805dc35a9d0606d7b96ec0f578900836fc92c15e0c0",
-  "evidence_fingerprint": "df0096b6aa61897ce49b2f3a18698bf68ae517473741e8bd3ce07a5db9d3ed0a",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "e3c5bfcc0fff1aed8f1932f86d876d5f3edac3e2f4daf3bae8786dcd7d4b66bd",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1350,7 +1348,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "1b21a63191236e0756d425c0637a51dd17f92890"
+      "blob": "b0469491f9243f6fec3d3e3a04b3a7ff8f64a4b7"
     },
     {
       "path": "docs/GRANADA_RELEASE_READINESS_2026-10-21.md",
@@ -1752,17 +1750,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "e105f50fab241303",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/file-steward-domain-pr-validation.yml, .github/workflows/foamlens-boundary-regression.yml, tools/test_repository_boundaries.cjs, tools/test_repository_boundaries_selftest.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
