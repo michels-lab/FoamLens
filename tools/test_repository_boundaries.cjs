@@ -2,54 +2,108 @@
 'use strict';
 
 /**
- * FoamLens repository boundary regression.
- * Read-only and dependency-free. Checks tracked runtime/test fixtures without
- * treating historical documentation or intentional cross-project governance as code.
- * Run: node tools/test_repository_boundaries.cjs
+ * FoamLens code/test ownership regression.
+ * Examines tracked source-like text, not historical docs, binary data or scientific
+ * results. A potential foreign app import/fixture/identity fails closed.
+ *
+ * node tools/test_repository_boundaries.cjs [--json]
+ * Exported pure functions also support deterministic negative regression tests.
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 
-const root = path.resolve(__dirname, '..');
-const tracked = cp.execFileSync('git', ['ls-files', '-z'], {
-  cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024
-}).split('\0').filter(Boolean);
-
-const foreign = [
-  { name: "Michel's Life", pattern: /(?:Michel['’]?s[ _-]*Life|michels[_-]life|life[_-]rpg|life[_-]dashboard)/i },
-  { name: 'InstaCleaner', pattern: /(?:insta[_ -]?cleaner|ig[_-]cleaner)/i },
-  { name: 'LouderMe', pattern: /louder[_ -]?me/i }
+const ROOT = path.resolve(__dirname, '..');
+const SELF = new Set([
+  'tools/test_repository_boundaries.cjs',
+  'tools/test_repository_boundaries_selftest.cjs'
+]);
+const FOREIGN = [
+  {name: "Michel's Life", re: /(?:michel['’]?s[\s_-]*life|michels[_-]life|life[_-](?:rpg|dashboard))/i},
+  {name: 'InstaCleaner', re: /(?:insta[\s_-]*cleaner|ig[_-]cleaner)/i},
+  {name: 'LouderMe', re: /louder[\s_-]*me/i}
 ];
-const runtimeRoots = /^(?:desktop\/(?:src|tests|developer|installer)\/|tools\/|scripts\/|assets\/|src\/|tests\/)/i;
-const scriptExt = /\.(?:cs|js|cjs|mjs|ts|tsx|jsx|ps1|iss|html|json|yml|yaml|cmd|bat|sh)$/i;
-const checked = [];
-const failures = [];
+const OWNED = /^(?:desktop\/|tools\/|scripts\/|src\/|tests\/|assets\/|frontend\/|web\/|app\/|\.github\/workflows\/|index\.html$)/i;
+const TEXT = /\.(?:cs|csproj|vb|fs|py|js|cjs|mjs|ts|tsx|jsx|html|css|json|xml|props|targets|config|yml|yaml|ps1|iss|cmd|bat|sh)$/i;
+const CODE_REFERENCE = /\b(?:require\s*\(|import\s+|import\s*\(|from\s*['"]|using\s+|#include\s*[<"]|add_subdirectory\s*\(|source\s*\(|include\s*\()/i;
+const PRODUCT_ID = /\b(?:appId|productName|assemblyName|executableName|applicationName|bundleId|packageId|shortcutName|appTitle)\b\s*[:=]/i;
+const DATA_REFERENCE = /(?:^|[^\w])(?:fixture|testdata|test[_-]?data|asset|resource|installer|release|artifact|binary|executable|targetpath|sourcepath|programfiles|appdata|desktopshortcut|appname)\b/i;
+const PATH_REFERENCE = /(?:[./\\]|['"])[^'"]{0,140}(?:\.exe|\.dll|\.csproj|\.appx|\.msix|\.js|\.json|\.zip)\b/i;
+const MAX_BYTES = 2 * 1024 * 1024;
 
-for (const relative of tracked) {
-  if (!runtimeRoots.test(relative) || !scriptExt.test(relative)) continue;
-  if (relative === 'tools/test_repository_boundaries.cjs') continue;
-  const absolute = path.join(root, relative);
-  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) continue;
-  if (fs.statSync(absolute).size > 2 * 1024 * 1024) continue;
-  checked.push(relative);
-  // A foreign name in comments or a shared rule is not necessarily a leak.
-  // Flag only executable-looking imports, fixture paths or product identity keys.
-  const lines = fs.readFileSync(absolute, 'utf8').split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
+function normalize(p) { return p.replace(/\\/g, '/'); }
+function eligible(relative) {
+  const p = normalize(relative);
+  return !SELF.has(p) && OWNED.test(p) && TEXT.test(p);
+}
+function scanSource(relative, contents) {
+  const findings = [];
+  if (!eligible(relative)) return findings;
+  for (const app of FOREIGN) {
+    if (app.re.test(relative)) findings.push({path:relative, line:0, app:app.name, kind:'foreign-path'});
+  }
+  const lines = contents.split(/\r?\n/);
+  for (let i=0; i<lines.length; i++) {
     const line = lines[i];
-    if (/^\s*(?:\/\/|\*|#|<!--)/.test(line)) continue;
-    if (!/(?:require\s*\(|from\s+['"]|import\s*\(|fixture|testdata|appId|assemblyName|productName|\.\.\/)/i.test(line)) continue;
-    for (const item of foreign) {
-      if (item.pattern.test(line)) failures.push(`${relative}:${i + 1}: possible ${item.name} artifact in FoamLens runtime/test ownership`);
+    // Avoid historical commentary and governance prose. Suspicious executable
+    // statements are checked, not every natural-language mention.
+    if (/^\s*(?:\/\/|#(?!include)|\*|<!--|--)/.test(line)) continue;
+    if (!CODE_REFERENCE.test(line) && !PRODUCT_ID.test(line) &&
+        !DATA_REFERENCE.test(line) && !PATH_REFERENCE.test(line)) continue;
+    for (const app of FOREIGN) {
+      if (app.re.test(line)) findings.push({path:relative, line:i+1, app:app.name, kind:'cross-app-reference'});
     }
   }
+  return findings;
 }
-
-console.log(`FoamLens repository-boundary audit: ${checked.length} tracked source/test files scanned`);
-if (failures.length) {
-  console.error(failures.join('\n'));
-  process.exitCode = 1;
-} else {
-  console.log('PASS: no foreign app fixture/import/product-identity signatures found in scanned files');
+function trackedPaths(root) {
+  return cp.execFileSync('git', ['ls-files', '-z'], {
+    cwd:root, encoding:'utf8', maxBuffer:32*1024*1024
+  }).split('\0').filter(Boolean);
 }
+function audit(root=ROOT, paths=trackedPaths(root)) {
+  const report = {schemaVersion:1, checked:0, skippedOversize:[], skippedLinks:[], unreadable:[], findings:[]};
+  for (const relative of paths) {
+    if (!eligible(relative)) continue;
+    const full = path.join(root, relative);
+    let stat;
+    try { stat=fs.lstatSync(full); }
+    catch(e) { report.unreadable.push({path:relative, reason:'unreadable tracked path'}); continue; }
+    if (stat.isSymbolicLink()) { report.skippedLinks.push(relative); continue; }
+    if (!stat.isFile()) continue;
+    if (stat.size > MAX_BYTES) { report.skippedOversize.push(relative); continue; }
+    try {
+      report.findings.push(...scanSource(relative,fs.readFileSync(full,'utf8')));
+      report.checked++;
+    } catch(e) { report.unreadable.push({path:relative, reason:'cannot read file'}); }
+  }
+  return report;
+}
+function failed(report) {
+  return report.findings.length>0 || report.unreadable.length>0 || report.skippedOversize.length>0;
+}
+if (require.main===module) {
+  const json=process.argv.includes('--json');
+  if (process.argv.some(x=>x!=='--json' && x.startsWith('--'))) {
+    console.error('Usage: node tools/test_repository_boundaries.cjs [--json]');
+    process.exit(2);
+  }
+  try {
+    const report=audit();
+    if (json) console.log(JSON.stringify(report,null,2));
+    else {
+      console.log('FoamLens repository boundary: '+report.checked+' tracked source/test files checked');
+      for (const f of report.findings) console.error(f.path+':'+f.line+' '+f.app+' '+f.kind);
+      for (const p of report.skippedOversize) console.error('UNINSPECTED oversized file: '+p);
+      for (const p of report.unreadable) console.error('UNREADABLE '+p.path);
+      console.log(failed(report) ? 'FAIL: inspect the named files before merge' :
+        'PASS: no cross-app executable/fixture/product-identity signatures detected in inspected text');
+      if (report.skippedLinks.length) console.log('Note: '+report.skippedLinks.length+' symlinks not inspected');
+    }
+    if (failed(report)) process.exitCode=1;
+  } catch(e) {
+    console.error('FoamLens ownership audit could not run: '+e.message);
+    process.exitCode=2;
+  }
+}
+module.exports={eligible,scanSource,audit,failed,trackedPaths};
