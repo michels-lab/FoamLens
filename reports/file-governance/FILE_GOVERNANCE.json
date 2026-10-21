@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "b56748c1f471a285b998be8f138500747dea59dc145d4d203784bf63f4140280",
+  "inventory_fingerprint": "afcebce4693f08c6a2be94974106ebc49e67bc1021f56354d3b7610f946a8ce7",
   "evidence_fingerprint": "41ebd2455a66c30aa560595564c6c89960d6cfab6e9adb13ec1ed0a02c9354aa",
   "files": [
     {
@@ -118,7 +118,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "9b9856a8b4d3cdfc0fc4428a6cf832ec8583d81c"
+      "blob": "d23e565550a8b070e78c16d3e8cd8798b3cf784d"
     },
     {
       "path": ".github/workflows/file-steward-domain-pr-validation.yml",
