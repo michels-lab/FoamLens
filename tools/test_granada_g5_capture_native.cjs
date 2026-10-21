@@ -13,8 +13,8 @@ test('injects only adjacent to already successful real QuickCup capture after Fi
 test('all five real UI screens are navigated by actual original controls, not synthetic screenshots',()=>{
  for(const s of ["time-series","field-compare","analysis","review","live"])assert(METHOD.includes('"'+s+'"'));
  for(const token of ["open('modeData')","open('timeSeriesTab')","open('flRaFieldWorkspace')",
-  "open('modeAnalysis')","open('modeReview')","open('modeLive')","setLayout('split')",
-  "setCompanion('timeseries')","CaptureCdpPngAsync","sourceRegionCount","sourceRegionCount>=2",
+  "open('modeAnalysis')","open('modeReview')","open('modeLive')","add3DView()",
+  "fcEnabled","CaptureCdpPngAsync","sourceRegionCount","sourceRegionCount>=2",
   "GetProperty(\"ok\")","File.WriteAllTextAsync"])assert(METHOD.includes(token),token);
  assert(!METHOD.includes("fake.png"));
 });
@@ -49,6 +49,13 @@ test('requires panel visibility, right mode and real case, not simply a click',(
   "setDeviceMetricsOverride","clearDeviceMetricsOverride","catch(error)"]){
   assert(METHOD.includes(token),token)
  }
+});
+test('Field compare only accepts real 3D A/B OpenFOAM view state, never an unsupported 2D Field split',()=>{
+ assert(METHOD.includes("original independent 3D A/B comparison API missing")===false);
+ assert(METHOD.includes("Original independent 3D A/B comparison API missing"));
+ assert(METHOD.includes("visible(document.getElementById('fcViewport'))"));
+ assert(METHOD.includes("document.getElementById('fcEnabled')?.checked"));
+ assert(!METHOD.includes("setLayout('split')"));
 });
 test('Time Series empty real B13 is photographed as an honest empty view, not certified curves',()=>{
  assert(METHOD.includes("timeSeriesControlsVisible"));
