@@ -23,3 +23,4 @@
 
 ## Normas
 La documentación de código, interfaces, CAD, QA del software, Developer Twin y releases pertenece exclusivamente a FoamLens. Los resultados CFD, JMatPro, balances metalúrgicos y curvas experimentales pertenecen al proyecto científico productor, incluso cuando FoamLens los visualiza. Candidatos PR/CI ≠ funcionalidad integrada/publicada y pruebas de app ≠ validación física.
+- [Granada: bitácora de acceso coordinador en modo lectura](granada/OPENFOAM_HUB_READ_ACCESS_20261021.md)
