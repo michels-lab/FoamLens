@@ -63,6 +63,8 @@ function verifyManifest(owners=OWNERS){
  return files;
 }
 function workflowAdd(source){
+ // Only the temporary copy is normalized; the original checkout is never committed.
+ source=source.replace(/\r\n/g,'\n');
  const required=['field-multiregion-views.test.cjs','granada-177-g2-field-source-dock.test.cjs'];
  const anchor='      - name: Test CI suite manifest\n';
  if(!source.includes(anchor)||source.indexOf(anchor)!==source.lastIndexOf(anchor))throw Error('Mandatory test manifest anchor missing/duplicated');
