@@ -95,7 +95,17 @@ class FixtureSafety(unittest.TestCase):
         )
         out = prepare(self.source, self.root / "clone")
         self.assertEqual(out["windows_unsafe_source_paths_excluded"], enumerated)
-        self.assertFalse((self.root / "clone" / "SmokeCase_A" / "BAD:FILE").exists())
+        # Windows may report ADS existence when the destination's ordinary
+        # base file exists; `.exists()` on BAD:FILE is not proof of copying
+        # the unsafe ADS. Audit actual normal file entries AND source bytes.
+        copy = self.root / "clone" / "SmokeCase_A"
+        source_marker = b"unsafe but ignored"
+        for actual in copy.rglob("*"):
+            if actual.is_file():
+                self.assertTrue(safe_relative(actual.relative_to(copy)),
+                                "Unsafe normal filename was copied")
+                self.assertNotIn(source_marker, actual.read_bytes(),
+                                 "Unsafe alternate stream contents leaked into real copy")
         self.assertFalse(safe_relative(Path("BAD:FILE")))
 
 
