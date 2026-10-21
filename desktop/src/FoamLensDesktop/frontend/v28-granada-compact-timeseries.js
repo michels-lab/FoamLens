@@ -77,7 +77,7 @@ function style(){
  'body.appMode-data .app.g8Compact #workspace .plotcard .head{min-width:0;flex-wrap:wrap;gap:6px}',
  'body.appMode-data .app.g8Compact #workspace .plotcard .chartviewport{min-width:0;width:100%;overflow-x:auto}',
  'body.appMode-data .app.g8Compact #workspace .plotcard .chartwrap{min-width:0!important;width:100%!important;min-height:430px}',
- 'body.appMode-data .app.g8Compact #workspace #seriesPanel{min-width:0;min-height:135px;overflow:auto}',
+ 'body.appMode-data .app.g8Compact #workspace #seriesPanel{display:grid!important;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:135px;overflow:auto}',
  '.g8History{display:none;min-height:29px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:9px;padding:4px 8px;cursor:pointer}',
  'body.appMode-data .app.g8Compact .g8History{display:inline-flex;align-items:center}',
  '.g8History:disabled{opacity:.5;cursor:not-allowed}',
