@@ -39,7 +39,7 @@ function fixture({width=640,active=true,mode='data',g8=true,missing=null}={}){
     focus(){document.activeElement=this}
   }
   function walkId(n,id){if(n.id===id)return n;for(const c of n.children){const x=walkId(c,id);if(x)return x}return null}
-  document={readyState:'complete',getElementById:id=>ids.get(id)||null,
+  document={readyState:'complete',getElementById:id=>walkId(document.documentElement,id),
     createElement:tag=>new Node(tag),createComment:()=>new Node('comment'),
     activeElement:null,addEventListener:(e,f)=>(events['doc-'+e]??=[]).push(f)};
   document.documentElement=new Node('html');document.head=new Node('head');document.body=new Node('body');
