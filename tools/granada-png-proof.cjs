@@ -25,7 +25,7 @@ function imageStatus(data){
     if(hadIHDR||size!==13)return null;
     width=data.readUInt32BE(start);height=data.readUInt32BE(start+4);
     const bit=data[start+8],color=data[start+9];
-    if(width<320||height<240||width*height>6*1024*1024||bit!==8||
+    if(width<320||height<540||width*height>6*1024*1024||bit!==8||
      ![2,6].includes(color)||data[start+10]!==0||data[start+11]!==0||data[start+12]!==0)return null;
     channels=color===6?4:3;hadIHDR=true;
    }else if(type==='IDAT'){
