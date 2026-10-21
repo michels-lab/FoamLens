@@ -86,10 +86,27 @@ class FixtureSafety(unittest.TestCase):
         self.assertTrue(safe_relative(Path("constant/metal/polyMesh/points")))
         self.assertTrue(safe_relative(Path("9.8/mold/T")))
         (self.source / "BAD:FILE").write_text("unsafe but ignored")
+        # On Windows, BAD:FILE is an NTFS alternate data stream and may
+        # not be enumerated as a separate file by pathlib.rglob(). On POSIX
+        # it is a real filename. In BOTH cases it must NEVER be copied.
+        enumerated = sum(
+            1 for candidate in self.source.rglob("*")
+            if candidate.is_file() and not safe_relative(candidate.relative_to(self.source))
+        )
         out = prepare(self.source, self.root / "clone")
-        self.assertEqual(out["windows_unsafe_source_paths_excluded"], 1)
-        self.assertTrue((self.source / "BAD:FILE").exists())
-        self.assertFalse((self.root / "clone" / "SmokeCase_A" / "BAD:FILE").exists())
+        self.assertEqual(out["windows_unsafe_source_paths_excluded"], enumerated)
+        # Windows may report ADS existence when the destination's ordinary
+        # base file exists; `.exists()` on BAD:FILE is not proof of copying
+        # the unsafe ADS. Audit actual normal file entries AND source bytes.
+        copy = self.root / "clone" / "SmokeCase_A"
+        source_marker = b"unsafe but ignored"
+        for actual in copy.rglob("*"):
+            if actual.is_file():
+                self.assertTrue(safe_relative(actual.relative_to(copy)),
+                                "Unsafe normal filename was copied")
+                self.assertNotIn(source_marker, actual.read_bytes(),
+                                 "Unsafe alternate stream contents leaked into real copy")
+        self.assertFalse(safe_relative(Path("BAD:FILE")))
 
 
 if __name__ == "__main__":

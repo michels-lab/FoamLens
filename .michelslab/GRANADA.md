@@ -34,3 +34,9 @@ En **michels-lab/FoamLens**:
 - Cada bloque debe dejar **código/capacidad real y QA ejecutada cuando sea posible**, con estado A/B/C, SHAs, resultados y próximos gates. Un plan o una bitácora **no es un bloque funcional completado**.
 - En repositorios de distribución, GRANADA GRANDE se traduce a paquetes de controles de integridad/procedencia/documentación o pruebas no destructivas; nunca crear versiones ni releases sin orden expresa.
 - Mantener las bitácoras locales, los límites de cada producto y su punto de reentrada; al siguiente “operación granada”, empezar con el paquete sustancial seguro de mayor impacto.
+
+## Decisión permanente del propietario — SOLO RELEASE FINAL (2026-10-20)
+
+**Ningún proyecto de Michel's Lab tendrá Release Candidates, RC, publicaciones beta ni pre-releases.** Michel lo dejó explícito: «conmigo no existen las release candidate». Esta instrucción tiene alcance global y está asentada en `Michel-Software-Standards/standards/RELEASE_PROTOCOL.md` y `GLOBAL_RULES.md`.
+
+Las compilaciones de auditoría de GRANADA (ejecutables y Setup/Portable privados del runner Windows, smoke, fotos, pruebas, developer twins) son **internas y efímeras**, **no versiones entregables**. Nunca ponerlas en GitHub Releases, añadirles tag, llamarlas RC ni ofrecerlas como versión intermedia. Si falta DPI, capturas o exactitud CFD, seguir desarrollando y probando. **Solo tras integración y autorización expresa del propietario se publica directamente el release definitivo** con sus Setup, Portable, checksum, notas y updater validados.
