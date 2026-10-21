@@ -33,7 +33,7 @@ test('all five real UI tabs are checked with original DOM controls',()=>{
  assert(METHOD.includes('modeOk&&titleOk&&splitOk&&dataOk&&viewportOk'))
 });
 test('original mode-owned headers, not hidden global Ribbon title, certify each real workspace',()=>{
- for(const s of ['flRibbonPanel-data','flRibbonPanel-analysis','reviewTitle','liveTitle','fwGrid'])
+ for(const s of ['flRaDataTimeSeries','flRibbonPanel-analysis','reviewTitle','liveTitle','fwGrid'])
   assert(METHOD.includes("'"+s+"'"),'Missing actual owned UI header '+s);
  assert(!METHOD.includes("document.querySelector('.top h2')"));
  assert(METHOD.includes('getComputedStyle(title).display'));
@@ -41,6 +41,19 @@ test('original mode-owned headers, not hidden global Ribbon title, certify each 
   assert(METHOD.includes("'"+s+"'"),'Must navigate the real visible Ribbon '+s);
  assert(!METHOD.includes("el('modeData')?.click()"));
  assert(!METHOD.includes("el('modeReview')?.click()"));
+});
+test('Time Series identifies visible original action by accessible name, not the empty Ribbon panel',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const ribbon=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js'),'utf8');
+ assert(ribbon.includes("flRibbonActionHtml('flRaDataTimeSeries','chart','Time series','Series')"));
+ assert(ribbon.includes('aria-label="'));
+ assert(METHOD.includes("key==='time-series'?el('flRaDataTimeSeries')"),'Must validate original visible command node');
+ assert(METHOD.includes("title.getAttribute('aria-label')"),'Native accessible label required');
+ assert(METHOD.includes("title.getAttribute('title')"),'Fallback native original title required');
+ assert(METHOD.includes("rect(title)?.width>25"),'Visible width gate must survive');
+ assert(METHOD.includes("getComputedStyle(title).display!=='none'"),'Must reject hidden controls');
+ assert(METHOD.includes("el('timeSeriesTab')?.classList.contains('active')"),'Real data view must be selected');
+ assert(!METHOD.includes("key==='time-series'?el('flRibbonPanel-data')"),'Empty parent title is regression');
 });
 test('both physical capture sizes and evidence path must exist',()=>{
  assert(METHOD.includes('1140'));assert(METHOD.includes('640'));
