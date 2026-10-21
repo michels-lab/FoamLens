@@ -86,6 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           node tools/test_granada_native_host_composite.cjs
+          node tools/test_granada_g5_capture_native.cjs
+          python tools/test_granada_extend_g5_visual_manifest.py
           node tools/test_granada_composite_candidate.cjs
           node tools/test_granada_science_native_host_gate.cjs
           node tools/test_granada_science_suite_registry.cjs
@@ -195,6 +197,7 @@ jobs:
             --root . --report artifacts/granada-full-native-16-owners.json
           node tools/granada_native_host_composite.cjs \
             --report=artifacts/granada-native-host-reconciliation.json
+          node tools/granada_g5_capture_native.cjs
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
