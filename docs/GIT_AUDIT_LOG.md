@@ -8,6 +8,17 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #155: Scientific Case Health candidate (no release)
+
+- Reviewed open concurrent PRs: #162 Field, #164 CAD, #165 2D/3D observables, #166 Energy and #167 thermocouple mapping. All remain open and independent; skipped their unfinished areas as required by Granada. Fresh branch `feat/granada-155-scientific-case-health-20261019` from current main `cbf384b81948334b71f1fc67096b026e65b79583`.
+- Audited existing OpenFOAM source ingestion and solver history: `case.discoveryModel`, native foamLog data, Coupling Audit, Energy Audit and `maPureCheckMesh`; no edits to owned modules or shared Windows Program.cs/build workflow.
+- Implemented `v24-scientific-case-health.js`: per-case scientific evidence for original field/time/control/dictionary sources, optional original run log (explicit End/fatal/time order), actual source Courant/continuity/residual logs, PIMPLE metadata, existing checkMesh parser, field dimensions and BC presence, multiregion interface coverage and energy hints.
+- States are individual source-evidence observations: verified/warning/error/insufficient-information/not-analyzed/not-applicable. Even with all observed "verified", the overall outcome **cannot be CFD-valid**; `overall: not-certified`. Does not turn lastWriteTime into physical deltaT, low residual into convergence, or `Mesh OK` into full simulation validity. Failure reports outrank End; checkMesh warnings retained; maxCo limits come only from the actual case controlDict.
+- User-selected solver/checkMesh text is analyzed read-only and its case binding cannot be verified cryptographically. Explicit local JSON report carries evidence provenance/limitations; switching cases clears attached reports. Reports cannot be exported after source identity changes without recalculating.
+- Tests `desktop/tests/scientific-case-health.spec.cjs` (complete, partial, fatal, inconsistent/unknown evidence) and native loader contract test run alongside **unchanged** mesh, coupling and energy regressions in dedicated Ubuntu/Windows workflow. CI and installed Setup/Portable tests, true source-binding, contextual thresholds and owner-case physical acceptance remain distinct.
+- Status candidate only; no version bump, merge or public release. Detailed scope/limits: `docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md`.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
