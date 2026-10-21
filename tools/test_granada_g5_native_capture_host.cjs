@@ -28,7 +28,7 @@ test('original scientific smoke, existing Mesh auditor and exact source stay int
 test('all five real UI tabs are checked with original DOM controls',()=>{
  for(const s of ["time-series","field-compare","analysis","review","live"])
   assert(METHOD.includes('"'+s+'"'));
- for(const s of ["modeData","timeSeriesTab","flRibbonTab-field","modeAnalysis","modeReview","modeLive","fvCanvas"])
+ for(const s of ['flRibbonTab-data','timeSeriesTab','flRibbonTab-field','flRibbonTab-analysis','flRaReview','flRaLive','fvCanvas'])
   assert(METHOD.includes(s),s);
  assert(METHOD.includes('modeOk&&titleOk&&splitOk&&dataOk&&viewportOk'))
 });
