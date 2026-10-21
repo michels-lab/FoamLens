@@ -36,7 +36,7 @@ function style(){
     '#g11FocusToggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace{grid-template-rows:minmax(0,1fr)!important;min-height:0!important;height:100%!important;overflow-y:hidden!important}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace>.plotcard{min-height:0!important;height:100%!important;max-height:100%!important;overflow:hidden!important}',
-    'body.appMode-data .app.g8Compact.g11ChartFocus #timeSeriesControls{max-height:142px!important;overflow-y:auto!important}',
+    'body.appMode-data .app.g8Compact.g11ChartFocus #timeSeriesControls{max-height:225px!important;overflow-y:auto!important}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace #seriesPanel{display:none!important}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace .plotcard .chartviewport{min-height:0!important;height:100%!important;overflow:auto!important}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace .plotcard .chartwrap{width:100%!important}',

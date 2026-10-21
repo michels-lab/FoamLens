@@ -136,11 +136,19 @@ test('truncated native plot structure fails closed without pretending acceptance
 test('compact focus CSS reclaims height, honors existing list preference and keeps accessible control',()=>{
  const f=fixture(),css=f.document.getElementById('g11FocusStyle').textContent;
  for(const item of ['g11ChartFocus #workspace{grid-template-rows:minmax(0,1fr)!important',
-  'g11ChartFocus #timeSeriesControls{max-height:142px!important',
+  'g11ChartFocus #timeSeriesControls{max-height:225px!important',
   'g11ChartFocus #workspace #seriesPanel{display:none!important',
   '#g11FocusToggle:focus-visible', 'g11ChartFocus #workspace .plotcard .chartviewport'])
   assert(css.includes(item),'missing compact accessibility/layout '+item);
  assert.equal(f.document.getElementById('g11FocusToggle').getAttribute('aria-controls'),'seriesPanel');
+});
+test('focus layout never compresses the four original source selectors into one visible row',()=>{
+ const f=fixture(),css=f.document.getElementById('g11FocusStyle').textContent;
+ const match=css.match(/g11ChartFocus #timeSeriesControls\{max-height:(\d+)px!important/);
+ assert(match,'missing source selectors control');
+ assert(Number(match[1])>=210,'Both original Variable/Probe and Variable2/Cases rows must remain on-screen');
+ assert.strictEqual(f.document.getElementById('timeSeriesControls'),f.controls);
+ assert.equal(f.api.audit().sourceZoomUnmodified,true);
 });
 test('repeated UI sync does not create a second toolbar action or synthetic chart',()=>{
  const f=fixture(),btn=f.document.getElementById('g11FocusToggle');
