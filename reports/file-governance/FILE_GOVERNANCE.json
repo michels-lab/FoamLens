@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 245,
-  "classified_files_total": 241,
+  "tracked_files_total": 246,
+  "classified_files_total": 242,
   "docs_content_inspected": 43,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -20,12 +20,14 @@
     "test": 94,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 11
+    "workflow": 12
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "e1f6440cac813020c7a867d4d7cd9dc15b749f47ba5adbd5de9a29bb8ef266a6",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "b56748c1f471a285b998be8f138500747dea59dc145d4d203784bf63f4140280",
+  "evidence_fingerprint": "41ebd2455a66c30aa560595564c6c89960d6cfab6e9adb13ec1ed0a02c9354aa",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -117,6 +119,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "9b9856a8b4d3cdfc0fc4428a6cf832ec8583d81c"
+    },
+    {
+      "path": ".github/workflows/file-steward-domain-pr-validation.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "768c3883bb54457e34696bf49a50fe4fd1c75898"
     },
     {
       "path": ".github/workflows/mesh-audit-fast.yml",
@@ -1607,7 +1616,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0bf72f91e59ef91da61c95dd9586219583c02558"
+      "blob": "a2e2dd275c8b272cee6c762f6edfd5d5566d7a2d"
     },
     {
       "path": "tools/store_smoke_test.py",
@@ -1663,7 +1672,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b4831ec3831718ba9738f482654cf4dd6f524418"
+      "blob": "0b65cc6aa3d29917f57a31a96fd5c3afeffb4ed4"
     },
     {
       "path": "tools/test_verify_published_release.py",
@@ -1715,7 +1724,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "5c5557d2574f4ba9",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: .github/workflows/file-steward-domain-pr-validation.yml",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
