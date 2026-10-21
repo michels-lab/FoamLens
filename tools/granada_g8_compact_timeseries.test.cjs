@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'../desktop/src/FoamLensDesktop/frontend');
 const source=fs.readFileSync(path.join(root,'v28-granada-compact-timeseries.js'),'utf8');
-function fixture({width=640,mode='data',tab='timeseries',language='en',missing='' }={}){
+function fixture({width=640,mode='data',dataView='timeseries',language='en',missing='' }={}){
  const ids=new Map(),docEvents={},winEvents={},observers=[];
  let document;
  class Element{
@@ -33,7 +33,7 @@ function fixture({width=640,mode='data',tab='timeseries',language='en',missing='
   querySelector:q=>q==='#appShell>.sidebar'?side:q==='.main>.top .flGlobalUtilities'?utility:null};
  document.documentElement=new Element('html');document.documentElement.lang=language;
  document.head=new Element('head');document.body=new Element('body');document.documentElement.append(document.head,document.body);
- const app=new Element('div');app.id='appShell',side=missing==='sidebar'?null:new Element('aside');
+ const app=new Element('div');app.id='appShell';const side=missing==='sidebar'?null:new Element('aside');
  if(side)side.className='sidebar';
  const controls=missing==='controls'?null:new Element('section');if(controls){controls.id='timeSeriesControls';const actions=new Element('div');actions.className='timeSeriesActions';controls.append(actions);side?.append(controls)}
  if(side)app.append(side);
@@ -43,7 +43,7 @@ function fixture({width=640,mode='data',tab='timeseries',language='en',missing='
  const main=new Element('main');main.append(workspace);app.append(main);document.body.append(app);
  const ribbon=new Element('div');ribbon.id='flRibbon';document.body.append(ribbon);
  const languageEl=new Element('select');languageEl.id='language';languageEl.value=language;document.body.append(languageEl);
- const tab=new Element('button');tab.id='timeSeriesTab';if(tab==='timeseries')tab.classList.add('active');if(tab!=='catalog'&&tab!=='profile')tab.classList.add('active');document.body.append(tab);
+ const tab=new Element('button');tab.id='timeSeriesTab';if(dataView==='timeseries')tab.classList.add('active');document.body.append(tab);
  const canvas=new Element('canvas');canvas.id='canvas';chart.append(canvas);
  const details=new Element('details');details.id='fwDataFieldHistories';side?.append(details);
  if(mode)document.body.classList.add('appMode-'+mode);
