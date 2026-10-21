@@ -1,0 +1,43 @@
+name: Granada G10 — original Time Series plot toolbar isolation
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js'
+      - 'tools/granada_g10_preview_toolbar.test.cjs'
+      - '.github/workflows/granada-g10-preview-toolbar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js'
+      - 'tools/granada_g10_preview_toolbar.test.cjs'
+      - '.github/workflows/granada-g10-preview-toolbar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-toolbar:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject JS syntax defects
+        run: node --check desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js
+      - name: Run source-backed original DOM/keyboard/recovery regressions
+        run: node --test tools/granada_g10_preview_toolbar.test.cjs
+      - name: Preserve T1 source identity and original dual-variable behavior
+        run: |
+          node desktop/tests/timeseries-provenance.test.cjs
+          node desktop/tests/dual-timeseries.test.cjs
+          node desktop/tests/timeseries-source-catalog.test.cjs
