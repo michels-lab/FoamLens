@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #150: source-backed checkMesh region evidence matrix (candidate)
+
+- Add independent Analysis tool to correlate up to 24 original local checkMesh reports and compare **explicit source-reported** region labels with imported OpenFOAM case discovery. Keep original `maPureCheckMesh` parser unchanged.
+- Show missing/unassigned/duplicate/unexpected regions and fail-closed warning/failure status, including numeric warning counts. Cross-check reported cell/face count and source-reported volume contradictions; missing metric values remain null. Do not infer actual mesh-interface integrity, source-report binding, physical validity or solver stability.
+- Preserve reported cell/face identifiers and literal XYZ clues from report text as **unverified location hints only**. Export local, path-private JSON with no original filenames/log text. Source case/region or input changes invalidate export.
+- Isolated Ubuntu/Windows scientific regression uses synthetic checkMesh examples and existing mesh auditor/CI manifest tests. Owner actual polyMesh verification, original-case binding, true 3D defect localization and installed Windows acceptance remain open; no merge/release.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.

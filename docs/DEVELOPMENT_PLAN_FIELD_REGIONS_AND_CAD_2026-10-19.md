@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #150 — source-backed multi-region checkMesh evidence (candidate)
+
+- Already implemented on main: `v20-mesh-quality-audit.js` can inspect original local checkMesh text with physical metrics, warnings and missing-value semantics; do not replace with an invented new parser.
+- New independent `v24-checkmesh-region-evidence.js`: compare up to 24 original checkMesh reports with optional imported actual case region-label inventory. Only explicit `Region:` labels from original checkMesh text assign material regions; report filenames do not. Coverage shows missing/duplicate/unattributed/conflicting labels, count and volume contradictions, numeric warnings, original metric nulls and text-only defect ID/coordinate hints; never claim exact mesh 3D positions.
+- Local JSON preserves anonymous source identity/report index, no original file paths/data, manual/unverified case binding and global physical-validity `not-certified`. Dedicated Ubuntu/Windows CI tests old parser and added region evidence. **Still open**: original polyMesh cell/face/patch reconstruction and metric proof, geometry validation, CAD interface binding, actual report-to-case provenance, native 3D defect display, user Setup/Portable acceptance and explicit release.
+- PR intentionally independent of Field/CAD/2D–3D/Energy/Health/Developer and front branches #162/#164–#173.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

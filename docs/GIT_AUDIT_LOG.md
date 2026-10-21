@@ -8,6 +8,16 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #150: per-region checkMesh evidence matrix (candidate, no release)
+
+- Audited stable `main` `cbf384b81948334b71f1fc67096b026e65b79583`, issue #150, original `v20-mesh-quality-audit.js` and test. Original single-report `maPureCheckMesh` already preserves 2D/3D reported mesh metrics, warning lines, multiple internal `Region:` headings and explicit nulls for unreported metrics; it is NOT rewritten. Open PRs #162, #164–#173, including competing front tracking #170/#171, remain untouched.
+- Independent branch `feat/granada-150-multiregion-mesh-evidence-20261019` adds **only** `v24-checkmesh-region-evidence.js`, `checkmesh-region-evidence.spec.cjs`, separate Ubuntu/Windows CI and docs. Standalone Analysis selector reads up to 24 user-chosen local checkMesh reports, optional imported case `discoveryModel.regions`. It attributes a report ONLY via explicit original `Region: label`, never filename, source-case name or guessed role.
+- Aggregation matrix lists original reported region/cells/faces/total volume/nonorthogonality/warnings, missing case regions and unexpected or duplicate source labels. Duplicates are contradictions and original values cannot be silently summed; text-internal count/volume inconsistencies and explicit failures are surfaced. Original missing metrics remain `null`; both narrative warnings and numeric warning summaries are retained. Regionless reports remain unattributed; fatal ones **still** produce failed source status without fabricated region identity.
+- Extracts **literal report-only** cell IDs, face IDs and numeric XYZ references as unverified locator clues with originating report line; no claim of actual 3D mesh position until original polyMesh is checked. Optional local JSON uses anonymous report indices, no original filename/raw log/path or automatic upload. Export invalidates on file/case/region changes; `overallScientificValidity: not-certified`.
+- Dedicated `granada-checkmesh-region-evidence.yml` exercises original checkMesh parser, synthetic distinct/missing/duplicate region data, numerical failure/warning and privacy contracts on Ubuntu and Windows plus suite manifest. This is not proof of native Setup/Portable or real user-case scientific acceptance. Real original polyMesh parser/patch interface integrity, source-bound report provenance, 3D defect placement and final installer test remain open #150.
+- Manual and CI evidence detailed in `docs/GRANADA_150_CHECKMESH_REGION_EVIDENCE_2026-10-19.md`. No merge, public version bump or release authorized.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
