@@ -10,7 +10,7 @@ This workstream is **isolated from active #162, #175, #179–#196 and screenshot
 
 1. **Final-release proof engine** `tools/granada-release-proof.cjs`: deterministic, read-only, fail-closed evaluation of:
    - proof/main commit binding and final semantic version newer than latest stable;
-   - merged owner integration for #162/#175/#179/#180/#181/#183/#184/#194/#195/#196 (all actual merge commits, not merely open green PRs);
+   - merged owner integration for #162/#175/#179/#180/#181/#183/#184/#194/#195 (**#196 is temporary QA-only; do not merge just to satisfy this gate**) (all actual merge commits, not merely open green PRs);
    - full Windows release build with `success`, `event=push`, exact main commit;
    - only `stable`, never RC/beta/prerelease;
    - EXACT Setup and Portable file SHA-256, matching source/version and executable MZ signature;
@@ -18,12 +18,12 @@ This workstream is **isolated from active #162, #175, #179–#196 and screenshot
    - real imported metal+mold OpenFOAM regions in all views A/B/C/D, correct XYZ and time/source association;
    - distinct FoamLens Developer executable, profile isolation, redacted diagnostics and persistent section comments;
    - **36 unique** installed/portable source+artifact SHA-bound PNG screenshots across eight tabs, 3 widths and Windows DPI 125/150/175/200;
-   - release notes, official assets/checksums, signing state truth and updater feed.
+   - release notes, locally staged verified final assets/checksum files, declared signing state and verified updater feed plan; the PUBLIC links/digests/feed are verified **after** the release.
    A missing section blocks release; verdict names the exact gate. `READY_TO_PUBLISH_STABLE` is a *prepublication technical status*, NOT a claim of an actual release or independent human approval.
 
 2. **Pixel/file-integrity shield** `tools/granada-png-proof.cjs`: strict file-relative-path guard, rejects traversal/symlinks, hashes every local binary/capture, rejects fake PNG headers, bad chunk CRC, malformed/missing IDAT/IEND, invalid compressed data, unsupported pixel modes and effectively blank images. PNG capture physical width must agree with reported CSS width × DPI (4-pixel tolerance); duplicate image hashes cannot pass as 36 independent screenshots. Uses only Node built-ins and bounded input/decompression, no private screenshots uploaded by the tool.
 
-3. **Live GitHub state collection and continuous tests** `tools/granada-github-snapshot.cjs`: read-only GitHub API GET of current `main`, native csproj version, latest public stable release, the ten mandatory owner PR merge commits and the full Windows build workflow runs for that exact SHA. Never infers PR integration from green CI. Dedicated `.github/workflows/granada-release-proof-readonly.yml` runs proof, PNG and collector regressions on Ubuntu+Windows, then creates a live source metadata + deliberately **BLOCKED** release readiness report: it has no fabricated installed/physical evidence and performs no publishing or release-mutating actions.
+3. **Live GitHub state collection and continuous tests** `tools/granada-github-snapshot.cjs`: read-only GitHub API GET of current `main`, native csproj version, latest public stable release, the nine release-bearing owner PR merge commits (the temporary #196 integration preview is not merge-required) and the full Windows build workflow runs for that exact SHA. Never infers PR integration from green CI. Dedicated `.github/workflows/granada-release-proof-readonly.yml` runs proof, PNG and collector regressions on Ubuntu+Windows, then creates a live source metadata + deliberately **BLOCKED** release readiness report: it has no fabricated installed/physical evidence and performs no publishing or release-mutating actions.
 
 ## CLI / evidence contract
 
