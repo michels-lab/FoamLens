@@ -32,6 +32,7 @@ function style(){
   s.textContent=[
     '#g11FocusToggle{display:none;min-height:30px;min-width:94px;white-space:normal;align-items:center;justify-content:center}',
     'body.appMode-data .app.g8Compact #g11FocusToggle{display:inline-flex}',
+    '#g11FocusToggle[hidden]{display:none!important}',
     '#g11FocusToggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace{grid-template-rows:minmax(0,1fr)!important;min-height:0!important;height:100%!important;overflow-y:hidden!important}',
     'body.appMode-data .app.g8Compact.g11ChartFocus #workspace>.plotcard{min-height:0!important;height:100%!important;max-height:100%!important;overflow:hidden!important}',
