@@ -52,13 +52,14 @@ function fixture({omit=null}={}){
   const el=new Node('button');el.id=id;
   (i<5?nav:measure).append(el);sourceButtons.set(id,el)
  }
- const presetButtons=new Map();
- for(const id of VIEWS){const el=new Node('button');el.dataset.fvView=id;presets.append(el);presetButtons.set(id,el)}
+ const presetButtons=new Map();let originalCameraClicks=0;
+ for(const id of VIEWS){const el=new Node('button');el.dataset.fvView=id;
+  el.addEventListener('click',()=>originalCameraClicks++);presets.append(el);presetButtons.set(id,el)}
  const canvas=new Node('canvas');canvas.id='fvCanvas';panel.append(canvas);
  const language=new Node('select');language.id='language';language.value='en';document.body.append(language);
  const ctx={document,window:{},MutationObserver:undefined,requestAnimationFrame:()=>0,console};
  vm.runInNewContext(source,ctx,{timeout:3000});
- return{document,ctx,ids,events,panel,toolbar,nav,measure,presets,details,canvas,sourceButtons,presetButtons};
+ return{document,ctx,ids,events,panel,toolbar,nav,measure,presets,details,canvas,sourceButtons,presetButtons,getOriginalCameraClicks:()=>originalCameraClicks};
 }
 const test=require('node:test');
 test('mounts actual original navigation, measurement and all seven camera directions',()=>{
@@ -74,7 +75,8 @@ test('mounts actual original navigation, measurement and all seven camera direct
 test('camera presets retain original object identity and attached action listener',()=>{
  const f=fixture();let count=0;
  const btn=f.presetButtons.get('front');btn.addEventListener('click',()=>count++);btn.dispatch('click',{});
- assert.equal(count,1);assert.strictEqual(f.ctx.window.FoamLensGranadaFieldG2.audit().buttons[0].originalRetained,true);
+ assert.equal(count,1);assert.equal(f.getOriginalCameraClicks(),1,'pre-existing click handler survived DOM reparenting');
+ assert.strictEqual(f.ctx.window.FoamLensGranadaFieldG2.audit().buttons[0].originalRetained,true);
 });
 test('arrow navigation never fires a camera action and respects disabled buttons',()=>{
  const f=fixture();let actions=0;
@@ -92,6 +94,7 @@ test('bilingual headings update without losing controls',()=>{
  f.document.getElementById('language').value='es';
  for(const cb of f.events.get('foamlens-language-change')||[])cb();
  assert.equal(title.textContent,'Vistas de cámara · XYZ');
+ assert.equal(f.document.getElementById('fg2Group-camera').getAttribute('aria-label'),'Vistas de cámara · XYZ');
  assert.equal(f.ctx.window.FoamLensGranadaFieldG2.audit().sourceIds.length,10);
 });
 test('missing original control does not cause destructive partial migration',()=>{
