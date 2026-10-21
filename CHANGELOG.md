@@ -1,3 +1,10 @@
+## Unreleased — Granada #151 · conditional multi-region energy conservation
+
+- Add a source-only Analysis companion to the existing automatic Energy Audit, with two named regions, physical stored-energy curves [J], opposite oriented interface power curves [W], optional independent boundary/source terms and explicit sign controls.
+- Require user verification of interface area/normals, total (sensible + latent when relevant) storage evidence, and accounting for all other sources/losses before producing **conditional** numerical residuals and interface reciprocity.
+- Check real source region/path/column and incompatible OpenFOAM dimensions, physical units and time-range overlap; do not infer unknown energy, double-count source series, or extrapolate. Report per-region ΔE, energy exchanges and residuals; export local provenance JSON and interface CSV.
+- Independent Linux/Windows scientific validation and versioned extension loader checks; leave existing Field/CAD/2D–3D PRs and shared native Windows build files untouched. Geometry verification, actual case and installed Setup/Portable remain outstanding. No release.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
