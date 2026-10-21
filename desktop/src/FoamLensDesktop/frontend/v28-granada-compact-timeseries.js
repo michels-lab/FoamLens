@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),MAX=1024;
-let app,side,controls,button,back,closeBtn,historyBtn,anchor,opened=false,installed=false,returnFocus,error='not-installed';
+let app,side,controls,button,back,closeBtn,historyBtn,anchor,opened=false,installed=false,returnFocus,sidebarAttrs=null,error='not-installed';
 function es(){return $('language')?.value==='es'||($('language')?.value!=='en'&&document.documentElement.lang?.startsWith('es'))}
 function tr(en,sp){return es()?sp:en}
 function active(){return window.innerWidth<=MAX&&document.body.classList.contains('appMode-data')&&!!$('timeSeriesTab')?.classList.contains('active')}
@@ -21,11 +21,14 @@ function focusables(){return [...side.querySelectorAll('button,[href],input,sele
 function hide(restore=true){
  if(!opened)return;
  opened=false;app.classList.remove('g8Open');back.hidden=true;button.setAttribute('aria-expanded','false');
- side.removeAttribute('role');side.removeAttribute('aria-modal');side.removeAttribute('tabindex');side.removeAttribute('aria-label');
+ for(const key of ['role','aria-modal','tabindex','aria-label']){
+  const value=sidebarAttrs?.[key];if(value==null)side.removeAttribute(key);else side.setAttribute(key,value);
+ }sidebarAttrs=null;
  if(restore&&returnFocus?.isConnected!==false&&typeof returnFocus?.focus==='function')returnFocus.focus();returnFocus=null;
 }
 function show(){
  if(!installed||!app.classList.contains('g8Compact')||opened)return false;
+ sidebarAttrs=Object.fromEntries(['role','aria-modal','tabindex','aria-label'].map(k=>[k,side.getAttribute(k)]));
  opened=true;returnFocus=document.activeElement;back.hidden=false;app.classList.add('g8Open');
  side.setAttribute('role','dialog');side.setAttribute('aria-modal','true');side.setAttribute('tabindex','-1');
  side.setAttribute('aria-label',tr('Imported cases and scientific tools','Casos importados y herramientas científicas'));
@@ -78,6 +81,8 @@ function style(){
  'body.appMode-data .app.g8Compact #workspace .plotcard .chartviewport{min-width:0;width:100%;overflow-x:auto}',
  'body.appMode-data .app.g8Compact #workspace .plotcard .chartwrap{min-width:0!important;width:100%!important;min-height:430px}',
  'body.appMode-data .app.g8Compact #workspace #seriesPanel{display:grid!important;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:135px;overflow:auto}',
+ 'body.seriesPanelHidden.appMode-data .app.g8Compact #workspace{grid-template-rows:minmax(450px,1fr)!important}',
+ 'body.seriesPanelHidden.appMode-data .app.g8Compact #workspace #seriesPanel{display:none!important}',
  '.g8History{display:none;min-height:29px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:9px;padding:4px 8px;cursor:pointer}',
  'body.appMode-data .app.g8Compact .g8History{display:inline-flex;align-items:center}',
  '.g8History:disabled{opacity:.5;cursor:not-allowed}',
