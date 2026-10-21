@@ -1,0 +1,68 @@
+name: Granada — final stable release readiness (read-only)
+on:
+  pull_request:
+    paths:
+      - 'tools/granada-release-proof.cjs'
+      - 'tools/granada-release-proof.test.cjs'
+      - 'tools/granada-png-proof.cjs'
+      - 'tools/granada-github-snapshot.cjs'
+      - 'tools/granada-github-snapshot.test.cjs'
+      - '.github/workflows/granada-release-proof-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  logic:
+    name: Scientific/Windows/release evidence gate tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse read-only proof tools
+        run: node --check tools/granada-release-proof.cjs
+      - name: Synthetic negative/positive release and photo-CRC cases
+        run: node --test tools/granada-release-proof.test.cjs tools/granada-github-snapshot.test.cjs
+
+  live-report:
+    name: Current FoamLens main/PR/CI verdict (never publish)
+    needs: logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read live main source/PR merge states/CI/public latest stable
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          node tools/granada-github-snapshot.cjs artifacts/granada-github.json
+      - name: Prove missing installed/physical evidence blocks release
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('artifacts/granada-github.json'));fs.writeFileSync('artifacts/unverified-evidence.json',JSON.stringify({schema:'foamlens/granada-final-release-proof/1',sourceSha:x.mainSha,releaseMode:'stable',prerelease:false}))"
+          set +e
+          node tools/granada-release-proof.cjs artifacts/granada-github.json artifacts/unverified-evidence.json . > artifacts/granada-release-verdict.json
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then echo "Expected a truthful release BLOCKED result; exit=$code"; exit 1; fi
+          node -e "const x=require('./artifacts/granada-release-verdict.json');if(x.readyToPublish||x.result!=='RELEASE_BLOCKED')process.exit(1);console.log('Live release gate BLOCKED, as required without device/screenshot/physical proof:',x.gates.filter(g=>!g.passed).map(g=>g.id).join(','))"
+      - name: Archive metadata verdict only (no case files, screenshots or binary)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-granada-release-readiness
+          path: |
+            artifacts/granada-github.json
+            artifacts/granada-release-verdict.json
+          if-no-files-found: warn
+          retention-days: 14
