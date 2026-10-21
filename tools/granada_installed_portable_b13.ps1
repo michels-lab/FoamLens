@@ -104,7 +104,12 @@ Assert-Command 'Setup/Portable real screenshots and exact binary bindings'
 Assert-Command 'actual installed vs portable B13 scientific and SHA parity'
 
 # G5 remains incomplete until the OTHER five workspace tabs have actual captures.
-& node tools/granada_visual_review.cjs --manifest $manifest --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable
+# Preserve supplemental About scrolled captures in the full science manifest, but
+# do not count them as DUPLICATE About workspace tabs in the strict G5 grid.
+$g5Manifest=Join-Path $visual 'granada-g5-manifest.json'
+& python tools/granada_prepare_g5_review_manifest.py --input $manifest --output $g5Manifest
+Assert-Command 'strict original G5 one-tab-one-viewport source preparation'
+& node tools/granada_visual_review.cjs --manifest $g5Manifest --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable
 Assert-Command 'honest G5 gap report'
 
 & ./tools/test_installer_wizard_eula.ps1 -Installer $setup -Screenshot (Join-Path $evidence 'installer-eula.png')
