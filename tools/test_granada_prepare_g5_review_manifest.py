@@ -26,9 +26,15 @@ class G5EvidenceSafety(unittest.TestCase):
   m=prepare(self.d)
   self.assertFalse(any(x["surface"]=="analysis" for x in m["screenshots"]))
   self.assertTrue(m["granada_g5_missing_surface_capture_is_never_synthesized"])
- def test_missing_original_scrolled_about_fails(self):
+ def test_identical_about_scrolled_picture_can_be_omitted_by_canonical_capture(self):
   self.d["screenshots"].pop()
-  with self.assertRaisesRegex(ValueError,"Expected four"):prepare(self.d)
+  m=prepare(self.d)
+  self.assertEqual(len(m["screenshots"]),16)
+  self.assertEqual(len(m["granada_g5_supplemental_about_captures_excluded"]),3)
+ def test_missing_real_primary_screen_must_fail_closed(self):
+  self.d["screenshots"]=[x for x in self.d["screenshots"] if
+      not (x["runtime_variant"]=="portable" and x["surface"]=="field" and x["viewport"]=="wide")]
+  with self.assertRaisesRegex(ValueError,"slots missing"):prepare(self.d)
  def test_duplicate_primary_tab_fails(self):
   self.d["screenshots"].append(copy.deepcopy(self.d["screenshots"][0]))
   with self.assertRaisesRegex(ValueError,"Duplicate native primary"):prepare(self.d)
