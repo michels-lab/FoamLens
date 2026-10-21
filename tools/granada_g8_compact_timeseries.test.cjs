@@ -88,6 +88,16 @@ test('original imports are accessible through dialog with keyboard closing',()=>
  assert(f.key('Escape'));assert.equal(f.api.audit().drawerOpen,false);assert.equal(f.side.getAttribute('aria-modal'),null);
  assert.strictEqual(f.document.activeElement,trigger);
 });
+test('opening and closing G8 drawer restores original sidebar semantic attributes',()=>{
+ const f=fixture();f.side.setAttribute('role','complementary');
+ f.side.setAttribute('aria-label','Original scientific settings');
+ f.side.setAttribute('tabindex','0');
+ f.api.open();assert.equal(f.side.getAttribute('role'),'dialog');
+ f.api.close();assert.equal(f.side.getAttribute('role'),'complementary');
+ assert.equal(f.side.getAttribute('aria-label'),'Original scientific settings');
+ assert.equal(f.side.getAttribute('tabindex'),'0');
+ assert.equal(f.side.getAttribute('aria-modal'),null);
+});
 test('Tab and Shift+Tab are trapped inside original sidebar drawer',()=>{
  const f=fixture();f.api.open();const close=f.document.getElementById('g8Close');
  assert(f.key('Tab'));assert.strictEqual(f.document.activeElement,close);
@@ -106,6 +116,9 @@ test('bilingual labels, chart width CSS and independent G7 namespace',()=>{
  assert(css.includes('grid-template-columns:minmax(0,1fr)!important'));
  assert(css.includes('#timeSeriesControls'));assert(css.includes('#workspace>.plotcard'));
  assert(css.includes('#workspace #seriesPanel{display:grid!important;grid-template-rows:auto minmax(0,1fr)'));
+ assert(css.includes('body.seriesPanelHidden.appMode-data .app.g8Compact #workspace #seriesPanel{display:none!important'));
+ assert(css.includes('body.seriesPanelHidden.appMode-data .app.g8Compact #workspace{grid-template-rows:minmax(450px,1fr)'));
+ f.document.body.classList.add('seriesPanelHidden');assert(f.document.body.classList.contains('seriesPanelHidden'));
  assert(fs.readFileSync(path.join(root,'index.html'),'utf8').includes('.listcard{display:none}'));
  assert(css.includes('.g8History{display:none;'));
  assert(css.includes('body.appMode-data .app.g8Compact .g8History{display:inline-flex'));
