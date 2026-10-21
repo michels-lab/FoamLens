@@ -105,6 +105,9 @@ test('bilingual labels, chart width CSS and independent G7 namespace',()=>{
  const css=f.document.getElementById('g8Style').textContent;
  assert(css.includes('grid-template-columns:minmax(0,1fr)!important'));
  assert(css.includes('#timeSeriesControls'));assert(css.includes('#workspace>.plotcard'));
+ assert(css.includes('.g8History{display:none;'));
+ assert(css.includes('body.appMode-data .app.g8Compact .g8History{display:inline-flex'));
+
  assert(!source.includes('gfwCompact'));
 });
 test('missing original scientific shell fails closed without pretending installation',()=>{
