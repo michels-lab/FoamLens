@@ -25,7 +25,9 @@ test('actual embedded browser script compiles as JavaScript before any native ca
  const start=a+begin.length,end=METHOD.indexOf('";',start);
  assert(end>start,'C# JavaScript terminator missing');
  const js="(()=>{const surface='analysis'"+METHOD.slice(start,end);
- assert(js.includes("const sourceRegionCount=window.FoamLensRegionScene"));
+ assert(js.includes("const primaryRegion=document.getElementById('fvRegion')"));
+ assert(js.includes("measuredSecondary"));
+ assert(js.includes("sourceRegionCount=(primaryRegion?1:0)+measuredSecondary.length"));
  new Function('window','document','getComputedStyle','setAppMode',js);
 });
 test('missing Mesh Auditor or physical B13 screenshot anchor rejects unsafe host',()=>{
