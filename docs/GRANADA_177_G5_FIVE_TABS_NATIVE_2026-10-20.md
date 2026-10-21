@@ -12,8 +12,8 @@ El [CI #39537728010](https://github.com/michels-lab/FoamLens/actions/runs/395377
 
 La función nativa ejecuta acciones UI reales y valida su resultado visible antes de capturar el viewport WebView2 CDP:
 
-1. **Time Series:** botón Data, pestaña real `timeSeriesTab`, contenedor `timeSeriesControls` visible y casos originales importados.
-2. **Field Compare 3D/2D:** Ribbon de Field, API original `FoamLensFieldWorkspace.setCompanion('timeseries')` / `setLayout('split')`; requiere grid, canvas 3D y compañero 2D visibles.
+1. **Time Series:** botón Data, pestaña real `timeSeriesTab` y área original `chartViewport` visible. Si B13 únicamente contiene campos físicos sin curvas de series temporales, registra `realTimeSeriesHasCurves=false` y `timeSeriesControlsVisible=false`; es captura del **estado vacío real**, NO aprobación de la funcionalidad de series.
+2. **Field Compare 3D/2D:** Ribbon de Field, API original `FoamLensFieldWorkspace.add3DView()` si la vista B aún no está habilitada; requiere canvas de vista A y `fcViewport` de vista B físicamente visibles, **no** activar un compañero 2D que pertenece a Data.
 3. **Analysis:** botón original `modeAnalysis` y `analysisSubNav` visible.
 4. **Review:** botón original `modeReview`, panel real `reviewSurface` visible.
 5. **Live:** botón original `modeLive`, panel `liveSurface` visible; se registra explícitamente si no hay una ejecución de solver activa (la mera pantalla no equivale a monitoreo CFD en vivo).
@@ -45,3 +45,9 @@ El job sube **solo evidencias**, nunca instaladores, binarios, tokens, archivos 
 ## Estado de CI
 
 [Workflow Granada G5 #39538695307](https://github.com/michels-lab/FoamLens/actions/runs/39538695307) lanzado desde la rama nueva. **No atribuirle PASS hasta comprobar todos sus jobs Windows/Ubuntu y los dos ejecutables instalados.** Punto de reentrada: revisar logs del primer fallo de visibilidad o carga, corregir la sección concreta y repetir el conjunto. No alterar las ramas anteriores.
+
+## Primer resultado nativo y corrección de causa (registrado después de primera ejecución)
+
+Las ejecuciones [#39539199501](https://github.com/michels-lab/FoamLens/actions/runs/39539199501) y [#39539425817](https://github.com/michels-lab/FoamLens/actions/runs/39539425817) pasaron suites Windows/Ubuntu y compilaron el host; **fallaron correctamente** en `time-series/wide`, porque B13 no cargaba curvas Time Series (panel de controles oculto) aunque la pestaña Data y el gráfico base fueran visibles. La ejecución nativa también confirmó que `FoamLensRegionScene.state().layers` solo contabiliza **regiones secundarias**: el metal primario vive fuera del Map; el criterio científico correcto es `primaria válida + región molde secundaria coloreada/medida`.
+
+La captura G5 ahora permite documentar el **estado vacío real** de Time Series si su `chartViewport` está visible, pero registra `realTimeSeriesHasCurves=false`. Field Compare se cambió para exigir una vista original dual **3D A/B** OpenFOAM, no una vista 2D en Field que contradice la separación arquitectónica Data/Field. Estos cambios deben pasar el siguiente CI con capturas reales; ningún fallo se considera resuelto solo por editar scripts. La validación de series científicas con datos de termopares sigue PENDIENTE.
