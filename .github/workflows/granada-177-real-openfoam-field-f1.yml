@@ -3,6 +3,8 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 on:
   push:
     branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021]
+  pull_request:
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021]
 
 permissions:
   contents: read
