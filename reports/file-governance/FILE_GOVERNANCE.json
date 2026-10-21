@@ -1,30 +1,32 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 241,
+  "tracked_files_total": 245,
   "classified_files_total": 241,
   "docs_content_inspected": 43,
   "large_docs_skipped": 1,
-  "excluded_reports": 0,
+  "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
+    "build_script": 4,
     "config": 6,
     "document": 37,
     "index": 5,
-    "license": 1,
+    "license": 2,
     "source": 61,
     "test": 94,
-    "unknown": 9,
+    "unknown": 2,
+    "web_ui": 2,
     "workflow": 11
   },
   "finding_counts": {
-    "UNKNOWN_PURPOSE": 9
+    "UNKNOWN_PURPOSE": 2
   },
-  "finding_total": 9,
-  "inventory_fingerprint": "5581f8da825e8709d779f6bc41298a84a28273714124ffc25339ba79bb14af0d",
-  "evidence_fingerprint": "175899a436c0dc38ad9129d9a6f2561cdd8b4f629dc59a860c619754a093455d",
+  "finding_total": 2,
+  "inventory_fingerprint": "d367e58cd30c6024eb7c8c2aa5087be2232f9c8ac2a4b52f9cc4b6d3e98e74df",
+  "evidence_fingerprint": "ea7c6e5f35ee92c15f9c6e8f788e7e924abc9630d6381e8848cc35d3fcd0a8aa",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -238,9 +240,9 @@
     },
     {
       "path": "desktop/LICENSE.txt",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "license",
+      "purpose": "licensing/notice",
+      "certainty": "rule",
       "blob": "507c5c226e53b40faf17cdb83c35eeeb0a04c7f6"
     },
     {
@@ -259,16 +261,16 @@
     },
     {
       "path": "desktop/installer/FoamLens.iss",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
       "blob": "e3681f5accbcf1e3f76d461692088f46d114ddc3"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
       "blob": "bfedb7ba3ea369eb0782e8024732de600522cf23"
     },
     {
@@ -294,9 +296,9 @@
     },
     {
       "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
       "blob": "ddf6e972bf911fbb8a5f2666fe68b7914b0747e8"
     },
     {
@@ -371,9 +373,9 @@
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/index.html",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "web_ui",
+      "purpose": "local HTML documentation or web interface",
+      "certainty": "inferred",
       "blob": "6e36492b8789c63a6a19440567f07d3c36734ff8"
     },
     {
@@ -1491,9 +1493,9 @@
     },
     {
       "path": "index.html",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "web_ui",
+      "purpose": "local HTML documentation or web interface",
+      "certainty": "inferred",
       "blob": "1090ebd553e53137724a5986ac58cf9cc5cf0f64"
     },
     {
@@ -1582,9 +1584,9 @@
     },
     {
       "path": "tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj",
-      "role": "unknown",
-      "purpose": "function unknown: owner classification required",
-      "certainty": "unknown",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
       "blob": "afefb0236fb9c44b441f87326878e53a2f738995"
     },
     {
@@ -1606,7 +1608,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "fe0546a76c0cf308c99f0cc4f1c11aa0677496ec"
+      "blob": "3f704fa24a27aa107914d85b772b32227ffd82fa"
     },
     {
       "path": "tools/store_smoke_test.py",
@@ -1662,7 +1664,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b94da69cd18c8066756acba162bc66618261b522"
+      "blob": "ebac5d9cfe86ff3c1e94b96468027a6578d1d708"
     },
     {
       "path": "tools/test_verify_published_release.py",
@@ -1716,33 +1718,6 @@
   ],
   "findings": [
     {
-      "id": "19eb98f6a377f33f",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/LICENSE.txt",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "300a74cca4fc0296",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/installer/FoamLens.iss",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "6cfef8bfe9ec0b24",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/installer/FoamLensDeveloper.iss",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
       "id": "802201151e86f352",
       "code": "UNKNOWN_PURPOSE",
       "severity": "review",
@@ -1752,46 +1727,10 @@
       "state": "REVIEW_REQUIRED"
     },
     {
-      "id": "85bbb31b5cfc7f26",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
       "id": "c5df95f0ae9304f6",
       "code": "UNKNOWN_PURPOSE",
       "severity": "review",
       "path": "desktop/src/FoamLensDesktop/app.manifest",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "91136053fcc5a17d",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "desktop/src/FoamLensDesktop/frontend/index.html",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "c2a507475709b660",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "index.html",
-      "observation": "No reliable purpose category from path",
-      "recommendation": "Declare role after reviewing usage",
-      "state": "REVIEW_REQUIRED"
-    },
-    {
-      "id": "f9828c1b7f239e4f",
-      "code": "UNKNOWN_PURPOSE",
-      "severity": "review",
-      "path": "tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj",
       "observation": "No reliable purpose category from path",
       "recommendation": "Declare role after reviewing usage",
       "state": "REVIEW_REQUIRED"

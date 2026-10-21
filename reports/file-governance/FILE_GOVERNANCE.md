@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 241; classified: 241; readable documents: 43; above read cap: 1; findings: 9.
+Tracked: 245; classified: 241; readable documents: 43; above read cap: 1; findings: 2.
 
 ## File roles
 
@@ -14,26 +14,21 @@ Tracked: 241; classified: 241; readable documents: 43; above read cap: 1; findin
 | agent | 9 |
 | asset | 6 |
 | bitacora | 2 |
+| build_script | 4 |
 | config | 6 |
 | document | 37 |
 | index | 5 |
-| license | 1 |
+| license | 2 |
 | source | 61 |
 | test | 94 |
-| unknown | 9 |
+| unknown | 2 |
+| web_ui | 2 |
 | workflow | 11 |
 
 ## Findings (human review required)
 
-- **REVIEW / UNKNOWN_PURPOSE** desktop/LICENSE.txt: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 19eb98f6a377f33f)
-- **REVIEW / UNKNOWN_PURPOSE** desktop/installer/FoamLens.iss: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 300a74cca4fc0296)
-- **REVIEW / UNKNOWN_PURPOSE** desktop/installer/FoamLensDeveloper.iss: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 6cfef8bfe9ec0b24)
 - **REVIEW / UNKNOWN_PURPOSE** desktop/installer/TaskbarPinning.txt: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 802201151e86f352)
-- **REVIEW / UNKNOWN_PURPOSE** desktop/src/FoamLensDesktop/FoamLensDesktop.csproj: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 85bbb31b5cfc7f26)
 - **REVIEW / UNKNOWN_PURPOSE** desktop/src/FoamLensDesktop/app.manifest: No reliable purpose category from path. Next: Declare role after reviewing usage (ID c5df95f0ae9304f6)
-- **REVIEW / UNKNOWN_PURPOSE** desktop/src/FoamLensDesktop/frontend/index.html: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 91136053fcc5a17d)
-- **REVIEW / UNKNOWN_PURPOSE** index.html: No reliable purpose category from path. Next: Declare role after reviewing usage (ID c2a507475709b660)
-- **REVIEW / UNKNOWN_PURPOSE** tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj: No reliable purpose category from path. Next: Declare role after reviewing usage (ID f9828c1b7f239e4f)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
