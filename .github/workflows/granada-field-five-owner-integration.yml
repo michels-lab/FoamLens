@@ -1,0 +1,145 @@
+name: Granada Field F1/F2 plus G0/G2/G5 pinned native composite
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/granada_field_five_owner_composite.cjs'
+      - 'tools/granada_field_five_owner_composite.test.cjs'
+      - '.github/workflows/granada-field-five-owner-integration.yml'
+      - 'docs/GRANADA_FIELD_FIVE_OWNER_2026-10-21.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  exact-source:
+    name: Pinned multi-PR Field integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Baseline stable Windows manifest before preview mutation
+        run: node desktop/tests/test-suite-manifest.test.cjs
+      - name: Fail-closed source composer and negative tests
+        run: node --test tools/granada_field_five_owner_composite.test.cjs
+      - name: Inspect exact GitHub PR heads; stage only whitelisted preview files
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_field_five_owner_composite.cjs --report=artifacts/field-five-source-report.json
+      - name: Verify all source tests registered once in temporary Windows workflow
+        run: node desktop/tests/test-suite-manifest.test.cjs
+      - name: Cross-owner original Field + Ribbon + G5 + keyboard regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in \
+            desktop/tests/field-multiregion-views.test.cjs \
+            desktop/tests/field-compare.test.cjs \
+            desktop/tests/field-f2-viewport-layout.spec.cjs \
+            desktop/tests/field-f2-runtime-interactions.spec.cjs \
+            desktop/tests/granada-177-global-ux.spec.cjs \
+            desktop/tests/granada-177-ux-runtime.spec.cjs \
+            desktop/tests/granada-177-g2-field-source-dock.test.cjs \
+            desktop/tests/field-3d-navigation-cache.test.cjs \
+            desktop/tests/field-multiview-ux.test.cjs \
+            desktop/tests/workspace-ux.test.cjs; do
+            echo "=== Source-backed integration $test_file"
+            node "$test_file"
+          done
+          node --test tools/granada-ui-audit/audit-diff.test.cjs
+      - name: Preserve source ownership/hashes only, no simulation data or binary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: field-five-source-${{ matrix.os }}
+          path: artifacts/field-five-source-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  actual-webview2:
+    name: Compiled Windows WebView2 Field composite smoke — no release
+    runs-on: windows-latest
+    needs: [exact-source]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Confirm original PR SHAs remain exact; stage Field F1/F2/G0/G2/G5
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          node tools/granada_field_five_owner_composite.cjs --report=artifacts/field-five-windows-report.json
+          node desktop/tests/test-suite-manifest.test.cjs
+      - name: Rebuild real native frontend with source-preserved Field modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          $tmp='field-five-preview-bundle'
+          if (Test-Path $bundle) { throw 'Unexpected existing AppBundle.zip' }
+          New-Item -Path $tmp -ItemType Directory -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $tmp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $tmp 'LICENSE.txt')
+          Compress-Archive -Path "$tmp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $names=@($zip.Entries | ForEach-Object FullName)
+            foreach($name in @('v14-field-view.js','v14-z-field-compare.js',
+              'v24-field-f2-viewport-layout.js','v24-granada-global-ux.js',
+              'v25-granada-field-source-dock.js')) {
+              if ($names -notcontains $name) { throw "Missing integrated source module: $name" }
+            }
+            Write-Host 'All five independently sourced Field modules present in native archive'
+          } finally { $zip.Dispose() }
+      - name: Compile actual native FoamLens .NET 8 WebView2 executable
+        shell: pwsh
+        run: |
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw 'Failed native restore' }
+          dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Failed native compile' }
+      - name: Smoke actual compiled Windows executable, not an installer approval
+        shell: pwsh
+        env:
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/field-five-native-ui
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/field-five-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'No real native executable' }
+          New-Item -Path 'artifacts/field-five-native-ui' -ItemType Directory -Force | Out-Null
+          $process=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if(-not $process.WaitForExit(420000)){ try{$process.Kill($true)}catch{};throw 'Native WebView2 timeout' }
+          if($process.ExitCode -ne 0){ throw "Native WebView2 smoke returned $($process.ExitCode)" }
+          Write-Host 'Compiled native app starts; Field multiregion physical acceptance is separate and pending'
+      - name: Retain only technical screenshot and hashes; never installer binaries
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: field-five-native-evidence
+          path: |
+            artifacts/field-five-windows-report.json
+            artifacts/field-five-launch.png
+            artifacts/field-five-native-ui/
+          if-no-files-found: warn
+          retention-days: 14
