@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 246,
-  "classified_files_total": 242,
-  "docs_content_inspected": 43,
+  "tracked_files_total": 250,
+  "classified_files_total": 246,
+  "docs_content_inspected": 44,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 4,
     "config": 7,
-    "document": 37,
+    "document": 38,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
     "source": 61,
-    "test": 94,
+    "test": 96,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 12
+    "workflow": 13
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "cc7c4f053017c1066024af9bd82ca74903e1faa247b5ec5bb86e1791530a8162",
-  "evidence_fingerprint": "41ebd2455a66c30aa560595564c6c89960d6cfab6e9adb13ec1ed0a02c9354aa",
+  "inventory_fingerprint": "24bcd72f0c7e7f049de4d5a5944d9046f90a08f1653ab0deb41cc6e86604f3ab",
+  "evidence_fingerprint": "df0096b6aa61897ce49b2f3a18698bf68ae517473741e8bd3ce07a5db9d3ed0a",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -126,6 +126,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "768c3883bb54457e34696bf49a50fe4fd1c75898"
+    },
+    {
+      "path": ".github/workflows/foamlens-boundary-regression.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "11ff8aef832e489a2d414864cda3c80d2bf0d078"
     },
     {
       "path": ".github/workflows/mesh-audit-fast.yml",
@@ -1252,7 +1259,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "4a743475b33abd533d3a5ee41a45ab43ef715e9d"
+      "blob": "7ae071bd9ba7cb5cecf448da6152ca4d9564988c"
     },
     {
       "path": "docs/FIELD3D_RENDER_ACCEPTANCE_2026-10-12.md",
@@ -1472,6 +1479,13 @@
       "blob": "80ced0b5818dc6f193996dca7674368ef1dde1eb"
     },
     {
+      "path": "docs/granada/FOAMLENS_REPOSITORY_BOUNDARY_20261021.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "eb799bb888c30152bf33876df87737639f993db7"
+    },
+    {
       "path": "docs/granada/OPENFOAM_HUB_READ_ACCESS_20261021.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1668,6 +1682,20 @@
       "blob": "ddb338c0caed1afbc0a62543e7ddd89f9bd633f9"
     },
     {
+      "path": "tools/test_repository_boundaries.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "aa03064a3f715adaf1686449f16d4e68a8548832"
+    },
+    {
+      "path": "tools/test_repository_boundaries_selftest.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "20866ab5e265a8935ca102e7eae56c39b9711004"
+    },
+    {
       "path": "tools/test_repository_file_auditor.py",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1726,11 +1754,11 @@
   ],
   "findings": [
     {
-      "id": "5c5557d2574f4ba9",
+      "id": "e105f50fab241303",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "1 implementation/config paths changed since this log's last commit; examples: .github/workflows/file-steward-domain-pr-validation.yml",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/file-steward-domain-pr-validation.yml, .github/workflows/foamlens-boundary-regression.yml, tools/test_repository_boundaries.cjs, tools/test_repository_boundaries_selftest.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
