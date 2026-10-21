@@ -97,6 +97,6 @@ See [`LICENSE`](LICENSE) for the complete terms.
 ## Documentation map and independent OpenFOAM ecosystem
 
 - [Product documentation, engineering logs and audit index](docs/DOCUMENTATION_INDEX.md).
-- [Generic OpenFOAM interoperability and independence from QuickCup](docs/OPENFOAM_ECOSYSTEM.md).
+- [Generic OpenFOAM interoperability and independence from MasterProject](docs/OPENFOAM_ECOSYSTEM.md).
 
-FoamLens does not require QuickCup or any coordination hub to function; scientific source data and physical validation remain with their producers.
+FoamLens does not require MasterProject or any coordination hub to function; scientific source data and physical validation remain with their producers.
