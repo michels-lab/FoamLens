@@ -64,6 +64,10 @@ def validate(portable, installed, visual, source_sha, setup_file, portable_exe, 
             raise ValueError("Screenshot not linked to actual Setup/Portable binary")
         if not SHA64.fullmatch(str(s.get("sha256",""))):
             raise ValueError("Screenshot SHA invalid")
+        # Extra About-bottom physical screenshot is supplemental and must
+        # remain in the canonical manifest without counting as duplicate tab.
+        if s.get("surface")=="about" and Path(str(s.get("path",""))).name.endswith("-bottom.png"):
+            continue
         slot=(variant,s.get("surface"),s.get("viewport"))
         if slot in EXPECTED_SLOTS:
             if slot in seen: raise ValueError("Duplicated installed/portable viewport")
