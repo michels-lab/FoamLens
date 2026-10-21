@@ -28,9 +28,17 @@ def prepare(doc):
             raise ValueError("Duplicate native primary tab screenshot: "+str(key))
         seen.add(key)
         shots.append(x)
-    if len(removed)!=4:
-        raise ValueError("Expected four genuine supplementary About scrolling captures, found "+str(len(removed)))
+    # Canonical make_visual_evidence.py already omits an About-bottom capture
+    # when its PNG equals the opening view. Zero to four supplements is correct.
+    if len(removed)>4:
+        raise ValueError("Unexpected duplicate supplementary About captures")
     result["screenshots"]=shots
+    required={(v,z,a) for v in ("portable","installed") for z in ("wide","compact")
+              for a in ("home","about","data","field")}
+    missing=required-{(x.get("runtime_variant"),x.get("viewport"),x.get("surface"))
+                     for x in shots}
+    if missing:
+        raise ValueError("G5 original Home/About/Data/Field slots missing: "+str(sorted(missing)))
     result["granada_g5_supplemental_about_captures_excluded"]=removed
     result["granada_g5_missing_surface_capture_is_never_synthesized"]=True
     return result
