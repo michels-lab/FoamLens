@@ -666,6 +666,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-3d-navigation-cache.test.cjs
 
+      - name: Granada G2 original Field camera workbench source and keyboard regression
+        shell: pwsh
+        run: node desktop/tests/granada-177-g2-field-source-dock.test.cjs
+
       - name: Test stable 2D plot surfaces
         shell: pwsh
         run: node desktop/tests/plot-surfaces.test.cjs
