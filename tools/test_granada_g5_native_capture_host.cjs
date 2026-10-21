@@ -70,6 +70,14 @@ test('G5 snapshots original Data view and restores it before native cross-sessio
  assert(METHOD.includes('G5 original Data view state restoration failed'),'Do not ignore session corruption');
  assert(!METHOD.includes("setDataView('catalog')"),'Must not hard-code catalog (works only for one initial view)');
 });
+test('state capture accepts only one actual original selected Data tab when lexical view is inaccessible',()=>{
+ for(const [id,view] of [['catalogTab','catalog'],['timeSeriesTab','timeseries'],['profileTab','profile'],['logTab','log']]){
+  assert(METHOD.includes("['"+id+"','"+view+"']"),'Missing original DOM selected-tab fallback '+id);
+ }
+ assert(METHOD.includes('known.includes(current)'),'Use true lexical mode when available');
+ assert(METHOD.includes("selected.length===1?selected[0][1]:null"),'Ambiguous or missing tabs must not produce a fabricated mode');
+ assert(METHOD.includes('G5 original Data view missing or unsupported'),'Still fail closed without actual evidence');
+});
 test('both physical capture sizes and evidence path must exist',()=>{
  assert(METHOD.includes('1140'));assert(METHOD.includes('640'));
  assert(METHOD.includes('CaptureCdpPngAsync'));
