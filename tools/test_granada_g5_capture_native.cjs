@@ -14,7 +14,7 @@ test('all five real UI screens are navigated by actual original controls, not sy
  for(const s of ["time-series","field-compare","analysis","review","live"])assert(METHOD.includes('"'+s+'"'));
  for(const token of ["open('modeData')","open('timeSeriesTab')","open('flRaFieldWorkspace')",
   "open('modeAnalysis')","open('modeReview')","open('modeLive')","setLayout('split')",
-  "setCompanion('timeseries')","CaptureCdpPngAsync","caseCount:realCase","realCase>0",
+  "setCompanion('timeseries')","CaptureCdpPngAsync","sourceRegionCount","sourceRegionCount>=2",
   "GetProperty(\"ok\")","File.WriteAllTextAsync"])assert(METHOD.includes(token),token);
  assert(!METHOD.includes("fake.png"));
 });
