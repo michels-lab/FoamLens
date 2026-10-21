@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 13
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "73b35240b85d76650c7f150288801e29bd8ae66a8d6bb78d68ee56a14267a7a4",
-  "evidence_fingerprint": "403067d5f8a71ab6e6018918d8382eef5b33a73558457eec70c461b0f7c5825e",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "70fba426f0cafcdae0d34a50482ee2da3163ce912b705020dd5aa867305495a0",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1357,7 +1355,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "24b0b4b068a58d4f81700e60273428bdfca30058"
+      "blob": "5ec03f18b14f6509c1b91669f7cbd05bc9b4aaa6"
     },
     {
       "path": "docs/GRANADA_APP_PLUGIN_AUDIT_2026-10-21.md",
@@ -1766,17 +1764,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "11d34c682fe64f61",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/timeseries-source-fast.yml, desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/tests/timeseries-provenance.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
