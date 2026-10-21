@@ -8,7 +8,7 @@ function png(width,height,seed){
  const key=width+':'+height+':'+seed;
  if(pngCache.has(key))return pngCache.get(key);
  const stride=width*3,raw=Buffer.alloc((stride+1)*height),row=Buffer.alloc(stride);
- for(let x=0;x<width;x++){row[x*3]=(x*3+seed)%256;row[x*3+1]=(x*13+seed*7)%256;row[x*3+2]=(x*17+seed*11)%256;}
+ for(let x=0;x<width;x++){row[x*3]=seed===0?245:(x*3+seed)%256;row[x*3+1]=seed===0?245:(x*13+seed*7)%256;row[x*3+2]=seed===0?245:(x*17+seed*11)%256;}
  for(let y=0;y<height;y++){raw[y*(stride+1)]=0;row.copy(raw,y*(stride+1)+1);}
  const part=(name,body)=>{
   const len=Buffer.alloc(4),t=Buffer.from(name),crc=Buffer.alloc(4);len.writeUInt32BE(body.length);
@@ -38,7 +38,7 @@ function fixture(){
  for(const [index,p]of gate.PLATFORMS.entries()){
   for(let i=0;i<18;i++){
    const file='artifacts/fake-'+p+'-'+i+'.png',cssWidth=[1024,1280,1920][i%3],dpi=[1.25,1.5,1.75,2][i%4];
-   const image=png(Math.round(cssWidth*dpi),260,(index*18)+i+1);
+   const image=png(Math.round(cssWidth*dpi),640,(index*18)+i+1);
    fs.writeFileSync(path.join(root,file),image);
    captures.push({platform:p,tab:gate.TABS[i%8],cssWidth,dpi,sourceSha:HEAD,
     artifactSha256:binary[p].sha256,file,sha256:hash(image)});
@@ -150,8 +150,8 @@ test('capture gate rejects forged PNG headers, corrupt CRC and blank white pixel
  assert.equal(imageStatus(forged),null);
  const altered=Buffer.from(original);altered[30]^=1;
  assert.equal(imageStatus(altered),null);
- const blank=png(320,240,0);
- assert(imageStatus(blank)?.diversePixels);
+ const blank=png(320,640,0);
+ assert.equal(imageStatus(blank),null,'flat white image is not a meaningful screen');
  fs.writeFileSync(path.join(f.root,file),forged);
  assert.equal(gate.inspect(f.github,f.proof,f.root).readyToPublish,false);
 }));
