@@ -58,8 +58,8 @@ function fixture(){
   developerEdition:{sourceSha:HEAD,separateExecutable:true,isolatedProfile:true,redactedReport:true,
    sectionAnnotationsRetained:true},
   captures,
-  finalDistribution:{sourceSha:HEAD,updateManifestVerified:true,releaseNotesComplete:true,
-   sha256Published:true,assetsChecked:true,signingStateDeclared:true}
+  finalDistribution:{sourceSha:HEAD,updateFeedPlanVerified:true,releaseNotesComplete:true,
+   checksumFilesGenerated:true,stagedArtifactsVerified:true,signingStateDeclared:true}
  };
  return{root,github,proof,cleanup:()=>fs.rmSync(root,{recursive:true,force:true})};
 }
