@@ -7,6 +7,7 @@ on:
       - 'tools/granada-png-proof.cjs'
       - 'tools/granada-github-snapshot.cjs'
       - 'tools/granada-github-snapshot.test.cjs'
+      - 'docs/GRANADA_RELEASE_PROOF_GATE_2026-10-21.md'
       - '.github/workflows/granada-release-proof-readonly.yml'
   workflow_dispatch:
 permissions:
