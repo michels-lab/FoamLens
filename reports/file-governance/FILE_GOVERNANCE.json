@@ -1,0 +1,1806 @@
+{
+  "schema_version": 1,
+  "audit_kind": "deterministic_full_tracked_tree",
+  "tracked_files_total": 241,
+  "classified_files_total": 241,
+  "docs_content_inspected": 43,
+  "large_docs_skipped": 1,
+  "excluded_reports": 0,
+  "roles": {
+    "agent": 9,
+    "asset": 6,
+    "bitacora": 2,
+    "config": 6,
+    "document": 37,
+    "index": 5,
+    "license": 1,
+    "source": 61,
+    "test": 94,
+    "unknown": 9,
+    "workflow": 11
+  },
+  "finding_counts": {
+    "UNKNOWN_PURPOSE": 9
+  },
+  "finding_total": 9,
+  "inventory_fingerprint": "5581f8da825e8709d779f6bc41298a84a28273714124ffc25339ba79bb14af0d",
+  "evidence_fingerprint": "175899a436c0dc38ad9129d9a6f2561cdd8b4f629dc59a860c619754a093455d",
+  "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "d270216ee576d05c597186139762d7054f3a44b6"
+    },
+    {
+      "path": ".github/agents/app-maintainer.agent.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "68192f7232b719ed9d6aae54a336b964e0308298"
+    },
+    {
+      "path": ".github/agents/qa-regression.agent.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "c80e4ff76874b3ba7c79110c77953fed91e902ee"
+    },
+    {
+      "path": ".github/agents/release-manager.agent.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "ee3c7eb2e35a944db2e880322c84fe572b4b45e8"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "aec1d66cf65f8dda12dc28353647519426b8c66a"
+    },
+    {
+      "path": ".github/workflows/audit-published-foamlens.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "6411950c997fb188c3215c34f6bbf2b3eb29f392"
+    },
+    {
+      "path": ".github/workflows/build-foamlens-desktop.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "1ad0015c02b49a45452a6c025cb2f07f2fd17d00"
+    },
+    {
+      "path": ".github/workflows/build-store-msix.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "aa208bfd27ef8e55da0efc2e93bcf22cbcc5daf1"
+    },
+    {
+      "path": ".github/workflows/data-loaded-cases-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d4d4ca5d0fe470de3b0b1cb559a4c11f70fb4733"
+    },
+    {
+      "path": ".github/workflows/fast-import-regression.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "0029a30926ba3661e67a4b138b28bb17d6b41f73"
+    },
+    {
+      "path": ".github/workflows/field-physical-scale-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "0f8f3cba64da55fb7a896e9d7ccd47422b38b01c"
+    },
+    {
+      "path": ".github/workflows/field-playback-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "3b5b1b206abb98450834815ca5be6f366d45690f"
+    },
+    {
+      "path": ".github/workflows/file-governance-audit.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "9b9856a8b4d3cdfc0fc4428a6cf832ec8583d81c"
+    },
+    {
+      "path": ".github/workflows/mesh-audit-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "b0d21aa6156d63f0fc4ff52ad9a88d5025e1d72d"
+    },
+    {
+      "path": ".github/workflows/native-temporal-cache-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "ad697f28c1a656d9b206fc3c19881968aa0f9abc"
+    },
+    {
+      "path": ".github/workflows/timeseries-source-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bed2eaaa570c1b87e6cf0746e5159877ec1c7086"
+    },
+    {
+      "path": ".gitignore",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "6374e698f7d4438ccfa58da0db5636ca07498799"
+    },
+    {
+      "path": ".michelslab/GRANADA.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "0eb546ed65d04e15d16cdfef3b10d6c101c8d4d0"
+    },
+    {
+      "path": ".michelslab/agents/contrarian.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "9b8c3e137bd7af190db5d9639c4d21514bd4b262"
+    },
+    {
+      "path": ".michelslab/agents/council.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "baf9ad3f3acbd09460b8dd4e1b616cddd054448e"
+    },
+    {
+      "path": ".michelslab/agents/file-steward.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "b1d01e48c04023ad108846e6f554987ed2fd56aa"
+    },
+    {
+      "path": ".michelslab/agents/intelligence-architect.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "f85cce15121ea19217b79dca7a99406f4fe5f231"
+    },
+    {
+      "path": ".michelslab/agents/user-advocate.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "a922878941756da6dbcca286d3f6206b560672e4"
+    },
+    {
+      "path": ".michelslab/file-audit-policy.json",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "2b0fc02cb9807c2a1d020161318e06eaaf761c84"
+    },
+    {
+      "path": ".michelslab/project.yml",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "05629f594fc247b10f92c2ec7baa9a6964e6f551"
+    },
+    {
+      "path": "AGENTS.md",
+      "role": "agent",
+      "purpose": "assistant role/instructions",
+      "certainty": "rule",
+      "blob": "effb2cd70a265aef22b351f047d1b0c2e3265696"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "role": "bitacora",
+      "purpose": "technical/audit change history",
+      "certainty": "rule",
+      "blob": "e46df880f69fd8e94e698e4ab4353a152aecf17c"
+    },
+    {
+      "path": "LICENSE",
+      "role": "license",
+      "purpose": "licensing/notice",
+      "certainty": "rule",
+      "blob": "3ea0f084c88b8e8533a97531c7e72f75b105d6fe"
+    },
+    {
+      "path": "MICHELS_LAB_PROJECT.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7e52794ca3917f6d24fac2ab8a76f2182c38da65"
+    },
+    {
+      "path": "README.md",
+      "role": "index",
+      "purpose": "navigation/onboarding",
+      "certainty": "rule",
+      "blob": "8c07d77d40c24c95712c022616e86d9e7c922f96"
+    },
+    {
+      "path": "desktop/LICENSE.txt",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "507c5c226e53b40faf17cdb83c35eeeb0a04c7f6"
+    },
+    {
+      "path": "desktop/README.md",
+      "role": "index",
+      "purpose": "navigation/onboarding",
+      "certainty": "rule",
+      "blob": "b6066b27e433f63751922ecdfc7f715612933689"
+    },
+    {
+      "path": "desktop/developer/build-developer.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2ee14329fb3829fadbe028c9149a7d281b6dbc83"
+    },
+    {
+      "path": "desktop/installer/FoamLens.iss",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "e3681f5accbcf1e3f76d461692088f46d114ddc3"
+    },
+    {
+      "path": "desktop/installer/FoamLensDeveloper.iss",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "bfedb7ba3ea369eb0782e8024732de600522cf23"
+    },
+    {
+      "path": "desktop/installer/TaskbarPinning.txt",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "076d877924fc314e2a47264a05c5ac3ba998873c"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/Assets/FoamLens.ico",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "a5546295a763d0733689715ea4f58e102e752bf7"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/Developer/Audit.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0dcbef3ece10145ab59970c4542ed8c7733ba6bc"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "ddf6e972bf911fbb8a5f2666fe68b7914b0747e8"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/NativeCaseCatalog.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1f5214c885197584cce28899d5fe6420c4a11120"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/NativeTemporalCache.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9990024f4e60e6aad0fe28cd5cfc1f42b0d00be0"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/OpenFoamBoundarySupport.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "47a5af78aaa4f9eab5b864b84a1891f2f61871ea"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "586da6fcde3df0c146f1227d610234658fe4358a"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/app.manifest",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "0d45d37fcf848636bd5ef3bcfa790f52f96532e5"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/assets/branding/michel-duarte-avatar.jpg",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "18fe1a68722850c3d8f918dc0799f46ffeb6dbaf"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/assets/branding/michels-lab/official-lockup.png",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "7fd48093968b31ddacd3098f5b15d962de580652"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/assets/branding/official-app-icon.svg",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "e6872fe2da6bbcf45b904f6564c8d4a6fc415acc"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/assets/branding/official-lockup.svg",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "79556bcdf66a53b7ca44974833c71797474a5085"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/assets/branding/official-mark.svg",
+      "role": "asset",
+      "purpose": "visual/audio/font asset",
+      "certainty": "rule",
+      "blob": "660319463cc06c6c2a782f71c1ead33960ad02d3"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/index.html",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "6e36492b8789c63a6a19440567f07d3c36734ff8"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b15cf95e00c70513b3a6cee83f8aae51a5b8a50a"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-flow-analysis.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7fd6a91afb85f7ba2e7607884912b6541d4dd97c"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-multiregion-context.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b412108cf0c5c1cb37d6a147b796d8b6a73c9c4b"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-numerical-performance.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6847363066d89bfa3960d70769150670fce246eb"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-performance-controls.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f4d521b7f4882fd8611db8154b07d4d9aa96e0a0"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-physical-analysis.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "804f3daa250c9175fae821405263f202431932b0"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-reproducible-export.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "30a6806c192c445ac3fa682c32eb15d903f2ae68"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-solidification-analysis.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d5444cf869b01082d3bd3a04ccc4f3240f4f26a4"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f30a75d24d32c455eda05b9787c7eb2ec72b77bb"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2571578c3431290c06cf7e034ef0eb05b78e3b5d"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-thermal-analysis.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "84735be24defb87daefdd83f27a479660ce517b2"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v13-vector-fields.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b19665894443cdb424b837c6fcc8e265128d5d72"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-animation-export.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b05d4971665d6bd08abad9ec9dc9cd9fc6ec1d4b"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-coupling-audit.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7c4f272925971de80504b0cc114a2eae346a021f"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f58f27e1e8bbde48788237f04c40786cd65aa485"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8c6955bd51ae13d3992ab763d29b85cb7ff042a5"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-experimental-validation.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8ea3e5c4add965fbf58f7cc5d3946b17954fad77"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-field-view.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4880fdc2ea4bd7aeb2e0b1d1dc62ea537626d7de"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ca2e8ece792d701dcde7c1f54aae45f6aef7235f"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-momentum-mechanisms.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "5caac9f1e3197a9429af6f7d89c820364391e3ea"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4a45fd3a866b1516d5ea1234cacb287bcfe2bafb"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-sidebar-sections.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "83e9d6e633417be546342d82556ce0b0e730de2d"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-smart-import-groups.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e1a451291cd59a765f8f6a23852d05c1f41613c5"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-surface-boundary.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f12f414b98552890f224852687f4daafcf918024"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "371f1187c62e2280eb623ac138e0d4fe158be0c6"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8dcad6257efb5763caaae6d140e018387a4dbbe9"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1d5201ace3cd7877b4f80db7393dd3ab37df5bc2"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "512d5843f3e8700bfeb65fd311bfded2d4c928bf"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v16-multipanel-export.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "38e7cc65f9e309d048e299f5b705d79a8a9e3812"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v16-progressive-performance.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "93eb81b978cf0ca699aef26909dabe46a38dc8e2"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v17-vector-analysis.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e840300628182045f1b367cc85a7c4d5af0a6140"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v17-workspace-ux.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d76e142a4e41f0592dc085e4dc28b41f903b8801"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v18-context-help-resize.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b52d0bee50522d3fe4b0d76170cdbf5a9f64671d"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v19-auto-update.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b9ece85126e8d3f80f6f057f00c4fb05f9a23d47"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v20-activity-manager.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ff1e6ffa150c1671fc130309621f3cba6904982d"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v20-mesh-quality-audit.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c0f0d20e273f59d24f4dd13618c9a282a1f25eb1"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v21-analysis-scope.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bc7d02d615ea83cc0c57fefccda4127764bfe6d5"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v22-findings-export.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c0bf461f390d999e1f7f2993a18e8b28a8aa08f5"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v23-session-state.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2fdbb2fbf5131291c09ed85089cd3036a7cbc769"
+    },
+    {
+      "path": "desktop/tests/actionable-diagnostics.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6c7365605a13d9250d92f2e2c43c9ab683a19eb6"
+    },
+    {
+      "path": "desktop/tests/analysis-ui-organization.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "afb21d5f978a11fcf5975cab2801ac73e03c1d6f"
+    },
+    {
+      "path": "desktop/tests/auto-update.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "de19864e24acdf29dc2f506e4dbac845e887d74a"
+    },
+    {
+      "path": "desktop/tests/bilingual-ui-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f2be063f255303cd5538d0d9714250043b81e703"
+    },
+    {
+      "path": "desktop/tests/bilingual-ui.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c641d169cecff2fb4366da2877beacf096db868f"
+    },
+    {
+      "path": "desktop/tests/capability-ui.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "48243d016f8fd46d2554bad1cfd46ac9c9f34559"
+    },
+    {
+      "path": "desktop/tests/case-tags.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "56fd3466791223c9f52bee9dd1b94df0af394eb3"
+    },
+    {
+      "path": "desktop/tests/context-help-resize.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6f9110d545dbf0b4142b60c50c925c0880b8024b"
+    },
+    {
+      "path": "desktop/tests/coupling-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1df448b01213bb97a9169b166e421459947e0e8c"
+    },
+    {
+      "path": "desktop/tests/data-case-live-selection.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "11c1cd2f07046d1ca79127a980407743744c9844"
+    },
+    {
+      "path": "desktop/tests/data-loaded-case-comparison.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "87266015f7f366b9f003ce1b0fc28325f8b69609"
+    },
+    {
+      "path": "desktop/tests/decomposed-field-view.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b1e705039f3ff75da60670d5fb5b4d02bf0aa874"
+    },
+    {
+      "path": "desktop/tests/derived-catalog.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "56081c5eb7c734ce92c36c0eed962be0c06cce54"
+    },
+    {
+      "path": "desktop/tests/developer-twin-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ffe387a75f2e3de8af59e374d8296fea64bf4e85"
+    },
+    {
+      "path": "desktop/tests/dimensions-units.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c9926bd1fb25abec1797cd0858c3ad301b68f1a6"
+    },
+    {
+      "path": "desktop/tests/discovery-model.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "efae6079af85bb0bc60b0cc7e873592084952597"
+    },
+    {
+      "path": "desktop/tests/dual-profiles.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "99511e3b96f09e08594c5bbc28b620605d380d47"
+    },
+    {
+      "path": "desktop/tests/dual-timeseries.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8d6bad9f4557a63d472d02388f8aaab8c6554f9c"
+    },
+    {
+      "path": "desktop/tests/dynamic-mesh.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fc6cf499f59c18301a856cfef147cf9546ef2240"
+    },
+    {
+      "path": "desktop/tests/energy-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "50c40606a23aabca5d6bfe6ef6ad404540de7d2d"
+    },
+    {
+      "path": "desktop/tests/experimental-validation.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fcb54431506707f79e4c216c64f907467c615d56"
+    },
+    {
+      "path": "desktop/tests/field-3d-navigation-cache.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6f4124e791322ec364b7ccbf8086fa17b0f29a6a"
+    },
+    {
+      "path": "desktop/tests/field-compare.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f798e8c2804ec1138a59984c5a9f28fd7a3f93b5"
+    },
+    {
+      "path": "desktop/tests/field-loop-playback.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "64646d34fd32cd55615783f5eb2a3a5fe033806d"
+    },
+    {
+      "path": "desktop/tests/field-mapping.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b265fc60eaee540398b01255e38e92828dce7a52"
+    },
+    {
+      "path": "desktop/tests/field-multiview-ux.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "113658b6f77fbc02062d07d77af5b5c4564cdeb3"
+    },
+    {
+      "path": "desktop/tests/field-probe.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "83f5e0ff6237691b8562f13f98067069a74b03c4"
+    },
+    {
+      "path": "desktop/tests/field-region-camera-midpoint.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "5500f25755cd59e4f0fd4d16dacadbbdaef45eaa"
+    },
+    {
+      "path": "desktop/tests/field-view.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0ce8c6c0df405d0c817b863845cbc3abb2c9386d"
+    },
+    {
+      "path": "desktop/tests/findings-export.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "65039fe99739894fb5f82a1d312c1af7bfdfc212"
+    },
+    {
+      "path": "desktop/tests/flow-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d48e181856057eb5120bf1f91b7ef242c436bffc"
+    },
+    {
+      "path": "desktop/tests/general-case-comparison.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "05be405989c38250d2ee7bcf9acad18d7a6ba2c2"
+    },
+    {
+      "path": "desktop/tests/generic-case-identity.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "773b4244abf19c923a4bf4060d320394300894e8"
+    },
+    {
+      "path": "desktop/tests/incremental-field-parser.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "12a8b8214b2762b2a79c1d75b83ff67a4221cde8"
+    },
+    {
+      "path": "desktop/tests/incremental-temporal-parser.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ffbe3339bb7e27d7ec89df8d1f5cddc88bd7ac50"
+    },
+    {
+      "path": "desktop/tests/isosurface.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c2b4bbadbd0d7831ec1adaa2939db3b6eecad32f"
+    },
+    {
+      "path": "desktop/tests/large-project-stress.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3c5906ad917ca3cae3bd329af844baa68024cf34"
+    },
+    {
+      "path": "desktop/tests/lazy-profile-retry.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6dd42519aabbac22f68068573af3a70d03efd816"
+    },
+    {
+      "path": "desktop/tests/live-run.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b0361ba1df9f35b9b50f2db889c7c870072f3c58"
+    },
+    {
+      "path": "desktop/tests/mesh-quality-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "56b603f3479167985e011d6b9ee0d16b38a43436"
+    },
+    {
+      "path": "desktop/tests/momentum-mechanisms.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f9be3122f098c59f3f6ac374528a148aa0345459"
+    },
+    {
+      "path": "desktop/tests/multipanel-performance.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "216790cdd2178dd35c433a1faa7cea94b6cb6f3f"
+    },
+    {
+      "path": "desktop/tests/multiregion-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7481e23bf63b97adcca8428c9d4fbf63a12b6677"
+    },
+    {
+      "path": "desktop/tests/multiregion-release-contract.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2fda13b3e2d6f591e854ecb062e0e81334d0f0ed"
+    },
+    {
+      "path": "desktop/tests/native-field-streaming.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ed83056040334f466e5d232ba71ac6ecce653f85"
+    },
+    {
+      "path": "desktop/tests/native-performance.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f1d88018da42c42bb91bd382eefd27061fca185f"
+    },
+    {
+      "path": "desktop/tests/numerical-performance.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "da64e932143c365a5b5cd5d94da5f6f87592ff88"
+    },
+    {
+      "path": "desktop/tests/official-branding.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7196b6f549f60f02c9a760fcc6bf4a2fe0614ee9"
+    },
+    {
+      "path": "desktop/tests/openfoam-integration.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "04d66cd558d7bdd843db2b33d68c48819fa3987a"
+    },
+    {
+      "path": "desktop/tests/phase-momentum.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "53a4a22d31cc17d9e7a08adb061e4f63202095d6"
+    },
+    {
+      "path": "desktop/tests/physical-3d-scale.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9d69bc477f63e8869a1ce00b50b140658560dedf"
+    },
+    {
+      "path": "desktop/tests/physical-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a93f6533adb172e80af66fa14220a5c833ad4c89"
+    },
+    {
+      "path": "desktop/tests/plot-surfaces.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3271d67a6937cd53bb8012bb06c48df14a5d947d"
+    },
+    {
+      "path": "desktop/tests/point-interior.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4a1eafadf9b08281035f3518c8ef744b85e877d6"
+    },
+    {
+      "path": "desktop/tests/profile-playback.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b88685e47e037da5169afdd45f45476ef496adf6"
+    },
+    {
+      "path": "desktop/tests/profile-time-index.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6491dac150e809509eb3ee46cf9fb078665b527e"
+    },
+    {
+      "path": "desktop/tests/reproducible-export.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d477e5dfeb1316e1c40a8d1653eb4cd997c6c12c"
+    },
+    {
+      "path": "desktop/tests/review-case-binding.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "78ec7ac7011aedfc158e6842e7bfdd53d302a5f7"
+    },
+    {
+      "path": "desktop/tests/ribbon-ui.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "97cdfeab1cfdd52c0f81f194053f55d471e01898"
+    },
+    {
+      "path": "desktop/tests/scientific-fast-import.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "cffb661bd1d1580569d60286abedf4147423774b"
+    },
+    {
+      "path": "desktop/tests/scientific-import-index.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4bfc53fd0840b3d2e535175c747bcecd452ebc5d"
+    },
+    {
+      "path": "desktop/tests/scientific-import-report.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0a64ca790e00ba51151fec7ccb60ceb3ccf142a0"
+    },
+    {
+      "path": "desktop/tests/scientific-series-list-viewport.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "61078d4d404a5faf6baed704ea0a6236895ea417"
+    },
+    {
+      "path": "desktop/tests/section-ownership.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "aafdc3fe5cb74a6cf8d7f5adad1ad06242f190cf"
+    },
+    {
+      "path": "desktop/tests/session-persistence.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "693ec0fa556946c6f95adc581dba64b23d681040"
+    },
+    {
+      "path": "desktop/tests/sidebar-sections.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "dd3acc0d47132d7c79380861589f57a1025fccc3"
+    },
+    {
+      "path": "desktop/tests/smart-import-groups.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7c89b27bce318f4d35b3fc3487561f05255b6c70"
+    },
+    {
+      "path": "desktop/tests/solidification-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a9053be0b4bd79a3f6c578f4dbbd8094539091e8"
+    },
+    {
+      "path": "desktop/tests/spatial-differences.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a94519ca1b65af4fa940c55a56fbe23f8af0aae4"
+    },
+    {
+      "path": "desktop/tests/store-msix.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "59ec8f90155caccf33897cd02af9aa2d9adf1469"
+    },
+    {
+      "path": "desktop/tests/streamline-vtk-reference-input.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3d1d555dc681c2490b1e104f18b6851ecc5be221"
+    },
+    {
+      "path": "desktop/tests/surface-boundary.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0f44c39f29e9e341865167fb746349b79434eae7"
+    },
+    {
+      "path": "desktop/tests/temporal-alignment.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "5a5cde50514ab3de813fb6dafab6ed509778d057"
+    },
+    {
+      "path": "desktop/tests/test-suite-manifest.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "87c3ab82c82037337212d9aee14bbc76c3a8155b"
+    },
+    {
+      "path": "desktop/tests/thermal-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a376fff0a7d362f5cf673f3582b9f2cfd78415be"
+    },
+    {
+      "path": "desktop/tests/timeseries-source-catalog.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e2dee8672fed37e2615fdfb70bc5f9a9f7c2b5c8"
+    },
+    {
+      "path": "desktop/tests/v16-final-ux-audit.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3154d355bb01147e76353605fa933955eff36e2c"
+    },
+    {
+      "path": "desktop/tests/vector-analysis.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "97fd708124d28bfefd16359fa287810d2f190a17"
+    },
+    {
+      "path": "desktop/tests/vector-fields.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c743968167a347d812af6a3c5c02660beab384f4"
+    },
+    {
+      "path": "desktop/tests/version-consistency.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9b44e5ec31e623206e0f91b9226bc933a3c76e98"
+    },
+    {
+      "path": "desktop/tests/vtk_streamline_reference.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6331b3e82a1f1ec9753c0b92961c4fb1dd1bdb62"
+    },
+    {
+      "path": "desktop/tests/windows-icon.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "79bceb5ff2556a56b860c2ec20e6bd57dfb28922"
+    },
+    {
+      "path": "desktop/tests/workspace-ux.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fa3648b88482e67f47b7f356a11caa98788025a3"
+    },
+    {
+      "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "84bc1c87c9654de9838d76b5147d937ab56468c8"
+    },
+    {
+      "path": "docs/DOCUMENTATION_INDEX.md",
+      "role": "index",
+      "purpose": "navigation/onboarding",
+      "certainty": "rule",
+      "blob": "4a743475b33abd533d3a5ee41a45ab43ef715e9d"
+    },
+    {
+      "path": "docs/FIELD3D_RENDER_ACCEPTANCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "0cab09011d61e3815098f374218d31791f2bc28e"
+    },
+    {
+      "path": "docs/FIELD_ALPHA_STATIC_FRAME_CACHE_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "8d7418e27ef41da8eb9d6dfca6fa784964f96595"
+    },
+    {
+      "path": "docs/FIELD_CAMERA_MIDPOINT_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a45206de7b73a457bc8cf4ca661dd1accdc7d776"
+    },
+    {
+      "path": "docs/FIELD_GPU_HARDWARE_PROVENANCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f8e92446a81ec7911587b40e6f4bce9a4fadb925"
+    },
+    {
+      "path": "docs/FIELD_GPU_PROCESS_MEMORY_EVIDENCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3db5cf7ffb5399f5db5fe668a84452f5eac04d6d"
+    },
+    {
+      "path": "docs/FIELD_LOADED_GPU_EVIDENCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5c52812e193bed503b5c4d0f1c6a07cadd519849"
+    },
+    {
+      "path": "docs/FIELD_PACKAGED_GPU_SMOKE_EVIDENCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f59d0a9ae90f29d5a61410e5a68463d730651e2c"
+    },
+    {
+      "path": "docs/FIELD_REGION_DEPTH_NUMERIC_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f3cfcf87589f1a799019d457e9f29bda3a95397c"
+    },
+    {
+      "path": "docs/FIELD_UI_ACCEPTANCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a616bddac4f9a2c39808ea80c57b1796a1655bdc"
+    },
+    {
+      "path": "docs/FIELD_UI_RENDERED_CLOCK_EVIDENCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "26d34592c7e2a9e0976f926be33bf58bab07fd3b"
+    },
+    {
+      "path": "docs/FIELD_WEIGHTED_OIT_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "68e46c29dc0fd61c90aeb8246bbfa19075fc980b"
+    },
+    {
+      "path": "docs/FOAMLENS_DEVELOPER_EDITION_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "01f1e35267807c57cd8fff072ec60c9f9502aa2b"
+    },
+    {
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "role": "bitacora",
+      "purpose": "technical/audit change history",
+      "certainty": "rule",
+      "blob": "1b21a63191236e0756d425c0637a51dd17f92890"
+    },
+    {
+      "path": "docs/GRANADA_RELEASE_READINESS_2026-10-21.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7ddc5cc77bd9404c50217ae822f79767756490f6"
+    },
+    {
+      "path": "docs/IMPORT_PERFORMANCE_REPORT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "0c7891b50d8655221ba3caa49c7fb14e20ca0d06"
+    },
+    {
+      "path": "docs/IMPORT_VOLUME_DIAGNOSTICS_2026-10-14.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "00c58d70032f3828084bf22c95d905b34d5427f0"
+    },
+    {
+      "path": "docs/INFRASTRUCTURE_AUDIT.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "be546ba667e0e6ba7e1513feea1756d925077090"
+    },
+    {
+      "path": "docs/INSTALLER_ACCEPTANCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "d63d017d0d0f8cb2e4c8b16702a38d9d6722f9b6"
+    },
+    {
+      "path": "docs/INSTALLER_INTERACTIVE_WIZARD_EVIDENCE_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "d3a66430237e926227c23b17de7e920d1d69939b"
+    },
+    {
+      "path": "docs/NATIVE_TEMPORAL_BACKGROUND_2026-10-14.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b468fb681c833ad55514e9662ddc9245cd87dd52"
+    },
+    {
+      "path": "docs/NATIVE_TEMPORAL_CACHE_2026-10-13.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "8a62d1673bae6d49afd49119d197d055ca620f94"
+    },
+    {
+      "path": "docs/OPENFOAM_ECOSYSTEM.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "73ab9a47fd6b06377637f05697911063a75b6b19"
+    },
+    {
+      "path": "docs/OWNER_IMPORT_TIMINGS.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f37d2a100a50d123802dafc9d5acaa662b0329fa"
+    },
+    {
+      "path": "docs/QUICKCUP_RESEARCH_INTEROPERABILITY_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "14bbb75a61211c73cc8753b0958e7e1815788f78"
+    },
+    {
+      "path": "docs/REMAINING_WORK_BLOCKS_2026-10-11.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "ad7c6d40161851dbf59ef28fd1780c923b59e48c"
+    },
+    {
+      "path": "docs/RENDERED_VIEWPORT_SIZE_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "51e8b89a21cc04974c318cf017d8f77f3921832e"
+    },
+    {
+      "path": "docs/SCIENTIFIC_2D_FAST_IMPORT_AUDIT_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "131b376562ea390c160ce3d7d9b94d6ce60bedff"
+    },
+    {
+      "path": "docs/SCIENTIFIC_CURVE_LIST_PERFORMANCE_2026-10-13.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c3eb39e7c4b310bccfb82cd802de31ef97bd4e13"
+    },
+    {
+      "path": "docs/SETUP_SHORTCUT_CHOICES_2026-10-12.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7fbd2ee973ffecec058361b754a527b8d4fdaeb6"
+    },
+    {
+      "path": "docs/UX_COHERENCE_AUDIT_2026-10-05.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b57cc585a458e90b3ba91672810870dfcb8bb067"
+    },
+    {
+      "path": "docs/WORK_LEDGER_2026-10-07.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "80ced0b5818dc6f193996dca7674368ef1dde1eb"
+    },
+    {
+      "path": "docs/granada/OPENFOAM_HUB_READ_ACCESS_20261021.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "52b9930d3242b70a16017f6a2c04ec0442b8c047"
+    },
+    {
+      "path": "docs/product-reviews/README.md",
+      "role": "index",
+      "purpose": "navigation/onboarding",
+      "certainty": "rule",
+      "blob": "7aeaacd8cdbd0ff712d2bea3284ea9d66de9caf2"
+    },
+    {
+      "path": "docs/v1.3.0-master-spec-audit.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f7cdfb166d0d616b343045ab87752ad2677fb0df"
+    },
+    {
+      "path": "docs/v1.4.0-field-view-spec.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "679df4d74495c8fd8c3edc69c7a2fe8ac7e42a62"
+    },
+    {
+      "path": "index.html",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "1090ebd553e53137724a5986ac58cf9cc5cf0f64"
+    },
+    {
+      "path": "store/AppxManifest.template.xml",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "cdd077416c2512fc50f9c4426fbdab69f9aa3cbd"
+    },
+    {
+      "path": "store/README.md",
+      "role": "index",
+      "purpose": "navigation/onboarding",
+      "certainty": "rule",
+      "blob": "05207ffe13f8168fc7a69db3a906b0d50140ce46"
+    },
+    {
+      "path": "store/partner-center.json",
+      "role": "config",
+      "purpose": "machine-readable configuration",
+      "certainty": "rule",
+      "blob": "6479c14c044b152a25300141335d413bc80799f5"
+    },
+    {
+      "path": "tools/capture_gpu_hardware_inventory.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e6e4bf769247999bf0f7ffe224523a08f3b331cd"
+    },
+    {
+      "path": "tools/capture_gpu_memory_series.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0fd808704f9ed7698942ff059eb36318b90ce29d"
+    },
+    {
+      "path": "tools/capture_loaded_gpu_evidence.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bd68409d033b66b4f7b8cf02eef5ea3d5748dd76"
+    },
+    {
+      "path": "tools/capture_packaged_gpu_smoke.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1af5ea3d3c94c67d0490cb6f5f7be6c0e84da5e9"
+    },
+    {
+      "path": "tools/compare-import-performance.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b1d977f6cb6476e4168e366a66825890b5aaebec"
+    },
+    {
+      "path": "tools/create_store_assets.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7b9bf4a9b5bba30cef09cbd01a294136dd90397d"
+    },
+    {
+      "path": "tools/generate_windows_icon.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "90cc7d82fb0ef6cfb1e240f95b9847412943fc10"
+    },
+    {
+      "path": "tools/make_visual_evidence.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "177b4c147b16f2244d954563a6840c736912e507"
+    },
+    {
+      "path": "tools/measure_gpu_process_memory.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "feb0a001ca9243d57e15206f96aa67fa4fdb13bc"
+    },
+    {
+      "path": "tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj",
+      "role": "unknown",
+      "purpose": "function unknown: owner classification required",
+      "certainty": "unknown",
+      "blob": "afefb0236fb9c44b441f87326878e53a2f738995"
+    },
+    {
+      "path": "tools/native-temporal-cache-tests/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "851c386a155977514fbae63eb2aaad1cff2b7c1d"
+    },
+    {
+      "path": "tools/render_store_manifest.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "99a45fa763a611bdb873e2c16f9fbcc72df2c27d"
+    },
+    {
+      "path": "tools/repository_file_auditor.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fe0546a76c0cf308c99f0cc4f1c11aa0677496ec"
+    },
+    {
+      "path": "tools/store_smoke_test.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "41008759bad9d3ab1f1cbdb62ad41ab4ef54202a"
+    },
+    {
+      "path": "tools/test_gpu_memory_series.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7df14b61f3e40dff329b56a03232a0bd7f52b4ef"
+    },
+    {
+      "path": "tools/test_gpu_process_memory.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
+    },
+    {
+      "path": "tools/test_installer_shortcuts.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0ee9f406d640966344a99ec4dc8b21289ee7a8be"
+    },
+    {
+      "path": "tools/test_installer_wizard_eula.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1568ec3a5a4289f40172ca1f71c7365cbfcf9694"
+    },
+    {
+      "path": "tools/test_loaded_gpu_evidence.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d1dda4f6e90ec95f4a5a18daa1babcc8b8082294"
+    },
+    {
+      "path": "tools/test_packaged_gpu_smoke.ps1",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ddb338c0caed1afbc0a62543e7ddd89f9bd633f9"
+    },
+    {
+      "path": "tools/test_repository_file_auditor.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b94da69cd18c8066756acba162bc66618261b522"
+    },
+    {
+      "path": "tools/test_verify_published_release.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "eed24c2c2476feb9f359daf781529073b263ef20"
+    },
+    {
+      "path": "tools/test_visual_evidence.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7a569389607a1432444e22d72ba3ec6e41f2d48c"
+    },
+    {
+      "path": "tools/tests/compare-import-performance.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "68acfd3a526a59d2a150b162b15b198293e7d10b"
+    },
+    {
+      "path": "tools/tests/native-folder-completion.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1b6563c49dd3211cb1b34e72bdd9b68292bf4dd1"
+    },
+    {
+      "path": "tools/verify_environment_review.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e6d3f9e4990358afc8dd2f5f55e0c4c86229aed1"
+    },
+    {
+      "path": "tools/verify_published_release.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d6faf798c6b3048c3c5451616136c43ab45b6b26"
+    },
+    {
+      "path": "tools/visual_release_gate.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
+    }
+  ],
+  "findings": [
+    {
+      "id": "19eb98f6a377f33f",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/LICENSE.txt",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "300a74cca4fc0296",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/installer/FoamLens.iss",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "6cfef8bfe9ec0b24",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/installer/FoamLensDeveloper.iss",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "802201151e86f352",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/installer/TaskbarPinning.txt",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "85bbb31b5cfc7f26",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "c5df95f0ae9304f6",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/src/FoamLensDesktop/app.manifest",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "91136053fcc5a17d",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "desktop/src/FoamLensDesktop/frontend/index.html",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "c2a507475709b660",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "index.html",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "f9828c1b7f239e4f",
+      "code": "UNKNOWN_PURPOSE",
+      "severity": "review",
+      "path": "tools/native-temporal-cache-tests/NativeTemporalCacheTests.csproj",
+      "observation": "No reliable purpose category from path",
+      "recommendation": "Declare role after reviewing usage",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
+  "untracked_audited": false,
+  "ignored_audited": false,
+  "binary_contents_audited": false,
+  "scientific_validation": "NOT_CHECKED",
+  "app_installed_acceptance": "NOT_CHECKED",
+  "deletion_approved": false
+}
