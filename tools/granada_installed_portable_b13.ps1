@@ -40,6 +40,7 @@ function Test-RealB13InRunningExe([string]$Variant,[string]$Binary) {
     $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path $evidence ($Variant+'-launch.png')
     $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path $evidence ($Variant+'-smoke.png')
     $env:FOAMLENS_SMOKE_SOURCE_SHA=$sha
+    $env:FOAMLENS_GRANADA_G5_NATIVE='1'
     $env:FOAMLENS_SMOKE_OPENFOAM_CASE=$caseDir
     $env:FOAMLENS_SMOKE_MIN_CASES='4'
     $env:FOAMLENS_SMOKE_INITIAL_CASE='SmokeCase_A'
@@ -98,19 +99,27 @@ Test-RealB13InRunningExe -Variant installed -Binary $installedExe
 $manifest=Join-Path $visual 'manifest.json'
 & python tools/make_visual_evidence.py --evidence-dir (Join-Path $visual 'installed') --portable-evidence-dir (Join-Path $visual 'portable') --artifact $setup --portable-artifact $portable --source-sha $sha --platform windows --output $manifest --require-multiregion
 Assert-Command 'original 2-viewport live screenshot manifest'
-& python tools/visual_release_gate.py --manifest $manifest --source-sha $sha --platforms windows --surfaces home,about,data,field --capture-only --require-portable --require-multiregion --artifact $setup --portable-artifact $portable
+$complete=Join-Path $visual 'granada-g5-all-native-manifest.json'
+& python tools/granada_g5_append_native_captures.py --manifest $manifest --setup $setup --portable $portable --output $complete
+Assert-Command '20 additional WebView2 workspace screenshots must exist for both REAL variants'
+& python tools/visual_release_gate.py --manifest $complete --source-sha $sha --platforms windows --surfaces home,about,data,field,time-series,field-compare,analysis,review,live --capture-only --require-portable --require-multiregion --artifact $setup --portable-artifact $portable
 Assert-Command 'Setup/Portable real screenshots and exact binary bindings'
-& python tools/granada_packaged_parity_gate.py --portable (Join-Path $evidence 'portable-real-b13-gate.json') --installed (Join-Path $evidence 'installed-real-b13-gate.json') --visual-manifest $manifest --source-sha $sha --setup $setup --portable-exe $portable --installed-exe $installedExe --output (Join-Path $evidence 'installed-portable-parity.json')
+& python tools/granada_packaged_parity_gate.py --portable (Join-Path $evidence 'portable-real-b13-gate.json') --installed (Join-Path $evidence 'installed-real-b13-gate.json') --visual-manifest $complete --source-sha $sha --setup $setup --portable-exe $portable --installed-exe $installedExe --output (Join-Path $evidence 'installed-portable-parity.json')
 Assert-Command 'actual installed vs portable B13 scientific and SHA parity'
 
 # G5 remains incomplete until the OTHER five workspace tabs have actual captures.
 # Preserve supplemental About scrolled captures in the full science manifest, but
 # do not count them as DUPLICATE About workspace tabs in the strict G5 grid.
 $g5Manifest=Join-Path $visual 'granada-g5-manifest.json'
-& python tools/granada_prepare_g5_review_manifest.py --input $manifest --output $g5Manifest
+& python tools/granada_prepare_g5_review_manifest.py --input $complete --output $g5Manifest
 Assert-Command 'strict original G5 one-tab-one-viewport source preparation'
-& node tools/granada_visual_review.cjs --manifest $g5Manifest --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable
-Assert-Command 'honest G5 gap report'
+& node tools/granada_visual_review.cjs --manifest $g5Manifest --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable --strict
+Assert-Command 'G5 full 36 real captures, awaiting human review'
+$g5=Get-Content (Join-Path $evidence 'granada-g5-review.json') -Raw | ConvertFrom-Json
+if ($g5.captured_slots -ne 36 -or $g5.required_slots -ne 36 -or
+    $g5.status -ne 'REQUIRES_HUMAN_REVIEW' -or $g5.human_approved -ne $false) {
+    throw 'Granada G5 failed to capture ALL native tabs or falsely self-approved the visuals'
+}
 
 & ./tools/test_installer_wizard_eula.ps1 -Installer $setup -Screenshot (Join-Path $evidence 'installer-eula.png')
 if (-not $?) { throw 'Original installer EULA wizard failed' }
@@ -120,4 +129,4 @@ $u=Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESS
 if (-not $u.WaitForExit(90000)) { try { $u.Kill($true) } catch {};throw 'Uninstall timeout' }
 if ($u.ExitCode -ne 0 -or (Test-Path $installedExe)) { throw 'Native app uninstall failed or EXE remains' }
 Write-Host ('GRANADA INTERNAL Setup+Portable real B13 PASS at source SHA '+$sha)
-Write-Host 'No RC, no tag, no public binary, no release. 20 more G5 workspace slots + physical DPI still require QA.'
+Write-Host 'No RC, no tag, no public binary, no release. All 36 real G5 screenshots captured; visual approval and physical OS DPI still require QA.'
