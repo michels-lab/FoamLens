@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "37866d887581e914c58bed926ec20f092bfc9b61619a66bba03369cd14d272cc",
+  "inventory_fingerprint": "6af9710ed7e729acd4f594d12291ded9d6b8f14c4ce55ae7d25cf77d6fbe9f44",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -60,7 +60,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "aec1d66cf65f8dda12dc28353647519426b8c66a"
+      "blob": "9061373e7b5ac28ea477c5a22c77bc33d8cffe9a"
     },
     {
       "path": ".github/workflows/audit-published-foamlens.yml",
@@ -221,7 +221,7 @@
       "role": "agent",
       "purpose": "assistant role/instructions",
       "certainty": "rule",
-      "blob": "effb2cd70a265aef22b351f047d1b0c2e3265696"
+      "blob": "4416e35a2a690f847eaaf05abff28fc72022fee7"
     },
     {
       "path": "CHANGELOG.md",
