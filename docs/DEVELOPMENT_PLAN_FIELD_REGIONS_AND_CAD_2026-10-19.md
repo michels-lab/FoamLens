@@ -140,3 +140,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 | F3 CAD Viewer/Converter | PLANNED | Kernel/licensing/RFC |
 | F4 OpenFOAM export | PLANNED | edition-aware mesh prep |
 | F5 meshing | PLANNED | separate solver/toolchain gates |
+
+
+## GRANADA 2026-10-20 — G3 Time Series T2 isolated real UI candidate
+
+- Candidate `feat/granada-176-g3-timeseries-layout-20261020` (#176, parent #177): original two-curve time-series filters, source slots 1/2 and Build reparented into always visible, visually separated native panels, without replacing OpenFOAM parser or inventing data.
+- Cancel button invalidates the native per-frame epoch and prevents a cancelled history reaching the atomic final commit; in-flight reads may still finish, and no numeric progress claim is made. Existing generator source dropdown refresh stays functional after case import by retaining its original open details anchor invisibly.
+- Scope is **T2 presentation and cancel**, not full T1 source catalog/progress (#146). Review/Live G4 active PR #180, global Ribbon #179 and Field/3D #162/#175 remain separate and NOT integrated.
+- Candidate QA: JS compilation and constrained original-node/Build-click/refresh-anchor/epoch DOM mock passed; Ubuntu+Windows full regression CI, two original source cases, actual packaged Windows DPI screenshot and owner visual acceptance **pending**. No version bump, release, merge or scientific validation reported.
+- Reentry and tests: `docs/GRANADA_176_G3_TIMESERIES_LAYOUT_2026-10-20.md`, `desktop/tests/granada-176-timeseries-ui.spec.cjs`, `.github/workflows/granada-176-timeseries-t2.yml`; issue #176 stays open until all actual acceptance gates.
