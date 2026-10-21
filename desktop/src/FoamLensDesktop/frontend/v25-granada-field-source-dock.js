@@ -30,6 +30,8 @@ function setLabels(){
   for(const {name,en,es:translated} of GROUPS){
     const el=byId('fg2Heading-'+name);
     if(el)el.textContent=es?translated:en;
+    const group=byId('fg2Group-'+name);
+    if(group)group.setAttribute('aria-label',es?translated:en);
   }
 }
 function styles(){
@@ -38,7 +40,7 @@ function styles(){
   style.textContent=[
     'body.appMode-field #fieldViewPanel .fg2Dock{display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,1.15fr) minmax(0,1.65fr);align-items:stretch!important;gap:8px!important;padding:8px!important;margin-bottom:12px;background:var(--panel2);border:1px solid var(--line);border-radius:13px}',
     'body.appMode-field #fieldViewPanel .fg2Group{display:flex;flex-direction:column;gap:7px;min-width:0;padding:7px 9px;background:var(--panel);border:1px solid var(--line);border-radius:10px}',
-    'body.appMode-field #fieldViewPanel .fg2Heading{font:750 11px/1.3 inherit;color:var(--muted);letter-spacing:.015em;margin:0}',
+    'body.appMode-field #fieldViewPanel .fg2Heading{font-size:11px;font-weight:750;line-height:1.3;color:var(--muted);letter-spacing:.015em;margin:0}',
     'body.appMode-field #fieldViewPanel .fg2Group .fvToolRow{display:flex;align-content:flex-start;justify-content:flex-start;flex-wrap:wrap;gap:5px;margin:0}',
     'body.appMode-field #fieldViewPanel .fg2Group .btn{min-height:34px;max-width:100%;white-space:normal;padding:6px 9px;font-size:11px}',
     'body.appMode-field #fieldViewPanel .fg2Group .inlineCheck{min-height:34px;display:inline-flex;align-items:center;margin:0 5px}',
