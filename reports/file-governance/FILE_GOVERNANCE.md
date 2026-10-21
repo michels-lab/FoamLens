@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 258; classified: 254; readable documents: 45; above read cap: 1; findings: 1.
+Tracked: 258; classified: 254; readable documents: 45; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -28,7 +28,6 @@ Tracked: 258; classified: 254; readable documents: 45; above read cap: 1; findin
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js, tools/granada_g11_compact_chart_focus.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID f58a5006dd35dca5)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

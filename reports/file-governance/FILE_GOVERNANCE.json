@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 15
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "e5437d0178227880960a123910e4d20fe19f110ebddf501fae11cbc05f122a71",
-  "evidence_fingerprint": "c2640351fd2fa077b98efcda6eb70897a6ee2a810c89edb2651c97e5767230e0",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "e4d2e3c22483c6de2523bcbe9c0c655616fea5f4736282eff2eca464d7096012",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1385,7 +1383,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "264a8c94c3a07ae851a0dff639575962768daff8"
+      "blob": "7a5b668e2fdcee0bab8632d265bdba68c4422ad8"
     },
     {
       "path": "docs/GRANADA_APP_PLUGIN_AUDIT_2026-10-21.md",
@@ -1808,17 +1806,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "f58a5006dd35dca5",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js, tools/granada_g11_compact_chart_focus.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
