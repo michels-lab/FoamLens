@@ -8,6 +8,7 @@ on:
       - feat/granada-177-g5-all-native-workspaces-20261021
       - fix/granada-g5-real-b13-timeseries-visible-anchor-20261021
       - feat/granada-g7-real-b13-installed-portable-36-20261021
+      - test/granada-g8-real-b13-windows-captures-20261021
 
 permissions:
   contents: read
@@ -239,6 +240,23 @@ jobs:
           node --check desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js
           node --test tools/granada_g8_compact_timeseries.test.cjs
           echo 'Exact PR #209 G8 source and original selector regression passed; packaging only in temporary checkout'
+      - name: Pin merged T1 source evidence into ephemeral G8 Windows B13 app
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='e889415f382371ab272b700c76b5c266a418ee49'
+          file='desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/verified-t1-main'
+          git merge-base --is-ancestor "$expected" refs/remotes/granada/verified-t1-main
+          test "$(git rev-parse "$expected:$file")" = 'd49c6c8479ca4e3f3f53e5ccc9ab9afe1150cf87'
+          git show "$expected:$file" > "$file"
+          git show "$expected:desktop/tests/timeseries-provenance.test.cjs" > desktop/tests/timeseries-provenance.test.cjs
+          git show "$expected:desktop/tests/timeseries-source-catalog.test.cjs" > desktop/tests/timeseries-source-catalog.test.cjs
+          node --check "$file"
+          node desktop/tests/dual-timeseries.test.cjs
+          node desktop/tests/timeseries-source-catalog.test.cjs
+          node desktop/tests/timeseries-provenance.test.cjs
+          echo 'Merged T1 exact source and original Time Series + provenance tests passed in ephemeral G8 host'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -265,6 +283,21 @@ jobs:
             if ($staged -lt 15) { throw "Missing scientific modules: $staged" }
             Write-Host "Native bundle has $staged scientific/UX modules plus source-backed Field F1"
           } finally { $zip.Dispose() }
+      - name: Prove native AppBundle contains exact T1 provenance module before Windows launch
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $archive=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $item=$archive.GetEntry('v14-dual-timeseries.js')
+            if (-not $item) { throw 'Merged T1 original frontend module missing from native AppBundle' }
+            $stream=[IO.StreamReader]::new($item.Open())
+            try { $content=$stream.ReadToEnd() } finally { $stream.Dispose() }
+            foreach ($required in @('function tsdSourceEvidence(', 'function tsdUpdateScientificEvidence(', 'Column ')) {
+              if (-not $content.Contains($required)) { throw "Missing merged T1 native source contract: $required" }
+            }
+            Write-Host 'The exact staged T1 source is present in the real Windows WebView2 AppBundle'
+          } finally { $archive.Dispose() }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
         run: |
