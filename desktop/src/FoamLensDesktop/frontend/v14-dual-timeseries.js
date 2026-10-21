@@ -175,7 +175,7 @@ function tsdUpdateScientificEvidence(){
     secondary=document.getElementById('timeSeriesVariable2');
   if(!hint||!primary)return;
   let panel=document.getElementById('tsdScientificEvidence');
-  const rows=timeSeriesOptionsBase();
+  const rows=timeSeriesOptionsBase().filter(tsdMatchesFilters);
   if(!rows.length||primary.dataset.showAll==='1'){
     if(panel)panel.remove();
     return
