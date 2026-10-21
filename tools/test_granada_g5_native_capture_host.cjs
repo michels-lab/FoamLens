@@ -64,9 +64,16 @@ test('G5 snapshots original Data view and restores it before native cross-sessio
  assert(METHOD.includes("typeof currentDataView==='string'?currentDataView:null"),'Use actual currentDataView source');
  assert(METHOD.includes('JsonSerializer.Deserialize<string>(originalViewJson)'),'Require exact named view from WebView2');
  assert(METHOD.includes('JsonSerializer.Serialize(originalView)'),'Encode original mode safely in JS');
- assert(METHOD.includes("typeof setDataView!=='function'"),'No simulated success if native setter absent');
- assert(METHOD.includes('setDataView(previous)'),'Use original Data view setter; not a fabricated DOM class');
- assert(METHOD.includes('currentDataView===previous'),'Confirm actual restored state');
+ const fs=require('node:fs'),path=require('node:path');
+ const html=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/frontend/index.html'),'utf8');
+ for(const [id,mode] of [['catalogTab','catalog'],['timeSeriesTab','timeseries'],['profileTab','profile'],['logTab','log']]){
+  assert(html.includes("'"+id+"').onclick="),'Original bound Data action must exist: '+id);
+  assert(METHOD.includes(mode+":"+"'"+id+"'"),'Restore only through actual Data tab: '+id);
+ }
+ assert(METHOD.includes("typeof button.onclick!=='function'"),'No silent restoration if original handler missing');
+ assert(METHOD.includes("button.click();"),'Call original handler rather than inaccessible lexical setter');
+ assert(METHOD.includes("selected.length===1&&selected[0][0]===previous"),'Verify exact active Data tab and no ambiguity');
+ assert(!METHOD.includes('setDataView(previous)'),'No direct private lexical app setter in host injection');
  assert(METHOD.includes('G5 original Data view state restoration failed'),'Do not ignore session corruption');
  assert(!METHOD.includes("setDataView('catalog')"),'Must not hard-code catalog (works only for one initial view)');
 });
