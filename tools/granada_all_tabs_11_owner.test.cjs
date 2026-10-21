@@ -90,7 +90,7 @@ test('native test manifest injection cannot silently duplicate missing or existi
  assert.throws(()=>workflowPatch(source),/registered in baseline/);
 });
 test('all nine additive modules have readable native JS and distinct source owners',()=>{
- assert.equal(OWNERS.filter(x=>x.files.some(y=>y.startsWith(F)&&/^v2/.test(path.basename(y)))).length,8);
+ assert.equal(OWNERS.filter(x=>x.files.some(y=>y.startsWith(F)&&/^v2/.test(path.basename(y)))).length,9);
  const one=OWNERS.filter(x=>x.files.some(y=>y.startsWith(F)&&/^v2/.test(path.basename(y))));
  assert(one.every(x=>x.files.some(y=>y.endsWith('.spec.cjs')||y.endsWith('.test.cjs'))));
 });
