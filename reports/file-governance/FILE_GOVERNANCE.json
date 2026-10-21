@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 251,
-  "classified_files_total": 247,
+  "tracked_files_total": 252,
+  "classified_files_total": 248,
   "docs_content_inspected": 45,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,15 +17,17 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 61,
-    "test": 96,
+    "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 13
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "d88dc73b1e6fa413e482e63647463d1460eb906a3b0910b1b578e13429b7406a",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "73b35240b85d76650c7f150288801e29bd8ae66a8d6bb78d68ee56a14267a7a4",
+  "evidence_fingerprint": "403067d5f8a71ab6e6018918d8382eef5b33a73558457eec70c461b0f7c5825e",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -151,7 +153,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "bed2eaaa570c1b87e6cf0746e5159877ec1c7086"
+      "blob": "476bcbd73c52bf163bc0400a2d58503b19f484dc"
     },
     {
       "path": ".gitignore",
@@ -494,7 +496,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f58f27e1e8bbde48788237f04c40786cd65aa485"
+      "blob": "d49c6c8479ca4e3f3f53e5ccc9ab9afe1150cf87"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1190,11 +1192,18 @@
       "blob": "a376fff0a7d362f5cf673f3582b9f2cfd78415be"
     },
     {
+      "path": "desktop/tests/timeseries-provenance.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3b8aabecca20869b5946fcded08301a2a7676b8b"
+    },
+    {
       "path": "desktop/tests/timeseries-source-catalog.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e2dee8672fed37e2615fdfb70bc5f9a9f7c2b5c8"
+      "blob": "2988137c45a4da299399a23eef811a26a94b86f2"
     },
     {
       "path": "desktop/tests/v16-final-ux-audit.test.cjs",
@@ -1757,7 +1766,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "11d34c682fe64f61",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/timeseries-source-fast.yml, desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/tests/timeseries-provenance.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
