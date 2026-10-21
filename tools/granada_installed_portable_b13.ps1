@@ -109,7 +109,10 @@ Assert-Command 'actual installed vs portable B13 scientific and SHA parity'
 $g5Manifest=Join-Path $visual 'granada-g5-manifest.json'
 & python tools/granada_prepare_g5_review_manifest.py --input $manifest --output $g5Manifest
 Assert-Command 'strict original G5 one-tab-one-viewport source preparation'
-& node tools/granada_visual_review.cjs --manifest $g5Manifest --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable
+$allTabs=Join-Path $visual 'granada-g5-all-real-workspaces.json'
+& python tools/granada_extend_g5_visual_manifest.py --input $g5Manifest --root $visual --output $allTabs
+Assert-Command 'require 20 real extra native tab screenshots plus case-source navigation state'
+& node tools/granada_visual_review.cjs --manifest $allTabs --output (Join-Path $evidence 'granada-g5-review.html') --json (Join-Path $evidence 'granada-g5-review.json') --sha $sha --setup $setup --portable $portable --strict
 Assert-Command 'honest G5 gap report'
 
 & ./tools/test_installer_wizard_eula.ps1 -Installer $setup -Screenshot (Join-Path $evidence 'installer-eula.png')
@@ -120,4 +123,4 @@ $u=Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESS
 if (-not $u.WaitForExit(90000)) { try { $u.Kill($true) } catch {};throw 'Uninstall timeout' }
 if ($u.ExitCode -ne 0 -or (Test-Path $installedExe)) { throw 'Native app uninstall failed or EXE remains' }
 Write-Host ('GRANADA INTERNAL Setup+Portable real B13 PASS at source SHA '+$sha)
-Write-Host 'No RC, no tag, no public binary, no release. 20 more G5 workspace slots + physical DPI still require QA.'
+Write-Host 'No RC, no tag, no public binary, no release. G5 36/36 native tabs captured, physical OS-DPI and owner visual approval remain OPEN.'
