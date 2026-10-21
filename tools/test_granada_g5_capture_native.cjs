@@ -41,7 +41,8 @@ test('requires panel visibility, right mode and real case, not simply a click',(
 test('leaves exact original source bytes around the grafted blocks intact',()=>{
  const extra=" // ORIGINAL IMMUTABLE MESH AND OPENFOAM FRAME\n";
  const s=original.replace(MARK,extra+MARK);
- assert(compose(s).includes(extra+METHOD.slice(0,25))===false);
- assert(compose(s).includes(extra));
+ const composed=compose(s);
+ assert(composed.includes(extra+METHOD.slice(0,25)),"Owner source adjacent to injected method must be preserved");
+ assert(composed.includes(extra));
 });
 console.log('Granada original 5-tab WebView2 smoke: '+n+' source safety groups PASS (native C# build still mandatory)');
