@@ -26,8 +26,10 @@ const byId=id=>document.getElementById(id);
 let mounted=false,open=false,trigger=null,overlay=null,input=null,list=null,closeButton=null,
  previousFocus=null,commands=[],filtered=[],selected=0,lastError='not-started',executions=0;
 function lang(){
+ const current=byId('language')?.value;
+ if(current==='es'||current==='en')return current;
  try{if(typeof flUi==='function')return flUi('en','es')==='es'?'es':'en'}catch{}
- const el=byId('language');return (el?.value==='es'||document.documentElement.lang?.startsWith('es'))?'es':'en'
+ return document.documentElement.lang?.startsWith('es')?'es':'en'
 }
 function words(en,es){return lang()==='es'?es:en}
 function fold(s){return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
@@ -141,6 +143,18 @@ function keydown(e){
   e.preventDefault();focusables[next].focus();
  }
 }
+function refreshLabels(){
+ if(!mounted)return;
+ const setText=(id,en,es)=>{const el=byId(id);if(el)el.textContent=words(en,es)};
+ setText('fgpTriggerLabel','Find','Buscar');
+ setText('fgpFooter','↑ ↓ choose · Enter open · Esc close','↑ ↓ elegir · Intro abrir · Esc cerrar');
+ byId('fgpDialog')?.setAttribute('aria-label',words('Find FoamLens command','Buscar comando FoamLens'));
+ const search=byId('fgpSearch');
+ if(search){search.setAttribute('aria-label',words('Search original commands','Buscar comandos originales'));
+  search.placeholder=words('Find a workspace or tool…','Buscar espacio o herramienta…');}
+ byId('fgpClose')?.setAttribute('aria-label',words('Close command search','Cerrar búsqueda'));
+ if(open){commands=collect();paint()}
+}
 function addStyles(){
  if(byId('fgpStyles'))return;
  const st=document.createElement('style');st.id='fgpStyles';
@@ -172,13 +186,13 @@ function install(){
  trigger=document.createElement('button');trigger.type='button';trigger.id='fgpTrigger';trigger.className='fgpTrigger';
  trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-controls','fgpOverlay');
  const icon=document.createElement('span');icon.setAttribute('aria-hidden','true');icon.textContent='⌕';
- const label=document.createElement('span');label.className='fgpTriggerLabel';label.textContent=words('Find','Buscar');
+ const label=document.createElement('span');label.id='fgpTriggerLabel';label.className='fgpTriggerLabel';label.textContent=words('Find','Buscar');
  const hint=document.createElement('span');hint.className='fgpKbd';hint.textContent='Ctrl K';
  trigger.append(icon,label,hint);trigger.addEventListener('click',show);
  tabs.append(trigger);
  overlay=document.createElement('div');overlay.id='fgpOverlay';overlay.className='fgpOverlay';overlay.hidden=true;
  overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close()});
- const dialog=document.createElement('section');dialog.className='fgpDialog';dialog.setAttribute('role','dialog');
+ const dialog=document.createElement('section');dialog.id='fgpDialog';dialog.className='fgpDialog';dialog.setAttribute('role','dialog');
  dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',words('Find FoamLens command','Buscar comando FoamLens'));
  const header=document.createElement('div');header.className='fgpHead';
  input=document.createElement('input');input.id='fgpSearch';input.className='fgpSearch';input.type='search';
@@ -187,15 +201,17 @@ function install(){
  input.setAttribute('aria-label',words('Search original commands','Buscar comandos originales'));
  input.placeholder=words('Find a workspace or tool…','Buscar espacio o herramienta…');
  input.addEventListener('input',()=>{selected=0;paint()});
- closeButton=document.createElement('button');closeButton.type='button';closeButton.className='fgpClose';
+ closeButton=document.createElement('button');closeButton.id='fgpClose';closeButton.type='button';closeButton.className='fgpClose';
  closeButton.setAttribute('aria-label',words('Close command search','Cerrar búsqueda'));
  closeButton.textContent='×';closeButton.addEventListener('click',close);
  header.append(input,closeButton);
  list=document.createElement('div');list.id='fgpResults';list.className='fgpResults';list.setAttribute('role','listbox');
- const footer=document.createElement('div');footer.className='fgpFoot';
+ const footer=document.createElement('div');footer.id='fgpFooter';footer.className='fgpFoot';
  footer.textContent=words('↑ ↓ choose · Enter open · Esc close','↑ ↓ elegir · Intro abrir · Esc cerrar');
  dialog.append(header,list,footer);overlay.append(dialog);document.body.append(overlay);
  document.addEventListener('keydown',keydown,true);
+ document.addEventListener('change',e=>{if(e.target?.id==='language')refreshLabels()},true);
+ document.addEventListener('foamlens-language-change',refreshLabels);
  mounted=true;lastError='none';
  return true;
 }
