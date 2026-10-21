@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "4f0efa609e6ff22c81d1c400e28e75f3bf4f22f19fb0325d01356fa9f3134a20",
+  "inventory_fingerprint": "d88dc73b1e6fa413e482e63647463d1460eb906a3b0910b1b578e13429b7406a",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -221,7 +221,7 @@
       "role": "agent",
       "purpose": "assistant role/instructions",
       "certainty": "rule",
-      "blob": "4416e35a2a690f847eaaf05abff28fc72022fee7"
+      "blob": "cf840137cf75591f1d8a6d7b8e57e85ec941d2eb"
     },
     {
       "path": "CHANGELOG.md",
