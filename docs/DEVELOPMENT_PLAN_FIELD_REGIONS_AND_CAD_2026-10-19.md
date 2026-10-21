@@ -22,6 +22,12 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #158 — Developer twin annotation triage candidate
+
+- Existing Developer-only binary/profile/installer and annotated JSON + AI prompt export remain as implemented. The Granada candidate adds priority P0–P2, workflow status and note filter, explicit locator inspection (unique/same tag/section) and last observed status/time without discarding or remapping owner notes when controls move.
+- Independent runtime WebView2 Developer smoke and Ubuntu/Windows persistent-note tests; untrusted event metadata cannot overwrite observed severity/source/message. No public frontend/scientific source changes or release.
+- Outstanding #158: real installed owner acceptance, source-module mapping, account/workspace auth parity if such public routes are implemented, renderer and native bridge security, private distribution and export/privacy review. Candidate guide: `docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md`.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

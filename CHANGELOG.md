@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #158: Developer-only section note triage and locator integrity
+
+- Extend the **existing separate Developer binary**, not the public scientific frontend. Persistent location-linked owner annotations now support P0/P1/P2 priority and open/investigating/resolved status, editable across Developer restarts, with status filter and last-inspected locator integrity.
+- Explicit DOM location inspection reports unique located / missing / ambiguous / changed element / different route / not inspected, with timestamp/reason, **without silently reattaching notes** to another control. Include user-reported priority/status/locator evidence in Developer JSON and AI prompt separate from actual errors or automation results.
+- Harden untrusted WebView2 event metadata so arbitrary payload keys cannot overwrite recorded severity/source/message; normalize persisted pin/rectangle numbers; no background upload or scientific case modification.
+- Independent Ubuntu/Windows note-persistence regression and real native Developer exe/WebView2 smoke CI. Existing standard public FoamLens binary unaffected; owner installed Setup validation and broader app-boundary privacy/auth tests remain pending. No public release.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.

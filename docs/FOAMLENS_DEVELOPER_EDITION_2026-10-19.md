@@ -54,3 +54,12 @@ No telemetry upload/network request is made by the auditor. Exports are local us
 - [ ] Manual Windows: install both versions, launch together, show isolated workspace settings and installer cleanup. Verify audit prompt/JSON copied/exported and no developer controls in normal app.
 - [ ] Privacy: never upload developer binary by default. No public release without explicit authorization.
 
+
+
+## Operación Granada #158 — owner note triage add-on (unreleased, 2026-10-19)
+
+An independent Developer-only candidate adds user-chosen P0/P1/P2 priority, open/investigating/resolved status, status filtering, and a **Check saved locations** action. The normal Run Audit checks can also re-inspect every persisted locator for a unique element on the current route with the saved original tag and section label. The last-observed states are located, missing, ambiguous, changed-element, different-route and not-inspected. A moved or removed original control is retained as an unresolved note; it is **never** mapped silently to an unrelated element. These findings prove DOM locator condition only, not the truth of the owner's reported bug.
+
+Combined JSON / AI prompts retain the owner's exact location and comment plus triage and last inspection states, independently of actual observed errors. The persisted WebView2 profile is still isolated from the standard app; source research data is not uploaded. Current public FoamLens does not assert a supported login workflow; no fake login/bypass is introduced.
+
+Isolated CI: existing `developer-twin-audit.test.cjs`, new `developer-note-triage.spec.cjs` and actual Windows Developer.exe WebView2 smoke via `desktop/developer/build-developer.ps1 -SkipInstaller`. See `docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md`. This add-on remains **unreleased** until owner's installed Developer/Setup acceptance and explicit distribution authorization.

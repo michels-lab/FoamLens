@@ -8,6 +8,16 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #158: Developer annotation triage and safe locator follow-up (candidate)
+
+- Stable main `cbf384b81948334b71f1fc67096b026e65b79583`. All active scientific WIP branches #162, #164–#172 skipped, including two overlapping #153 front PRs #170/#171. No edits to their branches, shared scientific frontend, Windows Program.cs or released binary. Independent branch `feat/granada-158-developer-annotation-triage-20261019` owns only `Developer/Audit.js`, isolated tests/CI and docs.
+- Audited existing developer twin: conditional `FoamLensDeveloper.exe`, distinct WebView2 profile/installer identity, native Developer smoke, persistent section pinpoint notes and bounded JSON/AI prompts already exist. Avoid rebuilding existing functionality or claiming the separate edition was newly invented.
+- New triage: original section-anchored notes carry editable **P0/P1/P2** priority, **open/investigating/resolved** workflow status; UI filters and **Check saved locations** button, plus explicit locator inspection during Run Audit checks. Resolve original DOM selector only if unique, same route, same element tag and human-readable section; report located/missing/ambiguous/changed-element/different-route/not-inspected with last-inspected timestamp and preserve the unmodified original target and comment across navigation/restart. Do not treat note contents as proved software defects.
+- JSON and AI repair prompt include priority/status/last locator state with owner-authored comment and selector, separately from observed exceptions/automated DOM checks. Event metadata allowlist prevents arbitrary host/payload keys overwriting original severity/source/message/page; localStorage rectangle/pin coordinates validated and bounded. Public frontend remains unchanged.
+- CI new dedicated `granada-developer-note-triage.yml` checks existing isolation and the new VM persistence/location/secret tests on Ubuntu and Windows, and **builds and runs the real Windows separate Developer WebView2 smoke** without public artifact upload. First Node run discovered test-only route simulation error (string var changed but the JS VM retained its own location); corrected by mutating a shared location object. Exact current-head CI statuses must be verified before claiming green.
+- Remaining #158: complete native bridge security audit and workload/wallet/cloud boundary-denial tests, private developer installer installed/owner acceptance, actual authorization parity if public login ever exists, multiple routes/workspaces and explicit source-module mapping of findings, export-review controls. No version bump, merging or public release authorized; see `docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md`.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
