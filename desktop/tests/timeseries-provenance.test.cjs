@@ -104,4 +104,62 @@ check('Provenance labels override chart titles only in Time Series',()=>{
     timeseries:'Column 0 (unidentified)',physical:'Temperature',profile:'0'
   });
 });
+
+check('Actual provenance DOM refresh follows case and field filters and removes stale panels',()=>{
+  const start=src.indexOf('function tsdUpdateScientificEvidence(){'),
+    end=src.indexOf('function tsdRefreshTimeSeriesControls(){',start);
+  assert(start>0&&end>start);
+  const nodes={};
+  class El{
+    constructor(tag){this.tag=tag;this.children=[];this.dataset={};this.value='';this.open=false}
+    appendChild(child){this.children.push(child);return child}
+    replaceChildren(){this.children=[]}
+    insertAdjacentElement(place,child){nodes[child.id]=child}
+    remove(){delete nodes[this.id]}
+  }
+  nodes.timeSeriesFilterHint=new El('div');
+  nodes.timeSeriesVariable=new El('select');
+  nodes.timeSeriesVariable2=new El('select');
+  nodes.timeSeriesVariable.value='T';
+  const document={
+    getElementById:id=>nodes[id]||null,
+    createElement:tag=>new El(tag)
+  };
+  let selectedCase=null;
+  let rows=[
+    {...s('T','metal/probes/T','K','[0 0 0 1 0 0 0]','temperature'),caseId:1},
+    {...s('T','mold/probes/T','°C','[0 0 0 1 0 0 0]','temperature'),caseId:2},
+    {...s('0','<img src=x onerror=alert(1)>','-','','unknown'),caseId:1}
+  ];
+  const run=new Function('document','timeSeriesOptionsBase','tsdMatchesFilters',
+    'tsdUi','tsdSourceEvidence',
+    src.slice(start,end)+';return tsdUpdateScientificEvidence')(
+    document,()=>rows,
+    row=>row.field.canonical===nodes.timeSeriesVariable.value&&
+      (!selectedCase||row.caseId===selectedCase),
+    (en)=>en,api.tsdSourceEvidence);
+  run();
+  let panel=nodes.tsdScientificEvidence;
+  assert(panel&&panel.open,'Incompatible selected cases must expand the evidence panel');
+  assert(panel.children[1].children.some(child=>child.tag==='p'),
+    'Mixed known units must produce a warning');
+  selectedCase=1;run();
+  panel=nodes.tsdScientificEvidence;
+  assert(panel,'Selected case must preserve evidence');
+  assert.equal(panel.children[1].children.some(child=>child.tag==='p'),false,
+    'A filtered-out second case must not cause a false units warning');
+  nodes.timeSeriesVariable.value='0';run();
+  panel=nodes.tsdScientificEvidence;
+  assert(panel.children[1].children.some(child=>child.tag==='p'),
+    'An unverified numeric field must warn the user');
+  const sourceText=panel.children[1].children.map(child=>child.textContent||'').join('\n');
+  assert(sourceText.includes('<img src=x onerror=alert(1)>'),
+    'Literal untrusted source metadata must remain text');
+  nodes.timeSeriesVariable.dataset.showAll='1';run();
+  assert.equal(nodes.tsdScientificEvidence,undefined,
+    'Source details must disappear when all-variable mode is selected');
+  delete nodes.timeSeriesVariable.dataset.showAll;rows=[];run();
+  assert.equal(nodes.tsdScientificEvidence,undefined,
+    'Empty data must not leave stale source warnings');
+});
 console.log('PASS: '+count+' FoamLens Time Series provenance and identity tests');
