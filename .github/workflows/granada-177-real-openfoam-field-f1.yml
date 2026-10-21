@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021]
   pull_request:
     branches: [feat/granada-177-g5-all-native-workspaces-20261021]
 
@@ -202,6 +202,23 @@ jobs:
         run: |
           node tools/test_granada_g5_native_capture_host.cjs
           node tools/granada_g5_native_capture_host.cjs --report=artifacts/granada-g5-native-host-graft.json
+      - name: Add pinned G7 compact UI to temporary native Windows test app only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='fa864aac7c92b39dff6801e9ef1067008f6b986c'
+          found="$(git ls-remote origin refs/pull/205/head | awk '{print $1}')"
+          if [[ "$found" != "$expected" ]]; then
+            echo "::error::G7 PR #205 source SHA drift; do not capture unreviewed module"
+            exit 1
+          fi
+          git fetch --no-tags origin "+refs/pull/205/head:refs/remotes/granada/g7-pr205"
+          test "$(git rev-parse refs/remotes/granada/g7-pr205)" = "$expected"
+          git show "$expected:desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js" > desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js
+          git show "$expected:tools/granada_g7_compact_workbench.test.cjs" > tools/granada_g7_compact_workbench.test.cjs
+          node --check desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js
+          node --test tools/granada_g7_compact_workbench.test.cjs
+          echo 'Exact PR #205 G7 source and original handler tests passed; bundling test-only'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -221,7 +238,7 @@ jobs:
             $names=@($zip.Entries | ForEach-Object FullName)
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
-              'v16-multipanel-export.js')) {
+              'v16-multipanel-export.js','v27-granada-compact-workbench.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
