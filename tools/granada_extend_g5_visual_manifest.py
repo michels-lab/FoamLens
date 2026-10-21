@@ -45,7 +45,7 @@ def extend(doc,root:Path):
                     raise ValueError("No real native CDP PNG plus navigation state for "+str(key))
                 state=json.loads(meta.read_text(encoding="utf-8"))
                 if (state.get("ok") is not True or state.get("surface")!=surface or
-                        state.get("caseCount",0)<1 or state.get("actualMode") is not True or
+                        state.get("sourceRegionCount",0)<2 or state.get("actualMode") is not True or
                         state.get("realTab") is not True or state.get("panelReady") is not True or
                         state.get("secondary") is not True):
                     raise ValueError("Wrong tab, source-less or hidden real native screen "+str(key))
