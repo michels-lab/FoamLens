@@ -4,7 +4,7 @@
 
 ## Provenance and goal
 - Original 36-image genuine B13 installed+portable Windows test [run 39653782246](https://github.com/michels-lab/FoamLens/actions/runs/39653782246), source `ddbd8405c9d4d1c7efc7f0e065a82fce16208c4f`, showed **Data → Time Series compact** as a very narrow graph beside a dominant imported-case sidebar. Other 35 capture slots are independent evidence and must remain available.
-- Source owner PR #209 provides `v28-granada-compact-timeseries.js`, pinned **exactly** at `77e74277ec434ecdbc297eca95d312beaf3bdb35`, after its dedicated two-OS original-selector tests passed. Pinning fails closed on any head movement.
+- Source owner PR #209 provides `v28-granada-compact-timeseries.js`, pinned **exactly** at `062799febaedd0f93eda47dfcc58050da50281ed`, after its dedicated two-OS original-selector tests passed. Pinning fails closed on any head movement.
 - The existing original 16-science/CAD/Field case-source hashes, G7 #205 exact pin, five B13 metal/mold cases, installer/portable EULA/shortcuts/install/uninstall, SHA artifact parity and original 36 visual-integrity slots are preserved.
 - The only workflow delta is new G8 pinned source stage + original source tests in ephemeral Windows checkout before creating AppBundle.zip and requiring the exact new module inside the bundle. No product source on the original owner branches is altered and no releases are published.
 
