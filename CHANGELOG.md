@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada: measured equivalent observables 2D ↔ 3D (#154)
+
+- Add an independent Analysis tool to compare two user-designated 2D/3D cases by **measured equivalent observable** rather than subtracting unrelated OpenFOAM meshes.
+- Explicit user confirmation of physical location/region/normalization equivalence; strict source provenance and compatible OpenFOAM dimensions/units. Convert verified Celsius/Kelvin, pressure kPa/Pa, power kW/W; no unknown scale assumptions.
+- Interpolate only inside overlapping original physical times; calculate bias (3D−2D), RMSE, MAE, max absolute difference and sample provenance. Display source curve comparison; export aligned CSV and JSON evidence.
+- Add scientific regression and actual packaged Windows WebView2 smoke. This partial implementation does **not** certify mesh dimensionality, spatial equivalence, field-to-field differences or owner experimental accuracy. No version bump/release. Scope tracked in #154.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
