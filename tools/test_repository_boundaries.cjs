@@ -26,7 +26,7 @@ const FOREIGN = [
 const OWNED = /^(?:desktop\/|tools\/|scripts\/|src\/|tests\/|assets\/|frontend\/|web\/|app\/|\.github\/workflows\/|index\.html$)/i;
 const TEXT = /\.(?:cs|csproj|vb|fs|py|js|cjs|mjs|ts|tsx|jsx|html|css|json|xml|props|targets|config|yml|yaml|ps1|iss|cmd|bat|sh)$/i;
 const CODE_REFERENCE = /\b(?:require\s*\(|import\s+|import\s*\(|from\s*['"]|using\s+|#include\s*[<"]|add_subdirectory\s*\(|source\s*\(|include\s*\()/i;
-const PRODUCT_ID = /\b(?:appId|productName|assemblyName|executableName|applicationName|bundleId|packageId|shortcutName|appTitle)\b\s*[:=]/i;
+const PRODUCT_ID = /\b(?:appId|productName|assemblyName|executableName|applicationName|bundleId|packageId|shortcutName|appTitle)\b\s*['"]?\s*[:=]/i;
 const DATA_REFERENCE = /(?:^|[^\w])(?:fixture|testdata|test[_-]?data|asset|resource|installer|release|artifact|binary|executable|targetpath|sourcepath|programfiles|appdata|desktopshortcut|appname)\b/i;
 const PATH_REFERENCE = /(?:[./\\]|['"])[^'"]{0,140}(?:\.exe|\.dll|\.csproj|\.appx|\.msix|\.js|\.json|\.zip)\b/i;
 const MAX_BYTES = 2 * 1024 * 1024;
