@@ -31,6 +31,17 @@ class RealNativeCaptureManifestContracts(unittest.TestCase):
   self.assertEqual(len(res["screenshots"]),36)
   self.assertFalse(res["granada_g5_source_bound_native_captures"]["human_visual_approved"])
   self.assertFalse(res["granada_g5_source_bound_native_captures"]["release_candidate_created"])
+ def test_canonical_runtime_capture_methods_preserve_native_cdp_provenance(self):
+  shotlist=self.expand()["screenshots"][16:]
+  self.assertEqual(len(shotlist),20)
+  for shot in shotlist:
+   expected=("installed-windows-desktop" if shot["runtime_variant"]=="installed" else "running-desktop-app")
+   self.assertEqual(shot["capture_method"],expected)
+   self.assertEqual(shot["capture_implementation"],"real-native-WebView2-CDP-after-B13-import")
+   self.assertEqual(shot["candidate_artifact_sha256"],
+     self.data["artifact_sha256"]["windows"] if shot["runtime_variant"]=="installed"
+     else self.data["portable_artifact_sha256"]["windows"])
+   self.assertTrue((self.manifest.parent/shot["path"]).is_file())
  def test_native_screenshot_missing_fails(self):
   (self.manifest.parent/"portable/time-series-wide.png").unlink()
   with self.assertRaisesRegex(ValueError,"No real WebView2"):self.expand()
