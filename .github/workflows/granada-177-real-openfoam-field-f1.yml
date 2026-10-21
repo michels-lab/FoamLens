@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -257,6 +257,20 @@ jobs:
           node desktop/tests/timeseries-source-catalog.test.cjs
           node desktop/tests/timeseries-provenance.test.cjs
           echo 'Merged T1 exact source and original Time Series + provenance tests passed in ephemeral G8 host'
+      - name: Pin merged G10 outside-canvas original Preview Tools in temporary G9 native host
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='ab9faa151e8afa3b3379b4758d80aa7c12fd615e'
+          file='desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js'
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g10-main'
+          git merge-base --is-ancestor "$expected" refs/remotes/granada/g10-main
+          test "$(git rev-parse "$expected:$file")" = '7bc5a1288de579739fc0656d0c0599e6948a2052'
+          git show "$expected:$file" > "$file"
+          git show "$expected:tools/granada_g10_preview_toolbar.test.cjs" > tools/granada_g10_preview_toolbar.test.cjs
+          node --check "$file"
+          node --test tools/granada_g10_preview_toolbar.test.cjs
+          echo 'G10 original no-overlay toolbar: exact merged source, 9 DOM/keyboard/failure tests; staged only in temporary native host'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -276,7 +290,8 @@ jobs:
             $names=@($zip.Entries | ForEach-Object FullName)
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
-              'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js')) {
+              'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js',
+              'v29-granada-plot-toolbar.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
@@ -298,6 +313,21 @@ jobs:
             }
             Write-Host 'The exact staged T1 source is present in the real Windows WebView2 AppBundle'
           } finally { $archive.Dispose() }
+      - name: Prove G10 native package includes ORIGINAL out-of-plot toolbar and no duplicate actions
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $entry=$zip.GetEntry('v29-granada-plot-toolbar.js')
+            if (-not $entry) { throw 'G10 real native AppBundle is missing original UI module' }
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try { $content=$reader.ReadToEnd() } finally { $reader.Dispose() }
+            foreach ($required in @('function restore()', 'function move()', "tools.parentNode!==originalParent", 'window.FoamLensGranadaG10')) {
+              if (-not $content.Contains($required)) { throw "G10 native module missing original DOM safety assertion: $required" }
+            }
+            Write-Host 'G10 original source is in native package; preview/pin control identity retained'
+          } finally { $zip.Dispose() }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
         run: |
