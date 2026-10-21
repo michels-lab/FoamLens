@@ -33,10 +33,14 @@ test('all five real UI tabs are checked with original DOM controls',()=>{
  assert(METHOD.includes('modeOk&&titleOk&&splitOk&&dataOk&&viewportOk'))
 });
 test('original mode-owned headers, not hidden global Ribbon title, certify each real workspace',()=>{
- for(const s of ['dataViewTitle','analysisSubNav','reviewTitle','liveTitle','fwGrid'])
+ for(const s of ['flRibbonPanel-data','flRibbonPanel-analysis','reviewTitle','liveTitle','fwGrid'])
   assert(METHOD.includes("'"+s+"'"),'Missing actual owned UI header '+s);
  assert(!METHOD.includes("document.querySelector('.top h2')"));
  assert(METHOD.includes('getComputedStyle(title).display'));
+ for(const s of ['flRibbonTab-data','flRaDataTimeSeries','flRibbonTab-analysis','flRaReview','flRaLive'])
+  assert(METHOD.includes("'"+s+"'"),'Must navigate the real visible Ribbon '+s);
+ assert(!METHOD.includes("el('modeData')?.click()"));
+ assert(!METHOD.includes("el('modeReview')?.click()"));
 });
 test('both physical capture sizes and evidence path must exist',()=>{
  assert(METHOD.includes('1140'));assert(METHOD.includes('640'));
