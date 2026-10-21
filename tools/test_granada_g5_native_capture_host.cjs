@@ -55,6 +55,21 @@ test('Time Series identifies visible original action by accessible name, not the
  assert(METHOD.includes("el('timeSeriesTab')?.classList.contains('active')"),'Real data view must be selected');
  assert(!METHOD.includes("key==='time-series'?el('flRibbonPanel-data')"),'Empty parent title is regression');
 });
+test('G5 snapshots original Data view and restores it before native cross-session checks',()=>{
+ const scope=METHOD.indexOf('var originalViewJson');
+ const tabBegin=METHOD.indexOf('var tabs =');
+ const restore=METHOD.indexOf('var restore =');
+ assert(scope>0&&scope<tabBegin,'Capture exact pre-audit Data view before navigating');
+ assert(restore>tabBegin,'Restore only after actual G5 captures');
+ assert(METHOD.includes("typeof currentDataView==='string'?currentDataView:null"),'Use actual currentDataView source');
+ assert(METHOD.includes('JsonSerializer.Deserialize<string>(originalViewJson)'),'Require exact named view from WebView2');
+ assert(METHOD.includes('JsonSerializer.Serialize(originalView)'),'Encode original mode safely in JS');
+ assert(METHOD.includes("typeof setDataView!=='function'"),'No simulated success if native setter absent');
+ assert(METHOD.includes('setDataView(previous)'),'Use original Data view setter; not a fabricated DOM class');
+ assert(METHOD.includes('currentDataView===previous'),'Confirm actual restored state');
+ assert(METHOD.includes('G5 original Data view state restoration failed'),'Do not ignore session corruption');
+ assert(!METHOD.includes("setDataView('catalog')"),'Must not hard-code catalog (works only for one initial view)');
+});
 test('both physical capture sizes and evidence path must exist',()=>{
  assert(METHOD.includes('1140'));assert(METHOD.includes('640'));
  assert(METHOD.includes('CaptureCdpPngAsync'));
