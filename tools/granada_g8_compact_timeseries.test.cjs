@@ -10,7 +10,7 @@ function fixture({width=640,mode='data',dataView='timeseries',language='en',miss
    this._classes=new Set();this.classList={add:k=>{this._classes.add(k);this.changed()},remove:k=>{this._classes.delete(k);this.changed()},contains:k=>this._classes.has(k),toggle:(k,v)=>{if(v===undefined?v:!!v)this._classes.add(k);else this._classes.delete(k);this.changed()}};}
   set id(v){if(this._id)ids.delete(this._id);this._id=v;if(v)ids.set(v,this)}get id(){return this._id||''}
   set className(x){this._classes=new Set(x.split(/\s+/).filter(Boolean))}get className(){return [...this._classes].join(' ')}
-  changed(){for(const o of observers)if(o.target===this)o.callback()}
+  changed(){for(const o of observers)if(o.targets.has(this))o.callback()}
   setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}
   append(...items){for(const x of items){x.parentNode=this;this.children.push(x)}}
   prepend(...items){for(const x of items.reverse()){x.parentNode=this;this.children.unshift(x)}}
@@ -48,7 +48,7 @@ function fixture({width=640,mode='data',dataView='timeseries',language='en',miss
  const details=new Element('details');details.id='fwDataFieldHistories';side?.append(details);
  if(mode)document.body.classList.add('appMode-'+mode);
  const window={innerWidth:width,innerHeight:900,addEventListener:(k,f)=>(winEvents[k]??=[]).push(f),emit:k=>{for(const f of winEvents[k]||[])f()}};
- const Observer=function(callback){this.callback=callback;this.observe=node=>{this.target=node;observers.push(this)};this.disconnect=()=>{}};
+ const Observer=function(callback){this.callback=callback;this.targets=new Set();this.observe=node=>{this.targets.add(node);if(!observers.includes(this))observers.push(this)};this.disconnect=()=>{this.targets.clear()}};
  vm.runInNewContext(source,{document,window,MutationObserver:Observer,ResizeObserver:Observer},{timeout:3000});
  const api=window.FoamLensGranadaG8;
  return {document,window,api,app,side,controls,chart,tab,utility,languageEl,details,originalParent:side,
