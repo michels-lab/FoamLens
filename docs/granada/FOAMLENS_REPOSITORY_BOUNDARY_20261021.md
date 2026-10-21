@@ -1,3 +1,10 @@
+## Integrated verification — 2026-10-21
+
+- **Merged into main:** PR [#208](https://github.com/michels-lab/FoamLens/pull/208), squash SHA `18698eea67b60132d9060b9746dc5716964312e0`, after verified PR head `b56ceaa0121d31f81ffb75662067ff7705094526`.
+- **Exact PR-head CI:** [GitHub Actions #39658724876](https://github.com/michels-lab/FoamLens/actions/runs/39658724876) — Ubuntu **SUCCESS**, Windows **SUCCESS**. Ubuntu evidence: 32 boundary regression assertions PASS, 174 tracked source/test files inspected with zero foreign-app executable/fixture/identity detections, 12 existing File Steward scientific tests PASS and read-only tracked-tree audit PASS. Windows same new boundary workflow completed SUCCESS.
+- An earlier run correctly failed when a JSON-quoted `productName` property bypassed an initial detector pattern. That bug was fixed (commit `b56ceaa`), then both OS jobs passed; the initial red run is retained as negative development evidence.
+- **Not a FoamLens app release:** no new version, installer, binary or native installed-app UI/scientific acceptance claimed. Future code changed after this merge must be validated on its own SHA.
+
 # Operación Granada — FoamLens source ownership gate (2026-10-21)
 
 ## What changed
