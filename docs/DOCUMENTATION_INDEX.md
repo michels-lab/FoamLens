@@ -8,6 +8,7 @@
 - [Gobierno Michel's Lab](../MICHELS_LAB_PROJECT.md)
 - [Registro de pertenencia/estándares](../.michelslab/project.yml)
 - [Operación Granada](../.michelslab/GRANADA.md)
+- [Granada — protección del código y pruebas entre apps (PR #208)](granada/FOAMLENS_REPOSITORY_BOUNDARY_20261021.md)
 
 ## Manuales y especificaciones
 - [Plan Field / regiones / CAD / auditorías](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md)
