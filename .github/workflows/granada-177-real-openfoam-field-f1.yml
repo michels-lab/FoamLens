@@ -226,7 +226,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected='770ebaf7ffee43089579fbe7e30fca63d8bf8df3'
+          expected='a2fa8ac52815949652c89f37b0f95d86d9b15719'
           found="$(git ls-remote origin refs/pull/209/head | awk '{print $1}')"
           if [[ "$found" != "$expected" ]]; then
             echo '::error::G8 PR #209 head changed; recapture must use a new explicitly pinned reviewed SHA'
