@@ -106,7 +106,7 @@ function checkSource(root,readFromOwner,expectedHead,{verifyOnly=false}={}){
  try{new Function(ordered.map(p=>bytes.get(p).toString('utf8')).join('\n;\n'));}
  catch(e){throw Error('Shared native lexical collision: '+e.message);}
  report.frontend_modules=ordered.map(p=>({name:path.basename(p),sha256:hash(bytes.get(p))}));
- const workflowPath=path.join(rootPath,WORKFLOW),currentWorkflow=fs.readFileSync(workflowPath);
+ const workflowPath=path.join(rootPath,WORKFLOW),currentWorkflow=fs.readFileSync(workflowPath,'utf8');
  const baseWorkflow=readFromOwner(0,BASE,WORKFLOW);
  if(!Buffer.isBuffer(baseWorkflow)||hash(Buffer.from(currentWorkflow))!==hash(baseWorkflow))
   throw Error('Mandatory Windows workflow baseline drift');
