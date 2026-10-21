@@ -8,6 +8,16 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #117: real-case first/repeat benchmark collector (unreleased)
+
+- Read stable `main` `cbf384b81948334b71f1fc67096b026e65b79583` and active unfinished PRs #162 Field, #164 CAD, #165 2D/3D, #166 Energy, #167 Thermocouple, #168 Case Health, #169 Phase/Momentum and **two independent competing #153 Front PRs #170/#171**. Granada explicitly skipped those areas and chose standalone scientific performance issue #117. New branch `feat/granada-117-real-case-benchmark-evidence-20261019` only changes the independent benchmark script, specs, CI and documentation.
+- Verified existing **native** `NativeCaseCatalog.cs` already persists a post-scan file/directory inventory with integrity SHA-256 and corruption/partial-scan protection. Existing `flSanitizedImportPerformanceReport` and `tools/compare-import-performance.cjs` already export/compare real UI parsing, stage and first-interaction timing. No duplicate implementation and no false claim that native pre-scan incremental catalog/reuse is complete.
+- Added `tools/benchmark-real-case.cjs` with read-only deterministic source scan, bounded files (250k), complete sequential SHA-256 of every file, cross-pass aggregate path+size+contents hash for dataset identity and sources count/mix/total bytes. Captures only real **Node process** enumeration/read timings and sampled heap/RSS. GUI import data remains separate optional owner UI report; no OS disk-cache clearing, no app launched by CLI, and user-assigned UI ↔ source data association is explicitly **unverified**.
+- Fail-closed safety: no source file or secret path/field data exported; no per-file digest; output only outside case; symlinks/special entries, modified or incomplete files, cancellation and mismatched identities reject; CLI suppresses private filenames inside Node I/O error messages.
+- Added `tools/tests/benchmark-real-case.test.cjs` and Ubuntu/Windows workflow `granada-117-real-case-benchmark.yml` with **synthetic** 3,008 actual-created files (first/repeat full hash, same-size content modification), 10,000 tiny metadata files, privacy tests, UI-perf comparison and existing large-project parser stress. First run failed solely on a hyphenated category test assertion interpreted as subtraction; corrected. Latest exact-head result to be confirmed separately. CI synthetic times **do not** represent a real owner 2D-case speedup.
+- Full owner-real 3,008-file Windows case, OS-cold measurement, CPU/RAM/GPU, native pre-scan incremental cache, high-volume actual mesh, UI installed version SHA and performance regression against 184.8-second screenshot all remain **open #117**. Protocol in `docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md`. No version bump/merge/release authorized.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
