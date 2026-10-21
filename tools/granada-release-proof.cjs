@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {imageStatus}=require('./granada-png-proof.cjs');
 const SCHEMA='foamlens/granada-final-release-proof/1';
 const SOURCE='foamlens/granada-github-snapshot/1';
-const REQUIRE_PRS=[162,175,179,180,181,183,184,194,195,196];
+const REQUIRE_PRS=[162,175,179,180,181,183,184,194,195]; // #196 is a non-mergeable temporary CI composite, not a product dependency.
 const TABS=['Home','Data','3D-Field','Analysis','Export','View','Review','Live'];
 const PLATFORMS=['setup','portable'];
 const SHA=/^[a-f0-9]{40}$/;
@@ -112,11 +112,11 @@ function inspect(snapshot,proof,root){
  });
  if(each&&valid.length>=36)pass('native-36-screenshot-matrix');
  else fail('native-36-screenshot-matrix','Need 36 unique source+artifact-bound real PNG captures covering 8 tabs/Setup/Portable/widths/DPI; validated '+valid.length);
- if(proof.finalDistribution?.sourceSha===head&&proof.finalDistribution?.updateManifestVerified===true&&
- proof.finalDistribution?.releaseNotesComplete===true&&proof.finalDistribution?.sha256Published===true&&
- proof.finalDistribution?.assetsChecked===true&&proof.finalDistribution?.signingStateDeclared===true)
+ if(proof.finalDistribution?.sourceSha===head&&proof.finalDistribution?.updateFeedPlanVerified===true&&
+ proof.finalDistribution?.releaseNotesComplete===true&&proof.finalDistribution?.checksumFilesGenerated===true&&
+ proof.finalDistribution?.stagedArtifactsVerified===true&&proof.finalDistribution?.signingStateDeclared===true)
  pass('official-distribution-readiness');
- else fail('official-distribution-readiness','Final notes/asset checks/update feed/checksums/signing truth incomplete');
+ else fail('official-distribution-readiness','Staged final assets/notes/checksum files/updater feed plan/signing truth incomplete');
  return{
   schema:'foamlens/granada-release-verdict/1',headSha:SHA.test(head||'')?head:null,
   readyToPublish:gates.every(g=>g.passed),
@@ -127,7 +127,7 @@ function inspect(snapshot,proof,root){
    'The proof JSON must originate from independently audited native/scientific CI; synthetic/test JSON is never real release evidence',
    'This tool never merges code, creates tags or publishes releases',
    'Owner visual review is recorded after publication, not forged before release',
-   'Latest public release, updater and remote assets must be rechecked after publishing'
+   'Do not require already-published assets before publishing; after release independently verify GitHub assets, checksums and update feeds'
   ]
  };
 }
