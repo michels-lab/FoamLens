@@ -19,7 +19,8 @@ const OWNERS=[
  {pr:184,sha:'5ca1a6788bcca9fbd0eeb2afaa6a47ed3e5e5d7d',files:[F+'v24-granada-g6-export-preflight.js','desktop/tests/granada-177-g6-export-preflight.spec.cjs']},
  {pr:194,sha:'e60225630dc95d8a277c9090e110fbc874e75dfd',files:['tools/granada-ui-audit/audit-diff.cjs','tools/granada-ui-audit/audit-diff.test.cjs']},
  {pr:195,sha:'0321ab308cc88271d0bcd912eee5e772082c686b',files:[F+'v25-granada-field-source-dock.js','desktop/tests/granada-177-g2-field-source-dock.test.cjs']},
- {pr:201,sha:'a359756982686e454dc9f2433912c966a7a6d784',files:[F+'v26-granada-command-search.js','tools/granada_command_search.test.cjs']}
+ {pr:201,sha:'a359756982686e454dc9f2433912c966a7a6d784',files:[F+'v26-granada-command-search.js','tools/granada_command_search.test.cjs']},
+ {pr:205,sha:'fa864aac7c92b39dff6801e9ef1067008f6b986c',files:[F+'v27-granada-compact-workbench.js','tools/granada_g7_compact_workbench.test.cjs']}
 ];
 const original=new Set([F+'v14-field-view.js',F+'v14-z-field-compare.js','desktop/tests/field-compare.test.cjs']);
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -27,7 +28,7 @@ const same=(a,b)=>Buffer.from(a).equals(Buffer.from(b))||Buffer.from(a).toString
   Buffer.from(b).toString('utf8').replace(/\r\n/g,'\n');
 function verifyManifest(owners=OWNERS){
  const expect=OWNERS.map(x=>x.pr),ids=new Set(),paths=new Set();
- if(owners.length!==expect.length)throw Error('Eleven pinned source owners are required');
+ if(owners.length!==expect.length)throw Error('Twelve pinned source owners are required');
  for(let i=0;i<owners.length;i++){
   const x=owners[i],standard=OWNERS[i];
   if(x.pr!==expect[i]||!/^[a-f\d]{40}$/.test(x.sha)||x.sha!==standard.sha||
@@ -40,7 +41,7 @@ function verifyManifest(owners=OWNERS){
    paths.add(p);
   }
  }
- if(paths.size!==26)throw Error('Source cardinality changed');
+ if(paths.size!==28)throw Error('Source cardinality changed');
  return paths;
 }
 function safe(root,p){
@@ -61,22 +62,22 @@ function workflowPatch(input){
  for(const file of ['field-multiregion-views.test.cjs','granada-177-g2-field-source-dock.test.cjs']){
   const command='node desktop/tests/'+file;
   if(text.includes(command))throw Error('Suite registered in baseline already');
-  text=text.replace(anchor,'      - name: Granada eleven-owner source test — '+file+
+  text=text.replace(anchor,'      - name: Granada twelve-owner source test — '+file+
    '\n        shell: pwsh\n        run: '+command+'\n\n'+anchor);
  }
  return text;
 }
 function syntaxCheck(bytes){
- const files=[...bytes.keys()].filter(p=>p.startsWith(F)&&/^v2[456]-/.test(path.basename(p)))
+ const files=[...bytes.keys()].filter(p=>p.startsWith(F)&&/^v2[4567]-/.test(path.basename(p)))
   .sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
- if(files.length!==8)throw Error('Exactly eight additive native frontend modules required');
+ if(files.length!==9)throw Error('Exactly nine additive native frontend modules required');
  try{new Function(files.map(p=>bytes.get(p).toString('utf8')).join('\n;\n'));}
  catch(e){throw Error('Original native shared-scope parse/collision: '+e.message);}
  return files;
 }
 function plan(root,read,head,{write=false}={}){
  verifyManifest();const base=fs.realpathSync(root),bytes=new Map(),report={
-  schema:'foamlens/granada-all-tabs-eleven-owner/1',base:BASE,staged:!!write,
+  schema:'foamlens/granada-all-tabs-twelve-owner/1',base:BASE,staged:!!write,
   kind:'EPHEMERAL_TEST_ONLY',originalHomePageRetained:true,noRelease:true,
   owners:[],modules:[],testManifestRegisteredOnce:true
  };
