@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -286,6 +286,23 @@ jobs:
           node --test tools/granada_g11_compact_chart_focus.test.cjs
           grep -Fq 'max-height:225px!important' "$file" || { echo '::error::G11 secondary variable/cases selector regression'; exit 1; }
           echo 'Original G11 chart-focus source, bilingual user toggle, saved-series protection and 11 tests validated'
+      - name: Pin G12 original Field Play 1140px responsive source into TEMPORARY B13 host only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='c7254c84dca3b4f53a931beaa578c85e1a5890bb'
+          found="$(git ls-remote origin refs/pull/226/head | awk '{print $1}')"
+          if [[ "$found" != "$expected" ]]; then
+            echo '::error::G12 PR #226 changed; do not silently inspect different Field/Play code'
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/pull/226/head:refs/remotes/granada/g12-original-field'
+          test "$(git rev-parse refs/remotes/granada/g12-original-field)" = "$expected"
+          git show "$expected:desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js" > desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js
+          git show "$expected:tools/granada_g12_wide_field_ribbon.test.cjs" > tools/granada_g12_wide_field_ribbon.test.cjs
+          node --check desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js
+          node --test tools/granada_g12_wide_field_ribbon.test.cjs
+          echo 'Original G12 source and negative Field Play clipping regressions pinned for real native WebView2'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -306,7 +323,7 @@ jobs:
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
               'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js',
-              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js')) {
+              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js','v31-granada-wide-field-ribbon.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
@@ -357,6 +374,21 @@ jobs:
               if (-not $content.Contains($required)) { throw "G11 source/series safety missing: $required" }
             }
             Write-Host 'Exact G11 source is in real WebView2 AppBundle; original Fit/series preserved'
+          } finally { $zip.Dispose() }
+      - name: Prove actual Windows AppBundle carries original G12 play-visibility diagnostic
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $entry=$zip.GetEntry('v31-granada-wide-field-ribbon.js')
+            if (-not $entry) { throw 'G12 Field Play responsive script missing from the actual compiled native package' }
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try { $content=$reader.ReadToEnd() } finally { $reader.Dispose() }
+            foreach ($required in @('FoamLensGranadaG12', 'playTextFits', 'playVisibleInViewport', 'flRibbonTimeGroup', '1025px', '1250px')) {
+              if (-not $content.Contains($required)) { throw "G12 original Field Play evidence contract missing: $required" }
+            }
+            Write-Host 'Original G12 time transport is present in genuine Windows AppBundle; no physics or input source mutated'
           } finally { $zip.Dispose() }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
