@@ -25,7 +25,7 @@ function fixture({width=1140,height=820,mode='field',ready=true,language='en',pl
  play.clientWidth=playWidth;play.scrollWidth=playScroll;
  play.textContent=language==='es'?'▶ Reproducir':'▶ Play';
  play.setAttribute('aria-label',language==='es'?'Reproducir en bucle':'Play loop');
- if(!loop)play.setAttribute('aria-label','No loop state');
+ if(!loop)play.setAttribute('aria-label','Standard playback');
  const clock=withClock?new El('fwTimeReadout'):null;if(clock)clock.textContent='t = 9.8 s';
  const shelf=new El('flFieldContextShelf');shelf.clientWidth=width;shelf.scrollWidth=2293;shelf.scrollLeft=870;
  const w={innerWidth:width,innerHeight:height};
