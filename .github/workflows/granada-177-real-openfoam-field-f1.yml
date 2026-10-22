@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -10,6 +10,7 @@ on:
       - feat/granada-g7-real-b13-installed-portable-36-20261021
       - test/granada-g8-real-b13-windows-captures-20261021
       - test/granada-g11-four-filter-native-b13-20261021
+      - test/granada-g12-real-b13-field-ribbon-20261022
 
 permissions:
   contents: read
@@ -304,6 +305,25 @@ jobs:
           node --check desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js
           node --test tools/granada_g12_wide_field_ribbon.test.cjs
           echo 'Original G12 source and negative Field Play clipping regressions pinned for real native WebView2'
+      - name: Pin G13 seven ORIGINAL labelled Field Camera controls in throwaway Windows B13 host
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='f394e5f765b8fb3e0ced367d3625eb3bfd59c471'
+          found="$(git ls-remote origin refs/pull/228/head | awk '{print $1}')"
+          if [[ "$found" != "$expected" ]]; then
+            echo '::error::G13 source head changed: do not certify a different real camera layout'
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/pull/228/head:refs/remotes/granada/g13-original-cameras'
+          test "$(git rev-parse refs/remotes/granada/g13-original-cameras)" = "$expected"
+          git show "$expected:desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js" > desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js
+          git show "$expected:tools/granada_g13_field_cameras.test.cjs" > tools/granada_g13_field_cameras.test.cjs
+          node --check desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js
+          node --test tools/granada_g13_field_cameras.test.cjs
+          node --test tools/test_granada_g13_native_camera_assert.cjs
+          node tools/granada_g13_native_camera_assert.cjs
+          echo 'Original B13 Windows scientific Field and G13 original seven-camera geometry assertions now both mandatory'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -324,7 +344,7 @@ jobs:
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
               'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js',
-              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js','v31-granada-wide-field-ribbon.js')) {
+              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js','v31-granada-wide-field-ribbon.js','v32-granada-field-cameras.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
@@ -391,6 +411,22 @@ jobs:
             }
             Write-Host 'Original G12 time transport is present in genuine Windows AppBundle; no physics or input source mutated'
           } finally { $zip.Dispose() }
+      - name: Prove real Windows AppBundle carries all seven source Camera visibility geometry checks
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $entry=$zip.GetEntry('v32-granada-field-cameras.js')
+            if (-not $entry) { throw 'G13 original camera source module missing from real Windows AppBundle' }
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try { $content=$reader.ReadToEnd() } finally { $reader.Dispose() }
+            foreach ($required in @('FoamLensGranadaG13', 'flRaCameraIso', 'flRaCameraBottom', 'cameraShelfFits', 'allOriginalPresetsVisible')) {
+              if (-not $content.Contains($required)) { throw "Original G13 Camera source assertion missing: $required" }
+            }
+          } finally { $zip.Dispose() }
+          $native=Get-Content 'desktop/src/FoamLensDesktop/Program.cs' -Raw
+          if (-not $native.Contains('g13NativeCameraPass,g13NativeCameraAudit,')) { throw 'Native WebView2 original camera gate missing after original source reconciliation' }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
         run: |
