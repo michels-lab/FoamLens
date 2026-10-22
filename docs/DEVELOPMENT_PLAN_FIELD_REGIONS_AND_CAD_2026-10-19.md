@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #153 — 3D Solidification Front Tracker (source proxy only)
+
+- Independently audit and preserve existing `v14-isosurface.js` true 3D marching-tetrahedra surface geometry and `v13-solidification-analysis.js` 1D phase evolution. Do not modify in-flight Field #162, CAD #164, 2D/3D #165, Energy #166, Thermocouple #167, Case Health #168 or Phase/Momentum #169 work.
+- New `v24-solidification-front-proxy.js`: source-only actual OpenFOAM region/time/alphaL, **explicit human confirmation that dimensionless selected field is liquid fraction**, verified closed oriented polyMesh cell volumes; total, liquid, mushy, solid physical volumes [m³], volume fractions, volume-weighted alpha, original cell counts.
+- Internal-face threshold-crossing area/centroid (not exact iso-surface area) and conservative apparent centroid displacement (not local interface speed); no interpolation or inference across unavailable source frames, mesh changes or front disappearance. Discrete source-time visualization, explicit errors, local JSON/CSV with source provenance.
+- Independent Ubuntu/Windows CI with exact unequal-cell geometry and invalid-topology regressions. Remaining #153: physically continuous reconstructed full surface and disconnected front tracking, thermal gradient and validated local propagation speed, severe/nonconvex/dynamic mesh quality, comparable regional/cross-case observables, owner OpenFOAM data and installed WebView2 Setup/Portable acceptance. No public release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

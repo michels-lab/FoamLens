@@ -34,6 +34,17 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #153: source-backed 3D phase volumes and front proxy (unreleased candidate)
+
+- Coordinated active open PRs #162 Field, #164 CAD, #165 2D/3D, #166 Energy, #167 Thermocouple, #168 Scientific Health and #169 Phase/Momentum Explorer. Those WIP scopes are **skipped**, not merged, overwritten or marked complete. Fresh independent branch `feat/granada-153-source-backed-front-proxy-20261019` starts from stable main `cbf384b81948334b71f1fc67096b026e65b79583`.
+- Audited existing `v14-isosurface.js` marching-tetrahedra 3D iso reconstruction, `v13-solidification-analysis.js` liquid/solid signal analysis and source mesh/field association in `v14-field-view.js`. No changes to these existing engines, native Program.cs, monolithic CI or published installer.
+- Added `v24-solidification-front-proxy.js`: actual case and material region, user-confirmed original dimensionless liquid fraction, thresholds (solid/mushy/liquid), iso cutoff, axis and physical source times; `fvLoadFrameData` supplies original field/region/mesh associations, including partition guards.
+- Physical polyMesh source geometry is checked for valid owner/neighbour, vertex and face counts, positive signed tetrahedra, shell closure and internally consistent source volumes; computes unequal-cell-correct phase volumes in **m³**, volume fraction, volume-weighted alpha and cell counts. Any missing/nonfinite/out-of-range cell α blocks its specific source time instead of inventing zero or clipping.
+- Explicit front proxy is **sum of internal faces whose neighboring cell-centered liquid fractions straddle the iso-threshold**, their original face area and area-weighted centroid, NOT a reconstructed isosurface or real local propagation velocity. Apparent centroid displacement requires same current mesh runtime identity and valid consecutive source frames; missing intermediate source output or geometry replacement yields unavailable velocity. No recalescence/nucleation/microstructure inference.
+- Source evidence CSV and JSON are local opt-in, with separate per-time source paths, excluded failures, dynamic mesh flags, caveats. Selection changes invalidate both export buttons. Workflow `granada-solidification-front.yml` runs independent Ubuntu/Windows regression (unequal cell reference mesh, missing/reversed faces, missing source alpha, source-time/geometry displacements) plus unchanged existing iso/solidification/3D physical scale tests.
+- Still **open #153:** validated true continuous reconstructed interface tracking, physical thermal gradient from source fields, disconnected front motion, region/case comparisons, pathological/nonconvex/altering polyMesh, high-volume workload, exact-head full Windows Setup/Portable with owner's real source case and native installed acceptance. No version bump or release.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
