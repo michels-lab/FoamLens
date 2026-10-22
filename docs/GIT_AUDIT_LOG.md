@@ -34,6 +34,15 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-20 — Operación Granada #177 G0/G1: five-tab original Ribbon actions and global visibility evidence (candidate)
+
+- Confirmed stable main `cbf384b81948334b71f1fc67096b026e65b79583`, issue #177 and **all open WIP PRs #162 and #164–#175**, with docs-only #178. Existing `v15-ribbon-ui.js` and its original source button handlers, existing Field workspace/GPU/Timeline/Camera context, and old UX audit `docs/UX_COHERENCE_AUDIT_2026-10-05.md` inspected. Independent `feat/granada-177-primary-ribbon-ux-20261020` does not modify those original owners or any other open PR branch.
+- New versioned `v24-granada-global-ux.js` gives **Home, Data, Analysis, Export, View** a clearer responsive hierarchy: critical original buttons remain directly visible in the correct ribbon; secondary **original** elements (same DOM IDs, handlers, state) are moved, not cloned, into small bilingual More tools panels. Esc/outside-click close, aria-expanded, focus/keyboard and per-tab menu contents are managed. Home keeps Review and Live directly visible; Field 3D stays completely untouched pending F1 #162/F2 #175.
+- G0 source-backed `window.FoamLensGranadaUX.audit()` plus explicit View → More → Audit all tab layouts JSON collects prioritized *existing control IDs* across eight real contexts, current CSS width/height/DPR, original DOM visible/hidden/clipped/conditional/available-in-More states and missing controls. INACTIVE tabs are marked **not visually tested** rather than passing. Reports contain no case IDs/names, original research values/paths, screenshots, or upload.
+- Added `granada-177-global-ux.spec.cjs` validating all primary/secondary inventories, CSS geometry/status rules and native versioned loader; `granada-177-ux-runtime.spec.cjs` exercises actual original DOM button movement (38 IDs across five original tabs), listeners, Spanish labels, focus/restore and G0 evidence with no Field mutation in VM. Isolated `granada-177-global-ux.yml` Ubuntu/Windows CI also runs unchanged existing Ribbon, Field workspace, Analysis ownership and suite-manifest tests. Early mock failures came from dynamic ID and `className` emulation; corrected, source head `6b2cc4f95575b21df81bec27fb79e19011fc57d5` ran green on both platforms.
+- **Still open:** complete G0 visual screenshot census, globally unified G1 typography/spacing/toolbars beyond five top Ribbon tabs, Field/3D G2, Time Series G3 (#146/#176), Analysis/Review/Live G4 internal layouts, native Windows Setup/Portable across 1024/1280/1920 at 125–200% DPI and user visual acceptance G5. No main merge, public installer, release bump or claim of aesthetic finality. See `docs/GRANADA_177_G0G1_PRIMARY_RIBBON_2026-10-20.md`. Documentation-only PR #178 remains separate and may need conflict-aware eventual integration.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  

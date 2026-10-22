@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #177 G0/G1: source-preserving primary actions and global tab evidence
+
+- Add independent versioned `v24-granada-global-ux.js`: five main Ribbon tabs **Home/Data/Analysis/Export/View** retain named primary actions directly visible, while secondary ORIGINAL commands move to bilingual keyboard-accessible More tools (same DOM node, ID and action handler; never a cloned/stubbed control). Compact current-tab actions may wrap at small CSS widths rather than simply vanishing off a horizontal overflow strip.
+- Add global G0 source-control inventory for the eight actual user contexts (Home, Data, 3D/Field, Analysis, Export, View, Review, Live). Explicit View → More → Audit all tab layouts exports local JSON with active CSS/DPI, visible/hidden/clipped/conditional/original-In-More and missing-source controls. It refuses to present inactive tabs as visually checked; no case values/user paths/screenshots leave the device.
+- Preserve original Field F1/F2 cameras/playback, user source mapping and 3D ribbon, Review/Live modes, full existing native Ribbon action listeners and all scientific engines. No claim that original UI screenshot complaint has been fully corrected; G2–G5, installed Windows high-DPI visual signoff and owner aesthetic review remain open.
+- Dedicated Linux/Windows source and mocked DOM runtime tests preserve all 38 original non-Field Ribbon IDs/click handlers, five tab hierarchies, data original actions and original scientific Ribbon/Field/Analysis regression suites. No release or version bump.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
