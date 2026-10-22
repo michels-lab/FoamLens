@@ -309,7 +309,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected='750e8307f1a9b90b0c4e2852911f36a63304179e'
+          expected='dea9555b2ad945b4cc5b9f1f20385e92018e39d2'
           found="$(git ls-remote origin refs/pull/228/head | awk '{print $1}')"
           if [[ "$found" != "$expected" ]]; then
             echo '::error::G13 source head changed: do not certify a different real camera layout'
