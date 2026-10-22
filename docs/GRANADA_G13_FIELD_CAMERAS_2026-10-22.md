@@ -1,0 +1,18 @@
+# GRANADA G13 — original Field seven-camera visibility at laptop widths
+
+2026-10-22. Separate, reversible source-only UX/QA block built from main after G12 was merged. No original camera transforms or viewport renderer are replaced.
+
+## Grounded root cause and scope
+- Native B13 G12 Windows Setup/Portable [#39865252132](https://github.com/michels-lab/FoamLens/actions/runs/39865252132) captured true 1140×820 Field; the original Field camera ribbon is crowded and #flFieldContextShelf previously measured `scrollWidth=2293` while `clientWidth=1140`. Time transport was repaired in G12; this separately targets the seven camera presets and camera subbar reachability.
+- The owner #195 already implements original seven camera controls; #179 owns original `v15-ribbon-ui.js`. This change **does not change either original branch/source file or button callback**. It is an opt-in **new versioned stylesheet+auditor module** coexisting with original renderer callbacks, only Field with active Ribbon at CSS widths **1025–1250px**. G7 narrow Field <=1024 and wider desktop >1250 retain their original appearance.
+
+## Three linked real deliverables
+1. **Source-native camera layout:** `v32-granada-field-cameras.js` makes the ORIGINAL seven `flRaCameraIso, Front, Back, Left, Right, Top, Bottom` controls readable with their existing labels and lets their original camera group wrap instead of remaining seven anonymous 29px icons. The original Field Camera subbar + `.fvViewTools/.fvToolRow` receives wrap-friendly CSS so controls can flow instead of requiring scrolling inside a 2293px shelf. Does not move controls, create proxy buttons, invoke original clicks, touch WebGL, save preferences, change cases, or alter physical coordinates.
+2. **Fail-closed measured audit:** `FoamLensGranadaG13.audit()` inspects all seven original DOM controls: visible bounding boxes, names, aria/title, viewport containment, source count, and measured Camera shelf `scrollWidth/clientWidth` when actually expanded. Emits `PASS/FAIL/NOT_APPLICABLE`. Never reports native, actual DPI or human approval based on unit tests.
+3. **Positive/negative cross-platform source QA:** `tools/granada_g13_field_cameras.test.cjs` replays the real measured 2293px/1140px overflow, missing/offscreen/unnamed cameras and breakpoint/mode cases; checks no DOM/solver mutation and original `v15` handlers/WinForms versioned module bundler; dual OS `.github/workflows/granada-g13-field-camera-reach.yml` plus existing FoamLens boundary audit.
+
+## Release and source integration gates
+- The CSS rules are **hypotheses until measured in genuine Windows WebView2**. A source test fixture can prove invariants fail when its simulated bounding boxes are wrong; it cannot certify browser flex layout.
+- Do not merge if any Linux/Windows source test fails, actual native `FoamLensGranadaG13.audit()` is red at 1140px, original Play/clock is clipped, seven source camera buttons are hidden, real Field/A–D rendered/case science fails, or the 640px G7 behavior regresses.
+- Follow original real Windows B13 Setup+Portable workflow in an **isolated test-only integration branch** pinning exact G13 commit; actual 36 original screenshots & 1140px images need visual review. Physical OS DPI 125–200%, owner aesthetics, scientific numerical accuracy, final updater/signatures and release remain distinct gates.
+- **No RC, beta, public installer, version, release tag or release published** by this source branch.
