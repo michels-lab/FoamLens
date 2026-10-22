@@ -50,6 +50,17 @@ function boot(){
  'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools{display:flex!important;flex:1 1 100%!important;flex-wrap:wrap!important;align-items:center!important;min-width:0!important;max-width:100%!important;gap:5px!important}',
  'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvToolRow{display:flex!important;flex-wrap:wrap!important;align-items:center!important;max-width:100%!important;gap:5px!important}',
  'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvNavPresets{min-width:0!important;max-width:100%!important}',
+ '}',
+ // Keep G7's original compact camera buttons/labels unchanged. Repair only
+ // the original Camera shelf transition wide->640: the old 2300px shelf left
+ // the existing renderer toolbar completely outside the 640px viewport.
+ '@media(max-width:1024px){',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive{box-sizing:border-box!important;display:flex!important;flex-wrap:wrap!important;align-content:flex-start!important;align-items:center!important;gap:4px!important;min-width:0!important;max-width:100%!important;max-height:none!important;height:auto!important;overflow-x:auto!important;overflow-y:visible!important}',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive>.flRibbonGroup.flSubbarActive{display:flex!important;flex:1 1 100%!important;flex-wrap:wrap!important;min-width:0!important;max-width:100%!important;max-height:none!important}',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive>.flRibbonGroup .flRibbonActions{display:flex!important;flex-wrap:wrap!important;gap:3px!important;min-width:0!important;max-width:100%!important}',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools{display:flex!important;flex:1 1 100%!important;flex-wrap:wrap!important;align-items:center!important;min-width:0!important;max-width:100%!important;gap:4px!important}',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvToolRow{display:flex!important;flex-wrap:wrap!important;align-items:center!important;min-width:0!important;max-width:100%!important;gap:4px!important}',
+ 'body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvNavPresets{min-width:0!important;max-width:100%!important}',
  '}'
  ].join('\n');
  const tag=document.createElement('style');tag.id=STYLE;tag.textContent=css;document.head.appendChild(tag);
