@@ -10,6 +10,7 @@ on:
       - feat/granada-g7-real-b13-installed-portable-36-20261021
       - test/granada-g8-real-b13-windows-captures-20261021
       - test/granada-g11-four-filter-native-b13-20261021
+      - test/granada-g12-real-b13-field-ribbon-20261022
 
 permissions:
   contents: read
