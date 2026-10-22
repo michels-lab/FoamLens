@@ -86,6 +86,21 @@ test('original v15 moves seven camera handlers OUT of main Ribbon into Field she
  assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) .flRibbonGroup:has(#flRaCameraIso)'));
  assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) :is(#flRaCameraIso'));
 });
+test('G7 original compact 640px Camera shelf wraps without overriding original button styles',()=>{
+ const f=fixture({width:640,open:true,overflow:1660});
+ const before=f.api.audit();assert.equal(before.result,'NOT_APPLICABLE');
+ assert.equal(before.cameraShelfScrollWidth,2300);
+ assert.equal(before.cameraShelfFits,false);
+ const css=f.style();
+ assert(css.includes('@media(max-width:1024px){'));
+ assert(css.includes('body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools{display:flex!important;flex:1 1 100%'));
+ assert(css.includes('body.flRibbonReady.appMode-field #flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvToolRow{display:flex!important;flex-wrap:wrap!important'));
+ // Existing G7 controls/labels/3D source IDs are unchanged below 1025px;
+ // only the Camera shelf's width/flow receive this breakpoint.
+ const compactPart=css.split('@media(max-width:1024px){')[1];
+ assert(compactPart&&!compactPart.includes('#flRaCameraIso'));
+ assert(!compactPart.includes('display:none!important'));
+});
 test('read-only CSS and computed geometry never click, reposition DOM or write scientific state',()=>{
  for(const term of ['localStorage','fetch(', 'postMessage(', '.click(', 'dispatchEvent(', 'scrollIntoView(', 'scrollLeft=', 'appendChild(', 'insertBefore(', 'removeChild(', 'querySelectorAll(', 'setDataView(', 'setWorkspaceZoom(']){
   // Only harmless installation of a style element is permitted.
