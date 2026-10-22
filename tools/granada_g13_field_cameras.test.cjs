@@ -69,11 +69,22 @@ test('original modes and breakpoints retained; no G7 compact or desktop expansio
 test('original camera presets labelled, sourced and wrapped WITHOUT new toolbar IDs',()=>{
  const f=fixture({open:true}),css=f.style();
  assert(css.includes('@media(min-width:1025px) and (max-width:1250px)'));
- assert(css.includes('#flRibbonPanel-field .flRibbonGroup:has(#flRaCameraIso)'));
+ assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) .flRibbonGroup:has(#flRaCameraIso)'));
+ assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) :is(#flRaCameraIso'));
+ assert(css.includes('#flFieldContextShelf.flCameraToolsActive'));
+ assert(!css.includes('body.flRibbonReady.appMode-field #flRibbonPanel-field .flRibbonGroup:has(#flRaCameraIso)'));
  assert(css.includes('flRaCameraBottom) .flRibbonLabel{display:inline!important'));
  assert(css.includes('#flFieldContextShelf.flCameraToolsActive .flRibbonCameraTools .fvToolRow'));
  assert(!css.includes('display:none!important')&&!css.includes('visibility:hidden!important'));
  assert.equal(f.api.cameraIds.length,7);
+});
+test('original v15 moves seven camera handlers OUT of main Ribbon into Field shelf',()=>{
+ const ribbon=fs.readFileSync(path.join(root,'v15-ribbon-ui.js'),'utf8');
+ assert(ribbon.includes("const targets={inspect:'flRaProbe',compare:'flRaCompare3D',camera:'flRaLinkCameras'}"));
+ assert(ribbon.includes('groups[key]=group;shelf.appendChild(group)'));
+ const css=fixture({open:true}).style();
+ assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) .flRibbonGroup:has(#flRaCameraIso)'));
+ assert(css.includes(':is(#flRibbonPanel-field,#flFieldContextShelf) :is(#flRaCameraIso'));
 });
 test('read-only CSS and computed geometry never click, reposition DOM or write scientific state',()=>{
  for(const term of ['localStorage','fetch(', 'postMessage(', '.click(', 'dispatchEvent(', 'scrollIntoView(', 'scrollLeft=', 'appendChild(', 'insertBefore(', 'removeChild(', 'querySelectorAll(', 'setDataView(', 'setWorkspaceZoom(']){
