@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 282,
-  "classified_files_total": 278,
-  "docs_content_inspected": 50,
+  "tracked_files_total": 286,
+  "classified_files_total": 282,
+  "docs_content_inspected": 51,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 4,
     "config": 7,
-    "document": 44,
+    "document": 45,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 78,
+    "source": 80,
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 21
+    "workflow": 22
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "8598cb0bd5e5ef007645c808d7c0938806d28a7f26b1b01436855524fe852b53",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "68a7d2cebe0583bcdaa51b57b9e678e4dba494f5925f297e54d8c86ab0da2893",
+  "evidence_fingerprint": "b3375fcdab0229e6d85f55dd4999b0c6f584d855c2e9c4fbdcd47380f547f868",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -152,6 +154,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "32bd6dc247866f686b867912d12aacfce1ee611b"
+    },
+    {
+      "path": ".github/workflows/granada-g12-wide-field-ribbon.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "f253446cc637d3e3029a1fccb0041944ffbb2314"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -754,6 +763,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "dcb6ca9514ab1672ceda7e2d784e91102a6c57d0"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d8b56a59383a8784d634327e4f8cc6387cba613c"
     },
     {
       "path": "desktop/tests/actionable-diagnostics.test.cjs",
@@ -1463,6 +1479,13 @@
       "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
     },
     {
+      "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e30caa0bab9b31dcbd15a64bb6edc95acc88f0e8"
+    },
+    {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1799,6 +1822,13 @@
       "blob": "758b5fcc9475512e7430a9686f937f9cd2680133"
     },
     {
+      "path": "tools/granada_g12_wide_field_ribbon.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "38f979a3ca7494232b0bc45a8b6ebcc22cedfd6a"
+    },
+    {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1974,7 +2004,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "f6342cd5f7673d9f",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g12-wide-field-ribbon.yml, desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js, tools/granada_g12_wide_field_ribbon.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
