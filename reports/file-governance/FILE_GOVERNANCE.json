@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 273,
-  "classified_files_total": 269,
-  "docs_content_inspected": 48,
+  "tracked_files_total": 278,
+  "classified_files_total": 274,
+  "docs_content_inspected": 49,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 4,
     "config": 7,
-    "document": 42,
+    "document": 43,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 74,
+    "source": 76,
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 18
+    "workflow": 20
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "4cbe2eaaf3b9fc2a678cb9b3518208237f6198f520e7eab63310b3f58a75c7a5",
-  "evidence_fingerprint": "0baff258635a03e430c5d186ce91809c2a0236e0deb4b0f2b803dd8a135be680",
+  "inventory_fingerprint": "99052e18dadd6d0578cc380cc484aafdc25d816f8bf21c1e04892aba60650814",
+  "evidence_fingerprint": "4c1e260236aff7d3e0302ecd9a6cbf3c73069ddfe19ce0dd3f0be73689810caa",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -154,6 +154,20 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "97bad3ee2b9200321d1b960de29c069c3721b352"
+    },
+    {
+      "path": ".github/workflows/granada-g7-g11-source-integration.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "c886bf6fb20a828cd75202ca3c2ab003e0a4e50e"
+    },
+    {
+      "path": ".github/workflows/granada-g8-compact-timeseries.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "b0f638995e20787c980486d33799be09d6685290"
     },
     {
       "path": ".github/workflows/granada-original-command-search.yml",
@@ -714,6 +728,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "ddf4991183ec8c7a3ca0e0fafb125b973249b097"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6efaf4044ff2b4a9b24c96a1aaae295aeb1fb910"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js",
@@ -1437,6 +1458,13 @@
       "blob": "4ceeb639eca050b7a040add7d09d0fc1d7273a49"
     },
     {
+      "path": "docs/GRANADA_G8_TIMESERIES_COMPACT_2026-10-21.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c37e67dc49b80bd18ea1262d4c59fc8d9d0a894e"
+    },
+    {
       "path": "docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1752,6 +1780,13 @@
       "blob": "719d7dacff02d437cbf25b33a05df6b3b30ada81"
     },
     {
+      "path": "tools/granada_g8_compact_timeseries.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9a3d82b4d364d23ac23d4d953dfebbbfd0e5b4be"
+    },
+    {
       "path": "tools/make_visual_evidence.py",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1915,11 +1950,11 @@
   ],
   "findings": [
     {
-      "id": "54cfbe3533168d95",
+      "id": "db5de285f1658b1e",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "12 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g7-compact-workbench-native.yml, .github/workflows/granada-original-command-search.yml, .github/workflows/granada-release-proof-readonly.yml, desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada-github-snapshot.cjs",
+      "observation": "16 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g7-compact-workbench-native.yml, .github/workflows/granada-g7-g11-source-integration.yml, .github/workflows/granada-g8-compact-timeseries.yml, .github/workflows/granada-original-command-search.yml, .github/workflows/granada-release-proof-readonly.yml, desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
