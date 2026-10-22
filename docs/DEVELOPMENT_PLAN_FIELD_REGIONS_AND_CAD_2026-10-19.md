@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada G0–G5 — Transversal FoamLens UX/UI redesign (new priority backlog, 2026-10-20)
+
+- The user's Time Series screenshot criticism **also applies to the 3D viewport and every other navigation tab**: Overview, Data, Analysis, Review, Live and genuine subtabs. Create an inventory of functions, DOM selectors, visible/hidden conditions, action priority and overlap for **all** interfaces, not Time Series alone.
+- **Global design invariant:** critical actions, source/case/region/component/current variable, physical units/legends, progress/errors/Cancel when needed and usable 3D/chart/table results remain visible without hidden nested collapsibles. Lower-frequency expert parameters may go to Advanced; do not bury the main action, existing original fields or true analysis status. Prioritize central 3D/canvas scientific space and concise toolbars with aligned labels, typography and responsive grouping.
+- **G0** whole-app visibility/layout inventory and evidence; **G1** shared design system and component hierarchy; **G2** Field/3D with A–D/Δ, physical scales and camera without clashing with unfinished #149/#162; **G3** Time Series redesign #176 aligned with source history functional #146; **G4** Analysis/Review/Live/other tab-by-tab usability; **G5** real Windows installed 1024/1280/1920, 125–200% DPI, keyboard/ARIA and user screenshot approval. Implement in **separate non-conflicting branches** and preserve underlying OpenFOAM pipelines.
+- Source of truth: [GitHub issue #177](https://github.com/michels-lab/FoamLens/issues/177), linked [#176](https://github.com/michels-lab/FoamLens/issues/176) and [#149](https://github.com/michels-lab/FoamLens/issues/149). Do not assert design completed until both functional regression and owner's installed visual acceptance. **Status: newly logged, not implemented, no release.**
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
