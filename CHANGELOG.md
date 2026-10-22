@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #149: independent per-viewport sizing and observed CSS/DPI conflict audit
+
+- Add an isolated Field F2 extension for per-view A/B/C/D (and Δ) vertical drag/keyboard/button height controls, maximize/restore and per-viewport persistent CSS heights, independent of existing Split divider, camera, fields, regions and drag-reorder.
+- Add scoped overlay safe-zone rules for time badges, material legends, physical XYZ dimension labels and measurement/status overlays at compact CSS widths. No change to original Field or CAD renderers; preserve their measured WebGL resize behavior.
+- Add read-only owner-facing layout audit using **current real DOM rectangles, actual CSS browser size and DPR**, canvas backing-buffer dimensions, overlay intersections and scroll clipping. On-demand local JSON contains only anonymous view geometry, not scientific file contents, and does not pretend to test other windows/monitors.
+- Dedicated Ubuntu/Windows synthetic 1024/1280/1920 with DPR 1–2 geometry and source runtime A/B mock checks + unchanged existing Field multi-view/resize/physical-scale tests. Native WebView2 installed DPI acceptance at 125–200%, other source branches, and final release remain open.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.

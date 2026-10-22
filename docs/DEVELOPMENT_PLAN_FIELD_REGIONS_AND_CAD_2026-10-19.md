@@ -22,6 +22,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #149 — independent Field per-viewport resizing and observed DPI audit candidate
+
+- Existing Field A–D source controls/camera zoom, drag reorder, dynamic canvas RenderObservers and Split-only divider already exist in main and remain unmodified. F2 adds separate A–D/Δ viewport controls **height −/+ / vertical drag / keyboard**, transient maximize/restore and independent persisted per-view CSS scene heights in `v24-field-f2-viewport-layout.js`.
+- Scoped safe-zone overlays for time badges, physical XYZ cotas, 3D dimensions, measurements and legends; read-only interactive current DOM size/DPI audit and local anonymous JSON evidence for clipping, overlaid elements and backing buffer sizes. **A result is valid only at the captured actual window CSS dimensions/DPR** and does not prove Windows 125–200% acceptance.
+- Dedicated Linux/Windows regression with geometric 1024/1280/1920 synthetic DPI cases, real original Field/resize test suites and A/B DOM runtime mocks. No edits to unfinished F1 branch #162 or CAD/multiregion peers. Pending: owner Windows installed Setup/Portable visual and input testing at 1024/1280/1920 physical windows with 125/150/175/200% scaling, both original material regions and all actual overlays, Ribbon conflicts, orbit, synchronized playback and drag reorder. No public release.
+- Guide: `docs/GRANADA_149_FIELD_F2_VIEWPORT_DPI_2026-10-19.md`; issue #149 stays open until native acceptance.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

@@ -34,6 +34,17 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-19 — Operación Granada #149: independent Field F2 viewport resize / DPI evidence (candidate)
+
+- Audited stable main `cbf384b81948334b71f1fc67096b026e65b79583`, #149 and open WIP PRs #162, #164–#174 (including both independent #153 front candidates #170/#171). F2 touches **none of their code**, shared `v14-z-field-compare.js`, `v14-field-view.js`, `v18-context-help-resize.js`, native Program.cs, Windows build/release workflow or release binaries. Isolated branch `feat/granada-149-viewport-dpi-geometry-20261019`.
+- Existing baseline: Field already provides per-view A/B/C/D region/source/camera/zoom and drag-reorder plus original WebGL viewport resize observers. Split divider persisted separately in `foamlens.fieldWorkspace.ux.v2`. Existing composer places source captions below the scene; do not revert approved design.
+- New versioned `v24-field-f2-viewport-layout.js` adds distinct A–D/Δ panel height adjustment by buttons, horizontal drag-grip and keyboard, optional transient maximize/restore, CSS-height memory under `foamlens.field.f2.viewheights.v1`; does not read/modify source field data or cameras. Switching comparison/difference clears focus to prevent hiding the only available viewport.
+- New scoped CSS reserves safe zones for physical axes/cotas, measurement badges and legends. Field card's **Viewport size / DPI audit** reads only CURRENT browser DOM rectangles, CSS window size, actual DPR/visualViewport scale and canvas physical buffers. Detects clipping, legend/axes overlap and actual rendered label truncation; export is opt-in local JSON containing only anonymous viewport IDs and geometric evidence. The result does NOT independently validate scientific values/cases and does NOT claim other DPIs/screens were tested.
+- Tests `field-f2-viewport-layout.spec.cjs` exercise actual original renderer/loader contracts, rectangle overlap math, high DPI 1024/1280/1920 simulated CSS/backing-buffer geometry, independent from Split/camera/Field data. `field-f2-runtime-interactions.spec.cjs` simulates real A/B panel resize/focus/restore/persist and inspector rectangle readings in isolated JS VM. Dedicated `granada-field-f2-dpi.yml` runs those plus unchanged preexisting Field multi-view UX, Split/help and scale scientific tests on Ubuntu and Windows. Earlier CI caught test-only incorrect Split-owner source reference and a floating-point height-rounding boundary; corrected. The final exact-head native Windows PR CI and real installed visual pass remain distinct gates.
+- **Issue #149 remains open**: true native installed Setup/Portable 1024/1280/1920, Windows OS 125/150/175/200% zoom, material label-to-axis interference, interactions during orbit/playback, multi-case reorder/compare and owner's visual signoff. No app version bump/merge/release authorized.
+- Technical guide: `docs/GRANADA_149_FIELD_F2_VIEWPORT_DPI_2026-10-19.md`.
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
