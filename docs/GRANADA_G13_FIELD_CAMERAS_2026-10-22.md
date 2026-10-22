@@ -1,3 +1,9 @@
+## First native run and root-cause corrective loop
+
+The exact first B13 native attempt [run #39870171735](https://github.com/michels-lab/FoamLens/actions/runs/39870171735) **FAILED as designed** at real original Windows WebView2 Field wide CSS 1140px. Source QA and physical original metal/mold remained passing. Actual read-only G13 audit returned `cameraShelfFits:true`, `scrollWidth=clientWidth=1140`, `cameraShelfScrollLeft=0` — the former 2293px horizontal shelf overflow was fixed. However `allOriginalPresetsVisible:false` because `flRaCameraLeft` rendered **54.44px** and `flRaCameraTop` **53.28px**, below the original readable minimum **55px**. Other five cameras were visible with accessible labels and real original buttons.
+
+**Root cause:** original `v15-ribbon-ui.js` moves the entire camera-owning `.flRibbonGroup` out of `#flRibbonPanel-field` and into `#flFieldContextShelf` via `groups[key]=group;shelf.appendChild(group)`. First G13 CSS correctly wrapped the shelf but its labelled-camera button styling was mistakenly scoped only to `#flRibbonPanel-field`. In real browser the camera buttons therefore retained old ~29–80px responsive dimensions. **Corrected:** source selectors now explicitly cover both legitimate original parent locations using `:is(#flRibbonPanel-field,#flFieldContextShelf)`; new source regression independently verifies the original reparenting and both CSS paths. Nothing was changed in original `v15` or B13 native assertion/threshold. This correction is not native-approved until the exact corrected SHA passes the new real Windows B13 run, including Installed+Portable.
+
 # GRANADA G13 — original Field seven-camera visibility at laptop widths
 
 2026-10-22. Separate, reversible source-only UX/QA block built from main after G12 was merged. No original camera transforms or viewport renderer are replaced.
