@@ -9,6 +9,7 @@
 - [Registro de pertenencia/estándares](../.michelslab/project.yml)
 - [Operación Granada](../.michelslab/GRANADA.md)
 - [Granada — protección del código y pruebas entre apps (PR #208)](granada/FOAMLENS_REPOSITORY_BOUNDARY_20261021.md)
+- [Granada G12 — Field Play original visible a 1140px, pruebas Windows B13 (PR #226)](GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md)
 
 ## Manuales y especificaciones
 - [Plan Field / regiones / CAD / auditorías](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md)
