@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 258,
-  "classified_files_total": 254,
-  "docs_content_inspected": 45,
+  "tracked_files_total": 262,
+  "classified_files_total": 258,
+  "docs_content_inspected": 46,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 4,
     "config": 7,
-    "document": 39,
+    "document": 40,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 65,
+    "source": 67,
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 15
+    "workflow": 16
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "e4d2e3c22483c6de2523bcbe9c0c655616fea5f4736282eff2eca464d7096012",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "b725bd3240f9338f240e8b0d6f6441dd8ce768f601fe993f6fdeef8af47091d4",
+  "evidence_fingerprint": "181a13668b39eee389ae0a22a3d24b5bf892f918439dcaa32021032a54c0c035",
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
