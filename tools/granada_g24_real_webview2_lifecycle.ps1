@@ -79,6 +79,40 @@ function Probe([string]$mode,[string]$profile,[string]$app,[string]$originHost,[
  if($expectPass){Require ($actual -eq 0) "Real WebView2 persistence $mode/$originHost returned failure"}
  else{Require ($actual -ne 0) 'Invalid expected token was accepted by native browser'}
 }
+function Install-NativeFoamLens([string]$setup,[string]$dir,[string]$label){
+ # Keep the exact argument layout of G23's independently verified
+ # real Windows Inno reinstall/uninstall test (no fake MSI / shortcuts).
+ $arg='/DIR="' + $dir + '"'
+ $logFile=Join-Path $base ('g24-inno-'+[guid]::NewGuid().ToString('N')+'.log')
+ $trace='/LOG="' + $logFile + '"'
+ Write-Host ('G24 real Inno beginning: stage='+$label)
+ $p=Start-Process -FilePath $setup -ArgumentList @(
+  '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',
+  '/CURRENTUSER','/MERGETASKS=!desktopicon',$arg,$trace
+ ) -PassThru
+ $done=$false
+ try{
+  $done=$p.WaitForExit(180000)
+  if(-not $done){
+   # Only boolean installer-stage metadata is safe for public CI logs.
+   Write-Host ('G24 Inno diagnostic logExists='+(Test-Path -LiteralPath $logFile))
+   if(Test-Path -LiteralPath $logFile){
+    foreach($word in @('Installing files','Creating shortcuts','Installation process succeeded')){
+     Write-Host ('G24 Inno diagnostic stageObserved='+
+      $word.Replace(' ','-')+' '+[bool](Select-String -LiteralPath $logFile -SimpleMatch $word -Quiet))
+    }
+   }
+   throw ($label+' real Inno Setup did not exit within 180 seconds')
+  }
+  Require ($p.ExitCode -eq 0) ($label+' Inno Setup process returned nonzero code '+$p.ExitCode)
+  Require (Test-Path -LiteralPath (Join-Path $dir 'FoamLens.exe')) ($label+' did not install original main FoamLens.exe')
+  Write-Host ('G24 real Inno completed: stage='+$label)
+ }finally{
+  if(-not $done){try{$p.Kill($true)}catch{}}
+  $p.Dispose()
+  # No installer logs or sensitive paths are uploaded to public Actions artifacts.
+ }
+}
 function NativeUninstall([string]$folder){
  $uninstall=Join-Path $folder 'unins000.exe'
  Require (Test-Path -LiteralPath $uninstall) 'Official Inno uninstaller unavailable'
@@ -132,14 +166,14 @@ try {
   Probe 'absent' $webviewProfile $relocated 'isolation.foamlens.local'
   Probe 'absent' $devProfile $appRoot 'foamlens.local'
   $destArg='/DIR="' + $folder + '"'
-  Execute 'official Inno installation' $setup @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',$destArg) 120000
+  Install-NativeFoamLens $setup $folder 'official Inno installation'
   $installed=Join-Path $folder 'FoamLens.exe'
   Require (Test-Path -LiteralPath $installed) 'Official installed FoamLens.exe missing'
   Require ((Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $original -Algorithm SHA256).Hash) 'Native installed executable mismatched original Portable bytes'
   NativeApp $installed 'genuine installed FoamLens WebView2 profile'
   Probe 'verify' $webviewProfile $appRoot 'foamlens.local'
   # Reinstall same real version while retaining exactly same original WebView2 userData.
-  Execute 'same-version Inno reinstall' $setup @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',$destArg) 120000
+  Install-NativeFoamLens $setup $folder 'same-version Inno reinstall'
   NativeApp $installed 'genuine reinstalled FoamLens'
   Probe 'verify' $webviewProfile $appRoot 'foamlens.local'
   NativeUninstall $folder
