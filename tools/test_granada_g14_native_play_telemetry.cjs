@@ -73,7 +73,7 @@ test('missing G12 style is diagnostic evidence, never silent automatic repair',(
 test('graft fails closed when source contains injected code or original native criteria drift',()=>{
  const once=graft(original);
  assert.throws(()=>graft(once),/already injected|requires exactly one occurrence/);
- assert.throws(()=>graft(original.replace(playCondition,'const playNotCollapsed=true;')),/native Play assertion/);
+ assert.throws(()=>graft(original.replace(playCondition,'const playNotCollapsed=true;')),/original Play assertion/);
  assert.throws(()=>graft(original.replace("playNotCollapsed,cachePopoverValid,","playNotCollapsed,")),/state report/);
 });
 test('G14 never edits user modules, physics equations, or original source in this branch',()=>{
