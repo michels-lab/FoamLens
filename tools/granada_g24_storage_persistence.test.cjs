@@ -64,3 +64,20 @@ test('CI isolates original main product from QA additions and uploads sanitized 
  assert(!workflow.includes('WINDOWS_CERT_PASSWORD'));
  assert(!workflow.includes('upload-artifact@v4\\n        with:\\n          name: binary'));
 });
+
+test('real asynchronous IndexedDB proof arrives over secure nonce-bound WebView2 native message, not unresolved ExecuteScript Promise',()=>{
+ for(const marker of ['WebMessageReceived += OnNativeStorageProof',
+ 'WebMessageReceived -= OnNativeStorageProof',
+ 'CoreWebView2WebMessageReceivedEventArgs',
+ 'message.TryGetWebMessageAsString()',
+ 'completed.Task.WaitAsync(TimeSpan.FromSeconds(48))',
+ 'window.chrome.webview.postMessage',
+ "foamlens/g24-native-storage-proof/1",
+ 'nonce.GetString() != _token',
+ 'from.Scheme != Uri.UriSchemeHttps',
+ 'from.Port != 443',
+ 'completed.TrySetResult(result.Clone())'])
+ assert(code.includes(marker),'G24 authentic asynchronous message requirement missing: '+marker);
+ assert(!code.includes('JsonDocument.Parse(output)'),'Unresolved JS Promise may serialize to null in WebView2');
+ assert(!code.includes('var output = await _view.CoreWebView2.ExecuteScriptAsync(script)'),'Do not treat promises as synchronous browser results');
+});
