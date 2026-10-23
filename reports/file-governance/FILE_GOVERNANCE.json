@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "d5c7bfa2a09914e99c5c019f767684888a33198dcbe055c0422b56364934ece4",
+  "inventory_fingerprint": "9e769a0b720730af3615c3a29414287d300432bcd7e4a3fbb9370d21f14efb4a",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -1383,7 +1383,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "116d016a7c52bab20f134d7b05c97a4cc7547628"
+      "blob": "a9e93a7944091a459856129a950de017a0818bc4"
     },
     {
       "path": "docs/FIELD3D_RENDER_ACCEPTANCE_2026-10-12.md",
