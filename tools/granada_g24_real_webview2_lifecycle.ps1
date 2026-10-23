@@ -116,7 +116,32 @@ function Install-NativeFoamLens([string]$setup,[string]$dir,[string]$label){
 function NativeUninstall([string]$folder){
  $uninstall=Join-Path $folder 'unins000.exe'
  Require (Test-Path -LiteralPath $uninstall) 'Official Inno uninstaller unavailable'
- Execute 'Inno original uninstall' $uninstall @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') 120000
+ # Account for a real uninstaller that stays alive; never silently assume success.
+ # This is a disposable Windows runner and ONLY original app process counts are logged.
+ $script:uninstallAttempted=$true
+ $app=Join-Path $folder 'FoamLens.exe'
+ $beforeApp=@(Get-Process -Name 'FoamLens' -ErrorAction SilentlyContinue).Count
+ $beforeEdge=@(Get-Process -Name 'msedgewebview2' -ErrorAction SilentlyContinue).Count
+ Write-Host ('G24 native uninstall beginning appProcessCount='+$beforeApp+' browserProcessCount='+$beforeEdge)
+ $process=Start-Process -FilePath $uninstall -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -PassThru
+ $finished=$false
+ try{
+  $finished=$process.WaitForExit(120000)
+  if(-not $finished){
+   $remainingApp=@(Get-Process -Name 'FoamLens' -ErrorAction SilentlyContinue).Count
+   $remainingEdge=@(Get-Process -Name 'msedgewebview2' -ErrorAction SilentlyContinue).Count
+   Write-Host ('G24 native uninstall timeout appProcessCount='+$remainingApp+' browserProcessCount='+$remainingEdge+
+     ' installedExeStillPresent='+(Test-Path -LiteralPath $app)+
+     ' uninstallerStillRunning='+(-not $process.HasExited))
+   throw 'Original Inno uninstaller failed to finish in 120 seconds; browser profile preservation is NOT certified'
+  }
+  Require ($process.ExitCode -eq 0) ('Original Inno uninstaller failed exit code '+$process.ExitCode)
+  Require (-not(Test-Path -LiteralPath $app)) 'Original Inno uninstall returned success but left the installed executable'
+  Write-Host 'G24 native uninstall finished and removed installed product binary'
+ }finally{
+  if(-not $finished){try{$process.Kill($true)}catch{}}
+  $process.Dispose()
+ }
 }
 # Stay wholly on disposable GitHub-hosted Windows. Never run against owner's profile.
 Require ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted' -and $env:RUNNER_OS -eq 'Windows') 'G24 requires a disposable GitHub-hosted Windows runner'
@@ -145,6 +170,7 @@ Require ($reportFile.StartsWith($workspace+'\',[StringComparison]::OrdinalIgnore
 Require (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'FoamLens.lnk'))) 'Refuse existing desktop shortcut'
 New-Item -ItemType Directory -Path $base -Force | Out-Null
 $installComplete=$false
+$uninstallAttempted=$false
 $sentinelPresent=$false
 try {
   [IO.File]::WriteAllText($external,'unique synthetic work '+$stamp)
@@ -220,7 +246,7 @@ finally {
   if($sentinelPresent -and (Test-Path -LiteralPath $oldUserIndex)){
     try{Probe 'clear' $webviewProfile $appRoot 'foamlens.local'}catch{Write-Warning 'G24 isolated synthetic browser cleanup failed; hosted runner will be discarded'}
   }
-  if(-not $installComplete -and (Test-Path -LiteralPath (Join-Path $folder 'unins000.exe'))){
+  if(-not $installComplete -and -not $uninstallAttempted -and (Test-Path -LiteralPath (Join-Path $folder 'unins000.exe'))){
     try{NativeUninstall $folder}catch{Write-Warning 'G24 native cleanup did not complete'}
   }
   # NEVER delete WebView2 userdata or the original installed frontend; test runner is disposable.
