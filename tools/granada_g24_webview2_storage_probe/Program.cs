@@ -44,6 +44,11 @@ internal static class Program
             return 2;
         }
         ApplicationConfiguration.Initialize();
+        // Independent thread-pool deadline also terminates a frozen STA/WebView2 renderer.
+        using var deadline = new System.Threading.Timer(_ => {
+            Console.Error.WriteLine("G24 real WebView2 stage hard-timeout after 115 seconds");
+            Environment.Exit(3);
+        }, null, TimeSpan.FromSeconds(115), System.Threading.Timeout.InfiniteTimeSpan);
         using var form = new ProbeForm(args[0], profile, app, args[3], args[4]);
         Application.Run(form);
         return form.Result;
