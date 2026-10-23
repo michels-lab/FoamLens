@@ -1,0 +1,46 @@
+name: GRANADA G18 - fail-closed main updater method in preserved scientific host
+on:
+  push:
+    branches:
+      - test/granada-g18-g15-g16-current-main-b13-20261022
+  pull_request:
+    branches:
+      - test/granada-g16-b13-installed-play-repeats-20261022
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-g15-updater-owner-contract:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure pinned original baseline plus current-main reviewed code are accessible
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g18-reviewed-main'
+          git merge-base --is-ancestor 01e032279ce165e5d62c1d1e93371fcf52f620c6 refs/remotes/granada/g18-reviewed-main
+          git cat-file -e '529d7055a6d97d06d2ee4158e858de94037228d7:desktop/src/FoamLensDesktop/Program.cs'
+          git cat-file -e '01e032279ce165e5d62c1d1e93371fcf52f620c6:desktop/src/FoamLensDesktop/Program.cs'
+      - name: Parse fail-closed G18 updater-only native graft
+        run: node --check tools/granada_g18_main_updater_method.cjs
+      - name: Original host preserved, full reviewed G15 method bytes, adversarial alternatives rejected
+        run: node --test tools/test_granada_g18_main_updater_method.cjs
+      - name: Reject unrelated app source mixing with VERIFIED source-owned main scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show refs/remotes/granada/g18-reviewed-main:tools/test_repository_boundaries.cjs > tools/test_repository_boundaries.cjs
+          node --check tools/test_repository_boundaries.cjs
+          node tools/test_repository_boundaries.cjs
