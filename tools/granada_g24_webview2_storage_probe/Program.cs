@@ -169,7 +169,10 @@ internal sealed class ProbeForm : Form
        localPresent:local!==null,indexedDbPresent:actual!==null,
        mode:opt.mode,storageMatches:local===actual};
   } catch (err) {
-    return {ok:false,mode:opt.mode,reason:String(err?.message||err).slice(0,120)};
+    // Do not expose browser data, source paths or synthetic tokens in CI logs.
+    return {ok:false,mode:opt.mode,origin:location.origin,
+      errorName:String(err?.name||'Error').slice(0,40),
+      hasDatabaseEnumeration:typeof indexedDB?.databases==='function'};
   }
 })()
 """.Replace("__OPTIONS__", input, StringComparison.Ordinal);
@@ -190,6 +193,21 @@ internal sealed class ProbeForm : Form
                     data.TryGetProperty("localPresent", out var local) && local.ValueKind == JsonValueKind.True;
                 bool idbPresent = data.ValueKind == JsonValueKind.Object &&
                     data.TryGetProperty("indexedDbPresent", out var idb) && idb.ValueKind == JsonValueKind.True;
+                string errorName = data.ValueKind == JsonValueKind.Object &&
+                    data.TryGetProperty("errorName", out var browserError) &&
+                    browserError.ValueKind == JsonValueKind.String ? browserError.GetString() ?? "" : "none";
+                // Allowlist only known DOM exception class names. Never print browser output or token.
+                string safeErrorClass = errorName switch
+                {
+                    "SecurityError" or "NotSupportedError" or "InvalidStateError" or
+                    "AbortError" or "QuotaExceededError" or "TypeError" or "Error" => errorName,
+                    _ => "other"
+                };
+                bool canEnumerateDb = data.ValueKind == JsonValueKind.Object &&
+                    data.TryGetProperty("hasDatabaseEnumeration", out var supported) &&
+                    supported.ValueKind == JsonValueKind.True;
+                Console.Error.WriteLine("G24 SAFE browser error: exceptionClass=" + safeErrorClass +
+                    " indexedDbEnumerationAvailable=" + canEnumerateDb);
                 Console.Error.WriteLine("G24 SAFE browser readback: originalOrigin=" + correctOrigin +
                     " expectedAbsent=" + (_mode == "absent") + " localPresent=" + localPresent +
                     " indexedDbPresent=" + idbPresent + " resultAccepted=" + okStorage);
