@@ -18,13 +18,58 @@ function Execute([string]$label,[string]$program,[string[]]$args,[int]$ms=90000)
  if(-not $p.WaitForExit($ms)){try{$p.Kill($true)}catch{};throw "$label timed out"}
  Require ($p.ExitCode -eq 0) "$label process exited nonzero, code $($p.ExitCode)"
 }
+function Report-NativeSmokeStage([string]$log,[string]$stage){
+ # Never print raw original app logs; paths/research in those logs could be private.
+ $known=@(
+  'FoamLens materialized frontend validated:',
+  'FoamLens Windows smoke test passed.',
+  'FoamLens visual smoke screenshot:',
+  'WebView2 process failed:'
+ )
+ if(-not(Test-Path -LiteralPath $log)){
+   Write-Host "G24 native diagnostic stage=$stage logPresent=false"
+   return
+ }
+ $lines=Get-Content -LiteralPath $log -Tail 120 -ErrorAction SilentlyContinue
+ $labels=@('materialized-front-end','smoke-passed','screenshot-captured','browser-failed')
+ $i=0
+ foreach($flag in $known){
+   $matched=@($lines | Where-Object {$_ -like ('*'+$flag+'*')}).Count -gt 0
+   Write-Host ('G24 native diagnostic stage='+$stage+' milestone='+$labels[$i]+' observed='+$matched)
+   $i++
+ }
+}
 function NativeApp([string]$app,[string]$name){
  $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
- if(Test-Path -LiteralPath $log){Remove-Item -LiteralPath $log -Force}
- Execute $name $app @('--smoke-test') 300000
- Require (Test-Path -LiteralPath $log) 'Original FoamLens real WebView2 smoke log absent'
- Require (Select-String -LiteralPath $log -SimpleMatch 'Windows smoke test passed' -Quiet) 'Original FoamLens real smoke success marker missing'
- Write-Host ('G24 original application WebView2 pass at '+$name)
+ $begin=[DateTime]::UtcNow.AddSeconds(-3)
+ $appPath=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop'
+ Write-Host ('G24 starting exact original WinForms executable: stage='+$name+' sourceSha='+$OriginalMainSha)
+ # G23 proved the existing original smoke works on disposable Windows;
+ # retain the log and use a fresh timestamp rather than deleting it.
+ $p=Start-Process -FilePath $app -ArgumentList @('--smoke-test') -PassThru
+ $done=$false
+ try{
+   $done=$p.WaitForExit(300000)
+   if(-not $done){
+     Report-NativeSmokeStage $log 'timeout'
+     Write-Host ('G24 native diagnostic frontendExtracted='+[bool](Test-Path -LiteralPath (Join-Path $appPath "$Version\app\index.html")))
+     throw ($name+' actual original FoamLens WebView2 smoke timed out after 300 seconds')
+   }
+   if($p.ExitCode -ne 0){
+     Report-NativeSmokeStage $log 'nonzero-exit'
+     throw ($name+' original FoamLens process failed with code '+$p.ExitCode)
+   }
+   Require (Test-Path -LiteralPath $log) 'Original FoamLens real WebView2 smoke log absent'
+   $recent=@(Get-Content -LiteralPath $log -Tail 120 | Where-Object {$_ -like '*FoamLens Windows smoke test passed.*'})
+   Require ($recent.Count -gt 0) 'Original FoamLens actual WebView2 success marker missing'
+   Require ((Get-Item -LiteralPath $log).LastWriteTimeUtc -ge $begin) 'FoamLens smoke log is stale'
+   Write-Host ('G24 original application WebView2 pass at '+$name)
+ }finally{
+   if(-not $done){
+     try{ $p.Kill($true) }catch{}
+   }
+   $p.Dispose()
+ }
 }
 function Probe([string]$mode,[string]$profile,[string]$app,[string]$host,[bool]$expectPass=$true){
  $args=@($probe,$mode,$profile,$app,$token,$host)
