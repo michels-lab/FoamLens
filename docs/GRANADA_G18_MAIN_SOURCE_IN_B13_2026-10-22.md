@@ -1,3 +1,11 @@
+## Corrección de integración G18 / procedencia inmutable
+
+La primera ejecución nativa [#39898962357](https://github.com/michels-lab/FoamLens/actions/runs/39898962357) **FALLÓ correctamente** en `granada_native_host_composite.cjs`: el montaje de 16 propietarios exige que su host original sea idéntico al baseline `529d7055a6d97d06d2ee4158e858de94037228d7`. Sustituirlo *entero* por `Program.cs` de `main` antes del montaje rompe ese hash; no es aceptable desactivar la protección.
+
+**Plan vigente corregido**: G18 guarda el `Program.cs` verdadero y revisado de `main` como referencia independiente en `artifacts/granada-g18-main-Program.cs`, y ejecuta el C# real de G15. Mantiene sin cambios el `Program.cs` nativo original durante `granada_native_host_composite.cjs`. **Después** de la composición, `tools/granada_g18_main_updater_method.cjs` verifica en forma estricta que el método `DownloadVerifyAndLaunchUpdateAsync(UpdateReleaseInfo)` todavía coincida byte por byte con el método del baseline anterior, extrae el **método completo del actual `main`** sin alterarlo y reemplaza exclusivamente ese método en el host compuesto. Comprueba que restaurarlo reproduce el host científico original *exactamente*; si hay cualquier diferencia adicional falla.
+
+Resultado esperado: **host científico de múltiples propietarios con método del actualizador G15 idéntico a `main` y CSS original G16 idéntico a `main`**. No es `Program.cs` de `main` completo, ni binario distribuible. Se documentan ambos hashes de métodos en `artifacts/granada-g18-updater-method-provenance.json`. Las pruebas positivas/negativas (propietarios preservados, bloque G15 malicioso, fuente alterada, firma sin afirmaciones falsas) y el CI científico B13 completo son obligatorios.
+
 # GRANADA G18 — Current-main G15+G16 source in the authentic multi-owner B13 Windows host
 
 **Fecha de registro:** 22 de octubre de 2026 (hora de México). **Naturaleza:** prueba nativa de integración de código desde `main`, en rama **test-only** aislada, sin publicar ejecutable ni fusionar las herramientas de pruebas.
