@@ -1,3 +1,7 @@
+## G18 second fail-closed QA correction
+
+[Run #39899820797](https://github.com/michels-lab/FoamLens/actions/runs/39899820797) **FAILED before native compilation**, in a deliberately adversarial negative test: the graft previously accepted a changed G15 method that still contained the expected symbols. This is not acceptable as proof of byte identity. The new helper independently reads the full original G15 reviewed method from the immutable `01e032279ce165e5d62c1d1e93371fcf52f620c6` via Git, then rejects any replacement method whose bytes differ at all. The baseline scientific host remains immutable until the original owner composer completes. The next run must pass this modified-negative fixture before any native physics or package proof can be credited. Neither earlier red run is a native PASS.
+
 ## Corrección de integración G18 / procedencia inmutable
 
 La primera ejecución nativa [#39898962357](https://github.com/michels-lab/FoamLens/actions/runs/39898962357) **FALLÓ correctamente** en `granada_native_host_composite.cjs`: el montaje de 16 propietarios exige que su host original sea idéntico al baseline `529d7055a6d97d06d2ee4158e858de94037228d7`. Sustituirlo *entero* por `Program.cs` de `main` antes del montaje rompe ese hash; no es aceptable desactivar la protección.
