@@ -65,6 +65,19 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Original Windows icon generation failed'}
           python tools/generate_windows_icon.py --check
           if($LASTEXITCODE -ne 0){throw 'Official Windows icon differs'}
+      - name: Construct canonical original WebView2 AppBundle from tracked frontend before compiling native host
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force g25-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g25-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g25-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g25-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g25-bundle/LICENSE.txt
+          Compress-Archive -Path g25-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive $bundle -DestinationPath g25-verify -Force
+          if((Get-FileHash g25-verify/index.html -Algorithm SHA256).Hash -ne (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Original main frontend bundle changed during G25 build'}
       - name: Compile actual production WinForms WebView2 host with safe-link security class
         shell: pwsh
         run: |
