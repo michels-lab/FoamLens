@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -11,6 +11,7 @@ on:
       - test/granada-g8-real-b13-windows-captures-20261021
       - test/granada-g11-four-filter-native-b13-20261021
       - test/granada-g12-real-b13-field-ribbon-20261022
+      - test/granada-g13-b13-native-camera-proof-20261022
 
 permissions:
   contents: read
@@ -324,6 +325,16 @@ jobs:
           node --test tools/test_granada_g13_native_camera_assert.cjs
           node tools/granada_g13_native_camera_assert.cjs
           echo 'Original B13 Windows scientific Field and G13 original seven-camera geometry assertions now both mandatory'
+      - name: G14 P0 passive per-condition Play metrics in disposable native host only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/granada_g14_native_play_telemetry.cjs
+          node --test tools/test_granada_g14_native_play_telemetry.cjs
+          node tools/granada_g14_native_play_telemetry.cjs
+          grep -Fq 'const playNativeTelemetry=' desktop/src/FoamLensDesktop/Program.cs
+          grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass' desktop/src/FoamLensDesktop/Program.cs
+          echo 'G14 original Play contract unchanged; individual subconditions now measured by WebView2'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -503,6 +514,24 @@ jobs:
         run: |
           ./tools/granada_installed_portable_b13.ps1 -CaseRoot quickcup-runtime-fixture -OutputRoot artifacts/granada-installed-portable -Version 1.8.10
           if (-not $?) { throw 'Actual Setup/Portable real-case audit did not pass' }
+      - name: Preserve failed installed or portable native Play diagnostics as INTERNAL evidence
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $folder='artifacts/granada-installed-portable/evidence'
+          New-Item -ItemType Directory -Path $folder -Force | Out-Null
+          $nativeLog=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+          if (Test-Path $nativeLog) {
+            Copy-Item $nativeLog (Join-Path $folder 'granada-g14-last-native-play.log') -Force
+            $lines=Get-Content $nativeLog
+            $failure=@($lines | Select-String -Pattern 'playNativeTelemetry|Real Field toolbar/canvas geometry')
+            if ($failure.Count -gt 0) {
+              $failure | ForEach-Object { Write-Host $_.Line }
+            }
+          } else {
+            Write-Host 'No original native log generated; do not claim Play acceptance'
+          }
+          Write-Host 'Field-failed PNGs remain inside original visual installed/portable screenshot directories, if generated'
       - name: Require actual G8 full-width compact Time Series plots in BOTH installed and portable PNGs
         shell: pwsh
         run: |
