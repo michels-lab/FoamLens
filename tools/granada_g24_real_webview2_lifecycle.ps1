@@ -71,12 +71,12 @@ function NativeApp([string]$app,[string]$name){
    $p.Dispose()
  }
 }
-function Probe([string]$mode,[string]$profile,[string]$app,[string]$host,[bool]$expectPass=$true){
- $args=@($probe,$mode,$profile,$app,$token,$host)
+function Probe([string]$mode,[string]$profile,[string]$app,[string]$originHost,[bool]$expectPass=$true){
+ $args=@($probe,$mode,$profile,$app,$token,$originHost)
  # Use a .NET process in every stage; no in-process fake localStorage, no DOM injection into original app source.
- & dotnet $probe $mode $profile $app $token $host
+ & dotnet $probe $mode $profile $app $token $originHost
  $actual=$LASTEXITCODE
- if($expectPass){Require ($actual -eq 0) "Real WebView2 persistence $mode/$host returned failure"}
+ if($expectPass){Require ($actual -eq 0) "Real WebView2 persistence $mode/$originHost returned failure"}
  else{Require ($actual -ne 0) 'Invalid expected token was accepted by native browser'}
 }
 function NativeUninstall([string]$folder){
