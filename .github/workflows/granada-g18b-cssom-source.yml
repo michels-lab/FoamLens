@@ -1,0 +1,39 @@
+name: GRANADA G18b - passive native CSSOM Play origin parser
+on:
+  push:
+    branches:
+      - test/granada-g18b-play-css-cascade-inspection-20261022
+  pull_request:
+    branches:
+      - test/granada-g18-g15-g16-current-main-b13-20261022
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  css-collision-passive-source:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse original G18b read-only native JS diagnostic
+        run: node --check tools/granada_g18b_css_origins.cjs
+      - name: Test genuine 70.390625px original Play and 112px CSSOM source hypotheses
+        run: node --test tools/test_granada_g18b_css_origins.cjs
+      - name: Verify main-source G15 method is still byte-for-byte immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g18b-main'
+          node --test tools/test_granada_g18_main_updater_method.cjs
+          git show refs/remotes/granada/g18b-main:tools/test_repository_boundaries.cjs > tools/test_repository_boundaries.cjs
+          node tools/test_repository_boundaries.cjs
