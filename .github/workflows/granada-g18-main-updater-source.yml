@@ -37,5 +37,10 @@ jobs:
         run: node --check tools/granada_g18_main_updater_method.cjs
       - name: Original host preserved, full reviewed G15 method bytes, adversarial alternatives rejected
         run: node --test tools/test_granada_g18_main_updater_method.cjs
-      - name: Reject unrelated app source mixing
-        run: node tools/test_repository_boundaries.cjs
+      - name: Reject unrelated app source mixing with VERIFIED source-owned main scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show refs/remotes/granada/g18-reviewed-main:tools/test_repository_boundaries.cjs > tools/test_repository_boundaries.cjs
+          node --check tools/test_repository_boundaries.cjs
+          node tools/test_repository_boundaries.cjs
