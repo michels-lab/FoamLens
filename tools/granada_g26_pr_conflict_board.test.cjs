@@ -84,5 +84,5 @@ test('live API collector visits every relevant PR files page, no private/release
  assert.equal(x.coverage.sameFileProductOverlapPairs,1);
  assert.equal(x.analysisOnly,true);
  assert.deepEqual(x.sideEffects,[]);
- assert.equal(paths.length,6);
+ assert.equal(paths.length,7);
 });
