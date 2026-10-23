@@ -29,7 +29,6 @@ $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
 try {
  foreach($name in $localeNames){
   Set-Culture -CultureInfo ([Globalization.CultureInfo]::GetCultureInfo($name))
-  if($null -eq $LASTEXITCODE) { } # PowerShell cmdlet success is handled by ErrorActionPreference.
   # A separate compiled .NET8 process must actually observe the requested OS user
   # culture. A Set-Culture call alone is NOT proof that the desktop child uses it.
   $witnessLines=@(& $probe $name)
