@@ -9,6 +9,8 @@ const script=fs.readFileSync(path.join(root,'tools/granada_g29_actual_cross_vers
 const workflow=fs.readFileSync(path.join(root,'.github/workflows/granada-g29-real-version-storage-migration.yml'),'utf8');
 function has(s,pattern,label){assert.match(s,pattern,label)}
 function verify(s,w){
+  assert.doesNotMatch(s,/\[string\]\$host\b/i,'PowerShell automatic $Host is read-only and cannot be a function parameter');
+  assert.doesNotMatch(s,/\$script:profile\b/i,'avoid accidental PowerShell automatic profile variable collision');
   has(s,/RUNNER_ENVIRONMENT\s+-eq\s+'github-hosted'/,'G29 must refuse real user Windows machines');
   has(s,/RUNNER_OS\s+-eq\s+'Windows'/,'G29 must require Windows runner');
   has(s,/\$OldSha\s+-ne\s+\$MainSha/,'must genuinely compare distinct versions');
@@ -55,4 +57,9 @@ test('negative: cannot lose exact main identity',()=>{
 });
 test('negative: do not count browser persistence as full user settings migration',()=>{
  assert.throws(()=>verify(script.replace('userSettingsSchemaMigrationProven=$false','userSettingsSchemaMigrationProven=$true'),workflow),/settings migration/);
+});
+
+test('negative: original Windows read-only automatic $Host regression',()=>{
+ const broken=script.replace('[string]$originHost=', '[string]$host=');
+ assert.throws(()=>verify(broken,workflow),/automatic \$Host/);
 });
