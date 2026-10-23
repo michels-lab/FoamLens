@@ -341,7 +341,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected='0fdaa7bf5d590c9db153e8e41a92721b4bc3f7c5'
+          expected='225f66ae6311e102eb5d40b9222b93d8a6b2d704'
           found="$(git ls-remote origin refs/pull/234/head | awk '{print $1}')"
           if [[ "$found" != "$expected" ]]; then
             echo '::error::G16 PR #234 source SHA drifted: exact original Play fix invalidated'
