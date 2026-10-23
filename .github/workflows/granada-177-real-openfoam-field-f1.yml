@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022, test/granada-g16-b13-installed-play-repeats-20261022]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022, test/granada-g16-b13-installed-play-repeats-20261022, test/granada-g18-g15-g16-current-main-b13-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -197,6 +197,37 @@ jobs:
             }
           }
           Write-Host 'B13 original measured metal/mold SHA verified across five case identities'
+      - name: G18 pin actual CURRENT-MAIN G15 C# updater and scientific host BEFORE owner-only native grafts
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='01e032279ce165e5d62c1d1e93371fcf52f620c6'
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g18-main-product'
+          current="$(git rev-parse refs/remotes/granada/g18-main-product)"
+          git merge-base --is-ancestor "$expected" "$current" || { echo '::error::Pinned main G15+G16 milestone is not an ancestor'; exit 1; }
+          for file in \
+            desktop/src/FoamLensDesktop/Program.cs \
+            desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs \
+            desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js \
+            tools/granada_g15_updater_harness/Program.cs \
+            tools/granada_g15_updater_harness/UpdaterHarness.csproj \
+            tools/granada_g15_updater_source.test.cjs \
+            tools/granada_g17_integrated_guards.test.cjs \
+            .github/workflows/granada-g17-integrated-guards.yml \
+            docs/GRANADA_G17_COMBINED_RELEASE_SAFETY_2026-10-22.md; do
+            git cat-file -e "$expected:$file"
+            test "$(git rev-parse "$expected:$file")" = "$(git rev-parse "$current:$file")" || { echo "::error::Product main file changed since G18 pinned review: $file"; exit 1; }
+            mkdir -p "$(dirname "$file")"
+            git show "$current:$file" > "$file"
+          done
+          test "$(git rev-parse "$current:desktop/src/FoamLensDesktop/Program.cs")" = '185a71faeb70bd49c11ac06350c81833bc9343c7'
+          node --test tools/granada_g15_updater_source.test.cjs
+          dotnet run --project tools/granada_g15_updater_harness/UpdaterHarness.csproj --configuration Release
+          grep -Fq 'RequireExactSha256(checksumText, release.InstallerName)' desktop/src/FoamLensDesktop/Program.cs
+          grep -Fq 'RequireOfficialReleaseAsset(' desktop/src/FoamLensDesktop/Program.cs
+          mkdir -p artifacts
+          node -e "const fs=require('fs');fs.writeFileSync('artifacts/granada-g18-main-vs-composite.json',JSON.stringify({schema:'foamlens/g18/main-code-with-extra-science-owners/1',pinned_main:'01e032279ce165e5d62c1d1e93371fcf52f620c6',product_host_blob:'185a71faeb70bd49c11ac06350c81833bc9343c7',actual_main_program:true,includes_extra_unmerged_ui_owner_modules:true,physically_signed:false,release_authorized:false},null,2)+'\n')"
+          echo 'G18 exact current-main original host/updater imported BEFORE speculative owner-only scientific native grafts; no as-shipped claim'
       - name: Recheck all live SHA refs before bundling original modules
         shell: bash
         run: |
@@ -353,6 +384,7 @@ jobs:
           git show "$expected:tools/granada_g16_wide_play_cascade.test.cjs" > tools/granada_g16_wide_play_cascade.test.cjs
           node --check desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js
           node --test tools/granada_g16_wide_play_cascade.test.cjs
+          node --test tools/granada_g17_integrated_guards.test.cjs
           node --test tools/test_granada_g16_native_play_audit.cjs
           node tools/granada_g16_native_play_audit.cjs
           grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass' desktop/src/FoamLensDesktop/Program.cs
@@ -478,6 +510,25 @@ jobs:
               if (-not $body.Contains($anchor)) { throw "G16 original Play CSS contract missing: $anchor" }
             }
           } finally { $zip.Dispose() }
+      - name: G18 verify main G15 actual updater source IN compiled host and official G16 asset IN native bundle
+        shell: pwsh
+        run: |
+          $source=Get-Content 'desktop/src/FoamLensDesktop/Program.cs' -Raw
+          $actual=Get-Content 'desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs' -Raw
+          foreach($e in @('RequireExactSha256(checksumText, release.InstallerName)','RequireOfficialReleaseAsset(','SHA256.HashDataAsync(installerStream)')){
+            if(-not $source.Contains($e)){ throw "G18 current-main updater host regression: $e" }
+          }
+          if(-not $actual.Contains('segments[1] != "FoamLens"')){throw 'G18 current-main verified updater source absent'}
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try{
+            $asset=$zip.GetEntry('v33-granada-wide-play-cascade-guard.js')
+            if(-not $asset){throw 'G18 original current-main G16 CSS missing'}
+            $reader=[IO.StreamReader]::new($asset.Open())
+            try{$code=$reader.ReadToEnd()}finally{$reader.Dispose()}
+            if(-not $code.Contains('#appShell.app.gfwCompact')){throw 'G18 original G16 CSS selector priority lost'}
+          }finally{$zip.Dispose()}
+          Write-Host 'G18 REAL original current-main G15 updater + G16 Play module present in same scientific WebView2 C# host; final as-shipped build remains distinct'
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
         run: |
