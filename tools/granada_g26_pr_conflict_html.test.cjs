@@ -12,7 +12,9 @@ test('offline HTML escapes untrusted PR title and cannot inject executable scrip
  const doc=html(summary);
  assert(doc.includes('\\u003c/script\\u003e')||doc.includes('\\u003c/script>')===false);
  assert(!doc.includes(malicious));
- assert(!doc.includes('onerror=alert(1)'));
+ // Attribute text may appear harmlessly INSIDE escaped JSON; raw DOM tags must not appear.
+ assert(!doc.includes('<img src=x onerror=alert(1)>'));
+ assert(doc.includes('\\u003cimg src=x onerror=alert(1)\\u003e'));
  assert(doc.includes('textContent'));
  assert(doc.includes('granada-data'));
 });
