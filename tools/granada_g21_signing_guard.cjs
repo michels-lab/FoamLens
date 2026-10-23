@@ -22,7 +22,7 @@ function verify(report,root,sourceSha,version){
   const filename='FoamLens-'+(kind==='setup'?'Setup':'Portable')+'-v'+version+'.exe';
   if(!safeName(asset.filename)||asset.filename!==filename){errors.push(kind+': unexpected file identity');continue;}
   if(asset.authenticodeStatus!=='Valid')errors.push(kind+': invalid Authenticode or unsigned');
-  if(asset.signerThumbprint!==report.signerThumbprint)errors.push(kind+': inconsistent publisher certificate');
+  if(asset.signerThumbprint!==report?.signerThumbprint)errors.push(kind+': inconsistent publisher certificate');
   if(!SHA64.test(asset.sha256||'')){errors.push(kind+': hash absent');continue;}
   const candidate=path.join(root,filename),checksum=candidate+'.sha256';
   try{
