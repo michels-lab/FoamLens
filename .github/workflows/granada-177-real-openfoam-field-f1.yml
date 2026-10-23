@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022, test/granada-g16-b13-installed-play-repeats-20261022, test/granada-g18-g15-g16-current-main-b13-20261022]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022, test/granada-g16-b13-installed-play-repeats-20261022, test/granada-g18-g15-g16-current-main-b13-20261022, test/granada-g18b-play-css-cascade-inspection-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -15,6 +15,7 @@ on:
       - test/granada-g14-play-p0-installed-diagnostics-20261022
       - test/granada-g14-repeat-physics-evidence-20261022
       - test/granada-g16-b13-installed-play-repeats-20261022
+      - test/granada-g18-g15-g16-current-main-b13-20261022
 
 permissions:
   contents: read
@@ -406,6 +407,16 @@ jobs:
           grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass&&g16ForcedCompactReplayPass' desktop/src/FoamLensDesktop/Program.cs
           echo 'Mandatory genuine WebView2 forced 1140px stale-compact Play CSS and original class restoration staged without changing app source'
           echo 'Original G7 compact + G12 wide + G13 camera + G16 Play cascade now staged without weakening physics'
+      - name: G18b passive evidence of original CSSOM G7/G12/G16 and Play inline !important origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/granada_g18b_css_origins.cjs
+          node --test tools/test_granada_g18b_css_origins.cjs
+          node tools/granada_g18b_css_origins.cjs
+          grep -Fq 'const g18CssCascadeProbe=' desktop/src/FoamLensDesktop/Program.cs
+          grep -Fq 'g18CssCascadeProbe,' desktop/src/FoamLensDesktop/Program.cs
+          echo 'G18b CSS media query, matching selector, original inline priority, original Play state now emitted within unchanged failing native B13 source evidence'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
