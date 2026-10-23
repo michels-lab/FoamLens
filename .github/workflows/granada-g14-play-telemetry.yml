@@ -1,0 +1,31 @@
+name: GRANADA G14 - installed Play root-cause telemetry integrity
+on:
+  pull_request:
+    paths:
+      - 'tools/granada_g14_native_play_telemetry.cjs'
+      - 'tools/test_granada_g14_native_play_telemetry.cjs'
+      - '.github/workflows/granada-g14-play-telemetry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preserve-original-field-play-contract:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse read-only original Play instrumentation
+        run: node --check tools/granada_g14_native_play_telemetry.cjs
+      - name: Exercise independent native Play failure causes without changing pass criteria
+        run: node --test tools/test_granada_g14_native_play_telemetry.cjs
+      - name: Enforce FoamLens source/test ownership boundary
+        run: node tools/test_repository_boundaries.cjs
