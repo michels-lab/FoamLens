@@ -24,9 +24,9 @@ test('G18 preserves additional owner science additions even after 16-owner compo
 });
 test('G18 fails closed if owner updater block is changed or source G15 not reviewed',()=>{
  assert.throws(()=>patch(old.replace('The update checksum does not identify','Altered checksum semantics'),old,modern),/scientific host updater changed/);
- assert.throws(()=>patch(old,old,old),/not reviewed G15 implementation/);
- assert.throws(()=>patch(old,old,modern.replace('UpdateAssetIntegrity.RequireOfficialReleaseAsset(','OtherSource.RequireOfficialReleaseAsset(')),/not reviewed/);
- assert.throws(()=>patch(old,old,modern.replace('UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName)','new string(\'0\',64)')), /not reviewed/);
+ assert.throws(()=>patch(old,old,old),/not reviewed G15 implementation|differs from exact reviewed G15 bytes/);
+ assert.throws(()=>patch(old,old,modern.replace('UpdateAssetIntegrity.RequireOfficialReleaseAsset(','OtherSource.RequireOfficialReleaseAsset(')),/not reviewed|differs from exact reviewed G15 bytes/);
+ assert.throws(()=>patch(old,old,modern.replace('UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName)','new string(\'0\',64)')), /not reviewed|differs from exact reviewed G15 bytes/);
 });
 test('G18 original installer SHA and user-consent/elevation flow unchanged outside G15 updater',()=>{
  const out=patch(old,old,modern).updated;
