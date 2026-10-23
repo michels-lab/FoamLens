@@ -125,6 +125,8 @@ async function collect(api=getJson,token=process.env.GITHUB_TOKEN||'') {
   }
   if(page.length<PAGE_SIZE){allPages=true;break;}
  }
+ const recheck=await api(prefix+'/branches/main',token);
+ if(main.commit?.sha!==recheck.commit?.sha)throw Error('Original main SHA changed while collecting public PR evidence');
  return report({main,release,prs,runs:runsObject.workflow_runs},{complete:allPages});
 }
 function cli(args=process.argv.slice(2)){
