@@ -353,6 +353,9 @@ jobs:
           git show "$expected:tools/granada_g16_wide_play_cascade.test.cjs" > tools/granada_g16_wide_play_cascade.test.cjs
           node --check desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js
           node --test tools/granada_g16_wide_play_cascade.test.cjs
+          node --test tools/test_granada_g16_native_play_audit.cjs
+          node tools/granada_g16_native_play_audit.cjs
+          grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass' desktop/src/FoamLensDesktop/Program.cs
           echo 'Original G7 compact + G12 wide + G13 camera + G16 Play cascade now staged without weakening physics'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
