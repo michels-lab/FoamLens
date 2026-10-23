@@ -10,6 +10,8 @@
 - [Operación Granada](../.michelslab/GRANADA.md)
 - [Granada — protección del código y pruebas entre apps (PR #208)](granada/FOAMLENS_REPOSITORY_BOUNDARY_20261021.md)
 - [Granada G12 — Field Play original visible a 1140px, pruebas Windows B13 (PR #226)](GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md)
+- [Granada G13 — siete cámaras originales Field, responsive y B13 nativo (PR #228)](GRANADA_G13_FIELD_CAMERAS_2026-10-22.md)
+- [Granada G14 — Play P0 instalado: diagnóstico y pruebas de repetición](https://github.com/michels-lab/FoamLens/blob/test/granada-g14-play-p0-installed-diagnostics-20261022/docs/GRANADA_G14_INSTALLED_PLAY_P0_2026-10-22.md)
 
 ## Manuales y especificaciones
 - [Plan Field / regiones / CAD / auditorías](DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md)
