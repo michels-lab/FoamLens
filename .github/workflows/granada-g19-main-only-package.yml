@@ -1,0 +1,138 @@
+name: G19 Exact Main Portable and Installer Smoke (no release)
+on:
+  push:
+    branches: [test/granada-g19-exact-main-only-package-20261023]
+  workflow_dispatch:
+concurrency:
+  group: foamlens-g19-exact-mainonly-ci
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  main-only:
+    runs-on: windows-latest
+    timeout-minutes: 65
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify original unmodified main source, reject unmerged composites
+        run: |
+          node --test qa/tools/granada_g19_main_only_provenance.test.cjs
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $remote){throw 'Not current official FoamLens main HEAD'}
+          "MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+          node qa/tools/granada_g19_main_only_provenance.cjs product $sha g19-evidence/before.json
+      - name: Verify G15 updater, G16 Play, G17 release guards and source ownership
+        working-directory: product
+        run: |
+          node --test tools/granada_g15_updater_source.test.cjs tools/granada_g16_wide_play_cascade.test.cjs tools/granada_g17_integrated_guards.test.cjs
+          dotnet run --project tools/granada_g15_updater_harness/UpdaterHarness.csproj -c Release
+          node tools/test_repository_boundaries.cjs
+      - name: Package original main-only HTML frontend and native EXE
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          python tools/generate_windows_icon.py
+          python tools/generate_windows_icon.py --check
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force bundle_tmp | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html bundle_tmp/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets bundle_tmp/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt bundle_tmp/LICENSE.txt
+          Compress-Archive -Path bundle_tmp/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive $bundle -DestinationPath bundle_verify -Force
+          if((Get-FileHash bundle_verify/index.html -Algorithm SHA256).Hash -ne (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Bundle provenance lost'}
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g19-publish
+      - name: Run real original-main Portable smoke with WebView2
+        working-directory: product
+        run: |
+          $env:FOAMLENS_SMOKE_SOURCE_SHA=$env:MAIN_SHA
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Get-Location) 'artifacts/g19-portable.png'
+          $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Get-Location) 'artifacts/g19-portable-launch.png'
+          $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+          if(Test-Path $log){Remove-Item $log -Force}
+          $exe=(Resolve-Path artifacts/g19-publish/FoamLens.exe).Path
+          $p=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if(-not $p.WaitForExit(300000)){try{$p.Kill($true)}catch{};throw 'Portable timeout'}
+          if($p.ExitCode -ne 0 -or -not(Test-Path $log)){throw 'Portable original main smoke failed'}
+          if(-not(Select-String -Path $log -Pattern 'Windows smoke test passed' -Quiet)){throw 'Portable smoke has no original success marker'}
+      - name: Build actual main-only Inno Setup and install it
+        working-directory: product
+        run: |
+          choco install innosetup --yes --no-progress
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($v -notmatch '^\d+\.\d+\.\d+$'){throw 'Missing real main semver'}
+          $publish=(Resolve-Path artifacts/g19-publish).Path
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc "/DMyAppVersion=$v" "/DPublishDir=$publish" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0){throw 'Original Inno Setup build failed'}
+          $setup="desktop/artifacts/FoamLens-Setup-v$v.exe"
+          if(-not(Test-Path $setup)){throw 'Main-only installer missing'}
+          "SETUP_PATH=$setup" | Out-File $env:GITHUB_ENV -Append
+          $dest=Join-Path (Get-Location) 'artifacts/g19-installed'
+          "INSTALLED_PATH=$dest" | Out-File $env:GITHUB_ENV -Append
+          $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',('/DIR='+$dest))
+          $p=Start-Process -FilePath (Resolve-Path $setup).Path -ArgumentList $args -PassThru
+          if(-not $p.WaitForExit(90000)){try{$p.Kill($true)}catch{};throw 'Install timeout'}
+          if($p.ExitCode -ne 0 -or -not(Test-Path (Join-Path $dest 'FoamLens.exe'))){throw 'Real Inno install failed'}
+      - name: Execute real original-main Installed WebView2 smoke
+        working-directory: product
+        run: |
+          $env:FOAMLENS_SMOKE_SOURCE_SHA=$env:MAIN_SHA
+          $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path (Get-Location) 'artifacts/g19-installed.png'
+          $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path (Get-Location) 'artifacts/g19-installed-launch.png'
+          $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
+          if(Test-Path $log){Remove-Item $log -Force}
+          $p=Start-Process -FilePath (Join-Path $env:INSTALLED_PATH 'FoamLens.exe') -ArgumentList '--smoke-test' -PassThru
+          if(-not $p.WaitForExit(300000)){try{$p.Kill($true)}catch{};throw 'Installed WebView2 timeout'}
+          if($p.ExitCode -ne 0 -or -not(Test-Path $log)){throw 'Original main installed smoke failed'}
+          if(-not(Select-String -Path $log -Pattern 'Windows smoke test passed' -Quiet)){throw 'Installed original native success marker absent'}
+      - name: Verify original main source still unchanged and record binary hashes and signer truth
+        working-directory: product
+        run: |
+          node ../qa/tools/granada_g19_main_only_provenance.cjs . $env:MAIN_SHA ../g19-evidence/after.json
+          $latest=((git ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($latest -ne $env:MAIN_SHA){throw 'Official main changed, must rerun same-source proof'}
+          $files=@('artifacts/g19-publish/FoamLens.exe',$env:SETUP_PATH)
+          $meta=@()
+          foreach($p in $files){
+            $f=[IO.File]::OpenRead((Resolve-Path $p).Path)
+            try{if($f.ReadByte() -ne 77 -or $f.ReadByte() -ne 90){throw 'Invalid Windows PE package'}}finally{$f.Close()}
+            $meta+=@{name=[IO.Path]::GetFileName($p);sha256=(Get-FileHash $p -Algorithm SHA256).Hash.ToLowerInvariant();signature=(Get-AuthenticodeSignature $p).Status.ToString()}
+          }
+          $report=@{schema='foamlens/granada-g19-mainonly-packaging/1';sourceSha=$env:MAIN_SHA;portableSmoke=$true;installedSmoke=$true;packageHashes=$meta;releasePublished=$false;releaseReady=$false;remaining='True QuickCup per-start source PNG, 36 screenshots, physical DPI, owner approval, signed installer and live updater not proven'}
+          $report | ConvertTo-Json -Depth 6 | Set-Content ../g19-evidence/package-report.json
+      - name: Archive metadata only, never binaries or private OpenFOAM data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G19-original-main-proof-only
+          path: |
+            g19-evidence/before.json
+            g19-evidence/after.json
+            g19-evidence/package-report.json
+          if-no-files-found: warn
+          retention-days: 7
