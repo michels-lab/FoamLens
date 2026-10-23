@@ -70,12 +70,26 @@ try {
    $compact=@($content -split '\r?\n' | Where-Object {$_ -match 'FoamLens real Data/Field screenshot geometry passed: field=' -and $_ -match '"viewport":640' -and $_ -match 'playNativeTelemetry'}).Count
    $fail=($content.Contains('Real Field toolbar/canvas geometry or physical region evidence failed') -or
           $content.Contains('"playNotCollapsed":false'))
-   $good=$finished -and $proc.ExitCode -eq 0 -and $wide -ge 1 -and $compact -ge 1 -and -not $fail
+   # The original executable exit code is NOT sufficient scientific proof.
+   # Re-run the existing source-owned OpenFOAM B13 + actual multiregion PNG
+   # validator on EVERY new installed/portable restart, not just the first.
+   $physicsGateReport=Join-Path $folder 'native-original-b13-physics-gate.json'
+   $fieldOriginalPng=Join-Path $folder 'field-real-multiregion.png'
+   $physicsGatePass=$false
+   if ((Test-Path -LiteralPath $copied) -and (Test-Path -LiteralPath $fieldOriginalPng)) {
+    & python tools/granada_real_case_native_gate.py --log $copied --fixture-manifest $caseManifest --field-screenshot $fieldOriginalPng --output $physicsGateReport
+    $physicsGatePass=($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $physicsGateReport))
+   } else {
+    Write-Host "G14 original B13 proof missing on $($pair.Variant) launch $repeat: physical source log or Field PNG absent"
+   }
+   $good=$finished -and $proc.ExitCode -eq 0 -and $wide -ge 1 -and $compact -ge 1 -and -not $fail -and $physicsGatePass
    $results.Add([pscustomobject]@{
     variant=$pair.Variant;startup=$repeat;source_sha=$sha;binary_sha256=$binarySha;
     real_case='QuickCup B13 metal+mold';expected_physical_time_s=9.8;
     native_exit_code=if($finished){$proc.ExitCode}else{$null};
     wide_1140_measured=$wide -ge 1;compact_640_measured=$compact -ge 1;
+    source_bound_b13_field_png_verified=$physicsGatePass;
+    field_png_sha256=if($physicsGatePass){(Get-FileHash $fieldOriginalPng -Algorithm SHA256).Hash.ToLowerInvariant()}else{$null};
     real_play_and_physics_pass=$good;human_visual_approved=$false;
     os_physical_dpi_approved=$false
    })
