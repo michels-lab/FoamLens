@@ -43,6 +43,17 @@ jobs:
           ref: main
           path: product
           persist-credentials: false
+      - name: Reject invalid original G20 PowerShell syntax BEFORE fetching large private case
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $parseErrors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'qa/tools/granada_g20_original_main_real_b13.ps1').Path,[ref]$tokens,[ref]$parseErrors)
+          if($parseErrors.Count -gt 0){
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw 'G20 native source runner PowerShell parser regression failed'
+          }
+          Write-Host 'Actual original G20 private-science Windows driver parses before expensive case reconstruction'
       - name: Fetch original private QuickCup source as bare Git objects with no Windows checkout
         shell: pwsh
         env:
