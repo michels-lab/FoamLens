@@ -1,0 +1,33 @@
+name: GRANADA G16 - forced compact WebView2 native audit source
+on:
+  push:
+    branches:
+      - test/granada-g16-b13-installed-play-repeats-20261022
+  pull_request:
+    branches:
+      - test/granada-g14-repeat-physics-evidence-20261022
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  forced-compact-replay-source:
+    name: Native CSS forced-state source guards (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check disposable C# host temporary G16 native replay JavaScript syntax
+        run: node --check tools/granada_g16_native_forced_compact.cjs
+      - name: Replay original 70.390625px installed Play, 112px corrected, restore gfwCompact on all error paths
+        run: node --test tools/test_granada_g16_native_forced_compact.cjs
+      - name: Keep existing original G16 native fail-closed audit anchored
+        run: node --test tools/test_granada_g16_native_play_audit.cjs

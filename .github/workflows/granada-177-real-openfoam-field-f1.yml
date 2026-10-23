@@ -2,7 +2,7 @@ name: Granada G5 — real Setup Portable all 36 workspaces; no RC
 
 on:
   push:
-    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022]
+    branches: [feat/granada-177-g5-all-native-workspaces-20261021, fix/granada-g5-real-b13-timeseries-visible-anchor-20261021, feat/granada-g7-real-b13-installed-portable-36-20261021, test/granada-g8-real-b13-windows-captures-20261021, test/granada-g10-b13-no-canvas-overlays-20261021, test/granada-g11-native-chart-focus-b13-20261021, test/granada-g11-four-filter-native-b13-20261021, test/granada-g12-real-b13-field-ribbon-20261022, test/granada-g13-b13-native-camera-proof-20261022, test/granada-g14-play-p0-installed-diagnostics-20261022, test/granada-g14-repeat-physics-evidence-20261022, test/granada-g16-b13-installed-play-repeats-20261022]
   pull_request:
     branches:
       - feat/granada-177-g5-all-native-workspaces-20261021
@@ -13,6 +13,7 @@ on:
       - test/granada-g12-real-b13-field-ribbon-20261022
       - test/granada-g13-b13-native-camera-proof-20261022
       - test/granada-g14-play-p0-installed-diagnostics-20261022
+      - test/granada-g14-repeat-physics-evidence-20261022
 
 permissions:
   contents: read
@@ -336,6 +337,30 @@ jobs:
           grep -Fq 'const playNativeTelemetry=' desktop/src/FoamLensDesktop/Program.cs
           grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass' desktop/src/FoamLensDesktop/Program.cs
           echo 'G14 original Play contract unchanged; individual subconditions now measured by WebView2'
+      - name: Pin G16 original measured 70px Play cascade fix into temporary native host
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='225f66ae6311e102eb5d40b9222b93d8a6b2d704'
+          found="$(git ls-remote origin refs/pull/234/head | awk '{print $1}')"
+          if [[ "$found" != "$expected" ]]; then
+            echo '::error::G16 PR #234 source SHA drifted: exact original Play fix invalidated'
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/pull/234/head:refs/remotes/granada/g16-play'
+          test "$(git rev-parse refs/remotes/granada/g16-play)" = "$expected"
+          git show "$expected:desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js" > desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js
+          git show "$expected:tools/granada_g16_wide_play_cascade.test.cjs" > tools/granada_g16_wide_play_cascade.test.cjs
+          node --check desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js
+          node --test tools/granada_g16_wide_play_cascade.test.cjs
+          node --test tools/test_granada_g16_native_play_audit.cjs
+          node tools/granada_g16_native_play_audit.cjs
+          grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass' desktop/src/FoamLensDesktop/Program.cs
+          node --test tools/test_granada_g16_native_forced_compact.cjs
+          node tools/granada_g16_native_forced_compact.cjs
+          grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass&&g16ForcedCompactReplayPass' desktop/src/FoamLensDesktop/Program.cs
+          echo 'Mandatory genuine WebView2 forced 1140px stale-compact Play CSS and original class restoration staged without changing app source'
+          echo 'Original G7 compact + G12 wide + G13 camera + G16 Play cascade now staged without weakening physics'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
         run: |
@@ -356,7 +381,7 @@ jobs:
             foreach ($required in @('index.html','v14-field-view.js','v14-z-field-compare.js',
               'v24-cad-surface-inspector.js','v24-equivalent-observables.js','v24-checkmesh-region-evidence.js',
               'v16-multipanel-export.js','v27-granada-compact-workbench.js','v28-granada-compact-timeseries.js',
-              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js','v31-granada-wide-field-ribbon.js','v32-granada-field-cameras.js')) {
+              'v29-granada-plot-toolbar.js','v30-granada-chart-focus.js','v31-granada-wide-field-ribbon.js','v32-granada-field-cameras.js','v33-granada-wide-play-cascade-guard.js')) {
               if ($names -notcontains $required) { throw "Required original module missing: $required" }
             }
             $staged=@($names | Where-Object { $_ -like 'v24-*.js' }).Count
@@ -439,6 +464,20 @@ jobs:
           } finally { $zip.Dispose() }
           $native=Get-Content 'desktop/src/FoamLensDesktop/Program.cs' -Raw
           if (-not $native.Contains('g13NativeCameraPass,g13NativeCameraAudit,')) { throw 'Native WebView2 original camera gate missing after original source reconciliation' }
+      - name: Verify genuine Windows AppBundle now embeds exact source G16 original Play override
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path 'desktop/src/FoamLensDesktop/AppBundle.zip'))
+          try {
+            $entry=$zip.GetEntry('v33-granada-wide-play-cascade-guard.js')
+            if (-not $entry) { throw 'G16 original Play CSS cascade override not in real Windows AppBundle' }
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try { $body=$reader.ReadToEnd() } finally { $reader.Dispose() }
+            foreach($anchor in @('FoamLensGranadaG16','min-width:112px!important','gfwCompact','1025px','1250px')) {
+              if (-not $body.Contains($anchor)) { throw "G16 original Play CSS contract missing: $anchor" }
+            }
+          } finally { $zip.Dispose() }
       - name: Build real original Windows FoamLens Forms/WebView2 host with combined Program.cs
         shell: pwsh
         run: |
