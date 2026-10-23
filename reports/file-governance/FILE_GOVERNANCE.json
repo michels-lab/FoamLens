@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 300,
-  "classified_files_total": 296,
-  "docs_content_inspected": 54,
+  "tracked_files_total": 303,
+  "classified_files_total": 299,
+  "docs_content_inspected": 55,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 5,
     "config": 7,
-    "document": 48,
+    "document": 49,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 87,
+    "source": 88,
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 25
+    "workflow": 26
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "e1358d027913dd4fdf0ad6c8f182d45b5ab1745d0b9633d0528d7286ada34f72",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "931c7e07c9405d585160c237cbd4f1945400731e437d05d42adf93db0dee3ff5",
+  "evidence_fingerprint": "6509571820f5702e7a7517cea7f30a321351089eceb030434e1ea9291cd34acc",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -180,6 +182,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "f80157451bac89c649216e1e94eb726c916d54e4"
+    },
+    {
+      "path": ".github/workflows/granada-g17-integrated-guards.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -1547,6 +1556,13 @@
       "blob": "f54e56575f7ae03c10d5eb0a21ea9b7d552a9685"
     },
     {
+      "path": "docs/GRANADA_G17_COMBINED_RELEASE_SAFETY_2026-10-22.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
+    },
+    {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1925,6 +1941,13 @@
       "blob": "173d80de6968d73a9dae50e54dd9afc02c829957"
     },
     {
+      "path": "tools/granada_g17_integrated_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+    },
+    {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2100,7 +2123,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "7331fa3877c20218",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "2 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g17-integrated-guards.yml, tools/granada_g17_integrated_guards.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
