@@ -53,6 +53,7 @@ internal static class Program
 internal sealed class ProbeForm : Form
 {
     private readonly WebView2 _view = new() { Dock = DockStyle.Fill };
+    private readonly System.Windows.Forms.Timer _watchdog = new() { Interval = 90000 };
     private readonly string _mode, _profile, _app, _token, _host;
     internal int Result { get; private set; } = 1;
 
@@ -63,6 +64,13 @@ internal sealed class ProbeForm : Form
         Width = 960; Height = 700;
         StartPosition = FormStartPosition.CenterScreen;
         Controls.Add(_view);
+        _watchdog.Tick += (_, _) => {
+            _watchdog.Stop();
+            Result = 1;
+            Console.Error.WriteLine("G24 FAIL: real WebView2 browser stage exceeded 90 seconds without a verified answer");
+            Close();
+        };
+        _watchdog.Start();
     }
 
     protected override async void OnShown(EventArgs e)
@@ -173,7 +181,9 @@ internal sealed class ProbeForm : Form
         }
         finally
         {
-            BeginInvoke(new Action(Close));
+            _watchdog.Stop();
+            if (!IsDisposed && IsHandleCreated)
+                BeginInvoke(new Action(Close));
         }
     }
 }
