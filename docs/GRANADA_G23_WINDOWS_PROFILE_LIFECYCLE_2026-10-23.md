@@ -23,3 +23,9 @@ These are safety and functionality gaps distinct from the unfinished G20 origina
 This QA **does not** prove true localStorage/IndexedDB transactional persistence or cross-version migration (same-version reinstall only), all Windows DPI scales, original B13 numerics, 36 full screenshots, actual in-app developer note persistence, Authenticode signer trust or real signed updater behavior. Never mark it as completed until exact latest Windows native job is terminal green.
 
 Official remaining stable gate: [release #238](https://github.com/michels-lab/FoamLens/issues/238). `main` remains isolated; no beta, RC or stable release published by G23.
+
+## Verified terminal native QA result
+
+- At code SHA `4066c953294d25cac7179a657cdf807af8df0a42`, [G23 #39940667785](https://github.com/michels-lab/FoamLens/actions/runs/39940667785) **terminal SUCCESS** on both cross-OS source-contract jobs and the actual original-main Windows native installer lifecycle. Original product `main` pinned and reverified at `00533f68993fef7a7761026cf9c1ab13a21ab3cd`.
+- Four original Windows WebView2 smoke pass lines: Portable Unicode/spaces, initial installed, same-version reinstalled, Portable after uninstall. Actual installer/uninstaller returned success. Synthetic profile sentinel hashes remained stable. Actions artifact contains **metadata only** (570-byte JSON), never files from personal accounts or the QuickCup B13 repository.
+- This is a user-data *filesystem preservation* regression, not full browser storage serialization, cross-version upgrade, signed distribution, or physical scientific fidelity. Separate G20/G21/G22 release gates still apply.
