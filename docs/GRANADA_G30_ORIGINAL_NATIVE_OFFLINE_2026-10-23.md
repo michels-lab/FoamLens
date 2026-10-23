@@ -27,3 +27,22 @@ FoamLens is an installed **local scientific OpenFOAM data analysis product**, an
 **Acceptance:** no native result accepted until current exact PR-head **three jobs terminal green**, metadata schema checks pass and no `main` source drift. Keep [release blocker #238](https://github.com/michels-lab/FoamLens/issues/238) open. Public stable **v1.8.10** unchanged. The native job may legitimately fail if GitHub-hosted Windows Firewall is disabled or browser cannot reach the baseline endpoint; such an outcome is an evidence limitation, **not** permission to relax this experiment.
 
 **Workflow:** [G30 Windows genuine offline verification](https://github.com/michels-lab/FoamLens/actions/workflows/granada-g30-real-native-offline.yml). **This file describes intended gates, not a green CI claim.**
+
+## Exact original native evidence: final PASS (2026-10-23)
+
+**Workflow and source reviewed:** [G30 Windows run #40019091026](https://github.com/michels-lab/FoamLens/actions/runs/40019091026), **completed SUCCESS** on G30 QA commit `6c59204d1924a70c146ed1355e38cfbfe6a09710`, with original product `main` unchanged at `d651c43e0507c5316070fbd4859c9fb3196850a2`. Ubuntu and Windows adversarial source tests + Windows genuine Chromium probe compilation passed, then original app and Inno Setup compiled, 0 product build errors.
+
+Genuine hosted Windows runtime log:
+
+1. `20:28:26Z`: independent Chromium **online navigation succeeded** to original owning repo's public GitHub release API (no response copied).
+2. `20:28:31–32Z`: actual Windows Firewall outbound-deny rules confirmed for original **Portable**, original **Installed** and real **msedgewebview2.exe**.
+3. `20:28:36Z`: new independent Chromium navigation **failed under enforced native block**, as required.
+4. `20:28:36–20:29:00Z`: original real Windows WebView2 embedded smoke succeeded Portable cold/repeat and Installed cold/repeat, with actual original frontend.
+5. `20:29:23Z` and `20:29:36Z`: original **normal** installed UI and portable UI each remained visibly alive while background update network checks could not connect.
+6. `20:29:37Z`: real installed Inno was uninstalled, then original Portable was started and passed offline again.
+7. `20:29:46Z`: Chromium was still independently verified blocked; `20:29:46Z` G30 native acceptance PASSED; exact original-product SHA and evidence schema checks passed.
+
+**Claim supported:** original FoamLens 1.8.10 Windows UI launches and runs for the verified duration as installed or portable without working Internet on a disposable GitHub-hosted Windows runner. **Not supported:** complete offline processing of owner's real 3,008-file OpenFOAM case, numerical physics accreditation, physical Windows 125–200% DPI and all user screenshot signoffs, independent signed Authenticode publisher/updater or final release readiness. Source-only review is not this runtime proof; actual native trace is linked above. No user data or private CFD case included.
+
+**Historical CI parse defect:** early G30 runs prior to `6c59204` failed without jobs because an unquoted YAML step name included a colon. Quoting the YAML scalar restored valid CI, then actual three-job native proof passed. The product binaries themselves never failed due to that YAML defect. This is distinct from a native Windows error and must not be portrayed as one.
+
