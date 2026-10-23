@@ -14,6 +14,7 @@ on:
       - test/granada-g13-b13-native-camera-proof-20261022
       - test/granada-g14-play-p0-installed-diagnostics-20261022
       - test/granada-g14-repeat-physics-evidence-20261022
+      - test/granada-g16-b13-installed-play-repeats-20261022
 
 permissions:
   contents: read
