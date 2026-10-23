@@ -43,17 +43,40 @@ jobs:
           ref: main
           path: product
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: realmichelduarte/QuickCup-Solidification
-          ref: foamlens-real-fixture-b13
-          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
-          path: quickcup-git
-          sparse-checkout: |
-            /README.md
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-          persist-credentials: false
+      - name: Fetch original private QuickCup source as bare Git objects with no Windows checkout
+        shell: pwsh
+        env:
+          QUICKCUP_TOKEN: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+        run: |
+          $ErrorActionPreference='Stop'
+          if([string]::IsNullOrWhiteSpace($env:QUICKCUP_TOKEN)){throw 'Private original QuickCup access absent'}
+          # A bare Git repository never creates case files whose names are invalid on NTFS.
+          # GIT_ASKPASS passes the token from the runner environment, not a URL or CLI arg.
+          $askpass=Join-Path $env:RUNNER_TEMP 'foamlens-g20-askpass.cmd'
+          @'
+          @echo off
+          echo %~1 | findstr /I /C:"Username" >nul
+          if %ERRORLEVEL%==0 (echo x-access-token& exit /b 0)
+          echo %QUICKCUP_TOKEN%
+          '@ | Set-Content -Path $askpass -Encoding ascii
+          $env:GIT_ASKPASS=$askpass
+          $env:GIT_TERMINAL_PROMPT='0'
+          try{
+            git init --bare quickcup-git
+            if($LASTEXITCODE -ne 0){throw 'Cannot initialize bare original-case Git store'}
+            git -C quickcup-git fetch --no-tags --depth=1 https://github.com/realmichelduarte/QuickCup-Solidification.git refs/heads/foamlens-real-fixture-b13
+            if($LASTEXITCODE -ne 0){throw 'Cannot fetch authentic private QuickCup Git blobs'}
+            git -C quickcup-git update-ref refs/heads/g20-b13 FETCH_HEAD
+            if($LASTEXITCODE -ne 0){throw 'Cannot pin real B13 Git object ref'}
+            git -C quickcup-git symbolic-ref HEAD refs/heads/g20-b13
+            if($LASTEXITCODE -ne 0){throw 'Cannot pin original measured B13 bare HEAD'}
+            git -C quickcup-git cat-file -e HEAD:cases_controlled_buoyancy/B13_prghPressure_airGapOF14/9.8/metal/T
+            if($LASTEXITCODE -ne 0){throw 'Real metal field absent from fetched Git objects'}
+          }finally{
+            Remove-Item -LiteralPath $askpass -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:GIT_ASKPASS -ErrorAction SilentlyContinue
+            Remove-Item Env:QUICKCUP_TOKEN -ErrorAction SilentlyContinue
+          }
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
