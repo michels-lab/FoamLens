@@ -3212,19 +3212,22 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         var installerPath = Path.Combine(updateDir, release.InstallerName);
         var checksumPath = installerPath + ".sha256";
-        await DownloadUpdateFileAsync(release.InstallerUrl!, installerPath);
-        await DownloadUpdateFileAsync(release.ChecksumUrl!, checksumPath);
+        var officialInstallerUrl = UpdateAssetIntegrity.RequireOfficialReleaseAsset(
+            release.InstallerUrl!, release.Tag, release.InstallerName);
+        var officialChecksumUrl = UpdateAssetIntegrity.RequireOfficialReleaseAsset(
+            release.ChecksumUrl!, release.Tag, release.InstallerName + ".sha256");
+        await DownloadUpdateFileAsync(officialInstallerUrl.AbsoluteUri, installerPath);
+        await DownloadUpdateFileAsync(officialChecksumUrl.AbsoluteUri, checksumPath);
 
+        var checksumInfo = new FileInfo(checksumPath);
+        if (checksumInfo.Length is < 64 or > 4096)
+            throw new InvalidDataException("FoamLens update checksum exceeds the permitted manifest size.");
         var checksumText = await File.ReadAllTextAsync(checksumPath, Encoding.ASCII);
-        if (!checksumText.Contains(release.InstallerName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("The update checksum does not identify the downloaded installer.");
-        var match = Regex.Match(checksumText, @"\b[a-fA-F0-9]{64}\b");
-        if (!match.Success)
-            throw new InvalidDataException("The update checksum file does not contain a valid SHA-256 hash.");
+        var expectedHash = UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName);
 
         await using var installerStream = File.OpenRead(installerPath);
         var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(installerStream));
-        if (!string.Equals(match.Value, actualHash, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("FoamLens update verification failed: installer SHA-256 does not match.");
 
         Log($"Verified FoamLens update {release.Tag}: {actualHash.ToLowerInvariant()}");
