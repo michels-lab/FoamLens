@@ -12,6 +12,7 @@
 - [Granada G12 — Field Play original visible a 1140px, pruebas Windows B13 (PR #226)](GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md)
 - [Granada G13 — siete cámaras originales Field, responsive y B13 nativo (PR #228)](GRANADA_G13_FIELD_CAMERAS_2026-10-22.md)
 - [Granada G15 — protección de checksum y origen del actualizador (PR #233)](GRANADA_G15_UPDATER_RELEASE_ASSET_INTEGRITY_2026-10-22.md)
+- [Granada G16 — corregido Play de Field a 1140 px con verificación instalada y CSS forzado (PR #234)](GRANADA_G16_INSTALLED_PLAY_CASCADE_2026-10-22.md)
 - [Granada G14 — Play P0 instalado: diagnóstico y pruebas de repetición](https://github.com/michels-lab/FoamLens/blob/test/granada-g14-play-p0-installed-diagnostics-20261022/docs/GRANADA_G14_INSTALLED_PLAY_P0_2026-10-22.md)
 
 ## Manuales y especificaciones
