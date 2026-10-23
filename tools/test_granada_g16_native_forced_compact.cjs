@@ -1,14 +1,14 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const {graft,inserted}=require('./granada_g16_native_forced_compact.cjs');
-function sample({viewport=1140,initial=false,width=112,minWidth='112px',maxWidth='none',text='▶ Play ↻',aria='Play continuously in a loop',client=110,scroll=110,throws=false}={}){
+function sample({viewport=1140,initial=false,width=112,height=32,minWidth='112px',maxWidth='none',text='▶ Play ↻',aria='Play continuously in a loop',client=110,scroll=110,throws=false}={}){
  const classes=new Set(initial?['gfwCompact']:[]);
  const original=classes.has('gfwCompact');
  const app={classList:{
   contains:s=>classes.has(s),add:s=>classes.add(s),remove:s=>classes.delete(s)}};
  const play={textContent:text,clientWidth:client,scrollWidth:scroll,
   getAttribute:s=>s==='aria-label'?aria:null,
-  getBoundingClientRect:()=>({width,height:32})};
+  getBoundingClientRect:()=>({width,height})};
  const document={getElementById:s=>s==='appShell'?app:s==='fwTimePlay'?play:null};
  const context={innerWidth:viewport,document,Number,getComputedStyle:()=>{
    if(throws)throw Error('deliberate computed-style failure');
@@ -34,7 +34,7 @@ test('replays measured BAD original 68px min width and actual 70.390625px to FAI
  assert.equal(f.out.pass,false);assert.equal(f.out.detail.result,'FAIL');assert(f.restored);
 });
 test('independently refuses text overflow, bad aria and invalid height',()=>{
- for(const opts of [{scroll:145},{aria:'Unlabelled control'},{text:'Pause'}]){
+ for(const opts of [{scroll:145},{aria:'Unlabelled control'},{text:'Pause'},{height:22}]){
   const f=sample(opts);assert.equal(f.out.pass,false);
   assert(f.restored);
  }
