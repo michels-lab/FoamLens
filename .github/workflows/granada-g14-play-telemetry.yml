@@ -1,0 +1,50 @@
+name: GRANADA G14 - installed Play root-cause telemetry integrity
+on:
+  pull_request:
+    paths:
+      - 'tools/granada_g14_native_play_telemetry.cjs'
+      - 'tools/test_granada_g14_native_play_telemetry.cjs'
+      - '.github/workflows/granada-g14-play-telemetry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preserve-original-field-play-contract:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse read-only original Play instrumentation
+        run: node --check tools/granada_g14_native_play_telemetry.cjs
+      - name: Exercise independent native Play failure causes without changing pass criteria
+        run: node --test tools/test_granada_g14_native_play_telemetry.cjs
+      - name: Test actual packaged startup repetition maintains P0 native and physics gates
+        run: node --test tools/test_granada_g14_repeat_packaged_play.cjs
+      - name: Parse stress-test PowerShell on Windows before real runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g14_repeat_packaged_play.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; throw 'G14 packaged test script PowerShell syntax FAILED' }
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_installed_portable_b13.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; throw 'G14 original packaged smoke wrapper PowerShell syntax FAILED' }
+      - name: Enforce verified FoamLens main ownership audit against THIS stacked test tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/ownership-main'
+          git merge-base --is-ancestor 18698eea67b60132d9060b9746dc5716964312e0 refs/remotes/granada/ownership-main
+          git show refs/remotes/granada/ownership-main:tools/test_repository_boundaries.cjs > tools/test_repository_boundaries.cjs
+          node --check tools/test_repository_boundaries.cjs
+          node tools/test_repository_boundaries.cjs
