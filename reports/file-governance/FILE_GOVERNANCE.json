@@ -1,30 +1,30 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 303,
-  "classified_files_total": 299,
-  "docs_content_inspected": 55,
+  "tracked_files_total": 309,
+  "classified_files_total": 305,
+  "docs_content_inspected": 56,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
-    "build_script": 5,
+    "build_script": 6,
     "config": 7,
-    "document": 49,
+    "document": 50,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 88,
+    "source": 91,
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 26
+    "workflow": 27
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "017702167c75b3b7b5a52171e37737356b854482cbbb9c348298a5e74c621a6c",
+  "inventory_fingerprint": "87360c677a10473f534e9b763590870cab7a50224094eb9342918346b82cbefe",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -187,6 +187,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
+    },
+    {
+      "path": ".github/workflows/granada-g25-external-navigation-guard.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "362f44a084fee99195992748a271d679825cf990"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -399,6 +406,13 @@
       "blob": "0dcbef3ece10145ab59970c4542ed8c7733ba6bc"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/ExternalNavigationPolicy.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9c928252aa8a78818fa2fe490e64d5bdac6e4ab9"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
       "role": "build_script",
       "purpose": "platform build/project/installer script",
@@ -431,7 +445,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "185a71faeb70bd49c11ac06350c81833bc9343c7"
+      "blob": "d2930d013bb49f36b1e7d6805d3c4c070722997a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs",
@@ -1222,7 +1236,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "78ec7ac7011aedfc158e6842e7bfdd53d302a5f7"
+      "blob": "5e428f951a10e27f33c80d2219a387d7f58d44ae"
     },
     {
       "path": "desktop/tests/ribbon-ui.test.cjs",
@@ -1509,7 +1523,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "bb49cad71186b76cc881d172c6a5530ea9c1d004"
+      "blob": "667655b85cb52b032962954c6d5eaf124a9ff325"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1559,6 +1573,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
+    },
+    {
+      "path": "docs/GRANADA_G25_NATIVE_EXTERNAL_LINKS_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
@@ -1944,6 +1965,27 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "fb14b98d681f3634a08ec935cdf3ccfd2b46901a"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2ed078ba61b9f1f95288b30b22aac2abf98225e5"
+    },
+    {
+      "path": "tools/granada_g25_navigation_wiring.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4e53275597a029e1464de2001e2950dfa906439d"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
