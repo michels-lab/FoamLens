@@ -26,7 +26,7 @@ function Native-Repeat([string]$variant,[string]$exe) {
   foreach($mark in @('real OpenFOAM packaged runtime smoke passed','Windows smoke test passed')){
    if(-not(Select-String -Path $log -SimpleMatch $mark -Quiet)){throw "$variant real-source native run $i lacks original $mark"}
   }
-  Write-Host "Original B13 native $variant start $i: physical fixture OpenFOAM marker + WebView2 smoke PASS"
+  Write-Host "Original B13 native $variant start ${i}: physical fixture OpenFOAM marker + WebView2 smoke PASS"
  }
 }
 Push-Location $product
