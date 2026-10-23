@@ -44,6 +44,31 @@ test('fail closed when a native original Play check or startup viewport is missi
  assert(!stress.includes('playNotCollapsed=true'));
  assert(!stress.includes('exit 0'));
 });
+test('each repetition separately passes the ORIGINAL read-only measured OpenFOAM B13 scientific gate',()=>{
+ const must=[
+  'tools/granada_real_case_native_gate.py',
+  '--log $copied',
+  '--fixture-manifest $caseManifest',
+  '--field-screenshot $fieldOriginalPng',
+  '--output $physicsGateReport',
+  "'field-real-multiregion.png'",
+  "'native-original-b13-physics-gate.json'",
+  '(Test-Path -LiteralPath $physicsGateReport)',
+  '$physicsGatePass=($LASTEXITCODE -eq 0',
+  '-and $physicsGatePass',
+  'source_bound_b13_field_png_verified=$physicsGatePass',
+  '(Get-FileHash $fieldOriginalPng -Algorithm SHA256)'
+ ];
+ for(const x of must)assert(stress.includes(x),x);
+ const originalPhysics=fs.readFileSync(path.join(root,'tools/granada_real_case_native_gate.py'),'utf8');
+ for(const x of ['"9.8/metal/T"', '"9.8/mold/T"','"FoamLens real OpenFOAM physical multiregion WebGL smoke passed"',
+  '"FoamLens real OpenFOAM View B metal+mold and metric XYZ smoke passed"','PNG_HEADER','PNG_END'])assert(originalPhysics.includes(x),x);
+ assert(!stress.includes('verified_scientific_accuracy=$true'));
+});
+test('PowerShell variable before a diagnostic colon is escaped and parser-safe',()=>{
+ assert(stress.includes('launch ${repeat}: physical source log or Field PNG absent'));
+ assert(!stress.includes('$repeat:'));
+});
 test('unique per-attempt logs, original PNGs and summary persisted before an error',()=>{
  assert(stress.includes("'native-original-play.log'"));
  assert(stress.includes("'granada-g14-packaged-repeat-summary.json'"));

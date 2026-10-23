@@ -4,6 +4,8 @@ on:
     paths:
       - 'tools/granada_g14_native_play_telemetry.cjs'
       - 'tools/test_granada_g14_native_play_telemetry.cjs'
+      - 'tools/granada_g14_repeat_packaged_play.ps1'
+      - 'tools/test_granada_g14_repeat_packaged_play.cjs'
       - '.github/workflows/granada-g14-play-telemetry.yml'
   workflow_dispatch:
 permissions:
