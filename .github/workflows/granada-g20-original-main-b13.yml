@@ -1,0 +1,100 @@
+name: G20 real measured QuickCup B13 on original main Windows (no release)
+on:
+  push:
+    branches:
+      - test/granada-g20-real-quickcup-original-main-20261023
+  workflow_dispatch:
+concurrency:
+  group: foamlens-original-g20-science
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  negative-fixture-regressions:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject path escapes, symlinks, nonexistent scientific source and data tamper
+        run: python tools/test_granada_g20_private_b13_extract.py
+  authentic-main-science:
+    needs: negative-fixture-regressions
+    runs-on: windows-latest
+    timeout-minutes: 100
+    env:
+      HAS_QUICKCUP: ${{ secrets.QUICKCUP_FIXTURE_TOKEN != '' }}
+    steps:
+      - name: Missing original private fixture is a HARD failure
+        shell: pwsh
+        run: |
+          if($env:HAS_QUICKCUP -ne 'true'){throw 'No private original B13 token; scientific proof must not pass'}
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: foamlens-real-fixture-b13
+          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-git
+          sparse-checkout: |
+            README.md
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Resolve exact original main source and refuse stale SHA
+        shell: pwsh
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $remote){throw 'Official main changed; no original-main scientific evidence'}
+          "G20_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+      - name: Rebuild original measured B13 from Git blobs without uploading research data
+        shell: pwsh
+        run: |
+          python qa/tools/granada_g20_private_b13_extract.py --repo quickcup-git --target quickcup-test/cases_controlled_buoyancy --manifest g20-evidence/source.json
+          if($LASTEXITCODE -ne 0){throw 'Original private B13 reconstruction failed'}
+          $manifest=Get-Content g20-evidence/source.json -Raw | ConvertFrom-Json
+          if($manifest.test_case_identities.Count -ne 5 -or $manifest.source_cases -ne 1){throw 'Physical case identity or scientific source authenticity failed'}
+          foreach($name in $manifest.test_case_identities){
+            foreach($field in $manifest.source_fields.PSObject.Properties){
+              if($name -eq 'SmokeCase_Asymmetric' -and $field.Name -eq '9.8/mold/T'){continue}
+              $file=Join-Path "quickcup-test/cases_controlled_buoyancy/$name" $field.Name
+              if(-not(Test-Path $file)){throw "Missing originally measured field $($field.Name)"}
+              if((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $field.Value){throw 'Measured CFD field modified during Windows extraction'}
+            }
+          }
+      - name: Test actual original current-main Windows native binaries with measured science
+        shell: pwsh
+        run: |
+          ./qa/tools/granada_g20_original_main_real_b13.ps1 -ProductDir product -CaseDir quickcup-test/cases_controlled_buoyancy -MainSha $env:G20_MAIN_SHA -Report g20-evidence/result.json
+      - name: Publish ONLY sanitized original field hashes and metadata; no private data or binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G20-private-original-main-science-metadata-only
+          path: |
+            g20-evidence/source.json
+            g20-evidence/result.json
+          if-no-files-found: warn
+          retention-days: 7
