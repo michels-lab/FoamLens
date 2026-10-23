@@ -60,6 +60,7 @@ internal sealed class ProbeForm : Form
     private readonly WebView2 _view = new() { Dock = DockStyle.Fill };
     private readonly System.Windows.Forms.Timer _watchdog = new() { Interval = 90000 };
     private readonly string _mode, _profile, _app, _token, _host;
+    private string _phase = "start";
     internal int Result { get; private set; } = 1;
 
     internal ProbeForm(string mode, string profile, string app, string token, string host)
@@ -83,6 +84,7 @@ internal sealed class ProbeForm : Form
         base.OnShown(e);
         try
         {
+            _phase = "webview2-environment";
             var environment = await CoreWebView2Environment.CreateAsync(null, _profile);
             await _view.EnsureCoreWebView2Async(environment);
             _view.CoreWebView2.SetVirtualHostNameToFolderMapping(_host, _app, CoreWebView2HostResourceAccessKind.Allow);
@@ -91,11 +93,13 @@ internal sealed class ProbeForm : Form
             _view.CoreWebView2.NavigationCompleted += OnNavigation;
             try
             {
+                _phase = "original-origin-navigation";
                 _view.CoreWebView2.Navigate("https://" + _host + "/index.html?desktop=1");
                 if (!await nav.Task.WaitAsync(TimeSpan.FromSeconds(55)))
                     throw new InvalidOperationException("Real FoamLens virtual-host navigation failed");
             }
             finally { _view.CoreWebView2.NavigationCompleted -= OnNavigation; }
+            _phase = "original-frontend-identity";
             var loaded = await _view.CoreWebView2.ExecuteScriptAsync(
                 "(()=>({origin:location.origin,loaded:document.readyState==='complete',title:document.title,hasIndexedDb:!!indexedDB}))()");
             using(var check = JsonDocument.Parse(loaded))
@@ -169,19 +173,37 @@ internal sealed class ProbeForm : Form
   }
 })()
 """.Replace("__OPTIONS__", input, StringComparison.Ordinal);
+            _phase = "browser-storage-execution";
             var output = await _view.CoreWebView2.ExecuteScriptAsync(script);
+            _phase = "browser-storage-readback";
             using var result = JsonDocument.Parse(output);
             var data = result.RootElement;
-            if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("ok", out var ok) || !ok.GetBoolean() ||
-                data.GetProperty("origin").GetString() != "https://" + _host)
-                throw new InvalidOperationException("Actual native WebView2 storage state mismatched " + _mode);
+            bool okStorage = data.ValueKind == JsonValueKind.Object &&
+                data.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+            bool correctOrigin = data.ValueKind == JsonValueKind.Object &&
+                data.TryGetProperty("origin", out var actualOrigin) &&
+                actualOrigin.GetString() == "https://" + _host;
+            if (!okStorage || !correctOrigin)
+            {
+                // All outcomes are booleans; never log values, token, browser contents or paths.
+                bool localPresent = data.ValueKind == JsonValueKind.Object &&
+                    data.TryGetProperty("localPresent", out var local) && local.ValueKind == JsonValueKind.True;
+                bool idbPresent = data.ValueKind == JsonValueKind.Object &&
+                    data.TryGetProperty("indexedDbPresent", out var idb) && idb.ValueKind == JsonValueKind.True;
+                Console.Error.WriteLine("G24 SAFE browser readback: originalOrigin=" + correctOrigin +
+                    " expectedAbsent=" + (_mode == "absent") + " localPresent=" + localPresent +
+                    " indexedDbPresent=" + idbPresent + " resultAccepted=" + okStorage);
+                throw new InvalidOperationException("Native browser state mismatched at " + _mode);
+            }
             Console.WriteLine("G24 native WebView2 " + _mode +
                 " PASS: original FoamLens frontend + real origin localStorage + IndexedDB; no stored values exposed.");
             Result = 0;
         }
         catch (Exception error)
         {
-            Console.Error.WriteLine("G24 FAIL stage=" + _mode + " category=" + error.GetType().Name);
+            // Sanitized failure stage and exception TYPE only, never browser data.
+            Console.Error.WriteLine("G24 FAIL stage=" + _mode + " phase=" + _phase +
+                " category=" + error.GetType().Name);
             Result = 1;
         }
         finally
