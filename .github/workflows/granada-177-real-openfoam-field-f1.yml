@@ -206,8 +206,9 @@ jobs:
           git fetch --no-tags origin '+refs/heads/main:refs/remotes/granada/g18-main-product'
           current="$(git rev-parse refs/remotes/granada/g18-main-product)"
           git merge-base --is-ancestor "$expected" "$current" || { echo '::error::Pinned main G15+G16 milestone is not an ancestor'; exit 1; }
+          mkdir -p artifacts
+          git show "$current:desktop/src/FoamLensDesktop/Program.cs" > artifacts/granada-g18-main-Program.cs
           for file in \
-            desktop/src/FoamLensDesktop/Program.cs \
             desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs \
             desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js \
             tools/granada_g15_updater_harness/Program.cs \
@@ -222,12 +223,11 @@ jobs:
             git show "$current:$file" > "$file"
           done
           test "$(git rev-parse "$current:desktop/src/FoamLensDesktop/Program.cs")" = '185a71faeb70bd49c11ac06350c81833bc9343c7'
-          node --test tools/granada_g15_updater_source.test.cjs
+          node --test tools/test_granada_g18_main_updater_method.cjs
           dotnet run --project tools/granada_g15_updater_harness/UpdaterHarness.csproj --configuration Release
-          grep -Fq 'RequireExactSha256(checksumText, release.InstallerName)' desktop/src/FoamLensDesktop/Program.cs
-          grep -Fq 'RequireOfficialReleaseAsset(' desktop/src/FoamLensDesktop/Program.cs
-          mkdir -p artifacts
-          node -e "const fs=require('fs');fs.writeFileSync('artifacts/granada-g18-main-vs-composite.json',JSON.stringify({schema:'foamlens/g18/main-code-with-extra-science-owners/1',pinned_main:'01e032279ce165e5d62c1d1e93371fcf52f620c6',product_host_blob:'185a71faeb70bd49c11ac06350c81833bc9343c7',actual_main_program:true,includes_extra_unmerged_ui_owner_modules:true,physically_signed:false,release_authorized:false},null,2)+'\n')"
+          grep -Fq 'RequireExactSha256(checksumText, release.InstallerName)' artifacts/granada-g18-main-Program.cs
+          grep -Fq 'RequireOfficialReleaseAsset(' artifacts/granada-g18-main-Program.cs
+          node -e "const fs=require('fs');fs.writeFileSync('artifacts/granada-g18-main-vs-composite.json',JSON.stringify({schema:'foamlens/g18/main-code-with-extra-science-owners/1',pinned_main:'01e032279ce165e5d62c1d1e93371fcf52f620c6',product_host_blob:'185a71faeb70bd49c11ac06350c81833bc9343c7',main_host_saved_as_reviewed_reference:true,scientific_owner_host_will_remain_intact:true,exact_main_updater_method_to_be_imported_after_owner_composition:true,actual_main_program:false,includes_extra_unmerged_ui_owner_modules:true,physically_signed:false,release_authorized:false},null,2)+'\n')"
           echo 'G18 exact current-main original host/updater imported BEFORE speculative owner-only scientific native grafts; no as-shipped claim'
       - name: Recheck all live SHA refs before bundling original modules
         shell: bash
@@ -238,6 +238,18 @@ jobs:
             --root . --report artifacts/granada-full-native-16-owners.json
           node tools/granada_native_host_composite.cjs \
             --report=artifacts/granada-native-host-reconciliation.json
+      - name: G18 copy exact current-main G15 UPDATE METHOD only into verified original owner science host
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/granada_g18_main_updater_method.cjs
+          node --test tools/test_granada_g18_main_updater_method.cjs
+          node tools/granada_g18_main_updater_method.cjs
+          node --test tools/granada_g15_updater_source.test.cjs
+          grep -Fq 'RequireExactSha256(checksumText, release.InstallerName)' desktop/src/FoamLensDesktop/Program.cs
+          grep -Fq 'FoamLens CAD STL/OBJ WebView2 smoke passed' desktop/src/FoamLensDesktop/Program.cs
+          test -s artifacts/granada-g18-updater-method-provenance.json
+          echo 'G18 exact MAIN updater copied by bytes into preserved original science/CAD host; no original mesh/native smoke weakened'
       - name: Add fail-closed G5 native tab capture to TEMPORARY reconciled Windows host only
         shell: bash
         run: |
