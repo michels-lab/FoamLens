@@ -19,6 +19,14 @@ function method(body){
 }
 function patch(host,oldMain,newMain){
  const original=method(host),baseMethod=method(oldMain).content,actual=method(newMain).content;
+ // Guard the ENTIRE original current-main G15 method bytes, not merely a
+ // substring. This rejects malicious/accidental source edits retaining the
+ // expected method or class names.
+ const exact=cp.execFileSync('git',
+  ['show','01e032279ce165e5d62c1d1e93371fcf52f620c6:desktop/src/FoamLensDesktop/Program.cs'],
+  {encoding:'utf8',maxBuffer:6*1024*1024});
+ if(actual!==method(exact).content)
+   throw Error('G18 current-main updater method differs from exact reviewed G15 bytes');
  if(original.content!==baseMethod)throw Error('G18 scientific host updater changed relative to exact pinned owner baseline: fail closed');
  if(!actual.includes('UpdateAssetIntegrity.RequireOfficialReleaseAsset(')||
     !actual.includes('UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName)')||
