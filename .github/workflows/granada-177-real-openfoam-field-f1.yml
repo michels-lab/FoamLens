@@ -356,6 +356,10 @@ jobs:
           node --test tools/test_granada_g16_native_play_audit.cjs
           node tools/granada_g16_native_play_audit.cjs
           grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass' desktop/src/FoamLensDesktop/Program.cs
+          node --test tools/test_granada_g16_native_forced_compact.cjs
+          node tools/granada_g16_native_forced_compact.cjs
+          grep -Fq 'playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass&&g16ForcedCompactReplayPass' desktop/src/FoamLensDesktop/Program.cs
+          echo 'Mandatory genuine WebView2 forced 1140px stale-compact Play CSS and original class restoration staged without changing app source'
           echo 'Original G7 compact + G12 wide + G13 camera + G16 Play cascade now staged without weakening physics'
       - name: Bundle original desktop with all science/CAD/Field F1 source modules and safe host
         shell: pwsh
