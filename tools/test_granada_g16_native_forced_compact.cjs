@@ -34,7 +34,7 @@ test('replays measured BAD original 68px min width and actual 70.390625px to FAI
  assert.equal(f.out.pass,false);assert.equal(f.out.detail.result,'FAIL');assert(f.restored);
 });
 test('independently refuses text overflow, bad aria and invalid height',()=>{
- for(const opts of [{scroll:145},{aria:'No loop'},{text:'Pause'}]){
+ for(const opts of [{scroll:145},{aria:'Unlabelled control'},{text:'Pause'}]){
   const f=sample(opts);assert.equal(f.out.pass,false);
   assert(f.restored);
  }
