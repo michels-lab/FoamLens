@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Adversarial source assurance: no fake offline claims or persistent host firewall mutation
+      - name: 'Adversarial source assurance: no fake offline claims or persistent host firewall mutation'
         run: node --test tools/granada_g30_real_offline_guards.test.cjs
       - name: Parse real Windows native offline PowerShell before expensive build
         if: runner.os == 'Windows'
