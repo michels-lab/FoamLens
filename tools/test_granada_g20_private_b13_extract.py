@@ -2,6 +2,7 @@
 import unittest
 from unittest.mock import patch
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from granada_g20_private_b13_extract import ROOT, REQUIRED, safe_rel, sha, resolve_blob, prepare
 
 class G20PrivateB13Tests(unittest.TestCase):
@@ -27,9 +28,10 @@ class G20PrivateB13Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 resolve_blob(Path("."),entries,name)
     def test_missing_original_fixture_is_never_accepted(self):
-        with patch("granada_g20_private_b13_extract.objects",return_value={}):
-            with self.assertRaisesRegex(ValueError,"missing required file"):
-                prepare(Path("."),Path("_g20_absent_fixture_output"))
+        with TemporaryDirectory() as td:
+            with patch("granada_g20_private_b13_extract.objects",return_value={}):
+                with self.assertRaisesRegex(ValueError,"missing required file"):
+                    prepare(Path("."),Path(td)/"uncreated-case")
     def test_no_source_dir_overwrite(self):
         with self.assertRaisesRegex(ValueError,"Destination must be new"):
             prepare(Path("."),Path("."))
