@@ -4,12 +4,15 @@ const {graft}=require('./granada_g16_native_play_audit.cjs');
 const root=path.resolve(__dirname,'../desktop/src/FoamLensDesktop/Program.cs');
 let source=fs.readFileSync(root,'utf8');
 // The actual temporary native composition precedes this isolated source test.
-source=source.replace("                        playNotCollapsed&&cachePopoverValid;",
- "                        playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass;");
-source=source.replace("                      const cache=document.getElementById('flRibbonCacheAdvanced');",
- "                      const playMetrics=playButton?getComputedStyle(playButton):null;\n                      const cache=document.getElementById('flRibbonCacheAdvanced');");
-source=source.replace("                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,",
- "                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,\n                        playNativeTelemetry,");
+if (!source.includes('playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass;'))
+ source=source.replace("                        playNotCollapsed&&cachePopoverValid;",
+  "                        playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass;");
+if (!source.includes('const playMetrics=playButton?getComputedStyle(playButton):null;'))
+ source=source.replace("                      const cache=document.getElementById('flRibbonCacheAdvanced');",
+  "                      const playMetrics=playButton?getComputedStyle(playButton):null;\n                      const cache=document.getElementById('flRibbonCacheAdvanced');");
+if (!source.includes('                        playNativeTelemetry,'))
+ source=source.replace("                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,",
+  "                        cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,\n                        playNativeTelemetry,");
 test('G16 test-only native audit is additive to ALL original Play, Camera and science gates',()=>{
  const patched=graft(source);
  assert(patched.includes("playNotCollapsed&&cachePopoverValid&&g13NativeCameraPass&&g16NativePlayPass;"));
