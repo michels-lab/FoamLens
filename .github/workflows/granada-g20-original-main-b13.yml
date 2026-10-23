@@ -50,7 +50,8 @@ jobs:
           token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
           path: quickcup-git
           sparse-checkout: |
-            README.md
+            /README.md
+          sparse-checkout-cone-mode: false
           fetch-depth: 1
           persist-credentials: false
       - uses: actions/setup-python@v5
