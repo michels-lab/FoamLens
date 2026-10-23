@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "603af563a1c9378738c985aa382ac49625275d17c9e9ad577915e5ae73271f40",
+  "inventory_fingerprint": "017702167c75b3b7b5a52171e37737356b854482cbbb9c348298a5e74c621a6c",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -1509,7 +1509,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "72832a23d28c197ee1f23d2d5562548cc363f792"
+      "blob": "bb49cad71186b76cc881d172c6a5530ea9c1d004"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
