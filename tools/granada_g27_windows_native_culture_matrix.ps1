@@ -37,7 +37,7 @@ try {
   Guard ($witnessLines.Count -eq 1) "Culture witness response ambiguous for $name"
   $witness=$witnessLines[0] | ConvertFrom-Json
   Guard ($witness.schema -eq 'foamlens/granada-g27-native-culture-witness/1') 'Wrong executable or forged witness'
-  Guard ($witness.observedCulture -eq $name -and $witness.invariantDecimalNumbersParsed -eq $true) 'Locale is not real or science tokens not invariant'
+  Guard ($witness.observedCulture -eq $name -and $witness.invariantDecimalNumbersParsed -eq $true -and $witness.localeWitnessWasNewProcess -eq $true) 'Locale is not real or science tokens not invariant'
   foreach($kind in @('portable','installed')){
    $file=if($kind -eq 'portable'){$exe}else{$installedExe}
    $startTime=[DateTime]::UtcNow.AddSeconds(-3)
