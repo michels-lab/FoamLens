@@ -80,7 +80,7 @@ try {
     & python tools/granada_real_case_native_gate.py --log $copied --fixture-manifest $caseManifest --field-screenshot $fieldOriginalPng --output $physicsGateReport
     $physicsGatePass=($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $physicsGateReport))
    } else {
-    Write-Host "G14 original B13 proof missing on $($pair.Variant) launch $repeat: physical source log or Field PNG absent"
+    Write-Host "G14 original B13 proof missing on $($pair.Variant) launch ${repeat}: physical source log or Field PNG absent"
    }
    $good=$finished -and $proc.ExitCode -eq 0 -and $wide -ge 1 -and $compact -ge 1 -and -not $fail -and $physicsGatePass
    $results.Add([pscustomobject]@{
