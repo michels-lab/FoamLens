@@ -96,6 +96,12 @@ if ((Get-FileHash $installedExe -Algorithm SHA256).Hash -ne (Get-FileHash $porta
 }
 Test-RealB13InRunningExe -Variant installed -Binary $installedExe
 
+# G14: repeat actual same exact Portable and Installed EXEs BEFORE uninstall.
+# Diagnostic-only extra launches. Original Test-RealB13InRunningExe and
+# QuickCup metal/mold, time, Play, Camera, SHA and review gates stay unchanged.
+& ./tools/granada_g14_repeat_packaged_play.ps1 -Portable $portable -Installed $installedExe -CaseRoot $caseDir -EvidenceRoot (Join-Path $evidence 'g14-real-startup-repetitions') -RepeatCount 2
+if (-not $?) { throw 'G14 repeated genuine packaged original Play/Field B13 check failed' }
+
 $manifest=Join-Path $visual 'manifest.json'
 & python tools/make_visual_evidence.py --evidence-dir (Join-Path $visual 'installed') --portable-evidence-dir (Join-Path $visual 'portable') --artifact $setup --portable-artifact $portable --source-sha $sha --platform windows --output $manifest --require-multiregion
 Assert-Command 'original 2-viewport live screenshot manifest'
