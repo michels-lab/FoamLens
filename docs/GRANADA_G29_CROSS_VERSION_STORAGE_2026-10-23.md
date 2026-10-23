@@ -18,6 +18,11 @@ G29 is an independent native QA experiment and does not modify G24's branch, the
 6. Start original new Portable, verify again, and prove unrelated alternate-origin and Developer browser profiles cannot read those values. Uninstall with the actual official Inno uninstaller and verify new Portable still reads both values; remove **only the disposable test keys/database through Chromium APIs**; prove absence and preserve an unrelated sentinel file checksum.
 7. Independently fail closed on the final current official `main` SHA; publish **metadata-only** evidence (`true/false` flags and public source hashes), never the browser profile, tokens, user's settings, proprietary OpenFOAM data or binaries. CI only runs on disposable GitHub-hosted Windows.
 
+## First native result and root-cause correction
+
+- [Initial exact-head native Windows #40015015451](https://github.com/michels-lab/FoamLens/actions/runs/40015015451): the two real original versioned product executables and both Inno installers **compiled successfully**. Actual original installed v1.8.9 application **started successfully**, but the QA-only probe wrapper then failed before writing browser storage: **`Cannot overwrite variable host because it is read-only or constant`**. The PowerShell helper used `[string]$host`, colliding case-insensitively with the read-only automatic `$Host` variable. This was a **test harness defect, not evidence of user-data loss**. No cross-version storage result was produced in that run.
+- Correction only in G29 independent QA script: rename `$host` to `$originHost`, and rename potentially ambiguous `$profile` helper to `$browserProfile`. A direct regression now injects the original `$Host` collision and requires rejection. Re-run exact-head dual-OS source and genuine Windows native installer tests. **Do not mark runtime PASS until the new run finishes green.**
+
 ## Proof boundaries (must not be conflated)
 
 | What this tests | What it does not certify |
