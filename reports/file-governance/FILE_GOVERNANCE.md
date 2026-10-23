@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 296; classified: 292; readable documents: 53; above read cap: 1; findings: 1.
+Tracked: 296; classified: 292; readable documents: 53; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -28,7 +28,6 @@ Tracked: 296; classified: 292; readable documents: 53; above read cap: 1; findin
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g15-updater-integrity.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs, tools/granada_g15_updater_harness/Program.cs, tools/granada_g15_updater_harness/UpdaterHarness.csproj, tools/granada_g15_updater_source.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 762df8a533961095)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

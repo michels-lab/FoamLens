@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 24
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "11e38adf4ba4300f199111d13e7c1bb4a05dd92b81ae3a0d92e91498aa693037",
-  "evidence_fingerprint": "ca2d1a502810a8fb879ab0f95ef025ead54932f242fe04b2a2847f979cf36b46",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "caaed6c020229e8e439165da065a910b565fc8b71268bc7639711ac72f7a27ab",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1490,7 +1488,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "2adbcbdecebbbf700e4bfccee8e3d78c1dc705ba"
+      "blob": "052187bae1ddbf776bfc61a020ce1535786919bf"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -2074,17 +2072,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "762df8a533961095",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g15-updater-integrity.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs, tools/granada_g15_updater_harness/Program.cs, tools/granada_g15_updater_harness/UpdaterHarness.csproj, tools/granada_g15_updater_source.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
