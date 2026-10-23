@@ -1,3 +1,9 @@
+## First G16 real Windows failure and stricter source correction
+
+The first [G16 native run #39890840427](https://github.com/michels-lab/FoamLens/actions/runs/39890840427) still correctly **FAILED** on the first additional Installed startup after two Portable passed. Actual retrieved [evidence #12474921648](https://github.com/michels-lab/FoamLens/actions/runs/39890840427/artifacts/12474921648) again recorded original Installed Play **70.390625×30, computed minWidth=68px**. Our initial G16 selector matched G7's specificity but could lose when G7's stylesheet was appended later; that was insufficient. No original scientific acceptance was weakened or source merged.
+
+Corrective revision adds the stable **#appShell** ID to the guarded wide Field selector, which makes it strictly more specific than G7 regardless of stylesheet order. Original narrow <=1024 still unaffected. Original negative regression now specifically tests the higher selector specificity. A separate native test-only G16 audit additionally distinguishes whether the G7 compact class is stale in a wide viewport. Its first workflow attempt [#39891439619](https://github.com/michels-lab/FoamLens/actions/runs/39891439619) FAILED safely in the **test fixture setup** because G14 Play metrics had already been grafted and a test attempted to graft them twice. Test-only fixture is now conditional on whether the original G14 fields are already present; this does not change any original production source or P0 acceptance. Both repaired **source head and native test branch** require fresh CI; neither earlier run constitutes native acceptance.
+
 # GRANADA G16 — fix original Field Play width after G7 compact→laptop stylesheet collision
 
 2026-10-22 / real B13 Windows evidence collected October 23 UTC. Original FoamLens user-facing v33 source, distinct from G15 updater and original G7/G12/G13 owners.
