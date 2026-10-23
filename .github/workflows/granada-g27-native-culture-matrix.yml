@@ -1,0 +1,144 @@
+name: G27 original scientific decimal culture matrix (Windows actual native; no release)
+on:
+  push:
+    branches:
+      - test/granada-g27-native-windows-culture-invariance-20261023
+  workflow_dispatch:
+concurrency:
+  group: foamlens-g27-native-locale
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  independent-source-contracts:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Forbid culture mocks, cross-app code, privacy leaks and fake original scientific parsing
+        run: node --test tools/granada_g27_native_culture_matrix.test.cjs
+      - name: Parse actual Windows PowerShell before changing any runner account locale
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g27_windows_native_culture_matrix.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count -ne 0){$errors | ForEach-Object {Write-Error $_.Message};throw 'G27 exact native culture QA fails PowerShell parsing'}
+  real-native-culture-matrix:
+    needs: independent-source-contracts
+    runs-on: windows-latest
+    timeout-minutes: 85
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pin live original product main and compile genuine new-process .NET culture witness
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $live=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $live){throw 'Real original main product head changed: G27 scientific source QA stale'}
+          "G27_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+          dotnet publish qa/tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj -c Release -r win-x64 --self-contained false -o g27-culture-witness
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g27-culture-witness/GranadaG27CultureProbe.exe)){throw 'Independent native locale witness did not compile'}
+      - name: Build untouched canonical FoamLens Windows WinForms WebView2 Portable
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Official main icon dependencies missing'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'Cannot regenerate original Windows app icon'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Main icon drift'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force g27-app-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g27-app-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g27-app-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g27-app-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g27-app-bundle/LICENSE.txt
+          Compress-Archive -Path g27-app-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive $bundle -DestinationPath g27-app-bundle-verify -Force
+          if((Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash -ne (Get-FileHash g27-app-bundle-verify/index.html -Algorithm SHA256).Hash){throw 'Original main frontend bytes modified'}
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g27-original-main-portable
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g27-original-main-portable/FoamLens.exe)){throw 'Original main Windows Portable compilation failed'}
+      - name: Compile and install actual original Inno Setup for same original source
+        working-directory: product
+        run: |
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Original Inno Setup compiler not available'}
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($v -notmatch '^\d+\.\d+\.\d+$'){throw 'Original stable semver absent'}
+          $publish=(Resolve-Path artifacts/g27-original-main-portable).Path
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc "/DMyAppVersion=$v" "/DPublishDir=$publish" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0){throw 'Official main installer failed'}
+          $setup=(Resolve-Path "desktop/artifacts/FoamLens-Setup-v$v.exe").Path
+          $installPath=Join-Path (Get-Location) 'artifacts/g27-installed-original'
+          $dirArg='/DIR="'+$installPath+'"'
+          $p=Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',$dirArg) -PassThru
+          if(-not $p.WaitForExit(120000)){try{$p.Kill($true)}catch{};throw 'Original Windows installer timeout'}
+          if($p.ExitCode -ne 0 -or -not(Test-Path (Join-Path $installPath 'FoamLens.exe'))){throw 'Actual original installed FoamLens missing'}
+          "G27_INSTALL_DIR=$installPath" | Out-File $env:GITHUB_ENV -Append
+      - name: Run 4 genuinely active Windows cultures on both original Windows native executables
+        working-directory: product
+        run: |
+          ../qa/tools/granada_g27_windows_native_culture_matrix.ps1 -Portable 'artifacts/g27-original-main-portable/FoamLens.exe' -Installed (Join-Path $env:G27_INSTALL_DIR 'FoamLens.exe') -CultureProbe '../g27-culture-witness/GranadaG27CultureProbe.exe' -OriginalMainSha $env:G27_MAIN_SHA -Output '../g27-evidence/result.json'
+          if(-not(Test-Path ../g27-evidence/result.json)){throw 'Missing real numeric culture native Windows evidence'}
+      - name: Reverify original unmodified main and exact eight locale starts
+        working-directory: product
+        run: |
+          $sha=(git rev-parse HEAD).Trim()
+          $remote=((git ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $env:G27_MAIN_SHA -or $remote -ne $sha){throw 'Original main SHA changed during culture QA'}
+          foreach($path in @('desktop/src/FoamLensDesktop/Program.cs','desktop/installer/FoamLens.iss')){
+            if((git hash-object $path).Trim() -ne (git rev-parse ("HEAD:"+$path)).Trim()){throw 'Scientific product source diverged from original current main'}
+          }
+          $result=Get-Content ../g27-evidence/result.json -Raw | ConvertFrom-Json
+          if($result.nativeWinFormsWebView2Starts -ne 8 -or $result.actualIndependentCultures -ne 4 -or $result.cases.Count -ne 8 -or $result.releasePublished -ne $false){throw 'G27 did not prove eight real original-main native scientific parser starts'}
+      - name: Uninstall exact original test-only copy from disposable Windows runner
+        if: always()
+        shell: pwsh
+        run: |
+          $dir=$env:G27_INSTALL_DIR
+          if(-not [string]::IsNullOrWhiteSpace($dir)){
+            $uninstaller=Join-Path $dir 'unins000.exe'
+            if(Test-Path $uninstaller){
+              try{Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -ErrorAction Stop}catch{Write-Warning 'Original QA cleanup failed; disposable hosted runner will be destroyed'}
+            }
+          }
+      - name: Upload original-main locale + binary hashes ONLY; no executable, screenshots or user profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G27-original-main-four-Windows-cultures-metadata-only
+          path: g27-evidence/result.json
+          if-no-files-found: warn
+          retention-days: 7
