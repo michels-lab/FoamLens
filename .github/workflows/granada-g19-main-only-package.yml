@@ -3,6 +3,9 @@ on:
   push:
     branches: [test/granada-g19-exact-main-only-package-20261023]
   workflow_dispatch:
+concurrency:
+  group: foamlens-g19-exact-mainonly-ci
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
