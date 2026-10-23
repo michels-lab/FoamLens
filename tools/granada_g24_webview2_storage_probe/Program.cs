@@ -177,10 +177,56 @@ internal sealed class ProbeForm : Form
 })()
 """.Replace("__OPTIONS__", input, StringComparison.Ordinal);
             _phase = "browser-storage-execution";
-            var output = await _view.CoreWebView2.ExecuteScriptAsync(script);
-            _phase = "browser-storage-readback";
-            using var result = JsonDocument.Parse(output);
-            var data = result.RootElement;
+            // WebView2 ExecuteScriptAsync is not a guaranteed awaited-Promise result.
+            // Resolve asynchronous IndexedDB via the genuine WebView2 native message
+            // bridge, nonce-bound to the one synthetic test and secure original origin.
+            var completed = new TaskCompletionSource<JsonElement>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            void OnNativeStorageProof(object? sender, CoreWebView2WebMessageReceivedEventArgs message)
+            {
+                try
+                {
+                    if (!Uri.TryCreate(message.Source, UriKind.Absolute, out var from) ||
+                        from.Scheme != Uri.UriSchemeHttps ||
+                        !from.Host.Equals(_host, StringComparison.OrdinalIgnoreCase) ||
+                        from.Port != 443 || !string.IsNullOrEmpty(from.UserInfo))
+                        return;
+                    using var envelope = JsonDocument.Parse(message.TryGetWebMessageAsString());
+                    var root = envelope.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object ||
+                        !root.TryGetProperty("schema", out var schema) ||
+                        schema.GetString() != "foamlens/g24-native-storage-proof/1" ||
+                        !root.TryGetProperty("nonce", out var nonce) ||
+                        nonce.GetString() != _token ||
+                        !root.TryGetProperty("result", out var result))
+                        return;
+                    completed.TrySetResult(result.Clone());
+                }
+                catch (Exception)
+                {
+                    // Ignore all unrelated messages from the actual FoamLens frontend.
+                    // No browser contents, source paths or test token may go to CI logs.
+                }
+            }
+            _view.CoreWebView2.WebMessageReceived += OnNativeStorageProof;
+            JsonElement data;
+            try
+            {
+                var nonceJs = JsonSerializer.Serialize(_token);
+                var asyncCode = "Promise.resolve(" + script + ").then(" +
+                    "value => window.chrome.webview.postMessage(JSON.stringify({" +
+                    "schema:'foamlens/g24-native-storage-proof/1',nonce:" + nonceJs +
+                    ",result:value})),err => window.chrome.webview.postMessage(JSON.stringify({" +
+                    "schema:'foamlens/g24-native-storage-proof/1',nonce:" + nonceJs +
+                    ",result:{ok:false,origin:location.origin,errorName:String(err?.name||'Error').slice(0,40)}})))";
+                await _view.CoreWebView2.ExecuteScriptAsync(asyncCode);
+                data = await completed.Task.WaitAsync(TimeSpan.FromSeconds(48));
+                _phase = "browser-storage-readback";
+            }
+            finally
+            {
+                _view.CoreWebView2.WebMessageReceived -= OnNativeStorageProof;
+            }
             bool okStorage = data.ValueKind == JsonValueKind.Object &&
                 data.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
             bool correctOrigin = data.ValueKind == JsonValueKind.Object &&
