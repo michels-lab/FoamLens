@@ -49,7 +49,10 @@ test('same exact G7 selector specificity and HIGHER version injection at wide on
  assert(sourceG7.includes(selector+'{min-width:68px!important;width:auto!important;max-width:100%!important}'));
  const css=fixture().style();
  assert(css.includes('@media(min-width:1025px) and (max-width:1250px)'));
- assert(css.includes(selector+'{min-width:112px!important;width:max-content!important;max-width:none!important'));
+ const stronger=selector.replace(' .app.gfwCompact ', ' #appShell.app.gfwCompact ');
+ assert(css.includes(stronger+'{min-width:112px!important;width:max-content!important;max-width:none!important'));
+ assert(!css.includes(selector+'{min-width:112px!important'));
+ assert(stronger.includes('#appShell.app.gfwCompact'));
  assert(css.includes('grid-template-columns:32px max-content 32px minmax(90px,1fr)'));
  assert(/v33-/.test('v33-granada-wide-play-cascade-guard.js'));
  const g12=fs.readFileSync(path.join(root,'v31-granada-wide-field-ribbon.js'),'utf8');
