@@ -40,8 +40,8 @@ function install(){
  '@media(min-width:1025px) and (max-width:1250px){',
  // Exact same original source DOM and G7 selector specificity, but a
  // later v33 stylesheet, only when compact state became stale at WIDE width.
- 'body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimePlay{min-width:112px!important;width:max-content!important;max-width:none!important;min-height:32px!important;box-sizing:border-box!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;flex-shrink:0!important;padding:6px 10px!important;font-size:11px!important}',
- 'body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimeTransport{box-sizing:border-box!important;display:grid!important;grid-template-columns:32px max-content 32px minmax(90px,1fr) max-content max-content!important;column-gap:6px!important;align-items:center!important;flex:1 1 690px!important;width:min(740px,100%)!important;min-width:0!important;max-width:100%!important}',
+ 'body.flRibbonReady.appMode-field #appShell.app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimePlay{min-width:112px!important;width:max-content!important;max-width:none!important;min-height:32px!important;box-sizing:border-box!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;flex-shrink:0!important;padding:6px 10px!important;font-size:11px!important}',
+ 'body.flRibbonReady.appMode-field #appShell.app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimeTransport{box-sizing:border-box!important;display:grid!important;grid-template-columns:32px max-content 32px minmax(90px,1fr) max-content max-content!important;column-gap:6px!important;align-items:center!important;flex:1 1 690px!important;width:min(740px,100%)!important;min-width:0!important;max-width:100%!important}',
  '}'
  ].join('\n');
  document.head.appendChild(sheet);
