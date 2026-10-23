@@ -25,12 +25,12 @@ function Native-Smoke([string]$exe,[string]$label){
   $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
   $begin=[DateTime]::UtcNow.AddSeconds(-3)
   $proc=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-  if(-not $proc.WaitForExit(300000)){try{$proc.Kill($true)}catch{};throw "$label: actual WebView2 smoke timed out"}
-  Require ($proc.ExitCode -eq 0) "$label: actual FoamLens WebView2 smoke failed"
-  Require (Test-Path -LiteralPath $log) "$label: real native smoke did not produce a log"
-  Require ((Get-Item -LiteralPath $log).LastWriteTimeUtc -ge $begin) "$label: native smoke marker is stale"
-  Require (Select-String -LiteralPath $log -SimpleMatch 'Windows smoke test passed' -Quiet) "$label: native smoke marker missing"
-  Write-Host "$label: original Windows executable launched and passed actual WebView2 smoke"
+  if(-not $proc.WaitForExit(300000)){try{$proc.Kill($true)}catch{};throw "${label}: actual WebView2 smoke timed out"}
+  Require ($proc.ExitCode -eq 0) "${label}: actual FoamLens WebView2 smoke failed"
+  Require (Test-Path -LiteralPath $log) "${label}: real native smoke did not produce a log"
+  Require ((Get-Item -LiteralPath $log).LastWriteTimeUtc -ge $begin) "${label}: native smoke marker is stale"
+  Require (Select-String -LiteralPath $log -SimpleMatch 'Windows smoke test passed' -Quiet) "${label}: native smoke marker missing"
+  Write-Host "${label}: original Windows executable launched and passed actual WebView2 smoke"
 }
 function Verify-Sentinels([hashtable]$markers){
   foreach($file in $markers.Keys){
