@@ -32,10 +32,10 @@ function NativeSmoke([string]$exe,[string]$stage,[string]$version) {
  $front=Join-Path $env:LOCALAPPDATA "FoamLens\Desktop\$version\app\index.html"
  Require ((Test-Path -LiteralPath $front) -and (Get-Item -LiteralPath $front).Length -gt 100000) "G29 $stage original frontend not materialized"
 }
-function Probe([string]$mode,[string]$app,[string]$host='foamlens.local',[string]$useToken='') {
+function Probe([string]$mode,[string]$app,[string]$originHost='foamlens.local',[string]$useToken='') {
  if($useToken -eq ''){$useToken=$script:token}
- & dotnet $script:probe $mode $script:profile $app $useToken $host
- Require ($LASTEXITCODE -eq 0) "G29 genuine WebView2 storage failed mode=$mode host=$host"
+ & dotnet $script:probe $mode $script:browserProfile $app $useToken $originHost
+ Require ($LASTEXITCODE -eq 0) "G29 genuine WebView2 storage failed mode=$mode host=$originHost"
 }
 function Install([string]$installer,[string]$stage) {
  Write-Host "G29 actual Inno installer: $stage"
@@ -65,7 +65,7 @@ $probe=(Resolve-Path -LiteralPath $ProbeDll).Path
 Require ((Split-Path -Leaf $old) -ceq 'FoamLens.exe' -and (Split-Path -Leaf $new) -ceq 'FoamLens.exe') 'G29 requires genuine original product binaries'
 Require ((Split-Path -Leaf $oldSetup) -ceq 'FoamLens-Setup-v1.8.9.exe' -and (Split-Path -Leaf $newSetup) -ceq 'FoamLens-Setup-v1.8.10.exe') 'G29 two actual original Inno versions missing'
 Require ((Split-Path -Leaf $probe) -ceq 'FoamLensG24StorageProbe.dll') 'G29 requires immutable prior genuine WebView2 probe'
-$profile=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\WebView2'
+$browserProfile=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\WebView2'
 $oldFront=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\1.8.9\app'
 $newFront=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\1.8.10\app'
 $token='G29-cross-version-'+[guid]::NewGuid().ToString('N')
@@ -89,7 +89,7 @@ try {
  NativeSmoke $installedExe 'original old Installed restart' '1.8.9'
  Probe 'verify' $oldFront
  # Prove correct old origin/profile and detect a wrong token; negative MUST fail.
- & dotnet $probe 'verify' $profile $oldFront ($token+'-WRONG') 'foamlens.local'
+ & dotnet $probe 'verify' $browserProfile $oldFront ($token+'-WRONG') 'foamlens.local'
  Require ($LASTEXITCODE -ne 0) 'G29 negative tampered-token browser readback was incorrectly accepted'
  # Real Inno same AppId and physical installation directory: direct installed-to-installed upgrade.
  Install $newSetup 'in-place genuine 1.8.9 to exact-main 1.8.10 upgrade'
@@ -101,7 +101,7 @@ try {
  Probe 'verify' $newFront
  # Browser readback must depend on secure origin and actual original profile, not physical frontend path.
  Probe 'verify' $oldFront
- & dotnet $probe 'absent' $profile $newFront $token 'isolation.foamlens.local'
+ & dotnet $probe 'absent' $browserProfile $newFront $token 'isolation.foamlens.local'
  Require ($LASTEXITCODE -eq 0) 'G29 browser origin isolation failed'
  $developer=Join-Path $env:LOCALAPPDATA 'FoamLensDeveloper\Desktop\WebView2'
  & dotnet $probe 'absent' $developer $newFront $token 'foamlens.local'
