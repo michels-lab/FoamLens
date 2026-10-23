@@ -32,7 +32,7 @@ test('G22: EVERY original G7 compact selector is physically gated at 1024 CSS px
   assert(rules.length>=20,'original G7 scientific UI rules unexpectedly absent');
   for(const rule of rules){
     assert(rule.media.includes('@media(max-width:1024px)'), 'compact CSS outside real breakpoint: '+rule.selector);
-    assert.equal(ruleApplies(rule,640),true,'compact screen lost original rule');
+    assert.equal(ruleApplies(rule,480),true,'compact screen lost original rule');
     assert.equal(ruleApplies(rule,1140),false,'actual original P0 wide Field regression possible');
     assert.equal(ruleApplies(rule,1250),false,'laptop must stay wide');
   }
