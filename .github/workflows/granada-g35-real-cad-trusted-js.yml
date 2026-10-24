@@ -1,0 +1,156 @@
+name: G35 CAD and trusted JS real native Windows integration - no release
+on:
+  push:
+    branches:
+      - integration/granada-g35-cad-trusted-js-native-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g35-cad-trusted-js
+  cancel-in-progress: true
+jobs:
+  cross-platform-source-proofs:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          ref: 71c99e1a074a41bc93c3ec800992ff5ee63e3d39
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify actual CAD owner host two-site integration and original G34 trusted module byte parity
+        run: python product/tools/granada_g35_validate_stacked.py --product product --qa qa
+      - name: Actual original CAD OBJ STL geometry unit and topology regression
+        working-directory: product
+        run: node desktop/tests/cad-surface-inspector.test.cjs
+      - name: Native host and 3D scientific Field regression now rejects untrusted local JavaScript
+        working-directory: product
+        run: node desktop/tests/field-view.test.cjs
+      - name: Compile trusted CSharp loader and run negative ZIP and stale-script regressions
+        working-directory: qa
+        run: dotnet run --project tools/granada_g34_trusted_source_tests/G34TrustedSourceTests.csproj -c Release
+      - name: Verify actual native Windows Installed and Portable witness script syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'product/tools/granada_g35_native_cad_trusted_js.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count){throw 'G35 native witness invalid'}
+  cad-trusted-js-real-windows-installed-and-portable:
+    needs: cross-platform-source-proofs
+    runs-on: windows-latest
+    timeout-minutes: 110
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          ref: 71c99e1a074a41bc93c3ec800992ff5ee63e3d39
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: witness
+          ref: d3490c7dc3851fe692f6351aedfbe4e63ad42841
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact integrated PR HEAD, unchanged CAD owner and pinned real Chromium witness
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          if($sha -ne '${{ github.sha }}' -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G35 current exact source mismatch'}
+          $base='68f56e176e6f0ce9ac95833acb196451f9dcb35a'
+          $cad=((git -C product ls-remote origin refs/heads/feat/cad-stl-obj-inspector-20261019).Trim() -split '\s+')[0]
+          if($cad -ne $base){throw 'CAD owner branch advanced; coordinate rebase before proof'}
+          if((git -C qa rev-parse HEAD).Trim() -ne '71c99e1a074a41bc93c3ec800992ff5ee63e3d39'){throw 'G34 trusted source ref mismatch'}
+          if((git -C witness rev-parse HEAD).Trim() -ne 'd3490c7dc3851fe692f6351aedfbe4e63ad42841'){throw 'G33 native witness ref mismatch'}
+          python product/tools/granada_g35_validate_stacked.py --product product --qa qa
+          if($LASTEXITCODE -ne 0){throw 'G35 original CAD and trusted source not byte-identical'}
+          [xml]$proj=Get-Content product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          if(([string]$proj.Project.PropertyGroup.Version).Trim() -cne '1.8.10'){throw 'G35 version changed'}
+          "G35_INTEGRATED_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Compile ACTUAL CAD and security combined Windows self-contained FoamLens.exe and Inno installer
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'G35 icon dependency unavailable'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'G35 Windows icon failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'G35 icon QA failed'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force -Path g35-source-package | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g35-source-package/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g35-source-package/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g35-source-package/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g35-source-package/LICENSE.txt
+          Compress-Archive -Path g35-source-package/* -DestinationPath $bundle -CompressionLevel Optimal
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g35-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g35-publish/FoamLens.exe)){throw 'G35 actual combined native exe failed'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'G35 official Inno Setup compiler unavailable'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path artifacts/g35-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path desktop/artifacts/FoamLens-Setup-v1.8.10.exe)){throw 'G35 original Inno Setup installer not compiled'}
+      - name: Build independent native G33 chromium on actual original foamlens.local user profile
+        run: |
+          dotnet build witness/tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj -c Release -o g35-witness
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g35-witness/FoamLensG33LocalOriginWitness.dll)){throw 'G35 original Chromium origin probe failed'}
+      - name: Prove genuine CAD plus protected JavaScript in Windows Installed and Portable with actual original CAD UI smoke
+        run: |
+          & ./product/tools/granada_g35_native_cad_trusted_js.ps1 -Portable product/artifacts/g35-publish/FoamLens.exe -Installer product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe -WitnessDll g35-witness/FoamLensG33LocalOriginWitness.dll -MainSha $env:G35_INTEGRATED_SHA -Report g35-evidence/report.json
+          if(-not(Test-Path g35-evidence/report.json)){throw 'G35 CAD and security real Windows evidence missing'}
+      - name: Fail closed on browser proof of blocked unbundled source in BOTH distribution modes and current QA SHA
+        run: |
+          if((git -C product rev-parse HEAD).Trim() -ne $env:G35_INTEGRATED_SHA){throw 'G35 tested source moved'}
+          $r=Get-Content g35-evidence/report.json -Raw | ConvertFrom-Json
+          if($r.schema -ne 'foamlens/granada-g35-cad-js-integrated-native/1' -or
+             $r.integratedCadCandidateSha -ne $env:G35_INTEGRATED_SHA -or
+             $r.seededScriptShippedInOfficialBundle -ne $false -or
+             $r.unbundledScriptBlockedInPatchedPortableWebView2 -ne $true -or
+             $r.unbundledScriptBlockedInPatchedInstalledWebView2 -ne $true -or
+             $r.originalBothDistributionBinariesMatch -ne $true -or
+             $r.originalCleanRestartNoLongerExecutesMarker -ne $true -or
+             $r.productionHostMergeCompleted -ne $false -or $r.releaseReady -ne $false){
+            throw 'G35 real original CAD+security Installed+Portable Chromium proof incomplete'
+          }
+          Write-Host 'G35 native original CAD inspector and trusted-only JS Installed+Portable PASS. No main merge or release.'
+      - name: Upload sanitized pass fail booleans only; never scientific user files or native binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G35-native-CAD-plus-trusted-JS-sanitized-proof
+          path: g35-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7
