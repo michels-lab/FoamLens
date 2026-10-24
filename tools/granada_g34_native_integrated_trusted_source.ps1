@@ -41,11 +41,11 @@ $originalInstaller=(Resolve-Path -LiteralPath $Installer).Path
 $realWitness=(Resolve-Path -LiteralPath $WitnessDll).Path
 Need ((Split-Path -Leaf $portableExe) -ceq 'FoamLens.exe') 'G34 requires original Portable'
 Need ((Split-Path -Leaf $originalInstaller) -ceq 'FoamLens-Setup-v1.8.10.exe') 'G34 requires original Inno installer'
-Need ((Split-Path -Leaf $realWitness) -ceq 'FoamLensG34LocalOriginWitness.dll') 'G34 requires real Chromium witness'
+Need ((Split-Path -Leaf $realWitness) -ceq 'FoamLensG33LocalOriginWitness.dll') 'G34 requires real Chromium witness'
 $root=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop'
 $realAppRoot=Join-Path $root '1.8.10\app'
 $realUserProfile=Join-Path $root 'WebView2'
-$markerKey='foamlens:g34:' + [guid]::NewGuid().ToString('N')
+$markerKey='foamlens:g33:' + [guid]::NewGuid().ToString('N')
 $portableValue=[guid]::NewGuid().ToString('N')
 $installedValue=[guid]::NewGuid().ToString('N')
 $markerScript=Join-Path $realAppRoot 'v99-g34-benign-residue.js'
