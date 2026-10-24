@@ -59,9 +59,8 @@ class G34IntegrationContract(unittest.TestCase):
         self.assertIn("ref: d3490c7dc3851fe692f6351aedfbe4e63ad42841", WF)
         self.assertIn("git -C product ls-remote origin refs/heads/main", WF)
         self.assertIn("git -C product diff --name-only", WF)
-        self.assertIn("Do NOT change source PR", WF)
-        self.assertIn("genuine-original", WF.lower() if "genuine-original" in WF.lower() else
-                      WF.replace("original", "genuine-original", 1))
+        self.assertIn("Original main and CAD PR #164 are untouched", WF)
+        self.assertIn("Actual corrected-host Installed AND Portable native Windows inverse proof", WF)
         self.assertNotIn("contents: write", WF)
         self.assertNotIn("continue-on-error: true", WF)
         self.assertNotIn("actions/create-release", WF)
