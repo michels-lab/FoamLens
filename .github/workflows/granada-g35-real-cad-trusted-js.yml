@@ -42,6 +42,9 @@ jobs:
       - name: Actual original CAD OBJ STL geometry unit and topology regression
         working-directory: product
         run: node desktop/tests/cad-surface-inspector.test.cjs
+      - name: Native host and 3D scientific Field regression now rejects untrusted local JavaScript
+        working-directory: product
+        run: node desktop/tests/field-view.test.cjs
       - name: Compile trusted CSharp loader and run negative ZIP and stale-script regressions
         working-directory: qa
         run: dotnet run --project tools/granada_g34_trusted_source_tests/G34TrustedSourceTests.csproj -c Release
