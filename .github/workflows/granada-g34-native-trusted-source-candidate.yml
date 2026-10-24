@@ -1,0 +1,155 @@
+name: G34 temporary original Windows host embedded-only JS fix validation (no release)
+on:
+  push:
+    branches:
+      - fix/granada-g34-embedded-js-trust-candidate-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g34-embedded-js-verified
+  cancel-in-progress: true
+jobs:
+  fail-closed-source-tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run real production candidate CSharp trusted-source tests including negative ZIP cases
+        run: dotnet run --project tools/granada_g34_trusted_source_tests/G34TrustedSourceTests.csproj -c Release
+      - name: Source owner-collision and exact original patch-site guards
+        shell: bash
+        run: |
+          python3 tools/test_granada_g34_integration.py
+      - name: Validate PowerShell native Windows full test runner syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors=$null
+          $tokens=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g34_native_integrated_trusted_source.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count -gt 0){$errors|ForEach-Object{Write-Error $_.Message};throw 'Native G34 original Windows repaired-host script could not parse'}
+  native-windows-original-patched-installed-and-portable:
+    needs: fail-closed-source-tests
+    runs-on: windows-latest
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          ref: main
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: g33-original-bug-witness
+          ref: d3490c7dc3851fe692f6351aedfbe4e63ad42841
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify main product exact code, unpatched source, separate QA-only G33 witness pin
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $live=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $live -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G34 original main drifted'}
+          $witnessSha=(git -C g33-original-bug-witness rev-parse HEAD).Trim()
+          if($witnessSha -ne 'd3490c7dc3851fe692f6351aedfbe4e63ad42841'){throw 'G34 independent G33 native Chromium witness was not pinned'}
+          [xml]$proj=Get-Content product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          if(([string]$proj.Project.PropertyGroup.Version).Trim() -cne '1.8.10'){throw 'G34 original FoamLens 1.8.10 version drift'}
+          if(-not((Get-Content product/desktop/src/FoamLensDesktop/Program.cs -Raw).Contains('Directory.GetFiles(AppRoot, "v*-*.js")'))){throw 'G34 reproduction source has already changed; refuse'}
+          "G34_ORIGINAL_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+      - name: Temporarily attach candidate trusted-only JS module to private runner ORIGINAL checkout (do NOT change source PR)
+        run: |
+          $dest='product/desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs'
+          if(Test-Path $dest){throw 'G34 original main already contains helper; collision'}
+          Copy-Item -LiteralPath qa/desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs -Destination $dest
+          python qa/tools/granada_g34_disposable_source_integration.py --program product/desktop/src/FoamLensDesktop/Program.cs --helper $dest --run
+          if($LASTEXITCODE -ne 0){throw 'G34 exact source patch rejected'}
+          $modified=@(git -C product diff --name-only)
+          if($modified.Count -ne 1 -or $modified[0] -ne 'desktop/src/FoamLensDesktop/Program.cs'){
+            throw 'G34 edited original product code beyond one temporary host integration location'
+          }
+          if((git -C product rev-parse HEAD).Trim() -ne $env:G34_ORIGINAL_MAIN_SHA){throw 'G34 original main moved'}
+          Write-Host 'G34 disposable temporary patched host ready. Original main and CAD PR #164 are untouched.'
+      - name: Build actual patched original FoamLens and original Inno Windows Installed+Portable candidate from source
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'G34 official FoamLens icon tooling failed'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'G34 official icon generation failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'G34 original icon verification failed'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path -LiteralPath $bundle){Remove-Item -LiteralPath $bundle -Force}
+          New-Item -ItemType Directory -Force -Path g34-original-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g34-original-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g34-original-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g34-original-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g34-original-bundle/LICENSE.txt
+          Compress-Archive -Path g34-original-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g34-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g34-publish/FoamLens.exe)){throw 'G34 actual integrated Windows candidate failed to compile'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'G34 real Inno Setup compiler unavailable'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path artifacts/g34-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path desktop/artifacts/FoamLens-Setup-v1.8.10.exe)){throw 'G34 actual patched native Inno Setup failed'}
+      - name: Compile pinned independent G33 real Chromium same-origin nonce witness
+        run: |
+          dotnet build g33-original-bug-witness/tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj -c Release -o g34-witness
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g34-witness/FoamLensG33LocalOriginWitness.dll)){
+            throw 'G34 independent WebView2 native witness compile failed'
+          }
+      - name: Actual corrected-host Installed AND Portable native Windows inverse proof (extra JS must NOT run)
+        run: |
+          & ./qa/tools/granada_g34_native_integrated_trusted_source.ps1 -Portable product/artifacts/g34-publish/FoamLens.exe -Installer product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe -WitnessDll g34-witness/FoamLensG33LocalOriginWitness.dll -MainSha $env:G34_ORIGINAL_MAIN_SHA -Report g34-evidence/report.json
+          if(-not(Test-Path g34-evidence/report.json)){throw 'G34 native inverse witness absent'}
+      - name: Validate exact original main and actual patched WinForms+WebView2 inverse test with no false source merge
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $live=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $env:G34_ORIGINAL_MAIN_SHA -or $sha -ne $live){throw 'G34 original product HEAD drift'}
+          $r=Get-Content g34-evidence/report.json -Raw|ConvertFrom-Json
+          if($r.schema -ne 'foamlens/granada-g34-native-stale-script-repro/1' -or
+             $r.originalMainSha -ne $sha -or
+             $r.seededScriptShippedInOfficialBundle -ne $false -or
+             $r.unbundledScriptBlockedInPatchedPortableWebView2 -ne $true -or
+             $r.unbundledScriptBlockedInPatchedInstalledWebView2 -ne $true -or
+             $r.originalBothDistributionBinariesMatch -ne $true -or
+             $r.originalCleanRestartNoLongerExecutesMarker -ne $true -or
+             $r.syntheticMarkerDeleted -ne $true -or
+             $r.productionHostMergeCompleted -ne $false -or $r.releaseReady -ne $false){
+            throw 'G34 actual Windows result does not prove fixed candidate in both original distribution modes'
+          }
+          Write-Host 'G34 TEMPORARY PATCHED Windows native PASS: original trusted JS still smoke renders and unbundled JS ignored Installed+Portable; NOT merged or released'
+      - name: Upload ONLY sanitized synthetic proof, no executable, personal data, private OpenFOAM fixture or browser profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G34-temporary-host-trusted-embedded-only-native-proof
+          path: g34-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7
