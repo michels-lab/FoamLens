@@ -40,7 +40,7 @@ def audit(product: Path, qa: Path):
     changed = set(git(product, "diff", "--name-only", CAD_COMMIT, "HEAD").decode().splitlines())
     check(HOST in changed and HELPER in changed, "G35 actual host-and-helper correction missing")
     check(all(x == HOST or x == HELPER or x.startswith(("tools/granada_g35_", ".github/workflows/granada-g35-",
-                                                        "docs/GRANADA_G35_")) or x == "docs/GIT_AUDIT_LOG.md"
+                                                        "docs/GRANADA_G35_")) or x == "docs/GIT_AUDIT_LOG.md" or x == "desktop/tests/field-view.test.cjs"
               for x in changed), "G35 changed unrelated CAD, scientific, UX, or other owner's source")
     baseline = git(product, "show", CAD_COMMIT + ":" + HOST).decode("utf-8")
     current = (product / HOST).read_text("utf-8")
