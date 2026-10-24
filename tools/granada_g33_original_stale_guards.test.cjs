@@ -13,7 +13,7 @@ const original = fs.readFileSync(path.join(cwd,'desktop/src/FoamLensDesktop/Prog
 function requireProof(p,c,w,product) {
  assert.match(product,/ZipFile\.ExtractToDirectory\(stream, AppRoot, overwriteFiles: true\)/,'original host must actually retain unknown file when unzipping');
  assert.match(product,/Directory\.GetFiles\(AppRoot, "v\*-\*\.js"\)/,'regression needs original wildcard local module loading code');
- assert.match(product,/html = html\[\.\.insertionPoint\]/,'regression needs original source JS insertion into active main IIFE');
+ assert.match(product,/html = html\.Insert\(insertionPoint, Environment\.NewLine \+ extension/,'regression needs actual source JS injection in active IIFE');
  assert.match(p,/RUNNER_ENVIRONMENT -eq 'github-hosted'/,'real user machine prohibited');
  assert.match(p,/FoamLens-Setup-v1\.8\.10\.exe/,'genuine original Windows Inno Setup needed');
  assert.match(p,/\.FullName -ieq 'v99-g33-benign-residue\.js'/,'actual trusted original bundled ZIP MUST NOT ship synthetic marker');
