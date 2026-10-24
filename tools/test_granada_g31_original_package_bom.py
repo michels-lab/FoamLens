@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from types import SimpleNamespace
 
 MODULE = Path(__file__).with_name("granada_g31_original_package_bom.py")
 spec = importlib.util.spec_from_file_location("granada_g31", MODULE)
@@ -81,9 +82,15 @@ class ActualPackageSafetyTests(unittest.TestCase):
             g31.audit_bundle(self.archive, self.frontend, self.license)
 
     def test_windows_separator_ambiguity_is_rejected(self):
-        self.write_archive(extra=[(r"assets\branding\shadow.js", "outside")])
+        # ZipInfo converts backslashes to slashes on Windows before writing.
+        # Assert directly on raw entry metadata, rather than a normalized file.
+        malicious = SimpleNamespace(
+            filename=r"assets\branding\shadow.js",
+            external_attr=0, file_size=7, compress_size=7,
+            is_dir=lambda: False,
+        )
         with self.assertRaisesRegex(g31.EvidenceError, "separator"):
-            g31.audit_bundle(self.archive, self.frontend, self.license)
+            g31.safe_member(malicious)
 
     def test_archive_case_collision_blocked(self):
         self.write_archive(extra=[("INDEX.html", "outside")])
