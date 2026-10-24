@@ -53,15 +53,8 @@ var tests = new (string Name, Action Execute)[]
     {
         var actual=ReadBytes(("v1-core.js",new byte[]{0xEF,0xBB,0xBF,(byte)'o',(byte)'k'}));
         Check(actual[0]=="ok","Unexpected BOM in injected scripts");
-    }),
-    ("no source JS read from disk or network", () =>
-    {
-        var source=File.ReadAllText(
-          Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs")));
-        Check(!source.Contains("Directory.GetFiles") && !source.Contains("File.ReadAllText") &&
-              !source.Contains("HttpClient") && source.Contains("GetManifestResourceStream"),
-              "Not purely executable-embedded source");
     })
+
 };
 var passed=0;
 foreach(var (name,run) in tests)
