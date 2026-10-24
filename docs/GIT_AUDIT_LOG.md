@@ -142,6 +142,15 @@
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
 > Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
 
+## 2026-10-19 — CAD & Geometry read-only STL/OBJ tranche (#147 / #148), candidate branch
+
+- Owner requested a large real implementation block retaining previously documented CAD and OpenFOAM geometry work. Dedicated local **CAD & Geometry — Surface Inspector** surface and launcher added on branch `feat/cad-stl-obj-inspector-20261019`; no existing simulation is modified.
+- `v24-cad-surface-inspector.js` parses ASCII and binary STL (including binary STL headers beginning with `solid`) and OBJ vertices/faces with negative indices and named `o`/`g` parts. Source-bound validation rejects invalid face indices, incomplete facets, non-finite coordinates, oversized files and excessive combined geometry. It measures XYZ extents, triangle area, open boundary edges, nonmanifold edges, winding conflicts, degenerates and an explicitly qualified closed-shell volume **estimate**; unknown units stay unknown.
+- UI allows local file selection, a rotatable/zoomable projected 3D surface view, independent named-part visibility, camera presets, per-file metric-unit confirmation (multi-source overlays require all visible units and render in SI meters), and on-demand export of a **single named STL surface** scaled into meters with companion JSON manifest and provenance. Export cannot proceed before source units are confirmed. This does NOT create OpenFOAM volumetric meshes, infer metal/mold part names, validate STEP/IGES/BREP, or run `surfaceCheck`.
+- Added `desktop/tests/cad-surface-inspector.test.cjs`, dedicated fast CAD workflow, an entry in the full Windows test matrix, and a **packaged WebView2 native smoke** that checks inspector mounting, geometry operations, and no implicit units.
+- **Status: candidate on PR; exact-head CI and owner Windows inspection pending**, not present in public v1.8.10. `#147` / `#148` remain open for verified OCCT BREP STEP/IGES conversion, shell self-intersection check, OpenFOAM-edition-aware triSurface paths, native worker isolation/cancellation and meshing. Preserve other P0 tasks #145 / #146 / #150–#152 and release requirements #117 / #131.
+- Release boundary: no version bump, public release or Developer distribution in this batch.
+
 ## 2026-10-19 — Developer section annotations with persistent location/comment and IA handoff (#158)
 
 - Owner requested direct pinpointing of specific FoamLENS Developer sections, with a remembered comment for each that **survives closing/reopening Developer**, and all comments auto-included in subsequent exported IA debugging context.
