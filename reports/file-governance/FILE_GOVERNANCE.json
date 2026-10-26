@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 320,
-  "classified_files_total": 316,
-  "docs_content_inspected": 60,
+  "tracked_files_total": 325,
+  "classified_files_total": 321,
+  "docs_content_inspected": 61,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 54,
+    "document": 55,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 93,
+    "source": 96,
     "test": 98,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 31
+    "workflow": 32
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "afa780f711f6632a470da22a8f6959a3c5e36d748643067d5fb9e9b6e654e015",
-  "evidence_fingerprint": "bf16b52f42f9d7a4b3b1415c9c364afe5e943d8af61a88b0ea09d05d90453f32",
+  "inventory_fingerprint": "943f099e59cf06f6c0fe43a2c88fb4ea64cedf59c1ecaeaf18cd88ee1cb53c13",
+  "evidence_fingerprint": "cf686ff4ac912fdf37311663b00dbfabb72f12b343d7d3ab18ebc9df9325f64e",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "10ed46c5050d812408b3fb8db3651adcd3a8f6ae"
+      "blob": "4c461ea5e82452d5eff76218cd342e58839a87fd"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -196,6 +196,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
+    },
+    {
+      "path": ".github/workflows/granada-g21-signed-release-gate.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "201feecc0cbbf1a1171b069b00cbb4cb5e363f98"
     },
     {
       "path": ".github/workflows/granada-g22-compact-css-boundary.yml",
@@ -1612,6 +1619,13 @@
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
     },
     {
+      "path": "docs/GRANADA_G21_SIGNED_STABLE_RELEASE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e7e6682e195fd8d8f7f632394467739a56caf0b4"
+    },
+    {
       "path": "docs/GRANADA_G22_NATIVE_COMPACT_BREAKPOINT_2026-10-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2032,6 +2046,27 @@
       "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
     },
     {
+      "path": "tools/granada_g21_native_signing.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "346da7afd2ddf4e55ddbb73223f40530406a528a"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bb5f2773cad120e81b8989419fb091e327ea7c74"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1e19f1180230e85479c1811f302327305526657a"
+    },
+    {
       "path": "tools/granada_g22_compact_media_guard.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2244,11 +2279,11 @@
   ],
   "findings": [
     {
-      "id": "3a0eabe2ba66d019",
+      "id": "bd4b68bc0d64ea26",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g22_compact_media_guard.test.cjs",
+      "observation": "8 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1, tools/granada_g21_signing_guard.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
