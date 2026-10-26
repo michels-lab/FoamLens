@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 317,
-  "classified_files_total": 313,
-  "docs_content_inspected": 59,
+  "tracked_files_total": 320,
+  "classified_files_total": 316,
+  "docs_content_inspected": 60,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 53,
+    "document": 54,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 92,
+    "source": 93,
     "test": 98,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 30
+    "workflow": 31
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "189e2c2f33d9e825ce84b8b41e02ac1bf3888d14ad8e956a9ef151a62d3776d2",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "afa780f711f6632a470da22a8f6959a3c5e36d748643067d5fb9e9b6e654e015",
+  "evidence_fingerprint": "bf16b52f42f9d7a4b3b1415c9c364afe5e943d8af61a88b0ea09d05d90453f32",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -194,6 +196,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
+    },
+    {
+      "path": ".github/workflows/granada-g22-compact-css-boundary.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bd2c5c3a54bc9cca092bd437d1c7e036e6f4c253"
     },
     {
       "path": ".github/workflows/granada-g25-external-navigation-guard.yml",
@@ -809,7 +818,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ddf4991183ec8c7a3ca0e0fafb125b973249b097"
+      "blob": "e2a4faa94d0b3028b9e60b802bfe106be1c8f034"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js",
@@ -1603,6 +1612,13 @@
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
     },
     {
+      "path": "docs/GRANADA_G22_NATIVE_COMPACT_BREAKPOINT_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "15483d161071182a5e5ea1f620cade0089620cbb"
+    },
+    {
       "path": "docs/GRANADA_G25_NATIVE_EXTERNAL_LINKS_2026-10-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2016,6 +2032,13 @@
       "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
     },
     {
+      "path": "tools/granada_g22_compact_media_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "203c18c03f5cbcb128bb02570325d735b424f01a"
+    },
+    {
       "path": "tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj",
       "role": "build_script",
       "purpose": "platform build/project/installer script",
@@ -2219,7 +2242,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "3a0eabe2ba66d019",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g22_compact_media_guard.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
