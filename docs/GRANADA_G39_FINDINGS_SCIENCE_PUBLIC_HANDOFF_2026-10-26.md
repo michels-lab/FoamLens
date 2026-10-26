@@ -5,6 +5,10 @@
 ## Separate ownership
 G38 scientific series export (PR #258) has its own `v13-reproducible-export.js`, tests, and Windows native CI, initially **not terminal**; preserve its SHA and tests independently. G35/G36/G37 CAD, WebView2 trusted JavaScript, G22 Play and QuickCup physical tests are stacked, unmerged and must remain unmodified. Open review/export owner #184 changes different original modules and tests; no alteration to that PR. G39 specifically owns **original `v22-findings-export.js`** and **existing `findings-export.test.cjs`**. The project's central log is shared and may require a normal merge reconciliation, not a force overwrite.
 
+## 2026-10-26 follow-up — provenance identity hardening
+
+During backlog-first PR review, another defect was reproduced from the original finding association filter: `String(f.field).includes(String(sourceField))` is true for an empty source field; substring matching also links `T` findings to unrelated `Tangent` sources. In the **same original G39 branch**, the association now requires an exact nonempty canonical/original source-field alias in the same case; findings without a requested field intentionally retain same-case inventories. A negative fixture executes the original exported finding function with one correct alias, a substring lookalike, an unnamed field and other/absent case IDs. This prevents fabricated provenance without assuming physical interpretation. CI and native installed evidence must be rechecked against the new exact PR SHA; this is not a release.
+
 ## Original root causes / reproductions
 
 1. **Misleading physical time and measured/reference evidence:** original `fxeFinite` called `Number(null)`, `Number('')`, `Number(false)` and therefore returned false **0** in exported findings. Original `fxeTimeRange` likewise counted missing `t` samples as real t=0. Correct strict finite dot-decimal conversion preserves actual numeric zero and exponent notation.
