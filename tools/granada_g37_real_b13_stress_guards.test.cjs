@@ -15,8 +15,8 @@ function guarded(p,c,w){
  assert.match(p,/foreach\(\$n in 1\.\.3\)\{Native-Smoke \$exe 'portable' \$n\}/,'require three Portable native starts');
  assert.match(p,/foreach\(\$n in 1\.\.3\)\{Native-Smoke \$installedExe 'installed' \$n\}/,'require three Installed native starts');
  assert.match(p,/FOAMLENS_BRAND_EVIDENCE_DIR=/,'require real native Field screenshots');
- assert.match(p,/field-wide\.png','must inspect 1140px rendered Field');
- assert.match(p,/field-compact\.png','must inspect compact Field');
+ assert.match(p,/field-wide\.png/,'must inspect 1140px rendered Field');
+ assert.match(p,/field-compact\.png/,'must inspect compact Field');
  assert.match(p,/FoamLens real OpenFOAM packaged runtime smoke passed/,'real science, not fake renders');
  assert.match(p,/FoamLens Windows smoke test passed/,'real original Play/Camera native gate');
  assert.match(p,/Get-FileHash -LiteralPath \$installedExe/,'installed and portable identical');
