@@ -14,8 +14,12 @@ function guarded(p,c,w){
  assert.match(p,/FOAMLENS_SMOKE_MIN_CASES='4'/,'preserve five-case case selector');
  assert.match(p,/foreach\(\$n in 1\.\.3\)\{\s*Native-Smoke \$exe 'portable' \$n/,'require three Portable native starts');
  assert.match(p,/Native-Smoke \$installedExe 'installed' \$n\s*\}/,'require three Installed native starts');
- const firstInno=p.indexOf('Run-Inno $installerExe $args');
+ const firstInno=p.indexOf('Run-Inno $installerExe $installOptions');
  assert.ok(firstInno>=0 && firstInno < p.indexOf("Native-Smoke $exe 'portable' $n"),'original Windows Inno MUST install before any six-run WebView2 subprocesses');
+ assert.match(p,/function Run-Inno\(\[string\]\$path,\[string\[\]\]\$installOptions,\[string\]\$label\)/,'installer must use explicit bound arguments, not PowerShell automatic $args');
+ assert.match(p,/Start-Process -FilePath \$path -ArgumentList \$installOptions -PassThru/,'silent Inno options must be passed to real setup process');
+ assert.doesNotMatch(p,/\[string\[\]\]\$args/,'PowerShell reserved $args caused silent setup to become interactive');
+ assert.match(p,/installOptions=@\('\/VERYSILENT'/,'genuine silent installer options must be present');
  assert.match(p,/FOAMLENS_BRAND_EVIDENCE_DIR=/,'require real native Field screenshots');
  assert.match(p,/field-wide\.png/,'must inspect 1140px rendered Field');
  assert.match(p,/field-compact\.png/,'must inspect compact Field');
@@ -35,8 +39,13 @@ test('negative regression: missing Installed cycles cannot be green',()=>{
  assert.throws(()=>guarded(ps.replace("Native-Smoke $installedExe 'installed' $n","Write-Host skipped"),source,wf),/three Installed/);
 });
 test('negative regression: installer before WebView2 is required to avoid real Inno lock contention',()=>{
- const moved=ps.replace('Run-Inno $installerExe $args',"Write-Host 'skipped setup'");
+ const moved=ps.replace('Run-Inno $installerExe $installOptions',"Write-Host 'skipped setup'");
  assert.throws(()=>guarded(moved,source,wf),/original Windows Inno MUST install/);
+});
+test('negative regression: do not use PowerShell reserved automatic $args for Inno Setup',()=>{
+ const broken=ps.replace('function Run-Inno([string]$path,[string[]]$installOptions,[string]$label)',
+                         'function Run-Inno([string]$path,[string[]]$args,[string]$label)');
+ assert.throws(()=>guarded(broken,source,wf),/explicit bound arguments/);
 });
 test('negative regression: original physical Play width cannot be lowered',()=>{
  assert.throws(()=>guarded(ps,source.replace('playRect.width>=100','playRect.width>=68'),wf),/unchanged real 1140 Play/);
