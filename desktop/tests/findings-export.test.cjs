@@ -54,7 +54,7 @@ assert(source.includes("downloadText(fxeFileStem()+'_findings_assistant.md'"),
 
 const coreEnd=source.indexOf('function fxeBundle(){');
 assert(coreEnd>0,'original findings scientific extraction boundary absent');
-const api=new Function('series','cases',source.slice(0,coreEnd)+'\nreturn {fxeFinite,fxeTimeRange,fxeFinding,fxeClone};')([],[]);
+const api=new Function('series','cases',source.slice(0,coreEnd)+'\nreturn {fxeFinite,fxeTimeRange,fxeFinding,fxeClone,fxeCaseId,fxeCase};')([],[]);
 
 assert.strictEqual(api.fxeFinite(null),null,'missing measured value is not physical zero');
 assert.strictEqual(api.fxeFinite('  '),null,'empty measurement is not physical zero');
@@ -86,6 +86,18 @@ assert.deepStrictEqual(sharedRefs,{left:{raw:'source-backed'},right:{raw:'source
   'shared noncircular scientific metadata must not be mislabeled as a circular reference');
 const cyclic={id:'actual'};cyclic.self=cyclic;
 assert.strictEqual(api.fxeClone(cyclic).self,'[circular]','actual cycles remain bounded');
+
+
+assert.strictEqual(api.fxeCaseId(null),null,'unknown source case ID is not case 0');
+assert.strictEqual(api.fxeCaseId(''),null);
+assert.strictEqual(api.fxeCaseId(false),null);
+assert.strictEqual(api.fxeCaseId(0),0,'real case 0 remains a valid identity');
+assert.strictEqual(api.fxeCaseId('0008'),8,'string numeric case IDs retain numeric identity');
+assert.strictEqual(api.fxeCaseId('9999999999999999999999999'),null,'unsafe case IDs must not collapse precision');
+const privateCase=new Map([[0,{name:'Real zero case'}]]);
+const unknownFinding=api.fxeFinding({caseId:null,title:'No association'},0,privateCase);
+assert.strictEqual(unknownFinding.caseName,'','missing finding case ID must not inherit case zero');
+assert.deepStrictEqual(unknownFinding.relatedEvidence,[],'missing case ID must not borrow unrelated source evidence');
 
 const bodyStart=source.indexOf('function fxeGithubCounts('),bodyEnd=source.indexOf('\nasync function fxeGithub()',bodyStart);
 assert(bodyStart>=0&&bodyEnd>bodyStart,'original GitHub handoff privacy function missing');
