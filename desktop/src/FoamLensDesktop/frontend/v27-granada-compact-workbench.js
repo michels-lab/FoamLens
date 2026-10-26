@@ -116,6 +116,8 @@ function style(){
  '.gfwTrigger:focus-visible,.gfwClose:focus-visible,.app.gfwOpen .sidebar :focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
  '.gfwBackdrop[hidden]{display:none!important}.gfwBackdrop{position:fixed;inset:0;background:rgba(2,9,20,.56);z-index:1800;cursor:pointer}',
  '.gfwClose{display:none;position:sticky;top:0;width:100%;z-index:1;min-height:39px;margin-bottom:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);font:inherit;font-size:11px;font-weight:800;cursor:pointer}',
+ // G22: Compact JS class can briefly outlive viewport resize. Its CSS must NEVER escape the physical compact breakpoint.
+ '@media(max-width:1024px){',
  'body:is(.appMode-field,.appMode-analysis) .app.gfwCompact{grid-template-columns:minmax(0,1fr)!important;--chart-min-w:min(760px,calc(100vw - 45px));--chart-min-h:430px}',
  'body:is(.appMode-field,.appMode-analysis) .app.gfwCompact>.sidebar{position:fixed!important;inset:var(--gfwDockTop,150px) auto 12px 12px!important;box-sizing:border-box;width:min(415px,calc(100vw - 24px))!important;min-width:0!important;padding:13px!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;transform:translateX(calc(-100% - 30px));visibility:hidden!important;opacity:0!important;pointer-events:none!important;z-index:1900!important;box-shadow:0 18px 60px rgba(0,0,0,.35);border:1px solid var(--line);border-radius:14px;transition:transform .15s ease,opacity .15s ease}',
  'body:is(.appMode-field,.appMode-analysis) .app.gfwCompact.gfwOpen>.sidebar{transform:translateX(0);visibility:visible!important;opacity:1!important;pointer-events:auto!important}',
@@ -143,7 +145,8 @@ function style(){
  'body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimePlay{min-width:68px!important;width:auto!important;max-width:100%!important}',
  'body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field .flRibbonGroup:not(.flRibbonTimeGroup){flex:0 0 auto}',
  '@media(max-width:550px){body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup .fwTimeTransport{grid-template-columns:28px minmax(85px,1fr) 28px minmax(70px,1fr)!important}body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field #fwTimeSpeed{grid-column:2}body.flRibbonReady.appMode-field .app.gfwCompact #flRibbonPanel-field #fwTimeReadout{grid-column:4}}',
- '@media(prefers-reduced-motion:reduce){.app.gfwCompact>.sidebar{transition:none!important}}'
+ '@media(prefers-reduced-motion:reduce){.app.gfwCompact>.sidebar{transition:none!important}}',
+ '}'
  ].join('\n');
  document.head.append(tag);
 }
@@ -178,6 +181,10 @@ function install(){
   if(nav)topResize.observe(nav);
  }
  window.addEventListener('resize',sync);
+ // Match the same breakpoint as the CSS: native WebView2 can coalesce resize events.
+ const compactBreakpoint=window.matchMedia?.('(max-width:1024px)');
+ if(compactBreakpoint?.addEventListener)compactBreakpoint.addEventListener('change',sync);
+ else if(compactBreakpoint?.addListener)compactBreakpoint.addListener(sync);
  installed=true;initError='none';sync();
  return true;
 }

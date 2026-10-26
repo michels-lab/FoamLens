@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 309,
-  "classified_files_total": 305,
-  "docs_content_inspected": 56,
+  "tracked_files_total": 325,
+  "classified_files_total": 321,
+  "docs_content_inspected": 61,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 50,
+    "document": 55,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 91,
-    "test": 97,
+    "source": 96,
+    "test": 98,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 27
+    "workflow": 32
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "87360c677a10473f534e9b763590870cab7a50224094eb9342918346b82cbefe",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "943f099e59cf06f6c0fe43a2c88fb4ea64cedf59c1ecaeaf18cd88ee1cb53c13",
+  "evidence_fingerprint": "cf686ff4ac912fdf37311663b00dbfabb72f12b343d7d3ab18ebc9df9325f64e",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -74,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "10ed46c5050d812408b3fb8db3651adcd3a8f6ae"
+      "blob": "4c461ea5e82452d5eff76218cd342e58839a87fd"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -140,6 +142,13 @@
       "blob": "fba51cd8f1ecb586dcdc6c5ed78b5e33f9bcab8a"
     },
     {
+      "path": ".github/workflows/granada-backlog-convergence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
+    },
+    {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -189,11 +198,39 @@
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
     },
     {
+      "path": ".github/workflows/granada-g21-signed-release-gate.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "201feecc0cbbf1a1171b069b00cbb4cb5e363f98"
+    },
+    {
+      "path": ".github/workflows/granada-g22-compact-css-boundary.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bd2c5c3a54bc9cca092bd437d1c7e036e6f4c253"
+    },
+    {
       "path": ".github/workflows/granada-g25-external-navigation-guard.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g38-scientific-export.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d97e2695526913518c22cf83f6b1e0687ab8cc17"
+    },
+    {
+      "path": ".github/workflows/granada-g39-findings-integrity.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "61168235fcac41b4b478810b7c33d6c854b41ab2"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -263,7 +300,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "0eb546ed65d04e15d16cdfef3b10d6c101c8d4d0"
+      "blob": "783260dc3f69012537205bfb5f68a625387badf1"
     },
     {
       "path": ".michelslab/agents/contrarian.md",
@@ -550,7 +587,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "30a6806c192c445ac3fa682c32eb15d903f2ae68"
+      "blob": "0e23cfcdc83d471f416257ca4e4c9d8a6364df28"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-solidification-analysis.js",
@@ -767,7 +804,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c0bf461f390d999e1f7f2993a18e8b28a8aa08f5"
+      "blob": "3cecdb7425c93ae77e37909667773736acd9d99d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v23-session-state.js",
@@ -788,7 +825,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ddf4991183ec8c7a3ca0e0fafb125b973249b097"
+      "blob": "e2a4faa94d0b3028b9e60b802bfe106be1c8f034"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js",
@@ -1040,7 +1077,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "65039fe99739894fb5f82a1d312c1af7bfdfc212"
+      "blob": "766b4f181e4e71a6aa68566d9242aa7e1eb48c2e"
     },
     {
       "path": "desktop/tests/flow-analysis.test.cjs",
@@ -1229,14 +1266,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d477e5dfeb1316e1c40a8d1653eb4cd997c6c12c"
+      "blob": "ee708c5c9755522fa39dbc383557ba43cf875af0"
     },
     {
       "path": "desktop/tests/review-case-binding.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5e428f951a10e27f33c80d2219a387d7f58d44ae"
+      "blob": "83ceb1277e331982c1b3f634317712b6fe386a05"
     },
     {
       "path": "desktop/tests/ribbon-ui.test.cjs",
@@ -1523,7 +1560,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "667655b85cb52b032962954c6d5eaf124a9ff325"
+      "blob": "ab4934fc642261d332e39af8994bede34ae20083"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1538,6 +1575,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
+    },
+    {
+      "path": "docs/GRANADA_BACKLOG_CONVERGENCE_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -1575,11 +1619,39 @@
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
     },
     {
+      "path": "docs/GRANADA_G21_SIGNED_STABLE_RELEASE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e7e6682e195fd8d8f7f632394467739a56caf0b4"
+    },
+    {
+      "path": "docs/GRANADA_G22_NATIVE_COMPACT_BREAKPOINT_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "15483d161071182a5e5ea1f620cade0089620cbb"
+    },
+    {
       "path": "docs/GRANADA_G25_NATIVE_EXTERNAL_LINKS_2026-10-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
+    },
+    {
+      "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "49b4cde1d779744d3bfda6c2407ce553715d7ce1"
+    },
+    {
+      "path": "docs/GRANADA_G39_FINDINGS_SCIENCE_PUBLIC_HANDOFF_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4bfdfd96591c3ac18458366b51689e2e679e8ae9"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
@@ -1897,6 +1969,13 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada_backlog_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c7803f1745ace371bf638ed366c01dd95c4a3489"
+    },
+    {
       "path": "tools/granada_command_search.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1965,6 +2044,34 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+    },
+    {
+      "path": "tools/granada_g21_native_signing.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "346da7afd2ddf4e55ddbb73223f40530406a528a"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bb5f2773cad120e81b8989419fb091e327ea7c74"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1e19f1180230e85479c1811f302327305526657a"
+    },
+    {
+      "path": "tools/granada_g22_compact_media_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "203c18c03f5cbcb128bb02570325d735b424f01a"
     },
     {
       "path": "tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj",
@@ -2065,6 +2172,13 @@
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
     },
     {
+      "path": "tools/test_granada_backlog_guard.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8a67bf9eb434dc187415017c4f85aa0a6178f7bb"
+    },
+    {
       "path": "tools/test_installer_shortcuts.ps1",
       "role": "test",
       "purpose": "code/test implementation",
@@ -2163,7 +2277,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "bd4b68bc0d64ea26",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "8 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1, tools/granada_g21_signing_guard.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
