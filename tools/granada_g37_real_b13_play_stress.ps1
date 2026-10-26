@@ -78,9 +78,9 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   bothOriginalWebView2FieldPng=$true
  }
 }
-function Run-Inno([string]$path,[string[]]$args,[string]$label){
+function Run-Inno([string]$path,[string[]]$installOptions,[string]$label){
  Write-Host "G37 actual original Inno $label"
- $p=Start-Process -FilePath $path -ArgumentList $args -PassThru
+ $p=Start-Process -FilePath $path -ArgumentList $installOptions -PassThru
  try{
   if(-not $p.WaitForExit(120000)){try{$p.Kill($true)}catch{};throw "$label timed out"}
   Need ($p.ExitCode -eq 0) "$label returned nonzero"
@@ -90,8 +90,8 @@ try{
  Need (-not(Test-Path -LiteralPath $captures)) 'preexisting evidence directory, refuses overwrite'
  Need (-not(Test-Path -LiteralPath $installedDir)) 'preexisting Inno installation, refuses overwrite'
  New-Item -ItemType Directory -Path $captures -Force|Out-Null
- $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',('/DIR="'+$installedDir+'"'))
- Run-Inno $installerExe $args 'Setup'
+ $installOptions=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',('/DIR="'+$installedDir+'"'))
+ Run-Inno $installerExe $installOptions 'Setup'
  Need (Test-Path -LiteralPath $installedExe) 'native installed binary missing'
  $script:installed=$true
  Need ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash) 'installed binary not identical to Portable'
