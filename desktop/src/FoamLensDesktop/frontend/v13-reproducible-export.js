@@ -6,7 +6,7 @@ function rxScientificNumber(value){
   if(typeof value==='number')return Number.isFinite(value)?value:null;
   if(typeof value!=='string')return null;
   const text=value.trim();
-  if(!/^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$/.test(text))return null;
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))return null;
   const n=Number(text);
   return Number.isFinite(n)?n:null
 }
@@ -101,11 +101,11 @@ function rxCsv(payload){
   if(!payload)return'';
   const d=payload.dataset,escCsv=v=>'"'+String(v??'').replaceAll('"','""')+'"';
   // Keep untrusted case names/paths in a SINGLE comment line, never a new CSV row.
-  const safeMetadataLine=line=>String(line).replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g,ch=>{
-    if(ch==='\\n')return '\\\\n';
-    if(ch==='\\r')return '\\\\r';
-    if(ch==='\\t')return '\\\\t';
-    return '\\\\u'+ch.charCodeAt(0).toString(16).padStart(4,'0')
+  const safeMetadataLine=line=>String(line).replace(/[\u0000-\u001f\u007f\u2028\u2029]/g,ch=>{
+    if(ch==='\n')return '\\n';
+    if(ch==='\r')return '\\r';
+    if(ch==='\t')return '\\t';
+    return '\\u'+ch.charCodeAt(0).toString(16).padStart(4,'0')
   });
   // Scientific data cells are measured numbers, never spreadsheet expressions.
   const numericCell=(v,nullable=false)=>{
