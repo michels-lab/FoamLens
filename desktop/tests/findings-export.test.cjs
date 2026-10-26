@@ -29,7 +29,7 @@ const required=[
   'async function fxeChatGPT()',
   'async function fxeGithub()',
   "https://chatgpt.com/",
-  "https://github.com/realmichelduarte/FoamLens/issues/new?title=",
+  "https://github.com/michels-lab/FoamLens/issues/new?title=",
   "data-fxe=\"chatgpt\"",
   "data-fxe=\"github\"",
   "fxeAttach(title.closest('.surfaceCardHead'),'fxeWorkspace')",
@@ -50,5 +50,69 @@ assert(source.includes("downloadText(fxeFileStem()+'_findings_evidence.json'"),
   'Machine-readable evidence export filename contract changed.');
 assert(source.includes("downloadText(fxeFileStem()+'_findings_assistant.md'"),
   'Assistant Markdown export filename contract changed.');
+
+
+const coreEnd=source.indexOf('function fxeBundle(){');
+assert(coreEnd>0,'original findings scientific extraction boundary absent');
+const api=new Function('series','cases',source.slice(0,coreEnd)+'\nreturn {fxeFinite,fxeTimeRange,fxeFinding,fxeClone};')([],[]);
+
+assert.strictEqual(api.fxeFinite(null),null,'missing measured value is not physical zero');
+assert.strictEqual(api.fxeFinite('  '),null,'empty measurement is not physical zero');
+assert.strictEqual(api.fxeFinite(false),null,'boolean false is not measured physical zero');
+assert.strictEqual(api.fxeFinite('0x10'),null,'hex input is not OpenFOAM scientific dot decimal');
+assert.strictEqual(api.fxeFinite('2,5'),null,'locale-comma input is not source dot decimal');
+assert.strictEqual(api.fxeFinite(0),0,'actual measured zero must remain zero');
+assert.strictEqual(api.fxeFinite(' -1.5E-3 '),-0.0015,'signed physical exponent must remain supported');
+assert.strictEqual(api.fxeFinite(Infinity),null,'nonfinite measurement is not exportable');
+
+const absent=api.fxeTimeRange({t:[null,'',false,'NaN'],profileTime:null});
+assert.deepStrictEqual(absent,{min:null,max:null,count:0},'unknown source time is not a fabricated t=0');
+const mixed=api.fxeTimeRange({t:[null,'0.5',1.5,'',0,false,'-1e-3'],profileTime:null});
+assert.deepStrictEqual(mixed,{min:-0.001,max:1.5,count:4},'filter missing times and preserve real zero/time extent');
+assert.deepStrictEqual(api.fxeTimeRange({t:[],profileTime:'2e-3'}),{min:0.002,max:0.002,count:1});
+
+const many=Array(350000).fill(null);
+many[0]=-1.25;many[many.length-1]=10.5;
+assert.deepStrictEqual(api.fxeTimeRange({t:many}),{min:-1.25,max:10.5,count:2},
+  'large scientific time history must not use spreading a huge array into Math.min/Math.max');
+
+const finding=api.fxeFinding({caseId:8,time:null,measured:null,reference:false},0,new Map([[8,{name:'Case'}]]));
+assert.strictEqual(finding.time,null,'missing finding time must stay unknown');
+assert.strictEqual(finding.measured,null,'missing finding measurement must stay unknown');
+assert.strictEqual(finding.reference,null,'false is not physical reference zero');
+
+const shared={raw:'source-backed'};const sharedRefs=api.fxeClone({left:shared,right:shared});
+assert.deepStrictEqual(sharedRefs,{left:{raw:'source-backed'},right:{raw:'source-backed'}},
+  'shared noncircular scientific metadata must not be mislabeled as a circular reference');
+const cyclic={id:'actual'};cyclic.self=cyclic;
+assert.strictEqual(api.fxeClone(cyclic).self,'[circular]','actual cycles remain bounded');
+
+const bodyStart=source.indexOf('function fxeGithubCounts('),bodyEnd=source.indexOf('\nasync function fxeGithub()',bodyStart);
+assert(bodyStart>=0&&bodyEnd>bodyStart,'original GitHub handoff privacy function missing');
+const github=new Function(source.slice(bodyStart,bodyEnd)+'\nreturn {fxeGithubCounts,fxeGithubBody};')();
+const dangerous={
+  workspace:{name:'PRIVATE_CASE_EXAMPLE_DO_NOT_SEND'},
+  generatedBy:'SECRET_BUILD_MARKER',
+  cases:[{rootPath:'C:\\PRIVATE_CASE_SECRET'}],
+  findings:[
+    {severity:'FAIL',caseName:'PRIVATE_CASE_EXAMPLE_DO_NOT_SEND',field:'CONFIDENTIAL_FIELD_NAME',
+      title:'SECRET_FINDING_TITLE',detail:'C:\\PRIVATE_CASE_SECRET',measured:123.5},
+    {severity:'WARNING',detail:'SECRET_FINDING_TITLE'},
+    {severity:'NOTICE'}, {severity:'INFO'}
+  ]
+};
+assert.deepStrictEqual(github.fxeGithubCounts(dangerous),{FAIL:1,WARNING:1,NOTICE:1,INFO:1,OTHER:0});
+const publicBody=github.fxeGithubBody(dangerous);
+for(const secret of ['PRIVATE_CASE_EXAMPLE_DO_NOT_SEND','CONFIDENTIAL_FIELD_NAME','SECRET_FINDING_TITLE',
+  'PRIVATE_CASE_SECRET','SECRET_BUILD_MARKER','123.5'])assert(!publicBody.includes(secret),
+  'public GitHub issue must not transmit private scientific source data: '+secret);
+assert(publicBody.includes('1 FAIL')&&publicBody.includes('1 WARNING'),
+  'public issue still contains useful aggregate diagnostic summary');
+assert(publicBody.includes('intentionally excluded'),
+  'public issue must explain why detailed research evidence is absent');
+assert(source.includes('https://github.com/michels-lab/FoamLens/issues/new?title='),
+  'new issues must target canonical FoamLens repository');
+assert(!source.includes('https://github.com/realmichelduarte/FoamLens/issues/new?title='),
+  'legacy repository path may redirect or lead the owner to the wrong issue destination');
 
 console.log('FoamLens Findings export passed: provenance bundle, Markdown/JSON, ChatGPT and GitHub handoffs are wired.');
