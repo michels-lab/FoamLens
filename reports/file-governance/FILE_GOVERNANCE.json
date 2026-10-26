@@ -1,30 +1,30 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 303,
-  "classified_files_total": 299,
-  "docs_content_inspected": 55,
+  "tracked_files_total": 317,
+  "classified_files_total": 313,
+  "docs_content_inspected": 59,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
-    "build_script": 5,
+    "build_script": 6,
     "config": 7,
-    "document": 49,
+    "document": 53,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 88,
-    "test": 97,
+    "source": 92,
+    "test": 98,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 26
+    "workflow": 30
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "017702167c75b3b7b5a52171e37737356b854482cbbb9c348298a5e74c621a6c",
+  "inventory_fingerprint": "189e2c2f33d9e825ce84b8b41e02ac1bf3888d14ad8e956a9ef151a62d3776d2",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -140,6 +140,13 @@
       "blob": "fba51cd8f1ecb586dcdc6c5ed78b5e33f9bcab8a"
     },
     {
+      "path": ".github/workflows/granada-backlog-convergence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
+    },
+    {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -187,6 +194,27 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
+    },
+    {
+      "path": ".github/workflows/granada-g25-external-navigation-guard.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g38-scientific-export.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d97e2695526913518c22cf83f6b1e0687ab8cc17"
+    },
+    {
+      "path": ".github/workflows/granada-g39-findings-integrity.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "61168235fcac41b4b478810b7c33d6c854b41ab2"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -256,7 +284,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "0eb546ed65d04e15d16cdfef3b10d6c101c8d4d0"
+      "blob": "783260dc3f69012537205bfb5f68a625387badf1"
     },
     {
       "path": ".michelslab/agents/contrarian.md",
@@ -399,6 +427,13 @@
       "blob": "0dcbef3ece10145ab59970c4542ed8c7733ba6bc"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/ExternalNavigationPolicy.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9c928252aa8a78818fa2fe490e64d5bdac6e4ab9"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
       "role": "build_script",
       "purpose": "platform build/project/installer script",
@@ -431,7 +466,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "185a71faeb70bd49c11ac06350c81833bc9343c7"
+      "blob": "d2930d013bb49f36b1e7d6805d3c4c070722997a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs",
@@ -536,7 +571,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "30a6806c192c445ac3fa682c32eb15d903f2ae68"
+      "blob": "0e23cfcdc83d471f416257ca4e4c9d8a6364df28"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-solidification-analysis.js",
@@ -753,7 +788,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c0bf461f390d999e1f7f2993a18e8b28a8aa08f5"
+      "blob": "3cecdb7425c93ae77e37909667773736acd9d99d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v23-session-state.js",
@@ -1026,7 +1061,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "65039fe99739894fb5f82a1d312c1af7bfdfc212"
+      "blob": "766b4f181e4e71a6aa68566d9242aa7e1eb48c2e"
     },
     {
       "path": "desktop/tests/flow-analysis.test.cjs",
@@ -1215,14 +1250,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d477e5dfeb1316e1c40a8d1653eb4cd997c6c12c"
+      "blob": "ee708c5c9755522fa39dbc383557ba43cf875af0"
     },
     {
       "path": "desktop/tests/review-case-binding.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "78ec7ac7011aedfc158e6842e7bfdd53d302a5f7"
+      "blob": "83ceb1277e331982c1b3f634317712b6fe386a05"
     },
     {
       "path": "desktop/tests/ribbon-ui.test.cjs",
@@ -1509,7 +1544,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "bb49cad71186b76cc881d172c6a5530ea9c1d004"
+      "blob": "ab4934fc642261d332e39af8994bede34ae20083"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1524,6 +1559,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
+    },
+    {
+      "path": "docs/GRANADA_BACKLOG_CONVERGENCE_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -1559,6 +1601,27 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
+    },
+    {
+      "path": "docs/GRANADA_G25_NATIVE_EXTERNAL_LINKS_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
+    },
+    {
+      "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "49b4cde1d779744d3bfda6c2407ce553715d7ce1"
+    },
+    {
+      "path": "docs/GRANADA_G39_FINDINGS_SCIENCE_PUBLIC_HANDOFF_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4bfdfd96591c3ac18458366b51689e2e679e8ae9"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
@@ -1876,6 +1939,13 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada_backlog_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c7803f1745ace371bf638ed366c01dd95c4a3489"
+    },
+    {
       "path": "tools/granada_command_search.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1944,6 +2014,27 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "fb14b98d681f3634a08ec935cdf3ccfd2b46901a"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2ed078ba61b9f1f95288b30b22aac2abf98225e5"
+    },
+    {
+      "path": "tools/granada_g25_navigation_wiring.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4e53275597a029e1464de2001e2950dfa906439d"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
@@ -2021,6 +2112,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
+    },
+    {
+      "path": "tools/test_granada_backlog_guard.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8a67bf9eb434dc187415017c4f85aa0a6178f7bb"
     },
     {
       "path": "tools/test_installer_shortcuts.ps1",

@@ -158,15 +158,17 @@ internal sealed class FoamLensForm : Form
 #endif
             _web.CoreWebView2.NewWindowRequested += (_, e) =>
             {
+                // The browser owns ONLY the secure local FoamLens origin.
+                // Windows ShellExecute must never receive WebView2 custom schemes.
                 e.Handled = true;
                 OpenExternal(e.Uri);
             };
             _web.CoreWebView2.NavigationStarting += (_, e) =>
             {
-                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) &&
-                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
-                    uri.Scheme is "http" or "https")
+                if (!ExternalNavigationPolicy.IsInternalNavigation(e.Uri))
                 {
+                    // Cancel all unrecognized navigation, even file:, ms-*,
+                    // javascript:, about:, HTTP-local host and invalid URLs.
                     e.Cancel = true;
                     OpenExternal(e.Uri);
                 }
@@ -4970,14 +4972,17 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     private void HandleOpenExternal(JsonElement root, string requestId)
     {
         var uri = RequiredString(root, "uri");
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
-            (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
         {
-            Reply(requestId, false, null, "Only http/https external links are allowed.");
+            Reply(requestId, false, null, "Only safe external HTTP(S) browser links are allowed.");
             return;
         }
-        OpenExternal(parsed.ToString());
-        Reply(requestId, true, new { uri = parsed.ToString() }, null);
+        if (!OpenExternal(externalUrl))
+        {
+            Reply(requestId, false, null, "The system could not open this link.");
+            return;
+        }
+        Reply(requestId, true, new { uri = externalUrl }, null);
     }
 
     private void HandleCancelOperation(JsonElement root, string requestId)
@@ -5102,11 +5107,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         else _web.CoreWebView2?.PostWebMessageAsJson(json);
     }
 
-    private static void OpenExternal(string? uri)
+    private static bool OpenExternal(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) return;
-        try { Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true }); }
-        catch { /* External navigation should never crash FoamLens. */ }
+        // Last-resort defense for ALL callers: WebView2, About links,
+        // update links and the native JS bridge, not only click handlers.
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
+            return false;
+        try
+        {
+            Process.Start(new ProcessStartInfo(externalUrl) { UseShellExecute = true });
+            return true;
+        }
+        catch { return false; /* Never crash FoamLens if the OS browser is unavailable. */ }
     }
 
     private static void Log(string message)
