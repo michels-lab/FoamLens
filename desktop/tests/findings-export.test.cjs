@@ -99,6 +99,25 @@ const unknownFinding=api.fxeFinding({caseId:null,title:'No association'},0,priva
 assert.strictEqual(unknownFinding.caseName,'','missing finding case ID must not inherit case zero');
 assert.deepStrictEqual(unknownFinding.relatedEvidence,[],'missing case ID must not borrow unrelated source evidence');
 
+// Same-defect regression: partial/empty source fields must NEVER fabricate related scientific evidence.
+const associated=new Function('series','cases',source.slice(0,coreEnd)+
+  '\nreturn {fxeFinding,fxeCase};')([
+    {caseId:8,name:'Temperature',field:{canonical:'temperature',raw:'T'},sourcePath:'correct/T'},
+    {caseId:8,name:'Tangent',field:{canonical:'Tangent'},sourcePath:'wrong/substr'},
+    {caseId:8,name:'',field:{},sourcePath:'wrong/empty-field'},
+    {caseId:9,name:'T',field:{raw:'T'},sourcePath:'wrong/other-case'},
+    {caseId:null,name:'T',field:{raw:'T'},sourcePath:'wrong/no-case'}
+  ],[]);
+const realAlias=associated.fxeFinding({caseId:8,field:'T'},0,new Map([[8,{name:'Measured case'}]]));
+assert.deepStrictEqual(realAlias.relatedEvidence.map(x=>x.sourcePath),['correct/T'],
+  'only same-case original/canonical field aliases may be attached as related evidence');
+const noPartial=associated.fxeFinding({caseId:8,field:'Tempera'},0,new Map([[8,{name:'Measured case'}]]));
+assert.deepStrictEqual(noPartial.relatedEvidence,[],
+  'a prefix is not evidence that a scientific source field is the requested field');
+const caseWide=associated.fxeFinding({caseId:8},0,new Map([[8,{name:'Measured case'}]]));
+assert.strictEqual(caseWide.relatedEvidence.length,3,
+  'field-free case-level findings still retain same-case inventory without other cases');
+
 const bodyStart=source.indexOf('function fxeGithubCounts('),bodyEnd=source.indexOf('\nasync function fxeGithub()',bodyStart);
 assert(bodyStart>=0&&bodyEnd>bodyStart,'original GitHub handoff privacy function missing');
 const github=new Function(source.slice(bodyStart,bodyEnd)+'\nreturn {fxeGithubCounts,fxeGithubBody};')();
