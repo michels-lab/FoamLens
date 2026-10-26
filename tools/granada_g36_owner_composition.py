@@ -34,12 +34,12 @@ def validate(product,g22):
         current=(product/file).read_bytes()
         owner=(g22/file).read_bytes()
         require(current==owner,"G36 "+file+" differs from exact G22 owner-tested bytes")
-    # We use byte-exact prior G35 host and C# helper; no second owner implementation.
+    # Compare tracked Git objects (not OS-converted working tree CRLF bytes).\n    # Clean Git status below separately proves no untracked worktree changes.
     for f in ["desktop/src/FoamLensDesktop/Program.cs",
               "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
               "desktop/tests/field-view.test.cjs",
               "desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js"]:
-        require(git(product,"show",G35+":"+f)==(product/f).read_bytes(),
+        require(git(product,"show",G35+":"+f)==git(product,"show","HEAD:"+f),
                 "G36 mutated G35 genuine CAD+security signed-off code: "+f)
     src=(product/G7).read_text("utf-8")
     require("@media(max-width:1024px)" in src and
