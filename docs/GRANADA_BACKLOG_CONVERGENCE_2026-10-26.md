@@ -7,13 +7,15 @@
 | Verified live GitHub measure | Before owner intervention | After first safe consolidation |
 | --- | ---: | ---: |
 | Open GitHub Issues (excluding pull requests) | 20 | 20 |
-| Open pull requests | 65 | 59 |
-| Draft pull requests | 64 | At most 58; verify live if later PR state changed |
+| Open pull requests | 65 | **59** |
+| Draft pull requests | 64 | **58**, verified after consolidation |
 | Historical QA-only draft PRs closed without merge | 0 | **6** |
 | Product source branches/commits deleted | 0 | **0** |
 | Stable published release | v1.8.10 | v1.8.10 |
 
 The 20 issues are **not** 20 currently reproduced bugs. They include broad features, release gates, and source-backed user requests. No functional issue was closed merely because a historical QA stage became obsolete.
+
+**Stacked PRs:** 26 before, **20 after** (six historical draft snapshots archived, without deleting any underlying branch). The backlog remains congested; this is only the first safe clean-up.
 
 ## Six closed test-workflow-only snapshots
 
