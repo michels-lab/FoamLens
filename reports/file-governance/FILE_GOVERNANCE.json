@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 311,
-  "classified_files_total": 307,
+  "tracked_files_total": 314,
+  "classified_files_total": 310,
   "docs_content_inspected": 57,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -16,16 +16,18 @@
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 91,
-    "test": 97,
+    "source": 92,
+    "test": 98,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 28
+    "workflow": 29
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "7006d2027e9ecc79285f700f563dbdeb1d2d90fa72bc15ff44ffbf3b9b89a0ff",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "2bfde602b636654d4e6efa99a4f0a4049f652fafc190e93050bd0716dd7d3b60",
+  "evidence_fingerprint": "0824cc212994f0fb1ddb9477aaff83f460a4b3f2c3c21295abcdec7133374e63",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -138,6 +140,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "fba51cd8f1ecb586dcdc6c5ed78b5e33f9bcab8a"
+    },
+    {
+      "path": ".github/workflows/granada-backlog-convergence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -270,7 +279,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "0eb546ed65d04e15d16cdfef3b10d6c101c8d4d0"
+      "blob": "783260dc3f69012537205bfb5f68a625387badf1"
     },
     {
       "path": ".michelslab/agents/contrarian.md",
@@ -1911,6 +1920,13 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada_backlog_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "5beec36a7db27a81bfe80dbc3fced2bd6d23bcfd"
+    },
+    {
       "path": "tools/granada_command_search.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2079,6 +2095,13 @@
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
     },
     {
+      "path": "tools/test_granada_backlog_guard.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8a67bf9eb434dc187415017c4f85aa0a6178f7bb"
+    },
+    {
       "path": "tools/test_installer_shortcuts.ps1",
       "role": "test",
       "purpose": "code/test implementation",
@@ -2177,7 +2200,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "c471bbf1ef6d1e4b",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-backlog-convergence.yml, tools/granada_backlog_guard.cjs, tools/test_granada_backlog_guard.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
