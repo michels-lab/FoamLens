@@ -14,7 +14,8 @@ function guarded(p,c,w){
  assert.match(p,/FOAMLENS_SMOKE_MIN_CASES='4'/,'preserve five-case case selector');
  assert.match(p,/foreach\(\$n in 1\.\.3\)\{\s*Native-Smoke \$exe 'portable' \$n/,'require three Portable native starts');
  assert.match(p,/Native-Smoke \$installedExe 'installed' \$n\s*\}/,'require three Installed native starts');
- assert.ok(p.indexOf('Run-Inno $installerExe') < p.indexOf("Native-Smoke $exe 'portable' $n"),'genuine Windows Inno MUST install before any six-run WebView2 subprocesses');
+ const firstInno=p.indexOf('Run-Inno $installerExe $args');
+ assert.ok(firstInno>=0 && firstInno < p.indexOf("Native-Smoke $exe 'portable' $n"),'original Windows Inno MUST install before any six-run WebView2 subprocesses');
  assert.match(p,/FOAMLENS_BRAND_EVIDENCE_DIR=/,'require real native Field screenshots');
  assert.match(p,/field-wide\.png/,'must inspect 1140px rendered Field');
  assert.match(p,/field-compact\.png/,'must inspect compact Field');
