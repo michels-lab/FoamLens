@@ -80,10 +80,15 @@ function fxeCase(c){
 }
 function fxeFinding(f,index,caseMap){
   const caseKey=fxeCaseId(f?.caseId),c=caseKey===null?null:caseMap.get(caseKey);
+  const requestedField=typeof f?.field==='string'?f.field.trim():'';
   const related=(series||[]).filter(s=>{
     if(caseKey===null||fxeCaseId(s?.caseId)!==caseKey)return false;
-    if(!f?.field)return true;
-    const n=fxeFieldName(s);return n===f.field||String(n).includes(String(f.field))||String(f.field).includes(String(n))
+    if(!requestedField)return true; // Case-level findings may reference the entire case inventory.
+    // Explicit original/canonical aliases only: substring matching invents cross-field evidence,
+    // and String(field).includes('') incorrectly associates datasets with unnamed fields.
+    const aliases=[s?.field?.canonical,s?.field?.raw,s?.field?.name,s?.name]
+      .filter(name=>typeof name==='string'&&name.trim()).map(name=>name.trim());
+    return aliases.includes(requestedField)
   }).slice(0,30).map(fxeDataset);
   return{
     index:index+1,id:f?.id||('finding_'+(index+1)),severity:f?.severity||'',title:f?.title||'',
