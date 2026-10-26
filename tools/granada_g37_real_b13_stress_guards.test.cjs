@@ -12,8 +12,9 @@ function guarded(p,c,w){
  assert.match(p,/B13_prghPressure_airGapOF14\/9\.8\/\$r\/T/,'actual metal+mold at 9.8 seconds');
  assert.match(p,/FOAMLENS_SMOKE_EXPECT_REGIONS='metal;mold'/,'real two-region gate');
  assert.match(p,/FOAMLENS_SMOKE_MIN_CASES='4'/,'preserve five-case case selector');
- assert.match(p,/foreach\(\$n in 1\.\.3\)\{Native-Smoke \$exe 'portable' \$n\}/,'require three Portable native starts');
- assert.match(p,/foreach\(\$n in 1\.\.3\)\{Native-Smoke \$installedExe 'installed' \$n\}/,'require three Installed native starts');
+ assert.match(p,/foreach\(\$n in 1\.\.3\)\{\s*Native-Smoke \$exe 'portable' \$n/,'require three Portable native starts');
+ assert.match(p,/Native-Smoke \$installedExe 'installed' \$n\s*\}/,'require three Installed native starts');
+ assert.ok(p.indexOf('Run-Inno $installerExe') < p.indexOf("Native-Smoke $exe 'portable' $n"),'genuine Windows Inno MUST install before any six-run WebView2 subprocesses');
  assert.match(p,/FOAMLENS_BRAND_EVIDENCE_DIR=/,'require real native Field screenshots');
  assert.match(p,/field-wide\.png/,'must inspect 1140px rendered Field');
  assert.match(p,/field-compact\.png/,'must inspect compact Field');
@@ -30,7 +31,11 @@ function guarded(p,c,w){
 }
 test('real six-cycle Windows B13 stress contract and original product checks remain immutable',()=>guarded(ps,source,wf));
 test('negative regression: missing Installed cycles cannot be green',()=>{
- assert.throws(()=>guarded(ps.replace("foreach($n in 1..3){Native-Smoke $installedExe 'installed' $n}","Write-Host skipped"),source,wf),/three Installed/);
+ assert.throws(()=>guarded(ps.replace("Native-Smoke $installedExe 'installed' $n","Write-Host skipped"),source,wf),/three Installed/);
+});
+test('negative regression: installer before WebView2 is required to avoid real Inno lock contention',()=>{
+ const moved=ps.replace('Run-Inno $installerExe $args',"Write-Host 'skipped setup'");
+ assert.throws(()=>guarded(moved,source,wf),/original Windows Inno MUST install/);
 });
 test('negative regression: original physical Play width cannot be lowered',()=>{
  assert.throws(()=>guarded(ps,source.replace('playRect.width>=100','playRect.width>=68'),wf),/unchanged real 1140 Play/);
