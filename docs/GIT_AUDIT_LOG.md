@@ -1,3 +1,10 @@
+## 2026-10-26 — GRANADA G38 independent scientific export correctness (NO release)
+
+- Live `main` baseline `d651c43e0507c5316070fbd4859c9fb3196850a2`; published stable v1.8.10 unchanged. Earlier G37 `3081ce6f0da71187f5de2fe6d9e8e3cb265a9f57` repeated original real QuickCup B13 3 Portable + 3 Installed native cycles successfully ([run 40394191015](https://github.com/michels-lab/FoamLens/actions/runs/40394191015)), but G37/G36/G35/CAD remain stacked draft PRs, not stable main.
+- Root cause in main reproducible export: JavaScript `Number(null)`, `Number('')`, `Number(false)` manufacture physical zeros; naive sum/sum-of-squares overflows/underflows finite samples; unescaped source metadata newlines can create extra CSV rows. Existing export tests did not cover these adversarial scientific values.
+- Independently changed `v13-reproducible-export.js`: finite strict scientific decimal parsing, stable scaled RMS/mean, one-line metadata sanitization and numeric-only data cells without false time zeros. Added real source regression to existing `desktop/tests/reproducible-export.test.cjs` (14 checks) and targeted read-only dual-OS CI. Science/OpenFOAM, CAD and Field owner PRs and original cases untouched.
+- CI and native Windows product verification MUST be checked against the new exact G38 head before integration; initial branch implementation is not a PASS. Full provenance, blockers and reentry: [G38 owning audit](GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md). No tag, merge, RC/beta or stable release.
+
 ## 2026-10-23 — G25 real native WebView2 Windows external-protocol security boundary (release BLOCKED)
 
 - **Source vulnerability found:** canonical FoamLens Desktop `main` WebView2 `NewWindowRequested` forwarded arbitrary popup URI to `OpenExternal` -> `Process.Start(... UseShellExecute=true)` **without validating schemes**, while `NavigationStarting` only canceled external HTTP(S) navigations. Native bridge had HTTP(S) checks but popup caller bypassed them. Potential unwanted OS protocol handler launch via `file:`, `ms-settings:`, `shell:`, etc. No evidence of actual user exploitation asserted. No other app involved.
