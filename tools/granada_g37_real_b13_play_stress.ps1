@@ -90,13 +90,19 @@ try{
  Need (-not(Test-Path -LiteralPath $captures)) 'preexisting evidence directory, refuses overwrite'
  Need (-not(Test-Path -LiteralPath $installedDir)) 'preexisting Inno installation, refuses overwrite'
  New-Item -ItemType Directory -Path $captures -Force|Out-Null
- foreach($n in 1..3){Native-Smoke $exe 'portable' $n}
  $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER','/MERGETASKS=!desktopicon',('/DIR="'+$installedDir+'"'))
  Run-Inno $installerExe $args 'Setup'
  Need (Test-Path -LiteralPath $installedExe) 'native installed binary missing'
  $script:installed=$true
  Need ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash) 'installed binary not identical to Portable'
- foreach($n in 1..3){Native-Smoke $installedExe 'installed' $n}
+ # Inno is installed BEFORE any native FoamLens instance, avoiding residual WebView2
+ # child process/installer file-lock contention after repeated Portable startup.
+ # Then alternate both genuinely identical distribution binaries on same physical B13,
+ # retaining three fresh starts for each without changing actual app behavior.
+ foreach($n in 1..3){
+  Native-Smoke $exe 'portable' $n
+  Native-Smoke $installedExe 'installed' $n
+ }
  Run-Inno $uninstall @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') 'Uninstall'
  $script:installed=$false
  Need (-not(Test-Path -LiteralPath $installedExe)) 'native installed binary left after uninstall'
