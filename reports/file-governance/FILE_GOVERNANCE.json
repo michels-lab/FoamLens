@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 309,
-  "classified_files_total": 305,
-  "docs_content_inspected": 56,
+  "tracked_files_total": 311,
+  "classified_files_total": 307,
+  "docs_content_inspected": 57,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 50,
+    "document": 51,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -20,11 +20,11 @@
     "test": 97,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 27
+    "workflow": 28
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "87360c677a10473f534e9b763590870cab7a50224094eb9342918346b82cbefe",
+  "inventory_fingerprint": "7006d2027e9ecc79285f700f563dbdeb1d2d90fa72bc15ff44ffbf3b9b89a0ff",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -194,6 +194,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g38-scientific-export.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d97e2695526913518c22cf83f6b1e0687ab8cc17"
     },
     {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
@@ -550,7 +557,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "30a6806c192c445ac3fa682c32eb15d903f2ae68"
+      "blob": "0e23cfcdc83d471f416257ca4e4c9d8a6364df28"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-solidification-analysis.js",
@@ -1229,7 +1236,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d477e5dfeb1316e1c40a8d1653eb4cd997c6c12c"
+      "blob": "ee708c5c9755522fa39dbc383557ba43cf875af0"
     },
     {
       "path": "desktop/tests/review-case-binding.test.cjs",
@@ -1523,7 +1530,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "667655b85cb52b032962954c6d5eaf124a9ff325"
+      "blob": "639f8a2981832bba761e49f7c918e9e8726dc3a2"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1580,6 +1587,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
+    },
+    {
+      "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "49b4cde1d779744d3bfda6c2407ce553715d7ce1"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
