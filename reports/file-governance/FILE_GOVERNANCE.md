@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 325; classified: 321; readable documents: 61; above read cap: 1; findings: 1.
+Tracked: 329; classified: 325; readable documents: 62; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,19 +16,19 @@ Tracked: 325; classified: 321; readable documents: 61; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 6 |
 | config | 7 |
-| document | 55 |
+| document | 56 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 96 |
-| test | 98 |
+| source | 97 |
+| test | 99 |
 | text_metadata | 1 |
 | web_ui | 2 |
-| workflow | 32 |
+| workflow | 33 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 8 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1, tools/granada_g21_signing_guard.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID bd4b68bc0d64ea26)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 11 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, .github/workflows/granada-g31-original-native-package-bom.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID cfa9b2c78a11a8cc)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

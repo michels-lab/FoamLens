@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 325,
-  "classified_files_total": 321,
-  "docs_content_inspected": 61,
+  "tracked_files_total": 329,
+  "classified_files_total": 325,
+  "docs_content_inspected": 62,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 55,
+    "document": 56,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 96,
-    "test": 98,
+    "source": 97,
+    "test": 99,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 32
+    "workflow": 33
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "943f099e59cf06f6c0fe43a2c88fb4ea64cedf59c1ecaeaf18cd88ee1cb53c13",
-  "evidence_fingerprint": "cf686ff4ac912fdf37311663b00dbfabb72f12b343d7d3ab18ebc9df9325f64e",
+  "inventory_fingerprint": "b6e7546b6c81233704a42207595bec10a7eb1a0304ddd949869ad9030dec4721",
+  "evidence_fingerprint": "b6b4fb48a510d1b504eacd57a5723e78d0bf93b63ee897a2e4f369cb4a03274b",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -217,6 +217,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g31-original-native-package-bom.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d32803d5530be5c1b21492528904b12cac3312d7"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -1640,6 +1647,13 @@
       "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
     },
     {
+      "path": "docs/GRANADA_G31_ORIGINAL_PACKAGE_BOM_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f8255659aa20410b7ee6698be990cc4229c1d847"
+    },
+    {
       "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2095,6 +2109,13 @@
       "blob": "4e53275597a029e1464de2001e2950dfa906439d"
     },
     {
+      "path": "tools/granada_g31_original_package_bom.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "45950c4686341370746e3adf45b089dba8cd7196"
+    },
+    {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2177,6 +2198,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "8a67bf9eb434dc187415017c4f85aa0a6178f7bb"
+    },
+    {
+      "path": "tools/test_granada_g31_original_package_bom.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "512811c07b1815165e2affebc67ddce928442ba1"
     },
     {
       "path": "tools/test_installer_shortcuts.ps1",
@@ -2279,11 +2307,11 @@
   ],
   "findings": [
     {
-      "id": "bd4b68bc0d64ea26",
+      "id": "cfa9b2c78a11a8cc",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "8 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1, tools/granada_g21_signing_guard.cjs",
+      "observation": "11 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, .github/workflows/granada-g31-original-native-package-bom.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
