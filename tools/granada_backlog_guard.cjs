@@ -73,7 +73,7 @@ function render(snapshot,decision){
   return bullets.join('\n')+'\n';
 }
 function parseRepo(value){
-  if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(value||'')))throw Error('Invalid GitHub owner/repo');
+  if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(value||''))||String(value).split('/').some(part=>part==='.'||part==='..'))throw Error('Invalid GitHub owner/repo');
   return value;
 }
 async function fetchPages(uri,token){
