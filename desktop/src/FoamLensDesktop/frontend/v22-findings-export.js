@@ -29,6 +29,13 @@ function fxeClone(v,d=0,seen=new WeakSet()){
   return String(v)
 }
 function fxeFieldName(s){return s?.field?.canonical||s?.field?.raw||s?.field?.name||s?.name||''}
+function fxeCaseId(value){
+  // Missing IDs must never alias the genuine source case id 0 via Number(null).
+  if(value==null||typeof value==='boolean')return null;
+  const raw=String(value).trim();
+  if(!/^[+-]?\d+$/.test(raw))return null;
+  const id=Number(raw);return Number.isSafeInteger(id)?id:null
+}
 function fxeTimeRange(s){
   // Streaming finite time bounds: no phantom t=0 and no call-stack overflow from Math.min(...largeArray).
   let min=null,max=null,count=0;
@@ -54,7 +61,7 @@ function fxeDataset(s){
   }
 }
 function fxeCase(c){
-  const ss=(series||[]).filter(s=>Number(s?.caseId)===Number(c?.id));
+  const caseKey=fxeCaseId(c?.id),ss=caseKey===null?[]:(series||[]).filter(s=>fxeCaseId(s?.caseId)===caseKey);
   let outputs=[];try{if(typeof outputCompletenessForCase==='function')outputs=outputCompletenessForCase(c)||[]}catch{}
   const r=typeof observedCaseTimeRange==='function'?observedCaseTimeRange(c?.id):{};
   return{
@@ -72,9 +79,9 @@ function fxeCase(c){
   }
 }
 function fxeFinding(f,index,caseMap){
-  const c=caseMap.get(Number(f?.caseId));
+  const caseKey=fxeCaseId(f?.caseId),c=caseKey===null?null:caseMap.get(caseKey);
   const related=(series||[]).filter(s=>{
-    if(Number(s?.caseId)!==Number(f?.caseId))return false;
+    if(caseKey===null||fxeCaseId(s?.caseId)!==caseKey)return false;
     if(!f?.field)return true;
     const n=fxeFieldName(s);return n===f.field||String(n).includes(String(f.field))||String(f.field).includes(String(n))
   }).slice(0,30).map(fxeDataset);
@@ -87,7 +94,7 @@ function fxeFinding(f,index,caseMap){
 }
 function fxeBundle(){
   const findings=typeof allWorkspaceFindings==='function'?allWorkspaceFindings():[];
-  const caseMap=new Map((cases||[]).map(c=>[Number(c.id),c]));
+  const caseMap=new Map((cases||[]).filter(c=>fxeCaseId(c?.id)!==null).map(c=>[fxeCaseId(c.id),c]));
   let health=null,thresholds={};
   try{const h=workspaceHealthSnapshot||(typeof workspaceHealth==='function'?workspaceHealth():null);if(h)health={state:h.state||'',reason:h.reason||'',counts:fxeClone(h.counts||{})}}catch{}
   try{if(typeof diagSettings==='function')thresholds=diagSettings()}catch{}
