@@ -5,6 +5,7 @@ on:
       - main
       - test/granada-g37-real-b13-six-native-play-restarts-20261026
       - fix/granada-g40-g37-live-main-reentry-20261027
+      - fix/granada-g42-file-steward-main-drift-20261027
     # Avoid 400MB original B13 smoke on metadata-only File Steward commits.
     # Automatically verify real, newly merged Play/Field and original G37 QA sources.
     paths:
@@ -76,10 +77,39 @@ jobs:
           $currentMain=((git ls-remote origin refs/heads/main) -split '\s+')[0]
           if($currentMain -notmatch '^[a-f0-9]{40}$'){throw 'G37 cannot identify live main; fail closed'}
           if($runRef -eq 'refs/heads/main'){
-            if($sha -ne $currentMain){throw 'G37 selected main is no longer current; rerun on the latest main'}
-            Write-Host 'G37 exact live main source verified'
+            if($sha -ne $currentMain){
+              # G42: only trusted File Steward metadata-only [skip ci] commits
+              # may postdate the exact native source snapshot. Never waive
+              # original application, CAD, CFD, Windows Setup or Play checks.
+              git fetch --no-tags origin main
+              if($LASTEXITCODE -ne 0){throw 'G42 cannot fetch current main lineage'}
+              $fetchedMain=(git rev-parse origin/main).Trim()
+              if($fetchedMain -ne $currentMain){throw 'G42 main changed during provenance fetch'}
+              git merge-base --is-ancestor $sha $currentMain
+              if($LASTEXITCODE -ne 0){throw 'G42 trigger SHA not ancestor of latest main'}
+              $stewardCommits=@(git log --format=%s "$sha..$currentMain")
+              if($stewardCommits.Count -lt 1 -or $stewardCommits.Count -gt 4 -or
+                 @($stewardCommits | Where-Object {$_ -cne 'chore(file-steward): refresh local audit findings [skip ci]'}).Count -gt 0){
+                throw 'G42 unverified main commit after native trigger'
+              }
+              $stewardPaths=@('docs/audits/FILE_GOVERNANCE_LOG.md',
+                               'reports/file-governance/FILE_GOVERNANCE.json',
+                               'reports/file-governance/FILE_GOVERNANCE.md',
+                               'reports/file-governance/SUMMARY.json')
+              $changedAfterSnapshot=@(git diff --name-only $sha $currentMain)
+              if($changedAfterSnapshot.Count -lt 1 -or
+                 @($changedAfterSnapshot | Where-Object {$_ -cnotin $stewardPaths}).Count -gt 0){
+                throw 'G42 non-audit product source changed after native trigger'
+              }
+              $stillCurrent=((git ls-remote origin refs/heads/main) -split '\s+')[0]
+              if($stillCurrent -ne $currentMain){throw 'G42 main changed after audit-only verification'}
+              Write-Host 'G42 checked: only File Steward metadata advanced after original native source SHA'
+            } else {
+              Write-Host 'G37 exact live main source verified'
+            }
           } elseif($runRef -in @('refs/heads/test/granada-g37-real-b13-six-native-play-restarts-20261026',
-                               'refs/heads/fix/granada-g40-g37-live-main-reentry-20261027')){
+                               'refs/heads/fix/granada-g40-g37-live-main-reentry-20261027',
+                               'refs/heads/fix/granada-g42-file-steward-main-drift-20261027')){
             $branchBase=(git merge-base HEAD origin/main).Trim()
             if($branchBase -notmatch '^[a-f0-9]{40}$'){throw 'G37 cannot identify QA branch merge base'}
             $modified=@(git diff --name-only $branchBase HEAD)
@@ -88,6 +118,7 @@ jobs:
                      '.github/workflows/granada-g37-real-b13-play-stress.yml',
                      'docs/GRANADA_G37_REAL_B13_REPEATED_PLAY_2026-10-26.md',
                      'docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md',
+                     'docs/GRANADA_G42_FILE_STEWARD_MAIN_LINEAGE_2026-10-27.md',
                      '.github/workflows/granada-g27-native-culture-matrix.yml',
                      'tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj',
                      'tools/granada_g27_culture_probe/Program.cs',

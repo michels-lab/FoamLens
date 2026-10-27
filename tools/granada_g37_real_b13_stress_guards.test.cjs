@@ -100,7 +100,9 @@ test('G40 main reentry binds live main SHA; QA branch owns only its explicit dif
  assert.match(wf,/git diff --name-only \$branchBase HEAD/,'check only QA branch changes');
  assert.match(wf,/\} else \{throw 'G37 unrecognized Git ref/,'ref must be allowlisted');
  const mainScope=wf.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
- assert.doesNotMatch(mainScope,/git diff --name-only/,'merged main product changes must not be rejected as QA edits');
+ assert.match(mainScope,/git diff --name-only \$sha \$currentMain/,'after-trigger main drift must compare original exact native source with audited latest main');
+ assert.match(mainScope,/\$_ -cnotin \$stewardPaths/,'only fixed metadata path list; never accept product source');
+ assert.doesNotMatch(mainScope,/git diff --name-only \$historicalBase/,'reject broad historical-basis product source false positives');
  const allowlist=wf.match(/\$allowed=@\(([\s\S]*?)\)/)?.[1]||'';
  assert.ok(allowlist.includes("'docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md'"));
  assert.doesNotMatch(allowlist,/desktop\/src/,'never permit product owner changes on a QA branch');
@@ -122,4 +124,43 @@ test('G40 main automatically checks relevant original Field changes, not metadat
  assert.doesNotMatch(push,/\*\*|\.md'/,'do not trigger huge native test for all metadata/documentation changes');
  assert.match(wf,/run-id: 40439636990/,'must still use original independently produced real fixture');
  assert.match(wf,/completedAttempts\.Count -ne 6/,'must never drop six real native attempts');
+});
+
+test('G42 post-trigger main drift is allowed ONLY for four audited metadata paths and authentic signed-off commit subjects',()=>{
+ const main=wf.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
+ const q=main.replace(/\r/g,'');
+ assert.match(q,/git fetch --no-tags origin main/,'actual current Git lineage must be available');
+ assert.match(q,/git merge-base --is-ancestor \$sha \$currentMain/,'never allow unrelated main histories');
+ assert.match(q,/\$stewardCommits.Count -gt 4/,'bound accepted post-trigger commit chain');
+ assert.match(q,/chore\(file-steward\): refresh local audit findings \[skip ci\]/,'commit identity must be exact');
+ assert.match(q,/\$_ -cne 'chore\(file-steward\): refresh local audit findings \[skip ci\]'/,'reject arbitrary commit subjects');
+ assert.match(q,/git diff --name-only \$sha \$currentMain/,'compare actual source snapshot and latest main');
+ const list=q.match(/\$stewardPaths=@\(([\s\S]*?)\)/)?.[1]||'';
+ const paths=[...list.matchAll(/'([^']+)'/g)].map(x=>x[1]);
+ assert.deepEqual(paths,[
+   'docs/audits/FILE_GOVERNANCE_LOG.md',
+   'reports/file-governance/FILE_GOVERNANCE.json',
+   'reports/file-governance/FILE_GOVERNANCE.md',
+   'reports/file-governance/SUMMARY.json'
+ ],'exact 4 original File Steward paths, no wildcard');
+ assert.match(q,/\$_ -cnotin \$stewardPaths/,'all other source changes must fail');
+ assert.match(q,/\$stillCurrent -ne \$currentMain/,'recheck remote main after lineage comparison');
+ assert.match(wf,/\$sha -ne '\$\{\{ github.sha \}\}'/,'checkout commit remains exact event SHA');
+ assert.match(wf,/originalProductReleaseReady -ne \$false/,'no release on a source-equivalent audit snapshot');
+});
+test('G42 negative: removing ancestry, commit identity or original source whitelist cannot pass',()=>{
+ const checker=workflow=>{
+   const main=workflow.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
+   assert.match(main,/git merge-base --is-ancestor \$sha \$currentMain/);
+   assert.match(main,/\$_ -cne 'chore\(file-steward\): refresh local audit findings \[skip ci\]'/);
+   assert.match(main,/\$_ -cnotin \$stewardPaths/);
+   assert.match(main,/\$stillCurrent -ne \$currentMain/);
+ };
+ assert.doesNotThrow(()=>checker(wf));
+ for(const mutated of [
+   wf.replace('git merge-base --is-ancestor $sha $currentMain','Write-Host trust-all'),
+   wf.replace("$_ -cne 'chore(file-steward): refresh local audit findings [skip ci]'","$_ -like '*'"),
+   wf.replace('$_ -cnotin $stewardPaths',"$false"),
+   wf.replace('$stillCurrent -ne $currentMain','$false')
+ ])assert.throws(()=>checker(mutated),'tampered evidence must fail guard');
 });
