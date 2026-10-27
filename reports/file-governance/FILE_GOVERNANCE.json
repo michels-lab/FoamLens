@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 337,
-  "classified_files_total": 333,
-  "docs_content_inspected": 63,
+  "tracked_files_total": 343,
+  "classified_files_total": 339,
+  "docs_content_inspected": 64,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 57,
+    "document": 58,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 101,
+    "source": 105,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 35
+    "workflow": 36
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "1ce7683c17d64b20212f193a5e1bdfca99d3abfac1d27e64ddd37133df7aa049",
+  "inventory_fingerprint": "05977339943ab280a02925b9a11f90d0a7109b6887309fa49cdf95ece4fccf96",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -222,6 +222,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g26-pr-integration-map.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bf3095515ef7a559c490675f78f7126629a7261b"
     },
     {
       "path": ".github/workflows/granada-g31-original-native-package-bom.yml",
@@ -1600,7 +1607,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "0f1f012a5083955789e8a6d9b1a207cbd820d924"
+      "blob": "6cd0b85cdfa4db8adfe60ca4f2cc49e997004862"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1678,6 +1685,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
+    },
+    {
+      "path": "docs/GRANADA_G26_REAL_PR_INTEGRATION_MAP_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "37a01763f446b2bb4578c58372773387c7fc34b9"
     },
     {
       "path": "docs/GRANADA_G31_ORIGINAL_PACKAGE_BOM_2026-10-24.md",
@@ -2147,6 +2161,34 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "4e53275597a029e1464de2001e2950dfa906439d"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_board.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "cf6bb2468a47e98b49197e07761d6eea1048ec05"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_board.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0615b365f16c0c37e1f9dd8cbac75c5952f6ed9e"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_html.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3b6845c7cadec8b4fade189904be14495cea7164"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_html.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "93298c57c30ac7421186f3230d2826204e49bfcc"
     },
     {
       "path": "tools/granada_g31_original_package_bom.py",

@@ -57,7 +57,7 @@ jobs:
         run: |
           $sha=(git rev-parse HEAD).Trim()
           if($sha -ne '${{ github.sha }}' -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G37 exact source HEAD mismatch'}
-          $base='65889fa6e21477122d59e8658ebb39b576ca89d7'
+          $base='1a5723a6026356f69337abe3052108c91d09d454'
           if((git merge-base HEAD $base).Trim() -ne $base){throw 'G37 did not descend from reviewed merged current main source'}
           $modified=@(git diff --name-only $base HEAD)
           $allowed=@('tools/granada_g37_real_b13_play_stress.ps1',
