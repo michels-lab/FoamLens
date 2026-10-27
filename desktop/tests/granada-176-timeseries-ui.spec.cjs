@@ -83,7 +83,7 @@ function mockApp(){
     document,window:{},MutationObserver:Observer,console,
     fwState:{fieldTsSeq:18},
     activeAppMode:'data',currentDataView:'timeseries',
-    flUi:(en)=>en,
+    flUi:(en,es)=>language.value==='es'?es:en,
     fwRefreshFieldTsControls:()=>{
       refreshes++;
       assert.equal(details.open,true,'native refresh requires its details.open anchor');
