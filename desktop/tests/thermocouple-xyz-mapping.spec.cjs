@@ -57,6 +57,27 @@ const unmatched=api.sensitivity(sim,[sim,alternative],exp,config);
 assert.equal(unmatched.status,'unavailable');assert.equal(unmatched.results.length,0);
 const wrongCase=history('b',[.23,.3,.4],[0,1,2],[301,311,321],{caseId:98});
 assert.equal(api.sensitivity(sim,[sim,wrongCase],exp,{...config,locateAlternative:()=>mapped}).results.length,0);
+// Same-failure regressions — real source identity must be internally coherent.
+const wrongHistoryKey=sim.fieldHistoryKey.replace('|31|metal|','|99|mold|');
+const foreignHistory={...sim,fieldHistoryKey:wrongHistoryKey,sourcePath:'derived:'+wrongHistoryKey};
+assert(!api.compare(foreignHistory,exp,config).valid,'History key with another case/region cannot impersonate this OpenFOAM case');
+assert(!api.compare({...sim,sourcePath:'derived:'+wrongHistoryKey},exp,config).valid,
+  'Path of a different 3D probe history cannot impersonate the selected probe');
+const fakeXYZKey=sim.fieldHistoryKey.replace(point.join(','),'0.3,0.3,0.4');
+assert(!api.compare({...sim,fieldHistoryKey:fakeXYZKey,sourcePath:'derived:'+fakeXYZKey},exp,config).valid,
+  'Probe XYZ evidence must be bound to the real original field-history identity');
+const zeroKey=sim.fieldHistoryKey.replace('|31|metal|','|0|metal|');
+const zeroSim={...sim,caseId:0,fieldHistoryKey:zeroKey,sourcePath:'derived:'+zeroKey};
+assert(api.compare(zeroSim,exp,{...config,caseId:0}).valid,'Real verified case zero is legitimate');
+for(const missing of [null,undefined,'',false,{}]){
+ assert(!api.compare(zeroSim,exp,{...config,caseId:missing}).valid,
+   'Missing target case cannot be silently treated as case zero: '+String(missing));
+ const invalidSource={...zeroSim,caseId:missing};
+ assert(!api.compare(invalidSource,exp,{...config,caseId:0}).valid,
+   'Invalid source case cannot become case zero');
+}
+assert(source.includes('tcProbeSourceConsistent(s)'),'Source picker must reject inconsistent 3D probe history metadata');
+
 const badCases=[
  ['cell verification',{...config,location:{status:'unverified',verified:false}}],
  ['unverified original probe',{...config,probeLocation:{status:'unverified',verified:false}}],
