@@ -45,6 +45,14 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Strict time and units, no temporal extrapolation, RMSE/MAE/bias/max difference, plot, local JSON/CSV provenance, separately measured physical displacement sensitivity candidates; no automatic recalescence label or synthesized temperatures.
 - Ubuntu/Windows specs cover prior source contracts and new guards. Missing source/mesh/units explicitly blocks validation. Remaining #152: real owner experimental data, irregular cells, definitive material/sensor calibration and co-location, installed Windows Setup+Portable acceptance and full spatial sensitivity protocol. **Unreleased**.
 
+### Operación Granada #155 — Scientific Case Health (candidate / P1 partial)
+
+- Independent scientific case-health Analysis module `v24-scientific-case-health.js` consolidates already discovered source evidence without duplicating existing PIMPLE/Coupling, checkMesh, Energy, or native log parsing code. Does **not** overlap in-flight Field/CAD/2D–3D/Energy/Thermocouple PRs.
+- Case-level evidence for imported fields, source times and dictionaries; explicit local original solver log completion/fatal status; source-specific Courant and continuity/residual data; sourced PIMPLE metadata; original checkMesh report warnings; field dimensions/BC metadata; multiregion interface/energy completeness gaps.
+- Six explicit states; per-check source paths and limitation notes; local JSON report with no overall physical-validity certificate. No universal threshold conjecture, fabricated deltaT from output intervals, inferred boundary correctness, global green score, or silent report rebinding between cases.
+- Separate scientific and source-loader specs on Ubuntu/Windows with unchanged existing mesh/coupling/energy test suites. Still pending: verified provenance binding of runtime/checkMesh to loaded case, property- and solver-dependent thresholds, real complete/incomplete owner-case acceptance, true interface/material crosschecks, installed native Windows Setup/Portable proof and explicit release approval.
+- Documentation `docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md`; issue #155 stays **open** until all criteria close.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
