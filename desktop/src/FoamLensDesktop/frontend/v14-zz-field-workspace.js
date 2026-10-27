@@ -415,6 +415,18 @@ function fwEnsureFieldTsControls(){
 function fwFieldTsSetStatus(text,error=false){
   const e=document.getElementById('fwTsStatus'),b=document.getElementById('fwTsStatusBadge');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}if(b)b.textContent=error?fwUi('error','error'):String(text||'—').slice(0,36)
 }
+// G52 Block 2: source-owned counts, never a fabricated percentage or curve.
+// Original atomic series commit and cancellation checks remain untouched.
+function fwFieldTsReportProgress(slot,completed,total,seq){
+  if(seq!==fwState.fieldTsSeq||![1,2].includes(slot))return false;
+  if(!Number.isSafeInteger(total)||total<1||!Number.isSafeInteger(completed)||completed<1||completed>total)return false;
+  const stride=Math.max(1,Math.ceil(total/24));
+  if(completed!==1&&completed!==total&&completed%stride!==0)return false;
+  document.dispatchEvent(new CustomEvent('foamlens-field-history-progress',{
+    detail:{slot,completed,total,seq}
+  }));
+  return true
+}
 function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
   const cSel=document.getElementById('fwTsCase'+slot),rSel=document.getElementById('fwTsRegion'+slot),fSel=document.getElementById('fwTsField'+slot),compSel=document.getElementById('fwTsComponent'+slot),sourceSel=document.getElementById('fwTsSource'+slot);if(!cSel||!rSel||!fSel||!compSel||!sourceSel)return;
   const enabled=slot===1||!!document.getElementById('fwTsEnable2')?.checked,source=fwFieldTsSource(slot);
@@ -462,7 +474,7 @@ async function fwBuildProbeFieldHistory(slot,seq){
       'El Probe fijado pertenece a otro caso o región física. Selecciona primero su caso y región exactos.'));
   const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null,maxDistance=0;
   if(!times.length)throw new Error(fwUi('No valid OpenFOAM physical times for this Probe history.','No hay tiempos físicos OpenFOAM válidos para esta historia de Probe.'));
-  for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}if(i%3===2)await new Promise(r=>setTimeout(r,0))}
+  for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}fwFieldTsReportProgress(slot,i+1,times.length,seq);if(i%3===2)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected Probe position does not intersect usable field data through time.','La posición del Probe seleccionado no intersecta datos utilizables del campo a través del tiempo.'));
   const xyz=probe.point.map(v=>Number(v).toPrecision(8)).join(','),key=['field3d-probe-history',c.id,region,group.name,component,probeId,xyz].join('|'),base=fwFieldTsField(group,component,'mean',parsed0),field={...base,canonical:'probe:'+fwFieldTsCanonical(group,component,probeId),display:String(group.name)+(component!=='value'?' · '+component:'')+' · Probe '+String(probe.view),quantity:'field3d_probe_'+group.name+'_'+component,original:'OpenFOAM 3D field sampled at fixed XYZ'};
   const existing=(series||[]).find(s=>s.fieldHistoryKey===key),loc='XYZ '+probe.point.map(fvFmt).join(', ');
@@ -476,7 +488,7 @@ async function fwBuildProfileHistory(slot,seq){
   const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
   if(!Number.isFinite(q.position))throw new Error(fwUi('Enter a valid position on the spatial profile before sampling its time history.','Introduce una posición válida en el perfil espacial antes de construir su historia temporal.'));
   const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).filter(s=>Number.isFinite(fwPhysicalTime(s.profileTime))).sort((a,b)=>fwPhysicalTime(a.profileTime)-fwPhysicalTime(b.profileTime));if(!rows.length)return null;
-  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
+  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}fwFieldTsReportProgress(slot,i+1,rows.length,seq);if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
   const base=rows[0],unit=base.profileCoordUnit||'',key=['profile-history',q.caseId,q.set,q.field,q.line,Number(q.position).toPrecision(12)].join('|'),field={...base.field,canonical:'profile:'+base.field.canonical+':'+q.line+':'+Number(q.position).toPrecision(8),display:localizedFieldName(base.field)+' · '+(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:''),original:'Spatial profile sampled at fixed coordinate over physical time'};
   const existing=(series||[]).find(s=>s.fieldHistoryKey===key),caseObj=caseById(base.caseId),
@@ -498,6 +510,7 @@ async function fwBuildOneFieldHistory(slot,seq){
     if(seq!==fwState.fieldTsSeq)return null;
     const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;
     parsed0=parsed0||data.parsed;const value=fwFieldTsMetric(data.range,stat);if(Number.isFinite(value)){x.push(times[i]);y.push(value)}
+    fwFieldTsReportProgress(slot,i+1,times.length,seq);
     if(i%3===2)await new Promise(r=>setTimeout(r,0))
   }
   if(!x.length)throw new Error(fwUi('No finite 3D field-history values were produced.','No se produjeron valores finitos para la historia temporal 3D.'));
