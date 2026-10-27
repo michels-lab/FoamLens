@@ -101,6 +101,32 @@ assert(withPatch.valid,withPatch.reason);
 assert.strictEqual(withPatch.regions[0].provenance[1].patch,'metal_to_mold');
 assert.deepStrictEqual(withPatch.regions[0].provenance[1].patches,['metal_to_mold']);
 assert.strictEqual(withPatch.regions[0].provenance[1].functionObject,'interfacePower');
+// Failure reproductions: a missing case ID must never become legitimate case 0.
+const zeroCase=input({caseId:0});
+for(const r of zeroCase.regions){r.inventory.caseId=0;r.interfaceFlux.caseId=0}
+assert(lib.eval(zeroCase).valid,'Identified case zero must remain supported');
+const unprovenSource=structuredClone(zeroCase);
+unprovenSource.regions[0].inventory.caseId=null;
+assert(!lib.eval(unprovenSource).valid,'Null source case ID must not become case 0');
+const unprovenSelection=structuredClone(zeroCase);
+unprovenSelection.caseId=null;
+assert(!lib.eval(unprovenSelection).valid,'Null selected case ID must not become case 0');
+for(const falseId of ['', '   ', false, '0.5', 'NaN', {}, Infinity]){
+  const candidate=structuredClone(zeroCase);candidate.regions[0].inventory.caseId=falseId;
+  assert(!lib.eval(candidate).valid,'Invalid case identity accepted: '+String(falseId))
+}
+const contradictoryTime=input();
+contradictoryTime.regions[0].interfaceFlux.t=[0,1,1,3];
+contradictoryTime.regions[0].interfaceFlux.y=[4,4,400,4];
+const contradiction=lib.eval(contradictoryTime);
+assert(!contradiction.valid,'Two different measured fluxes at one timestamp must not be silently deduplicated');
+assert.match(contradiction.reason,/conflicting energy values/i);
+const equalRepeat=input();
+equalRepeat.regions[0].interfaceFlux.t=[0,1,1,3];
+equalRepeat.regions[0].interfaceFlux.y=[4,4,4,4];
+assert(lib.eval(equalRepeat).valid,'Identical repeated readings may be safely deduplicated');
+assert(source.includes("mecCaseId(mecEl('mecCase')?.value)"),'Empty case selection must not coerce to zero');
+
 const missingDims=input();
 missingDims.regions[0].inventory.dimensions='';
 const caution=lib.eval(missingDims);assert(caution.valid);
