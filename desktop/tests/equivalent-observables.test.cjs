@@ -4,8 +4,8 @@ const file=path.join(__dirname,'..','src','FoamLensDesktop','frontend','v24-equi
 const source=fs.readFileSync(file,'utf8');new Function(source);
 const start=source.indexOf('/* FOAMLENS_EQUIVALENT_OBSERVABLES_CORE_START */'),end=source.indexOf('/* FOAMLENS_EQUIVALENT_OBSERVABLES_CORE_END */');
 assert(start>=0&&end>start,'Pure scientific comparator core boundaries are required');
-const {compare,eligible,pairs,unit,grid}=new Function(source.slice(start,end)+
- ';return{compare:eoCompare,eligible:eoEligible,pairs:eoPairs,unit:eoUnitInfo,grid:eoSampleGrid}')();
+const {compare,eligible,pairs,unit,grid,fingerprint}=new Function(source.slice(start,end)+
+ ';return{compare:eoCompare,eligible:eoEligible,pairs:eoPairs,unit:eoUnitInfo,grid:eoSampleGrid,fingerprint:eoSourceFingerprint}')();
 const near=(a,b)=>assert(Math.abs(a-b)<=1e-9,String(a)+' expected '+b);
 const series=(caseId,t,y,fieldUnit='K',more={})=>({
  caseId,caseName:'Case '+caseId,datasetType:'timeseries',derived:false,
@@ -66,6 +66,23 @@ const truncated=grid(pairs(series(1,[0,1,2,3],[1,2,3,4])),pairs(series(2,[1,2,3,
 assert.deepStrictEqual(truncated.times,[1,3]);
 assert.strictEqual(unit('watts').canonical,'watts');
 assert.strictEqual(unit(''),null);
+const original=series(41,[0,1],[300,310]);
+const hash=fingerprint(original);
+assert.equal(hash,fingerprint({...original,t:[0,1],y:[300,310]}),
+  'Identical original measurements must retain the same source binding');
+original.y[1]=999;
+assert.notEqual(hash,fingerprint(original),
+  'Editing actual source measurements must invalidate exported scientific evidence');
+const originalMetadata=series(42,[0,1],[300,310]);
+const headerHash=fingerprint(originalMetadata);
+originalMetadata.field.unit='°C';
+assert.notEqual(headerHash,fingerprint(originalMetadata),
+  'Unit metadata changes must invalidate previously computed model comparison');
+assert(!source.includes('eoLast=result;\n  const fmt='),
+  'Comparison cannot leave source bindings out of the export path');
+assert(source.includes('eoBound={')&&source.includes('eoSourceFingerprint({...a,datasetType:'),
+  'Evidence exports must revalidate original in-memory data before writing');
+
 for(const token of [
  "el.id='eoPanel'",'id="eoSource2d"','id="eoSource3d"','id="eoMapping"',
  'id="eoConfirm"','id="eoExportJson"','id="eoExportCsv"','noCaseMutation:true',
