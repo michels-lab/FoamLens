@@ -179,7 +179,7 @@ test('G52 progress producer reports original frames in ALL three build paths and
   assert(events.every(e=>e.type==='foamlens-field-history-progress'));
   assert.equal((core.match(/fwFieldTsReportProgress\(slot,i\+1,times\.length,seq,'(?:global|probe)'\)/g)||[]).length,2,
     'probe and global 3D OpenFOAM histories must report exactly their processed frames');
-  assert(core.includes('fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile')'),
+  assert(core.includes("fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile')"),
     'profile history reports inspected original physical-time rows, not guessed percentages');
   assert(core.includes('if(seq!==fwState.fieldTsSeq)return;')&&
     core.includes('const built=fwCommitFieldHistoryDrafts(drafts)'),
