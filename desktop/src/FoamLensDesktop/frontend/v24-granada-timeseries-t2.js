@@ -31,7 +31,7 @@
     if(typeof fwState==='undefined'||p.seq!==fwState.fieldTsSeq)return;
     if(!Number.isSafeInteger(p.completed)||!Number.isSafeInteger(p.total)||
       p.total<1||p.completed<1||p.completed>p.total)return;
-    state.progress={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq};
+    state.progress={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
     const status=byId('gr176Pending');
     if(status)status.textContent=historyProgressLabel(state.progress);
   }
