@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "9b05da9ecdd406b847d049007ec906700e5907445a53b3d2617cc6ab354cff01",
-  "evidence_fingerprint": "07493e9e24b30dc1f8630361f462ab0b8e5683d869b1e366b777b99969bee6b9",
+  "inventory_fingerprint": "73a9edcb58f6fa4e21c0acc6357515bf8a8290f94528b326e6475fa5dbfb4654",
+  "evidence_fingerprint": "21480ca8c0db2eb88b364d712937faf30aaa86238f810c0b3357684b05a2c0c8",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -370,7 +370,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "c886bf6fb20a828cd75202ca3c2ab003e0a4e50e"
+      "blob": "82b659c01fc65e7386db2a340ffa19725b6415f0"
     },
     {
       "path": ".github/workflows/granada-g8-compact-timeseries.yml",
@@ -1056,7 +1056,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6efaf4044ff2b4a9b24c96a1aaae295aeb1fb910"
+      "blob": "99fc2a121861d69972ca63cb35e4dc7df107893f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js",
@@ -2155,7 +2155,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "c37e67dc49b80bd18ea1262d4c59fc8d9d0a894e"
+      "blob": "026ca56953bc8a0a2c20d6a9f8790d21aa621b63"
     },
     {
       "path": "docs/GRANADA_MASTER_PRIORITY_EXECUTION_2026-10-27.md",
@@ -2806,7 +2806,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9a3d82b4d364d23ac23d4d953dfebbbfd0e5b4be"
+      "blob": "1a22b48d4fddb469c974676d88f9f2b8f21bf85f"
     },
     {
       "path": "tools/make_visual_evidence.py",
@@ -2993,11 +2993,11 @@
   ],
   "findings": [
     {
-      "id": "8d21536a04f3e267",
+      "id": "ed5f48ad6128cb1c",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "19 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, .github/workflows/granada-g33-real-native-residue.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js",
+      "observation": "22 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, .github/workflows/granada-g33-real-native-residue.yml, .github/workflows/granada-g7-g11-source-integration.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
