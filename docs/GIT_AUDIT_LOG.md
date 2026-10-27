@@ -1,5 +1,15 @@
 # FoamLens Git Audit Log
 
+## 2026-10-27 — GRANADA #151 science provenance repair (PR #166; NOT integrated/released)
+
+- Existing scientific module `v24-multiregion-energy.js` was executed directly at previous branch source: a missing `caseId=null` was accepted as source case 0, and two incompatible W readings at duplicate physical time were silently deduplicated. Original observed status for both negative reproductions: `valid=true` (defects).
+- Same owning branch repaired with `mecCaseId` strict nonempty safe-integer identity, including UI case selector/source catalog; missing/unproven case identity now fails closed while real case 0 remains accepted.
+- A separate source validation rejects conflicting repeated/indistinguishable physical times instead of silently picking one reading. Identical duplicate observations remain eligible for non-destructive deduplication. No automatically inferred interface area, calorimetry, recalescence, boundary source, or solver mutation introduced.
+- Negative/positive same-failure regression fixtures added to `desktop/tests/multiregion-energy-conservation.spec.cjs`. Existing loader test no longer **requires unsafe AppRoot disk wildcard module injection**, to avoid preventing separate G32 security fix (#252). This removes a bad test dependency, not the native G32 vulnerability.
+- Committed original PR #166 branch: source `5fefe681cb7a6a06f2e3875c3e8676fc4413e8dc`, regression `ddac8484f7a0266fd7bac1be9574590b8d8e303b`, loader `84019d8d89d40e3f82ea2eb3d63d064ca11910b3`. JS-core in-memory preflight **PASS** for valid balance, missing case rejection, contradictory times rejection and repeated-equal allowed. Fresh GitHub Actions on last commit were **queued at audit time**; no Windows installed/portable, scientific user-case acceptance or current-main compatibility claimed.
+- State: **implemented in original OPEN PR, CI/runtime pending, not merged/not released**. Current main and stable v1.8.10 untouched. Next: review current exact-SHA checks and any branch conflicts, reconcile to latest main without overriding other owners, validate native current Windows/OpenFOAM and merge only when all applicable gates pass.
+
+
 ## 2026-10-19 — Operación Granada #151: energy interfaces (unreleased candidate)
 
 - Branch `feat/granada-151-interface-energy-accounting-20261019` starts from main, isolating changes from pending Field #162, CAD #164 and 2D/3D #165.
