@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 379,
-  "classified_files_total": 375,
-  "docs_content_inspected": 72,
+  "tracked_files_total": 384,
+  "classified_files_total": 380,
+  "docs_content_inspected": 73,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 66,
+    "document": 67,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 118,
-    "test": 105,
+    "source": 119,
+    "test": 107,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 44
+    "workflow": 45
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "09997f01599d17a7752bc833a2c0b434eafb391a4cb49f9e694e2cdaa60a7481",
+  "inventory_fingerprint": "f278f4e7915b7cb26c0cff9f61907855d6bb21c52efe5d91a9d52dfd6e47485e",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -350,6 +350,13 @@
       "blob": "cc918e5686e98e0d6614889c8d9e2a6b866906a4"
     },
     {
+      "path": ".github/workflows/granada-thermocouple-xyz.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "6f92cf099986f993129649e1fd542f95159051b8"
+    },
+    {
       "path": ".github/workflows/mesh-audit-fast.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -445,7 +452,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "dbd483ed0352fc8265af16e84b0fe5c5643cd986"
+      "blob": "b79e9aa0be26771ce68a6594146a47f49ad85b88"
     },
     {
       "path": "LICENSE",
@@ -922,6 +929,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "f40e3f00f3102815ee706003a922cc65ed5d3383"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fb695a65c11bca36208ce87c0320b9eab726f0bd"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js",
@@ -1547,6 +1561,20 @@
       "blob": "a376fff0a7d362f5cf673f3582b9f2cfd78415be"
     },
     {
+      "path": "desktop/tests/thermocouple-xyz-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "75b89b04e840919c62cf81889c3d255f83338658"
+    },
+    {
+      "path": "desktop/tests/thermocouple-xyz-mapping.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2be878e3cdff7cdf835198b9231a01fc75e023f2"
+    },
+    {
       "path": "desktop/tests/timeseries-provenance.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1614,7 +1642,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "ef916385e55d2b36de16039f08d106e91af8e99f"
+      "blob": "5479115b12ab14ce4d21fe42b45795fa7fd0aec3"
     },
     {
       "path": "docs/DOCUMENTATION_INDEX.md",
@@ -1712,7 +1740,14 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "3a63a70768a97e18a40b43de3479ca8b7dd5c080"
+      "blob": "996bd07e6b5a896afee5d29600ec85429c611765"
+    },
+    {
+      "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "bc5bf36efab596f3cad16e02bf935168c2935335"
     },
     {
       "path": "docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md",
