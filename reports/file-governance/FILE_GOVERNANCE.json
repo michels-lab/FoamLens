@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 375,
-  "classified_files_total": 371,
+  "tracked_files_total": 379,
+  "classified_files_total": 375,
   "docs_content_inspected": 72,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -16,18 +16,16 @@
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 117,
-    "test": 103,
+    "source": 118,
+    "test": 105,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 43
+    "workflow": 44
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "dc40b4b7ae85cbfc8b7d1a88847dd9739f7850b8dfc2e75e457cf52b3661ca81",
-  "evidence_fingerprint": "67c09c6362a97277e5a761f571984eefc6d926212b091460c4468512591a358f",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "09997f01599d17a7752bc833a2c0b434eafb391a4cb49f9e694e2cdaa60a7481",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -331,6 +329,13 @@
       "blob": "b0f638995e20787c980486d33799be09d6685290"
     },
     {
+      "path": ".github/workflows/granada-multiregion-energy.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "079ae9a046373726f9b5f2e64cb15e32dfa9ca6c"
+    },
+    {
       "path": ".github/workflows/granada-original-command-search.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -440,7 +445,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "0ddb8b063cee0b43890d8e3491759990d57b100e"
+      "blob": "dbd483ed0352fc8265af16e84b0fe5c5643cd986"
     },
     {
       "path": "LICENSE",
@@ -912,6 +917,13 @@
       "blob": "2a96cd4e0ebeae9f017d07a3c50598de877717ea"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f40e3f00f3102815ee706003a922cc65ed5d3383"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1297,6 +1309,20 @@
       "blob": "7481e23bf63b97adcca8428c9d4fbf63a12b6677"
     },
     {
+      "path": "desktop/tests/multiregion-energy-conservation.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1fea4edecd98f90ee8f923cc3194c99d8ef4db48"
+    },
+    {
+      "path": "desktop/tests/multiregion-energy-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "de9c176dece215f5beabbc44353c81b8f4bc46bd"
+    },
+    {
       "path": "desktop/tests/multiregion-release-contract.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1588,7 +1614,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "cdaee1943841f36293bee8dfb10aa5103e675d17"
+      "blob": "ef916385e55d2b36de16039f08d106e91af8e99f"
     },
     {
       "path": "docs/DOCUMENTATION_INDEX.md",
@@ -1686,7 +1712,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "41c7c19ad729803b16d24c78030dccc73e249782"
+      "blob": "3a63a70768a97e18a40b43de3479ca8b7dd5c080"
     },
     {
       "path": "docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md",
@@ -2627,17 +2653,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "0de06db4fcf8a1a6",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "13 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-global-ux.yml, .github/workflows/granada-developer-note-triage.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Developer/Audit.js, desktop/src/FoamLensDesktop/Program.cs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
