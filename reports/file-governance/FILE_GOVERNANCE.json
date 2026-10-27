@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 406,
-  "classified_files_total": 402,
-  "docs_content_inspected": 79,
+  "tracked_files_total": 407,
+  "classified_files_total": 403,
+  "docs_content_inspected": 80,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 73,
+    "document": 74,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 50
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "092d42364056c00fc967f02810f112df289d36fd4674c3f97ab221bb92a6d931",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "56dd8cd11057cedda02553b5cdbea1698d706a4fbb61e4660b1526ce53d74ebe",
+  "evidence_fingerprint": "8a1f436d11b64b7a177e4bc226debd333d38d86667d8b27fe10997c3c8bccd1a",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1047,7 +1049,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3b655ccf34dc453ced38aca895196c45153f2602"
+      "blob": "8937ac503571390052a9b863503c6786adf5cd92"
     },
     {
       "path": "desktop/tests/actionable-diagnostics.test.cjs",
@@ -1320,7 +1322,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "342dfcd6e704b43779b7d8035d612469ef64af55"
+      "blob": "6429e308041ded9c857b778b79a1039b436446f5"
     },
     {
       "path": "desktop/tests/incremental-field-parser.test.cjs",
@@ -1904,6 +1906,13 @@
       "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
     },
     {
+      "path": "docs/GRANADA_B1_PLAY_TRANSITION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "202ec249683bb29c5e12f5276ef6e0c2d2381782"
+    },
+    {
       "path": "docs/GRANADA_BACKLOG_CONVERGENCE_2026-10-26.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2447,7 +2456,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b7f4eb2698efaaab5d7ec79a2e2f670e86a9aa9e"
+      "blob": "36912a616d900203d0b3988f1afd6a1cc091e641"
     },
     {
       "path": "tools/granada_g17_integrated_guards.test.cjs",
@@ -2842,7 +2851,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "43f088a35848c667",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-g43-play-wide-original.spec.cjs, tools/granada_g16_wide_play_cascade.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
