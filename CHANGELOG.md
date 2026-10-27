@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #156: source-backed phase/momentum evidence explorer
+
+- Add a separate Analysis explorer for Case → Analysis Type → Original Variable → Component → Material Region → Phase Subset → Statistic, sourcing only actual written OpenFOAM field times and field-header kind/dimensions. Reuse editable per-region Field Mapping, existing scalar/vector field ingestion, cell alignment, phase classification, and pmStats.
+- Preserve missing/unknown metadata as unavailable rather than guessing that a field name, cell count, liquid fraction, or vector component is valid. Explicit partition and physical-time coverage, invalid fraction rejection, sampled/unweighted caveat and excluded source times.
+- Plot only discrete real source times without invented interpolation; export source-provenanced local JSON with observations separate from unprovided physical interpretation. No solver mutation, new automatic cause/recrystallization/recalescence verdict or version bump.
+- Independent Ubuntu/Windows regression + original Phase/Momentum, mapping and mechanism suites; original active Field/CAD/2D–3D/Energy/Thermocouple/Health PRs untouched. Full physical dictionary interpretation, heterogeneous cells and installed Setup/Portable acceptance remain open.
+
 ## Unreleased — Operación Granada #117: real OpenFOAM source benchmark evidence (candidate)
 
 - Add independent read-only `tools/benchmark-real-case.cjs` to capture source-file enumeration, sequential SHA-256 content-reading cost, file/byte/type counts and sampled Node memory, with first/repeat labels and cross-pass full-content SHA-256 identity verification.

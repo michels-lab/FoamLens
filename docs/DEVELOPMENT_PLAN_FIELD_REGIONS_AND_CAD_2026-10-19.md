@@ -67,6 +67,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Ubuntu/Windows synthetic 3008-file and 10000-file stress, privacy and source-change regressions, plus existing UI timing and large parser suites, provide implementation QA only; user-real 3008-file same-machine baseline and exact installed app remain required. Technical guide `docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md`.
 - Outstanding: owner case first/repeat/true cold profiling, end-to-end first interactive measurement, native pre-scan incrementally reusable catalog with invalidation, bounded asynchronous parsing, large 2D/3D field correctness, installed Setup/Portable acceptance. Issue #117 remains open; this does not authorize any release.
 
+### Operación Granada #156 — Unified Phase/Momentum source-evidence explorer (partial candidate)
+
+- Already in main: `v13-field-mapping.js` for role suggestions/correction per material region; native original OpenFOAM field/metadata ingestion; generic Phase/Momentum field statistics, ratios, correlation, derived-field checks and multi-case statistics; `v14-momentum-mechanisms.js` source-measured Darcy/buoyancy/pressure-gradient comparisons. **Do not rebuild existing capability**.
+- Independent `v24-physics-evidence-explorer.js` adds exact-source-time Analysis query Case → Type → Region → Variable → Component → Phase Subset → Statistic, reusing scientific engines without changes to open Field/CAD/2D–3D/Energy/Thermocouple/Health branches.
+- Unit/dimension metadata sourced from inspected discovery, partition/time availability and original OpenFOAM path provenance. Phase requires same-region dimensionless liquid fraction and explicit fraction thresholds; rejects invalid/unavailable cells. Uniform cell count remains uncertain; descriptive statistics unweighted. Discrete source-time chart and local JSON export preserve limitations, excluded times and no automatic causal interpretation.
+- Isolated Ubuntu/Windows CI plus original Phase/Momentum/Field Mapping/Momentum Mechanisms regression. Pending in #156: fvModels/fvOptions/fvSchemes contextual mechanism attribution, fully general dimension-aware Derived Field Verification, volume-weighting, irregular mixed geometries, owner physical-case acceptance, installed WebView2 Setup/Portable. PR candidate only, no release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
