@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 407,
-  "classified_files_total": 403,
-  "docs_content_inspected": 80,
+  "tracked_files_total": 411,
+  "classified_files_total": 407,
+  "docs_content_inspected": 81,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 74,
+    "document": 75,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 123,
-    "test": 114,
+    "source": 124,
+    "test": 115,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 50
+    "workflow": 51
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "56dd8cd11057cedda02553b5cdbea1698d706a4fbb61e4660b1526ce53d74ebe",
-  "evidence_fingerprint": "8a1f436d11b64b7a177e4bc226debd333d38d86667d8b27fe10997c3c8bccd1a",
+  "inventory_fingerprint": "eb28e3cd36af36553955b1089f38825ea6ffeac4b3ebbada16e9e4e4237dd86d",
+  "evidence_fingerprint": "3205e6214e23b9fe3f7c4a00f3d0faff2ad4c1e063274196f177be2fdebbb0cd",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -154,6 +154,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
+    },
+    {
+      "path": ".github/workflows/granada-177-g4-review-live.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "197217d921a7751f8e879b57779f091b00931c0b"
     },
     {
       "path": ".github/workflows/granada-177-g5-audit-diff.yml",
@@ -961,6 +968,13 @@
       "blob": "ef870158a770179fd4ffaccc92c3d8467e6bbebb"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2b829f74fa6cc3b344724095f5ea97c1bd338d16"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1302,6 +1316,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "773b4244abf19c923a4bf4060d320394300894e8"
+    },
+    {
+      "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "264d61fe8faf6adf0755dbd2d4741da629273663"
     },
     {
       "path": "desktop/tests/granada-177-global-ux.spec.cjs",
@@ -1883,6 +1904,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "26daf8152475562e740a78ce4892ff56cac50dcf"
+    },
+    {
+      "path": "docs/GRANADA_177_G4_REVIEW_LIVE_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4f1e4659571110d2e84e07cc1050d281f5a19cc7"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -2853,11 +2881,11 @@
   ],
   "findings": [
     {
-      "id": "43f088a35848c667",
+      "id": "507b7a90f18d0c62",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "3 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-g43-play-wide-original.spec.cjs, tools/granada_g16_wide_play_cascade.test.cjs",
+      "observation": "6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g4-review-live.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-177-g4-review-live.spec.cjs, desktop/tests/granada-g43-play-wide-original.spec.cjs, tools/granada_g16_wide_play_cascade.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
