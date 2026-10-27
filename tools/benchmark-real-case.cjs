@@ -73,12 +73,31 @@ function inRoot(root,out){
   const rel=path.relative(root,out);
   return !rel||rel==='.'||(!rel.startsWith('..'+path.sep)&&rel!=='..'&&!path.isAbsolute(rel))
 }
+async function targetForCreation(out){
+  // Resolve the deepest existing ancestor BEFORE making directories. A report
+  // parent symlink may point inside the measured case even when its spelling
+  // looks external; a lexical path.relative check alone is not read-only.
+  let ancestor=path.dirname(out),missing=[];
+  for(;;){
+    try{
+      const real=await fs.promises.realpath(ancestor);
+      return path.join(real,...missing.reverse(),path.basename(out))
+    }catch(e){
+      if(e?.code!=='ENOENT')throw e;
+      const parent=path.dirname(ancestor);
+      if(parent===ancestor)throw err('INVALID_OUTPUT','Cannot resolve output directory.');
+      missing.push(path.basename(ancestor));ancestor=parent
+    }
+  }
+}
 async function capture(root,out,opts={}){
   if(!['first','repeat'].includes(opts.label))throw err('LABEL','Pass must have --label first or repeat.');
   root=path.resolve(root);out=path.resolve(out);
-  if(inRoot(root,out))throw err('OUTPUT_INSIDE_SOURCE','Report cannot be written into the measured case.');
   const initial=await fs.promises.lstat(root);
   if(!initial.isDirectory()||initial.isSymbolicLink())throw err('INVALID_SOURCE','Source must be a real local directory.');
+  const realRoot=await fs.promises.realpath(root);
+  if(inRoot(root,out)||inRoot(realRoot,await targetForCreation(out)))
+    throw err('OUTPUT_INSIDE_SOURCE','Report cannot be written into the measured case.');
   const start=performance.now(),baseline=process.memoryUsage(),peak={rss:baseline.rss,heap:baseline.heapUsed};
   const sample=()=>{const m=process.memoryUsage();peak.rss=Math.max(peak.rss,m.rss);peak.heap=Math.max(peak.heap,m.heapUsed)};
   const tick=setInterval(sample,50);tick.unref?.();
@@ -106,6 +125,11 @@ async function capture(root,out,opts={}){
     ]
   };
   await fs.promises.mkdir(path.dirname(out),{recursive:true});
+  // Check again after mkdir, before creating the temporary report. Never
+  // write into the source tree through an existing output directory alias.
+  const actualParent=await fs.promises.realpath(path.dirname(out));
+  if(inRoot(realRoot,path.join(actualParent,path.basename(out))))
+    throw err('OUTPUT_INSIDE_SOURCE','Report cannot be written into the measured case.');
   const temp=out+'.'+process.pid+'.tmp';
   try{await fs.promises.writeFile(temp,JSON.stringify(report,null,2)+'\n',{flag:'wx'});await fs.promises.rename(temp,out)}
   finally{await fs.promises.rm(temp,{force:true}).catch(()=>{})}
@@ -163,11 +187,11 @@ if(require.main===module){
   cli(process.argv.slice(2)).catch(e=>{
     const expected=new Set(['LABEL','INVALID_SOURCE','TOO_LARGE','SOURCE_CHANGED','CANCELLED',
       'SYMLINK','UNSUPPORTED_ENTRY','OUTPUT_INSIDE_SOURCE','INPUT_SCHEMA','DATASET_CHANGED',
-      'USAGE','INVALID_UI_METADATA']);
+      'USAGE','INVALID_UI_METADATA','INVALID_OUTPUT']);
     const code=expected.has(e?.code)?e.code:'IO_FAILURE';
     process.stderr.write('FoamLens benchmark ['+code+']: '+
       (code==='IO_FAILURE'?'Local I/O error. Check access and free space.':e.message)+'\n');
     process.exitCode=1
   })
 }
-module.exports={SCHEMA,TYPES,category,inventory,fullDigest,uiReport,capture,compare,parseFlags,inRoot};
+module.exports={SCHEMA,TYPES,category,inventory,fullDigest,uiReport,capture,compare,parseFlags,inRoot,targetForCreation};
