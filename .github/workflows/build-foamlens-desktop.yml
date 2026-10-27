@@ -616,6 +616,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/mesh-quality-audit.test.cjs
 
+      - name: Test CAD surface import, topology, units and triSurface export
+        shell: pwsh
+        run: node desktop/tests/cad-surface-inspector.test.cjs
+
       - name: Test dual-variable Time-Series Focus
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs

@@ -1,3 +1,7 @@
+## 2026-10-26 — Granada CAD owner integration candidate on verified current main
+
+- Reconciled original CAD STL/OBJ inspector source, original CAD packaged Windows smoke and regression, roadmap/CHANGELOG and original CAD-native CI with latest original main. Keeps current ExternalNavigationPolicy, G21 publisher signing checks, G22 CSS and G39 Findings intact; original CAD PR #164 branch remains authoritative. Native scientific CAD and complete Windows Setup/Portable validations are pending on new exact head; this is not release authorization.
+
 ## 2026-10-26 — G39 exact native Windows FAIL at independent known Field Play 1140px (release/merge BLOCKED)
 
 - Exact six-file G39 source candidate was reconciled with current main in merge commit `eb836c6994d8d0c13cf44316427f2c9df4f0f0da` (main parent `bfe49392f1fa12b29bdb3eb7b388afdf4971becd`). Same-SHA G39 Findings negative scientific/privacy regressions Windows+Ubuntu **PASS** [40409354314](https://github.com/michels-lab/FoamLens/actions/runs/40409354314); ownership boundaries Windows+Ubuntu **PASS** [40409354451](https://github.com/michels-lab/FoamLens/actions/runs/40409354451); real private QuickCup regression job **PASS** in [full Windows 40409354230](https://github.com/michels-lab/FoamLens/actions/runs/40409354230). `Test Review case identity binding` also passed after updating the exact canonical target regression.
