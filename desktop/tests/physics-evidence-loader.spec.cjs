@@ -7,8 +7,14 @@ const field=fs.readFileSync(path.join(app,'frontend','v13-field-mapping.js'),'ut
 const momentum=fs.readFileSync(path.join(app,'frontend','v14-momentum-mechanisms.js'),'utf8');
 const native=fs.readFileSync(path.join(app,'Program.cs'),'utf8');
 new Function(source);
-for(const text of ['Directory.GetFiles(AppRoot, "v*-*.js")','File.ReadAllText(path, Encoding.UTF8)'])
- assert(native.includes(text),'Native Windows versioned bundle must load new independent module: '+text);
+// G35: only the trusted assembly-bundled frontend extensions are executable.
+assert(native.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+ 'Native Windows must embed the original source-built frontend modules');
+assert(!native.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+ 'Mutable AppRoot wildcard executable injection must never be restored');
+const build=fs.readFileSync(path.join(__dirname,'..','..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+assert(build.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/'),
+ 'Windows installer must embed versioned source-built science modules');
 for(const text of ['function pmLoadFieldSet(','function pmAlignedComponents(','function pmFilterByPhase(',
  'function pmClassifyPhase(','function pmStats(','function pmRunVerification(',
  'function pmRunScatterAnalysis(','function pmRunEvolutionAnalysis('])
