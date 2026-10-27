@@ -40,6 +40,9 @@ assert(T.sources.includes('case/0/metal/T'));
 const cfg={caseId:43,caseName:c.name,type:'phase',field:'T',region:'metal',
  component:'value',subset:'mushy',low:.05,high:.95,statistic:'median'};
 assert(api.validate(cfg,T,alpha).ok);
+const falseCrossRegionAlpha={...alpha,region:'mold'};
+assert(!api.validate(cfg,T,falseCrossRegionAlpha).ok,
+  'A dimensionless alphaL from a different material region must never classify this source');
 assert(api.validate({...cfg,subset:'whole'},T,null).ok);
 const fail=[
  [{...cfg,field:'U'},T,alpha,'field'],
@@ -71,7 +74,14 @@ const obs=[
 ];
 const r=api.assemble({...cfg,subset:'whole'},T,obs,stats);
 assert(r.ok);assert.deepStrictEqual(r.rows.map(x=>x.value),[315,335]);
-assert.equal(r.completion,'sourced-evidence');assert.equal(r.noExtrapolation,true);
+assert.equal(r.completion,'sourced-evidence');
+const missingObserved=api.assemble({...cfg,subset:'whole'},T,[obs[0]],stats);
+assert(missingObserved.ok);
+assert.equal(missingObserved.completion,'partial-evidence',
+  'A partially supplied source-time scan must not be certified complete');
+assert.deepStrictEqual(missingObserved.excluded.map(x=>x.time),[1]);
+assert.match(missingObserved.excluded[0].reason,/never sampled/);
+assert.equal(r.noExtrapolation,true);
 assert.equal(r.sourceBacked,true);assert.equal(r.interpretation.status,'not-provided');
 assert.deepStrictEqual(r.rows.map(x=>x.timeS),[0,1]);
 assert.deepStrictEqual(r.rows[0].sources,['case/0/metal/T']);
