@@ -620,6 +620,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/cad-surface-inspector.test.cjs
 
+      - name: Test Granada 2D/3D source-backed equivalent observables
+        shell: pwsh
+        run: node desktop/tests/equivalent-observables.test.cjs
+
       - name: Test dual-variable Time-Series Focus
         shell: pwsh
         run: node desktop/tests/dual-timeseries.test.cjs

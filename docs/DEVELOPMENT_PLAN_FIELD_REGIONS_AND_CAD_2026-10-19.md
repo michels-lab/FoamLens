@@ -74,6 +74,14 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Unit/dimension metadata sourced from inspected discovery, partition/time availability and original OpenFOAM path provenance. Phase requires same-region dimensionless liquid fraction and explicit fraction thresholds; rejects invalid/unavailable cells. Uniform cell count remains uncertain; descriptive statistics unweighted. Discrete source-time chart and local JSON export preserve limitations, excluded times and no automatic causal interpretation.
 - Isolated Ubuntu/Windows CI plus original Phase/Momentum/Field Mapping/Momentum Mechanisms regression. Pending in #156: fvModels/fvOptions/fvSchemes contextual mechanism attribution, fully general dimension-aware Derived Field Verification, volume-weighting, irregular mixed geometries, owner physical-case acceptance, installed WebView2 Setup/Portable. PR candidate only, no release.
 
+### Operación Granada #154 — 2D/3D source-backed observable comparison (candidate)
+
+- Isolated from unfinished #162 Field and #164 CAD PRs; branch `feat/granada-2d3d-observables-20261019` starts from independent `main`. Shared workflow name defined in master `OPERACION_GRANADA_STANDARD.md`.
+- Implementation candidate `v24-equivalent-observables.js`: user picks measured source-backed time series for two distinct cases, explicitly designates 2D vs 3D, observable and spatial location/normalization mapping; checks source units and OpenFOAM dimensions before temporal alignment.
+- Only inside common real time range: measured/interpolated sample statuses, unit-safe MAE/RMSE/bias/max |Δ|, preview chart, local aligned CSV/JSON exports with source metadata, per-row status and explicit limitations.
+- **No field/cell subtraction across different meshes**. Dimensionality and physical location equivalence remain user-declared, not geometrically proven. Independent spatial-coordinate matching, normalized region volume/front observables, real owner-case measurement and full Windows installed acceptance remain to close #154.
+- Regression `desktop/tests/equivalent-observables.test.cjs`, fast workflow and exact-head packaged WebView2 smoke are release gates. Not in public v1.8.10; issue remains open.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

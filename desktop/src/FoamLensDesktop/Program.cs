@@ -803,6 +803,48 @@ internal sealed class FoamLensForm : Form
             }
             Log("FoamLens CAD STL/OBJ WebView2 smoke passed: " + cadSurfaceJson);
 
+            // Granada #154: the actual packaged WebView2 must expose scientific
+            // observable comparison, without pretending that 2D/3D meshes match.
+            var equivalentObservableJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const api=window.FoamLensEquivalentObservables, panel=document.getElementById('eoPanel');
+                  if(!api||!panel)return{ok:false,reason:'2D/3D comparator did not mount'};
+                  const sample=(caseId,unit,y)=>({
+                    datasetType:'timeseries',caseId,caseName:'CI '+caseId,
+                    sourcePath:'postProcessing/probes/0/T',field:{canonical:'T',unit,dimensions:'[0 0 0 1 0 0 0]'},
+                    t:[0,1,2],y
+                  });
+                  const r=api.compare(sample(1,'K',[300,310,320]),sample(2,'K',[301,311,321]),{
+                    observable:'matched test temperature',basis:'physical-point',
+                    mapping:'CI synthetic matching physical location metadata only',
+                    confirmed:true
+                  });
+                  const denied=api.compare(sample(1,'K',[300,310,320]),sample(2,'W',[1,2,3]),{
+                    observable:'invalid physical units',basis:'physical-point',
+                    mapping:'CI synthetic location equivalence guard',
+                    confirmed:true
+                  });
+                  const open=panel.querySelector('#eoCalculate')!==null&&
+                    panel.querySelector('#eoSource2d')!==null&&
+                    panel.querySelector('#eoSource3d')!==null;
+                  return{ok:open&&r.valid&&r.metrics.n===3&&
+                    Math.abs(r.metrics.bias3dMinus2d-1)<1e-10&&
+                    r.methods.noFieldSubtraction===true&&r.methods.noExtrapolation===true&&
+                    denied.valid===false,
+                    mounted:open,valid:r.valid,points:r.metrics?.n||0,invalidRejected:!denied.valid};
+                })()
+                """);
+            using (var observableJson = JsonDocument.Parse(equivalentObservableJson))
+            {
+                if (!observableJson.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                    throw new InvalidOperationException(
+                        "FoamLens Granada equivalent-observables native WebView2 smoke failed: " +
+                        equivalentObservableJson);
+            }
+            Log("FoamLens Granada equivalent-observables WebView2 smoke passed: " +
+                equivalentObservableJson);
+
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");
             if (!string.Equals(hasBridge.Trim(), "true", StringComparison.OrdinalIgnoreCase))
