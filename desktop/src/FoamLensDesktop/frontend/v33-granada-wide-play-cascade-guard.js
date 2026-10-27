@@ -28,6 +28,8 @@ function audit(){
   computedMinWidth:style?.minWidth||null,computedMaxWidth:style?.maxWidth||null,
   computedWidth:style?.width||null,computedDisplay:style?.display||null,
   computedFlexShrink:style?.flexShrink||null,computedBoxSizing:style?.boxSizing||null,
+  computedTransitionProperty:style?.transitionProperty||null,
+  computedTransitionDuration:style?.transitionDuration||null,
   computedFontSize:style?.fontSize||null,
   guardStylesheetPresent:!!id(STYLE),g7StylesheetPresent:!!id('gfwG7Style'),
   g12StylesheetPresent:!!id('flG12WideFieldRibbonStyle'),
