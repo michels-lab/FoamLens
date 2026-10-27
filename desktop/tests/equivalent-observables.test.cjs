@@ -44,6 +44,19 @@ for(const [a,b,config,why] of [
  [series(1,[0,1],[1,2]),series(2,[0,1],[1,2]),{...meta,basis:'invalid'},'spatial']
 ]){const r=compare(a,b,config);assert(!r.valid,why+' should reject');assert.strictEqual(r.rows.length,0)}
 assert(!eligible(series(5,[0],[3])));
+for(const [bad,label] of [
+ [series(31,[0,1,2],[300,310]),'unmatched time/value sample lengths'],
+ [series(31,[0,1,2],[300,null,320]),'missing numeric measurement'],
+ [series(31,[0,1,2],[300,'NaN',320]),'nonfinite string value'],
+ [series(31,[0,1,1],[300,310,320]),'duplicate original physical time'],
+ [series(31,[0,1,1+1e-12],[300,310,320]),'near-duplicate physical time']
+]){
+ assert(!eligible(bad),label+' must not be eligible as a complete source');
+ const negative=compare(bad,series(32,[0,1,2],[300,310,320]),meta);
+ assert(!negative.valid,label+' must not produce a false source-backed model comparison');
+ assert.match(negative.reason,/complete unique physical times/);
+}
+
 const zeros=pairs(series(7,[0,1,2,null,''],[0,0,1,999,999]));
 assert.deepStrictEqual(zeros.map(x=>x.t),[0,1,2]);
 assert.strictEqual(zeros[0].y,0);
