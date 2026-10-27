@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 332,
-  "classified_files_total": 328,
-  "docs_content_inspected": 62,
+  "tracked_files_total": 337,
+  "classified_files_total": 333,
+  "docs_content_inspected": 63,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 6,
     "config": 7,
-    "document": 56,
+    "document": 57,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 98,
+    "source": 101,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 34
+    "workflow": 35
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "33e1e4062c6c1cd3d498081bbcad2eaea41e68f216cca9ff4edb1bef85056a02",
+  "inventory_fingerprint": "1ce7683c17d64b20212f193a5e1bdfca99d3abfac1d27e64ddd37133df7aa049",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -229,6 +229,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "d32803d5530be5c1b21492528904b12cac3312d7"
+    },
+    {
+      "path": ".github/workflows/granada-g35-real-cad-trusted-js.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "ec460ab2f3ef979e9b3dc5cb6dfe3269ea269121"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -494,7 +501,14 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3626f6d5950d235736974d78c1b7911c94960925"
+      "blob": "81de042ac703f477963ca37e9940db33412ab708"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a918f6fada577a73baa3c11acd28a288e8db7ee5"
     },
     {
       "path": "desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs",
@@ -1096,7 +1110,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0ce8c6c0df405d0c817b863845cbc3abb2c9386d"
+      "blob": "367839b0e97863284d24eb95f8fccdb04bc82a07"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -1586,7 +1600,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "27a29ceceebba1a62b674b1df4e1260a9fa24398"
+      "blob": "0f1f012a5083955789e8a6d9b1a207cbd820d924"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1671,6 +1685,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "f8255659aa20410b7ee6698be990cc4229c1d847"
+    },
+    {
+      "path": "docs/GRANADA_G35_CAD_TRUSTED_JS_NATIVE_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "04be3a544022fba652e50ca7bc44591f9d361ea7"
     },
     {
       "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
@@ -2069,14 +2090,14 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "173d80de6968d73a9dae50e54dd9afc02c829957"
+      "blob": "b7f4eb2698efaaab5d7ec79a2e2f670e86a9aa9e"
     },
     {
       "path": "tools/granada_g17_integrated_guards.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+      "blob": "a1d2fb49068affc6840ed1c673c53d3cde40f35d"
     },
     {
       "path": "tools/granada_g21_native_signing.ps1",
@@ -2133,6 +2154,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "45950c4686341370746e3adf45b089dba8cd7196"
+    },
+    {
+      "path": "tools/granada_g35_native_cad_trusted_js.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "590c2188d1c375afd09f9b5ae36b8e8b1a739f03"
+    },
+    {
+      "path": "tools/granada_g35_validate_stacked.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c263f61427c11d0e05e42bd100d807b957c5d270"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
