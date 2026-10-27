@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "be27747dcb73d789a8928398e02c8bf269ad1cad23b993e16b51e9a92efd9dde",
+  "inventory_fingerprint": "a211e45e0a86cd02ce1698d21e23b8a9b57f5d6ae4ed7dff2adbd9a5f8e558ed",
   "evidence_fingerprint": "06dd9055dfa0983575f65971d565b1ed866e46dd460851bb7307484833bb1acb",
   "files": [
     {
@@ -2134,7 +2134,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "f6033f20c5bc34a2465a171f5d11ddd9dfe1b310"
+      "blob": "9ef377befbe510dd1eda56d7d52102b6c0b66411"
     },
     {
       "path": "docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md",
