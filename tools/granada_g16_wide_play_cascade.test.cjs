@@ -82,6 +82,29 @@ test('deferred stylesheet installation is idempotent',()=>{
  f.fire();assert(f.style()?.includes('min-width:112px!important'));f.fire();
  assert.equal(f.doc.head.children.length,1);
 });
+test('G46: original Play geometry must not transition after 640px -> 1140px, even with CSS !important width floors',()=>{
+ const sourceHtml=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ assert(sourceHtml.includes('transition:.14s'),
+   'the actual original generic .btn transition is necessary context');
+ const css=fixture({width:1140,compact:false}).style();
+ const rule='#fwTimePlay{transition-property:background-color,border-color,color!important}';
+ assert(css.endsWith('}\n'+rule),
+   'non-geometry transition guard must apply during BOTH compact and wide states');
+ assert(!rule.includes('all')&&!rule.includes('min-width')&&!rule.includes('width:'));
+ assert(!rule.includes('transition:none'),
+   'preserve lightweight visual feedback; do not remove user affordances');
+ const accept=s=>assert(s.endsWith('}\n'+rule),
+   'Play transition must be isolated from media widths, not confined to wide Field only');
+ assert.doesNotThrow(()=>accept(css));
+ for(const weakened of [
+   css.replace(rule,''),
+   css.replace(rule, '#fwTimePlay{transition-property:all!important}'),
+   css.replace(rule, '#fwTimePlay{transition-property:min-width!important}')
+ ])assert.throws(()=>accept(weakened));
+ assert(src.includes('window.FoamLensGranadaG16=Object.freeze({audit})'));
+ assert(!src.includes('.style.setProperty(')&&!src.includes('setInterval('),
+   'source must remain CSS-only with no state/solver changes');
+});
 test('G16 original v33 script remains packaged with trusted executable-only JavaScript, not on-disk extras',()=>{
  const host=fs.readFileSync(path.resolve(root,'../Program.cs'),'utf8');
  const helper=fs.readFileSync(path.resolve(root,'../TrustedEmbeddedFrontendExtensions.cs'),'utf8');
