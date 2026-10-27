@@ -83,15 +83,15 @@ assert.equal(by(api.audit({case:mkCase(),logs:mixedInvalid}),'courant').status,'
  'One invalid Courant history must not be ignored because another history is valid');
 // False completion regression: do not classify a previous End as finishing a
 // later/restarted physical solver calculation in the SAME original text log.
-const prematureEnd=api.runtime('Time = 1\\nEnd\\nTime = 2\\n','restart.log');
+const prematureEnd=api.runtime('Time = 1\nEnd\nTime = 2\n','restart.log');
 assert.equal(prematureEnd.completion,'not-demonstrated');
 assert.equal(prematureEnd.hasEnd,true,'Original End marker still recorded for provenance');
 assert.equal(prematureEnd.endAfterProgress,false,'Completion marker cannot predate final solver work');
 assert.equal(by(api.audit({case:mkCase(),logs:allLogs(),runtime:prematureEnd}),'completion').status,
  'warning','Scientific health must not report verified completed run after subsequent progress');
-const finalEnd=api.runtime('Time = 1\\nEnd\\nTime = 2\\nEnd\\n');
+const finalEnd=api.runtime('Time = 1\nEnd\nTime = 2\nEnd\n');
 assert.equal(finalEnd.completion,'explicit-end-reported','A later real final End restores log-level completion');
-assert.equal(api.runtime('Time = 1\\nEnd\\nTime = 2\\nFOAM FATAL ERROR\\n').completion,'failed',
+assert.equal(api.runtime('Time = 1\nEnd\nTime = 2\nFOAM FATAL ERROR\n').completion,'failed',
  'A fatal error after End must dominate all other markers');
 
 const nonmonotonic=api.audit({case:mkCase(),logs:allLogs(),runtime:api.runtime('Time = 2\nTime = 1\nEnd\n')});
