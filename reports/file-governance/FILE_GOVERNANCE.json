@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 389,
-  "classified_files_total": 385,
-  "docs_content_inspected": 74,
+  "tracked_files_total": 392,
+  "classified_files_total": 388,
+  "docs_content_inspected": 75,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 68,
+    "document": 69,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
     "source": 120,
-    "test": 109,
+    "test": 110,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 46
+    "workflow": 47
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "bb9b11c3ee103af0f4a393184a317af567206a72fc114013962d48d1017da9b0",
+  "inventory_fingerprint": "262b3670f91f5f5b8cf77b049c259e5b40f6f76f9d868a4af1357cd0a16aae82",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -308,6 +308,13 @@
       "blob": "515e026a695503727ded90a3336b9cceb109b372"
     },
     {
+      "path": ".github/workflows/granada-g43-original-play-width.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "cf637a4fb2c3a41d04ec10c08d4a989ddc4de64f"
+    },
+    {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -459,7 +466,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "3d73c6cb6b0c25befade0b50c29c36543bf34100"
+      "blob": "3836df779dc95c398c3abed2f83ee7e25d2c5cd0"
     },
     {
       "path": "LICENSE",
@@ -1005,7 +1012,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5c9b907fb21b760a6c352e19225366aa7f40619d"
+      "blob": "3b655ccf34dc453ced38aca895196c45153f2602"
     },
     {
       "path": "desktop/tests/actionable-diagnostics.test.cjs",
@@ -1265,6 +1272,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "43874939a50458d50e2dc1eac80bfebe73863172"
+    },
+    {
+      "path": "desktop/tests/granada-g43-play-wide-original.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "342dfcd6e704b43779b7d8035d612469ef64af55"
     },
     {
       "path": "desktop/tests/incremental-field-parser.test.cjs",
@@ -1768,7 +1782,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "f57c37c63194ad716fd886e434a3035b7a7c3ef9"
+      "blob": "f6676d889fef943cfcdf7fba614a8857cef6ca66"
     },
     {
       "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
@@ -1951,6 +1965,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "c3a4bbab1c79aa834e2f6a19cbd7273f7be75c96"
+    },
+    {
+      "path": "docs/GRANADA_G43_PLAY_WIDTH_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "34c53730131a03b5e0a95fb1e32ec9106d0f9125"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
