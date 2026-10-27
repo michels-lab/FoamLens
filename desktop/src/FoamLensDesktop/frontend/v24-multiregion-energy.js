@@ -31,8 +31,24 @@ function mecDimensions(raw,kind){
   const arr=nums[1].trim().split(/\s+/).map(Number),expected=kind==='J'?[1,2,-2,0,0,0,0]:[1,2,-3,0,0,0,0];
   return arr.every((n,i)=>n===expected[i])?'compatible':'incompatible'
 }
+function mecCaseId(value){
+  if(typeof value!=='number'&&typeof value!=='string')return null;
+  const raw=String(value).trim();
+  if(!/^[+-]?(?:0|[1-9]\d*)$/.test(raw))return null;
+  const n=Number(raw);return Number.isSafeInteger(n)?n:null
+}
+function mecConflictingSamples(s){
+  const pairs=s.t.map((t,i)=>[mecFinite(t),mecFinite(s.y[i])]).sort((a,b)=>a[0]-b[0]);
+  for(let i=1;i<pairs.length;i++){
+    const prev=pairs[i-1],next=pairs[i];
+    const sameTime=Math.abs(next[0]-prev[0])<=1e-10*Math.max(1,Math.abs(prev[0]),Math.abs(next[0]));
+    const differentEnergy=Math.abs(next[1]-prev[1])>1e-10*Math.max(1,Math.abs(prev[1]),Math.abs(next[1]));
+    if(sameTime&&differentEnergy)return true
+  }
+  return false
+}
 function mecSource(s,expected,region,caseId){
-  if(!s||Number(s.caseId)!==Number(caseId)||String(s.region||'')!==String(region||''))
+  if(!s||mecCaseId(caseId)===null||mecCaseId(s.caseId)!==mecCaseId(caseId)||!String(region||'').trim()||String(s.region||'')!==String(region))
     return{ok:false,reason:'source case/region mismatch or missing region provenance'};
   if(s.derived===true)return{ok:false,reason:'derived series are not accepted as independent source evidence'};
   if(!String(s.sourcePath||'').trim())return{ok:false,reason:'source path is missing'};
@@ -43,6 +59,7 @@ function mecSource(s,expected,region,caseId){
   const times=s.t||[],values=s.y||[];
   if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length||times.some((v,i)=>!Number.isFinite(mecFinite(v))||!Number.isFinite(mecFinite(values[i]))))
     return{ok:false,reason:'missing, invalid or unmatched measured readings; no interpolation across missing samples'};
+  if(mecConflictingSamples(s))return{ok:false,reason:'conflicting energy values at duplicate or indistinguishable physical times'};
   const pairs=mecPhysicalPairs(s);if(pairs.length<2)return{ok:false,reason:'fewer than two finite physical-time source samples'};
   return{ok:true,series:s,pairs:pairs.map(([t,v])=>[t,v*u.factor]),dimensionEvidence:dims,
     provenance:{caseId:Number(caseId),region,sourcePath:s.sourcePath,field:String(s.field||''),
@@ -85,8 +102,8 @@ function mecEvaluate(input={}){
   const regions=input.regions||[];
   if(regions.length!==2||!regions[0]?.name||!regions[1]?.name||regions[0].name===regions[1].name)
     return blocked('Select two different, source-identified physical regions.');
-  if(!Number.isFinite(Number(input.caseId)))return blocked('A source OpenFOAM case must be identified.');
-  const id=Number(input.caseId),sources=[],byRegion=[],warnings=[];
+  if(mecCaseId(input.caseId)===null)return blocked('A source OpenFOAM case must be identified.');
+  const id=mecCaseId(input.caseId),sources=[],byRegion=[],warnings=[];
   for(const reg of regions){
     const row={name:reg.name,extras:[],sources:[]};
     const stored=mecSource(reg.inventory,'J',reg.name,id);
@@ -186,15 +203,15 @@ function mecInvalidate(){
   const report=mecEl('mecResult');if(report)report.textContent='';
 }
 function mecSeriesIndex(){
-  const selected=Number(mecEl('mecCase')?.value);
-  if(!Number.isFinite(selected))return[];
+  const selected=mecCaseId(mecEl('mecCase')?.value);
+  if(selected===null)return[];
   return (typeof eaCaseSeries==='function'?eaCaseSeries(selected):[]).map(s=>{
     const d=eaDescriptor(s),unit=String(s.field?.unit||'').trim();
-    return{source:s,caseId:Number(s.caseId),region:d.region||'',
+    return{source:s,caseId:mecCaseId(s.caseId),region:d.region||'',
       field:d.fieldName,sourcePath:d.sourcePath,unit,dimensions:String(s.field?.dimensions||''),
       derived:s.derived===true,column:String(d.column||''),patch:d.patch||'',patches:d.patches||[],
       functionObject:d.functionObject||'',operation:d.operation||'',t:s.t,y:s.y,kind:mecUnit(unit)?.dimension||null}
-  }).filter(s=>s.region&&s.sourcePath&&!s.derived&&s.kind&&mecPhysicalPairs(s).length>=2)
+  }).filter(s=>s.caseId!==null&&s.region&&s.sourcePath&&!s.derived&&s.kind&&mecPhysicalPairs(s).length>=2)
 }
 function mecOptions(rows,kind){
   return'<option value="">'+mecEsc(mecUi('Choose measured source','Elige serie medida'))+'</option>'+
@@ -241,7 +258,7 @@ function mecReadSelection(id,optional=false){
 }
 function mecRun(){
   mecInvalidate();
-  const caseId=Number(mecEl('mecCase')?.value),data=[];
+  const caseId=mecCaseId(mecEl('mecCase')?.value),data=[];
   for(const suffix of ['A','B']){
     const name=mecEl('mecRegion'+suffix)?.value,
       inv=mecReadSelection('mec'+suffix+'Inventory'),int=mecReadSelection('mec'+suffix+'Interface');
@@ -321,7 +338,7 @@ function mecInstall(){
   const fillCases=()=>{
     const old=mecEl('mecCase').value;
     mecEl('mecCase').innerHTML='<option value="">Select case</option>'+
-      (Array.isArray(cases)?cases:[]).map(c=>'<option value="'+Number(c.id)+'">'+mecEsc(c.name)+'</option>').join('');
+      (Array.isArray(cases)?cases:[]).filter(c=>mecCaseId(c.id)!==null).map(c=>'<option value="'+mecCaseId(c.id)+'">'+mecEsc(c.name)+'</option>').join('');
     if([...mecEl('mecCase').options].some(o=>o.value===old))mecEl('mecCase').value=old;
     if(!mecEl('mecCase').value&&cases?.length)mecEl('mecCase').value=String(cases[0].id)
   };
