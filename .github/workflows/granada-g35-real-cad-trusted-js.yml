@@ -89,7 +89,7 @@ jobs:
         run: |
           $sha=(git -C product rev-parse HEAD).Trim()
           if($sha -ne '${{ github.sha }}' -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G35 current exact source mismatch'}
-          $base='68f56e176e6f0ce9ac95833acb196451f9dcb35a'
+          $base='af494c3eab845f3c3d8aa7f5fd1e63d7efa65248'
           $cad=((git -C product ls-remote origin refs/heads/feat/cad-stl-obj-inspector-20261019).Trim() -split '\s+')[0]
           if($cad -ne $base){throw 'CAD owner branch advanced; coordinate rebase before proof'}
           if((git -C qa rev-parse HEAD).Trim() -ne '71c99e1a074a41bc93c3ec800992ff5ee63e3d39'){throw 'G34 trusted source ref mismatch'}

@@ -53,12 +53,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify EXACT G36 fully validated product source, current branch SHA, no other source owners touched
+      - name: Verify EXACT current merged G35/Field main source, current test SHA and no product-source edits
         run: |
           $sha=(git rev-parse HEAD).Trim()
           if($sha -ne '${{ github.sha }}' -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G37 exact source HEAD mismatch'}
-          $base='c73b62224f45502e028d8ca5189859389c2e8171'
-          if((git merge-base HEAD $base).Trim() -ne $base){throw 'G37 did not descend from original fully proven G36 product'}
+          $base='65889fa6e21477122d59e8658ebb39b576ca89d7'
+          if((git merge-base HEAD $base).Trim() -ne $base){throw 'G37 did not descend from reviewed merged current main source'}
           $modified=@(git diff --name-only $base HEAD)
           $allowed=@('tools/granada_g37_real_b13_play_stress.ps1',
                      'tools/granada_g37_real_b13_stress_guards.test.cjs',
@@ -73,7 +73,7 @@ jobs:
       - name: Retrieve existing independent REAL original B13 metal and mold fixture from successful QuickCup builder
         uses: actions/download-artifact@v4
         with:
-          run-id: 40386670380
+          run-id: 40439636990
           name: QuickCup-MultiCase-Windows-runtime
           path: quickcup-runtime-fixture
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
           $caseCount=@(Get-ChildItem 'quickcup-runtime-fixture' -Directory).Count
           if($caseCount -lt 5){throw 'G37 original real five-case QuickCup expected'}
           Write-Host 'G37 original privately measured source fixture present; input values intentionally never logged or uploaded'
-      - name: Compile SAME exact untouched G36 real Windows single-file EXE plus original Inno Setup v1.8.10
+      - name: Compile SAME exact untouched current main real Windows single-file EXE plus original Inno Setup v1.8.10
         run: |
           python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
           if($LASTEXITCODE -ne 0){throw 'G37 genuine original icon tooling unavailable'}
@@ -111,7 +111,7 @@ jobs:
           if($LASTEXITCODE -ne 0 -or -not(Test-Path 'desktop/artifacts/FoamLens-Setup-v1.8.10.exe')){
             throw 'G37 actual original Inno installer failed'
           }
-      - name: Launch EXACT G36 original Windows product 3 times Portable and 3 times Installed with real private B13 Field+Play
+      - name: Launch EXACT current merged main Windows product 3 times Portable and 3 times Installed with real private B13 Field+Play
         run: |
           ./tools/granada_g37_real_b13_play_stress.ps1 -Portable g37-native-publish/FoamLens.exe -Installer desktop/artifacts/FoamLens-Setup-v1.8.10.exe -CaseRoot quickcup-runtime-fixture -SourceSha $env:G37_ACTUAL_SHA -Report g37-sanitized/report.json
           if(-not(Test-Path g37-sanitized/report.json)){throw 'G37 genuine native six-loop field report missing'}

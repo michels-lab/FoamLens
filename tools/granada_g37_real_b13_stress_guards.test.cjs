@@ -27,7 +27,7 @@ function guarded(p,c,w){
  assert.match(p,/FoamLens Windows smoke test passed/,'real original Play/Camera native gate');
  assert.match(p,/Get-FileHash -LiteralPath \$installedExe/,'installed and portable identical');
  assert.match(p,/originalProductReleaseReady=\$false/,'no false stable release');
- assert.match(w,/run-id: 40386670380/,'private measured fixture must be pinned to independent successful source');
+ assert.match(w,/run-id: 40439636990/,'private measured fixture must be pinned to independent successful source');
  assert.match(w,/QuickCup-MultiCase-Windows-runtime/,'real 407 MB original B13 fixture');
  assert.match(w,/actions: read/,'read-only artifact permission');
  assert.match(w,/originalProductSourceUntouched -ne \$true/,'fail closed if source is changed');

@@ -1,4 +1,22 @@
+## Preventive agent contract — recurring-error guard (owner mandate 2026-10-21)
+
+**Mandatory for every maintainer, QA, release, audit and developer-twin agent, regardless of model/provider.** Read the authoritative [Michel's Lab prevention standard](https://github.com/michels-lab/Michel-Software-Standards/blob/main/standards/AGENT_RECURRENCE_PREVENTION_STANDARD.md) before any development, audit, README status edit or release claim. These are instructions and deterministic checks, **not proof a separate live agent executed**.
+
+1. **root-cause first:** For a recurring bug or false status, reproduce the failure, identify the owning code/process and why its earlier regression coverage failed. A bitácora, reopened issue, CSS workaround, renamed check or another prompt alone is NOT remediation.
+2. **Same-failure regression:** Add at least one negative fixture/test that fails on the previously broken behavior and passes on the repair. Preserve affected workflows and data; for hardware/accounts/manual-only checks keep that gate PENDING, never silently turn it green.
+3. **exact-head evidence:** Fetch latest main HEAD, active PRs/claims, required workflow runs, release tag and provider state separately. Only the same exact source SHA plus actual applicable validation can close the gate. A workflow name, release existence, old screenshot or green unrelated job is not proof.
+4. **owning repo truth:** Put detailed findings, prevention steps, status and owner-specific follow-up in this product's audit and bitácora. **README** must directly link the owning audit and show the correct latest stable release metadata from GitHub's authoritative tag/assets, not a candidate version. Shared standards stay in Michel-Software-Standards; cross-product references are links only, never imported implementation.
+5. **Cost/privacy:** no extra subscription, paid plugin, host, token, external account, install, dataset upload or user relationship/audio/scientific action without specific approval. Check privacy and domain boundaries (OpenFOAM only in scientific products; never in unrelated apps); no secrets in logs.
+6. **Fail closed and explain:** Missing/in-progress/red CI, absent permissions or conflicting repo/release docs must be recorded as BLOCKED. Do not merge/publish a functional claim on documentation-only checks. Preventive agent/README drift is checked by the master read-only recurring guard, but this does not replace runtime QA. Reply in the conversation with ONE consolidated table of actual changes, errors, validations and remaining work rather than forcing the owner to open each repo.
+
+This section is a preventive contract; follow product-specific rules below. Distribution repos own binaries and manifests only; source products own behavior and regression tests.
+
 # FoamLens — Agent Contract
+
+## Owner's Granada release authority — 2026-10-21
+
+When the owner invokes **Operación Granada for this specific product**, agents MAY complete release integration, final versioning and **publish the official final STABLE release** without asking for a second release command, **only after all product-specific current-SHA tests, installed/device/runtime/scientific/privacy gates, validated artifacts, signing/integrity and update/distribution requirements have passed**. It is conditional authority, NOT an instruction to ship unfinished code on every Granada. **No RC, beta, prerelease, preview release or publication for other products.** A distribution repository may receive only its own app's verified final assets, never initiate independent releases. Follow master `GLOBAL_RULES.md` and `standards/RELEASE_PROTOCOL.md`; record tag, provenance, published assets and exact result. If any gate is missing, do not release and continue another independent block.
+
 
 
 ## Desktop About placement (mandatory)
@@ -59,7 +77,7 @@ A green historical release is not evidence for current HEAD.
 
 Record meaningful findings, fixes, failed approaches, tests and release evidence in `docs/GIT_AUDIT_LOG.md`. Infrastructure changes also update `docs/INFRASTRUCTURE_AUDIT.md` when relevant.
 
-Do not bump a version or publish a release unless explicitly assigned.
+Do not bump a version or publish a release without an explicit per-app order **or the standing owner-authorized targeted Granada with all release gates passing**.
 
 
 ## Intelligent brand adoption
@@ -107,7 +125,7 @@ For any tracked Michel's Lab task, return enough machine-readable continuation c
 
 Do not list planned tests/builds/device checks as completed validation. If required validation was not performed, the task must be released/handed back with that work pending rather than described as complete.
 
-<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-12.3 -->
+<!-- MICHELSLAB_SHARED_CONTRACT_BEGIN id=child-agent-core version=2026-10-21.1 -->
 # Michel's Lab shared child-agent contract
 
 This managed block is cross-project policy. Repository-specific instructions may add stricter local rules outside this block, but they must not weaken or contradict it.
@@ -119,6 +137,13 @@ This managed block is cross-project policy. Repository-specific instructions may
 - Do not silently invent a conflicting local Michel's Lab rule.
 - Never commit secrets, credentials, signing material, private tokens or passwords.
 - Historical green CI is not proof for the current commit.
+
+## Mandatory cross-product isolation
+
+- Share **only** generic governance, branding, evidence/provenance, safe release, privacy and coordination mechanics across applications. Never copy source files, test fixtures, domain taxonomies, scientific solver paths, backend assumptions, integration details, or feature plans from one unrelated product to another.
+- Each product owns its functionality, validation suites, pending work and architecture. A role file that is synced from the master is not permission to invent shared domain requirements; where a specific application capability is not present, keep it out of that child contract.
+- When adapting a reusable tool, separate its general engine from its per-product policy and negative regression fixtures. Verify the active repository identity and actual file tree before submitting a change or PR title. For cross-product migrations, inspect every target and prove the policy is appropriate for that target.
+- **Do not treat incidental appearances of a foreign product name or workflow in another repo as an app integration.** Correct the misplaced material and record the source and destination of the mistaken copy without claiming runtime coupling.
 
 ## Product identity / About
 
@@ -138,11 +163,11 @@ This managed block is cross-project policy. Repository-specific instructions may
 - Product logo geometry is the source of the app's **entire UI design language**; do not paste a canonical SVG in an unrelated sticker card and call branding complete. Use shared typography, spacing, geometry, control and motion tokens from that identity.
 - **Every desktop app:** place a visible, labeled **About** action in the fixed top application header on launch and throughout all workspaces. It MUST NOT exist exclusively in a footer, off-screen scroll content, Home, a collapsed sidebar or overflow menu. It must stay accessible at the minimum window size and high DPI; verify actual initial viewport placement and clickable bounds. Header stays fixed while main content scrolls.
 - Keep official mark + readable product name and global About/Updates persistently visible independent of collapsible sidebar and selected workspace. No duplicate massive lockup/heading.
-- Data shows only data ingestion/catalog/filter controls, Field only 3D tools, Analysis only scientific analysis. Prefer a single 3D view by default and explicit coherent comparison state.
-- Compact/one-at-a-time contextual subbars should preserve actual scientific canvas. No persistent overlays hiding a simulation or axis gizmo.
+- Only require workspaces, navigation and views that genuinely exist in the current product. Product-specific Data/Field/Analysis, 3D scenes and scientific simulation conventions must live in their owning product repository, never in the shared contract.
+- Keep product-specific primary workspaces unobstructed: contextual controls should not obscure the app's actual content, audio controls, dashboards, or other functional surfaces.
 - At normal desktop widths/heights, the initial About viewport must show portrait, product, studio slogan and all five recognizable social icons **with visible names without scrolling**; test viewport intersections, not just existence or scroll reachability. Review actual screenshot.
 - On large imports, progress feedback has clear preparing/loading/stalled/completed/failed states and cannot hang forever at zero progress.
-- Apply `standards/BRAND_NATIVE_INTERFACE_STANDARD.md`; never claim a cohesive redesign without actual installed-surface screenshots, scientific functional checks and human review.
+- Apply `standards/BRAND_NATIVE_INTERFACE_STANDARD.md`; never claim a cohesive redesign without actual installed-surface screenshots, **relevant product-specific functional checks** and human review.
 
 ## Rendered visual brand release gate — mandatory for every app
 
@@ -209,14 +234,14 @@ After a merge, release, tag or provider mutation, re-read authoritative state be
 ## Owner-only testing and official release delivery (all governed applications)
 
 - **Owner-only default:** Until Michel explicitly says this particular app was shared with another person, assume Michel is its sole tester/user. Do not infer an external user base from a public GitHub release. This does not make public assets private. A sharing announcement about a different app never changes this app's status.
-- **Explicit release order:** Only Michel's explicit instruction to publish this app authorizes each new release. 'Continue', 'finish', CI green, a PR merge or feature completion is NOT authorization. Keep implementing/integrating tested changes without repeatedly asking him to say 'continue'; never auto-publish/tag/activate release workflows merely because main advanced.
+- **Explicit release order:** **Standing owner instruction (2026-10-21): a Granada invocation targeting this app conditionally authorizes its next FINAL STABLE release after all actual product gates pass, with no second prompt.** Outside targeted Granada, an explicit per-app publish order is required. 'Continue', CI green, a PR merge or feature completion alone is not authorization. Keep implementing/integrating tested changes without repeatedly asking him to say 'continue'; never auto-publish/tag/activate release workflows merely because main advanced.
 - **Owner download rule:** Do NOT direct Michel to install or download from a PR, branch ZIP, GitHub Actions build/artifact or preview as the normal testing/update path. You can report the CI evidence without treating it as a downloadable release. Discuss a developer preview download only if Michel expressly asks for it.
-- **Official release delivery:** When Michel orders a release, first satisfy existing automated same-commit signing, build, launch, functional, rendered UI and artifact checks. Publish via the product's official GitHub Releases/designated distribution channel, verify the real downloadable assets, and provide their official release links. Never describe a newer main or PR build as already installed or released.
+- **Official release delivery:** Under the target-app Granada standing release authorization (or another explicit per-app release order), first satisfy existing automated same-commit signing, build, launch, functional, rendered UI and artifact checks. Publish via the product's official GitHub Releases/designated distribution channel, verify the real downloadable assets, and provide their official release links. Never describe a newer main or PR build as already installed or released.
 - **Separate gates:** Owner release permission and his post-release visual review are different. Do not reintroduce a manual pre-release approval gate, or claim physical-device/provider acceptance from CI.
 
 ## Release and evidence boundary
 
-- Do not publish/release unless explicitly authorized.
+- Do not publish/release unless explicitly authorized, **including conditional 2026-10-21 target-app GRANADA authorization after all required gates pass**. No RC/beta/prerelease, no implicit cross-app publication.
 - Manual/device/store/provider validation remains pending until actually performed.
 - Do not fabricate screenshots, device behavior, store status, cloud/provider state or test results.
 - Preserve unrelated known-good behavior and keep changes bounded to the assigned task.
@@ -257,3 +282,12 @@ Every native Windows app installer must show a Welcome page, a complete real pro
 ## Mandatory continuous independent work while CI runs (2026-10-12)
 Once a PR or current-commit build, GitHub Actions check, installer test, review or external verification is pending, **do not stop development or ask the owner to prompt "continue"**. Immediately progress another genuinely independent, eligible, unclaimed task in a separate branch/repository/scope, while preserving each pending task's repository, branch, exact SHA, workflow/run ID, outcome and next verification action. Prefer work in another repository while a current repository is claimed. Same-repository parallel work is permitted **only** when the master task coordinator explicitly declares `parallel_safe: true` and distinct `parallel_scope` values for all participants; never steal a non-stale claim, edit colliding files or bypass a reserved task. Return to the original exact-head CI result before merging, claiming a gate PASS, closing the tracked task or publishing. If no genuinely safe task exists, report the actual blocker rather than inventing work. Pending, skipped or missing CI is not PASS, and independent progress does not authorize a release.
 <!-- MICHELSLAB_SHARED_CONTRACT_END id=child-agent-core -->
+
+## GRANADA — Regla permanente de continuación del propietario
+
+Cuando el propietario diga **GRANADA**, se aparca con trazabilidad cualquier pendiente inacabado/bloqueado/en QA/propiedad de otra rama, y se aborda **el siguiente bloque grande independiente**. Consultar primero `.michelslab/GRANADA.md` y la norma maestra `standards/GRANADA_CONTINUOUS_BLOCK_PROTOCOL.md`; respetar claims, PRs y colisiones de archivos. Registrar SHA, tests y punto de retorno; no cerrar pendientes falsamente ni publicar releases sin autorización.
+
+
+## Independent Perspective Council — product challenge (2026-10-21)
+
+This app exposes four **Michel's Lab-owned, provider-neutral role instructions** under `.michelslab/agents/`: `contrarian.md`, `user-advocate.md`, `intelligence-architect.md` and `council.md`. They are designed for ChatGPT to read and use when helping on this application, **not** GitHub Copilot custom-agent profiles. Before major roadmap decisions, ambitious **Operación Granada** package selection, significant UI journeys or at explicit owner request, use the three **independent** lenses and then synthesize. Follow `michels-lab/Michel-Software-Standards/standards/PERSPECTIVE_COUNCIL_STANDARD.md`; focus on OpenFOAM import, 3D/2D Fields, Analysis, scientific provenance, CAD, mesh, time series and visible navigation controls; never invent physics or datasets. Every finding must distinguish observed evidence, inference and unknown, include smallest alternative, measurable acceptance, risk and a justified priority. Record scoped reviews under `docs/product-reviews/` and product-specific decisions in this repo's own bitácora when actually written. These instructions let one assistant reason from three separate perspectives and synthesize, but do **not** establish separately executing AI agents, live autonomous runs, app implementation or installed QA. Do not overwrite claimed work or treat a review as permission to release.
