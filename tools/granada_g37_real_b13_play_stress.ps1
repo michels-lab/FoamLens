@@ -32,6 +32,7 @@ $uninstall=Join-Path $installedDir 'unins000.exe'
 $log=Join-Path $env:LOCALAPPDATA 'FoamLens\Desktop\foamlens-desktop.log'
 $script:attempts=@()
 $script:installed=$false
+$script:failureEvidence=$null
 $success=$false
 $reason='none'
 $env:FOAMLENS_SMOKE_OPENFOAM_CASE=$fixture
@@ -46,6 +47,56 @@ $env:FOAMLENS_SMOKE_TIME='9.8'
 $env:FOAMLENS_SMOKE_MIN_FIELD_SPAN='1'
 $env:FOAMLENS_SMOKE_SOURCE_SHA=$SourceSha
 Remove-Item Env:FOAMLENS_SMOKE_GPU_READY_FILE -ErrorAction SilentlyContinue
+
+# Failure-only, whitelist-based native evidence. Never upload raw logs, WebView2 profiles,
+# screenshots, local case paths or science values. This is NOT a release pass gate.
+function Safe-FailureEvidence([string]$nativeLog,[string]$mode,[int]$n,[int]$exitCode){
+ $d=[ordered]@{
+  mode=$mode; cycle=$n; exitCode=$exitCode
+  fieldLayoutFailure=$false
+  realQuickCupCompleted=$nativeLog.Contains('FoamLens real OpenFOAM packaged runtime smoke passed:')
+  secondViewCompleted=$nativeLog.Contains('FoamLens synchronized View 2 legend/Probe smoke passed:')
+  fullNativeSmokeCompleted=$nativeLog.Contains('FoamLens Windows smoke test passed.')
+  stage='unknown-native-exit'
+ }
+ $field=[regex]::Matches($nativeLog,
+   'Real Field toolbar/canvas geometry or physical region evidence failed in (?<view>wide|compact): (?<state>\{[^\r\n]*\})')
+ if($field.Count -gt 0){
+  $last=$field[$field.Count-1]
+  $d.fieldLayoutFailure=$true
+  $d.stage='field-layout'
+  $d.viewport=$last.Groups['view'].Value
+  $d.fieldContractJsonParseable=$false
+  try{
+   $state=ConvertFrom-Json -InputObject $last.Groups['state'].Value -AsHashtable -ErrorAction Stop
+   $d.fieldContractJsonParseable=$true
+   $flags=[ordered]@{}
+   foreach($key in @('ok','cameraDocked','distinctCameras','cameraNamesReadable','fieldNavHidden',
+     'playNotCollapsed','cachePopoverValid','regionLegendMeasured','independentRegionPalette',
+     'clockMatchesRealFrame','physicalFrameMatches','displayedTimeMatches',
+     'clockAriaMatches','clockVisible')){
+    if($state.Contains($key)){$flags[$key]=($state[$key] -eq $true)}
+   }
+   $d.fieldChecks=$flags
+   $measure=[ordered]@{}
+   foreach($key in @('viewport','canvasWidth','canvasHeight','toolbarHeight','toolbarWidth',
+     'toolbarLeft','toolbarRight','toolbarCanvasOverlap','shelfScrollLeft','shelfScrollWidth',
+     'shelfClientWidth','clockWidth','clockHeight')){
+    if($state.Contains($key) -and $null -ne $state[$key] -and
+       $state[$key] -is [ValueType] -and [double]::IsFinite([double]$state[$key])){
+      $measure[$key]=[math]::Round([double]$state[$key],2)
+    }
+   }
+   $d.nonScientificPixelMeasures=$measure
+  }catch{$d.fieldContractJsonParseable=$false}
+ }elseif($nativeLog.Contains('WebView2') -or $nativeLog.Contains('CoreWebView2')){
+  $d.stage='webview2-or-host'
+ }elseif($nativeLog.Contains('FoamLens real OpenFOAM packaged runtime smoke')){
+  $d.stage='scientific-case-or-later'
+ }
+ return $d
+}
+
 function Native-Smoke([string]$app,[string]$variant,[int]$n){
  $folder=Join-Path $captures "$variant-$n"
  New-Item -ItemType Directory -Path $folder -Force | Out-Null
@@ -57,6 +108,12 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
  $p=Start-Process -FilePath $app -ArgumentList @('--smoke-test') -PassThru
  try{
   if(-not $p.WaitForExit(300000)){try{$p.Kill($true)}catch{};throw "$variant/$n original smoke timed out"}
+  if($p.ExitCode -ne 0){
+   $rawFailure=if(Test-Path -LiteralPath $log){[IO.File]::ReadAllText($log)}else{''}
+   $script:failureEvidence=Safe-FailureEvidence $rawFailure $variant $n ([int]$p.ExitCode)
+   Write-Host ("G37 SANITIZED FAILURE (no private scientific values): " +
+     ($script:failureEvidence|ConvertTo-Json -Depth 5 -Compress))
+  }
   Need ($p.ExitCode -eq 0) "$variant/$n real OpenFOAM/Play original product FAILED"
  }finally{$p.Dispose()}
  Need (Test-Path -LiteralPath $log) "$variant/$n original native logfile missing"
@@ -131,6 +188,7 @@ try{
   humanVisual36Accepted=$false
   originalProductReleaseReady=$false
   failureKind=$reason
+  sanitizedFailure=$script:failureEvidence
  } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
  if(Test-Path -LiteralPath $captures){Remove-Item -LiteralPath $captures -Recurse -Force -ErrorAction SilentlyContinue}
 }

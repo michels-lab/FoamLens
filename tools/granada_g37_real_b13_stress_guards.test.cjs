@@ -56,3 +56,24 @@ test('negative regression: missing actual QuickCup case cannot be called a physi
 test('negative regression: cannot mark original stable ready',()=>{
  assert.throws(()=>guarded(ps.replace('originalProductReleaseReady=$false','originalProductReleaseReady=$true'),source,wf),/false stable/);
 });
+
+test('negative regression: a nonzero native exit must emit sanitized stage and failed cycle before raw log cleanup',()=>{
+ assert.match(ps,/function Safe-FailureEvidence\(\[string\]\$nativeLog/);
+ assert.match(ps,/if\(\$p\.ExitCode -ne 0\)/);
+ assert.match(ps,/\$script:failureEvidence=Safe-FailureEvidence \$rawFailure \$variant \$n/);
+ assert.match(ps,/sanitizedFailure=\$script:failureEvidence/);
+ assert.match(ps,/fieldLayoutFailure=\$true/);
+ assert.match(ps,/playNotCollapsed/);
+ assert.match(ps,/fieldContractJsonParseable/);
+ assert.match(ps,/nonScientificPixelMeasures/);
+ const damaged=ps.replace('$script:failureEvidence=Safe-FailureEvidence $rawFailure $variant $n ([int]$p.ExitCode)',
+   'Write-Host unchecked');
+ assert.doesNotMatch(damaged,/\$script:failureEvidence=Safe-FailureEvidence \$rawFailure \$variant \$n/);
+});
+test('failure evidence cannot print raw WebView2 logs, images or privately sourced field values',()=>{
+ assert.doesNotMatch(ps,/Write-(?:Host|Output)\s+\$(?:rawFailure|nativeLog|raw)\b/);
+ assert.doesNotMatch(wf,/path:\s*(?:quickcup-runtime-fixture|g37-private-raw-WebView2)/);
+ assert.match(ps,/if\(Test-Path -LiteralPath \$captures\)\{Remove-Item -LiteralPath \$captures/);
+ assert.match(ps,/realQuickCupCompleted=\$nativeLog\.Contains/);
+ assert.match(ps,/secondViewCompleted=\$nativeLog\.Contains/);
+});
