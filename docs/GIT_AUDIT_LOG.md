@@ -211,6 +211,42 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-27 — Granada #152 after #151 MAIN scientific merge (UNRELEASED)
+
+- #166 energy owner module is now merged on authoritative original main `0f36653ff7b441ab0a4c7fa457e12c69d7e92785` (source-only, no public release). The isolated original #167 thermocouple implementation and regression work was first reconciled on pre-energy main, then source case parser CI failed on a real nonzero case 31 because a JS regex was inadvertently double escaped. The failing scientific Windows and Ubuntu runs correctly rejected a false green claim.
+- Owner module source fix `6fa4cdea450af11fe3fe7b4d301c963f81f2b0fe` restores valid nonzero safe integer case ID, retains rejects for null/empty/incorrect source case identity; a direct source preflight confirms case 31, case 0 and falsified source region/path/XYZ rejection. Scientific Windows and Ubuntu exact SHA CI and native installed/Portable are separate validation gates.
+- Reconcile using exact #151 main tree so #166 energy code, existing security protections, original native CAD/Field and master bitácoras remain fully intact; only original #167 scientific frontend/tests/workflow and doc metadata are added. Do not close #152 until real experimental sensor placement, mesh, source, physical-time and published UX are verified; no automatic recalescence interpretation and no stable release.
+
+## 2026-10-27 — GRANADA #152: source-binding correction + reconciled current main (PR #167, not released)
+
+- In prior original scientific core the field history comparison wrongly accepted a probe whose original source key named **another case/region**, whose derived source path named a different probe, or whose original key's 3D XYZ did not agree with the actual sampled coordinates. Additionally, null target case IDs were coerced to the valid case zero by Number(null).
+- Same owning #167 branch source now rejects those ambiguities using strict case IDs and `tcProbeSourceConsistent`, invoked in BOTH the picker and metric evaluator. Legitimate exact field-derived probe histories and case zero remain accepted. Adversarial fixtures added for all original misbindings and valid control.
+- Loader regression now requires actual G35 trusted embedded AppBundle extension manifest and disallows old arbitrary AppRoot wildcard (source contract). Does not independently certify native runtime or actual user measurements.
+- The integration reconciles this original owner branch against original main snapshot `5e4882e8c4c8f6cd92794545b97446b32451e67f` in a TWO-PARENT merge, preserving updated native G35 security, CAD/Field, other science, all current log sections; no direct `main` source/release alteration.
+- Remaining: freshly run Windows+Ubuntu owner tests on reconciled exact SHA, full Windows Setup/Portable, real thermocouple fixture and mesh containment, user acceptance, #230/#238 release blockers. This log records a candidate, not successful installed QA.
+
+## 2026-10-19 — Operación Granada #152: thermocouple XYZ mapping candidate
+
+- Fresh branch `feat/granada-152-thermocouple-xyz-validation-20261019` based on `cbf384b81948334b71f1fc67096b026e65b79583`. **Skipped existing open, unfinished** Field #162, CAD #164, 2D/3D #165 and Energy #166 PRs; no edits to those branches or their owning modules, original Windows build or Program.cs.
+- Audited preexisting `v14-experimental-validation.js` CSV/time-temperature validation and source-backed `v14-zz-field-workspace.js` 3D Probe field-history creation, plus actual `fvCellContainsPoint` mesh-face containment logic. The standalone `v24-thermocouple-xyz-mapping.js` connects them in Analysis without falsely presenting a nearest center as proof of containment.
+- Experimental thermocouple XYZ unit + coordinates, case, material region and measured temperature/time columns must be explicit. Both sensor and simulated 3D probe positions independently require a containing OpenFOAM polyhedral cell in the current loaded case/region. Missing topology, wrong source, non-overlapping time, unconfirmed units, repeated/missing experimental values, or spatial offset greater than user tolerance block evaluation.
+- Only real imported/field-derived temperature series are compared; Kelvin conversions, time interpolation only within overlap, n/RMSE/MAE/bias/max error, plot and original physical source/cell metadata exported locally as JSON or paired CSV. Displacement sensitivity requires **other** independently generated probe histories in the same case/region/field family, with separately confirmed cell membership; unavailable is explicit, not fabricated.
+- Isolated `desktop/tests/thermocouple-xyz-mapping.spec.cjs`, loader regression and `granada-thermocouple-xyz.yml` test existing probe/experiment contracts on Ubuntu/Windows. First CI loader failure was test-only `module` shadowing CommonJS built-in; corrected. Exact-head fast CI, full Windows setup/portable and real-owner experimental acceptance remain distinct gates; see `docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md`.
+- Still open: actual thermocouple material-contact/calibration proof, concave cell containment, source case coordinate verification with owner files, target real-world positional perturbation validation, packaged WebView2 visual/functional test and publication. No release authorized; issue #152 remains open.
+
+
+> Living engineering log for the FoamLens repository.  
+> Repository: `michels-lab/FoamLens`  
+> Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
+> Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
+
+
+> Living engineering log for the FoamLens repository.  
+> Repository: `michels-lab/FoamLens`  
+> Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
+> Generated from GitHub history on 2026-09-28. Times below are UTC unless noted otherwise.
+
+
 ## 2026-10-27 — GRANADA #151 reconciled on current main for native integration (source QA only)
 
 - Scientific energy PR #166 original source was 202 commits behind current original main. This reconciliation uses a two-parent merge commit from the exact main snapshot `5e4882e8c4c8f6cd92794545b97446b32451e67f` and the exact original PR owner head `134af9cda7721929af2736c80bb3dea5419cd0a8` rather than reverting any updated native Field, CAD, G35 trusted-extension security, Developer, build or scientific modules.

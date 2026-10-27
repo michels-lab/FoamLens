@@ -38,6 +38,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Cross-platform scientific `.spec.cjs` and source-loader contract tests in standalone `granada-multiregion-energy.yml` without touching overlapping native smoke/monolithic Windows workflow. Exact-current-commit CI status and native installed validation remain separate gates.
 - **Remaining #151:** source-native normal/area and patch correspondence, full sensible+latent inventory accounting, multiple external fluxes/losses, real OpenFOAM multiregion case validation, packaged WebView2/Setup/Portable acceptance and user physical review. No public version bump or release.
 
+### Operación Granada #152 — Thermocouple XYZ conditional physical mapping (candidate only)
+
+- Independent from active Field #162, CAD #164, 2D/3D #165 and Energy #166. Existing Experimental Validation, real 3D Probe source history and Field polyhedral cell-containment are reused. New `v24-thermocouple-xyz-mapping.js` is installed in scientific Analysis with no modification of other in-flight modules.
+- Real target thermocouple coordinate/unit and real imported experimental temperature series mapped only to matching case/region temperature Probe histories from `field3d-probe-history`. Both sensor and original simulated probe coordinates separately require verified containing-cell evidence in the actual loaded OpenFOAM mesh; source probe offset tolerance is explicitly chosen.
+- Strict time and units, no temporal extrapolation, RMSE/MAE/bias/max difference, plot, local JSON/CSV provenance, separately measured physical displacement sensitivity candidates; no automatic recalescence label or synthesized temperatures.
+- Ubuntu/Windows specs cover prior source contracts and new guards. Missing source/mesh/units explicitly blocks validation. Remaining #152: real owner experimental data, irregular cells, definitive material/sensor calibration and co-location, installed Windows Setup+Portable acceptance and full spatial sensitivity protocol. **Unreleased**.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

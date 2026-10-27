@@ -1,3 +1,18 @@
+## Unreleased — Operación Granada #152 · Thermocouple physical XYZ mapping candidate
+
+- Add an independent Analysis companion to the existing Experimental Validation and 3D Probe History tools: measured sensor XYZ and unit → actual currently loaded OpenFOAM region/case cell face-containment check, *plus separate verification of the simulated probe's own containing cell*.
+- Reuse source-backed field-sampled 3D Probe histories and CSV/TXT parsing; require explicit physical co-location tolerance, sensor metadata, time/temperature columns, Kelvin/Celsius units and experiment time shift. Block unmatched regions/cases, invalid 3D topology, missing/duplicate/nonfinite measurements, unverified points and absence of physical-time overlap.
+- Compare real Kelvin time histories with no extrapolation: paired count, RMSE, MAE, bias and maximum difference; plot source/experiment and export locally on demand. Sensitivity uses only independently sampled, same-case/region/field-family 3D probe histories, each with separately verified cell containment; never fabricates spatial values.
+- Independent Ubuntu/Windows scientific, preexisting probe and Experimental Validation regressions. Owner experiment, irregular polyhedral meshes, packaged WebView2 and installer acceptance remain open; no release.
+
+## Unreleased — CAD & Geometry STL/OBJ surface inspection candidate (#147, #148)
+
+- Add a dedicated, local surface-inspection overlay to the Windows frontend for ASCII/binary STL and named OBJ components, with independent named-part visibility, orbit/zoom/preset views, XYZ bounds; multi-source overlays require per-file unit confirmation and surface topology warnings.
+- Detect degenerate triangles, open/nonmanifold edges and inconsistent winding; give only a qualified enclosed-volume estimate for closed, consistently wound triangle surfaces, not proof of CAD/mesh validity.
+- Export a selected named **surface** as ASCII STL in meters with a provenance manifest, requiring explicit selection of source coordinate units. No simulation files are modified; no OpenFOAM solver or mesher is executed.
+- STEP/IGES/BREP kernel-based conversion, comprehensive surface and self-intersection certification, native worker isolation, OpenFOAM edition-aware surface installation, standalone meshing and owner interactive acceptance remain pending.
+- Candidate branch only, with dedicated regression and packaged WebView2 smoke gates; **not released**.
+
 ## Unreleased — Granada #151 · conditional multi-region energy conservation
 
 - Add a source-only Analysis companion to the existing automatic Energy Audit, with two named regions, physical stored-energy curves [J], opposite oriented interface power curves [W], optional independent boundary/source terms and explicit sign controls.
