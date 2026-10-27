@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {test}=require('node:test'),root=path.resolve(__dirname,'..');
-const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n');
 const ps=read('tools/granada_g33_actual_native_stale_extension.ps1');
 const cs=read('tools/granada_g33_local_origin_witness/Program.cs');
 const wf=read('.github/workflows/granada-g33-real-native-residue.yml');
