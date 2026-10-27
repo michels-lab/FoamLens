@@ -16,11 +16,27 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
 - Scope tracked [#158](https://github.com/michels-lab/FoamLens/issues/158) and [Developer Edition design and build](FOAMLENS_DEVELOPER_EDITION_2026-10-19.md). **Software auditor (#158) is distinct from scientific Mesh Auditor (#150)**.
 
+### F3/F4 partial STL/OBJ surface inspector candidate — #147 / #148 (NOT released)
+
+- Candidate branch `feat/cad-stl-obj-inspector-20261019`: dedicated local CAD & Geometry dialog, ASCII/binary STL and OBJ named-part import, projected orbit/zoom preview with independent named-part visibility and cross-file metric positioning only after per-source unit confirmation, real source-coordinate bounds, triangle/surface diagnostics, and per-part ASCII STL export to meters **only after explicit source-unit selection** with a source manifest.
+- Source filenames/components are retained; no assumed metal/mold identity. Uses 32 MiB/file, 200,000 triangles/file, 300,000 triangles in combined interactive preview, and no automatic remote uploads.
+- It is a **surface parser and viewer**, not native OCCT STEP/IGES/BREP conversion or mesh generation. Shell self-intersection, true CAD assembly, CAD native unit metadata, geometrical exactness, native worker cancellation and CPU/GPU stress are not certified.
+- No automatic case output into `constant/geometry` or `constant/triSurface` until the user's actual OpenFOAM edition/version is verified. No solver, mesher or `surfaceCheck` execution. Remaining F3/F4/F5 tickets stay open.
+- Regression + packaged native WebView2 smoke added; complete installation/owner-case visual acceptance and exact-head CI required before merging or claiming delivered. Existing F1 per-view issue #145 and T1 #146 are not superseded.
+
 ### #150 Mesh quality report inspector implementation candidate
 
 - **Source-backed first stage:** Data → Mesh & Geometry Auditor accepts an existing local `checkMesh` report, identifies topological/metric quantities and warnings, preserves per-region evidence, explicit nulls for unreported metrics, and locally exports JSON with source/provenance limitations. Does not call `checkMesh` nor write a simulation case.
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
+
+### Operación Granada #151 — Conditional multiregion energy accounting (candidate only)
+
+- Independent from open PRs #162 Field, #164 CAD and #165 2D/3D; no shared Program.cs or main Windows workflow modifications.
+- New `v24-multiregion-energy.js` companion to the existing `v14-energy-audit.js`; dedicated Analysis section with measured, case-bound, named-region postProcessing energy inventory [J] and interface power [W] mapping, optional external/source power [W], source sign conventions and three explicit completeness/geometry attestations.
+- Performs strictly common-time signed per-region and two-region conservation checks, independent interface reciprocity, source column deduplication, rigorous units/dimension and nonfinite/coverage rejection; exports local reproducible JSON/CSV evidence. Zero residual is reported as **conditional only**, never solver/mesh certification.
+- Cross-platform scientific `.spec.cjs` and source-loader contract tests in standalone `granada-multiregion-energy.yml` without touching overlapping native smoke/monolithic Windows workflow. Exact-current-commit CI status and native installed validation remain separate gates.
+- **Remaining #151:** source-native normal/area and patch correspondence, full sensible+latent inventory accounting, multiple external fluxes/losses, real OpenFOAM multiregion case validation, packaged WebView2/Setup/Portable acceptance and user physical review. No public version bump or release.
 
 ### Operación Granada #155 — Scientific Case Health (candidate / P1 partial)
 

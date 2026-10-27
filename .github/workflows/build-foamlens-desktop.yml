@@ -17,6 +17,9 @@ on:
       - 'tools/make_visual_evidence.py'
       - 'tools/test_visual_evidence.py'
       - 'tools/generate_windows_icon.py'
+      - 'tools/granada_g21_signing_guard.cjs'
+      - 'tools/granada_g21_signing_guard.test.cjs'
+      - 'tools/granada_g21_native_signing.ps1'
       - 'tools/visual_release_gate.py'
       - 'tools/measure_gpu_process_memory.ps1'
       - 'tools/test_gpu_process_memory.ps1'
@@ -51,6 +54,9 @@ on:
       - 'tools/make_visual_evidence.py'
       - 'tools/test_visual_evidence.py'
       - 'tools/generate_windows_icon.py'
+      - 'tools/granada_g21_signing_guard.cjs'
+      - 'tools/granada_g21_signing_guard.test.cjs'
+      - 'tools/granada_g21_native_signing.ps1'
       - 'tools/visual_release_gate.py'
       - 'tools/measure_gpu_process_memory.ps1'
       - 'tools/test_gpu_process_memory.ps1'
@@ -602,9 +608,17 @@ jobs:
         shell: pwsh
         run: node desktop/tests/timeseries-source-catalog.test.cjs
 
+      - name: Test T1 source provenance, unknown field labels, metadata compatibility, filters and DOM safety
+        shell: pwsh
+        run: node desktop/tests/timeseries-provenance.test.cjs
+
       - name: Test source-only OpenFOAM checkMesh report and explicit missing metrics
         shell: pwsh
         run: node desktop/tests/mesh-quality-audit.test.cjs
+
+      - name: Test CAD surface import, topology, units and triSurface export
+        shell: pwsh
+        run: node desktop/tests/cad-surface-inspector.test.cjs
 
       - name: Test dual-variable Time-Series Focus
         shell: pwsh
@@ -971,6 +985,15 @@ jobs:
           echo 'Regenerated ICO committed, revalidating new exact branch HEAD (Windows only).'
           gh workflow run build-foamlens-desktop.yml --ref "${GITHUB_REF_NAME}"
 
+      - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
+        shell: pwsh
+        run: |
+          $v='${{ steps.ver.outputs.version }}'
+          ./tools/granada_g21_native_signing.ps1 -Portable "artifacts/FoamLens-Portable-v$v.exe" -Setup "artifacts/FoamLens-Setup-v$v.exe" -Output artifacts/g21-authenticode-report.json -SourceSha $env:GITHUB_SHA -Version $v
+          if ($LASTEXITCODE -ne 0) { throw 'Official stable release blocked by unsigned or untrusted Windows distribution assets.' }
+          node tools/granada_g21_signing_guard.cjs artifacts/g21-authenticode-report.json artifacts $env:GITHUB_SHA $v
+          if ($LASTEXITCODE -ne 0) { throw 'Unsigned/tampered original assets are not eligible for FoamLens stable release.' }
       - name: Upload FoamLens Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -991,6 +1014,7 @@ jobs:
             artifacts/foam-gpu-installed.json
             artifacts/foam-gpu-portable-loaded.json
             artifacts/foam-gpu-installed-loaded.json
+            artifacts/g21-authenticode-report.json
             artifacts/visual/
           if-no-files-found: error
 
@@ -1053,6 +1077,14 @@ jobs:
           if pdigest!=doc.get('portable_artifact_sha256',{}).get('windows'): raise SystemExit('BLOCKED: portable binary differs from UI-validated candidate')
           print('Release installer and portable validated against source/screenshot manifest:',digest,pdigest)
           PY
+      - name: G21 rebind exact signed Windows-native attestation to downloaded stable assets
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -f artifacts/g21-authenticode-report.json || { echo 'BLOCKED: no native Authenticode report in artifact'; exit 1; }
+          node tools/granada_g21_signing_guard.cjs artifacts/g21-authenticode-report.json artifacts "$GITHUB_SHA" "$RELEASE_VERSION"
       - name: Publish verified GitHub Release
         shell: bash
         env:

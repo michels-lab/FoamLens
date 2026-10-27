@@ -23,7 +23,10 @@
     const record={
       at:new Date().toISOString(),kind:clean(kind),severity:clean(severity),
       message:clean(message),source:clean(source),page:location.pathname,
-      ...Object.fromEntries(Object.entries(extra).slice(0,8).map(([k,v])=>[k,clean(v)]))
+      // Event metadata is an allowlist. Untrusted host messages must not
+      // override source/severity/message/page or attach private arbitrary data.
+      ...Object.fromEntries(Object.entries(extra).filter(([k])=>
+        ['stack','line','column','origin'].includes(k)).slice(0,4).map(([k,v])=>[k,clean(v)]))
     };
     const prev=events.at(-1);
     if(prev&&prev.kind===record.kind&&prev.message===record.message&&prev.source===record.source){
@@ -40,8 +43,18 @@
   // Durable, developer-only section notes. Data stays in the isolated
   // FoamLensDeveloper WebView2 profile; export is an explicit user action.
   const ANNOTATION_KEY='foamlens-developer-section-notes-v1',MAX_NOTES=100,MAX_NOTE_CHARS=2000;
+  const NOTE_PRIORITIES=['P0','P1','P2'],NOTE_STATUSES=['open','investigating','resolved'];
+  const LOCATOR_STATES=['not-inspected','located','missing','ambiguous','changed-element','different-route'];
   let annotationSeq=0,picking=false,draftTarget=null,noteEditor=null,noteList=null;
   let annotations=[];
+  function safePoint(raw){
+    if(!raw||typeof raw!=='object'||!Number.isFinite(raw.x)||!Number.isFinite(raw.y))return null;
+    return{x:Math.max(0,Math.min(1,raw.x)),y:Math.max(0,Math.min(1,raw.y))}
+  }
+  function safeRect(raw){
+    if(!raw||typeof raw!=='object'||!['x','y','width','height'].every(k=>Number.isFinite(raw[k])))return null;
+    return Object.fromEntries(['x','y','width','height'].map(k=>[k,Math.max(-100000,Math.min(100000,raw[k]))]))
+  }
   function loadAnnotations(){
     try{
       const saved=JSON.parse(window.localStorage?.getItem(ANNOTATION_KEY)||'[]');
@@ -50,8 +63,14 @@
         typeof v.comment==='string'&&typeof v.page==='string').slice(-MAX_NOTES).map(v=>({
         id:String(v.id).slice(0,80),page:String(v.page).slice(0,180),
         selector:String(v.selector).slice(0,260),section:String(v.section||'Unlabeled section').slice(0,180),
-        targetTag:String(v.targetTag||'').slice(0,32),rect:v.rect||null,point:v.point||null,
+        targetTag:String(v.targetTag||'').slice(0,32),rect:safeRect(v.rect),point:safePoint(v.point),
         comment:v.comment.slice(0,MAX_NOTE_CHARS),
+        priority:NOTE_PRIORITIES.includes(v.priority)?v.priority:'P1',
+        status:NOTE_STATUSES.includes(v.status)?v.status:'open',
+        lastObserved:LOCATOR_STATES.includes(v.lastObserved?.status)?{
+          status:v.lastObserved.status,checkedAt:clean(v.lastObserved.checkedAt||'',50),
+          reason:clean(v.lastObserved.reason||'',200)}:
+          {status:'not-inspected',checkedAt:'',reason:'Not inspected since this note was created'},
         createdAt:String(v.createdAt||new Date().toISOString()),
         updatedAt:String(v.updatedAt||v.createdAt||new Date().toISOString())
       }))
@@ -107,19 +126,53 @@
   }
   function annotationsSnapshot(){
     return annotations.map(note=>({...note,section:clean(note.section),
-      page:clean(note.page),selector:clean(note.selector),comment:clean(note.comment,MAX_NOTE_CHARS)}))
+      page:clean(note.page),selector:clean(note.selector),comment:clean(note.comment,MAX_NOTE_CHARS),
+      rect:safeRect(note.rect),point:safePoint(note.point),
+      lastObserved:{...note.lastObserved,reason:clean(note.lastObserved?.reason||'',200)}}))
   }
-  function saveAnnotation(target,comment,editId=null){
+  function inspectNote(note){
+    const checkedAt=new Date().toISOString();
+    if(note.page!==location.pathname)
+      return{status:'different-route',checkedAt,reason:'The saved screen is not the currently displayed route'};
+    try{
+      if(typeof document.querySelectorAll!=='function')
+        return{status:'not-inspected',checkedAt,reason:'DOM selector inspection unavailable'};
+      const matches=[...document.querySelectorAll(note.selector)];
+      if(!matches.length)return{status:'missing',checkedAt,reason:'No element matches the saved DOM locator'};
+      if(matches.length>1)return{status:'ambiguous',checkedAt,reason:'Selector now matches multiple elements'};
+      const el=matches[0],tag=String(el.tagName||'').toLowerCase();
+      if(tag!==note.targetTag||sectionLabel(el)!==note.section)
+        return{status:'changed-element',checkedAt,reason:'Same selector no longer has the saved tag and section label'};
+      return{status:'located',checkedAt,reason:'Original selector, tag and section label match'};
+    }catch{return{status:'ambiguous',checkedAt,reason:'DOM locator cannot be safely resolved'}}
+  }
+  function inspectAnnotations(){
+    const results={};
+    for(const note of annotations){
+      note.lastObserved=inspectNote(note);
+      results[note.lastObserved.status]=(results[note.lastObserved.status]||0)+1;
+    }
+    persistAnnotations();renderNotes();updateBadge();
+    return{checkedAt:new Date().toISOString(),total:annotations.length,byState:results,
+      source:'automated DOM locator lookup only; does not verify the developer comment as an application bug'}
+  }
+  function saveAnnotation(target,comment,editId=null,metadata={}){
     if(!target||!target.selector||!target.page)throw Error('Select a real interface section first.');
     const message=String(comment||'').trim().slice(0,MAX_NOTE_CHARS);
     if(!message)throw Error('Write a comment for the selected section.');
     const now=new Date().toISOString();
     const existing=editId?annotations.find(n=>n.id===editId):null;
     if(editId&&!existing)throw Error('The note being edited no longer exists.');
+    const priority=NOTE_PRIORITIES.includes(metadata.priority)?metadata.priority:(existing?.priority||'P1');
+    const status=NOTE_STATUSES.includes(metadata.status)?metadata.status:(existing?.status||'open');
+    const locationChanged=existing&&(existing.page!==target.page||existing.selector!==target.selector||
+      existing.section!==target.section||existing.targetTag!==target.targetTag);
+    const lastObserved=existing&&!locationChanged?existing.lastObserved:
+      {status:'not-inspected',checkedAt:'',reason:'New or changed target has not yet been inspected'};
     if(existing){
-      Object.assign(existing,{...target,comment:message,updatedAt:now})
+      Object.assign(existing,{...target,comment:message,priority,status,lastObserved,updatedAt:now})
     }else{
-      annotations.push({...target,comment:message,
+      annotations.push({...target,comment:message,priority,status,lastObserved,
         id:'section-'+Date.now().toString(36)+'-'+(++annotationSeq).toString(36),
         createdAt:now,updatedAt:now});
       if(annotations.length>MAX_NOTES)annotations.splice(0,annotations.length-MAX_NOTES)
@@ -133,7 +186,7 @@
     annotations.splice(index,1);persistAnnotations();updateBadge();renderNotes();return true
   }
   function resolveTarget(note){
-    if(!note||note.page!==location.pathname)return null;
+    if(!note||inspectNote(note).status!=='located')return null;
     try{return document.querySelector(note.selector)}catch{return null}
   }
   function highlightTarget(el,point=null){
@@ -193,12 +246,19 @@
       empty.textContent='No saved section comments. Use Point to section to create one.';
       noteList.append(empty);return
     }
-    for(const note of annotations.slice().reverse()){
+    const filter=document.getElementById?.('fldaNoteFilter')?.value||'all';
+    const shown=annotations.filter(note=>filter==='all'||note.status===filter);
+    if(!shown.length){const empty=document.createElement('p');
+      empty.textContent='No section comments match the selected status.';
+      noteList.append(empty);return
+    }
+    for(const note of shown.slice().reverse()){
       const wrap=document.createElement('div');wrap.className='fldaEntry';
       const heading=document.createElement('strong');heading.textContent=note.section;
       const snippet=document.createElement('div');snippet.textContent=note.comment;
       const meta=document.createElement('small');
-      meta.textContent=note.page+' · '+note.selector+' · '+note.updatedAt;
+      meta.textContent=note.priority+' · '+note.status+' · target '+(note.lastObserved?.status||'not-inspected')+
+        ' · '+note.page+' · '+note.selector+' · '+note.updatedAt;
       const actions=document.createElement('div');actions.className='fldaNoteActions';
       const edit=document.createElement('button');edit.textContent='Edit';
       edit.onclick=()=>{
@@ -206,6 +266,8 @@
           targetTag:note.targetTag,rect:note.rect,point:note.point};
         const input=document.getElementById('fldaComment');
         if(input){input.value=note.comment;input.dataset.editId=note.id;input.focus()}
+        const p=document.getElementById('fldaPriority'),st=document.getElementById('fldaNoteStatus');
+        if(p)p.value=note.priority||'P1';if(st)st.value=note.status||'open';
         document.getElementById('fldaSelected').textContent=
           'Editing: '+note.section+' / '+note.selector
       };
@@ -292,14 +354,15 @@
         add('toolbar-canvas-overlap','Viewport header overlaps render canvas: '+elementId(vp),'warning','Field');
     }
     const mem=performance?.memory;
+    const locatorInspection=inspectAnnotations();
     const result={
-      at:new Date().toISOString(),checks:'DOM, Field controls, viewport bounds, duplicate IDs',
+      at:new Date().toISOString(),checks:'DOM, Field controls, viewport bounds, duplicate IDs, saved note locators',
       viewport:{width:innerWidth,height:innerHeight,devicePixelRatio:devicePixelRatio},
       document:{title:clean(document.title),nodes:document.querySelectorAll('*').length},
       navigationMs:Math.round(performance.getEntriesByType('navigation')[0]?.duration||0),
       heapMB:mem?.usedJSHeapSize?Math.round(mem.usedJSHeapSize/1048576):null,
       status:findings.some(f=>f.severity==='error')?'issues-found':findings.length?'warnings':'checks-passed',
-      findings
+      findings,locatorInspection
     };
     for(const f of findings)event(f.kind,f.message,f.severity,f.source,{origin:f.origin});
     lastChecks=result;updateBadge();renderFindings();return result
@@ -338,6 +401,8 @@
         '### Note '+(i+1)+': '+a.section,
         'Screen / page: '+a.page,'DOM target selector: '+a.selector,
         'Target element: '+a.targetTag,
+        'Priority: '+a.priority+' | Owner workflow status: '+a.status,
+        'Last inspected locator state: '+a.lastObserved?.status+' | Inspected: '+(a.lastObserved?.checkedAt||'never'),
         'Saved screen bounds: '+JSON.stringify(a.rect||{}),
         'Selected point within element (fractional x/y): '+JSON.stringify(a.point||{}),
         'Developer comment: '+a.comment,
@@ -350,6 +415,7 @@
         'Message: '+e.message, e.stack?'Sanitized stack: '+e.stack:''
       ].filter(Boolean).join('\n')),
       '## Automated inspection','Status: '+r.checks.status,
+      'Anchored note locator inspections: '+JSON.stringify(r.checks.locatorInspection||{status:'not-inspected'}),
       ...(r.checks.findings||[]).map(e=>'- '+e.severity+': '+e.kind+' — '+e.message),
       '## Uninspected scope',...r.limitations.map(x=>'- '+x),
       '## Required response','1. Map each issue to the responsible source module and a verifiable reproduction path.',
@@ -370,7 +436,7 @@
   }
   let badge=null,items=null;
   function updateBadge(){
-    if(badge)badge.textContent='Dev Audit · '+events.length+' errors · '+annotations.length+' notes'+(lastChecks?' · '+lastChecks.status:'')
+    if(badge)badge.textContent='Dev Audit · '+events.length+' events · '+annotations.length+' notes'+(lastChecks?' · '+lastChecks.status:'')
   }
   function renderFindings(){
     if(!items)return;
@@ -388,9 +454,9 @@
   function mount(){
     if(document.getElementById('flDeveloperAuditRoot')||!document.body)return;
     const style=document.createElement('style');
-    style.textContent='.fldaToggle{position:fixed;right:16px;bottom:16px;z-index:2147483645;background:#1f73bd;color:#fff;border:1px solid #85cdff;border-radius:10px;padding:11px 14px;font:700 12px system-ui;cursor:pointer;box-shadow:0 3px 16px #0008}.fldaPanel{position:fixed;z-index:2147483646;right:16px;bottom:65px;width:min(510px,calc(100vw - 30px));max-height:min(76vh,720px);display:none;flex-direction:column;gap:9px;padding:15px;background:#0c1725;color:#e6f4ff;border:2px solid #438abd;border-radius:13px;font:12px/1.45 system-ui;box-shadow:0 6px 30px #000a}.fldaPanel.open{display:flex}.fldaPanel h2{font-size:16px;margin:0}.fldaPanel p{margin:2px 0 8px;color:#adcbdf}.fldaPanel .fldaTools{display:flex;flex-wrap:wrap;gap:6px}.fldaPanel button{border:1px solid #4e7899;border-radius:6px;padding:7px 9px;color:#fff;background:#174363;cursor:pointer}.fldaEntries{overflow:auto;min-height:60px;max-height:45vh;display:flex;flex-direction:column;gap:7px}.fldaEntry{border:1px solid #31485a;padding:8px;border-radius:7px;overflow-wrap:anywhere}.fldaEntry strong,.fldaEntry small{display:block}.fldaEntry small{color:#b3c8d8}.fldaState{font-size:11px;color:#c1d5e7}.fldaNotes{border-top:1px solid #36516a;padding-top:9px;display:flex;flex-direction:column;gap:6px}.fldaNotes label{font-weight:700}.fldaNotes textarea{box-sizing:border-box;width:100%;min-height:67px;max-height:160px;resize:vertical;background:#11283a;color:#fff;border:1px solid #628cad;border-radius:6px;padding:7px;font:12px/1.45 system-ui}.fldaNoteList{max-height:25vh;overflow:auto;display:grid;gap:6px}.fldaNoteActions{display:flex;gap:6px;margin-top:6px}.fldaNoteActions button{font-size:11px}#fldaPickHint:not([hidden]){position:fixed;z-index:2147483647;left:50%;top:12px;transform:translateX(-50%);padding:13px 20px;color:#fff;background:#14588b;border:2px solid #a7e2ff;border-radius:9px;pointer-events:none;box-shadow:0 5px 25px #0008}.fldaPanel{max-height:85vh!important;overflow:auto!important}.fldaTargetPin{position:fixed;z-index:2147483647;transform:translate(-50%,-50%);border:2px solid #ffd087;background:#6b3e11;color:#fff;padding:1px 6px;border-radius:50%;font-size:20px;pointer-events:none;box-shadow:0 2px 14px #000b}';
+    style.textContent='.fldaToggle{position:fixed;right:16px;bottom:16px;z-index:2147483645;background:#1f73bd;color:#fff;border:1px solid #85cdff;border-radius:10px;padding:11px 14px;font:700 12px system-ui;cursor:pointer;box-shadow:0 3px 16px #0008}.fldaPanel{position:fixed;z-index:2147483646;right:16px;bottom:65px;width:min(510px,calc(100vw - 30px));max-height:min(76vh,720px);display:none;flex-direction:column;gap:9px;padding:15px;background:#0c1725;color:#e6f4ff;border:2px solid #438abd;border-radius:13px;font:12px/1.45 system-ui;box-shadow:0 6px 30px #000a}.fldaPanel.open{display:flex}.fldaPanel h2{font-size:16px;margin:0}.fldaPanel p{margin:2px 0 8px;color:#adcbdf}.fldaPanel .fldaTools{display:flex;flex-wrap:wrap;gap:6px}.fldaPanel button{border:1px solid #4e7899;border-radius:6px;padding:7px 9px;color:#fff;background:#174363;cursor:pointer}.fldaEntries{overflow:auto;min-height:60px;max-height:45vh;display:flex;flex-direction:column;gap:7px}.fldaEntry{border:1px solid #31485a;padding:8px;border-radius:7px;overflow-wrap:anywhere}.fldaEntry strong,.fldaEntry small{display:block}.fldaEntry small{color:#b3c8d8}.fldaState{font-size:11px;color:#c1d5e7}.fldaNotes{border-top:1px solid #36516a;padding-top:9px;display:flex;flex-direction:column;gap:6px}.fldaNotes label{font-weight:700}.fldaNoteSettings{display:flex;gap:6px;flex-wrap:wrap}.fldaNoteSettings select{max-width:155px;border:1px solid #628cad;background:#11283a;color:#fff;padding:5px;border-radius:6px}.fldaNoteSettings label{display:flex;align-items:center;gap:4px}.fldaNotes textarea{box-sizing:border-box;width:100%;min-height:67px;max-height:160px;resize:vertical;background:#11283a;color:#fff;border:1px solid #628cad;border-radius:6px;padding:7px;font:12px/1.45 system-ui}.fldaNoteList{max-height:25vh;overflow:auto;display:grid;gap:6px}.fldaNoteActions{display:flex;gap:6px;margin-top:6px}.fldaNoteActions button{font-size:11px}#fldaPickHint:not([hidden]){position:fixed;z-index:2147483647;left:50%;top:12px;transform:translateX(-50%);padding:13px 20px;color:#fff;background:#14588b;border:2px solid #a7e2ff;border-radius:9px;pointer-events:none;box-shadow:0 5px 25px #0008}.fldaPanel{max-height:85vh!important;overflow:auto!important}.fldaTargetPin{position:fixed;z-index:2147483647;transform:translate(-50%,-50%);border:2px solid #ffd087;background:#6b3e11;color:#fff;padding:1px 6px;border-radius:50%;font-size:20px;pointer-events:none;box-shadow:0 2px 14px #000b}';
     const root=document.createElement('div');root.id='flDeveloperAuditRoot';
-    root.innerHTML='<button class="fldaToggle" id="flDeveloperAuditToggle" aria-controls="flDeveloperAuditPanel" aria-expanded="false">Dev Audit</button><section class="fldaPanel" id="flDeveloperAuditPanel" role="dialog" aria-label="FoamLens Developer audit" aria-hidden="true"><h2>FoamLENS Developer · Audit</h2><p>Developer-only copy. Observed errors + bounded checks, no automatic upload. Scientific case data is not included.</p><div class="fldaTools"><button id="fldaPick">Point to section</button><button id="fldaScan">Run Audit checks</button><button id="fldaCopy">Copy AI prompt</button><button id="fldaPrompt">Export AI prompt</button><button id="fldaJson">Export JSON</button><button id="fldaClear">Clear</button><button id="fldaClose">Close</button></div><div class="fldaState" id="fldaState" role="status">Waiting for inspection</div><div class="fldaNotes"><strong>Persistent section comments</strong><div class="fldaState" id="fldaSelected">Select any control, chart or view using Point to section</div><label for="fldaComment">Comment about this precise section</label><textarea id="fldaComment" rows="3" maxlength="2000" placeholder="What is wrong here, what you expect, and how to reproduce it?"></textarea><div class="fldaTools"><button id="fldaSave">Save note</button><button id="fldaCancelNote">Clear editor</button></div><div class="fldaNoteList" id="fldaNoteList"></div></div><strong>Observed errors and layout checks</strong><div class="fldaEntries" id="fldaEntries"></div></section><div id="fldaPickHint" hidden aria-live="polite">Select a FoamLENS section (Esc to cancel)</div>';
+    root.innerHTML='<button class="fldaToggle" id="flDeveloperAuditToggle" aria-controls="flDeveloperAuditPanel" aria-expanded="false">Dev Audit</button><section class="fldaPanel" id="flDeveloperAuditPanel" role="dialog" aria-label="FoamLens Developer audit" aria-hidden="true"><h2>FoamLENS Developer · Audit</h2><p>Developer-only copy. Observed errors + bounded checks, no automatic upload. Scientific case data is not included.</p><div class="fldaTools"><button id="fldaPick">Point to section</button><button id="fldaScan">Run Audit checks</button><button id="fldaCopy">Copy AI prompt</button><button id="fldaPrompt">Export AI prompt</button><button id="fldaJson">Export JSON</button><button id="fldaClear">Clear</button><button id="fldaClose">Close</button></div><div class="fldaState" id="fldaState" role="status">Waiting for inspection</div><div class="fldaNotes"><strong>Persistent section comments</strong><div class="fldaNoteSettings"><label>Show <select id="fldaNoteFilter"><option value="all">All notes</option><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select></label><button id="fldaInspectNotes" type="button">Check saved locations</button></div><div class="fldaState" id="fldaSelected">Select any control, chart or view using Point to section</div><label for="fldaComment">Comment about this precise section</label><textarea id="fldaComment" rows="3" maxlength="2000" placeholder="What is wrong here, what you expect, and how to reproduce it?"></textarea><div class="fldaNoteSettings"><label>Priority <select id="fldaPriority"><option value="P0">P0 · critical</option><option value="P1" selected>P1 · major</option><option value="P2">P2 · minor</option></select></label><label>Status <select id="fldaNoteStatus"><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select></label></div><div class="fldaTools"><button id="fldaSave">Save note</button><button id="fldaCancelNote">Clear editor</button></div><div class="fldaNoteList" id="fldaNoteList"></div></div><strong>Observed errors and layout checks</strong><div class="fldaEntries" id="fldaEntries"></div></section><div id="fldaPickHint" hidden aria-live="polite">Select a FoamLENS section (Esc to cancel)</div>';
     document.head.append(style);document.body.append(root);
     badge=root.querySelector('.fldaToggle');items=root.querySelector('.fldaEntries');noteList=root.querySelector('#fldaNoteList');
     const panel=root.querySelector('.fldaPanel');
@@ -401,7 +467,10 @@
     root.querySelector('#fldaSave').onclick=()=>{
       const input=root.querySelector('#fldaComment');
       try{
-        const saved=saveAnnotation(draftTarget,input.value,input.dataset.editId||null);
+        const saved=saveAnnotation(draftTarget,input.value,input.dataset.editId||null,{
+          priority:root.querySelector('#fldaPriority').value,
+          status:root.querySelector('#fldaNoteStatus').value
+        });
         input.value='';input.dataset.editId='';draftTarget=null;
         root.querySelector('#fldaSelected').textContent='Saved: '+saved.section+' / '+saved.selector;
         annotationStatus('Saved section comment locally; it will be included in JSON and AI prompt exports.')
@@ -411,6 +480,10 @@
       draftTarget=null;const input=root.querySelector('#fldaComment');
       input.value='';input.dataset.editId='';
       root.querySelector('#fldaSelected').textContent='No section selected'
+    };
+    root.querySelector('#fldaNoteFilter').onchange=renderNotes;
+    root.querySelector('#fldaInspectNotes').onclick=()=>{const r=inspectAnnotations();
+      annotationStatus('Checked '+r.total+' saved locations. Missing/changed locators remain linked to their original notes.');
     };
     root.querySelector('#fldaScan').onclick=()=>{const r=runChecks();root.querySelector('#fldaState').textContent=r.status+' · '+r.findings.length+' findings; '+events.length+' observed records'};
     root.querySelector('#fldaPrompt').onclick=()=>downloadDeveloperAudit('prompt');
@@ -425,7 +498,8 @@
     updateBadge();renderFindings();renderNotes()
   }
   window.__foamLensDeveloperAudit={event,runChecks,snapshot,prompt,downloadDeveloperAudit,
-    startPick,chooseElement,targetFromElement,saveAnnotation,removeAnnotation,annotationsSnapshot};
+    startPick,chooseElement,targetFromElement,saveAnnotation,removeAnnotation,annotationsSnapshot,
+    inspectNote,inspectAnnotations};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
   else mount()
 })();
