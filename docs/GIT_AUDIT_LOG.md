@@ -1,3 +1,7 @@
+## 2026-10-26 — G35 security source re-reconciled after CAD #164 merge
+
+- CAD [PR #164](https://github.com/michels-lab/FoamLens/pull/164) merged (squash `c9f5fd29f0b97c623d253a91f65443090ad4f2a9`) after full real QuickCup/Windows Setup+Portable acceptance. Rebased original G35 on exact main parent `0253456641df6d584778c5a3115d9026a3293ada` (including latest native navigation, signing, scientific and File Steward records). The only product behavior change is embedded-only JavaScript trust and its negative regression; no browser profile deletion. Original G35 native installed/Portable [run 40438483011](https://github.com/michels-lab/FoamLens/actions/runs/40438483011) PASS for pre-reconciliation G35 code SHA `56a1f67ad3e560c32d329af102ec9b5938bba101`. New reconciled SHA must independently pass original source, actual Windows and private QuickCup release regressions before merge. Keep #252 and #238 OPEN until actual main validation and stable release gates. No release.
+
 ## 2026-10-26 — Granada CAD owner integration candidate on verified current main
 
 - Reconciled original CAD STL/OBJ inspector source, original CAD packaged Windows smoke and regression, roadmap/CHANGELOG and original CAD-native CI with latest original main. Keeps current ExternalNavigationPolicy, G21 publisher signing checks, G22 CSS and G39 Findings intact; original CAD PR #164 branch remains authoritative. Native scientific CAD and complete Windows Setup/Portable validations are pending on new exact head; this is not release authorization.

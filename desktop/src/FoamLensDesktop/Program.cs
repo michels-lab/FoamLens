@@ -2431,10 +2431,9 @@ internal sealed class FoamLensForm : Form
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
-        var extensionPaths = Directory.GetFiles(AppRoot, "v*-*.js")
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (extensionPaths.Length == 0) return;
+        // G35: only authoritative embedded original AppBundle JavaScript is executable.
+        // Never enumerate mutable per-user AppRoot v*-*.js residues after ZIP extraction.
+        var bundledExtensions = TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly();
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
@@ -2464,8 +2463,7 @@ internal sealed class FoamLensForm : Form
 
         // Versioned modules are injected inside the main frontend IIFE so they
         // share the live case/series model without exporting private state.
-        var extension = string.Join(Environment.NewLine,
-            extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
+        var extension = string.Join(Environment.NewLine, bundledExtensions);
         if (_smokeTest)
         {
             extension += Environment.NewLine + """
