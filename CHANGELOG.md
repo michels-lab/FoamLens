@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada #117: real OpenFOAM source benchmark evidence (candidate)
+
+- Add independent read-only `tools/benchmark-real-case.cjs` to capture source-file enumeration, sequential SHA-256 content-reading cost, file/byte/type counts and sampled Node memory, with first/repeat labels and cross-pass full-content SHA-256 identity verification.
+- Integrate existing genuine UI Import Performance export optionally, but keep actual WebView2 first-interaction/parser timings **separate** from the CLI source I/O measurements. If no UI report was provided, leave those metrics absent. No invented owner speedups, OS-cold cache proof, dataset-to-UI cryptographic binding or whole-process/GPU/RAM claims.
+- Bounded path-private output; reject symlinks, changed/incomplete sources, invalid labels and output files inside source case. Suppress OS exception file paths in CLI errors. Export only coarse types, times, byte counts and aggregate digest.
+- Add independent Linux/Windows tests covering synthetic 3,008 real-created files and 10k metadata entries, privacy canaries, same-size scientific-content modification and canceled scans, plus existing performance comparison and parser regressions. Does not change the actual Windows import algorithm or release; owner real-case benchmark/optimization remains outstanding.
+
 ## Unreleased — P0 G43 original wide Field Play class-independent safety (candidate only)
 
 - Guard the original Field Play button at true 1025–1250px independently of stale `gfwCompact` status; G16's old compact-only rule could not match the observed 1140px/70px native failure with `gfwCompact=false`.

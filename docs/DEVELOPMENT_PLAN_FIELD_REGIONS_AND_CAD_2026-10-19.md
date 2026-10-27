@@ -60,6 +60,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Entregables: G0 inventario de toda la UI; G1 sistema visual compartido; G2 Field/3D A–D y cámaras/leyendas; G3 Time Series; G4 Analysis/Review/Live; G5 capturas reales de Windows Setup + Portable a 1024/1280/1920px y DPI físico 125–200%, accesibilidad y aprobación estética explícita del usuario.
 - Evitar paneles duplicados, controles escondidos, CSS contradictorio o refactors ciegos de física OpenFOAM. Conservar motores originales y ramas funcionales independientes (#146, #149, #162, #176). **Este bloque sólo documenta el requisito: no implica implementación o aceptación.** Fuente: [#177](https://github.com/michels-lab/FoamLens/issues/177).
 
+### Operación Granada #117 — reproducible first/repeat real-case benchmark collection (candidate)
+
+- The actual native `NativeCaseCatalog`, UI `FoamLens_import_performance.json` report and UI timing comparison already exist on main; do not duplicate or claim cold/warm native optimization from CI fixtures.
+- New isolated `tools/benchmark-real-case.cjs`: read-only complete source-tree SHA-256 checks, path-private 3k/10k inventory/bytes/types and scan/read timing from real local cases. Only optional original UI export provides genuine measured import/first-interaction stages; report explicitly distinguishes app/UI metrics from Node I/O, user attribution and **unverified OS cold-cache**. Compare refuses changed full-content identity. No source OpenFOAM research data uploaded or modified.
+- Ubuntu/Windows synthetic 3008-file and 10000-file stress, privacy and source-change regressions, plus existing UI timing and large parser suites, provide implementation QA only; user-real 3008-file same-machine baseline and exact installed app remain required. Technical guide `docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md`.
+- Outstanding: owner case first/repeat/true cold profiling, end-to-end first interactive measurement, native pre-scan incrementally reusable catalog with invalidation, bounded asynchronous parsing, large 2D/3D field correctness, installed Setup/Portable acceptance. Issue #117 remains open; this does not authorize any release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |
