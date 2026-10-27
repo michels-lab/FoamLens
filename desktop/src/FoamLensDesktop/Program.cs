@@ -452,6 +452,16 @@ internal sealed class FoamLensForm : Form
                         window.FoamLensFieldWorkspace?.getState?.().view==='3d';
                       const playRect=document.getElementById('fwTimePlay')?.getBoundingClientRect();
                       const playButton=document.getElementById('fwTimePlay');
+                      // G41: attribution only. Preserve the original binary Play gate,
+                      // source time checks, visible strings and app layout unchanged.
+                      // Only primitive booleans/pixels are exported to the test-only
+                      // sanitized evidence; never transfer raw WebView2 text.
+                      const playComputed=playButton?getComputedStyle(playButton):null;
+                      const playLabelReady=!!playButton&&/Play|Reproducir/.test(playButton.textContent||'');
+                      const playPauseLabel=!!playButton&&/Pause|Pausa/.test(playButton.textContent||'');
+                      const playLoopAriaReady=!!playButton&&/(loop|bucle)/i.test(playButton.getAttribute('aria-label')||'');
+                      const playTransportContainsPlay=!!document.getElementById('fwTimeTransport')?.contains(playButton);
+                      const playCompactClassAtWide=innerWidth>=1025&&!!document.getElementById('appShell')?.classList.contains('gfwCompact');
                       const playNotCollapsed=!!playRect&&playRect.width>=100&&playRect.height>=28&&
                         playButton.scrollWidth<=playButton.clientWidth+2&&
                         /Play|Reproducir/.test(playButton.textContent||'')&&
@@ -482,6 +492,17 @@ internal sealed class FoamLensForm : Form
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
                         cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,
+                        // QA-only primitive measurements for intermittent original Play failures.
+                        playWidth:playRect?.width,playHeight:playRect?.height,
+                        playLeft:playRect?.left,playRight:playRect?.right,
+                        playClientWidth:playButton?.clientWidth,playScrollWidth:playButton?.scrollWidth,
+                        playComputedWidth:playComputed?Number.parseFloat(playComputed.width):null,
+                        playMinWidthAtLeast100:!!playComputed&&Number.parseFloat(playComputed.minWidth)>=100,
+                        playLabelReady,playPauseLabel,playLoopAriaReady,playTransportContainsPlay,
+                        playCompactClassAtWide,
+                        playG12StylesheetPresent:!!document.getElementById('flG12WideFieldRibbonStyle'),
+                        playG16StylesheetPresent:!!document.getElementById('flG16WidePlayCascadeGuard'),
+                        playG7StylesheetPresent:!!document.getElementById('gfwG7Style'),
                         toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
