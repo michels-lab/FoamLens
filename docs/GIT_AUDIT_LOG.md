@@ -1,3 +1,9 @@
+## 2026-10-27 — G37 original negative QA updated to distinguish original G27 culture witness from FoamLens production host
+
+- Original G27+G37 exact-head combined source [run 40488261513](https://github.com/michels-lab/FoamLens/actions/runs/40488261513) failed intentionally under the old conservative G37 regex that rejected *any* Program.cs string, including the isolated original `tools/granada_g27_culture_probe/Program.cs` whose source is independent disposable .NET locale QA. No production source or Windows runtime failure occurred; native job was SKIPPED due cross-source regression failure.
+- Surgical original existing G37 adversarial test replacement keeps hard ban on desktop/src and official Windows build workflow, and requires exactly ONE allowed C# path: tools/granada_g27_culture_probe/Program.cs. Reject any second C# source including desktop/src/FoamLensDesktop/Program.cs, so core product original owner still protected. Update stays in original G27 PR #248; no new PR, app source or native physics change.
+- Rerun Windows/Ubuntu original G27 + G37 guards and actual Windows 4×2 scientific locale cases at current PR exact head. G37 #230 and release #238 remain open; no release.
+
 ## 2026-10-27 — Cross-QA integration: G27 culture tests do not invalidate merged G37 science/Play stress
 
 - Original existing G27 PR #248 additionally makes a **strict six-path read-only QA allowlist extension** in the already merged G37 workflow (original #257): permit only these exact G27 workflow, test, independent culture-probe and G27 documentation paths. Original FoamLens product code remains STRICTLY DENIED; no Play geometry threshold, 1140/640 native source, CAD or physics is changed.
