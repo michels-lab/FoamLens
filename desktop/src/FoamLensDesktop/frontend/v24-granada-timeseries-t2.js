@@ -17,15 +17,17 @@
     const pending=byId('gr176Pending');
     if(pending)pending.textContent=state.busy?
       (state.progress?historyProgressLabel(state.progress):
-        translate('Reading original source frames…','Leyendo fotogramas originales…')):'';
+        translate('Reading original source data…','Leyendo datos originales de la fuente…')):'';
   }
   function historyProgressLabel(p){
-    return translate('Series '+p.slot+': '+p.completed+' / '+p.total+' original source steps inspected.',
-      'Serie '+p.slot+': '+p.completed+' / '+p.total+' pasos originales de fuente revisados.')
+    const noun=p.source==='profile'?
+      translate('real profile rows inspected','filas reales de perfil revisadas'):
+      translate('OpenFOAM frames inspected','fotogramas OpenFOAM revisados');
+    return translate('Series ','Serie ')+p.slot+': '+p.completed+' / '+p.total+' '+noun
   }
   function onSourceProgress(event){
     const p=event?.detail;
-    if(!state.busy||!p||![1,2].includes(p.slot))return;
+    if(!state.busy||!p||![1,2].includes(p.slot)||!['global','probe','profile'].includes(p.source))return;
     if(typeof fwState==='undefined'||p.seq!==fwState.fieldTsSeq)return;
     if(!Number.isSafeInteger(p.completed)||!Number.isSafeInteger(p.total)||
       p.total<1||p.completed<1||p.completed>p.total)return;
