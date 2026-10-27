@@ -74,14 +74,19 @@ function Safe-FailureEvidence([string]$nativeLog,[string]$mode,[int]$n,[int]$exi
    foreach($key in @('ok','cameraDocked','distinctCameras','cameraNamesReadable','fieldNavHidden',
      'playNotCollapsed','cachePopoverValid','regionLegendMeasured','independentRegionPalette',
      'clockMatchesRealFrame','physicalFrameMatches','displayedTimeMatches',
-     'clockAriaMatches','clockVisible')){
+     'clockAriaMatches','clockVisible',
+     'playMinWidthAtLeast100','playLabelReady','playPauseLabel','playLoopAriaReady',
+     'playTransportContainsPlay','playCompactClassAtWide',
+     'playG12StylesheetPresent','playG16StylesheetPresent','playG7StylesheetPresent')){
     if($state.Contains($key)){$flags[$key]=($state[$key] -eq $true)}
    }
    $d.fieldChecks=$flags
    $measure=[ordered]@{}
    foreach($key in @('viewport','canvasWidth','canvasHeight','toolbarHeight','toolbarWidth',
      'toolbarLeft','toolbarRight','toolbarCanvasOverlap','shelfScrollLeft','shelfScrollWidth',
-     'shelfClientWidth','clockWidth','clockHeight')){
+     'shelfClientWidth','clockWidth','clockHeight',
+     'playWidth','playHeight','playLeft','playRight','playClientWidth',
+     'playScrollWidth','playComputedWidth')){
     if($state.Contains($key) -and $null -ne $state[$key] -and
        $state[$key] -is [ValueType] -and [double]::IsFinite([double]$state[$key])){
       $measure[$key]=[math]::Round([double]$state[$key],2)
