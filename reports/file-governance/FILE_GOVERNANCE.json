@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 366,
-  "classified_files_total": 362,
-  "docs_content_inspected": 69,
+  "tracked_files_total": 370,
+  "classified_files_total": 366,
+  "docs_content_inspected": 71,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 63,
+    "document": 65,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
     "source": 116,
-    "test": 100,
+    "test": 101,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 41
+    "workflow": 42
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "40f4e496e9ca8358813d9830080f364f7745279141079d1b7fac2dde60476fc8",
-  "evidence_fingerprint": "dc854722f4b141a376037507e92ca94472122b6c3693194b892a918423a65edb",
+  "inventory_fingerprint": "cb4dfb4f1525f344732070112b7cf7ef7efb83bed19b46c2127b6389946eb288",
+  "evidence_fingerprint": "d8385a50cd0740b31468dcf156c6903a9ba59af76c04b3195137f391b08079df",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -156,6 +156,13 @@
       "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
     },
     {
+      "path": ".github/workflows/granada-developer-note-triage.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "5674d43fba068b24117506a7da78df94b43ddd14"
+    },
+    {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -272,7 +279,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "890d7e71b4dd2c3b6c4ac1e4b6b665145b1b3461"
+      "blob": "5d359141232542ef4f1a4cd11f7fa1f808120ade"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -503,7 +510,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0dcbef3ece10145ab59970c4542ed8c7733ba6bc"
+      "blob": "02111fe0c566ce58e5203a956babc36da589eb45"
     },
     {
       "path": "desktop/src/FoamLensDesktop/ExternalNavigationPolicy.cs",
@@ -1043,6 +1050,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "56081c5eb7c734ce92c36c0eed962be0c06cce54"
+    },
+    {
+      "path": "desktop/tests/developer-note-triage.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2d208333a528461463ddf6ea282c5d9627c84e2a"
     },
     {
       "path": "desktop/tests/developer-twin-audit.test.cjs",
@@ -1647,6 +1661,13 @@
       "blob": "41c7c19ad729803b16d24c78030dccc73e249782"
     },
     {
+      "path": "docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "944102cc05ebe4e43a1eb2bc05e0a0e7a1fed65a"
+    },
+    {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1792,6 +1813,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "835dba476364eb4b8f678b8c986aea7daf2738ae"
+    },
+    {
+      "path": "docs/GRANADA_G42_FILE_STEWARD_MAIN_LINEAGE_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c3a4bbab1c79aa834e2f6a19cbd7273f7be75c96"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
@@ -2365,7 +2393,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "60ee690232a07b44f053be916713ad454d2631ac"
+      "blob": "50133983a4f154b4cbb789fa23eb7774fc1f3468"
     },
     {
       "path": "tools/granada_g41_native_play_diagnostics.test.cjs",
@@ -2566,11 +2594,11 @@
   ],
   "findings": [
     {
-      "id": "d44d8b0b75474a19",
+      "id": "1743e4fcfc64c1a2",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_g37_real_b13_play_stress.ps1, tools/granada_g37_real_b13_stress_guards.test.cjs, tools/granada_g41_native_play_diagnostics.test.cjs",
+      "observation": "9 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-developer-note-triage.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Developer/Audit.js, desktop/src/FoamLensDesktop/Program.cs, desktop/tests/developer-note-triage.spec.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
