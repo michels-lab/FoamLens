@@ -30,6 +30,14 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
 
+### Operación Granada #151 — Conditional multiregion energy accounting (candidate only)
+
+- Independent from open PRs #162 Field, #164 CAD and #165 2D/3D; no shared Program.cs or main Windows workflow modifications.
+- New `v24-multiregion-energy.js` companion to the existing `v14-energy-audit.js`; dedicated Analysis section with measured, case-bound, named-region postProcessing energy inventory [J] and interface power [W] mapping, optional external/source power [W], source sign conventions and three explicit completeness/geometry attestations.
+- Performs strictly common-time signed per-region and two-region conservation checks, independent interface reciprocity, source column deduplication, rigorous units/dimension and nonfinite/coverage rejection; exports local reproducible JSON/CSV evidence. Zero residual is reported as **conditional only**, never solver/mesh certification.
+- Cross-platform scientific `.spec.cjs` and source-loader contract tests in standalone `granada-multiregion-energy.yml` without touching overlapping native smoke/monolithic Windows workflow. Exact-current-commit CI status and native installed validation remain separate gates.
+- **Remaining #151:** source-native normal/area and patch correspondence, full sensible+latent inventory accounting, multiple external fluxes/losses, real OpenFOAM multiregion case validation, packaged WebView2/Setup/Portable acceptance and user physical review. No public version bump or release.
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

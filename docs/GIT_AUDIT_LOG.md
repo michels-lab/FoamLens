@@ -211,6 +211,40 @@
 
 # FoamLens Git Audit Log
 
+## 2026-10-27 — GRANADA #151 reconciled on current main for native integration (source QA only)
+
+- Scientific energy PR #166 original source was 202 commits behind current original main. This reconciliation uses a two-parent merge commit from the exact main snapshot `5e4882e8c4c8f6cd92794545b97446b32451e67f` and the exact original PR owner head `134af9cda7721929af2736c80bb3dea5419cd0a8` rather than reverting any updated native Field, CAD, G35 trusted-extension security, Developer, build or scientific modules.
+- Only four originally NEW owner paths are carried over: v24 multiregion energy module, its positive/negative scientific tests, and dedicated dual-OS test workflow. Additive original owner descriptions are merged into current main CHANGELOG and scientific roadmap. Original #151 audit history and corrected negative cases are kept below intact, without overwriting any newer main audit entries.
+- Verification still required on the NEW reconciled SHA: exact current source Ubuntu/Windows #151 gates, complete native Windows build + scientific fixture + installed/portable startup, compatibility with G35 trust module, and source ownership. Never infer conservation from test synthetic observations, nor publish without #230/#238 hardware/ signing/update gates. No release or version bump.
+
+## 2026-10-27 — GRANADA #151 follow-up: physical-time integration cannot silently downsample
+
+- Reproduced an actual calculation defect on the original same-branch scientific function: a real 40 W peak sampled at t=0.5 s was erased by `maxPoints=2`; the UI-facing balance incorrectly showed interface integrated mismatch `0 J`, whereas the complete six-knot original measurements produce `9 J`. No private research data was needed for this deterministic negative fixture.
+- Repaired existing module `mecTimeGrid`: exact measured physical-time knot union or **BLOCKED** if its configured budget is exceeded; no lossy decimation before trapezoid integration. Explicit UI label and increased default/max budgets (20,000 / 100,000 time knots). If exceeding cap the user must increase the bound; no purported conserved result is emitted.
+- Regression `desktop/tests/multiregion-energy-conservation.spec.cjs` verifies blocked two-point under-sampling, full six-time result `9 J`, and exact knot preservation. Product source commit `edf74b6d885d7931b6f3e9dce95b8ce356f08885`; fixture commit `65380d68247bf0b77a907de7c4b49de20d03fed0`.
+- Scientific JavaScript core direct preflight PASS; dual-OS focused CI: previous source SHA `84019d8d89d40e3f82ea2eb3d63d064ca11910b3` **Ubuntu + Windows PASS**. Latest source+fixture `65380d6` Ubuntu **PASS**, Windows **in-progress at log authoring**; check final exact HEAD before integration. This remains original PR #166, currently conflicted with newer main, no native Setup/Portable acceptance, no final release, no solver data modification.
+
+## 2026-10-27 — GRANADA #151 science provenance repair (PR #166; NOT integrated/released)
+
+- Existing scientific module `v24-multiregion-energy.js` was executed directly at previous branch source: a missing `caseId=null` was accepted as source case 0, and two incompatible W readings at duplicate physical time were silently deduplicated. Original observed status for both negative reproductions: `valid=true` (defects).
+- Same owning branch repaired with `mecCaseId` strict nonempty safe-integer identity, including UI case selector/source catalog; missing/unproven case identity now fails closed while real case 0 remains accepted.
+- A separate source validation rejects conflicting repeated/indistinguishable physical times instead of silently picking one reading. Identical duplicate observations remain eligible for non-destructive deduplication. No automatically inferred interface area, calorimetry, recalescence, boundary source, or solver mutation introduced.
+- Negative/positive same-failure regression fixtures added to `desktop/tests/multiregion-energy-conservation.spec.cjs`. Existing loader test no longer **requires unsafe AppRoot disk wildcard module injection**, to avoid preventing separate G32 security fix (#252). This removes a bad test dependency, not the native G32 vulnerability.
+- Committed original PR #166 branch: source `5fefe681cb7a6a06f2e3875c3e8676fc4413e8dc`, regression `ddac8484f7a0266fd7bac1be9574590b8d8e303b`, loader `84019d8d89d40e3f82ea2eb3d63d064ca11910b3`. JS-core in-memory preflight **PASS** for valid balance, missing case rejection, contradictory times rejection and repeated-equal allowed. Fresh GitHub Actions on last commit were **queued at audit time**; no Windows installed/portable, scientific user-case acceptance or current-main compatibility claimed.
+- State: **implemented in original OPEN PR, CI/runtime pending, not merged/not released**. Current main and stable v1.8.10 untouched. Next: review current exact-SHA checks and any branch conflicts, reconcile to latest main without overriding other owners, validate native current Windows/OpenFOAM and merge only when all applicable gates pass.
+
+
+## 2026-10-19 — Operación Granada #151: energy interfaces (unreleased candidate)
+
+- Branch `feat/granada-151-interface-energy-accounting-20261019` starts from main, isolating changes from pending Field #162, CAD #164 and 2D/3D #165.
+- Existing `v14-energy-audit.js` already validates the decomposition of energy flux and inventories. A companion `v24-multiregion-energy.js` uses the same discovered measured case series but analyzes signed regional storage and interface reciprocity instead of duplicating the original audit.
+- Regions A and B require measured total stored energy [J], same-interface power [W] with explicit outward signs, optional external boundary and source power, and user-confirmed normal/area, storage coverage and all other terms. Computes per-region energy residual and interface mismatch using common physical timestamps with no extrapolation; result is always conditional, never physically certified.
+- Unknown/missing units, inconsistent available OpenFOAM dimensions, wrong source region, missing evidence, reused source columns, out-of-range time, and invalid data block calculation. Export is explicit local JSON/CSV, with original source path/column and warnings. No simulations modified or uploaded.
+- Independent Ubuntu/Windows spec CI leaves shared Program.cs and original Windows build workflow untouched, preventing collisions with other Granada branches.
+- Still pending: actual OpenFOAM owner fixture/physical area and normal verification, multiple external terms, true energy inventory completeness, installed Setup/Portable/WebView2 validation. No version or release change.
+
+
+
 > Living engineering log for the FoamLens repository.  
 > Repository: `michels-lab/FoamLens`  
 > Primary branch: `main` · latest verified stable at candidate start: `v1.6.1`  
