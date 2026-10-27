@@ -2,12 +2,13 @@
    Existing selectors, generator controls, and listeners are reparented, never cloned. */
 (function(){
   'use strict';
-  const state={installed:false,busy:false,cancel:null,build:null,observer:null};
+  const state={installed:false,busy:false,cancel:null,build:null,observer:null,progress:null};
   const byId=id=>document.getElementById(id);
   function translate(en,es){
     try{return typeof flUi==='function'?flUi(en,es):(byId('language')?.value==='es'?es:en)}catch{return en}
   }
   function setBusy(busy){
+    if(busy&&!state.busy)state.progress=null;
     state.busy=!!busy;
     if(state.cancel)state.cancel.disabled=!state.busy;
     if(state.build){state.build.setAttribute('aria-busy',state.busy?'true':'false')}
@@ -15,7 +16,24 @@
     if(section)section.dataset.loading=state.busy?'true':'false';
     const pending=byId('gr176Pending');
     if(pending)pending.textContent=state.busy?
-      translate('Reading source frames; progress is not reported by this engine.','Leyendo fotogramas originales; este motor aún no reporta progreso.'):'';
+      (state.progress?historyProgressLabel(state.progress):
+        translate('Reading original source data…','Leyendo datos originales de la fuente…')):'';
+  }
+  function historyProgressLabel(p){
+    const noun=p.source==='profile'?
+      translate('real profile rows inspected','filas reales de perfil revisadas'):
+      translate('OpenFOAM frames inspected','fotogramas OpenFOAM revisados');
+    return translate('Series ','Serie ')+p.slot+': '+p.completed+' / '+p.total+' '+noun
+  }
+  function onSourceProgress(event){
+    const p=event?.detail;
+    if(!state.busy||!p||![1,2].includes(p.slot)||!['global','probe','profile'].includes(p.source))return;
+    if(typeof fwState==='undefined'||p.seq!==fwState.fieldTsSeq)return;
+    if(!Number.isSafeInteger(p.completed)||!Number.isSafeInteger(p.total)||
+      p.total<1||p.completed<1||p.completed>p.total)return;
+    state.progress={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
+    const status=byId('gr176Pending');
+    if(status)status.textContent=historyProgressLabel(state.progress);
   }
   function cancelHistory(){
     if(!state.busy)return false;
@@ -132,6 +150,7 @@
       state.observer.observe(status,{subtree:true,characterData:true,childList:true});
     }
     document.addEventListener('foamlens-language-change',updateLanguage);
+    document.addEventListener('foamlens-field-history-progress',onSourceProgress);
     updateLanguage();
     try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(error){console.warn('Granada G3 field options refresh not ready',error)}
     window.FoamLensGranadaT2={installed:()=>state.installed,isBuilding:()=>state.busy,cancel:cancelHistory,refreshLabels:updateLanguage};

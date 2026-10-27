@@ -83,7 +83,7 @@ function mockApp(){
     document,window:{},MutationObserver:Observer,console,
     fwState:{fieldTsSeq:18},
     activeAppMode:'data',currentDataView:'timeseries',
-    flUi:(en)=>en,
+    flUi:(en,es)=>language.value==='es'?es:en,
     fwRefreshFieldTsControls:()=>{
       refreshes++;
       assert.equal(details.open,true,'native refresh requires its details.open anchor');
@@ -129,6 +129,62 @@ test('Cancel visibly disables after atomic generation epoch is invalidated',()=>
   assert.match(app.getLastStatus(),/Cancelled/);
   assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),false,'cannot cancel twice');
 });
+test('G52 live progress shows ONLY verified original source counts and respects cancellation epoch',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const notify=app.events.get('foamlens-field-history-progress');
+  assert.equal(typeof notify,'function','T2 must listen to the actual scientific progress event');
+  assert.equal(get('gr176Pending').textContent,'');
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
+  assert.equal(get('gr176Pending').textContent,'','idle UI must ignore asynchronous stale events');
+  app.button.click();
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 5 \/ 10 OpenFOAM frames inspected/);
+  const ok=get('gr176Pending').textContent;
+  notify({detail:{slot:2,completed:7,total:10,seq:17,source:'probe'}});
+  notify({detail:{slot:1,completed:50,total:10,seq:18,source:'global'}});
+  assert.equal(get('gr176Pending').textContent,ok,'reject obsolete epoch and fabricated >total progress');
+  notify({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
+  const lang=app.events.get('foamlens-language-change');app.document.getElementById('language').value='es';
+  if(lang)lang();
+  assert.match(get('gr176Pending').textContent,/Serie 2: 2 \/ 6 filas reales de perfil revisadas/,'translation must not erase actual frame evidence');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(get('gr176Pending').textContent,'');
+  notify({detail:{slot:2,completed:6,total:6,seq:18,source:'profile'}});
+  assert.equal(get('gr176Pending').textContent,'','cancelled in-flight WebView2 read cannot resurface old progress');
+});
+test('G52 progress producer reports original frames in ALL three build paths and never commits partial data',()=>{
+  const begin=core.indexOf('function fwFieldTsReportProgress(');
+  const end=core.indexOf('function fwRefreshFieldTsSlot(',begin);
+  assert(begin>=0&&end>begin,'real field history generator progress reporter absent');
+  const events=[];
+  class CustomEvent{constructor(type,options){this.type=type;this.detail=options.detail}}
+  const state={fieldTsSeq:42};
+  const progress=new Function('fwState','document','CustomEvent',core.slice(begin,end)+';return fwFieldTsReportProgress')(
+    state,{dispatchEvent:event=>events.push(event)},CustomEvent);
+  assert.equal(progress(1,1,50,42,'global'),true);
+  assert.equal(progress(1,2,50,42,'global'),false,'limit large-case UI events without hiding real work');
+  assert.equal(progress(1,3,50,42,'global'),true);
+  assert.equal(progress(2,50,50,42,'profile'),true);
+  assert.equal(progress(2,51,50,42,'profile'),false,'never exceed original timestep count');
+  assert.equal(progress(1,4,50,42,'invented'),false,'do not accept fabricated scientific source kinds');
+  assert.equal(progress(3,1,50,42,'probe'),false,'only two real independent generator slots');
+  state.fieldTsSeq++;
+  assert.equal(progress(1,4,50,42,'global'),false,'cancelled epoch cannot emit frame updates');
+  assert.deepEqual(events.map(e=>e.detail),[
+    {slot:1,completed:1,total:50,seq:42,source:'global'},
+    {slot:1,completed:3,total:50,seq:42,source:'global'},
+    {slot:2,completed:50,total:50,seq:42,source:'profile'}
+  ]);
+  assert(events.every(e=>e.type==='foamlens-field-history-progress'));
+  assert.equal((core.match(/fwFieldTsReportProgress\(slot,i\+1,times\.length,seq,'(?:global|probe)'\)/g)||[]).length,2,
+    'probe and global 3D OpenFOAM histories must report exactly their processed frames');
+  assert(core.includes("fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile')"),
+    'profile history reports inspected original physical-time rows, not guessed percentages');
+  assert(core.includes('if(seq!==fwState.fieldTsSeq)return;')&&
+    core.includes('const built=fwCommitFieldHistoryDrafts(drafts)'),
+    'original cancelled build must remain atomic');
+});
 test('two source slots and real-field selectors remain independent',()=>{
   const a=mockApp(),get=id=>a.document.getElementById(id);
   assert.notEqual(get('sourceA'),get('sourceB'));
@@ -150,7 +206,8 @@ test('real structural data/error/states exist without fake variable-0 fallback',
   for(const id of ['timeSeriesControls','timeSeriesVariable','timeSeriesVariable2','fwTsStatus','timeSeriesFilterHint'])
     assert(index.includes('id="'+id+'"')||core.includes('id="'+id+'"'),'missing original control '+id);
   assert(candidate.includes("fwState.fieldTsSeq"),'functional cancel epoch');
-  assert(candidate.includes('progress is not reported by this engine'), 'honest unknown progress statement');
+  assert(candidate.includes('foamlens-field-history-progress'), 'live source-frame progress event must be used');
+  assert(!candidate.includes('progress is not reported by this engine'), 'obsolete unavailable-progress message must be removed');
   assert(!candidate.includes('Variable 0'));
   const trusted=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop',
   'TrustedEmbeddedFrontendExtensions.cs'),'utf8');
