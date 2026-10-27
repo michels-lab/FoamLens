@@ -26,6 +26,8 @@ function audit(){
   originalPlayAria:play?.getAttribute('aria-label')||'',
   playClientWidth:play?.clientWidth??null,playScrollWidth:play?.scrollWidth??null,
   computedMinWidth:style?.minWidth||null,computedMaxWidth:style?.maxWidth||null,
+  computedWidth:style?.width||null,computedDisplay:style?.display||null,
+  computedFlexShrink:style?.flexShrink||null,computedBoxSizing:style?.boxSizing||null,
   computedFontSize:style?.fontSize||null,
   guardStylesheetPresent:!!id(STYLE),g7StylesheetPresent:!!id('gfwG7Style'),
   g12StylesheetPresent:!!id('flG12WideFieldRibbonStyle'),
@@ -38,6 +40,10 @@ function install(){
  const sheet=document.createElement('style');sheet.id=STYLE;
  sheet.textContent=[
  '@media(min-width:1025px) and (max-width:1250px){',
+ // G43/P0: an original 70px failure occurs at 1140px even WITHOUT
+ // gfwCompact. The old G16 recovery selector required the compact class,
+ // so it was inert in this observed failure state. Retain original controls.
+ '#flRibbonPanel-field #fwTimeTransport #fwTimePlay{min-width:112px!important;width:max-content!important;max-width:none!important;min-height:32px!important;box-sizing:border-box!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;flex-shrink:0!important;padding:6px 10px!important}',
  // Exact same original source DOM and G7 selector specificity, but a
  // later v33 stylesheet, only when compact state became stale at WIDE width.
  'body.flRibbonReady.appMode-field #appShell.app.gfwCompact #flRibbonPanel-field .flRibbonTimeGroup #fwTimePlay{min-width:112px!important;width:max-content!important;max-width:none!important;min-height:32px!important;box-sizing:border-box!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;flex-shrink:0!important;padding:6px 10px!important;font-size:11px!important}',
