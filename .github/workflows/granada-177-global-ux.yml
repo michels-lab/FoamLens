@@ -1,0 +1,41 @@
+name: Granada 177 — Global primary UI and source inventory
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js'
+      - 'desktop/tests/granada-177-global-ux.spec.cjs'
+      - 'desktop/tests/granada-177-ux-runtime.spec.cjs'
+      - '.github/workflows/granada-177-global-ux.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js'
+      - 'desktop/tests/granada-177-global-ux.spec.cjs'
+      - 'desktop/tests/granada-177-ux-runtime.spec.cjs'
+      - '.github/workflows/granada-177-global-ux.yml'
+  workflow_dispatch:
+jobs:
+  primary-actions:
+    name: Original Ribbon action ownership and G0 layout — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing Ribbon routing and Field primary time controls
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Existing 3D Field workspace interaction
+        run: node desktop/tests/workspace-ux.test.cjs
+      - name: Existing Data/Analysis owners and hidden view rules
+        run: node desktop/tests/analysis-ui-organization.test.cjs
+      - name: New eight-mode control inventory and G1 ownership
+        run: node desktop/tests/granada-177-global-ux.spec.cjs
+      - name: Original-command DOM move and keyboard interaction runtime
+        run: node desktop/tests/granada-177-ux-runtime.spec.cjs
+      - name: Required suite manifest
+        run: node desktop/tests/test-suite-manifest.test.cjs

@@ -1,0 +1,35 @@
+name: Granada 117 — Real case benchmark evidence gates
+on:
+  push:
+    paths:
+      - 'tools/benchmark-real-case.cjs'
+      - 'tools/tests/benchmark-real-case.test.cjs'
+      - 'tools/compare-import-performance.cjs'
+      - '.github/workflows/granada-117-real-case-benchmark.yml'
+  pull_request:
+    paths:
+      - 'tools/benchmark-real-case.cjs'
+      - 'tools/tests/benchmark-real-case.test.cjs'
+      - 'tools/compare-import-performance.cjs'
+      - '.github/workflows/granada-117-real-case-benchmark.yml'
+  workflow_dispatch:
+jobs:
+  scientific-benchmark:
+    name: Read-only benchmark, source privacy and UI timing — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing owner UI timing comparison and baseline guards
+        run: node tools/tests/compare-import-performance.test.cjs
+      - name: New full-content identity, real-source benchmark harness and 3k/10k synthetic stress
+        run: node tools/tests/benchmark-real-case.test.cjs
+      - name: Large-volume native/frontend parser invariants
+        run: node desktop/tests/large-project-stress.test.cjs

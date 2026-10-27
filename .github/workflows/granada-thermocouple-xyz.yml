@@ -1,0 +1,37 @@
+name: Granada 152 thermocouple XYZ scientific gates
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js'
+      - 'desktop/tests/thermocouple-xyz-mapping.spec.cjs'
+      - 'desktop/tests/thermocouple-xyz-loader.spec.cjs'
+      - '.github/workflows/granada-thermocouple-xyz.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js'
+      - 'desktop/tests/thermocouple-xyz-mapping.spec.cjs'
+      - 'desktop/tests/thermocouple-xyz-loader.spec.cjs'
+      - '.github/workflows/granada-thermocouple-xyz.yml'
+  workflow_dispatch:
+jobs:
+  thermocouple-xyz:
+    name: Source-backed XYZ thermocouple / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing experimental validation regression
+        run: node desktop/tests/experimental-validation.test.cjs
+      - name: Existing 3D probe and geometry regression
+        run: node desktop/tests/field-probe.test.cjs
+      - name: Thermocouple physical XYZ mapping and scientific checks
+        run: node desktop/tests/thermocouple-xyz-mapping.spec.cjs
+      - name: Native loader and source integration contract
+        run: node desktop/tests/thermocouple-xyz-loader.spec.cjs
