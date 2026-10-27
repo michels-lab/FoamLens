@@ -141,11 +141,17 @@ function eoCompare(a,b,config={}){
     ]
   }
 }
+// Export evidence is valid only for unchanged original imported measurements.
+// Serialize for same-session equality, never export this internal fingerprint.
+function eoSourceFingerprint(s){
+  if(!eoEligible(s))return null;
+  return JSON.stringify({descriptor:eoDescriptor(s),times:s.t,values:s.y})
+}
 /* FOAMLENS_EQUIVALENT_OBSERVABLES_CORE_END */
 
 function eoUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function eoEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let eoLast=null,eoCatalog=[];
+let eoLast=null,eoBound=null,eoCatalog=[];
 function eoSelect(id){return document.getElementById(id)}
 function eoCatalogItems(){
   const usable=(Array.isArray(series)?series:[]).map((s,i)=>({s,i})).filter(x=>{
@@ -162,7 +168,7 @@ function eoRefresh(){
   eoCatalog=eoCatalogItems();
   // A refreshed source list must never silently rebind an old selector index
   // to a different physical dataset after imports/retries.
-  eoLast=null;eoSelect('eoReport').textContent='';
+  eoLast=null;eoBound=null;eoSelect('eoReport').textContent='';
   eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;
   const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
   const labels=eoCatalog.map((x,i)=>{
@@ -186,7 +192,7 @@ function eoRefresh(){
     eoUi('. Cases must differ; 2D/3D and equivalent position are explicitly supplied by you.','. Los casos deben diferir; tú designas 2D/3D y posición equivalente.');
 }
 function eoRun(){
-  eoLast=null;
+  eoLast=null;eoBound=null;
   const a=eoCatalog[Number(eoSelect('eoSource2d')?.value)]?.s,b=eoCatalog[Number(eoSelect('eoSource3d')?.value)]?.s;
   if(!a||!b||eoSelect('eoSource2d').value===''||eoSelect('eoSource3d').value===''){
     eoSelect('eoStatus').textContent='Select both measured source series first.';return
@@ -198,6 +204,13 @@ function eoRun(){
   const area=eoSelect('eoReport'),status=eoSelect('eoStatus');
   if(!result.valid){area.textContent='';status.textContent=result.reason;eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;return}
   eoLast=result;
+  eoBound={
+    a,b,
+    source2d:eoSourceFingerprint({...a,datasetType:'timeseries'}),
+    source3d:eoSourceFingerprint({...b,datasetType:'timeseries'}),
+    input:JSON.stringify(config),
+    index2d:eoSelect('eoSource2d').value,index3d:eoSelect('eoSource3d').value
+  };
   const fmt=n=>Number(n).toLocaleString(undefined,{maximumSignificantDigits:7});
   status.textContent=eoUi('Comparison uses ','Comparación con ')+result.metrics.n+
     eoUi(' paired samples. Verified data sources; observational equivalence is user-declared.',' pares. Datos de origen reales; la equivalencia observacional la declara el usuario.');
@@ -212,7 +225,7 @@ function eoRun(){
 }
 function eoInvalidate(){
   // A prior result is no longer attributable to newly selected source or settings.
-  eoLast=null;const report=eoSelect('eoReport');if(report)report.textContent='';
+  eoLast=null;eoBound=null;const report=eoSelect('eoReport');if(report)report.textContent='';
   for(const id of ['eoExportJson','eoExportCsv']){const button=eoSelect(id);if(button)button.disabled=true}
   const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');
   if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -244,7 +257,18 @@ function eoDownload(filename,content,type){
   setTimeout(()=>URL.revokeObjectURL(url),1200)
 }
 function eoExport(type){
-  if(!eoLast)return;
+  if(!eoLast||!eoBound)return;
+  const i=eoSelect('eoSource2d')?.value,j=eoSelect('eoSource3d')?.value;
+  const a=eoCatalog[Number(i)]?.s,b=eoCatalog[Number(j)]?.s;
+  const config={observable:eoSelect('eoObservable').value,basis:eoSelect('eoBasis').value,
+    mapping:eoSelect('eoMapping').value,confirmed:eoSelect('eoConfirm').checked,
+    maxPoints:Number(eoSelect('eoPoints').value)};
+  if(!a||!b||a!==eoBound.a||b!==eoBound.b||i!==eoBound.index2d||j!==eoBound.index3d||
+     JSON.stringify(config)!==eoBound.input||
+     eoSourceFingerprint({...a,datasetType:'timeseries'})!==eoBound.source2d||
+     eoSourceFingerprint({...b,datasetType:'timeseries'})!==eoBound.source3d){
+    eoInvalidate();return
+  }
   if(type==='json')eoDownload('FoamLens_2D_3D_observables.json',
     JSON.stringify({...eoLast,exportedAt:new Date().toISOString()},null,2),'application/json');
   else {
