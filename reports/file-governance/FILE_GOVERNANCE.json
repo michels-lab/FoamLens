@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 405,
-  "classified_files_total": 401,
-  "docs_content_inspected": 78,
+  "tracked_files_total": 406,
+  "classified_files_total": 402,
+  "docs_content_inspected": 79,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 72,
+    "document": 73,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "3e9c4798da930846aa3b62b1c99af17170d3827b916a68c258e073f6ae9fc233",
+  "inventory_fingerprint": "092d42364056c00fc967f02810f112df289d36fd4674c3f97ab221bb92a6d931",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -2063,6 +2063,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "c37e67dc49b80bd18ea1262d4c59fc8d9d0a894e"
+    },
+    {
+      "path": "docs/GRANADA_MASTER_PRIORITY_EXECUTION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f6033f20c5bc34a2465a171f5d11ddd9dfe1b310"
     },
     {
       "path": "docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md",
