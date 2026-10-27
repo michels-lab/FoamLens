@@ -1,0 +1,22 @@
+# GRANADA G12 — original Field time transport at laptop widths
+
+2026-10-22. Source-owned isolated Field Ribbon responsiveness bundle (not a new OpenFOAM solver or a release candidate).
+
+## Root cause / observed evidence
+- A real prior G8 B13 native Windows run [39666162518](https://github.com/michels-lab/FoamLens/actions/runs/39666162518) failed the **existing original Field** `playNotCollapsed` invariant at CSS width **1140 px**. While metal/mold physics, clock, original region mapping, camera dock and WebGL passed, the original source's `#flFieldContextShelf` had `scrollWidth=2293`, `clientWidth=1140`, `scrollLeft=870` and its Field toolbar measured ~1411px to the right. The failure could have been text clipping, width collapse or hidden horizontal position; that old native error did not capture individual Play scrollWidth/clientWidth, so it is not honest to pick one as uniquely proven.
+- `v15-ribbon-ui.js` uses original `#flRibbonTimeGroup`/ `#fwTimeTransport` and fixed 106px Play/460px transport rules. Existing G7 special layout only applies at CSS <=1024px, leaving a 1025–1250px laptop breakpoint to protect. The original Field source owner PR #179 is not overwritten.
+
+## Functional G12 (3 linked deliverables)
+1. New versioned **`v31-granada-wide-field-ribbon.js`** adds narrowly scoped responsive styles ONLY for active Field Ribbon and CSS 1025–1250px: force original physical-time group to its own full-width FIRST row, leave original time slider/clock/speed, camera toolbar and command groups visible/unchanged, allocate a content-sized readable original Play control, and permit remaining groups to wrap without clipping. No duplicated controls, fake time values, click automation, physics changes, import/export, app state, new data, or preferences altered. G7 <=1024 and desktop >1250 remain as before.
+2. Read-only `window.FoamLensGranadaG12.audit()` exposes original DOM identities, actual Play rect, text overflow/client width, viewport bounds, loop aria, clock text, shelf scrolling and explicit `PASS/FAIL/NOT_APPLICABLE`. Its PASS is **only a DOM-layout precheck**, explicitly not installed/native/DPI acceptance.
+3. `tools/granada_g12_wide_field_ribbon.test.cjs` reproduces the original 1140px failure conditions independently (Play clipped text, too narrow, offscreen, missing clock or inaccessible label), and confirms positive EN/ES, correct exact breakpoint, original source module binding, deferred DOM initialization and no user/case/solver state changes. Linux/Windows GitHub Actions read-only regression workflow `granada-g12-wide-field-ribbon.yml`.
+
+## Gates & ownership
+- Code branch `feat/granada-g12-wide-field-ribbon-20261022`, from current `main`, does not edit `v15-ribbon-ui.js`, `v27` Field/Analysis G7, `v28/v29/v30` Time Series, CAD, OpenFOAM solver, `Program.cs` or existing integration branches.
+- Actual native smoke **not yet claimed**. After exact-branch dual OS tests, pin G12 SHA into a separate, disposable Windows G11/G8/G7 real B13 Setup+Portable capture workflow. The original native `playNotCollapsed` assertion must remain unchanged. Record observed real computed geometry at 1140 px, 640px G7 parity and two languages, then physical Windows DPI 125/150/175/200 where feasible. No GUI/aesthetic acceptance inferred from Node VM.
+- Main has new G11/G10/G8 original scientific source merges; do not reuse old G8 code head as final product acceptance. A separate G11 original four-filter native recapture PR #224 is active and must remain owned by its original branch. We should avoid changing it or forcing merge/rebase. Any G12 multi-owner reconciliation must be performed in an independent temporary checkout with exact source pins.
+- No RC/beta, public binary, installer artifact, stable tag or release here. User's GRANADA authorization enables an actual final stable release only after all current-SHA, original science, native packaged, distribution/updater and integrity gates pass.
+
+## Status/reentry
+- Implementation + tests + CI source are committed. **Record actual workflow outcomes against exact head here** once completed; do not claim passing based merely on workflow submission.
+- If the old 1140px failure reproduces after G12, preserve the red condition, log measured scroll and computed geometry, and return to original Field owner. Do not weaken `playNotCollapsed` or automatically scroll the real user's camera bar as a workaround.
