@@ -1,3 +1,7 @@
+# Update 2026-10-27
+
+Original G27 independently reconciled onto current main 1a5723a6026356f69337abe3052108c91d09d454. Prior successful Windows locale proof #39964438597 remains historically valid for old main, not a substitute for new exact-head CI. Product source remains untouched. #230 and #238 stay open; no signed release.
+
 # GRANADA G27 — native OpenFOAM scientific decimals under real Windows cultures
 
 **Date:** 2026-10-23. **Scope:** test-only original `main` FoamLens Windows WinForms/WebView2. **Stable release:** not approved; public v1.8.10 unchanged.

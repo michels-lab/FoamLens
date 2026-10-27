@@ -158,15 +158,17 @@ internal sealed class FoamLensForm : Form
 #endif
             _web.CoreWebView2.NewWindowRequested += (_, e) =>
             {
+                // The browser owns ONLY the secure local FoamLens origin.
+                // Windows ShellExecute must never receive WebView2 custom schemes.
                 e.Handled = true;
                 OpenExternal(e.Uri);
             };
             _web.CoreWebView2.NavigationStarting += (_, e) =>
             {
-                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) &&
-                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
-                    uri.Scheme is "http" or "https")
+                if (!ExternalNavigationPolicy.IsInternalNavigation(e.Uri))
                 {
+                    // Cancel all unrecognized navigation, even file:, ms-*,
+                    // javascript:, about:, HTTP-local host and invalid URLs.
                     e.Cancel = true;
                     OpenExternal(e.Uri);
                 }
@@ -746,6 +748,39 @@ internal sealed class FoamLensForm : Form
             Log("FoamLens checkMesh scientific report inspector WebView2 smoke passed: " +
                 meshAuditSurfaceJson);
 
+
+            // Confirm the CAD surface inspector is usable inside the real packaged WebView2.
+            // STL surfaces have no implied physical units, and are not volume meshes.
+            var cadSurfaceJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const api=window.FoamLensCadSurface,launch=document.getElementById('cgLaunch'),
+                    nav=document.getElementById('cgNav'),
+                    panel=document.getElementById('cgShell'),canvas=document.getElementById('cgCanvas');
+                  if(!api||!launch||!nav||!panel||!canvas)return{ok:false,reason:'CAD inspector not mounted'};
+                  const obj=api.parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3','native-smoke.obj');
+                  const sum=api.summarize(obj.triangles);
+                  const ascii=api.exportAsciiStl(obj.triangles,'native-smoke',.001);
+                  const stl=api.parseStl(new TextEncoder().encode(ascii).buffer,'native-smoke.stl');
+                  const exportBtn=document.getElementById('cgExportStl');
+                  nav.click();
+                  const opened=!panel.hidden&&canvas.getBoundingClientRect().width>200;
+                  panel.querySelector('#cgClose')?.click();
+                  const closed=panel.hidden;
+                  const ok=opened&&closed&&sum.triangles===1&&sum.boundaryEdges===3&&
+                    sum.enclosedVolumeEstimate===null&&sum.bounds.size[0]===1&&
+                    stl.triangles.length===1&&api.unitScale('unknown')===null&&
+                    exportBtn?.disabled===true;
+                  return{ok,format:stl.format,triangles:sum.triangles,unitUnconfirmed:exportBtn?.disabled};
+                })()
+                """);
+            using (var cadJson = JsonDocument.Parse(cadSurfaceJson))
+            {
+                if (!cadJson.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                    throw new InvalidOperationException(
+                        "FoamLens CAD surface packaged WebView2 smoke failed: " + cadSurfaceJson);
+            }
+            Log("FoamLens CAD STL/OBJ WebView2 smoke passed: " + cadSurfaceJson);
 
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");
@@ -2396,10 +2431,9 @@ internal sealed class FoamLensForm : Form
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
-        var extensionPaths = Directory.GetFiles(AppRoot, "v*-*.js")
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (extensionPaths.Length == 0) return;
+        // G35: only authoritative embedded original AppBundle JavaScript is executable.
+        // Never enumerate mutable per-user AppRoot v*-*.js residues after ZIP extraction.
+        var bundledExtensions = TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly();
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
@@ -2429,8 +2463,7 @@ internal sealed class FoamLensForm : Form
 
         // Versioned modules are injected inside the main frontend IIFE so they
         // share the live case/series model without exporting private state.
-        var extension = string.Join(Environment.NewLine,
-            extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
+        var extension = string.Join(Environment.NewLine, bundledExtensions);
         if (_smokeTest)
         {
             extension += Environment.NewLine + """
@@ -4970,14 +5003,17 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     private void HandleOpenExternal(JsonElement root, string requestId)
     {
         var uri = RequiredString(root, "uri");
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
-            (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
         {
-            Reply(requestId, false, null, "Only http/https external links are allowed.");
+            Reply(requestId, false, null, "Only safe external HTTP(S) browser links are allowed.");
             return;
         }
-        OpenExternal(parsed.ToString());
-        Reply(requestId, true, new { uri = parsed.ToString() }, null);
+        if (!OpenExternal(externalUrl))
+        {
+            Reply(requestId, false, null, "The system could not open this link.");
+            return;
+        }
+        Reply(requestId, true, new { uri = externalUrl }, null);
     }
 
     private void HandleCancelOperation(JsonElement root, string requestId)
@@ -5102,11 +5138,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         else _web.CoreWebView2?.PostWebMessageAsJson(json);
     }
 
-    private static void OpenExternal(string? uri)
+    private static bool OpenExternal(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) return;
-        try { Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true }); }
-        catch { /* External navigation should never crash FoamLens. */ }
+        // Last-resort defense for ALL callers: WebView2, About links,
+        // update links and the native JS bridge, not only click handlers.
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
+            return false;
+        try
+        {
+            Process.Start(new ProcessStartInfo(externalUrl) { UseShellExecute = true });
+            return true;
+        }
+        catch { return false; /* Never crash FoamLens if the OS browser is unavailable. */ }
     }
 
     private static void Log(string message)
