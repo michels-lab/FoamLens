@@ -103,7 +103,20 @@ function install(){
  back=document.createElement('div');back.id='g8Backdrop';back.className='g8Backdrop';back.hidden=true;back.setAttribute('aria-hidden','true');
  back.addEventListener('pointerdown',e=>{if(e.target===back)hide()});document.body.append(back);
  historyBtn=document.createElement('button');historyBtn.id='g8History';historyBtn.type='button';historyBtn.className='g8History';
- historyBtn.addEventListener('click',()=>{const details=$('fwDataFieldHistories');if(!details)return;show();details.open=true;details.scrollIntoView?.({block:'center',behavior:'auto'});});
+ historyBtn.addEventListener('click',()=>{
+  const visibleHistory=$('gr176HistoryCard'),details=$('fwDataFieldHistories');
+  if(visibleHistory){
+    // G51: in source-native T2 the generator is already in the chart.
+    // An old details element remains only as an invisible refresh anchor.
+    // Opening the imports drawer would obscure the REAL Build controls.
+    if(opened)hide();
+    visibleHistory.scrollIntoView?.({block:'center',behavior:'auto'});
+    $('fwTsField1')?.focus?.();
+    return
+  }
+  if(!details)return;
+  show();details.open=true;details.scrollIntoView?.({block:'center',behavior:'auto'})
+ });
  controls.querySelector('.timeSeriesActions')?.append(historyBtn);
  document.addEventListener('keydown',key,true);
  document.addEventListener('change',e=>{if(e.target?.id==='language')label()},true);
