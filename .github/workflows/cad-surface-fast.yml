@@ -1,0 +1,26 @@
+name: CAD surface scientific fast tests
+
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
+      - 'desktop/tests/cad-surface-inspector.test.cjs'
+      - '.github/workflows/cad-surface-fast.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
+      - 'desktop/tests/cad-surface-inspector.test.cjs'
+      - '.github/workflows/cad-surface-fast.yml'
+  workflow_dispatch:
+
+jobs:
+  cad-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Import formats, metric safety and topology tests
+        run: node desktop/tests/cad-surface-inspector.test.cjs

@@ -1,3 +1,5 @@
+**Convergence update 2026-10-27:** Original G29 QA is reconciled onto current merged main `b329e7e1e1b04588f6e695fb15864446f638f005`. The old exact-head PASS is historical; current main with CAD, G35 trusted-JS and G37 intermittent Play testing requires fresh Windows v1.8.9 to v1.8.10 actual native upgrade verification. No product source changes, no release.
+
 # FoamLens Granada G29 — real old-to-new Windows WebView2 profile upgrade
 
 **Date:** 2026-10-23. **QA-only independent branch:** `test/granada-g29-real-189-to-1810-storage-migration-20261023`. **Official public baseline:** `v1.8.10`; no new release.
