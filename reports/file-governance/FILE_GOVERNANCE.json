@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 423,
-  "classified_files_total": 419,
-  "docs_content_inspected": 83,
+  "tracked_files_total": 427,
+  "classified_files_total": 423,
+  "docs_content_inspected": 84,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 77,
+    "document": 78,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 130,
-    "test": 115,
+    "source": 131,
+    "test": 116,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 53
+    "workflow": 54
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "a211e45e0a86cd02ce1698d21e23b8a9b57f5d6ae4ed7dff2adbd9a5f8e558ed",
-  "evidence_fingerprint": "06dd9055dfa0983575f65971d565b1ed866e46dd460851bb7307484833bb1acb",
+  "inventory_fingerprint": "9b05da9ecdd406b847d049007ec906700e5907445a53b3d2617cc6ab354cff01",
+  "evidence_fingerprint": "07493e9e24b30dc1f8630361f462ab0b8e5683d869b1e366b777b99969bee6b9",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -154,6 +154,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
+    },
+    {
+      "path": ".github/workflows/granada-176-timeseries-t2.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "fee8b16ee3ff04dfca3d2cb31969f2d591afce1f"
     },
     {
       "path": ".github/workflows/granada-177-g4-review-live.yml",
@@ -996,6 +1003,13 @@
       "blob": "2a96cd4e0ebeae9f017d07a3c50598de877717ea"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "95426b88efd7decb909179ac43b10bec9e4be7b5"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1330,6 +1344,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "773b4244abf19c923a4bf4060d320394300894e8"
+    },
+    {
+      "path": "desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "65df83610f5c52e95c8ccc0427002107d27cd280"
     },
     {
       "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
@@ -1911,6 +1932,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "728912cc4e8cabbd4ab79e3b237f5e14d64a8164"
+    },
+    {
+      "path": "docs/GRANADA_176_G3_TIMESERIES_LAYOUT_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b3ff18c9d1c16053305806f79739cb866d7e20ee"
     },
     {
       "path": "docs/GRANADA_177_G0G1_PRIMARY_RIBBON_2026-10-20.md",
@@ -2965,11 +2993,11 @@
   ],
   "findings": [
     {
-      "id": "485d7bc973f8cd34",
+      "id": "8d21536a04f3e267",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "16 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, .github/workflows/granada-g33-real-native-residue.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-177-g4-review-live.spec.cjs",
+      "observation": "19 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, .github/workflows/granada-g33-real-native-residue.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
