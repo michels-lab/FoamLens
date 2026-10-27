@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 365,
-  "classified_files_total": 361,
-  "docs_content_inspected": 68,
+  "tracked_files_total": 366,
+  "classified_files_total": 362,
+  "docs_content_inspected": 69,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 62,
+    "document": 63,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "cc5a006bff662f7f9efa505075255c829c22b85bd039a45c425b2133ed96e19a",
-  "evidence_fingerprint": "fe29e292fc41f1435bc49f15c0973bc60fa2b80a98ab9957c6383889a83626f4",
+  "inventory_fingerprint": "40f4e496e9ca8358813d9830080f364f7745279141079d1b7fac2dde60476fc8",
+  "evidence_fingerprint": "dc854722f4b141a376037507e92ca94472122b6c3693194b892a918423a65edb",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -272,7 +272,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "07b0f47345fbb1e672581c986f34a6b038d48d98"
+      "blob": "890d7e71b4dd2c3b6c4ac1e4b6b665145b1b3461"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -1780,6 +1780,13 @@
       "blob": "4bfdfd96591c3ac18458366b51689e2e679e8ae9"
     },
     {
+      "path": "docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7b80ad0afbdbe803a357d1febf345cc9a76fac9e"
+    },
+    {
       "path": "docs/GRANADA_G41_PLAY_NATIVE_FAILURE_ATTRIBUTION_2026-10-27.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2358,7 +2365,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d88f90bfda18bbfbd8f54a37d7c1adbb77a5a1d9"
+      "blob": "60ee690232a07b44f053be916713ad454d2631ac"
     },
     {
       "path": "tools/granada_g41_native_play_diagnostics.test.cjs",
@@ -2559,11 +2566,11 @@
   ],
   "findings": [
     {
-      "id": "bc7fb44a9bb9e044",
+      "id": "d44d8b0b75474a19",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_g37_real_b13_play_stress.ps1, tools/granada_g41_native_play_diagnostics.test.cjs",
+      "observation": "6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_g37_real_b13_play_stress.ps1, tools/granada_g37_real_b13_stress_guards.test.cjs, tools/granada_g41_native_play_diagnostics.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
