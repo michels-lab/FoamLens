@@ -117,7 +117,7 @@ test('G51 compact Build shortcut focuses VISIBLE original T2 generator instead o
  shortcut.click();
  assert.equal(scrolls,1,'scroll to source-native visible Time Series card');
  assert.strictEqual(f.document.activeElement,field,'keyboard focus remains on actual original OpenFOAM field selection');
- assert.equal(f.details.open,false,'obsolete refresh anchor must never become the visible destination');
+ assert.equal(Boolean(f.details.open),false,'obsolete refresh anchor must never become the visible destination');
  assert.equal(f.api.audit().drawerOpen,false,'do not obscure visible chart with import drawer');
  // If import drawer was open already, the shortcut closes it and restores chart access.
  f.api.open();assert.equal(f.api.audit().drawerOpen,true);
