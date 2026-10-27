@@ -128,14 +128,14 @@ test('G40 main automatically checks relevant original Field changes, not metadat
 
 test('G42 post-trigger main drift is allowed ONLY for four audited metadata paths and authentic signed-off commit subjects',()=>{
  const main=wf.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
- const q=main.replace(/\\r/g,'');
+ const q=main.replace(/\r/g,'');
  assert.match(q,/git fetch --no-tags origin main/,'actual current Git lineage must be available');
- assert.match(q,/git merge-base --is-ancestor \\$sha \\$currentMain/,'never allow unrelated main histories');
- assert.match(q,/\\$stewardCommits.Count -gt 4/,'bound accepted post-trigger commit chain');
- assert.match(q,/chore\\(file-steward\\): refresh local audit findings \\[skip ci\\]/,'commit identity must be exact');
- assert.match(q,/\\$_ -cne 'chore\\(file-steward\\): refresh local audit findings \\[skip ci\\]'/,'reject arbitrary commit subjects');
- assert.match(q,/git diff --name-only \\$sha \\$currentMain/,'compare actual source snapshot and latest main');
- const list=q.match(/\\$stewardPaths=@\\(([\\s\\S]*?)\\)/)?.[1]||'';
+ assert.match(q,/git merge-base --is-ancestor \$sha \$currentMain/,'never allow unrelated main histories');
+ assert.match(q,/\$stewardCommits.Count -gt 4/,'bound accepted post-trigger commit chain');
+ assert.match(q,/chore\(file-steward\): refresh local audit findings \[skip ci\]/,'commit identity must be exact');
+ assert.match(q,/\$_ -cne 'chore\(file-steward\): refresh local audit findings \[skip ci\]'/,'reject arbitrary commit subjects');
+ assert.match(q,/git diff --name-only \$sha \$currentMain/,'compare actual source snapshot and latest main');
+ const list=q.match(/\$stewardPaths=@\(([\s\S]*?)\)/)?.[1]||'';
  const paths=[...list.matchAll(/'([^']+)'/g)].map(x=>x[1]);
  assert.deepEqual(paths,[
    'docs/audits/FILE_GOVERNANCE_LOG.md',
@@ -143,18 +143,18 @@ test('G42 post-trigger main drift is allowed ONLY for four audited metadata path
    'reports/file-governance/FILE_GOVERNANCE.md',
    'reports/file-governance/SUMMARY.json'
  ],'exact 4 original File Steward paths, no wildcard');
- assert.match(q,/\\$_ -cnotin \\$stewardPaths/,'all other source changes must fail');
- assert.match(q,/\\$stillCurrent -ne \\$currentMain/,'recheck remote main after lineage comparison');
- assert.match(wf,/\\$sha -ne '\\$\\{\\{ github.sha \\}\\}'/,'checkout commit remains exact event SHA');
- assert.match(wf,/originalProductReleaseReady -ne \\$false/,'no release on a source-equivalent audit snapshot');
+ assert.match(q,/\$_ -cnotin \$stewardPaths/,'all other source changes must fail');
+ assert.match(q,/\$stillCurrent -ne \$currentMain/,'recheck remote main after lineage comparison');
+ assert.match(wf,/\$sha -ne '\$\{\{ github.sha \}\}'/,'checkout commit remains exact event SHA');
+ assert.match(wf,/originalProductReleaseReady -ne \$false/,'no release on a source-equivalent audit snapshot');
 });
 test('G42 negative: removing ancestry, commit identity or original source whitelist cannot pass',()=>{
  const checker=workflow=>{
    const main=workflow.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
-   assert.match(main,/git merge-base --is-ancestor \\$sha \\$currentMain/);
-   assert.match(main,/\\$_ -cne 'chore\\(file-steward\\): refresh local audit findings \\[skip ci\\]'/);
-   assert.match(main,/\\$_ -cnotin \\$stewardPaths/);
-   assert.match(main,/\\$stillCurrent -ne \\$currentMain/);
+   assert.match(main,/git merge-base --is-ancestor \$sha \$currentMain/);
+   assert.match(main,/\$_ -cne 'chore\(file-steward\): refresh local audit findings \[skip ci\]'/);
+   assert.match(main,/\$_ -cnotin \$stewardPaths/);
+   assert.match(main,/\$stillCurrent -ne \$currentMain/);
  };
  assert.doesNotThrow(()=>checker(wf));
  for(const mutated of [
