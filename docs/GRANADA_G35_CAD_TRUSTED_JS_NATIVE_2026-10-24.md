@@ -1,3 +1,7 @@
+## 2026-10-26 — second G17 source guard updated to reject old unsafe wildcard
+
+- New source test run [40439410846](https://github.com/michels-lab/FoamLens/actions/runs/40439410846): G16's 9/9 tests PASS with embedded-only loader. Separate G17 `CURRENT MAIN embeds G15/G16` test still asserted that the host MUST use the unsafe writable AppRoot `Directory.GetFiles` wildcard, so G17 correctly failed. Updated this additional outdated test to demand the same trusted embedded source and explicitly reject the prior vulnerability. Both G15 release origin/SHA checks and every G16 1140/640 physical Play assertion remain active; no bypass, source-product changes, or release.
+
 ## 2026-10-26 — G17 historical test expectation repaired on G35 security owner
 
 - In exact consolidated G35 source `11449c676dd2935bbbb2412c926b8f9530689294`, [G17 source CI 40438487003](https://github.com/michels-lab/FoamLens/actions/runs/40438487003) failed because old test `granada_g16_wide_play_cascade.test.cjs` explicitly expected original writable AppRoot `Directory.GetFiles(...)`. This is the behavior **G35 must remove** for security P0 #252. Source-owned test now rejects that unsafe enumeration and requires actual embedded `AppBundle.zip` loader, while retaining G16's real 1140px Play, 640px CSS, translation, geometry and no-relaxation assertions. No product behavior change or test skipped. Must rerun new exact-head native and G17 QA before merge. Releases #238 remain blocked.

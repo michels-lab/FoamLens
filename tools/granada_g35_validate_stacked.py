@@ -45,6 +45,7 @@ def audit(product: Path, qa: Path):
     check(all(x == HOST or x == HELPER or x.startswith(("tools/granada_g35_", ".github/workflows/granada-g35-",
                                                         "docs/GRANADA_G35_")) or x == "docs/GIT_AUDIT_LOG.md" or x == "desktop/tests/field-view.test.cjs"
               or x == "tools/granada_g16_wide_play_cascade.test.cjs"
+              or x == "tools/granada_g17_integrated_guards.test.cjs"
               for x in changed), "G35 changed unrelated CAD, scientific, UX, or other owner's source")
     baseline = git(product, "show", CAD_COMMIT + ":" + HOST).decode("utf-8")
     current = (product / HOST).read_text("utf-8")

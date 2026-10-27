@@ -15,7 +15,13 @@ const g16Fix='body.flRibbonReady.appMode-field #appShell.app.gfwCompact #flRibbo
 test('CURRENT MAIN embeds installed G15 and G16 in their original dedicated source files',()=>{
  assert(host.includes('UpdateAssetIntegrity.RequireOfficialReleaseAsset('));
  assert(host.includes('UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName)'));
- assert(host.includes('Directory.GetFiles(AppRoot, "v*-*.js")'));
+ const helper=fs.readFileSync(path.join(root,'TrustedEmbeddedFrontendExtensions.cs'),'utf8');
+ assert(host.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'));
+ assert(host.includes('string.Join(Environment.NewLine, bundledExtensions)'));
+ assert(!host.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+   'G17 source contract must not reauthorize unbundled local JavaScript');
+ assert(helper.includes('GetManifestResourceStream(BundleResource)'),
+   'G16 must be loaded only from executable-embedded original AppBundle.zip');
  assert(g16.includes('window.FoamLensGranadaG16=Object.freeze({audit})'));
 });
 test('G16 must outrank original compact G7 even if the compact stylesheet loads later',()=>{
