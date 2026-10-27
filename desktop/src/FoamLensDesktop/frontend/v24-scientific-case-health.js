@@ -30,21 +30,23 @@ function chRuntime(text='',name=''){
   const lines=text.split(/\r?\n/),events=[],add=(kind,line,i)=>{
     if(events.length<35)events.push({kind,line:i+1,text:line.trim().slice(0,230)})
   };
-  let recognized=false,hasEnd=false,fatal=false,foamAbort=false,physicalTimes=[];
+  let recognized=false,hasEnd=false,fatal=false,foamAbort=false,physicalTimes=[],lastEndLine=-1,lastProgressLine=-1;
   for(let i=0;i<lines.length;i++){
     const line=lines[i].trim();
     if(/^(?:Time\s*=\s*[+\deE.-]+|Exec\s*:|Create\s+time|Courant\s+Number|Solving\s+for\s+)/i.test(line))recognized=true;
     const time=/^Time\s*=\s*([+\deE.-]+)\s*$/.exec(line);
-    if(time){const t=chNumber(time[1]);if(Number.isFinite(t))physicalTimes.push(t)}
-    if(/^End\s*$/i.test(line)){hasEnd=true;add('explicit-end',line,i)}
+    if(time){const t=chNumber(time[1]);if(Number.isFinite(t)){physicalTimes.push(t);lastProgressLine=i}}
+    if(/^(?:Courant\s+Number|Solving\s+for\s+|ExecutionTime\s*=|Time\s*step\s*=)/i.test(line))lastProgressLine=i;
+    if(/^End\s*$/i.test(line)){hasEnd=true;lastEndLine=i;add('explicit-end',line,i)}
     if(/\bFOAM\s+FATAL\s+(?:IO\s+)?ERROR\b|\bFloating\s+point\s+exception\b|^\s*Segmentation\s+fault\b/i.test(line)){
       fatal=true;add('fatal',line,i)
     }
     if(/\bFOAM\s+aborting\b|\bSIG(?:SEGV|FPE)\b/i.test(line)){foamAbort=true;add('abort',line,i)}
   }
   const noBackwards=physicalTimes.every((t,i)=>i===0||t>=physicalTimes[i-1]);
-  return{recognized,completion:!recognized?'unknown':(fatal||foamAbort)?'failed':hasEnd?'explicit-end-reported':'not-demonstrated',
-    fatal:fatal||foamAbort,hasEnd,events,nondecreasingTime:noBackwards,
+  const endAfterProgress=hasEnd&&lastEndLine>=lastProgressLine;
+  return{recognized,completion:!recognized?'unknown':(fatal||foamAbort)?'failed':endAfterProgress?'explicit-end-reported':'not-demonstrated',
+    fatal:fatal||foamAbort,hasEnd,endAfterProgress,events,nondecreasingTime:noBackwards,
     observedTimes:physicalTimes.length,timeStart:physicalTimes.length?physicalTimes[0]:null,
     timeLast:physicalTimes.length?physicalTimes.at(-1):null,
     sourceFile:String(name||'').slice(0,150),
@@ -110,7 +112,7 @@ function chAudit(input={}){
       runtime.completion==='explicit-end-reported'?'verified':'warning',
       runtime.completion==='explicit-end-reported'?'Original user-selected log reports End marker (run-log evidence only).':
        runtime.completion==='failed'?'Original user-selected log contains a fatal/abort event.':
-       'OpenFOAM execution evidence found, but no explicit End marker.'+
+       'OpenFOAM execution evidence found, but no terminal End marker (or further solver progress after End).'+
        (runtime.nondecreasingTime===false?' Solver time decreased inside the same log.':''),
        runtime.sourceFile?[runtime.sourceFile]:[],
        'The log is manually selected and not independently proven to belong to this case.');
