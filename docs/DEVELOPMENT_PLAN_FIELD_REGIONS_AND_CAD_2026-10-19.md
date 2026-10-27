@@ -53,6 +53,13 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - Separate scientific and source-loader specs on Ubuntu/Windows with unchanged existing mesh/coupling/energy test suites. Still pending: verified provenance binding of runtime/checkMesh to loaded case, property- and solver-dependent thresholds, real complete/incomplete owner-case acceptance, true interface/material crosschecks, installed native Windows Setup/Portable proof and explicit release approval.
 - Documentation `docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md`; issue #155 stays **open** until all criteria close.
 
+### Operación Granada G0–G5 — UX/UI transversal obligatorio (#177)
+
+- La observación sobre Time Series se extiende a **Field/3D, Overview, Data, Analysis, Review, Live y todas las subtabs reales**. Inventariar DOM, visibilidad, jerarquía de acciones y choques responsivos de toda la aplicación, no solo de una pantalla.
+- Siempre visibles/contextuales según tarea: caso y región, variable, componente, unidad, leyenda, controles de tiempo, carga/progreso/error/Cancelar, acción principal y resultado científico (3D, tabla o gráfico). Opciones expertas infrecuentes pueden vivir en Advanced.
+- Entregables: G0 inventario de toda la UI; G1 sistema visual compartido; G2 Field/3D A–D y cámaras/leyendas; G3 Time Series; G4 Analysis/Review/Live; G5 capturas reales de Windows Setup + Portable a 1024/1280/1920px y DPI físico 125–200%, accesibilidad y aprobación estética explícita del usuario.
+- Evitar paneles duplicados, controles escondidos, CSS contradictorio o refactors ciegos de física OpenFOAM. Conservar motores originales y ramas funcionales independientes (#146, #149, #162, #176). **Este bloque sólo documenta el requisito: no implica implementación o aceptación.** Fuente: [#177](https://github.com/michels-lab/FoamLens/issues/177).
+
 ### P0 — Funcionamiento 3D, series temporales y validez física
 
 | ID | Tema | Estado de cierre (evidencia requerida) |

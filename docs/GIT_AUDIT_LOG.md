@@ -1,3 +1,9 @@
+## 2026-10-27 — Granada #177 all-tab UX documentation reconciliation (not a UI release)
+
+- Original [PR #178](https://github.com/michels-lab/FoamLens/pull/178) records the owner's mandatory whole-app UX/UI request: not only Time Series, but Field/3D, Overview, Data, Analysis, Review, Live and subtabs. This backlog requirement is independently tracked by [#177](https://github.com/michels-lab/FoamLens/issues/177) with G0–G5.
+- Source requirements to preserve in roadmap: case/source/region/variable/component, physical units and legends, visible critical operations, loading/cancel/error and usable source-backed graphs/3D; avoid hiding essential tools in accordions, duplicate buttons, or one-off CSS overrides. Validate real installed Windows Setup+Portable at multiple viewport widths with true 125–200% DPI and owner visual signoff. Reuse existing scientific logic without modifying it.
+- This action integrates **governance only** into the current roadmap/bitácora rather than an obsolete owner branch tree. Does NOT complete UX, close #177/#176/#149, claim physical acceptance, or authorize a release. Current science and Field Play source remain untouched.
+
 ## 2026-10-27 — Granada G43 P0 class-independent original Play safety (UNRELEASED)
 
 - Exact initial main `d47f17d2b302a0a3457ed3d0468e8c15b3498d2e` contains integrated #151/152/155 scientific modules, G22 breakpoint compact-only CSS and G16 old wide Play guard. Current stable release v1.8.10; 40 remaining open PR before source candidate. Master active claims had no FoamLens owner collisions. P0 exception to new-feature freeze `.michelslab/GRANADA.md`.
