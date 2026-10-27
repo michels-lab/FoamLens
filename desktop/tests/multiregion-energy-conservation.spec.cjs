@@ -127,6 +127,19 @@ equalRepeat.regions[0].interfaceFlux.y=[4,4,4,4];
 assert(lib.eval(equalRepeat).valid,'Identical repeated readings may be safely deduplicated');
 assert(source.includes("mecCaseId(mecEl('mecCase')?.value)"),'Empty case selection must not coerce to zero');
 
+// Same-failure regression: downsampling a narrow real W pulse must not
+// claim zero interface mismatch or verified energy conservation.
+const needle=input({maxPoints:2});
+needle.regions[0].interfaceFlux.t=[0,0.25,0.5,0.75,1,3];
+needle.regions[0].interfaceFlux.y=[4,4,40,4,4,4];
+const unfaithful=lib.eval(needle);
+assert(!unfaithful.valid,'Exceeding the physical-time budget must block instead of discard an interface spike');
+assert.match(unfaithful.reason,/cannot discard measured time knots/i);
+const resolved=lib.eval({...needle,maxPoints:6});
+assert(resolved.valid,resolved.reason);
+near(resolved.interface.integratedMismatch,9);
+assert.deepStrictEqual(resolved.grid,[0,0.25,0.5,0.75,1,3]);
+
 const missingDims=input();
 missingDims.regions[0].inventory.dimensions='';
 const caution=lib.eval(missingDims);assert(caution.valid);
