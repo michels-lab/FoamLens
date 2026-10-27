@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 343,
-  "classified_files_total": 339,
+  "tracked_files_total": 346,
+  "classified_files_total": 342,
   "docs_content_inspected": 64,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -16,15 +16,15 @@
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 105,
+    "source": 107,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 36
+    "workflow": 37
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "05977339943ab280a02925b9a11f90d0a7109b6887309fa49cdf95ece4fccf96",
+  "inventory_fingerprint": "b322e23609a7d4965c8d04f0b679c39654eea62ec4836570b74cf2b46e6fa562",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -243,6 +243,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "ec460ab2f3ef979e9b3dc5cb6dfe3269ea269121"
+    },
+    {
+      "path": ".github/workflows/granada-g37-real-b13-play-stress.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "dcdd4f6baa1474e5fea4a7523617ab4451cdb353"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -1607,7 +1614,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "6cd0b85cdfa4db8adfe60ca4f2cc49e997004862"
+      "blob": "1539f9ed4a38493c6f0304103783e2c0dbcc910a"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -2210,6 +2217,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "c263f61427c11d0e05e42bd100d807b957c5d270"
+    },
+    {
+      "path": "tools/granada_g37_real_b13_play_stress.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "69f4d63b1c8aac062966d42e21888d77dd3536f4"
+    },
+    {
+      "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "57ac52f38cf7b4d42a8b4567084feeecaedd3c5b"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
