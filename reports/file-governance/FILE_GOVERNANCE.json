@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 358,
-  "classified_files_total": 354,
-  "docs_content_inspected": 66,
+  "tracked_files_total": 362,
+  "classified_files_total": 358,
+  "docs_content_inspected": 67,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 60,
+    "document": 61,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 113,
+    "source": 115,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 39
+    "workflow": 40
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "5b4eea47a67384e07aa0ac35ca1d02e76d6353bc8d4e524ac29400d66fcbeace",
+  "inventory_fingerprint": "179723da04e7da34749292c7cd492b1bab032b8a34bbea816e3db10fa1f84de1",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -236,6 +236,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "545f8c4820edfbe274e0d24f770283e4360d968a"
+    },
+    {
+      "path": ".github/workflows/granada-g29-real-version-storage-migration.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "a114f2aa781d19e94c6a6a78b5f358191cf37a01"
     },
     {
       "path": ".github/workflows/granada-g30-real-native-offline.yml",
@@ -1628,7 +1635,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "99a13d625d09cf535d72064d8249851b4c57b453"
+      "blob": "41c7c19ad729803b16d24c78030dccc73e249782"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1720,6 +1727,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "a1b030a9023d3cf96a370c06c016f7d0e45fe28e"
+    },
+    {
+      "path": "docs/GRANADA_G29_CROSS_VERSION_STORAGE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f888758712a598eff80e66e00636522c6ea72bb8"
     },
     {
       "path": "docs/GRANADA_G30_ORIGINAL_NATIVE_OFFLINE_2026-10-23.md",
@@ -2252,6 +2266,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "1bb0401ac7711584a22d829deccfca9dc41428f0"
+    },
+    {
+      "path": "tools/granada_g29_actual_cross_version_upgrade.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a32ab46c79e69dfcaa438357f7d01411f16a3af7"
+    },
+    {
+      "path": "tools/granada_g29_upgrade_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c28deef6bb76ee40679813951ce2c36964a9ce77"
     },
     {
       "path": "tools/granada_g30_browser_network_probe/FoamLensG30BrowserNetworkProbe.csproj",
