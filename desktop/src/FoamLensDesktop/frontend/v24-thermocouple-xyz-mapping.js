@@ -19,6 +19,24 @@ function tcTempUnit(u){
   if(['c','°c','℃','degc','celsius'].includes(v))return{unit:'K',offset:273.15};
   return null
 }
+function tcCaseId(v){
+  if(typeof v!=='number'&&typeof v!=='string')return null;
+  const raw=String(v).trim();
+  if(!/^[+-]?(?:0|[1-9]\\d*)$/.test(raw))return null;
+  const n=Number(raw);return Number.isSafeInteger(n)?n:null
+}
+function tcProbeSourceConsistent(s){
+  const id=tcCaseId(s?.caseId),key=s?.fieldHistoryKey;
+  if(id===null||typeof key!=='string'||s?.sourcePath!=='derived:'+key)return false;
+  const parts=key.split('|');
+  if(parts.length!==7||parts[0]!=='field3d-probe-history'||tcCaseId(parts[1])!==id||
+      !parts[2]||parts[2]!==tcRegion(s)||!parts[3]||!parts[4]||!parts[5])return false;
+  const actual=tcProbePoint(s),encoded=parts[6].split(',').map(tcNumber);
+  if(!actual||encoded.length!==3||!encoded.every(Number.isFinite))return false;
+  // Original generator stores XYZ at eight significant digits. Match that
+  // source representation, not an unrelated nearby point or external record.
+  return actual.every((value,i)=>Number(value.toPrecision(8))===encoded[i])
+}
 function tcRegion(s){
   if(typeof s?.region==='string'&&s.region.trim())return s.region.trim();
   const parts=String(s?.fieldHistoryKey||'').split('|');
@@ -82,14 +100,13 @@ function tcInterpolate(p,t){
 }
 function tcCompare(sim,experimental,settings={}){
   const invalid=reason=>({valid:false,reason,rows:[],metrics:null,noExtrapolation:true});
-  if(!sim||!experimental||!Number.isFinite(tcNumber(sim.caseId)))
+  if(!sim||!experimental||tcCaseId(sim.caseId)===null)
     return invalid('Simulation case and original experimental record required');
-  if(!String(sim.sourcePath||'').startsWith('derived:field3d-probe-history|')||
-     !String(sim.fieldHistoryKey||'').startsWith('field3d-probe-history|'))
-    return invalid('Simulation must be a real OpenFOAM 3D Probe field-history source');
+  if(!tcProbeSourceConsistent(sim))
+    return invalid('OpenFOAM probe case, region, physical XYZ or derived source identity is inconsistent');
   const simPoint=tcProbePoint(sim),region=tcRegion(sim),family=tcFamily(sim);
   if(!simPoint||!family||!String(region).trim())return invalid('Simulation lacks verified 3D probe XYZ, original family or source region');
-  if(!String(settings.region||'').trim()||settings.region!==region||Number(settings.caseId)!==Number(sim.caseId))
+  if(!String(settings.region||'').trim()||settings.region!==region||tcCaseId(settings.caseId)===null||tcCaseId(settings.caseId)!==tcCaseId(sim.caseId))
     return invalid('Target region/case does not match the measured source region/case');
   const location=settings.location;
   if(!location?.verified||location.status!=='contained'||!Number.isInteger(location.cellId))
@@ -193,8 +210,7 @@ function tcInvalidate(message=''){
 }
 function tcSourceCatalog(){
   return (Array.isArray(series)?series:[]).filter(s=>{
-    if(datasetTypeOf(s)!=='timeseries'||!tcProbePoint(s)||!tcRegion(s)||
-       !String(s.sourcePath||'').startsWith('derived:field3d-probe-history|'))return false;
+    if(datasetTypeOf(s)!=='timeseries'||!tcProbeSourceConsistent(s))return false;
     if(!tcTempUnit(s.field?.unit))return false;
     if(s.field?.dimensions&&s.field.dimensions!=='[0 0 0 1 0 0 0]')return false;
     return !!tcSeriesPairs(s.t,s.y)
