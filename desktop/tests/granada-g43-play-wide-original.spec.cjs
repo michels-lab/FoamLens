@@ -26,7 +26,7 @@ const doc={
 const window={innerWidth:1140,innerHeight:900};
 const ctx={document:doc,window,getComputedStyle:()=>({
  minWidth:'68px',maxWidth:'100%',width:'70.3906px',display:'inline-flex',
- flexShrink:'1',boxSizing:'border-box',fontSize:'12px'
+ flexShrink:'1',boxSizing:'border-box',transitionProperty:'all',transitionDuration:'0.14s',fontSize:'12px'
 })};
 vm.runInNewContext(source,ctx);
 assert.equal(styles.length,1,'Only one versioned original guard sheet may be installed');
@@ -39,6 +39,9 @@ assert.equal(audit.originalTransportContainsPlay,true);
 assert.equal(audit.computedWidth,'70.3906px');
 assert.equal(audit.computedMinWidth,'68px');
 assert.equal(audit.computedFlexShrink,'1');
+assert.equal(audit.computedTransitionProperty,'all',
+ 'Original 70px failing sample can be held by an active implicit all-property transition');
+assert.equal(audit.computedTransitionDuration,'0.14s');
 assert.equal(audit.nativeInstalledOrPhysicalDpiApproved,false);
 const css=styles[0].css;
 assert(css.startsWith('@media(min-width:1025px) and (max-width:1250px){'));
