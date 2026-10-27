@@ -1,3 +1,5 @@
+**G30-safe reconciliation 2026-10-27:** Historical pre-G30 main smoke [40493416036](https://github.com/michels-lab/FoamLens/actions/runs/40493416036) passed. Current main now `a0d06fb913bac6e1358c5a1d9b32bf61ad3423c4`; G29 is rebased/converged as a QA-only original-owner branch with original G30 audit preserved. Repeat exact-source Windows migration CI required on the post-G30 actual product before merge. Full user settings, physical monitor DPI and genuine signed stable release remain blocked.
+
 **Convergence update 2026-10-27:** Original G29 QA is reconciled onto current merged main `b329e7e1e1b04588f6e695fb15864446f638f005`. The old exact-head PASS is historical; current main with CAD, G35 trusted-JS and G37 intermittent Play testing requires fresh Windows v1.8.9 to v1.8.10 actual native upgrade verification. No product source changes, no release.
 
 # FoamLens Granada G29 — real old-to-new Windows WebView2 profile upgrade
