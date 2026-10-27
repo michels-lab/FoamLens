@@ -79,19 +79,18 @@ function mecSample(pairs,t){
   const a=pairs[l-1],b=pairs[l],dt=b[0]-a[0];if(!(dt>0))return null;
   return{value:a[1]+(b[1]-a[1])*(t-a[0])/dt,kind:'time-interpolated'}
 }
-function mecTimeGrid(sources,maxPoints=2500){
+function mecTimeGrid(sources,maxPoints=20000){
   const start=Math.max(...sources.map(s=>s.pairs[0][0])),end=Math.min(...sources.map(s=>s.pairs.at(-1)[0]));
   if(!(end>start))return null;
   const ts=[start,end,...sources.flatMap(s=>s.pairs.map(p=>p[0]).filter(t=>t>=start&&t<=end))].sort((a,b)=>a-b);
   const dedup=[];for(const t of ts){
     if(!dedup.length||Math.abs(t-dedup.at(-1))>1e-10*Math.max(1,Math.abs(t)))dedup.push(t)
   }
-  const limit=Math.max(2,Math.min(2500,Math.floor(mecFinite(maxPoints)||2500)));
-  if(dedup.length<=limit)return dedup;
-  const reduced=[];for(let i=0;i<limit;i++){
-    const v=dedup[Math.round(i*(dedup.length-1)/(limit-1))];if(reduced.at(-1)!==v)reduced.push(v)
-  }
-  return reduced
+  const limit=Math.max(2,Math.min(100000,Math.floor(mecFinite(maxPoints)||20000)));
+  // Conservative physics: decimating source-time knots can erase real power peaks.
+  // Refuse the audit instead of integrating an under-sampled grid as conservation.
+  if(dedup.length>limit)return false;
+  return dedup
 }
 function mecIntegral(t,y){
   let v=0;for(let i=1;i<t.length;i++)v+=.5*(y[i-1]+y[i])*(t[i]-t[i-1]);return v
@@ -139,6 +138,7 @@ function mecEvaluate(input={}){
   ];
   if(missing.length)return blocked('Required physical coverage declarations are missing.',missing);
   const grid=mecTimeGrid(sources,input.maxPoints);
+  if(grid===false)return blocked('Physical-time grid exceeds the configured limit. Increase the limit; energy balance cannot discard measured time knots.');
   if(!grid||grid.length<2)return blocked('All selected energy terms need a common time interval with at least two times.');
   const rowData=byRegion.map(reg=>{
     const sampled=reg.sources.map(src=>grid.map(t=>mecSample(src.pairs,t)));
@@ -324,7 +324,7 @@ function mecInstall(){
   panel.innerHTML='<summary><strong data-fl-en="Granada · Multi-region energy accounting" data-fl-es="Granada · Balance energético multirregión">Granada · Multi-region energy accounting</strong></summary>'+
     '<div class="extSectionBody"><p class="smallnote">Read-only conditional interface/energy balance from physically integrated OpenFOAM postProcessing [J, W] sources. Regions and normals must be verified. This is separate from the automatic energy-flux decomposition audit.</p>'+
     '<div class="extGrid2"><div class="field"><label>OpenFOAM case</label><select id="mecCase"></select></div>'+
-    '<div class="field"><label>Maximum time samples</label><input type="number" min="2" max="2500" value="1200" id="mecMaxPoints"></div></div>'+
+    '<div class="field"><label>Maximum verified time points (no subsampling)</label><input type="number" min="2" max="100000" value="20000" id="mecMaxPoints"></div></div>'+
     '<h4>Region A</h4>'+selection('A')+'<h4>Region B</h4>'+selection('B')+
     '<label class="extCheck"><input type="checkbox" id="mecConfirmInterface"> I checked that both interface fluxes represent the SAME interface, correct area, orientation and outward-normal convention.</label>'+
     '<label class="extCheck"><input type="checkbox" id="mecConfirmStorage"> I verified that measured J values represent COMPLETE, non-double-counted total energy inventory of both regions (including latent contributions when applicable).</label>'+
