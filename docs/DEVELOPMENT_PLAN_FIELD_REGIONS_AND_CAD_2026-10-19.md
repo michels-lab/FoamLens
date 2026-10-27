@@ -16,11 +16,56 @@ Governance: `AGENTS.md`, `.michelslab/project.yml`, `docs/GIT_AUDIT_LOG.md`; loc
 - CI compiles both editions and proves Developer on actual WebView2, without uploading Developer to public releases; private owner distribution only. Public v1.8.10 unchanged until separately authorized release.
 - Scope tracked [#158](https://github.com/michels-lab/FoamLens/issues/158) and [Developer Edition design and build](FOAMLENS_DEVELOPER_EDITION_2026-10-19.md). **Software auditor (#158) is distinct from scientific Mesh Auditor (#150)**.
 
+### F3/F4 partial STL/OBJ surface inspector candidate — #147 / #148 (NOT released)
+
+- Candidate branch `feat/cad-stl-obj-inspector-20261019`: dedicated local CAD & Geometry dialog, ASCII/binary STL and OBJ named-part import, projected orbit/zoom preview with independent named-part visibility and cross-file metric positioning only after per-source unit confirmation, real source-coordinate bounds, triangle/surface diagnostics, and per-part ASCII STL export to meters **only after explicit source-unit selection** with a source manifest.
+- Source filenames/components are retained; no assumed metal/mold identity. Uses 32 MiB/file, 200,000 triangles/file, 300,000 triangles in combined interactive preview, and no automatic remote uploads.
+- It is a **surface parser and viewer**, not native OCCT STEP/IGES/BREP conversion or mesh generation. Shell self-intersection, true CAD assembly, CAD native unit metadata, geometrical exactness, native worker cancellation and CPU/GPU stress are not certified.
+- No automatic case output into `constant/geometry` or `constant/triSurface` until the user's actual OpenFOAM edition/version is verified. No solver, mesher or `surfaceCheck` execution. Remaining F3/F4/F5 tickets stay open.
+- Regression + packaged native WebView2 smoke added; complete installation/owner-case visual acceptance and exact-head CI required before merging or claiming delivered. Existing F1 per-view issue #145 and T1 #146 are not superseded.
+
 ### #150 Mesh quality report inspector implementation candidate
 
 - **Source-backed first stage:** Data → Mesh & Geometry Auditor accepts an existing local `checkMesh` report, identifies topological/metric quantities and warnings, preserves per-region evidence, explicit nulls for unreported metrics, and locally exports JSON with source/provenance limitations. Does not call `checkMesh` nor write a simulation case.
 - New `v20-mesh-quality-audit.js`, `mesh-quality-audit.test.cjs` and fast CI. Full Windows test additionally confirms that the packaged WebView2 application actually mounts `window.FoamLensMeshAuditor` and exposes the report inspector. This is an **implementation candidate, not a completed polyMesh auditor**.
 - Remaining #150 work: source-native polyMesh inspection, verified user-approved execution of external `checkMesh`, defect localization on real 3D meshes, CAD alignment and review on owner's original case. No public version bump or release requested.
+
+### Operación Granada #151 — Conditional multiregion energy accounting (candidate only)
+
+- Independent from open PRs #162 Field, #164 CAD and #165 2D/3D; no shared Program.cs or main Windows workflow modifications.
+- New `v24-multiregion-energy.js` companion to the existing `v14-energy-audit.js`; dedicated Analysis section with measured, case-bound, named-region postProcessing energy inventory [J] and interface power [W] mapping, optional external/source power [W], source sign conventions and three explicit completeness/geometry attestations.
+- Performs strictly common-time signed per-region and two-region conservation checks, independent interface reciprocity, source column deduplication, rigorous units/dimension and nonfinite/coverage rejection; exports local reproducible JSON/CSV evidence. Zero residual is reported as **conditional only**, never solver/mesh certification.
+- Cross-platform scientific `.spec.cjs` and source-loader contract tests in standalone `granada-multiregion-energy.yml` without touching overlapping native smoke/monolithic Windows workflow. Exact-current-commit CI status and native installed validation remain separate gates.
+- **Remaining #151:** source-native normal/area and patch correspondence, full sensible+latent inventory accounting, multiple external fluxes/losses, real OpenFOAM multiregion case validation, packaged WebView2/Setup/Portable acceptance and user physical review. No public version bump or release.
+
+### Operación Granada #152 — Thermocouple XYZ conditional physical mapping (candidate only)
+
+- Independent from active Field #162, CAD #164, 2D/3D #165 and Energy #166. Existing Experimental Validation, real 3D Probe source history and Field polyhedral cell-containment are reused. New `v24-thermocouple-xyz-mapping.js` is installed in scientific Analysis with no modification of other in-flight modules.
+- Real target thermocouple coordinate/unit and real imported experimental temperature series mapped only to matching case/region temperature Probe histories from `field3d-probe-history`. Both sensor and original simulated probe coordinates separately require verified containing-cell evidence in the actual loaded OpenFOAM mesh; source probe offset tolerance is explicitly chosen.
+- Strict time and units, no temporal extrapolation, RMSE/MAE/bias/max difference, plot, local JSON/CSV provenance, separately measured physical displacement sensitivity candidates; no automatic recalescence label or synthesized temperatures.
+- Ubuntu/Windows specs cover prior source contracts and new guards. Missing source/mesh/units explicitly blocks validation. Remaining #152: real owner experimental data, irregular cells, definitive material/sensor calibration and co-location, installed Windows Setup+Portable acceptance and full spatial sensitivity protocol. **Unreleased**.
+
+### Operación Granada #155 — Scientific Case Health (candidate / P1 partial)
+
+- Independent scientific case-health Analysis module `v24-scientific-case-health.js` consolidates already discovered source evidence without duplicating existing PIMPLE/Coupling, checkMesh, Energy, or native log parsing code. Does **not** overlap in-flight Field/CAD/2D–3D/Energy/Thermocouple PRs.
+- Case-level evidence for imported fields, source times and dictionaries; explicit local original solver log completion/fatal status; source-specific Courant and continuity/residual data; sourced PIMPLE metadata; original checkMesh report warnings; field dimensions/BC metadata; multiregion interface/energy completeness gaps.
+- Six explicit states; per-check source paths and limitation notes; local JSON report with no overall physical-validity certificate. No universal threshold conjecture, fabricated deltaT from output intervals, inferred boundary correctness, global green score, or silent report rebinding between cases.
+- Separate scientific and source-loader specs on Ubuntu/Windows with unchanged existing mesh/coupling/energy test suites. Still pending: verified provenance binding of runtime/checkMesh to loaded case, property- and solver-dependent thresholds, real complete/incomplete owner-case acceptance, true interface/material crosschecks, installed native Windows Setup/Portable proof and explicit release approval.
+- Documentation `docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md`; issue #155 stays **open** until all criteria close.
+
+### Operación Granada G0–G5 — UX/UI transversal obligatorio (#177)
+
+- La observación sobre Time Series se extiende a **Field/3D, Overview, Data, Analysis, Review, Live y todas las subtabs reales**. Inventariar DOM, visibilidad, jerarquía de acciones y choques responsivos de toda la aplicación, no solo de una pantalla.
+- Siempre visibles/contextuales según tarea: caso y región, variable, componente, unidad, leyenda, controles de tiempo, carga/progreso/error/Cancelar, acción principal y resultado científico (3D, tabla o gráfico). Opciones expertas infrecuentes pueden vivir en Advanced.
+- Entregables: G0 inventario de toda la UI; G1 sistema visual compartido; G2 Field/3D A–D y cámaras/leyendas; G3 Time Series; G4 Analysis/Review/Live; G5 capturas reales de Windows Setup + Portable a 1024/1280/1920px y DPI físico 125–200%, accesibilidad y aprobación estética explícita del usuario.
+- Evitar paneles duplicados, controles escondidos, CSS contradictorio o refactors ciegos de física OpenFOAM. Conservar motores originales y ramas funcionales independientes (#146, #149, #162, #176). **Este bloque sólo documenta el requisito: no implica implementación o aceptación.** Fuente: [#177](https://github.com/michels-lab/FoamLens/issues/177).
+
+### Operación Granada #117 — reproducible first/repeat real-case benchmark collection (candidate)
+
+- The actual native `NativeCaseCatalog`, UI `FoamLens_import_performance.json` report and UI timing comparison already exist on main; do not duplicate or claim cold/warm native optimization from CI fixtures.
+- New isolated `tools/benchmark-real-case.cjs`: read-only complete source-tree SHA-256 checks, path-private 3k/10k inventory/bytes/types and scan/read timing from real local cases. Only optional original UI export provides genuine measured import/first-interaction stages; report explicitly distinguishes app/UI metrics from Node I/O, user attribution and **unverified OS cold-cache**. Compare refuses changed full-content identity. No source OpenFOAM research data uploaded or modified.
+- Ubuntu/Windows synthetic 3008-file and 10000-file stress, privacy and source-change regressions, plus existing UI timing and large parser suites, provide implementation QA only; user-real 3008-file same-machine baseline and exact installed app remain required. Technical guide `docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md`.
+- Outstanding: owner case first/repeat/true cold profiling, end-to-end first interactive measurement, native pre-scan incrementally reusable catalog with invalidation, bounded asynchronous parsing, large 2D/3D field correctness, installed Setup/Portable acceptance. Issue #117 remains open; this does not authorize any release.
 
 ### Operación Granada #156 — Unified Phase/Momentum source-evidence explorer (partial candidate)
 

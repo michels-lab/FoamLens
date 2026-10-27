@@ -1,0 +1,30 @@
+name: Granada G5 UI audit comparator
+on:
+  pull_request:
+    paths:
+      - 'tools/granada-ui-audit/**'
+      - '.github/workflows/granada-177-g5-audit-diff.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'tools/granada-ui-audit/**'
+      - '.github/workflows/granada-177-g5-audit-diff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    name: G0 schema and UI audit regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check tools/granada-ui-audit/audit-diff.cjs
+      - run: node --test tools/granada-ui-audit/audit-diff.test.cjs

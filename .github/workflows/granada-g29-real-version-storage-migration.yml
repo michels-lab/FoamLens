@@ -1,0 +1,150 @@
+name: G29 original FoamLens v1.8.9 to v1.8.10 actual Windows storage upgrade (no release)
+on:
+  push:
+    branches:
+      - test/granada-g29-real-189-to-1810-storage-migration-20261023
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g29-real-cross-version-upgrade
+  cancel-in-progress: true
+jobs:
+  guarded-source:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject false migrations, user data access and relaxed negative storage tests
+        run: node --test tools/granada_g29_upgrade_guards.test.cjs
+      - name: Validate true native PowerShell parse (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $problems=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g29_actual_cross_version_upgrade.ps1').Path,[ref]$tokens,[ref]$problems)
+          if($problems.Count -gt 0){$problems | ForEach-Object {Write-Error $_.Message};throw 'G29 Windows migration PowerShell syntax invalid'}
+  genuine-cross-version-upgrade:
+    needs: guarded-source
+    runs-on: windows-latest
+    timeout-minutes: 95
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.8.9
+          path: old
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: current
+          persist-credentials: false
+      # Immutable previously validated G24 browser probe only. No edits to its owned branch or app code.
+      - uses: actions/checkout@v4
+        with:
+          ref: c0f3932a5221e5e4243942a2ecfb7023ba2ea9cf
+          path: probe
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Pin real old tag, exact live original main, correct isolated QA
+        run: |
+          $old=(git -C old rev-parse HEAD).Trim()
+          $main=(git -C current rev-parse HEAD).Trim()
+          $remote=((git -C current ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          $probe=(git -C probe rev-parse HEAD).Trim()
+          if($main -ne $remote -or $probe -ne 'c0f3932a5221e5e4243942a2ecfb7023ba2ea9cf' -or $old -eq $main){throw 'Not original distinct stable revisions or immutable G24 QA'}
+          [xml]$a=Get-Content old/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          [xml]$b=Get-Content current/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          if(([string]$a.Project.PropertyGroup.Version).Trim() -cne '1.8.9' -or ([string]$b.Project.PropertyGroup.Version).Trim() -cne '1.8.10'){throw 'FoamLens version source drift'}
+          $oldId=Select-String -Path old/desktop/installer/FoamLens.iss -Pattern '^AppId='
+          $newId=Select-String -Path current/desktop/installer/FoamLens.iss -Pattern '^AppId='
+          if(-not $oldId -or -not $newId -or $oldId.Line -cne $newId.Line){throw 'Official Inno upgrade identity differs between versions'}
+          "G29_OLD_SHA=$old" | Out-File $env:GITHUB_ENV -Append
+          "G29_MAIN_SHA=$main" | Out-File $env:GITHUB_ENV -Append
+          node --test qa/tools/granada_g29_upgrade_guards.test.cjs
+          if($LASTEXITCODE -ne 0){throw 'Cross-version adversarial source guards failed'}
+      - name: Build both ORIGINAL product binary versions and native official Inno installers
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Original icon build dependency missing'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Official Inno compiler missing'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if(-not(Test-Path $iscc)){throw 'Official native compiler missing'}
+          foreach($pair in @(@('old','1.8.9'),@('current','1.8.10'))){
+            $root=$pair[0];$version=$pair[1]
+            Push-Location $root
+            try {
+              python tools/generate_windows_icon.py
+              if($LASTEXITCODE -ne 0){throw "Original $version icon generation failed"}
+              python tools/generate_windows_icon.py --check
+              if($LASTEXITCODE -ne 0){throw "Original $version icon provenance failed"}
+              $stage='g29-bundle'
+              $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+              if(Test-Path $bundle){Remove-Item -LiteralPath $bundle -Force}
+              New-Item -ItemType Directory -Force -Path $stage | Out-Null
+              Copy-Item desktop/src/FoamLensDesktop/frontend/index.html "$stage/index.html"
+              Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js "$stage/"
+              Copy-Item desktop/src/FoamLensDesktop/frontend/assets "$stage/assets" -Recurse -Force
+              Copy-Item desktop/LICENSE.txt "$stage/LICENSE.txt"
+              Compress-Archive -Path "$stage/*" -DestinationPath $bundle -CompressionLevel Optimal
+              dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g29-publish
+              if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g29-publish/FoamLens.exe)){throw "Original $version WinForms/WebView2 binary absent"}
+              & $iscc "/DMyAppVersion=$version" "/DPublishDir=$((Resolve-Path artifacts/g29-publish).Path)" desktop/installer/FoamLens.iss
+              if($LASTEXITCODE -ne 0 -or -not(Test-Path "desktop/artifacts/FoamLens-Setup-v$version.exe")){throw "Original $version native Inno Setup missing"}
+            } finally { Pop-Location }
+          }
+          dotnet build probe/tools/granada_g24_webview2_storage_probe/FoamLensG24StorageProbe.csproj -c Release -o g29-probe
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g29-probe/FoamLensG24StorageProbe.dll)){throw 'Reviewed genuine browser probe did not compile'}
+      - name: Verify old Installed to new Installed to new Portable genuinely preserve Chromium state
+        run: |
+          & ./qa/tools/granada_g29_actual_cross_version_upgrade.ps1 -OldExe 'old/artifacts/g29-publish/FoamLens.exe' -NewExe 'current/artifacts/g29-publish/FoamLens.exe' -OldInstaller 'old/desktop/artifacts/FoamLens-Setup-v1.8.9.exe' -NewInstaller 'current/desktop/artifacts/FoamLens-Setup-v1.8.10.exe' -ProbeDll 'g29-probe/FoamLensG24StorageProbe.dll' -OldSha $env:G29_OLD_SHA -MainSha $env:G29_MAIN_SHA -WorkDir 'g29-native/work' -Report 'g29-evidence/report.json'
+          if(-not(Test-Path 'g29-evidence/report.json')){throw 'No genuine cross-version browser data evidence'}
+      - name: Reject late main drift and pretend-success reports
+        run: |
+          $local=(git -C current rev-parse HEAD).Trim()
+          $remote=((git -C current ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($local -ne $remote -or $local -ne $env:G29_MAIN_SHA){throw 'Official original main changed while cross-version proof ran'}
+          $r=Get-Content g29-evidence/report.json -Raw | ConvertFrom-Json
+          if($r.oldOriginalSha -ne $env:G29_OLD_SHA -or $r.newOriginalSha -ne $env:G29_MAIN_SHA -or
+             $r.actualInstalledToInstalledUpgrade -ne $true -or $r.realIndexedDbPreserved -ne $true -or
+             $r.realLocalStoragePreserved -ne $true -or $r.syntheticBrowserKeysCleaned -ne $true -or
+             $r.releaseReady -ne $false -or $r.userSettingsSchemaMigrationProven -ne $false){
+            throw 'G29 evidence values do not prove browser upgrade without false release claim'
+          }
+          foreach($repo in @('old','current')){
+            if((git -C $repo status --short -- desktop/src/FoamLensDesktop/Program.cs desktop/installer/FoamLens.iss) -ne $null){throw 'Original host or installer sources were modified'}
+          }
+      - name: Upload boolean/hash-only synthetic evidence (never browser/user/CFD data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G29-cross-version-sanitized-evidence
+          path: g29-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7
