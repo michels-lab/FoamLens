@@ -5,12 +5,14 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - 'desktop/tests/timeseries-provenance.test.cjs'
       - '.github/workflows/timeseries-source-fast.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - 'desktop/tests/timeseries-provenance.test.cjs'
       - '.github/workflows/timeseries-source-fast.yml'
   workflow_dispatch:
 
@@ -19,7 +21,11 @@ permissions:
 
 jobs:
   field-catalog:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +36,4 @@ jobs:
         run: |
           node desktop/tests/timeseries-source-catalog.test.cjs
           node desktop/tests/dual-timeseries.test.cjs
+          node desktop/tests/timeseries-provenance.test.cjs

@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 
-CAD_COMMIT = "68f56e176e6f0ce9ac95833acb196451f9dcb35a"
+CAD_COMMIT = "af494c3eab845f3c3d8aa7f5fd1e63d7efa65248"
 G34_COMMIT = "71c99e1a074a41bc93c3ec800992ff5ee63e3d39"
 HOST = "desktop/src/FoamLensDesktop/Program.cs"
 HELPER = "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs"

@@ -1,3 +1,7 @@
+## 2026-10-26 — G35 owner safe integration after CAD update
+
+- Reconciled original G35 source against CAD owner commit `af494c3eab845f3c3d8aa7f5fd1e63d7efa65248`, which itself preserves original up-to-date main native host including G25 ExternalNavigationPolicy, G21 release Authenticode enforcement, G22 compact CSS and G39 scientific Findings. G35 product-code edits remain only the two original JS trust call-sites in Program.cs plus the byte-exact original trusted embedded module; no other OpenFOAM/CAD algorithms changed. Native original Installed+Portable browser nonce inversion and QuickCup verification still REQUIRED on this new exact branch head. #252 and #238 stay OPEN until actual product evidence and release gates. No release.
+
 # GRANADA G35 — source-integrated CAD + trusted JavaScript verified in real Windows
 
 **Recorded:** 2026-10-24. **Product:** FoamLens only (no other Michel's Lab application). **Stacked integration PR:** [#255](https://github.com/michels-lab/FoamLens/pull/255), base branch `feat/cad-stl-obj-inspector-20261019` from [CAD PR #164](https://github.com/michels-lab/FoamLens/pull/164).
