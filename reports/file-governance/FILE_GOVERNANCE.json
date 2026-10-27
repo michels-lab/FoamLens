@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 401,
-  "classified_files_total": 397,
-  "docs_content_inspected": 77,
+  "tracked_files_total": 405,
+  "classified_files_total": 401,
+  "docs_content_inspected": 78,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 71,
+    "document": 72,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 122,
-    "test": 113,
+    "source": 123,
+    "test": 114,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 49
+    "workflow": 50
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "6a95a2b77f43e33f5dad57f64290264f459ec20e4512e015fd43fe652d0d671d",
+  "inventory_fingerprint": "3e9c4798da930846aa3b62b1c99af17170d3827b916a68c258e073f6ae9fc233",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -74,7 +74,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "09287f41218c610f692952af58d4fafe1e941d78"
+      "blob": "880e189d071f33b352d6851134c98978188a9841"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -96,6 +96,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "d4d4ca5d0fe470de3b0b1cb559a4c11f70fb4733"
+    },
+    {
+      "path": ".github/workflows/equivalent-observables-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "291288776c13b8ccd1072341fc12f3928354551f"
     },
     {
       "path": ".github/workflows/fast-import-regression.yml",
@@ -480,7 +487,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "af4563de3dfb6f99deae9c2c3811fed2028bc37c"
+      "blob": "41f16b0547cc6317107d4185c952d7b85382e20d"
     },
     {
       "path": "LICENSE",
@@ -599,7 +606,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "be39ba05bd2a98f649b54657c3cf98110418b383"
+      "blob": "a9ee9f74ead1c81ae249fa8eae48a8fb420f7041"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -945,6 +952,13 @@
       "blob": "90620e4669c67da83b891fd7f6a2a7497adb35ae"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ef870158a770179fd4ffaccc92c3d8467e6bbebb"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1188,6 +1202,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "50c40606a23aabca5d6bfe6ef6ad404540de7d2d"
+    },
+    {
+      "path": "desktop/tests/equivalent-observables.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "441d4b84b5aefd4415a2d046a725f794e51d5528"
     },
     {
       "path": "desktop/tests/experimental-validation.test.cjs",
@@ -1719,7 +1740,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "68ad81af7219847356de1078947475772dde568b"
+      "blob": "3d74a7c1e80ced54b2fceeb5c7f38fee36a33291"
     },
     {
       "path": "docs/DOCUMENTATION_INDEX.md",
@@ -1817,7 +1838,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b770f85168e925d4cca0b52fef16efa8551a1f8b"
+      "blob": "9892b8fc17fb1a4b77a12ac706e8dab41f35ebe3"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -1867,6 +1888,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "da80f575dc276f4eff364be07249d281a116cdd1"
+    },
+    {
+      "path": "docs/GRANADA_2D_3D_EQUIVALENT_OBSERVABLES_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5ee2fd36df7cc41614a1694a082bbcafa0ef2a82"
     },
     {
       "path": "docs/GRANADA_APP_PLUGIN_AUDIT_2026-10-21.md",
