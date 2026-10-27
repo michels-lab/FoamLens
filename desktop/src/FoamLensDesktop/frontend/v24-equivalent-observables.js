@@ -35,9 +35,27 @@ function eoUnitInfo(unit){
   if(!orig)return null;
   return{canonical:orig,transform:y=>y}
 }
+function eoCompleteMeasuredTimes(s){
+  // A comparison claiming measured source provenance must never discard a
+  // missing value, unmatched timestamp, or duplicate physical time and still
+  // report a deceptively complete RMSE/MAE. Check before eoPairs normalizes.
+  const times=s?.t,values=s?.y;
+  if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length||times.length<2)
+    return false;
+  const parsed=times.map(eoNumber);
+  if(parsed.some(x=>!Number.isFinite(x))||values.some(x=>!Number.isFinite(eoNumber(x))))
+    return false;
+  const ordered=parsed.slice().sort((a,b)=>a-b);
+  for(let i=1;i<ordered.length;i++){
+    if(Math.abs(ordered[i]-ordered[i-1])<=1e-10*Math.max(1,Math.abs(ordered[i]),Math.abs(ordered[i-1])))
+      return false
+  }
+  return true
+}
 function eoEligible(s){
   return !!s&&!s.derived&&s.datasetType==='timeseries'&&Number.isFinite(Number(s.caseId))&&
-    eoPairs(s).length>=2&&!!String(s.sourcePath||s.fileName||'').trim()&&!!String(s.field?.unit||'').trim()
+    eoCompleteMeasuredTimes(s)&&eoPairs(s).length>=2&&
+    !!String(s.sourcePath||s.fileName||'').trim()&&!!String(s.field?.unit||'').trim()
 }
 function eoDescriptor(s){
   return {
@@ -78,7 +96,7 @@ function eoSampleGrid(a,b,maxPoints=1500){
 function eoCompare(a,b,config={}){
   // Config describes user-provided observational equivalence, NOT 2D/3D certification.
   const reject=(reason)=>({valid:false,reason,rows:[],metrics:null,noExtrapolation:true});
-  if(!eoEligible(a)||!eoEligible(b))return reject('Two distinct, measured, unit-labeled time series with at least two physical samples are required.');
+  if(!eoEligible(a)||!eoEligible(b))return reject('Two distinct, measured, unit-labeled time series with complete unique physical times and at least two samples are required. Missing/nonfinite/duplicate original measurements cannot be silently discarded.');
   if(Number(a.caseId)===Number(b.caseId))return reject('Select two distinct OpenFOAM cases; do not relabel one case as 2D and 3D.');
   const dA=eoDescriptor(a),dB=eoDescriptor(b);
   if(dA.dimensions&&dB.dimensions&&dA.dimensions!==dB.dimensions)
