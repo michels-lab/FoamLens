@@ -8,8 +8,14 @@ const coupling=fs.readFileSync(path.join(front,'v14-coupling-audit.js'),'utf8');
 const energy=fs.readFileSync(path.join(front,'v14-energy-audit.js'),'utf8');
 const native=fs.readFileSync(path.join(root,'Program.cs'),'utf8');
 new Function(source);
-for(const token of ['Directory.GetFiles(AppRoot, "v*-*.js")','File.ReadAllText(path, Encoding.UTF8)'])
- assert(native.includes(token),'native bundle does not load independent JS extension '+token);
+// G35: native frontend extensions are trusted embedded assembly resources only.
+assert(native.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+  'Windows original host must use the trusted embedded-bundle module list');
+assert(!native.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+  'Mutable AppRoot wildcard module injection is forbidden');
+const build=fs.readFileSync(path.join(__dirname,'..','..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+assert(build.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/'),
+  'Native Windows build must package this versioned science module from source');
 for(const token of ['function caseLogSeries','function buildHealthAnalysisIndexProgressive','function flEnrichCaseDiscoveryModel',
  'function foamLogDescriptor','function pressureMapping','function couplingRows','function datasetTypeOf'])
  assert(base.includes(token),'Existing sourced health data path absent '+token);
