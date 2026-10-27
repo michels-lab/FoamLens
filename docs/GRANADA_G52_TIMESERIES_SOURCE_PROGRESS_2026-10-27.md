@@ -12,3 +12,7 @@ Original Time Series 3D history building is already implemented in `v14-zz-field
 
 ## Acceptance
 Existing `granada-176-timeseries-t2.yml` Windows+Ubuntu original DOM/source safety, `timeseries-source-fast.yml` source catalog, existing full Windows native QuickCup/Setup/Portable smoke and repository owner isolation must pass **at the exact accepted source SHA** before integration. If UI/source regression fails, fix root cause; never bypass an existing Play gate or declare full original #146 complete. Separate real multi-case **two-variable Time Series physical numeric acceptance** and user-approved 36 Windows screenshots / DPI 125–200% remain **open**. Public stable v1.8.10 unchanged.
+
+
+## G52 scientific provenance refinement
+The real source progress event now identifies `source='global'` and `'probe'` as actual parsed OpenFOAM field frames, versus `source='profile'` as inspected original profile rows. The visible bilingual source names distinguish these quantities, never representing profile rows as 3D frames or reporting invented solver percentages. Invalid source kinds and stale/cancelled events are rejected by tests. No scientific values, physical times, file parser, coordinate sampling or atomic commit logic changed.
