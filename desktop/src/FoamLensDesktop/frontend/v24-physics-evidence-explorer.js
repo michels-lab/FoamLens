@@ -59,7 +59,9 @@ function peValidate(config,descriptor,alphaDescriptor){
   if(config.subset!=='whole'){
     const lo=peFinite(config.low),hi=peFinite(config.high);
     if(!(lo>=0&&hi<=1&&lo<=hi))return fail('Phase thresholds must satisfy 0 ≤ low ≤ high ≤ 1.');
-    if(!alphaDescriptor||alphaDescriptor.kinds.length!==1||alphaDescriptor.kinds[0]!=='scalar'||
+    if(!alphaDescriptor||alphaDescriptor.region!==descriptor.region||
+       alphaDescriptor.region!==String(config.region||'')||
+       alphaDescriptor.kinds.length!==1||alphaDescriptor.kinds[0]!=='scalar'||
        !alphaDescriptor.times.length||alphaDescriptor.name==='')return fail('Phase subset needs a genuinely mapped scalar alphaL from the same case and region.');
     if(alphaDescriptor.dimensions.length!==1||alphaDescriptor.dimensions[0]!=='[0 0 0 0 0 0 0]')
       return fail('Liquid-fraction field must have sourced dimensionless OpenFOAM dimensions.');
@@ -84,6 +86,15 @@ function peAssemble(config,descriptor,samples,stats){
       totalCells:known?record.total:null,populationKnown:known,
       sources:(record.sources||[]).slice(0,50),issues:record.issues||[],
       estimatesUnweighted:true})
+  }
+  // A report containing only successfully supplied sample records is not
+  // complete unless every distinct actual source-file time was attempted.
+  // This catches incomplete caller/abort pipelines without manufacturing
+  // points, silently skipping frames or granting a false complete status.
+  for(const time of descriptor.times){
+    if(!(samples||[]).some(record=>Number.isFinite(peFinite(record.time))&&
+       Math.abs(peFinite(record.time)-time)<=1e-10*Math.max(1,Math.abs(time))))
+      excluded.push({time,reason:'actual original source time was never sampled'});
   }
   rows.sort((a,b)=>a.timeS-b.timeS);
   const distinct=peUniqueSorted(rows.map(x=>x.timeS));
