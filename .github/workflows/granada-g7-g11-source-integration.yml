@@ -40,12 +40,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prove exact G8 original owner source imported with no rewrite
+      - name: Prove exact approved G51 G8 Time Series source and test, no G7/G10/G11 rewrite
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git hash-object desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js)" = '6efaf4044ff2b4a9b24c96a1aaae295aeb1fb910'
-          test "$(git hash-object tools/granada_g8_compact_timeseries.test.cjs)" = '9a3d82b4d364d23ac23d4d953dfebbbfd0e5b4be'
+          test "$(git hash-object desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js)" = '99fc2a121861d69972ca63cb35e4dc7df107893f'
+          test "$(git hash-object tools/granada_g8_compact_timeseries.test.cjs)" = '1a22b48d4fddb469c974676d88f9f2b8f21bf85f'
           test "$(git hash-object .github/workflows/granada-g8-compact-timeseries.yml)" = 'b0f638995e20787c980486d33799be09d6685290'
           for module in v27-granada-compact-workbench v28-granada-compact-timeseries v29-granada-plot-toolbar v30-granada-chart-focus; do
             node --check "desktop/src/FoamLensDesktop/frontend/${module}.js"
