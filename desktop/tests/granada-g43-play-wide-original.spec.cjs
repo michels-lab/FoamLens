@@ -65,4 +65,13 @@ assert(wide.includes("'body.flRibbonReady.appMode-field #flRibbonPanel-field #fw
 // It must NOT add a duplicate control or modify actual solver/rendering state.
 assert(!source.includes('createElement(\'button\')'));
 assert.equal(styles.length,1);
+// G46: the original .btn transition:.14s is an implicit transition-property:all.
+// Geometry transitions override !important min-width temporarily after resize.
+const fixed='#fwTimePlay{transition-property:background-color,border-color,color!important}';
+assert(css.endsWith('}\n'+fixed),
+ 'Play width must NEVER be animated at either 640px or 1140px, outside the media scope');
+assert.equal(rules.filter(r=>r.selector==='#fwTimePlay').length,1,
+ 'Exactly one original Play transition guard, not competing overrides');
+assert(!/transition-property:(?:all|min-width|width)/i.test(fixed),
+ 'No geometry-changing transition allowed for Play');
 console.log('Granada G43 P0 original Play wide guard PASS: reproduces 70px noncompact failure, keeps fail-closed audit, and supplies class-independent 112px scoped correction.');
