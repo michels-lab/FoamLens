@@ -1,5 +1,12 @@
 # FoamLens Git Audit Log
 
+## 2026-10-27 — GRANADA #151 follow-up: physical-time integration cannot silently downsample
+
+- Reproduced an actual calculation defect on the original same-branch scientific function: a real 40 W peak sampled at t=0.5 s was erased by `maxPoints=2`; the UI-facing balance incorrectly showed interface integrated mismatch `0 J`, whereas the complete six-knot original measurements produce `9 J`. No private research data was needed for this deterministic negative fixture.
+- Repaired existing module `mecTimeGrid`: exact measured physical-time knot union or **BLOCKED** if its configured budget is exceeded; no lossy decimation before trapezoid integration. Explicit UI label and increased default/max budgets (20,000 / 100,000 time knots). If exceeding cap the user must increase the bound; no purported conserved result is emitted.
+- Regression `desktop/tests/multiregion-energy-conservation.spec.cjs` verifies blocked two-point under-sampling, full six-time result `9 J`, and exact knot preservation. Product source commit `edf74b6d885d7931b6f3e9dce95b8ce356f08885`; fixture commit `65380d68247bf0b77a907de7c4b49de20d03fed0`.
+- Scientific JavaScript core direct preflight PASS; dual-OS focused CI: previous source SHA `84019d8d89d40e3f82ea2eb3d63d064ca11910b3` **Ubuntu + Windows PASS**. Latest source+fixture `65380d6` Ubuntu **PASS**, Windows **in-progress at log authoring**; check final exact HEAD before integration. This remains original PR #166, currently conflicted with newer main, no native Setup/Portable acceptance, no final release, no solver data modification.
+
 ## 2026-10-27 — GRANADA #151 science provenance repair (PR #166; NOT integrated/released)
 
 - Existing scientific module `v24-multiregion-energy.js` was executed directly at previous branch source: a missing `caseId=null` was accepted as source case 0, and two incompatible W readings at duplicate physical time were silently deduplicated. Original observed status for both negative reproductions: `valid=true` (defects).
