@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 329; classified: 325; readable documents: 62; above read cap: 1; findings: 1.
+Tracked: 332; classified: 328; readable documents: 62; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -20,15 +20,14 @@ Tracked: 329; classified: 325; readable documents: 62; above read cap: 1; findin
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 97 |
-| test | 99 |
+| source | 98 |
+| test | 100 |
 | text_metadata | 1 |
 | web_ui | 2 |
-| workflow | 33 |
+| workflow | 34 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 11 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-g21-signed-release-gate.yml, .github/workflows/granada-g22-compact-css-boundary.yml, .github/workflows/granada-g31-original-native-package-bom.yml, desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js, tools/granada_g21_native_signing.ps1. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID cfa9b2c78a11a8cc)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 
+MAIN_COMMIT = "0253456641df6d584778c5a3115d9026a3293ada"
 CAD_COMMIT = "af494c3eab845f3c3d8aa7f5fd1e63d7efa65248"
 G34_COMMIT = "71c99e1a074a41bc93c3ec800992ff5ee63e3d39"
 HOST = "desktop/src/FoamLensDesktop/Program.cs"
@@ -36,8 +37,10 @@ def audit(product: Path, qa: Path):
     check(product.is_dir() and qa.is_dir(), "G35 product or independently pinned G34 QA checkout missing")
     main = git(product, "rev-parse", "HEAD").decode().strip()
     cad_origin = git(product, "merge-base", "HEAD", CAD_COMMIT).decode().strip()
+    current_main = git(product, "merge-base", "HEAD", MAIN_COMMIT).decode().strip()
+    check(current_main == MAIN_COMMIT, "G35 consolidated head must descend from exact reviewed current-main source")
     check(cad_origin == CAD_COMMIT, "G35 integration branch was not created from approved CAD owner base")
-    changed = set(git(product, "diff", "--name-only", CAD_COMMIT, "HEAD").decode().splitlines())
+    changed = set(git(product, "diff", "--name-only", MAIN_COMMIT, "HEAD").decode().splitlines())
     check(HOST in changed and HELPER in changed, "G35 actual host-and-helper correction missing")
     check(all(x == HOST or x == HELPER or x.startswith(("tools/granada_g35_", ".github/workflows/granada-g35-",
                                                         "docs/GRANADA_G35_")) or x == "docs/GIT_AUDIT_LOG.md" or x == "desktop/tests/field-view.test.cjs"
