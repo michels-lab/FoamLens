@@ -27,6 +27,21 @@ const fixtureUi=(overrides={})=>({
   assert.throws(()=>parseFlags(['--label','first','--label','repeat']),/Duplicate|Only/);
   assert.throws(()=>uiReport({schema:'wrong'}),/Expected an exported/);
   await fs.promises.mkdir(root,{recursive:true});
+  // Adversarial output path: lexical path is outside the source tree, but a
+  // junction/symlink resolves back INTO the original OpenFOAM case.
+  // Old code wrote pass.json into the case, violating read-only science.
+  const alias=path.join(temp,'SYMLINKED_OUTPUT_TO_CASE');
+  await fs.promises.symlink(root,alias,process.platform==='win32'?'junction':'dir');
+  const aliasOut=path.join(alias,'benchmark.json');
+  assert(!inRoot(root,aliasOut),'Make sure this reproduces the original lexical bypass');
+  await assert.rejects(()=>capture(root,aliasOut,{label:'first'}),
+    e=>e?.code==='OUTPUT_INSIDE_SOURCE','Aliased output directory cannot modify source');
+  assert.equal(fs.existsSync(path.join(root,'benchmark.json')),false);
+  const missingSubdir=path.join(alias,'new-subdir','report.json');
+  await assert.rejects(()=>capture(root,missingSubdir,{label:'first'}),
+    e=>e?.code==='OUTPUT_INSIDE_SOURCE','Nested missing alias output must be blocked BEFORE mkdir');
+  assert.equal(fs.existsSync(path.join(root,'new-subdir')),false,
+    'Failed validation must not create even an empty directory inside original case');
   // Synthetic test-only fixture. No private user OpenFOAM data is collected by CI.
   const dirs=['0','0.25','0.5','1.0','postProcessing/probes/0','system','constant/polyMesh'];
   for(const d of dirs)await fs.promises.mkdir(path.join(root,d),{recursive:true});
