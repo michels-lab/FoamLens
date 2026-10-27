@@ -1,0 +1,32 @@
+name: GRANADA G13 - original Field camera reachability
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js'
+      - 'tools/granada_g13_field_cameras.test.cjs'
+      - '.github/workflows/granada-g13-field-camera-reach.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-seven-cameras:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check original camera module syntax
+        run: node --check desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js
+      - name: Source-bound positive and negative original camera tests
+        run: node --test tools/granada_g13_field_cameras.test.cjs
+      - name: Prevent accidental other Michel's Lab apps mixed into FoamLens
+        run: node tools/test_repository_boundaries.cjs

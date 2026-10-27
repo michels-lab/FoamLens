@@ -1,0 +1,39 @@
+name: G38 scientific export numeric and CSV safety - no release
+on:
+  push:
+    branches:
+      - feat/granada-g38-scientific-export-integrity-20261026
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v13-reproducible-export.js'
+      - 'desktop/tests/reproducible-export.test.cjs'
+      - '.github/workflows/granada-g38-scientific-export.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reproducible-scientific-export:
+    name: Original numerical export and CSV tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check original frontend and test
+        shell: bash
+        run: |
+          node --check desktop/src/FoamLensDesktop/frontend/v13-reproducible-export.js
+          node --check desktop/tests/reproducible-export.test.cjs
+      - name: Actual original scientific export functions and negative fixtures
+        run: node desktop/tests/reproducible-export.test.cjs
+      - name: Windows scientific test manifest remains complete
+        run: node desktop/tests/test-suite-manifest.test.cjs

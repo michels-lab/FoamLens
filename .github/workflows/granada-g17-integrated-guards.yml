@@ -1,0 +1,60 @@
+name: GRANADA G17 - integrated updater and original Play guards
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs'
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+      - 'tools/granada_g15_updater_harness/**'
+      - 'tools/granada_g15_updater_source.test.cjs'
+      - 'tools/granada_g16_wide_play_cascade.test.cjs'
+      - 'tools/granada_g17_integrated_guards.test.cjs'
+      - '.github/workflows/granada-g17-integrated-guards.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs'
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+      - 'tools/granada_g15_updater_harness/**'
+      - 'tools/granada_g15_updater_source.test.cjs'
+      - 'tools/granada_g16_wide_play_cascade.test.cjs'
+      - 'tools/granada_g17_integrated_guards.test.cjs'
+      - '.github/workflows/granada-g17-integrated-guards.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  combined-release-source-invariants:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute G15 production C# official-release and SHA256 tampering cases
+        run: dotnet run --project tools/granada_g15_updater_harness/UpdaterHarness.csproj --configuration Release
+      - name: Assert original explicit consent and uploader origin
+        run: node --test tools/granada_g15_updater_source.test.cjs
+      - name: Replay native measured G16 Play 70px failure and correct G7 CSS collision
+        run: node --test tools/granada_g16_wide_play_cascade.test.cjs
+      - name: Assert G15 and G16 product sources coexist safely on current main
+        run: node --test tools/granada_g17_integrated_guards.test.cjs
+      - name: Assert FoamLens source never includes other apps
+        run: node tools/test_repository_boundaries.cjs
