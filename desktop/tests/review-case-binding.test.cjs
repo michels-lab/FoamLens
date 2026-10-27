@@ -48,9 +48,13 @@ test('Findings export exposes Markdown, JSON, ChatGPT and GitHub handoffs',()=>{
   for(const token of [
     'Assistant bundle (.md)','Raw evidence (.json)','Copy for ChatGPT','Create GitHub issue',
     "fxeOpen('https://chatgpt.com/')",
-    'https://github.com/realmichelduarte/FoamLens/issues/new?title=',
+    'https://github.com/michels-lab/FoamLens/issues/new?title=',
     'FoamLensFindingsExport'
   ])assert(findingsExport.includes(token),'Missing Findings handoff token: '+token);
+  assert(!findingsExport.includes('https://github.com/realmichelduarte/FoamLens/issues/new?title='),
+    'Historical GitHub issue target must not reappear in the public handoff');
+  assert(findingsExport.includes('Case names, local paths, physical samples'),
+    'Public GitHub handoff must explicitly omit confidential research details');
 });
 
 test('Review external handoff delegates to the actual centralized HTTP(S) policy and truthful native launch',()=>{

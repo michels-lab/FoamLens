@@ -1,3 +1,5 @@
+**Convergence update 2026-10-27:** The original native offline test is now reconciled onto current secured main `b329e7e1e1b04588f6e695fb15864446f638f005`. Historic G30 green is not evidence of current as-shipped source. The refreshed exact head must pass actual disposable Windows firewall + installed/portable original smoke and normal WebView2 UI before any QA-only merge. No physics or runtime source changes are part of this QA branch.
+
 # FoamLens — GRANADA G30: genuine offline Windows Installed + Portable
 
 **2026-10-23** · Product source: original `main`, stable `v1.8.10` · QA only, independent feature ownership, no new release.
