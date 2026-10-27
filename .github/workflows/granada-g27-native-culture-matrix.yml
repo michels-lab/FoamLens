@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '22'
       - name: Forbid culture mocks, cross-app code, privacy leaks and fake original scientific parsing
-        run: node --test tools/granada_g27_native_culture_matrix.test.cjs
+        run: node --test tools/granada_g27_native_culture_matrix.test.cjs tools/granada_g37_real_b13_stress_guards.test.cjs
       - name: Parse actual Windows PowerShell before changing any runner account locale
         if: runner.os == 'Windows'
         shell: pwsh

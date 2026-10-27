@@ -38,3 +38,13 @@ test('only sanitized numeric metadata may leave the disposable Windows native ru
  assert(!wf.includes('gh release create')&&!wf.includes('gh release upload'));
  assert(!wf.includes('artifacts/g27-publish/**'));
 });
+
+test('G27 remains compatible with original G37 private B13 diagnostics after both QA blocks merge',()=>{
+ const g37=fs.readFileSync(path.join(root,'.github/workflows/granada-g37-real-b13-play-stress.yml'),'utf8');
+ const list=g37.match(/\$allowed=@\(([\s\S]*?)\)/);
+ assert.ok(list,'original G37 exact-source owner allowlist must remain present');
+ const tracked=['.github/workflows/granada-g27-native-culture-matrix.yml','tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj','tools/granada_g27_culture_probe/Program.cs','tools/granada_g27_native_culture_matrix.test.cjs','tools/granada_g27_windows_native_culture_matrix.ps1','docs/GRANADA_G27_SCIENTIFIC_NATIVE_WINDOWS_CULTURE_2026-10-23.md'];
+ for(const name of tracked)assert.ok(list[1].includes("'"+name+"'"),'G37 may not fail only because of exact original G27 QA file: '+name);
+ assert.doesNotMatch(list[1],/desktop\/src|\.github\/workflows\/build-foamlens-desktop\.yml/,'never exempt original product/source owner changes');
+ assert.match(g37,/G37 modifies original CAD, Field, updater or scientific product source/,'G37 must fail closed for unapproved product modifications');
+});

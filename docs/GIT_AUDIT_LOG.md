@@ -1,3 +1,9 @@
+## 2026-10-27 — Cross-QA integration: G27 culture tests do not invalidate merged G37 science/Play stress
+
+- Original existing G27 PR #248 additionally makes a **strict six-path read-only QA allowlist extension** in the already merged G37 workflow (original #257): permit only these exact G27 workflow, test, independent culture-probe and G27 documentation paths. Original FoamLens product code remains STRICTLY DENIED; no Play geometry threshold, 1140/640 native source, CAD or physics is changed.
+- Original G27 Windows+Ubuntu source stage additionally executes G37 original adversarial stress guards, and a new negative original-gate test fails if the G37 allowlist loses the exact G27 QA entries or accidentally allows desktop/src. This ensures the independent G37 manual stress check remains runnable after G27 merge plus automatic File Steward audits, without broad wildcard exceptions or physics bypass.
+- A new exact-head G27 source+Windows locale 8/8 run must PASS; original 40486601623 PASS is now historical for the previous head 20605a9. No stable release; #230/#238 open.
+
 ## 2026-10-27 — G27 original four genuine Windows cultures on integrated G37 main
 
 - G37 [PR #257](https://github.com/michels-lab/FoamLens/pull/257) integrated genuine B13 6-restart QA on main, squash 624c5b3c8ae139de2bf22b83829922328b61de99. New main authority is ae3a1a4d09786e6aef13561f4765d36211671c8a including File Steward source audit. The original existing [G27 PR #248](https://github.com/michels-lab/FoamLens/pull/248) is reconciled onto that source without changing original FoamLens Program.cs, CAD, G35 JS, frontend Play or scientific calculations.
