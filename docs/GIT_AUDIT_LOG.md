@@ -1,3 +1,11 @@
+## 2026-10-27 — Granada G43 P0 class-independent original Play safety (UNRELEASED)
+
+- Exact initial main `d47f17d2b302a0a3457ed3d0468e8c15b3498d2e` contains integrated #151/152/155 scientific modules, G22 breakpoint compact-only CSS and G16 old wide Play guard. Current stable release v1.8.10; 40 remaining open PR before source candidate. Master active claims had no FoamLens owner collisions. P0 exception to new-feature freeze `.michelslab/GRANADA.md`.
+- Original identical Windows source PR #167 real native run #40526002334 first attempt exposed `playComputedWidth=70.3906`, original `playNotCollapsed=false` at 1140px, `playCompactClassAtWide=false`; second same source attempt passed. Key source limitation: v33 G16 only targets `#appShell.gfwCompact`, so its wide backup selector is inapplicable when this failing class is absent. No unproven claim about winning CSSOM origin.
+- Bounded repair on original v33 Field Play, media 1025–1250, original Field panel/transport/Play only; min width 112px `!important` regardless compact class; original handlers and 640px rules unchanged; readonly width/flex/boxSizing audit. Regression instantiates original v33 with noncompact 70px fixture, confirms pre-fix no matching original wide G16 rule and post-fix scoped media rule; audit must still report FAIL for the synthetic 70px, not fake success.
+- A dual-OS G43 source workflow and original Ribbon/Play regression accompany the product edit, with separate actual original WinForms native QuickCup B13 Setup/Portable native gates. `#230` remains open until repeated unchanged SHA native tests, physical DPI, 36 screenshot owner validation and formal native root cause checks; `#238` signing/updater and scientific case acceptance also open. **No release**.
+- Detailed handoff: `docs/GRANADA_G43_PLAY_WIDTH_2026-10-27.md`.
+
 ## 2026-10-27 — GRANADA #155 reentry after integrated thermocouple #167 (QA remains owner-gated)
 
 - Latest original source main now contains source thermocouple [#167](https://github.com/michels-lab/FoamLens/pull/167) and prior source energy [#166](https://github.com/michels-lab/FoamLens/pull/166). This second reentry carries only already-owned Scientific Case Health frontend, tests, workflow and issue docs into that exact source, preserving original new native modules and existing main audit.

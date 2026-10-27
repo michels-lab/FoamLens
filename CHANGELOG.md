@@ -1,3 +1,8 @@
+## Unreleased — P0 G43 original wide Field Play class-independent safety (candidate only)
+
+- Guard the original Field Play button at true 1025–1250px independently of stale `gfwCompact` status; G16's old compact-only rule could not match the observed 1140px/70px native failure with `gfwCompact=false`.
+- Preserve original compact 640px, Play handlers and scientific values, add computed-style telemetry and adversarial source regression on Ubuntu/Windows. Installed/Portable repeated native and physical DPI evidence required; `#230` and release `#238` stay open. No release.
+
 ## Unreleased — Operación Granada #155 · Scientific Case Health (candidate)
 
 - Reuse the existing Case Discovery, foamLog, Diagnostic/PIMPLE, checkMesh and Energy audits to create a **source-backed per-case scientific evidence ledger**; do not duplicate these physics engines.
