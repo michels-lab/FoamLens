@@ -89,3 +89,37 @@ test('post-merge File Steward audit records are allowed but no product science o
  const csFiles=[...list[1].matchAll(/'([^']+\.cs)'/g)].map(m=>m[1]);
  assert.deepEqual(csFiles,['tools/granada_g27_culture_probe/Program.cs'],'only independent G27 QA witness C# is permitted, never a product C# source file');
 });
+
+test('G40 main reentry binds live main SHA; QA branch owns only its explicit diff',()=>{
+ assert.match(wf,/\$runRef='\$\{\{ github\.ref \}\}'/,'evaluate actual GitHub run ref');
+ assert.match(wf,/\$currentMain=\(\(git ls-remote origin refs\/heads\/main\)/,'resolve real live main SHA');
+ assert.match(wf,/if\(\$runRef -eq 'refs\/heads\/main'\)/,'main is checked independently');
+ assert.match(wf,/if\(\$sha -ne \$currentMain\)/,'never run a stale main binary as latest');
+ assert.match(wf,/elseif\(\$runRef -in @\(/,'QA branch needs a separate ownership rule');
+ assert.match(wf,/\$branchBase=\(git merge-base HEAD origin\/main\)/,'diff against branch point, not obsolete G37 main');
+ assert.match(wf,/git diff --name-only \$branchBase HEAD/,'check only QA branch changes');
+ assert.match(wf,/\} else \{throw 'G37 unrecognized Git ref/,'ref must be allowlisted');
+ const mainScope=wf.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
+ assert.doesNotMatch(mainScope,/git diff --name-only/,'merged main product changes must not be rejected as QA edits');
+ const allowlist=wf.match(/\$allowed=@\(([\s\S]*?)\)/)?.[1]||'';
+ assert.ok(allowlist.includes("'docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md'"));
+ assert.doesNotMatch(allowlist,/desktop\/src/,'never permit product owner changes on a QA branch');
+});
+
+test('G40 main automatically checks relevant original Field changes, not metadata-only commits',()=>{
+ const push=wf.split('  push:')[1]?.split('  workflow_dispatch:')[0]||'';
+ assert.match(push,/\r?\n\s+- main\r?\n/,'current real main must trigger original B13 regression on Windows CRLF and Unix LF');
+ assert.match(push,/\r?\n\s+paths:\r?\n/,'path filter required on Windows CRLF and Unix LF');
+ for(const file of [
+   '.github/workflows/granada-g37-real-b13-play-stress.yml',
+   'tools/granada_g37_real_b13_play_stress.ps1',
+   'desktop/src/FoamLensDesktop/Program.cs',
+   'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js',
+   'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js',
+   'desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js',
+   'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+ ])assert.ok(push.includes("'"+file+"'"),'missing science/Field watcher '+file);
+ assert.doesNotMatch(push,/\*\*|\.md'/,'do not trigger huge native test for all metadata/documentation changes');
+ assert.match(wf,/run-id: 40439636990/,'must still use original independently produced real fixture');
+ assert.match(wf,/completedAttempts\.Count -ne 6/,'must never drop six real native attempts');
+});
