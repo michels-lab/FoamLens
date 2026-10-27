@@ -72,7 +72,10 @@ test('negative regression: a nonzero native exit must emit sanitized stage and f
 });
 test('failure evidence cannot print raw WebView2 logs, images or privately sourced field values',()=>{
  assert.doesNotMatch(ps,/Write-(?:Host|Output)\s+\$(?:rawFailure|nativeLog|raw)\b/);
- assert.doesNotMatch(wf,/path:\s*(?:quickcup-runtime-fixture|g37-private-raw-WebView2)/);
+ const uploadOnly=wf.split('uses: actions/upload-artifact@v4').at(-1);
+ assert(uploadOnly!==wf,'original sanitized artifact upload guard absent');
+ assert.match(uploadOnly,/path:\s*g37-sanitized\/report\.json/);
+ assert.doesNotMatch(uploadOnly,/path:\s*(?:quickcup-runtime-fixture|g37-private-raw-WebView2)/);
  assert.match(ps,/if\(Test-Path -LiteralPath \$captures\)\{Remove-Item -LiteralPath \$captures/);
  assert.match(ps,/realQuickCupCompleted=\$nativeLog\.Contains/);
  assert.match(ps,/secondViewCompleted=\$nativeLog\.Contains/);
