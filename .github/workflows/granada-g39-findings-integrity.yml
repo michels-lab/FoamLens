@@ -1,0 +1,39 @@
+name: G39 Findings evidence integrity and public handoff privacy - no release
+on:
+  push:
+    branches:
+      - feat/granada-g39-findings-privacy-scientific-evidence-20261026
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v22-findings-export.js'
+      - 'desktop/tests/findings-export.test.cjs'
+      - '.github/workflows/granada-g39-findings-integrity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  genuine-findings-source-regressions:
+    name: Original findings and safe handoff (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check original production findings code and tests
+        shell: bash
+        run: |
+          node --check desktop/src/FoamLensDesktop/frontend/v22-findings-export.js
+          node --check desktop/tests/findings-export.test.cjs
+      - name: Run original extracted production functions including negative privacy/large-data fixtures
+        run: node desktop/tests/findings-export.test.cjs
+      - name: Keep full original Windows scientific test manifest intact
+        run: node desktop/tests/test-suite-manifest.test.cjs
