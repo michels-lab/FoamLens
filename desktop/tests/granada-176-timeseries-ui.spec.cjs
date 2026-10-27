@@ -134,23 +134,23 @@ test('G52 live progress shows ONLY verified original source counts and respects 
   const notify=app.events.get('foamlens-field-history-progress');
   assert.equal(typeof notify,'function','T2 must listen to the actual scientific progress event');
   assert.equal(get('gr176Pending').textContent,'');
-  notify({detail:{slot:1,completed:5,total:10,seq:18}});
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
   assert.equal(get('gr176Pending').textContent,'','idle UI must ignore asynchronous stale events');
   app.button.click();
-  notify({detail:{slot:1,completed:5,total:10,seq:18}});
-  assert.match(get('gr176Pending').textContent,/Series 1: 5 \/ 10 original source steps inspected/);
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 5 \/ 10 OpenFOAM frames inspected/);
   const ok=get('gr176Pending').textContent;
-  notify({detail:{slot:2,completed:7,total:10,seq:17}});
-  notify({detail:{slot:1,completed:50,total:10,seq:18}});
+  notify({detail:{slot:2,completed:7,total:10,seq:17,source:'probe'}});
+  notify({detail:{slot:1,completed:50,total:10,seq:18,source:'global'}});
   assert.equal(get('gr176Pending').textContent,ok,'reject obsolete epoch and fabricated >total progress');
-  notify({detail:{slot:2,completed:2,total:6,seq:18}});
-  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6/);
+  notify({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
   const lang=app.events.get('foamlens-language-change');app.document.getElementById('language').value='es';
   if(lang)lang();
-  assert.match(get('gr176Pending').textContent,/Serie 2: 2 \/ 6/,'translation must not erase actual frame evidence');
+  assert.match(get('gr176Pending').textContent,/Serie 2: 2 \/ 6 filas reales de perfil revisadas/,'translation must not erase actual frame evidence');
   assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
   assert.equal(get('gr176Pending').textContent,'');
-  notify({detail:{slot:2,completed:6,total:6,seq:18}});
+  notify({detail:{slot:2,completed:6,total:6,seq:18,source:'profile'}});
   assert.equal(get('gr176Pending').textContent,'','cancelled in-flight WebView2 read cannot resurface old progress');
 });
 test('G52 progress producer reports original frames in ALL three build paths and never commits partial data',()=>{
@@ -162,23 +162,24 @@ test('G52 progress producer reports original frames in ALL three build paths and
   const state={fieldTsSeq:42};
   const progress=new Function('fwState','document','CustomEvent',core.slice(begin,end)+';return fwFieldTsReportProgress')(
     state,{dispatchEvent:event=>events.push(event)},CustomEvent);
-  assert.equal(progress(1,1,50,42),true);
-  assert.equal(progress(1,2,50,42),false,'limit large-case UI events without hiding real work');
-  assert.equal(progress(1,3,50,42),true);
-  assert.equal(progress(2,50,50,42),true);
-  assert.equal(progress(2,51,50,42),false,'never exceed original timestep count');
-  assert.equal(progress(3,1,50,42),false,'only two real independent generator slots');
+  assert.equal(progress(1,1,50,42,'global'),true);
+  assert.equal(progress(1,2,50,42,'global'),false,'limit large-case UI events without hiding real work');
+  assert.equal(progress(1,3,50,42,'global'),true);
+  assert.equal(progress(2,50,50,42,'profile'),true);
+  assert.equal(progress(2,51,50,42,'profile'),false,'never exceed original timestep count');
+  assert.equal(progress(1,4,50,42,'invented'),false,'do not accept fabricated scientific source kinds');
+  assert.equal(progress(3,1,50,42,'probe'),false,'only two real independent generator slots');
   state.fieldTsSeq++;
-  assert.equal(progress(1,4,50,42),false,'cancelled epoch cannot emit frame updates');
+  assert.equal(progress(1,4,50,42,'global'),false,'cancelled epoch cannot emit frame updates');
   assert.deepEqual(events.map(e=>e.detail),[
-    {slot:1,completed:1,total:50,seq:42},
-    {slot:1,completed:3,total:50,seq:42},
-    {slot:2,completed:50,total:50,seq:42}
+    {slot:1,completed:1,total:50,seq:42,source:'global'},
+    {slot:1,completed:3,total:50,seq:42,source:'global'},
+    {slot:2,completed:50,total:50,seq:42,source:'profile'}
   ]);
   assert(events.every(e=>e.type==='foamlens-field-history-progress'));
-  assert.equal((core.match(/fwFieldTsReportProgress\(slot,i\+1,times\.length,seq\)/g)||[]).length,2,
+  assert.equal((core.match(/fwFieldTsReportProgress\(slot,i\+1,times\.length,seq,'(?:global|probe)'\)/g)||[]).length,2,
     'probe and global 3D OpenFOAM histories must report exactly their processed frames');
-  assert(core.includes('fwFieldTsReportProgress(slot,i+1,rows.length,seq)'),
+  assert(core.includes('fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile')'),
     'profile history reports inspected original physical-time rows, not guessed percentages');
   assert(core.includes('if(seq!==fwState.fieldTsSeq)return;')&&
     core.includes('const built=fwCommitFieldHistoryDrafts(drafts)'),
