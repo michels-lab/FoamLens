@@ -1,3 +1,21 @@
+## 2026-10-27 — G37 original negative QA updated to distinguish original G27 culture witness from FoamLens production host
+
+- Original G27+G37 exact-head combined source [run 40488261513](https://github.com/michels-lab/FoamLens/actions/runs/40488261513) failed intentionally under the old conservative G37 regex that rejected *any* Program.cs string, including the isolated original `tools/granada_g27_culture_probe/Program.cs` whose source is independent disposable .NET locale QA. No production source or Windows runtime failure occurred; native job was SKIPPED due cross-source regression failure.
+- Surgical original existing G37 adversarial test replacement keeps hard ban on desktop/src and official Windows build workflow, and requires exactly ONE allowed C# path: tools/granada_g27_culture_probe/Program.cs. Reject any second C# source including desktop/src/FoamLensDesktop/Program.cs, so core product original owner still protected. Update stays in original G27 PR #248; no new PR, app source or native physics change.
+- Rerun Windows/Ubuntu original G27 + G37 guards and actual Windows 4×2 scientific locale cases at current PR exact head. G37 #230 and release #238 remain open; no release.
+
+## 2026-10-27 — Cross-QA integration: G27 culture tests do not invalidate merged G37 science/Play stress
+
+- Original existing G27 PR #248 additionally makes a **strict six-path read-only QA allowlist extension** in the already merged G37 workflow (original #257): permit only these exact G27 workflow, test, independent culture-probe and G27 documentation paths. Original FoamLens product code remains STRICTLY DENIED; no Play geometry threshold, 1140/640 native source, CAD or physics is changed.
+- Original G27 Windows+Ubuntu source stage additionally executes G37 original adversarial stress guards, and a new negative original-gate test fails if the G37 allowlist loses the exact G27 QA entries or accidentally allows desktop/src. This ensures the independent G37 manual stress check remains runnable after G27 merge plus automatic File Steward audits, without broad wildcard exceptions or physics bypass.
+- A new exact-head G27 source+Windows locale 8/8 run must PASS; original 40486601623 PASS is now historical for the previous head 20605a9. No stable release; #230/#238 open.
+
+## 2026-10-27 — G27 original four genuine Windows cultures on integrated G37 main
+
+- G37 [PR #257](https://github.com/michels-lab/FoamLens/pull/257) integrated genuine B13 6-restart QA on main, squash 624c5b3c8ae139de2bf22b83829922328b61de99. New main authority is ae3a1a4d09786e6aef13561f4765d36211671c8a including File Steward source audit. The original existing [G27 PR #248](https://github.com/michels-lab/FoamLens/pull/248) is reconciled onto that source without changing original FoamLens Program.cs, CAD, G35 JS, frontend Play or scientific calculations.
+- Original exact-pr-head [G27 Windows 4x2 run 40486601623](https://github.com/michels-lab/FoamLens/actions/runs/40486601623) and [source-owner tests 40486609994](https://github.com/michels-lab/FoamLens/actions/runs/40486609994) PASS on parent G27 SHA cf789c457c0ee9581c0578bbb646343ff5fbee0d, but new exact head requires full repeat since main advanced. Native genuine culture changes occur only on disposable Windows GitHub runner and are restored; no CFD or real private thermocouple data published.
+- Final release gates #238 signature/updater/DPI/owner physical 36 screenshots, and original native intermittent #230 remain OPEN. No release, RC or experimental B13 numeric accuracy conclusion.
+
 ## 2026-10-27 — G37 repeated current-main native QuickCup B13 3+3 replay
 
 - [G37 run 40442487369](https://github.com/michels-lab/FoamLens/actions/runs/40442487369) FAILED on fifth native attempt (Portable3) after Portable1, Installed1, Portable2 and Installed2 passed. [G37 run 40483753324](https://github.com/michels-lab/FoamLens/actions/runs/40483753324) PASSED all six original B13 native starts with exact same unchanged product code: 3 Portable + 3 Installed, original field 1140/640px, five-case OpenFOAM B13 actual metal+mold 9.8 seconds. This is genuine intermittence; the failed original run did not isolate Play vs WebView2 vs science. Original Field Play P0 #230 remains OPEN.
