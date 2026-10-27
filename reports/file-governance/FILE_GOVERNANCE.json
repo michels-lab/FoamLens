@@ -1,33 +1,33 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 417,
-  "classified_files_total": 413,
-  "docs_content_inspected": 82,
+  "tracked_files_total": 423,
+  "classified_files_total": 419,
+  "docs_content_inspected": 83,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
-    "build_script": 9,
+    "build_script": 10,
     "config": 7,
-    "document": 76,
+    "document": 77,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 127,
+    "source": 130,
     "test": 115,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 52
+    "workflow": 53
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "1e7cf125e42e3a73b83b16a06c2fcb8eda22f12c4ee4c790819e9676827510fc",
-  "evidence_fingerprint": "db78647e428da0247a8ed2fc86f497a4cba5088e5f47486fe414fc4c2ac7a31f",
+  "inventory_fingerprint": "be27747dcb73d789a8928398e02c8bf269ad1cad23b993e16b51e9a92efd9dde",
+  "evidence_fingerprint": "06dd9055dfa0983575f65971d565b1ed866e46dd460851bb7307484833bb1acb",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -301,6 +301,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "d32803d5530be5c1b21492528904b12cac3312d7"
+    },
+    {
+      "path": ".github/workflows/granada-g33-real-native-residue.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "e1814148774a884b37f2077a76736284db7b44e7"
     },
     {
       "path": ".github/workflows/granada-g35-real-cad-trusted-js.yml",
@@ -2053,6 +2060,13 @@
       "blob": "f8255659aa20410b7ee6698be990cc4229c1d847"
     },
     {
+      "path": "docs/GRANADA_G33_ORIGINAL_NATIVE_STALE_EXTENSION_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "045c597b512fc8a37840d77f5544a18856371cd7"
+    },
+    {
       "path": "docs/GRANADA_G35_CAD_TRUSTED_JS_NATIVE_2026-10-24.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2690,6 +2704,34 @@
       "blob": "45950c4686341370746e3adf45b089dba8cd7196"
     },
     {
+      "path": "tools/granada_g33_actual_native_stale_extension.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4af55fadcdc77182b267ce101cfb11076f4812ab"
+    },
+    {
+      "path": "tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "58b09e91082e520259e2cf19b38a085bb8f15ec8"
+    },
+    {
+      "path": "tools/granada_g33_local_origin_witness/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1254727be66b4b37650ff42cefda38db6c8e3122"
+    },
+    {
+      "path": "tools/granada_g33_original_stale_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2b30a860c04c736b24c169dc30700379a90de814"
+    },
+    {
       "path": "tools/granada_g35_native_cad_trusted_js.ps1",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2923,11 +2965,11 @@
   ],
   "findings": [
     {
-      "id": "4668656992df8aae",
+      "id": "485d7bc973f8cd34",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "11 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-177-g4-review-live.spec.cjs, desktop/tests/granada-g43-play-wide-original.spec.cjs",
+      "observation": "16 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g4-review-live.yml, .github/workflows/granada-g24-real-webview2-persistence.yml, .github/workflows/granada-g33-real-native-residue.yml, desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js, desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js, desktop/tests/granada-177-g4-review-live.spec.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
