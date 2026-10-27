@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 392,
-  "classified_files_total": 388,
-  "docs_content_inspected": 75,
+  "tracked_files_total": 396,
+  "classified_files_total": 392,
+  "docs_content_inspected": 76,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,19 +12,19 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 69,
+    "document": 70,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 120,
-    "test": 110,
+    "source": 121,
+    "test": 111,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 47
+    "workflow": 48
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "2abc138820d6248d460d90f0db543647cf4f2ddb7aea0ad050b1a0f49e28ab35",
+  "inventory_fingerprint": "5a8c20bba9a9ba755f001ec3c3736645f640b0299df758d1a0cee234837277f2",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -138,6 +138,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "11ff8aef832e489a2d414864cda3c80d2bf0d078"
+    },
+    {
+      "path": ".github/workflows/granada-117-real-case-benchmark.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
     },
     {
       "path": ".github/workflows/granada-177-g5-audit-diff.yml",
@@ -466,7 +473,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "3836df779dc95c398c3abed2f83ee7e25d2c5cd0"
+      "blob": "ba9692015def6b7a7a55da4a5c0f99ecd269c57a"
     },
     {
       "path": "LICENSE",
@@ -1684,7 +1691,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "d9ae0c6f26fcb4a9a6b00a35cad11d93e7312be7"
+      "blob": "05d04e5870a7b05e7ca29cf733b401d49e242fda"
     },
     {
       "path": "docs/DOCUMENTATION_INDEX.md",
@@ -1782,7 +1789,14 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "6ee895fae0e42de87a594a96bace9193b1b82ebb"
+      "blob": "2541f83d8388d45d9aabcf620e098dc3f5a4c348"
+    },
+    {
+      "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7bff8e959245889b91efa4940a151b982dfd3fea"
     },
     {
       "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
@@ -2189,6 +2203,13 @@
       "purpose": "machine-readable configuration",
       "certainty": "rule",
       "blob": "6479c14c044b152a25300141335d413bc80799f5"
+    },
+    {
+      "path": "tools/benchmark-real-case.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "60a630898cb17e84d92e780cac3004ec48b2668e"
     },
     {
       "path": "tools/capture_gpu_hardware_inventory.ps1",
@@ -2707,6 +2728,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "7a569389607a1432444e22d72ba3ec6e41f2d48c"
+    },
+    {
+      "path": "tools/tests/benchmark-real-case.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7cfee5efb42d84c4d36e9ed8605bd1dc1f90e457"
     },
     {
       "path": "tools/tests/compare-import-performance.test.cjs",
