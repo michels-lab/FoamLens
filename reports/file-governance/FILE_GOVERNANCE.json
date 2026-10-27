@@ -1,30 +1,30 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 346,
-  "classified_files_total": 342,
-  "docs_content_inspected": 64,
+  "tracked_files_total": 352,
+  "classified_files_total": 348,
+  "docs_content_inspected": 65,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
-    "build_script": 6,
+    "build_script": 7,
     "config": 7,
-    "document": 58,
+    "document": 59,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 107,
+    "source": 110,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 37
+    "workflow": 38
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "b322e23609a7d4965c8d04f0b679c39654eea62ec4836570b74cf2b46e6fa562",
+  "inventory_fingerprint": "e7c323a3e3577e2c6144b78f6bdfd805c078bbc5e4b5dca6c9cb3a610911a335",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -231,6 +231,13 @@
       "blob": "bf3095515ef7a559c490675f78f7126629a7261b"
     },
     {
+      "path": ".github/workflows/granada-g27-native-culture-matrix.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "545f8c4820edfbe274e0d24f770283e4360d968a"
+    },
+    {
       "path": ".github/workflows/granada-g31-original-native-package-bom.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -249,7 +256,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "dcdd4f6baa1474e5fea4a7523617ab4451cdb353"
+      "blob": "07b0f47345fbb1e672581c986f34a6b038d48d98"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -1614,7 +1621,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "1539f9ed4a38493c6f0304103783e2c0dbcc910a"
+      "blob": "f0c998f11609e3aec964ea356bcbe3b67ee79b63"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1699,6 +1706,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "37a01763f446b2bb4578c58372773387c7fc34b9"
+    },
+    {
+      "path": "docs/GRANADA_G27_SCIENTIFIC_NATIVE_WINDOWS_CULTURE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a1b030a9023d3cf96a370c06c016f7d0e45fe28e"
     },
     {
       "path": "docs/GRANADA_G31_ORIGINAL_PACKAGE_BOM_2026-10-24.md",
@@ -2198,6 +2212,34 @@
       "blob": "93298c57c30ac7421186f3230d2826204e49bfcc"
     },
     {
+      "path": "tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "702a488613bc0ee064a8b21eb8737071d40a0737"
+    },
+    {
+      "path": "tools/granada_g27_culture_probe/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f0efa3429149f8a69a45fe436bd7af65e6fc0371"
+    },
+    {
+      "path": "tools/granada_g27_native_culture_matrix.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6c750a6b18bd194190ee4ceaac884a0b4aee26c3"
+    },
+    {
+      "path": "tools/granada_g27_windows_native_culture_matrix.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1bb0401ac7711584a22d829deccfca9dc41428f0"
+    },
+    {
       "path": "tools/granada_g31_original_package_bom.py",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2230,7 +2272,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "57ac52f38cf7b4d42a8b4567084feeecaedd3c5b"
+      "blob": "d88f90bfda18bbfbd8f54a37d7c1adbb77a5a1d9"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
