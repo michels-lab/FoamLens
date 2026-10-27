@@ -22,7 +22,7 @@ function tcTempUnit(u){
 function tcCaseId(v){
   if(typeof v!=='number'&&typeof v!=='string')return null;
   const raw=String(v).trim();
-  if(!/^[+-]?(?:0|[1-9]\\d*)$/.test(raw))return null;
+  if(!/^[+-]?(?:0|[1-9]\d*)$/.test(raw))return null;
   const n=Number(raw);return Number.isSafeInteger(n)?n:null
 }
 function tcProbeSourceConsistent(s){
