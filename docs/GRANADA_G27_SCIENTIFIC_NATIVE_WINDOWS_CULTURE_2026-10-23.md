@@ -1,3 +1,7 @@
+# Update 2026-10-27 — native scientific locale integration onto latest main ae3a1a4d09786e6aef13561f4765d36211671c8a
+
+Reconciled this exact original G27 test-only owner branch after original G37 #257 merged. Original G27 native 8/8 pass [40486601623](https://github.com/michels-lab/FoamLens/actions/runs/40486601623) is historical exact-head evidence; rerun new source SHA. Do not treat locale parsing pass as actual B13 calorimetry validation or signed release. G27 changes no native original product code.
+
 # Update 2026-10-27
 
 Original G27 independently reconciled onto current main 1a5723a6026356f69337abe3052108c91d09d454. Prior successful Windows locale proof #39964438597 remains historically valid for old main, not a substitute for new exact-head CI. Product source remains untouched. #230 and #238 stay open; no signed release.
