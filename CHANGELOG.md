@@ -5,6 +5,14 @@
 - Compare real Kelvin time histories with no extrapolation: paired count, RMSE, MAE, bias and maximum difference; plot source/experiment and export locally on demand. Sensitivity uses only independently sampled, same-case/region/field-family 3D probe histories, each with separately verified cell containment; never fabricates spatial values.
 - Independent Ubuntu/Windows scientific, preexisting probe and Experimental Validation regressions. Owner experiment, irregular polyhedral meshes, packaged WebView2 and installer acceptance remain open; no release.
 
+## Unreleased — CAD & Geometry STL/OBJ surface inspection candidate (#147, #148)
+
+- Add a dedicated, local surface-inspection overlay to the Windows frontend for ASCII/binary STL and named OBJ components, with independent named-part visibility, orbit/zoom/preset views, XYZ bounds; multi-source overlays require per-file unit confirmation and surface topology warnings.
+- Detect degenerate triangles, open/nonmanifold edges and inconsistent winding; give only a qualified enclosed-volume estimate for closed, consistently wound triangle surfaces, not proof of CAD/mesh validity.
+- Export a selected named **surface** as ASCII STL in meters with a provenance manifest, requiring explicit selection of source coordinate units. No simulation files are modified; no OpenFOAM solver or mesher is executed.
+- STEP/IGES/BREP kernel-based conversion, comprehensive surface and self-intersection certification, native worker isolation, OpenFOAM edition-aware surface installation, standalone meshing and owner interactive acceptance remain pending.
+- Candidate branch only, with dedicated regression and packaged WebView2 smoke gates; **not released**.
+
 ## Unreleased — Time Series field-source discovery (#146)
 
 - Keep Time Series controls and `Create time series from 3D OpenFOAM fields` visible even when no existing curve is loaded.
