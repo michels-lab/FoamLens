@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 362,
-  "classified_files_total": 358,
-  "docs_content_inspected": 67,
+  "tracked_files_total": 365,
+  "classified_files_total": 361,
+  "docs_content_inspected": 68,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 8,
     "config": 7,
-    "document": 61,
+    "document": 62,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 115,
+    "source": 116,
     "test": 100,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 40
+    "workflow": 41
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "179723da04e7da34749292c7cd492b1bab032b8a34bbea816e3db10fa1f84de1",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "cc5a006bff662f7f9efa505075255c829c22b85bd039a45c425b2133ed96e19a",
+  "evidence_fingerprint": "fe29e292fc41f1435bc49f15c0973bc60fa2b80a98ab9957c6383889a83626f4",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -287,6 +289,13 @@
       "blob": "61168235fcac41b4b478810b7c33d6c854b41ab2"
     },
     {
+      "path": ".github/workflows/granada-g41-play-attribution-guards.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "515e026a695503727ded90a3336b9cceb109b372"
+    },
+    {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -536,7 +545,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "81de042ac703f477963ca37e9940db33412ab708"
+      "blob": "be39ba05bd2a98f649b54657c3cf98110418b383"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1771,6 +1780,13 @@
       "blob": "4bfdfd96591c3ac18458366b51689e2e679e8ae9"
     },
     {
+      "path": "docs/GRANADA_G41_PLAY_NATIVE_FAILURE_ATTRIBUTION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "835dba476364eb4b8f678b8c986aea7daf2738ae"
+    },
+    {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2335,7 +2351,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "69f4d63b1c8aac062966d42e21888d77dd3536f4"
+      "blob": "b79b7af3f76726957eb7fb2a035920f9aed12b1b"
     },
     {
       "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
@@ -2343,6 +2359,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "d88f90bfda18bbfbd8f54a37d7c1adbb77a5a1d9"
+    },
+    {
+      "path": "tools/granada_g41_native_play_diagnostics.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ff4441c240490136ea033e547db9743e5cf68c2a"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
@@ -2534,7 +2557,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "bc7fb44a9bb9e044",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g41-play-attribution-guards.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_g37_real_b13_play_stress.ps1, tools/granada_g41_native_play_diagnostics.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
