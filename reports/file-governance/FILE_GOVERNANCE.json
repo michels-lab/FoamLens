@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "cb4dfb4f1525f344732070112b7cf7ef7efb83bed19b46c2127b6389946eb288",
+  "inventory_fingerprint": "87b5ec2534b1002a223acf80915f248641f5676424a4cff257c68fc9d889b33c",
   "evidence_fingerprint": "d8385a50cd0740b31468dcf156c6903a9ba59af76c04b3195137f391b08079df",
   "files": [
     {
@@ -1665,7 +1665,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "944102cc05ebe4e43a1eb2bc05e0a0e7a1fed65a"
+      "blob": "728912cc4e8cabbd4ab79e3b237f5e14d64a8164"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
