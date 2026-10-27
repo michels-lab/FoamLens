@@ -1,3 +1,7 @@
+## 2026-10-26 — G17 historical test expectation repaired on G35 security owner
+
+- In exact consolidated G35 source `11449c676dd2935bbbb2412c926b8f9530689294`, [G17 source CI 40438487003](https://github.com/michels-lab/FoamLens/actions/runs/40438487003) failed because old test `granada_g16_wide_play_cascade.test.cjs` explicitly expected original writable AppRoot `Directory.GetFiles(...)`. This is the behavior **G35 must remove** for security P0 #252. Source-owned test now rejects that unsafe enumeration and requires actual embedded `AppBundle.zip` loader, while retaining G16's real 1140px Play, 640px CSS, translation, geometry and no-relaxation assertions. No product behavior change or test skipped. Must rerun new exact-head native and G17 QA before merge. Releases #238 remain blocked.
+
 ## 2026-10-26 — G35 owner safe integration after CAD update
 
 - Reconciled original G35 source against CAD owner commit `af494c3eab845f3c3d8aa7f5fd1e63d7efa65248`, which itself preserves original up-to-date main native host including G25 ExternalNavigationPolicy, G21 release Authenticode enforcement, G22 compact CSS and G39 scientific Findings. G35 product-code edits remain only the two original JS trust call-sites in Program.cs plus the byte-exact original trusted embedded module; no other OpenFOAM/CAD algorithms changed. Native original Installed+Portable browser nonce inversion and QuickCup verification still REQUIRED on this new exact branch head. #252 and #238 stay OPEN until actual product evidence and release gates. No release.
