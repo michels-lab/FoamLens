@@ -6,8 +6,14 @@ const tcModule=fs.readFileSync(path.join(root,'frontend','v24-thermocouple-xyz-m
 const existing=fs.readFileSync(path.join(root,'frontend','v14-experimental-validation.js'),'utf8');
 const probe=fs.readFileSync(path.join(root,'frontend','v14-zz-field-workspace.js'),'utf8');
 new Function(tcModule);
-for(const token of ['Directory.GetFiles(AppRoot, "v*-*.js")','File.ReadAllText(path, Encoding.UTF8)'])
-  assert(program.includes(token),'Native extension injector contract missing: '+token);
+// Native G35 security contract: trust only embedded bundle JS, never stale AppRoot files.
+assert(program.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+  'Native host must use trusted embedded AppBundle extension loader');
+assert(!program.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+  'Original stale AppRoot wildcard reintroduction is forbidden');
+const workflow=fs.readFileSync(path.join(__dirname,'..','..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/'),
+  'Bundle packaging must include the real new 3D thermocouple module');
 for(const token of ['function evParseTable(','function evAutoColumns(','function evCompareCurves('])
   assert(existing.includes(token),'Reuse existing experimental import and comparison core: '+token);
 for(const token of ['field3d-probe-history','probePoint:[...probe.point]','sourcePath:\'derived:\'+key','fvLoadFrameData('])
