@@ -1,0 +1,66 @@
+name: GRANADA G21 - Stable signing blocker regression
+on:
+  push:
+    branches:
+      - fix/granada-g21-signed-stable-release-guard-20261023
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/granada_g21_signing_guard.cjs'
+      - 'tools/granada_g21_signing_guard.test.cjs'
+      - 'tools/granada_g21_native_signing.ps1'
+      - '.github/workflows/build-foamlens-desktop.yml'
+      - '.github/workflows/granada-g21-signed-release-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  refuse-unsigned:
+    name: Original-signer/asset tamper regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Detect unsigned binaries, fake valid certificate, swapped assets and wrong sidecars
+        run: node --test tools/granada_g21_signing_guard.test.cjs
+      - name: Fail closed in real Windows Authenticode when PEs are not signed
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $v='1.8.11'
+          $root=Join-Path (Get-Location) 'g21-unsigned-fixture'
+          New-Item -ItemType Directory -Force $root | Out-Null
+          foreach($kind in @('Portable','Setup')){
+            $name="FoamLens-$kind-v$v.exe"
+            $file=Join-Path $root $name
+            [IO.File]::WriteAllBytes($file,[byte[]](77,90,0,1,2,3))
+            $hash=(Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name" | Set-Content "$file.sha256"
+          }
+          $portable=Join-Path $root "FoamLens-Portable-v$v.exe"
+          $setup=Join-Path $root "FoamLens-Setup-v$v.exe"
+          $failed=$false
+          try{
+            ./tools/granada_g21_native_signing.ps1 -Portable $portable -Setup $setup -Output "$root/report.json" -SourceSha ('a'*40) -Version $v
+          }catch{
+            $failed=$true
+            Write-Host 'Expected original unsigned native Authenticode rejection:' $_.Exception.Message
+          }
+          if(-not $failed -or (Test-Path "$root/report.json")){throw 'G21 signer gate accepted an unsigned Windows payload'}
+          Write-Host 'Native Windows signature verification correctly FAILED CLOSED'
+      - name: Confirm publish path genuinely invokes native+download report guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'G21 verify native Windows Authenticode' .github/workflows/build-foamlens-desktop.yml
+          grep -Fq 'G21 rebind exact signed Windows-native attestation' .github/workflows/build-foamlens-desktop.yml
+          grep -Fq 'node tools/granada_g21_signing_guard.cjs artifacts/g21-authenticode-report.json artifacts' .github/workflows/build-foamlens-desktop.yml

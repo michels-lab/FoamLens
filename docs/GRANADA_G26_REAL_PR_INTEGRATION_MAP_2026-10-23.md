@@ -1,3 +1,5 @@
+**Updated 2026-10-27:** The authoritative native security CAD+G35 implementation now exists on main. The original G26 proof snapshot of 55 PRs is historical; the reconciliation targets main `65889fa6e21477122d59e8658ebb39b576ca89d7` and requires independently refreshed live counts/CI on exact new PR head. This read-only board is coordination infrastructure, not a release gate, and cannot prove Play, science, native DPI or signed distribution.
+
 # FoamLens — GRANADA G26: read-only live PR ownership and integration conflict map
 
 **Date:** 2026-10-23. **Repository:** `michels-lab/FoamLens`. **Independent QA-only branch:** `test/granada-g26-pr-integration-conflict-board-20261023`. **Original main:** `00533f68993fef7a7761026cf9c1ab13a21ab3cd`; **latest released:** v1.8.10. **No merge, release, tag, version bump, new hosting subscription, deploy or other app source touched.**

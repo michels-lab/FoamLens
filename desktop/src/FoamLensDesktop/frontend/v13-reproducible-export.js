@@ -1,18 +1,36 @@
 /* FoamLens Desktop v1.3.0 — reproducible selected-series export. */
 
 /* FOAMLENS_REPRODUCIBLE_EXPORT_CORE_START */
+function rxScientificNumber(value){
+  // Number(null), Number('') and Number(false) are 0; they are NOT measured zeroes.
+  if(typeof value==='number')return Number.isFinite(value)?value:null;
+  if(typeof value!=='string')return null;
+  const text=value.trim();
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))return null;
+  const n=Number(text);
+  return Number.isFinite(n)?n:null
+}
 function rxFinitePoints(s){
   const t=Array.isArray(s?.t)?s.t:[],y=Array.isArray(s?.y)?s.y:[],out=[];
   for(let i=0;i<Math.min(t.length,y.length);i++){
-    const x=Number(t[i]),v=Number(y[i]);if(Number.isFinite(x)&&Number.isFinite(v))out.push({index:i,x,value:v})
+    const x=rxScientificNumber(t[i]),v=rxScientificNumber(y[i]);
+    if(x!==null&&v!==null)out.push({index:i,x,value:v})
   }
   return out
 }
 function rxStats(points){
   const p=(points||[]).filter(q=>Number.isFinite(q?.value));if(!p.length)return{count:0,min:NaN,max:NaN,mean:NaN,rms:NaN,minX:NaN,maxX:NaN};
-  let imin=0,imax=0,sum=0,sum2=0;
-  for(let i=0;i<p.length;i++){const v=p[i].value;if(v<p[imin].value)imin=i;if(v>p[imax].value)imax=i;sum+=v;sum2+=v*v}
-  return{count:p.length,min:p[imin].value,max:p[imax].value,mean:sum/p.length,rms:Math.sqrt(sum2/p.length),minX:p[imin].x,maxX:p[imax].x}
+  let imin=0,imax=0,mean=0,scale=0,scaledSquares=0;
+  for(let i=0;i<p.length;i++){
+    const v=p[i].value,abs=Math.abs(v);
+    if(v<p[imin].value)imin=i;if(v>p[imax].value)imax=i;
+    // Scaled mean avoids intermediate overflow when signs oppose near 1e308.
+    mean+=v/(i+1)-mean/(i+1);
+    // BLAS-style scaled sum of squares avoids v*v overflow or underflow.
+    if(abs>scale){const ratio=scale/abs;scaledSquares=1+scaledSquares*ratio*ratio;scale=abs}
+    else if(abs>0){const ratio=abs/scale;scaledSquares+=ratio*ratio}
+  }
+  return{count:p.length,min:p[imin].value,max:p[imax].value,mean,rms:scale*Math.sqrt(scaledSquares/p.length),minX:p[imin].x,maxX:p[imax].x}
 }
 function rxSafeObject(value){
   if(value==null)return null;
@@ -82,6 +100,19 @@ function rxPayload(s){
 function rxCsv(payload){
   if(!payload)return'';
   const d=payload.dataset,escCsv=v=>'"'+String(v??'').replaceAll('"','""')+'"';
+  // Keep untrusted case names/paths in a SINGLE comment line, never a new CSV row.
+  const safeMetadataLine=line=>String(line).replace(/[\u0000-\u001f\u007f\u2028\u2029]/g,ch=>{
+    if(ch==='\n')return '\\n';
+    if(ch==='\r')return '\\r';
+    if(ch==='\t')return '\\t';
+    return '\\u'+ch.charCodeAt(0).toString(16).padStart(4,'0')
+  });
+  // Scientific data cells are measured numbers, never spreadsheet expressions.
+  const numericCell=(v,nullable=false)=>{
+    if(v==null&&nullable)return escCsv('');
+    if(typeof v!=='number'||!Number.isFinite(v))throw new TypeError('FoamLens CSV requires finite scientific numeric values');
+    return escCsv(v)
+  };
   const meta=[
     '# FoamLens reproducible series export',
     '# generatedBy='+payload.generatedBy,
@@ -108,7 +139,7 @@ function rxCsv(payload){
     else if(d.datasetType==='log')rows.push([p.sampleIndex,p.timestepIndex,p.physicalTime,p.value]);
     else rows.push([p.sampleIndex,p.physicalTime,p.value])
   }
-  return meta.join('\n')+'\n'+rows.map(r=>r.map(escCsv).join(',')).join('\n')
+  return meta.map(safeMetadataLine).join('\n')+'\n'+rows.map((r,i)=>r.map((v,k)=>i===0?escCsv(v):numericCell(v,d.datasetType==='profile'&&k===3)).join(',')).join('\n')
 }
 function rxFileStem(s){
   const raw=[s?.caseName||rxCase(s)?.name||'case',rxField(s),s?.derivedKind||rxDatasetType(s)].filter(Boolean).join('_');

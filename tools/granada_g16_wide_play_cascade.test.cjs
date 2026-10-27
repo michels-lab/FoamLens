@@ -82,8 +82,16 @@ test('deferred stylesheet installation is idempotent',()=>{
  f.fire();assert(f.style()?.includes('min-width:112px!important'));f.fire();
  assert.equal(f.doc.head.children.length,1);
 });
-test('C# host auto-bundles actual v33 file without modifying Program.cs',()=>{
+test('G16 original v33 script remains packaged with trusted executable-only JavaScript, not on-disk extras',()=>{
  const host=fs.readFileSync(path.resolve(root,'../Program.cs'),'utf8');
- assert(host.includes('Directory.GetFiles(AppRoot, "v*-*.js")'));
+ const helper=fs.readFileSync(path.resolve(root,'../TrustedEmbeddedFrontendExtensions.cs'),'utf8');
+ assert(host.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+   'original native host must accept only signed/build-provenanced embedded frontend modules');
+ assert(!host.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+   'regression: stale writable local scripts must never satisfy bundled G16 source contract');
+ assert(helper.includes('GetManifestResourceStream(BundleResource)'),
+   'original G16 must be sourced from actual executable-owned AppBundle.zip');
+ assert(!helper.includes('Directory.GetFiles')&&!helper.includes('File.ReadAllText'),
+   'trusted bundled G16 loader cannot read arbitrary local scripts');
  assert(src.includes("window.FoamLensGranadaG16=Object.freeze({audit})"));
 });
