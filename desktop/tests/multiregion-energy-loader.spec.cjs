@@ -9,9 +9,10 @@ new Function(app);
 assert(app.includes("panel.id='mecPanel'"),'A dedicated Analysis panel must mount');
 assert(app.includes("host=mecEl('paTools')"),'Energy inspector belongs only in scientific Analysis');
 assert(app.includes("window.FoamLensMultiregionEnergy"),'Public introspection entry missing');
-assert(/Directory\.GetFiles\(AppRoot,\s*"v\*-\*\.js"\)/.test(program),'Windows host must collect all versioned modules');
-assert(program.includes('extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8))'),
- 'Native host must include the new module');
+// The production G32 security fix must be allowed to limit extension loading
+// to trusted embedded bundle files rather than arbitrary stale AppRoot matches.
+assert(program.includes('MaterializeBundle()'),'Native host must materialize the embedded original bundle');
+
 assert(workflow.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/'),
  'Actual Windows bundle must contain the new scientific file');
 assert('v14-energy-audit.js'.localeCompare('v24-multiregion-energy.js')<0,'Existing reduction metadata must mount before companion module');
