@@ -100,9 +100,9 @@ test('G40 main reentry binds live main SHA; QA branch owns only its explicit dif
  assert.match(wf,/git diff --name-only \$branchBase HEAD/,'check only QA branch changes');
  assert.match(wf,/\} else \{throw 'G37 unrecognized Git ref/,'ref must be allowlisted');
  const mainScope=wf.split("if($runRef -eq 'refs/heads/main'){")[1]?.split("} elseif($runRef")[0]||'';
- assert.match(mainScope,/git diff --name-only \\$sha \\$currentMain/,'after-trigger main drift must compare original exact native source with audited latest main');
- assert.match(mainScope,/\\$_ -cnotin \\$stewardPaths/,'only fixed metadata path list; never accept product source');
- assert.doesNotMatch(mainScope,/git diff --name-only \\$historicalBase/,'reject broad historical-basis product source false positives');
+ assert.match(mainScope,/git diff --name-only \$sha \$currentMain/,'after-trigger main drift must compare original exact native source with audited latest main');
+ assert.match(mainScope,/\$_ -cnotin \$stewardPaths/,'only fixed metadata path list; never accept product source');
+ assert.doesNotMatch(mainScope,/git diff --name-only \$historicalBase/,'reject broad historical-basis product source false positives');
  const allowlist=wf.match(/\$allowed=@\(([\s\S]*?)\)/)?.[1]||'';
  assert.ok(allowlist.includes("'docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md'"));
  assert.doesNotMatch(allowlist,/desktop\/src/,'never permit product owner changes on a QA branch');
