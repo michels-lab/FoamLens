@@ -80,3 +80,10 @@ test('failure evidence cannot print raw WebView2 logs, images or privately sourc
  assert.match(ps,/realQuickCupCompleted=\$nativeLog\.Contains/);
  assert.match(ps,/secondViewCompleted=\$nativeLog\.Contains/);
 });
+
+test('post-merge File Steward audit records are allowed but no product science or Field owner files are granted',()=>{
+ const list=wf.match(/\$allowed=@\(([\s\S]*?)\)/);
+ assert.ok(list,'G37 requires explicit allowed-file list');
+ for(const p of ['docs/audits/FILE_GOVERNANCE_LOG.md','reports/file-governance/FILE_GOVERNANCE.json','reports/file-governance/FILE_GOVERNANCE.md','reports/file-governance/SUMMARY.json'])assert.ok(list[1].includes("'"+p+"'"),p);
+ assert.doesNotMatch(list[1],/desktop\/src|Program\.cs|\.github\/workflows\/build-foamlens-desktop\.yml/,'original live product source is never an allowed G37 change');
+});

@@ -64,7 +64,11 @@ jobs:
                      'tools/granada_g37_real_b13_stress_guards.test.cjs',
                      '.github/workflows/granada-g37-real-b13-play-stress.yml',
                      'docs/GRANADA_G37_REAL_B13_REPEATED_PLAY_2026-10-26.md',
-                     'docs/GIT_AUDIT_LOG.md')
+                     'docs/GIT_AUDIT_LOG.md',
+                     'docs/audits/FILE_GOVERNANCE_LOG.md',
+                     'reports/file-governance/FILE_GOVERNANCE.json',
+                     'reports/file-governance/FILE_GOVERNANCE.md',
+                     'reports/file-governance/SUMMARY.json')
           if(@($modified | Where-Object {$_ -notin $allowed}).Count -gt 0){throw 'G37 modifies original CAD, Field, updater or scientific product source'}
           if((git status --porcelain).Count -gt 0){throw 'G37 original source worktree dirty'}
           [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
