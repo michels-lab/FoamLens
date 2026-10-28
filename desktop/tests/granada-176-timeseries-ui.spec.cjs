@@ -466,8 +466,6 @@ require('node:test')('G55 single-series and dual-variable independent-axis gener
   ]),true,'genuine dimensionless field should not be treated as unverified');
 });
 
-console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
-for(const result of checks)
 test('G58 same native source layout displays both original Time Series slots side by side only when the real parent is wide',()=>{
   const css=candidate.slice(candidate.indexOf('function installStyle(){'),candidate.indexOf('function install(){'));
   assert.match(css,/#gr176HistoryCard\{container-type:inline-size;container-name:foamlens-t2-history\}/,
@@ -492,4 +490,5 @@ test('G58 same native source layout displays both original Time Series slots sid
     'new G58 screenshot check cannot disable G56 original numeric proof');
 });
 
-console.log('  ✓ '+result);
+console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
+for(const result of checks)console.log('  ✓ '+result);
