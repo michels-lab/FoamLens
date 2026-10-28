@@ -617,10 +617,32 @@ internal sealed class FoamLensForm : Form
                         historyWideEnough:!!historyRect&&historyRect.width>180};
                     })()
                     """);
-                if (!JsonDocument.Parse(t2Geometry).RootElement.GetProperty("ok").GetBoolean())
+                using var t2Checked = JsonDocument.Parse(t2Geometry);
+                if (!t2Checked.RootElement.GetProperty("ok").GetBoolean())
+                {
+                    // G59: source/private OpenFOAM values stay out of public CI logs.
+                    // Report only allowlisted rendered-DOM booleans and source slot count,
+                    // so the actual native failing condition is independently diagnosable.
+                    var safeKeys = new[] { "timeSeriesDataView", "properSurfaces",
+                        "visibleSources", "realOriginalField", "originalCatalog",
+                        "noHorizontalOverflow", "buildVisible", "cancelVisible",
+                        "chartVisible", "cancelIdleDisabled", "chartWideEnough",
+                        "historyWideEnough" };
+                    var safeBits = new List<string>();
+                    foreach (var key in safeKeys)
+                    {
+                        if (t2Checked.RootElement.TryGetProperty(key, out var bit) &&
+                            (bit.ValueKind == JsonValueKind.True || bit.ValueKind == JsonValueKind.False))
+                            safeBits.Add(key + "=" + bit.GetBoolean().ToString().ToLowerInvariant());
+                    }
+                    if (t2Checked.RootElement.TryGetProperty("sourcePanels", out var slots) &&
+                        slots.ValueKind == JsonValueKind.Number && slots.TryGetInt32(out var slotCount) &&
+                        slotCount >= 0 && slotCount <= 2)
+                        safeBits.Add("sourcePanels=" + slotCount);
                     throw new InvalidOperationException(
-                        "G58 actual packaged Time Series controls/layout contract failed at " +
-                        size.Name + " (source values withheld).");
+                        "G58 original native Time Series controls/layout contract FAILED at " +
+                        size.Name + "; sanitized visual checks: " + string.Join("; ", safeBits));
+                }
                 await Task.Delay(150);
                 await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
                 Log("G58 original native B13 Time Series layout and source-controls passed at " +
