@@ -1,3 +1,8 @@
+## 2026-10-27 — G54 adversarial source-read validation coverage
+
+- Extended **original** dual-OS `granada-176-timeseries-ui.spec.cjs` with negative full generator test on changed/missing OpenFOAM dimensions, frame mean `NaN` omitted without inventing a zero value, and original profile builder rejecting mixed source physical/coordinate units and duplicate physical times before any spatial sampling. Historical G54 basic two-case deterministic fixtures already passed Windows and Ubuntu in [#40608052410](https://github.com/michels-lab/FoamLens/actions/runs/40608052410); additional tests require their own exact new SHA CI result.
+- Corrected `tsdSourceEvidence` to stop presenting `derived:...` identifiers as if they were original OpenFOAM file paths. Source case/region/field/time counts remain displayed; actual per-frame file path is explicitly **unavailable**, not invented or uploaded. Existing real `postProcessing` source paths retain their identity. No original scientific values modified and no release.
+
 ## 2026-10-27 — G54 scientific Time Series source invariants and per-case evidence
 
 - Root cause: original Global/Probe `fvLoadFrameData` histories took **only first parsed frame** dimensions as final curve unit; no per-frame dimensional consistency assertion. Original profile-time generation likewise accepted mixed field/coordinate unit metadata and duplicate physical timestamps. This could produce misleading 2-case plots despite correct original individual data reads.

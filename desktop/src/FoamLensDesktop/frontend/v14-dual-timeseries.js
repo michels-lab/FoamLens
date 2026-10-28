@@ -50,7 +50,9 @@ function tsdSourceEvidence(allSeries,canonical){
   const units=distinct(fields.map(f=>String(f.unit??'').trim()).filter(v=>v&&v!=='-'&&v!=='?'));
   const dimensions=distinct(fields.map(f=>String(f.dimensions??'').trim()).filter(v=>v&&v!=='?'));
   const quantities=distinct(fields.map(f=>String(f.quantity??'').trim()).filter(v=>v&&v!=='unknown'));
-  const sources=distinct(rows.map(s=>String(s.sourcePath||s.fileName||'').trim()));
+  // A derived: key is NOT a real OpenFOAM file path; keep case/region evidence
+  // but mark exact original per-frame file reference as unavailable.
+  const sources=distinct(rows.map(s=>String(s.sourcePath||s.fileName||'').trim()).filter(p=>!p.startsWith('derived:')));
   const sourceFields=distinct(rows.map(s=>String(s.postProcessing?.fieldName||'').trim()));
   const unknownColumns=rows.some(s=>tsdUnverifiedColumn(s.field)!==null);
   return {
@@ -60,7 +62,7 @@ function tsdSourceEvidence(allSeries,canonical){
     inconsistentDimensions:dimensions.length>1,
     inconsistentQuantities:quantities.length>1,
     incompleteUnits:fields.some(f=>!f.unit||f.unit==='-'||f.unit==='?'),
-    missingSource:rows.some(s=>!(s.sourcePath||s.fileName)),
+    missingSource:rows.some(s=>!(s.sourcePath||s.fileName)||String(s.sourcePath||'').startsWith('derived:')),
     histories:rows.filter(s=>s.fieldHistoryEvidence?.schema==='foamlens/field-history-evidence/1').map(s=>s.fieldHistoryEvidence),
     incompleteHistories:rows.some(s=>s.fieldHistoryEvidence?.omittedTimeCount>0),
     unverifiedHistoryDimensions:rows.some(s=>s.fieldHistoryEvidence&& !s.fieldHistoryEvidence.verifiedDimensions)

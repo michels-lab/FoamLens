@@ -320,6 +320,8 @@ require('node:test')('G54 two independent OpenFOAM histories preserve case, regi
     'CASE-A|metal':{0:700,2:695,4:680},
     'CASE-B|mold':{0:300,2:310,4:330}
   };
+  const sourceDims={0:'[0 0 0 1 0 0 0]',2:'[0 0 0 1 0 0 0]',4:'[0 0 0 1 0 0 0]'};
+  let incompleteAt=null;
   const uiValues={fwTsEnable2:{checked:true},fwTsComponent1:{value:'value'},fwTsComponent2:{value:'value'},
     fwTsStat1:{value:'mean'},fwTsStat2:{value:'mean'}};
   const state={fieldTsSeq:12};
@@ -333,8 +335,9 @@ require('node:test')('G54 two independent OpenFOAM histories preserve case, regi
       state,()=> 'global',()=>null,()=>null,s=>caseBySlot.get(s),s=>regionBySlot[s],
       s=>({...group,name:fieldBySlot[s]}),{getElementById:id=>uiValues[id]||null},
       times=>[...new Set(times)].sort((a,b)=>a-b),
-      async(c,g,r,t)=>({parsed:{dimensions:'[0 0 0 1 0 0 0]'},range:{
-        valid:true,min:sourceFrames[c.id+'|'+r][t],max:sourceFrames[c.id+'|'+r][t],mean:sourceFrames[c.id+'|'+r][t]}}),
+      async(c,g,r,t)=>({parsed:{dimensions:sourceDims[t]},range:{
+        valid:true,min:sourceFrames[c.id+'|'+r][t],max:sourceFrames[c.id+'|'+r][t],
+        mean:incompleteAt===t?NaN:sourceFrames[c.id+'|'+r][t]}}),
       new Function('fwMeasuredNumber',prefix.slice(prefix.indexOf('function fwFieldTsMetric('),prefix.indexOf('function fwFieldTsStatLabel('))+';return fwFieldTsMetric')(
         v=>typeof v==='number'&&Number.isFinite(v)?v:NaN),
       new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en),
@@ -358,12 +361,56 @@ require('node:test')('G54 two independent OpenFOAM histories preserve case, regi
   assert.equal(a.fieldHistoryEvidence.dimensions,'[0 0 0 1 0 0 0]');
   assert.equal(a.fieldHistoryEvidence.aggregation,'arithmetic-unweighted');
   assert.equal(b.fieldHistoryEvidence.temporalInterpolation,false);
+  // A SOURCE TIME WITH NO FINITE STATISTIC IS OMITTED, never converted to 0.
+  incompleteAt=2;
+  const partial=await funcs(1,12);
+  assert.deepEqual(partial.t,[0,4]);
+  assert.deepEqual(partial.y,[700,680]);
+  assert.equal(partial.fieldHistoryEvidence.originalTimeCount,3);
+  assert.equal(partial.fieldHistoryEvidence.finiteSampleCount,2);
+  assert.equal(partial.fieldHistoryEvidence.omittedTimeCount,1);
+  incompleteAt=null;
+  // This test fails on the original defective first-frame-only dimension path.
+  sourceDims[2]='[0 1 -1 0 0 0 0]';
+  await assert.rejects(funcs(1,12),/dimensions change/);
+  sourceDims[2]='[0 0 0 1 0 0 0]';
+  sourceDims[4]=undefined;
+  await assert.rejects(funcs(2,12),/dimensions change/);
+  sourceDims[4]='[0 0 0 1 0 0 0]';
 
   const dimensionGuard=new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en);
   assert.equal(dimensionGuard(null,{dimensions:'[0 0 0 1 0 0 0]'}),'[0 0 0 1 0 0 0]');
   assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{dimensions:'[0 1 -1 0 0 0 0]'}),/dimensions change/);
   assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{}),/dimensions change/);
   assert.equal(dimensionGuard('',{}),'','two absent source headers remain unknown, not invented');
+});
+
+
+require('node:test')('G54 profile builder refuses mixed source units and duplicate physical-time rows before plotting',async()=>{
+  const a=core.indexOf('async function fwBuildProfileHistory(');
+  const b=core.indexOf('async function fwBuildOneFieldHistory(',a);
+  assert(a>=0&&b>a,'source-owned spatial-to-temporal history builder must exist');
+  const fn=new Function('fwProfileTsSelection','fwProfileSeriesAll','fwPhysicalTime',
+    'fwUi','playbackSpatialPairs','playbackSpatialValueAt','fwState','fwFieldTsReportProgress',
+    'fwMeasuredNumber','fvFmt','localizedFieldName','caseById','series','document',
+    core.slice(a,b)+';return fwBuildProfileHistory')(
+      ()=>({caseId:'iron',set:'postProcessing/sample',field:'T',line:'y20',position:0.02}),
+      ()=>currentRows,x=>Number(x),(en,es)=>en,
+      ()=>{throw Error('no profile should be plotted on rejected metadata')},
+      ()=>{throw Error('no source interpolation permitted on invalid metadata')},
+      {fieldTsSeq:1},()=>{},x=>Number(x),String,x=>x?.canonical,
+      ()=>({id:'iron',name:'Iron'}),[],{getElementById:()=>null});
+  const row=(time,unit='K',coord='m')=>({
+    caseId:'iron',caseName:'Iron',profileOutputPath:'postProcessing/sample',
+    field:{canonical:'T',unit,dimensions:'[0 0 0 1 0 0 0]'},
+    profileLineKey:'y20',profileLine:'Y 20',profileTime:time,profileCoordUnit:coord
+  });
+  let currentRows=[row(0),row(1,'m/s')];
+  await assert.rejects(fn(1,1),/Profile units/);
+  currentRows=[row(0,'K','m'),row(1,'K','mm')];
+  await assert.rejects(fn(1,1),/Profile units/);
+  currentRows=[row(0),row('0.0')];
+  await assert.rejects(fn(1,1),/Duplicate physical profile times/);
 });
 
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
