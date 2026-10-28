@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "2a5f689fb0c91db1a1d118a3f2cbf5e03b8298bf62af6f3a7a1808eceddd1ade",
-  "evidence_fingerprint": "ace72c9c1e2d5fa7202513c10e067ea2ce91d83a77fefbac24e3001a1a6acf08",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "a12ecc579baa854f91a0878a06815eebc7a43189e5c60a7fd0d2e45535e2bf25",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -636,7 +634,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a9ee9f74ead1c81ae249fa8eae48a8fb420f7041"
+      "blob": "d6fbc9e4da47c595e974c2a755eae725d50e8dc7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1896,7 +1894,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "706b1d7ba99b2b3915c6a99a9ece35bcdf1d5f1c"
+      "blob": "8d20fe56758bb83e901affd5d2b277de641213be"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2785,7 +2783,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b79b7af3f76726957eb7fb2a035920f9aed12b1b"
+      "blob": "72c4fac622b9b727b764a2e9aa2e375935c4146d"
     },
     {
       "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
@@ -2998,17 +2996,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "ffd9a9939e3139ce",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/tests/section-ownership.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
