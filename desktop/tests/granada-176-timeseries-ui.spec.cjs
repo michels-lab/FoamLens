@@ -260,7 +260,10 @@ require('node:test')('G53 real async builder ignores stale reads, late failures 
   // GitHub Windows checkout may use CRLF; function boundaries must not depend on LF-only files.
   const end=core.indexOf('function fw3DProfileStatus(',start);
   assert(start>=0&&end>start,'source builder must exist');
-  const code=core.slice(start,end);
+  const validationStart=core.indexOf('function fwFieldTsValidateComparableDrafts(');
+  const validationEnd=core.indexOf('function fwCommitFieldHistoryDrafts(',validationStart);
+  assert(validationStart>=0&&validationEnd>validationStart,'original G55 scientific gate must exist');
+  const code=core.slice(validationStart,validationEnd)+core.slice(start,end);
   const statuses=[],state={fieldTsSeq:0,fieldTsActiveSeq:null};
   let commits=0,readCount=0,resolveFrame;
   const read=(slot)=>{readCount++;return slot===1?new Promise(resolve=>{resolveFrame=resolve}):null};
@@ -304,6 +307,37 @@ require('node:test')('G53 real async builder ignores stale reads, late failures 
   assert.equal(statuses.at(-1),visibleStatus,
     'late cancelled IO errors cannot replace the current source status');
   assert.equal(commits,1,'stale failed data cannot commit a second time');
+
+  // One variable T across two genuinely independent cases is legal only with
+  // verified identical dimensions and unit: metal vs mold is a valid use case.
+  const common={canonical:'field3d:T:value:mean',dimensions:'[0 0 0 1 0 0 0]',
+    quantity:'field3d_T_value_mean',unit:'K'};
+  const draftsFor=(a,b)=>async slot=>({
+    fieldHistoryKey:slot===1?'CASE_A|metal|T':'CASE_B|mold|T',
+    caseId:slot===1?'CASE_A':'CASE_B',
+    field:slot===1?a:b,t:[0,1],y:slot===1?[700,690]:[310,320],
+    fieldHistoryEvidence:{region:slot===1?'metal':'mold'}
+  });
+  await create(draftsFor({...common},{...common}))();
+  assert.equal(commits,2,'matching physical T metadata across two cases must be committed atomically');
+  await assert.rejects(create(draftsFor(common,{...common,unit:'°C'}))(),/incompatible or unverified units/,
+    'same canonical field with Celsius vs Kelvin must fail before commit');
+  assert.equal(commits,2,'unit mismatch cannot replace either previous valid curve');
+  await assert.rejects(create(draftsFor(common,{...common,dimensions:'[0 1 -1 0 0 0 0]'}))(),/incompatible or unverified units/,
+    'T with velocity dimensions in another case must be rejected');
+  await assert.rejects(create(draftsFor(common,{...common,unit:'-',dimensions:''}))(),/incompatible or unverified units/,
+    'unverified physical dimensions may not be silently equated');
+  await assert.rejects(create(draftsFor(common,{...common,quantity:'field3d_alpha_value_mean'}))(),/incompatible or unverified units/,
+    'same label with different declared physical quantity cannot share one axis');
+  assert.equal(commits,2,'all incompatible field histories must leave previously visible data untouched');
+  await create(draftsFor(
+    {canonical:'field3d:alpha:value:mean',dimensions:'[0 0 0 0 0 0 0]',
+      quantity:'field3d_alpha_value_mean',unit:'-'},
+    {canonical:'field3d:alpha:value:mean',dimensions:'[0 0 0 0 0 0 0]',
+      quantity:'field3d_alpha_value_mean',unit:'-'}
+  ))();
+  assert.equal(commits,3,'verified dimensionless liquid fractions remain comparable');
+  assert.equal(state.fieldTsActiveSeq,null,'all failed and successful paths release active builder ownership');
 });
 
 
@@ -411,6 +445,25 @@ require('node:test')('G54 profile builder refuses mixed source units and duplica
   await assert.rejects(fn(1,1),/Profile units/);
   currentRows=[row(0),row('0.0')];
   await assert.rejects(fn(1,1),/Duplicate physical profile times/);
+});
+
+
+require('node:test')('G55 single-series and dual-variable independent-axis generation are not overblocked',()=>{
+  const a=core.indexOf('function fwFieldTsValidateComparableDrafts(');
+  const b=core.indexOf('function fwCommitFieldHistoryDrafts(',a);
+  assert(a>=0&&b>a);
+  const fn=new Function('fwUi',core.slice(a,b)+';return fwFieldTsValidateComparableDrafts')((en,es)=>en);
+  const u=(canonical,unit,dimensions,quantity)=>({field:{canonical,unit,dimensions,quantity}});
+  assert.equal(fn([u('T','-','','field3d_T')]),true,
+    'a SINGLE unknown-unit history may still be inspected with honest missing-unit warning');
+  assert.equal(fn([
+    u('T','K','[0 0 0 1 0 0 0]','temperature'),
+    u('U','m/s','[0 1 -1 0 0 0 0]','velocity')
+  ]),true,'different canonical variables may use separate, appropriately labelled Y axes');
+  assert.equal(fn([
+    u('alpha','-','[0 0 0 0 0 0 0]','liquid_fraction'),
+    u('alpha','-','[0 0 0 0 0 0 0]','liquid_fraction')
+  ]),true,'genuine dimensionless field should not be treated as unverified');
 });
 
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');

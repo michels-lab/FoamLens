@@ -580,6 +580,34 @@ async function fwBuildOneFieldHistory(slot,seq){
 }
 // Prepare all derived series before changing the visible chart. A failing
 // second Probe or cancelled case load must not erase earlier valid curves.
+// GRANADA G55 — No unit/dimension comparison by name alone.
+// Two independent cases may expose the same canonical field with incompatible
+// physical metadata. Reject the ENTIRE generation before any chart mutation.
+function fwFieldTsValidateComparableDrafts(drafts){
+  const known=new Map(),dimensionless='[0 0 0 0 0 0 0]';
+  for(const draft of drafts||[]){
+    const f=draft?.field||{},canonical=String(f.canonical||'').trim();
+    if(!canonical)throw new Error(fwUi(
+      'The selected source has no verified field identity; no history was committed.',
+      'La fuente seleccionada no tiene identidad de campo verificada; no se guardó la historia.'));
+    const dimensions=String(f.dimensions||'').trim().replace(/\s+/g,' ');
+    const unit=String(f.unit||'').trim();
+    const quantity=String(f.quantity||'').trim();
+    const current={dimensions,unit,quantity};
+    const prior=known.get(canonical);
+    if(!prior){known.set(canonical,current);continue}
+    const unverifiable=x=>!x.dimensions||!x.unit||x.unit==='?'||
+      (x.unit==='-'&&x.dimensions!==dimensionless);
+    if(unverifiable(prior)||unverifiable(current)||
+       prior.dimensions!==current.dimensions||
+       prior.unit!==current.unit||prior.quantity!==current.quantity){
+      throw new Error(fwUi(
+        'Same-name Time Series fields have incompatible or unverified units, dimensions or quantities across selected sources. Both histories were rejected; no values were converted.',
+        'Los campos con el mismo nombre tienen unidades, dimensiones o magnitudes incompatibles o sin verificar entre fuentes. Se rechazaron ambas historias sin convertir valores.'));
+    }
+  }
+  return true
+}
 function fwCommitFieldHistoryDrafts(drafts){
   const unique=new Map();
   for(const draft of drafts||[])if(draft?.fieldHistoryKey)unique.set(draft.fieldHistoryKey,draft);
@@ -620,6 +648,8 @@ async function fwBuildFieldTimeSeries(){
   }
   if(seq!==fwState.fieldTsSeq)return;
   if(!drafts.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  // Scientific integrity gate precedes original atomic chart commit.
+  fwFieldTsValidateComparableDrafts(drafts);
   const built=fwCommitFieldHistoryDrafts(drafts);
   try{refreshDatasetControls()}catch{};try{refreshTimeSeriesControls()}catch{}
   const p=document.getElementById('timeSeriesVariable'),s2=document.getElementById('timeSeriesVariable2'),probe=document.getElementById('timeSeriesProbe'),family=document.getElementById('timeSeriesFamily');
