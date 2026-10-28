@@ -132,5 +132,45 @@ test('session saves on navigation context plot interaction and application close
   ])assert(session.includes(token),'Missing save trigger: '+token);
 });
 
+
+test('G59c native installed persistence: original saved Catalog survives field-mode restore navigation',()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  assert(begin>=0&&end>begin,'original session restore function missing');
+  const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
+    'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
+    'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','console',
+    session.slice(begin,end)+';return flSessionRestoreSnapshot');
+  const state={dataView:'timeseries',mode:'analysis',hydrations:0,navs:0};
+  const win={FoamLensPlotSurfaces:{
+    hydrate(payload,options){
+      assert.equal(options.activate,false);
+      state.hydrations++;
+      state.dataView=payload.surfaces.data.view;
+      return true
+    },
+    activate(){throw new Error('Field mode must not switch to Data or Analysis')}
+  }};
+  const navigate=mode=>{
+    state.navs++;
+    state.mode=mode;
+    // Reproduce the native installed G59c old failure: setAppMode('field')
+    // changes/captures the live current surface, replacing Catalog with Time Series.
+    state.dataView='timeseries'
+  };
+  const restore=make(win,()=>true,false,[],()=>null,mode=>mode,navigate,
+    Promise.resolve(false),()=>{},()=>{},'timeseries',()=>{},()=>{},
+    {dispatchEvent:()=>{}},class{constructor(type,options){this.type=type;this.detail=options.detail}},
+    ()=>({}),console);
+  const payload={activeMode:'field',plots:{schema:1,surfaces:{
+    data:{view:'catalog'},analysis:{view:'timeseries'},field:{view:'profile'}}}};
+  assert.equal(restore(payload,{force:true}),true);
+  assert.equal(state.navs,1);
+  assert.equal(state.hydrations,1,'avoid duplicated state hydration');
+  assert.equal(state.dataView,'catalog',
+    'previous native failure: stored Catalog must NOT become Time Series during Field restore');
+});
+
 console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
