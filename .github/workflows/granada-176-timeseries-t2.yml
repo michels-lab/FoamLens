@@ -5,6 +5,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js'
       - 'desktop/tests/granada-176-timeseries-ui.spec.cjs'
+      - 'desktop/tests/section-ownership.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
       - '.github/workflows/granada-176-timeseries-t2.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js'
       - 'desktop/tests/granada-176-timeseries-ui.spec.cjs'
+      - 'desktop/tests/section-ownership.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
       - '.github/workflows/granada-176-timeseries-t2.yml'
