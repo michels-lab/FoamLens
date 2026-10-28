@@ -162,4 +162,27 @@ check('Actual provenance DOM refresh follows case and field filters and removes 
   assert.equal(nodes.tsdScientificEvidence,undefined,
     'Empty data must not leave stale source warnings');
 });
+check('G54 derived history preserves case/region/counts without inventing original file paths',()=>{
+  const row=s('T','derived:CASE-A|metal|T','K','[0 0 0 1 0 0 0]','field3d_T_value_mean',{
+    caseId:'CASE-A',caseName:'Iron metal',
+    fieldHistoryEvidence:{
+      schema:'foamlens/field-history-evidence/1',caseId:'CASE-A',caseName:'Iron metal',
+      region:'metal',field:'T',component:'value',sourceKind:'global',
+      statistic:'mean',dimensions:'[0 0 0 1 0 0 0]',verifiedDimensions:true,
+      originalTimeCount:3,finiteSampleCount:2,omittedTimeCount:1,
+      aggregation:'arithmetic-unweighted'
+    }
+  });
+  const e=api.tsdSourceEvidence([row],'T');
+  assert.equal(e.curves,1);assert.deepEqual(e.sources,[]);
+  assert.equal(e.missingSource,true,'derived key is not an original on-disk file');
+  assert.equal(e.histories.length,1);assert.equal(e.histories[0].caseId,'CASE-A');
+  assert.equal(e.histories[0].region,'metal');
+  assert.equal(e.histories[0].finiteSampleCount,2);
+  assert.equal(e.incompleteHistories,true);
+  assert.equal(e.unverifiedHistoryDimensions,false);
+  assert(src.includes("tsdUi('unweighted arithmetic mean','media aritmética sin ponderación')"),
+    'scientifically unweighted source statistics must be visible in both languages');
+});
+
 console.log('PASS: '+count+' FoamLens Time Series provenance and identity tests');
