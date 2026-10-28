@@ -1,3 +1,9 @@
+## 2026-10-27 — Granada G59c: exact Installed failure and lossless Data view restore (candidate)
+
+- [Native original packaged Windows #40620213812](https://github.com/michels-lab/FoamLens/actions/runs/40620213812): Portable original QuickCup/T2/Field smoke **PASS** after G59b; Inno compiled/checksum/wizard **PASS**; Installed original real WebView2 state-restoration smoke **FAIL** because stored Data Catalog view returned as Time Series. No overall native acceptance, no release.
+- Corrected source owner `v23-session-state.js`: rehydrate saved plot-surface state after mode navigation, which otherwise may clobber saved Data view. Added exact original-function negative Catalog-vs-Time-Series test and removed full private scientific `realCaseJson` from this error's public log. No data conversion, profile deletion, source impersonation or weakened scientific invariant.
+- Must verify Windows/Ubuntu original state tests and exact final Windows Portable+Installed original source before merge; physical DPI/36 screenshots, Authenticode and stable release gate #238 remain open. Full investigation in [G59 source note](GRANADA_G59_TIMESERIES_MIXED_SOURCE_REFRESH_2026-10-27.md).
+
 ## 2026-10-27 — Granada G59: native Field-to-Data T2 visibility root cause (candidate, NO release)
 
 - **Exact native red evidence:** [Windows original packaged run 40619306827](https://github.com/michels-lab/FoamLens/actions/runs/40619306827), original Portable WebView2 B13 at 1140px: genuine sources/regions, chart and 2 source panels present, but `visibleSources=false`, `buildVisible=false`, `cancelVisible=false` in source-authorized boolean-only diagnostics. The original hard G58 native test FAILED; no scientific data leaked in logs.
