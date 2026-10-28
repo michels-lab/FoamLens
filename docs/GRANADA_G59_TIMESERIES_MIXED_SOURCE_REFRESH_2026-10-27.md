@@ -16,3 +16,17 @@ El módulo `v14-dual-timeseries.js` calculaba el catálogo de campos OpenFOAM 3D
 - Pendiente: si G37 continúa fallando, clasificar mediante telemetría nativa **solo de booleanos de estado visible**; no publicar datos QuickCup/frames/paths. Mantener fail-closed, 36 capturas del dueño, DPI físico, firma Authenticode, updater y #238 abiertos.
 
 **Stable público:** v1.8.10 intacto. Sin release candidate, beta, release ni binario provisional.
+
+## G59b — Causa nativa demostrada en WinForms/WebView2
+
+[Windows completo compilado del SHA 8588ddeb](https://github.com/michels-lab/FoamLens/actions/runs/40619306827), job 122589995924, **FAILED** en Portable original Time Series a ancho CSS 1140px, después de importar QuickCup B13 y comprobar Field + segunda vista. El diagnóstico original de booleanos (ningún valor ni ruta privados) fue:
+
+- `timeSeriesDataView=true`, `properSurfaces=true`, `sourcePanels=2`, `realOriginalField=true`, `originalCatalog=true`, `chartVisible=true`, `noHorizontalOverflow=true`.
+- **`visibleSources=false`, `buildVisible=false`, `cancelVisible=false`**, simultáneamente.
+- La fuente original `v14-zz-field-workspace.js` contiene `fwLeave()`, que añadía **incondicionalmente** `hidden` al mismo DOM `#fwFieldTsControls` ya adoptado por G3/T2 dentro de `#gr176HistoryCard`. `.fwFieldTsControls.hidden{display:none!important}` de la fuente original ocultaba TODO el generador tras abandonar Field. Es el mecanismo preciso que explica la terna de falsos; el test antiguo de DOM aislado no ejecutaba la secuencia nativa Field → Data, por eso no lo detectó.
+
+**Reparación en el propietario de la causa:** al salir de Field, el DOM original `fwFieldTsControls` se conserva visible si su dueño actual es `#gr176HistoryCard` (Data). En cualquier otro dueño legado, se oculta como antes. Se conserva la invalidación científica de la época, parada de playback, inspector, y retorno de controles. No nueva UI, duplicación del generador, CSS `!important`, migración de datos ni omisión de criterios de aceptación.
+
+**Nueva regresión negativa:** test original T2 ejecuta ahora la **función `fwLeave()` de producción**, con fuente adoptada por Data y fuente legado, y rechaza el `hidden` previo; comprueba también que los contadores y la cancelación de fuente no se alteran. El generador solo refresca selectores sobre campos originales, independiente de la existencia de curvas importadas (cambio G59a).
+
+Estado **CANDIDATO**, no declarado corregido hasta que los tests Windows/Ubuntu y Windows empaquetado original QuickCup/Setup+Portable terminen PASS en este nuevo SHA. Mantener #146, #176, #238 y la versión pública v1.8.10 sin cierre ni release.
