@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "81695b3c4b47427555017b9c102959a26cac2d21691fe0ceed4f99e9c33e866f",
+  "inventory_fingerprint": "78e4fd9947cd7cc1962e43ba486fa165423a5e76fd2dd6c7df154296aaf62f82",
   "evidence_fingerprint": "2f1b2ca40060b9bdab51ea7ef21b1b3bf32168cb78e91b5455a368946038682e",
   "files": [
     {
@@ -1350,7 +1350,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "09f4bcb0f2d720b2e7ba5b483b32c2b6f1c6743f"
+      "blob": "f20473e79da7f2c2023dce56a38ceed567d61e98"
     },
     {
       "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
