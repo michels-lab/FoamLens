@@ -1,3 +1,9 @@
+## 2026-10-27 — G56 first native failure, fail-closed safe diagnostic retry
+
+- [First exact native G56 run #40612815043](https://github.com/michels-lab/FoamLens/actions/runs/40612815043) FAILED on first original Portable 1/3 AFTER source/provenance preflights (Windows/Ubuntu PASS), original B13 Field/Probe source runtime PASS and real Inno Windows compilation PASS, but BEFORE the final original Windows smoke completion. This is a **new opt-in G56 numerical acceptance failure**, not a success and not proof that the earlier G37 6/6 result was wrong.
+- Original G37 raw Windows log is intentionally private, not uploaded. Its existing failure report only assigned broad webview2-or-host stage and could not isolate the exact new test. This revision adds **fixed-enumeration-only stage and cause codes** from the original trusted product smoke; never copy exception messages, source paths or measured cell data to the G37 sanitized artifact. Keeps hard native failure, both region requirements, original six-run/Play contracts, no fallback and no release.
+- Pending rerun on exact new source; numeric/visual/publisher release gates remain OPEN. The latest public stable remains v1.8.10.
+
 ## 2026-10-27 — G56 actual private QuickCup B13 cross-region Time Series numerical smoke
 
 - New opt-in original packaged Windows host path validates real private B13 metal T and mold T field histories on 2–3 actual common physical times, never generating or uploading synthetic source data. Invokes the ORIGINAL G55-protected fwBuildFieldTimeSeries and inspects both committed original curves.

@@ -2427,7 +2427,40 @@ internal sealed class FoamLensForm : Form
                             !minimum("sampledPhysicalTimes", 2) || !minimum("independentSourceFrames", 4) ||
                             !proof.TryGetProperty("originalSourceValuesUploaded", out var upload) ||
                             upload.ValueKind != JsonValueKind.False)
-                            throw new InvalidOperationException("G56 private B13 two-region numerical validation failed.");
+                        {
+                            // Fixed enums only: never leak private source paths or cell values.
+                            var stageRaw = proof.TryGetProperty("stage", out var st) &&
+                                st.ValueKind == JsonValueKind.String ? st.GetString() : "";
+                            var stageSafe = stageRaw switch
+                            {
+                                "init" => "init",
+                                "select" => "select",
+                                "physical-times" => "physical-times",
+                                "original-generator" => "original-generator",
+                                "source-recompute" => "source-recompute",
+                                _ => "unknown"
+                            };
+                            var reasonRaw = proof.TryGetProperty("reason", out var rs) &&
+                                rs.ValueKind == JsonValueKind.String ? rs.GetString() : "";
+                            var reasonCode = reasonRaw switch
+                            {
+                                "original field history missing" => "missing-source-generator",
+                                "original B13 case missing" => "missing-b13-case",
+                                "original history controls missing" => "missing-controls",
+                                "B13 region T source not selected" => "source-selector",
+                                "two physical field sources not independent" => "region-alias",
+                                "B13 requires two common original physical times" => "insufficient-times",
+                                "original two-source commit missing" => "history-commit",
+                                "original B13 source or physical-time provenance mismatch" => "history-provenance",
+                                "actual source frame not verified" => "invalid-source-frame",
+                                "source has no finite cells" => "nonfinite-source",
+                                "original generated mean differs from source cell arithmetic" => "mean-disagreement",
+                                "independent metal/mold original values were not distinguished" => "no-regional-difference",
+                                _ => "unclassified"
+                            };
+                            Log("G56 SAFE FAIL stage=" + stageSafe + " code=" + reasonCode);
+                            throw new InvalidOperationException("G56 original B13 numerical validation failed, safe stage " + stageSafe + ".");
+                        }
                     }
                     Log("FoamLens original B13 two-region Time Series numeric smoke passed: physical time and original source cells independently reduced, no private scientific values exported.");
                     await _web.CoreWebView2.ExecuteScriptAsync("delete window.__foamLensB13TwoRegionTimeseriesResult;");

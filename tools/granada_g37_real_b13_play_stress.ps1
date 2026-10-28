@@ -99,6 +99,13 @@ function Safe-FailureEvidence([string]$nativeLog,[string]$mode,[int]$n,[int]$exi
  }elseif($nativeLog.Contains('FoamLens real OpenFOAM packaged runtime smoke')){
   $d.stage='scientific-case-or-later'
  }
+ $g56=[regex]::Matches($nativeLog,'G56 SAFE FAIL stage=(?<phase>[a-z-]+) code=(?<reason>[a-z-]+)')
+ if($g56.Count){
+  $lastG56=$g56[$g56.Count-1]
+  $d.stage='b13-timeseries-numerical'
+  $d.g56Stage=$lastG56.Groups['phase'].Value
+  $d.g56Code=$lastG56.Groups['reason'].Value
+ }
  return $d
 }
 
