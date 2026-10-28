@@ -96,7 +96,6 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
   if(!force&&!flSessionHasWorkspaceData())return false;
   flSessionRestoring=true;
   try{
-    if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
     if(payload.context&&Array.isArray(cases)&&cases.length){
       const match=flSessionFindCase(payload.context);
       const requestedRegion=String(payload.context.region||'');
@@ -108,6 +107,11 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     if(payload.field)window.FoamLensWorkspaceUx?.applyState?.(payload.field);
     const target=flSessionSafeMode(payload.activeMode);
     setAppMode(target);
+    // G59c: mode navigation may capture/mutate the currently active plot's
+    // Data view. Rehydrate the SAVED physical plot state only AFTER navigation
+    // so a stored Catalog/Data view cannot silently become Time Series.
+    // This is source state restoration, not a new chart or data import.
+    if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
     if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true});
     flSessionLastRestorePromise=target==='field'&&payload.fieldSelection?flSessionRestoreFieldSelection(payload.fieldSelection):Promise.resolve(false);
     try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
