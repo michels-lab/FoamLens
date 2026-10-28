@@ -60,7 +60,10 @@ function tsdSourceEvidence(allSeries,canonical){
     inconsistentDimensions:dimensions.length>1,
     inconsistentQuantities:quantities.length>1,
     incompleteUnits:fields.some(f=>!f.unit||f.unit==='-'||f.unit==='?'),
-    missingSource:rows.some(s=>!(s.sourcePath||s.fileName))
+    missingSource:rows.some(s=>!(s.sourcePath||s.fileName)),
+    histories:rows.filter(s=>s.fieldHistoryEvidence?.schema==='foamlens/field-history-evidence/1').map(s=>s.fieldHistoryEvidence),
+    incompleteHistories:rows.some(s=>s.fieldHistoryEvidence?.omittedTimeCount>0),
+    unverifiedHistoryDimensions:rows.some(s=>s.fieldHistoryEvidence&& !s.fieldHistoryEvidence.verifiedDimensions)
   }
 }
 /* FOAMLENS_DUAL_TIMESERIES_CORE_END */
@@ -184,7 +187,8 @@ function tsdUpdateScientificEvidence(){
   if(!selected.length){if(panel)panel.remove();return}
   const evidence=selected.map(id=>tsdSourceEvidence(rows,id));
   const warnings=evidence.filter(e=>e.unknownColumns||e.inconsistentUnits||
-    e.inconsistentDimensions||e.inconsistentQuantities||e.missingSource);
+    e.inconsistentDimensions||e.inconsistentQuantities||e.missingSource||
+    e.incompleteHistories||e.unverifiedHistoryDimensions);
   if(!panel){
     panel=document.createElement('details');panel.id='tsdScientificEvidence';
     panel.className='timeSeriesHint tsdScientificEvidence';
@@ -206,6 +210,14 @@ function tsdUpdateScientificEvidence(){
       node.textContent=label+': '+(values.length?values.join(' | '):tsdUi('not available','no disponible'));
       group.appendChild(node)
     };
+    for(const h of e.histories){
+      const detail=document.createElement('div');
+      detail.textContent=tsdUi('Source history','Historia de origen')+': '+
+        h.caseName+' ['+h.caseId+'] · '+(h.region||tsdUi('default region','región predeterminada'))+
+        ' · '+h.field+' · '+h.component+' · '+h.sourceKind+
+        ' · '+h.finiteSampleCount+'/'+h.originalTimeCount+' '+tsdUi('valid source times','tiempos de origen válidos');
+      group.appendChild(detail)
+    }
     entry(tsdUi('Original source fields','Campos originales'),e.sourceFields);
     entry(tsdUi('Units','Unidades'),e.units);
     entry(tsdUi('Dimensions','Dimensiones'),e.dimensions);
@@ -225,6 +237,12 @@ function tsdUpdateScientificEvidence(){
     if(e.missingSource)notices.push(tsdUi(
       'At least one curve lacks a source file reference.',
       'Al menos una curva carece de referencia al archivo de origen.'));
+    if(e.incompleteHistories)notices.push(tsdUi(
+      'Some physical source times had no finite samples; no missing data was interpolated.',
+      'Algunos tiempos físicos no dieron muestras finitas; no se interpolaron datos faltantes.'));
+    if(e.unverifiedHistoryDimensions)notices.push(tsdUi(
+      'One source history lacks verified per-frame dimensions; confirm its OpenFOAM header.',
+      'Una historia carece de dimensiones verificadas por frame; comprueba su encabezado OpenFOAM.'));
     if(notices.length){const warning=document.createElement('p');
       warning.className='tsdEvidenceWarning';warning.textContent=notices.join(' ');
       group.appendChild(warning)}

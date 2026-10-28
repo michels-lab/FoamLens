@@ -306,5 +306,65 @@ require('node:test')('G53 real async builder ignores stale reads, late failures 
   assert.equal(commits,1,'stale failed data cannot commit a second time');
 });
 
+
+require('node:test')('G54 two independent OpenFOAM histories preserve case, region, physical time, units and no invented points',async()=>{
+  const fn=(start,end)=>{const a=core.indexOf(start),b=core.indexOf(end,a);
+    assert(a>=0&&b>a,'source-owned function missing: '+start);return core.slice(a,b)};
+  const helpers=fn('function fwFieldTsHeaderDimensions(','function fwFieldTsField(');
+  const original=fn('async function fwBuildOneFieldHistory(','// Prepare all derived series before changing');
+  const prefix=fn('function fwFieldTsMetric(','function fwFieldTsSource(');
+  let caseBySlot=new Map([[1,{id:'CASE-A',name:'Iron metal' }],[2,{id:'CASE-B',name:'Mold B'}]]);
+  const regionBySlot={1:'metal',2:'mold'},fieldBySlot={1:'T',2:'T'};
+  const group={name:'T',kind:'scalar',times:[0,2,4]};
+  const sourceFrames={
+    'CASE-A|metal':{0:700,2:695,4:680},
+    'CASE-B|mold':{0:300,2:310,4:330}
+  };
+  const uiValues={fwTsEnable2:{checked:true},fwTsComponent1:{value:'value'},fwTsComponent2:{value:'value'},
+    fwTsStat1:{value:'mean'},fwTsStat2:{value:'mean'}};
+  const state={fieldTsSeq:12};
+  let discarded=[],provenance;
+  const funcs=new Function('fwState','fwFieldTsSource','fwBuildProbeFieldHistory','fwBuildProfileHistory',
+    'fwFieldTsCase','fwFieldTsRegion','fwFieldTsGroup','document','fwPhysicalTimes',
+    'fvLoadFrameData','fwFieldTsMetric','fwFieldTsRequireDimensions','fwFieldTsReportProgress',
+    'fwFieldTsSourceKey','fwFieldTsField','fwFieldTsHistoryEvidence','fwUi',
+    'series','fwMeasuredNumber','pmUnitFromDimensions','fwFieldTsStatLabel','fwFieldTsCanonical',
+    'fwFieldTsHeaderDimensions',original+';return fwBuildOneFieldHistory')(
+      state,()=> 'global',()=>null,()=>null,s=>caseBySlot.get(s),s=>regionBySlot[s],
+      s=>({...group,name:fieldBySlot[s]}),{getElementById:id=>uiValues[id]||null},
+      times=>[...new Set(times)].sort((a,b)=>a-b),
+      async(c,g,r,t)=>({parsed:{dimensions:'[0 0 0 1 0 0 0]'},range:{
+        valid:true,min:sourceFrames[c.id+'|'+r][t],max:sourceFrames[c.id+'|'+r][t],mean:sourceFrames[c.id+'|'+r][t]}}),
+      new Function('fwMeasuredNumber',prefix.slice(prefix.indexOf('function fwFieldTsMetric('),prefix.indexOf('function fwFieldTsStatLabel('))+';return fwFieldTsMetric')(
+        v=>typeof v==='number'&&Number.isFinite(v)?v:NaN),
+      new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en),
+      ()=>{},(c,r,g,comp,stat)=>[c.id,r,g.name,comp,stat].join('|'),
+      new Function('fwFieldTsHeaderDimensions','pmUnitFromDimensions','fwFieldTsStatLabel','fwFieldTsCanonical',
+        fn('function fwFieldTsField(','function fwFieldTsSource(')+';return fwFieldTsField')(
+        new Function('fwUi',helpers+';return fwFieldTsHeaderDimensions')((en,es)=>en),
+        ()=>'K',()=> 'Mean',(g,c,s)=>[g.name,c,s].join(':')),
+      new Function('fwUi',helpers+';return fwFieldTsHistoryEvidence')((en,es)=>en),
+      (en,es)=>en,[],v=>v,()=>'K',()=>'Mean',(g,c,s)=>[g.name,c,s].join(':'),
+      new Function('fwUi',helpers+';return fwFieldTsHeaderDimensions')((en,es)=>en));
+  const a=await funcs(1,12),b=await funcs(2,12);
+  assert.deepEqual(a.t,[0,2,4]);assert.deepEqual(b.t,[0,2,4]);
+  assert.deepEqual(a.y,[700,695,680]);assert.deepEqual(b.y,[300,310,330]);
+  assert.notEqual(a.fieldHistoryKey,b.fieldHistoryKey);
+  assert.equal(a.caseId,'CASE-A');assert.equal(b.caseId,'CASE-B');
+  assert.equal(a.fieldHistoryEvidence.region,'metal');assert.equal(b.fieldHistoryEvidence.region,'mold');
+  assert.equal(a.fieldHistoryEvidence.originalTimeCount,3);
+  assert.equal(a.fieldHistoryEvidence.finiteSampleCount,3);
+  assert.equal(a.fieldHistoryEvidence.omittedTimeCount,0);
+  assert.equal(a.fieldHistoryEvidence.dimensions,'[0 0 0 1 0 0 0]');
+  assert.equal(a.fieldHistoryEvidence.aggregation,'arithmetic-unweighted');
+  assert.equal(b.fieldHistoryEvidence.temporalInterpolation,false);
+
+  const dimensionGuard=new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en);
+  assert.equal(dimensionGuard(null,{dimensions:'[0 0 0 1 0 0 0]'}),'[0 0 0 1 0 0 0]');
+  assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{dimensions:'[0 1 -1 0 0 0 0]'}),/dimensions change/);
+  assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{}),/dimensions change/);
+  assert.equal(dimensionGuard('',{}),'','two absent source headers remain unknown, not invented');
+});
+
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
 for(const result of checks)console.log('  ✓ '+result);
