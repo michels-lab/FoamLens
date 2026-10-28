@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.6.1 — Field-owned command surface with contextual sidebar and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
 const fwTimeState={playing:false,timer:null,epoch:0};
 let fwRenderFrame=0,fwRenderNeeds3D=false,fwRenderNeeds2D=false;
@@ -396,7 +396,7 @@ function fwEnsureFieldTsControls(){
     details.appendChild(root);
     root.classList.remove('hidden');
   }
-  const schedule=()=>fwFieldTsSetStatus(fwUi('Ready. Select Build field histories to parse OpenFOAM data.','Listo. Selecciona Construir historias de campo para leer los datos OpenFOAM.'));
+  const schedule=()=>{if(fwFieldTsInvalidateSelection())return;fwFieldTsSetStatus(fwUi('Ready. Select Build field histories to parse OpenFOAM data.','Listo. Selecciona Construir historias de campo para leer los datos OpenFOAM.'))};
   for(const slot of [1,2]){
     document.getElementById('fwTsSource'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,true,'source');schedule()});
     document.getElementById('fwTsCase'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,false,'case');schedule()});
@@ -414,6 +414,16 @@ function fwEnsureFieldTsControls(){
 }
 function fwFieldTsSetStatus(text,error=false){
   const e=document.getElementById('fwTsStatus'),b=document.getElementById('fwTsStatusBadge');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}if(b)b.textContent=error?fwUi('error','error'):String(text||'—').slice(0,36)
+}
+// G53: changing an original case/region/field/probe/profile selection invalidates
+// the running read before a stale old-source history can be committed.
+function fwFieldTsInvalidateSelection(){
+  if(fwState.fieldTsActiveSeq==null||fwState.fieldTsActiveSeq!==fwState.fieldTsSeq)return false;
+  ++fwState.fieldTsSeq;
+  fwFieldTsSetStatus(fwUi(
+    'Source selection changed. Previous history build cancelled; build again using the new selection.',
+    'Cambió la selección de origen. Se canceló la generación anterior; vuelve a generar con la nueva selección.'));
+  return true
 }
 // G52 Block 2: source-owned counts, never a fabricated percentage or curve.
 // Original atomic series commit and cancellation checks remain untouched.
@@ -551,7 +561,11 @@ function fwCommitFieldHistoryDrafts(drafts){
 }
 async function fwBuildFieldTimeSeries(){
   if(activeAppMode!=='data'||currentDataView!=='timeseries')return;
-  const seq=++fwState.fieldTsSeq;fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
+  // One source epoch owns each build. Repeated Build clicks must not parse twice.
+  if(fwState.fieldTsActiveSeq===fwState.fieldTsSeq)return;
+  const seq=++fwState.fieldTsSeq;fwState.fieldTsActiveSeq=seq;
+  fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
+  try{
   const drafts=[];
   for(const slot of [1,2]){
     const draft=await fwBuildOneFieldHistory(slot,seq);
@@ -571,6 +585,15 @@ async function fwBuildFieldTimeSeries(){
   try{refreshTimeSeriesControls()}catch{};try{renderList();updateMeta();draw()}catch(e){console.error(e)}
   fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D'));
   const empty=document.getElementById('fwPlotEmpty');empty?.classList.add('hidden')
+  }catch(error){
+    // A late IO failure from a cancelled build must never overwrite the newer
+    // source's loading state or incorrectly appear as its failure.
+    if(seq!==fwState.fieldTsSeq)return;
+    throw error
+  }finally{
+    // A stale read must not release a later user's active generation.
+    if(fwState.fieldTsActiveSeq===seq)fwState.fieldTsActiveSeq=null
+  }
 }
 
 

@@ -228,5 +228,82 @@ test('responsive, keyboard, localization and no replacement controls',()=>{
     assert(candidate.includes(token),'missing UI/interaction guarantee '+token);
   assert(!candidate.includes("innerHTML='<select"),'T2 must not fabricate selectors');
 });
+
+test('G53 invalidates an active scientific history exactly once on ANY source selector change',()=>{
+  const start=core.indexOf('function fwFieldTsInvalidateSelection(){');
+  const end=core.indexOf('// G52 Block 2:',start);
+  assert(start>=0&&end>start,'original source invalidation helper required');
+  const statuses=[],state={fieldTsSeq:28,fieldTsActiveSeq:null};
+  const invalidate=new Function('fwState','fwFieldTsSetStatus','fwUi',
+    core.slice(start,end)+';return fwFieldTsInvalidateSelection')(
+      state,text=>statuses.push(text),(en,es)=>en);
+  assert.equal(invalidate(),false,'idle UI change cannot cancel or advance epoch');
+  assert.equal(state.fieldTsSeq,28);
+  state.fieldTsActiveSeq=28;
+  assert.equal(invalidate(),true,'a changed case/region/field/probe invalidates current real read');
+  assert.equal(state.fieldTsSeq,29);
+  assert.match(statuses.at(-1),/selection changed/i);
+  assert.equal(invalidate(),false,'already cancelled read cannot increment epoch again');
+  state.fieldTsActiveSeq=30;state.fieldTsSeq=30;
+  assert.equal(invalidate(),true,'a newer independent build can also be cancelled');
+  assert.equal(state.fieldTsSeq,31);
+  const owner=core.slice(core.indexOf('function fwEnsureFieldTsControls(){'),
+    core.indexOf('function fwFieldTsSetStatus('));
+  assert(owner.includes('const schedule=()=>{if(fwFieldTsInvalidateSelection())return;'),
+    'original change handlers must invalidate the source before showing Ready');
+  for(const name of ['fwTsSource','fwTsCase','fwTsRegion','fwTsField','fwTsComponent',
+    'fwTsStat','fwTsProbe','fwTsProfileCase','fwTsProfilePosition','fwTsEnable2'])
+    assert(owner.includes(name),'real original selector change must retain a source-bound listener: '+name);
+});
+require('node:test')('G53 real async builder ignores stale reads, late failures and duplicate Build',async()=>{
+  const start=core.indexOf('async function fwBuildFieldTimeSeries(){');
+  const end=core.indexOf('\n\nfunction fw3DProfileStatus(',start);
+  assert(start>=0&&end>start,'source builder must exist');
+  const code=core.slice(start,end);
+  const statuses=[],state={fieldTsSeq:0,fieldTsActiveSeq:null};
+  let commits=0,readCount=0,resolveFrame;
+  const read=(slot)=>{readCount++;return slot===1?new Promise(resolve=>{resolveFrame=resolve}):null};
+  const create=(fetchOne)=>new Function(
+    'fwState','fwFieldTsSetStatus','fwUi','fwBuildOneFieldHistory',
+    'activeAppMode','currentDataView','fwCommitFieldHistoryDrafts',
+    'refreshDatasetControls','refreshTimeSeriesControls','document',
+    'renderList','updateMeta','draw','console',code+';return fwBuildFieldTimeSeries')(
+      state,text=>statuses.push(text),(en,es)=>en,fetchOne,'data','timeseries',
+      drafts=>{commits++;return drafts},()=>{},()=>{}, {getElementById:()=>null},
+      ()=>{},()=>{},()=>{},console);
+  const build=create(read),pending=build();
+  assert.equal(readCount,1,'first real source starts reading');
+  await build();
+  assert.equal(readCount,1,'double click may not start a second concurrent parse');
+  const cancelStart=core.indexOf('function fwFieldTsInvalidateSelection(){');
+  const cancelEnd=core.indexOf('// G52 Block 2:',cancelStart);
+  const invalidate=new Function('fwState','fwFieldTsSetStatus','fwUi',
+    core.slice(cancelStart,cancelEnd)+';return fwFieldTsInvalidateSelection')(
+      state,text=>statuses.push(text),(en,es)=>en);
+  assert.equal(invalidate(),true);
+  resolveFrame({fieldHistoryKey:'old-case',field:{canonical:'T'}});
+  await pending;
+  assert.equal(commits,0,'cancelled source may not commit any curve');
+  assert.equal(state.fieldTsActiveSeq,null,'cancelled finished reader must clear its own active token');
+
+  const positive=create(async slot=>({
+    fieldHistoryKey:slot===1?'case-A|metal|T':'case-B|mold|U',
+    field:{canonical:slot===1?'T':'U'}
+  }));
+  await positive();
+  assert.equal(commits,1,'a subsequent two-slot history must commit atomically once');
+  assert.equal(state.fieldTsActiveSeq,null,'successful build clears active token');
+
+  let rejectOld;const stale=create(()=>new Promise((resolve,reject)=>{rejectOld=reject}));
+  const pendingFailure=stale();
+  assert.equal(invalidate(),true);
+  const visibleStatus=statuses.at(-1);
+  rejectOld(new Error('stale discarded IO error'));
+  await pendingFailure;
+  assert.equal(statuses.at(-1),visibleStatus,
+    'late cancelled IO errors cannot replace the current source status');
+  assert.equal(commits,1,'stale failed data cannot commit a second time');
+});
+
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
 for(const result of checks)console.log('  ✓ '+result);
