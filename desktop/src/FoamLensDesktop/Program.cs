@@ -2340,6 +2340,12 @@ internal sealed class FoamLensForm : Form
                          let stage='init',chosen=[];
                          const result={ok:false};
                          try{
+                          const bridge=window.__foamLensB13NumericBridge;
+                          if(!bridge)throw Error('original field history smoke-only bridge missing');
+                          const {fwBuildFieldTimeSeries,fvLoadFrameData,fwRefreshFieldTsSlot,fwPhysicalTimes,
+                            fwEnsureFieldTsControls,fwFieldTsCase,fwFieldTsRegion,fwFieldTsGroup,
+                            fwFieldTsSourceKey,setAppMode,setDataView}=bridge;
+                          const cases=bridge.caseList(),series=bridge.seriesList();
                           if(typeof fwBuildFieldTimeSeries!=='function'||typeof fvLoadFrameData!=='function')throw Error('original field history missing');
                           stage='select';
                           const c=(cases||[]).find(x=>String(x?.name||'').includes('B13_prghPressure_airGapOF14'));
@@ -2445,6 +2451,7 @@ internal sealed class FoamLensForm : Form
                             var reasonCode = reasonRaw switch
                             {
                                 "original field history missing" => "missing-source-generator",
+                                "original field history smoke-only bridge missing" => "missing-smoke-bridge",
                                 "original B13 case missing" => "missing-b13-case",
                                 "original history controls missing" => "missing-controls",
                                 "B13 region T source not selected" => "source-selector",
@@ -2665,6 +2672,21 @@ internal sealed class FoamLensForm : Form
         // Versioned modules are injected inside the main frontend IIFE so they
         // share the live case/series model without exporting private state.
         var extension = string.Join(Environment.NewLine, bundledExtensions);
+        // G56: bridge ONLY while the exact native --smoke-test has explicitly
+        // opted in to the original private B13 numerical test. Never export the
+        // main IIFE's source model or parsing functions to regular user sessions.
+        if (_smokeTest && string.Equals(Environment.GetEnvironmentVariable(
+                "FOAMLENS_SMOKE_TIMESERIES_B13"), "1", StringComparison.Ordinal))
+        {
+            extension += Environment.NewLine + """
+window.__foamLensB13NumericBridge={
+  caseList:()=>cases,seriesList:()=>series,
+  fwBuildFieldTimeSeries,fvLoadFrameData,fwRefreshFieldTsSlot,fwPhysicalTimes,
+  fwEnsureFieldTsControls,fwFieldTsCase,fwFieldTsRegion,fwFieldTsGroup,
+  fwFieldTsSourceKey,setAppMode,setDataView
+};
+""";
+        }
         if (_smokeTest)
         {
             extension += Environment.NewLine + """
