@@ -170,6 +170,10 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   assert.equal(state.hydrations,1,'avoid duplicated state hydration');
   assert.equal(state.dataView,'catalog',
     'previous native failure: stored Catalog must NOT become Time Series during Field restore');
+  assert(program.includes('savedDataViewEqualsRestored='),
+    'native session failure must report a bounded equality flag');
+  assert(!program.includes('cross-session state round-trip smoke failed: {realCaseJson}'),
+    'private OpenFOAM values and paths must never appear in public CI session-failure logs');
 });
 
 console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
