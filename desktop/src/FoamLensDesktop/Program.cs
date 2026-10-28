@@ -2329,6 +2329,111 @@ internal sealed class FoamLensForm : Form
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
                 await CaptureScientificWorkspaceEvidenceAsync();
 
+                // G56 original native B13 source numerical validation: private CI only.
+                if (string.Equals(Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIMESERIES_B13"),
+                        "1", StringComparison.Ordinal))
+                {
+                    await _web.CoreWebView2.ExecuteScriptAsync("window.__foamLensB13TwoRegionTimeseriesResult=null;");
+                    await _web.CoreWebView2.ExecuteScriptAsync(
+                        """
+                        (async()=>{
+                         let stage='init',chosen=[];
+                         const result={ok:false};
+                         try{
+                          if(typeof fwBuildFieldTimeSeries!=='function'||typeof fvLoadFrameData!=='function')throw Error('original field history missing');
+                          stage='select';
+                          const c=(cases||[]).find(x=>String(x?.name||'').includes('B13_prghPressure_airGapOF14'));
+                          if(!c?.discoveryModel)throw Error('original B13 case missing');
+                          setAppMode('data');setDataView('timeseries');
+                          if(!fwEnsureFieldTsControls())throw Error('original history controls missing');
+                          document.getElementById('fwDataFieldHistories').open=true;
+                          document.getElementById('fwTsEnable2').checked=true;
+                          for(const [slot,region] of [[1,'metal'],[2,'mold']]){
+                           const el=id=>document.getElementById(id+slot);
+                           el('fwTsSource').value='global';fwRefreshFieldTsSlot(slot,false);
+                           el('fwTsCase').value=String(c.id);fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsRegion').value=region;fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsField').value='T';fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsComponent').value='value';el('fwTsStat').value='mean';
+                           const found=fwFieldTsCase(slot),r=fwFieldTsRegion(slot),g=fwFieldTsGroup(slot);
+                           if(String(found?.id)!==String(c.id)||r!==region||g?.name!=='T'||g.kind!=='scalar'||g.storage!=='volume')throw Error('B13 region T source not selected');
+                           chosen.push({c:found,r,g,original:g.times});
+                          }
+                          if(chosen[0].g===chosen[1].g)throw Error('two physical field sources not independent');
+                          stage='physical-times';
+                          const ta=fwPhysicalTimes(chosen[0].g.times),tb=fwPhysicalTimes(chosen[1].g.times);
+                          const common=ta.filter(t=>tb.includes(t));
+                          if(common.length<2)throw Error('B13 requires two common original physical times');
+                          const times=[...new Set([common[0],common[Math.floor((common.length-1)/2)],common[common.length-1]])];
+                          stage='original-generator';
+                          try{
+                           for(const item of chosen)item.g.times=times.slice();
+                           await fwBuildFieldTimeSeries();
+                           const built=chosen.map(item=>(series||[]).find(s=>s.fieldHistoryKey===fwFieldTsSourceKey(item.c,item.r,item.g,'value','mean')&&s.visible===true));
+                           if(built.some(s=>!s))throw Error('original two-source commit missing');
+                           stage='source-recompute';
+                           let matched=0,numericCells=0;
+                           for(let i=0;i<2;i++){
+                            const item=chosen[i],curve=built[i],ev=curve.fieldHistoryEvidence;
+                            if(String(curve.caseId)!==String(item.c.id)||curve.location!==item.r||ev?.region!==item.r||!ev.verifiedDimensions||
+                               ev?.sourceKind!=='global'||ev?.statistic!=='mean'||ev.temporalInterpolation!==false||
+                               ev.originalTimeCount!==times.length||ev.finiteSampleCount!==times.length||
+                               curve.t.length!==times.length||curve.y.length!==times.length||curve.t.some((t,j)=>t!==times[j]))
+                              throw Error('original B13 source or physical-time provenance mismatch');
+                            for(let j=0;j<times.length;j++){
+                             const frame=await fvLoadFrameData(item.c,item.g,item.r,times[j],'value',{includeBoundary:false});
+                             if(!frame?.range?.valid||!frame.fieldValues||!frame.parsed?.dimensions)throw Error('actual source frame not verified');
+                             let sum=0,count=0;
+                             for(const raw of frame.fieldValues){const value=Number(raw);if(Number.isFinite(value)){sum+=value;count++}}
+                             if(!count)throw Error('source has no finite cells');
+                             numericCells+=count;
+                             const reference=sum/count,actual=Number(curve.y[j]);
+                             if(!Number.isFinite(actual)||Math.abs(actual-reference)>Math.max(1e-7,Math.abs(reference)*1e-9))
+                              throw Error('original generated mean differs from source cell arithmetic');
+                             matched++;
+                            }
+                           }
+                           if(matched!==2*times.length||numericCells<matched||
+                              !built[0].y.some((v,j)=>Math.abs(v-built[1].y[j])>1e-7))
+                             throw Error('independent metal/mold original values were not distinguished');
+                           Object.assign(result,{ok:true,caseAndRegionsVerified:true,originalNumericAgreement:true,
+                             sampledPhysicalTimes:times.length,independentSourceFrames:matched,noInterpolation:true,
+                             originalSourceValuesUploaded:false});
+                          }finally{for(const item of chosen)item.g.times=item.original}
+                         }catch(e){Object.assign(result,{ok:false,stage,reason:String(e?.message||e).slice(0,140)})}
+                         window.__foamLensB13TwoRegionTimeseriesResult=result;
+                        })();
+                        """);
+                    string checkedJson = "null";
+                    var checkDeadline = Stopwatch.StartNew();
+                    while (checkDeadline.Elapsed < TimeSpan.FromSeconds(180))
+                    {
+                        await Task.Delay(180);
+                        checkedJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                            "window.__foamLensB13TwoRegionTimeseriesResult");
+                        if (!string.Equals(checkedJson.Trim(), "null", StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(checkedJson.Trim(), "undefined", StringComparison.OrdinalIgnoreCase))
+                            break;
+                    }
+                    using (var checkDoc = JsonDocument.Parse(checkedJson))
+                    {
+                        var proof = checkDoc.RootElement;
+                        bool yes(string key) => proof.TryGetProperty(key, out var p) &&
+                            p.ValueKind == JsonValueKind.True;
+                        bool minimum(string key, int lower) => proof.TryGetProperty(key, out var p) &&
+                            p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int n) && n >= lower;
+                        if (!yes("ok") || !yes("caseAndRegionsVerified") ||
+                            !yes("originalNumericAgreement") || !yes("noInterpolation") ||
+                            !minimum("sampledPhysicalTimes", 2) || !minimum("independentSourceFrames", 4) ||
+                            !proof.TryGetProperty("originalSourceValuesUploaded", out var upload) ||
+                            upload.ValueKind != JsonValueKind.False)
+                            throw new InvalidOperationException("G56 private B13 two-region numerical validation failed.");
+                    }
+                    Log("FoamLens original B13 two-region Time Series numeric smoke passed: physical time and original source cells independently reduced, no private scientific values exported.");
+                    await _web.CoreWebView2.ExecuteScriptAsync("delete window.__foamLensB13TwoRegionTimeseriesResult;");
+                }
+
+
                 // Optional CI handshake: keep the actual rendered metal/mold case
                 // alive while the parent runner samples GPU Process Memory counters.
                 // Never describe those process counters as graphics-card total VRAM.

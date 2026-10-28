@@ -1,3 +1,10 @@
+## 2026-10-27 — G56 actual private QuickCup B13 cross-region Time Series numerical smoke
+
+- New opt-in original packaged Windows host path validates real private B13 metal T and mold T field histories on 2–3 actual common physical times, never generating or uploading synthetic source data. Invokes the ORIGINAL G55-protected fwBuildFieldTimeSeries and inspects both committed original curves.
+- Numerically recomputes each curve's arithmetic unweighted mean by separately summing finite actual original field-cell values returned by fvLoadFrameData for the same physical time, region and field. Requires original G54 provenance, unchanged physical time, zero interpolation and distinct metal/mold field numbers. A second numerical reduction on the program's real parsed source is NOT external independent OpenFOAM parsing, nor original experimental thermocouple validation.
+- The original discovered time arrays are restored in finally. G37 first genuine Portable startup alone enables the G56 smoke; existing three Portable/three Installed cycles, Inno, scientific Field and Play controls remain mandatory. A sanitized boolean is recorded, with no raw cell values, private fixture or screenshots uploaded.
+- Status: requires exact SHA native Windows CI; no new release or signature claims; owner visual/OS DPI/signed updater and external scientific calibration remain pending #146/#176/#238.
+
 ## 2026-10-27 — GRANADA G55: atomic cross-case Time Series unit identity guard
 
 - Inspected original `fwBuildFieldTimeSeries`: the two original 3D histories could each have consistent per-frame OpenFOAM dimensions, yet still use SAME canonical variable identity (`T`) with conflicting physical units/dimensions or declared quantities between cases/regions. In that situation, the original `Time Series` primary field selector targets both but cannot put them on independent axes. Existing visual metadata warning was insufficient.

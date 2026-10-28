@@ -108,6 +108,8 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
  $env:FOAMLENS_SMOKE_SCREENSHOT=Join-Path $folder 'native-smoke.png'
  $env:FOAMLENS_SMOKE_LAUNCH_SCREENSHOT=Join-Path $folder 'native-launch.png'
  $env:FOAMLENS_BRAND_EVIDENCE_DIR=Join-Path $folder 'screens'
+ $doG56=($variant -eq 'portable' -and $n -eq 1)
+ if($doG56){$env:FOAMLENS_SMOKE_TIMESERIES_B13='1'}else{Remove-Item Env:FOAMLENS_SMOKE_TIMESERIES_B13 -ErrorAction SilentlyContinue}
  if(Test-Path -LiteralPath $log){Remove-Item -LiteralPath $log -Force}
  Write-Host "G37 GENUINE PRIVATE B13 native $variant attempt $n/3: 1140+640px Field Play and real metal/mold"
  $p=Start-Process -FilePath $app -ArgumentList @('--smoke-test') -PassThru
@@ -120,12 +122,13 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
      ($script:failureEvidence|ConvertTo-Json -Depth 5 -Compress))
   }
   Need ($p.ExitCode -eq 0) "$variant/$n real OpenFOAM/Play original product FAILED"
- }finally{$p.Dispose()}
+ }finally{$p.Dispose();Remove-Item Env:FOAMLENS_SMOKE_TIMESERIES_B13 -ErrorAction SilentlyContinue}
  Need (Test-Path -LiteralPath $log) "$variant/$n original native logfile missing"
  $raw=[IO.File]::ReadAllText($log)
  Need ($raw.Contains('FoamLens real OpenFOAM packaged runtime smoke passed:')) "$variant/$n real B13 scientific case not validated"
  Need ($raw.Contains('FoamLens synchronized View 2 legend/Probe smoke passed:')) "$variant/$n measured B13 second Field/Probe view missing"
  Need ($raw.Contains('FoamLens Windows smoke test passed.')) "$variant/$n original 1140/640 native Field Play check failed"
+ if($doG56){Need ($raw.Contains('FoamLens original B13 two-region Time Series numeric smoke passed:')) "$variant/$n real B13 original two-region numerical histories failed"}
  Need ([regex]::Matches($raw,'FoamLens real OpenFOAM packaged runtime smoke passed:').Count -eq 1) "$variant/$n recycled/ambiguous source physics log"
  foreach($png in @('field-wide.png','field-compact.png')){
   $picture=Join-Path $env:FOAMLENS_BRAND_EVIDENCE_DIR $png
@@ -136,6 +139,7 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   cycle=$n
   originalProductNativeExit=$true
   measuredB13MetalAndMoldOriginalSource=$true
+  originalB13TwoRegionTimeSeriesNumbersVerified=$doG56
   realFieldPlayWide1140AndCompact640=$true
   bothOriginalWebView2FieldPng=$true
  }
@@ -169,6 +173,7 @@ try{
  $script:installed=$false
  Need (-not(Test-Path -LiteralPath $installedExe)) 'native installed binary left after uninstall'
  Need ($script:attempts.Count -eq 6) 'six fresh real native original B13 Field/Play cases required'
+ Need (@($script:attempts|Where-Object {$_.originalB13TwoRegionTimeSeriesNumbersVerified -eq $true}).Count -eq 1) 'original B13 two-region numeric evidence required'
  $success=$true
  Write-Host 'G37 PASS actual real B13 native 3 Portable+3 Installed, original 1140/640 Play and metal/mold'
 }catch{
