@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "2ef88b90ef50751e605bdd49f13f2b62180dfc895125f0ed21f291188fa0ad44",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "cfb00de319da13b75456bb0ebd32980bbf3c90f1feeb74d534b56917c49ecbd8",
+  "evidence_fingerprint": "defdc8f5b6708a0316beca3f4470d7430973177e672f6537484843644752d3f9",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -802,7 +804,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4a745ab0dc8daa4113e7aa16bbc3c10c990d4d94"
+      "blob": "0db1021383e19f8d38817e92d1346e783aadac57"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1733,7 +1735,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3b8aabecca20869b5946fcded08301a2a7676b8b"
+      "blob": "44ad0e56ae7464f117f833e5d27f715f0b1eb53c"
     },
     {
       "path": "desktop/tests/timeseries-source-catalog.test.cjs",
@@ -2996,7 +2998,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "6ed47f3d1f2a5f62",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/tests/timeseries-provenance.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
