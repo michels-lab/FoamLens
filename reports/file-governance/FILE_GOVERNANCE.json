@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "a12ecc579baa854f91a0878a06815eebc7a43189e5c60a7fd0d2e45535e2bf25",
+  "inventory_fingerprint": "81bdfd2be77b5e76b29c750f54558d7740fccb79f9c9f2e4f654bc05c36bef50",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -634,7 +634,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d6fbc9e4da47c595e974c2a755eae725d50e8dc7"
+      "blob": "cdd7a79f49d0c0bde5e5987c480577124fdf64d3"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1894,7 +1894,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "8d20fe56758bb83e901affd5d2b277de641213be"
+      "blob": "bc05377c7e854e82d3129b28423e5b6f107bf527"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2783,7 +2783,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "72c4fac622b9b727b764a2e9aa2e375935c4146d"
+      "blob": "5f7f3cdb21f4fb8d287beb5d7d01ec558a9be45e"
     },
     {
       "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
