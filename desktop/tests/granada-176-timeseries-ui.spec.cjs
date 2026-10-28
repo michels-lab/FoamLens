@@ -467,4 +467,29 @@ require('node:test')('G55 single-series and dual-variable independent-axis gener
 });
 
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
-for(const result of checks)console.log('  ✓ '+result);
+for(const result of checks)
+test('G58 same native source layout displays both original Time Series slots side by side only when the real parent is wide',()=>{
+  const css=candidate.slice(candidate.indexOf('function installStyle(){'),candidate.indexOf('function install(){'));
+  assert.match(css,/#gr176HistoryCard\{container-type:inline-size;container-name:foamlens-t2-history\}/,
+    'layout must adapt to real card width rather than screen DPI guess');
+  assert.match(css,/@container foamlens-t2-history \(min-width:760px\)/,
+    'independent case+region controls use columns only if enough room');
+  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,
+    'two independent real 3D field history slots should be side by side at wide widths');
+  for(const selector of ['.analysisTitle','>.smallnote','>.gr176HistoryActions','>#gr176Pending','>#fwTsStatus'])
+    assert(css.includes(selector),'essential status/action remains a full width row '+selector);
+  assert(!css.includes('position:fixed')&&!css.includes('display:none!important}#gr176HistoryCard'),
+    'never overlay or conceal the actual field history workflow');
+  assert(host.includes('G58 actual packaged Time Series controls/layout contract failed'),
+    'native G58 must fail closed when actual Time Series layout is broken');
+  for(const part of ['realOriginalField','visibleSources','properSurfaces','noHorizontalOverflow',
+      'cancelIdleDisabled','time-series-{size.Name}.png'])
+    assert(host.includes(part),'native actual WebView2 visual witness must verify '+part);
+  const g37=fs.readFileSync(path.join(__dirname,'..','..','tools','granada_g37_real_b13_play_stress.ps1'),'utf8');
+  for(const picture of ['time-series-wide.png','time-series-compact.png'])
+    assert(g37.includes(picture),'native Windows original B13 6/6 must require actual '+picture);
+  assert(g37.includes("originalB13TwoRegionTimeSeriesNumbersVerified=$doG56"),
+    'new G58 screenshot check cannot disable G56 original numeric proof');
+});
+
+console.log('  ✓ '+result);

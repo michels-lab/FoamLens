@@ -140,7 +140,7 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   Write-Host 'G57 SANITIZED numerical witness: original Portable B13 metal/mold source arithmetic and physical timestamps VERIFIED; measured values withheld'
  }
  Need ([regex]::Matches($raw,'FoamLens real OpenFOAM packaged runtime smoke passed:').Count -eq 1) "$variant/$n recycled/ambiguous source physics log"
- foreach($png in @('field-wide.png','field-compact.png')){
+ foreach($png in @('field-wide.png','field-compact.png','time-series-wide.png','time-series-compact.png')){
   $picture=Join-Path $env:FOAMLENS_BRAND_EVIDENCE_DIR $png
   Need ((Test-Path -LiteralPath $picture) -and (Get-Item -LiteralPath $picture).Length -gt 10000) "$variant/$n real native $png absent"
  }
@@ -151,6 +151,7 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   originalProductNativeExit=$true
   measuredB13MetalAndMoldOriginalSource=$true
   originalB13TwoRegionTimeSeriesNumbersVerified=$doG56
+  originalTimeSeriesWideAndCompactScreenshots=$true
   realFieldPlayWide1140AndCompact640=$true
   bothOriginalWebView2FieldPng=$true
  }

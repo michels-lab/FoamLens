@@ -563,6 +563,69 @@ internal sealed class FoamLensForm : Form
                 await Task.Delay(140);
                 await CaptureCdpPngAsync(Path.Combine(root, $"data-{size.Name}.png"));
                 Log("FoamLens real Data/Field screenshot geometry passed: field=" + fieldState + " data=" + dataState);
+                // GRANADA G58: inspect the actual native Data > Time Series workspace
+                // with the original private B13 imported (not a synthetic DOM).
+                // Only primitive booleans are retained; the real screenshot stays
+                // inside the disposable Windows QA runner, never uploaded.
+                var t2Geometry = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRaDataTimeSeries')?.click();
+                      const el=id=>document.getElementById(id);
+                      const panel=el('timeSeriesControls');
+                      const existing=el('gr176ExistingCard'),history=el('gr176HistoryCard');
+                      const first=el('fwTsCase1'),region=el('fwTsRegion1'),
+                        variable=el('fwTsField1'),component=el('fwTsComponent1');
+                      const secondary=el('fwTsCase2'),enable2=el('fwTsEnable2');
+                      const build=el('fwBuildFieldHistories'),cancel=el('gr176Cancel');
+                      const chart=el('chartViewport'),catalog=el('tsdSourceFieldCount');
+                      const rect=node=>node?.getBoundingClientRect();
+                      const visible=node=>{
+                        const r=rect(node),style=node?getComputedStyle(node):null;
+                        return !!r&&r.width>0&&r.height>0&&
+                          style.display!=='none'&&style.visibility!=='hidden';
+                      };
+                      const historyRect=rect(history),existingRect=rect(existing),
+                        chartRect=rect(chart),buildRect=rect(build);
+                      const visibleSources=!!first&&!!region&&!!variable&&!!component&&
+                        !!secondary&&!!enable2&&
+                        [first,region,variable,component,secondary,enable2].every(visible);
+                      const realOriginalField=!!variable&&
+                        Array.from(variable.options||[]).some(option=>option.value==='T');
+                      const originalCatalog=!!catalog&&/OpenFOAM/.test(catalog.textContent||'');
+                      const noHorizontalOverflow=!!history&&
+                        history.scrollWidth<=history.clientWidth+3&&
+                        (!panel||panel.scrollWidth<=panel.clientWidth+3);
+                      const properSurfaces=!!history&&!!existing&&
+                        history.contains(build)&&history.contains(cancel)&&
+                        existing.contains(el('timeSeriesVariable'));
+                      const ok=!!panel&&visible(panel)&&
+                        currentDataView==='timeseries'&&
+                        properSurfaces&&visible(history)&&visible(existing)&&
+                        visible(build)&&visible(cancel)&&visible(chart)&&
+                        visibleSources&&realOriginalField&&originalCatalog&&
+                        buildRect.width>=90&&chartRect.width>180&&
+                        historyRect.width>180&&existingRect.width>180&&
+                        noHorizontalOverflow&&!!cancel.disabled;
+                      return{ok,timeSeriesDataView:currentDataView==='timeseries',
+                        properSurfaces,visibleSources,realOriginalField,
+                        originalCatalog,noHorizontalOverflow,buildVisible:visible(build),
+                        cancelVisible:visible(cancel),chartVisible:visible(chart),
+                        cancelIdleDisabled:!!cancel?.disabled,
+                        sourcePanels:document.querySelectorAll('#gr176HistoryCard .fwTsSeries').length,
+                        chartWideEnough:!!chartRect&&chartRect.width>180,
+                        historyWideEnough:!!historyRect&&historyRect.width>180};
+                    })()
+                    """);
+                if (!JsonDocument.Parse(t2Geometry).RootElement.GetProperty("ok").GetBoolean())
+                    throw new InvalidOperationException(
+                        "G58 actual packaged Time Series controls/layout contract failed at " +
+                        size.Name + " (source values withheld).");
+                await Task.Delay(150);
+                await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
+                Log("G58 original native B13 Time Series layout and source-controls passed at " +
+                    size.Name + ": original chart, real T field, two slots, Build and Cancel visible.");
+
             }
         }
         finally

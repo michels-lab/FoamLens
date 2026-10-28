@@ -63,6 +63,10 @@
     sheet.textContent=[
       '#timeSeriesControls.gr176TimeSeries{display:grid;gap:12px;min-width:0;margin-top:8px;align-items:start}',
       '#timeSeriesControls.gr176TimeSeries.hidden{display:none!important}',
+      // One source-workspace layout: preserve original controls and responsive
+      // side-by-side source columns only where the actual parent has room.
+      '#gr176HistoryCard{container-type:inline-size;container-name:foamlens-t2-history}',
+      '@container foamlens-t2-history (min-width:760px){#gr176HistoryCard .fwFieldTsControls{grid-template-columns:repeat(2,minmax(0,1fr))}#gr176HistoryCard .fwFieldTsControls>.analysisTitle,#gr176HistoryCard .fwFieldTsControls>.smallnote,#gr176HistoryCard .fwFieldTsControls>.gr176HistoryActions,#gr176HistoryCard .fwFieldTsControls>#gr176Pending,#gr176HistoryCard .fwFieldTsControls>#fwTsStatus{grid-column:1/-1}}',
       '#fwDataFieldHistories.gr176SourceAnchor{display:none!important}',
       '.gr176Card{display:grid;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}',
       '.gr176CardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid var(--line)}',
