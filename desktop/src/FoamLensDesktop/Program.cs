@@ -1988,7 +1988,14 @@ internal sealed class FoamLensForm : Form
                         !data.TryGetProperty("sessionSmokeError", out var sessionSmokeErrorNode) ||
                         !string.IsNullOrWhiteSpace(sessionSmokeErrorNode.GetString()))
                         throw new InvalidOperationException(
-                            $"FoamLens cross-session state round-trip smoke failed: {realCaseJson}");
+                            "FoamLens cross-session state round-trip smoke failed; sanitized " +
+                            "savedDataViewEqualsRestored=" +
+                            (data.TryGetProperty("sessionStoredDataView", out var savedView) &&
+                             data.TryGetProperty("sessionRestoredDataView", out var restoredView) &&
+                             savedView.ValueKind == JsonValueKind.String &&
+                             restoredView.ValueKind == JsonValueKind.String &&
+                             string.Equals(savedView.GetString(), restoredView.GetString(), StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant());
 
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
