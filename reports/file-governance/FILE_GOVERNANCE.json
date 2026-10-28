@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "418cfc1963863b554d7fa5e0137683ce403a5ff6065c063b576b4eafca57c397",
+  "inventory_fingerprint": "76095b894d6198022cb9bab6e99558545f4b711619e661f86b9d30e0802d1e77",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -802,7 +802,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d49c6c8479ca4e3f3f53e5ccc9ab9afe1150cf87"
+      "blob": "bfd257d6841f4645e3f0e43dd9e713e8285ad11b"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -886,7 +886,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "388f94818589cc9ecfbf42acc00cd4829b608d24"
+      "blob": "d4e8eff2c97b35edec063405b82103430af725cb"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1348,7 +1348,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f20473e79da7f2c2023dce56a38ceed567d61e98"
+      "blob": "af89395c037eb9c93a03bd37f811ea1b6dbf7ab5"
     },
     {
       "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
@@ -1894,7 +1894,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "d414f8f1726238e9a207995bab7aa342330c2d46"
+      "blob": "d3cf55ee7efdbca8df5ba2986d9b7028cb58e614"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
