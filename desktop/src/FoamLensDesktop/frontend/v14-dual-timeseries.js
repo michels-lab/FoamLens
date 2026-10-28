@@ -156,7 +156,14 @@ function tsdUpdateSourceCatalog(){
   info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+'.',
     'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.');
   const details=document.getElementById('fwDataFieldHistories');
-  if(details&&catalog.length&&datasets.length===0){
+  // G59: a real imported postProcessing curve does NOT make newly imported
+  // OpenFOAM 3D source fields disappear. Refresh existing source selectors
+  // whenever their history workspace is open (or the empty-curves fallback
+  // must expose it), without parsing a single frame or creating a curve.
+  // Keep legacy collapsed details collapsed if existing curves are present.
+  const sourceWorkspaceOpen=!!details&&(details.open||
+    !!document.getElementById('gr176HistoryCard')||datasets.length===0);
+  if(sourceWorkspaceOpen&&catalog.length){
     details.open=true;
     try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(e){console.error(e)}
   }
