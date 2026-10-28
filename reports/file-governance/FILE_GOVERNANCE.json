@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "30fa3652f0949bcc7a3fd4c6c0988f59e3d1a1293ec30a6d5f2b6d93e9fb4200",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "413e8cd57176b879aaed01967943b2b1fcd31fe0b34b842a515bec79fdd55b7b",
+  "evidence_fingerprint": "eb8e19cb315470584975d5711072093e94fa739e01d8e103d0bd225efa1f1b5c",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -634,7 +636,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e8ea412a973719f5748df36ad58f15233f62a52d"
+      "blob": "3e5d711fee1c90c166c691c3d08ab95ec030dce0"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -2996,7 +2998,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "9cb6d72f6a410edf",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/Program.cs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
