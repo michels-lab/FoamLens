@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "8ff33072e71211182707031c643fe20d781b57822ffddaf4b9cf2bd09cc3e699",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "97332a9d38d1acb34e4fd18869c68c1f184ade2e1cd2f16422ff427c3b5b0ae5",
+  "evidence_fingerprint": "9d7b2233803c61c94d80e4d1df8ea490013a3ee8eff8d50aa175acaf3c572edf",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -158,7 +160,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "fee8b16ee3ff04dfca3d2cb31969f2d591afce1f"
+      "blob": "9fb816614858f1748e7c356ea85e32e52ca65c0f"
     },
     {
       "path": ".github/workflows/granada-177-g4-review-live.yml",
@@ -2996,7 +2998,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "eff4425afc396a2c",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-176-timeseries-t2.yml",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
