@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "efc3eae5ce615837b18edd5fe5c8cc2291bd3389b5a89d6992fa7c04cf1710fb",
-  "evidence_fingerprint": "8fbb788f86fc165eb7108c71f5f674456483b46f5d640ed62caeb9a9d4890b84",
+  "inventory_fingerprint": "4ce965255523642c4914b1539fd250f1e938dcc2d8519537b6b6aa01a574ccfc",
+  "evidence_fingerprint": "76d2911f9fb0604d423f90c9b51cd201eaf2a3cf6eb955f25708dd2c45d78d19",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -328,7 +328,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "ce0e6e2dbdf4be0171757d7046455011e15e61ed"
+      "blob": "a9090110cd5ce7ab3c1fd5bdf72de4c8ff3376d4"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -3000,11 +3000,11 @@
   ],
   "findings": [
     {
-      "id": "9c7fe71fdf95f8fe",
+      "id": "17283040ffd5a053",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/Program.cs, desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/tests/granada-176-timeseries-ui.spec.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
