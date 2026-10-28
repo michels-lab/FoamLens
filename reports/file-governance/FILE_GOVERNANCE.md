@@ -28,7 +28,7 @@ Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findin
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 1 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/Program.cs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 9cb6d72f6a410edf)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/Program.cs, desktop/tests/granada-176-timeseries-ui.spec.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 9c7fe71fdf95f8fe)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
