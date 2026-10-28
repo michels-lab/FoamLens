@@ -140,7 +140,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
-    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','console',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
     session.slice(begin,end)+';return flSessionRestoreSnapshot');
   const state={dataView:'timeseries',mode:'analysis',hydrations:0,navs:0};
   const win={FoamLensPlotSurfaces:{
@@ -162,7 +162,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const restore=make(win,()=>true,false,[],()=>null,mode=>mode,navigate,
     Promise.resolve(false),()=>{},()=>{},'timeseries',()=>{},()=>{},
     {dispatchEvent:()=>{}},class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),console);
+    ()=>({}),'field',console);
   const payload={activeMode:'field',plots:{schema:1,surfaces:{
     data:{view:'catalog'},analysis:{view:'timeseries'},field:{view:'profile'}}}};
   assert.equal(restore(payload,{force:true}),true);
