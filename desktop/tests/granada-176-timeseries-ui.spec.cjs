@@ -257,7 +257,7 @@ test('G53 invalidates an active scientific history exactly once on ANY source se
 });
 require('node:test')('G53 real async builder ignores stale reads, late failures and duplicate Build',async()=>{
   const start=core.indexOf('async function fwBuildFieldTimeSeries(){');
-  const end=core.indexOf('\n\nfunction fw3DProfileStatus(',start);
+  // GitHub Windows checkout may use CRLF; function boundaries must not depend on LF-only files.\n  const end=core.indexOf('function fw3DProfileStatus(',start);
   assert(start>=0&&end>start,'source builder must exist');
   const code=core.slice(start,end);
   const statuses=[],state={fieldTsSeq:0,fieldTsActiveSeq:null};
