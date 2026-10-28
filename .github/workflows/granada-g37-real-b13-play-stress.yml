@@ -41,6 +41,10 @@ jobs:
           node-version: '22'
       - name: Negative proof that real 3+3 B13 process and all original Play geometry thresholds stay mandatory
         run: node --test tools/granada_g37_real_b13_stress_guards.test.cjs
+      - name: G55 original Time Series and Field ownership source regressions (both OS)
+        run: |
+          node desktop/tests/granada-176-timeseries-ui.spec.cjs
+          node desktop/tests/section-ownership.test.cjs
       - name: Native Windows QA harness syntax and private-data safety
         if: runner.os == 'Windows'
         shell: pwsh
