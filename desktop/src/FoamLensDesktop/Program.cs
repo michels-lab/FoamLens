@@ -640,8 +640,8 @@ internal sealed class FoamLensForm : Form
                         slotCount >= 0 && slotCount <= 2)
                         safeBits.Add("sourcePanels=" + slotCount);
                     throw new InvalidOperationException(
-                        "G58 original native Time Series controls/layout contract FAILED at " +
-                        size.Name + "; sanitized visual checks: " + string.Join("; ", safeBits));
+                        "G58 actual packaged Time Series controls/layout contract failed at " +
+                        size.Name + " (source values withheld); sanitized visual checks: " + string.Join("; ", safeBits));
                 }
                 await Task.Delay(150);
                 await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
