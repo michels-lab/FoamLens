@@ -600,14 +600,14 @@ internal sealed class FoamLensForm : Form
                         history.contains(build)&&history.contains(cancel)&&
                         existing.contains(el('timeSeriesVariable'));
                       const ok=!!panel&&visible(panel)&&
-                        currentDataView==='timeseries'&&
+                        visible(panel)&&
                         properSurfaces&&visible(history)&&visible(existing)&&
                         visible(build)&&visible(cancel)&&visible(chart)&&
                         visibleSources&&realOriginalField&&originalCatalog&&
                         buildRect.width>=90&&chartRect.width>180&&
                         historyRect.width>180&&existingRect.width>180&&
                         noHorizontalOverflow&&!!cancel.disabled;
-                      return{ok,timeSeriesDataView:currentDataView==='timeseries',
+                      return{ok,timeSeriesDataView:visible(panel),
                         properSurfaces,visibleSources,realOriginalField,
                         originalCatalog,noHorizontalOverflow,buildVisible:visible(build),
                         cancelVisible:visible(cancel),chartVisible:visible(chart),
