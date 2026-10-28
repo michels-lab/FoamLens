@@ -135,12 +135,16 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
  Need ($raw.Contains('FoamLens real OpenFOAM packaged runtime smoke passed:')) "$variant/$n real B13 scientific case not validated"
  Need ($raw.Contains('FoamLens synchronized View 2 legend/Probe smoke passed:')) "$variant/$n measured B13 second Field/Probe view missing"
  Need ($raw.Contains('FoamLens Windows smoke test passed.')) "$variant/$n original 1140/640 native Field Play check failed"
- if($doG56){Need ($raw.Contains('FoamLens original B13 two-region Time Series numeric smoke passed:')) "$variant/$n real B13 original two-region numerical histories failed"}
+ if($doG56){
+  Need ($raw.Contains('FoamLens original B13 two-region Time Series numeric smoke passed:')) "$variant/$n real B13 original two-region numerical histories failed"
+  Write-Host 'G57 SANITIZED numerical witness: original Portable B13 metal/mold source arithmetic and physical timestamps VERIFIED; measured values withheld'
+ }
  Need ([regex]::Matches($raw,'FoamLens real OpenFOAM packaged runtime smoke passed:').Count -eq 1) "$variant/$n recycled/ambiguous source physics log"
  foreach($png in @('field-wide.png','field-compact.png')){
   $picture=Join-Path $env:FOAMLENS_BRAND_EVIDENCE_DIR $png
   Need ((Test-Path -LiteralPath $picture) -and (Get-Item -LiteralPath $picture).Length -gt 10000) "$variant/$n real native $png absent"
  }
+ Write-Host "G57 SANITIZED native completion: $variant cycle $n / 3 (real B13, no private scientific values)"
  $script:attempts+=@{
   mode=$variant
   cycle=$n

@@ -164,3 +164,23 @@ test('G42 negative: removing ancestry, commit identity or original source whitel
    wf.replace('$stillCurrent -ne $currentMain','$false')
  ])assert.throws(()=>checker(mutated),'tampered evidence must fail guard');
 });
+
+
+test('G57 smoke-only numerical case is isolated from original normal WebView2 user session',()=>{
+  assert.match(source,/var originalWebView2Data = Path\.Combine\(/,
+    'normal WebView2 persistent user data root must be explicit');
+  assert.match(source,/var isolatedG56Smoke = _smokeTest && string\.Equals\(/,
+    'G56 WebView2 isolation must require original packaged --smoke-test');
+  assert.match(source,/Environment\.GetEnvironmentVariable\("FOAMLENS_SMOKE_TIMESERIES_B13"\)/,
+    'G56 isolated profile requires exact opt-in smoke flag');
+  assert.match(source,/\? Path\.Combine\(originalWebView2Data, "G56-PrivateNumericSmoke"\)\s*: originalWebView2Data;/,
+    'regular product user profile must be completely unchanged');
+  assert.match(source,/CoreWebView2Environment\.CreateAsync\(null, userData, options\)/,
+    'actual rendered native browser must bind scoped profile, not a fake stub');
+  assert.match(ps,/G57 SANITIZED numerical witness:/,
+    'numerical source evidence must surface boolean-only original real success');
+  assert.match(ps,/G57 SANITIZED native completion:/,
+    'later Installed failure must not hide earlier real Portable source validation');
+  assert.match(ps,/Need \(\$script:attempts\.Count -eq 6\)/,
+    'six genuine native starts remain mandatory even after G56 proof');
+});

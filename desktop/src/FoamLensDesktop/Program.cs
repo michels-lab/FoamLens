@@ -121,9 +121,19 @@ internal sealed class FoamLensForm : Form
             MaterializeBundle();
             ApplyFrontendExtensions();
             ValidateMaterializedFrontend();
-            Directory.CreateDirectory(Path.Combine(
+            // G57: isolate ONLY opt-in private B13 numerical smoke user-data.
+            // Normal Installed/Portable apps retain their original WebView2 path.
+            // No user profiles are migrated, deleted, or reused for the witness.
+            var originalWebView2Data = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                ProductDataFolder, "Desktop", "WebView2"));
+                ProductDataFolder, "Desktop", "WebView2");
+            var isolatedG56Smoke = _smokeTest && string.Equals(
+                Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIMESERIES_B13"),
+                "1", StringComparison.Ordinal);
+            var userData = isolatedG56Smoke
+                ? Path.Combine(originalWebView2Data, "G56-PrivateNumericSmoke")
+                : originalWebView2Data;
+            Directory.CreateDirectory(userData);
 
             // These Chromium switches are intentional: FoamLens performs long scientific
             // analyses and must not be throttled merely because its window is minimized,
@@ -138,9 +148,6 @@ internal sealed class FoamLensForm : Form
                     "--disable-features=CalculateNativeWinOcclusion"
                 })
             };
-            var userData = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                ProductDataFolder, "Desktop", "WebView2");
             var environment = await CoreWebView2Environment.CreateAsync(null, userData, options);
             await _web.EnsureCoreWebView2Async(environment);
 
