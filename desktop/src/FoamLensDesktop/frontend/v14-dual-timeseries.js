@@ -217,7 +217,8 @@ function tsdUpdateScientificEvidence(){
       detail.textContent=tsdUi('Source history','Historia de origen')+': '+
         h.caseName+' ['+h.caseId+'] · '+(h.region||tsdUi('default region','región predeterminada'))+
         ' · '+h.field+' · '+h.component+' · '+h.sourceKind+
-        ' · '+h.finiteSampleCount+'/'+h.originalTimeCount+' '+tsdUi('valid source times','tiempos de origen válidos');
+        ' · '+h.finiteSampleCount+'/'+h.originalTimeCount+' '+tsdUi('valid source times','tiempos de origen válidos')+
+        (h.aggregation==='arithmetic-unweighted'?' · '+tsdUi('unweighted arithmetic mean','media aritmética sin ponderación'):'');
       group.appendChild(detail)
     }
     entry(tsdUi('Original source fields','Campos originales'),e.sourceFields);
