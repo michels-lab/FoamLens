@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findings: 0.
+Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -28,6 +28,7 @@ Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findin
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 1 implementation/config paths changed since this log's last commit; examples: desktop/tests/section-ownership.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 935e2c86d5bca42f)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

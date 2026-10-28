@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "9284cd7eea7f2eceacddedc3828fb868bce0ef38a695c534371360d56fdf80f2",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "437c1aa30b15a8361ecaeb0d572e717ce549b79c74d1c80bad6aef6d79067626",
+  "evidence_fingerprint": "ad9b3a4b8b4fd90c257451f681884c1cff43ecbc8441f3de0adaff1944952119",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1635,7 +1637,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "aafdc3fe5cb74a6cf8d7f5adad1ad06242f190cf"
+      "blob": "1c36379beb364972cdc2bc596f1f4dffd26697bf"
     },
     {
       "path": "desktop/tests/session-persistence.test.cjs",
@@ -2996,7 +2998,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "935e2c86d5bca42f",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: desktop/tests/section-ownership.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
