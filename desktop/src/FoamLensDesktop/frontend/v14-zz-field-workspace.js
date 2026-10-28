@@ -891,7 +891,16 @@ function fwEnter(){
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
-  document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
+  // G59: Field exit must not hide the ORIGINAL 3D history generator once
+  // the G3/T2 Data workspace has adopted that same DOM node. Data already
+  // owns visibility by app mode; no new builder, duplicate handlers or CSS
+  // force-show. Preserve legacy Field-owned hiding for the old layout.
+  const historyControls=document.getElementById('fwFieldTsControls');
+  if(historyControls){
+    if(historyControls.closest('#gr176HistoryCard'))historyControls.classList.remove('hidden');
+    else historyControls.classList.add('hidden');
+  }
+  ++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
   // The plot-surface manager captures the outgoing Field view *after* this
