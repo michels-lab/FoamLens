@@ -12,6 +12,8 @@ on:
       - '.github/workflows/granada-g37-real-b13-play-stress.yml'
       - 'tools/granada_g37_real_b13_play_stress.ps1'
       - 'tools/granada_g37_real_b13_stress_guards.test.cjs'
+      - 'desktop/tests/granada-176-timeseries-ui.spec.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
       - 'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js'
