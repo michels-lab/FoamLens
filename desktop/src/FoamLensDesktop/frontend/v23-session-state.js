@@ -1,7 +1,7 @@
 /* FoamLens Desktop v1.6.0 — persistent cross-workspace session state. */
 
 const flSessionKey='foamlens.session.v1';
-let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false),flSessionRestoreGeneration=0;
+let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false),flSessionRestoreGeneration=0,flSessionLastReplayStatus='idle';
 
 function flSessionLoad(){
   try{
@@ -96,6 +96,7 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
   if(!force&&!flSessionHasWorkspaceData())return false;
   // G63: supersede older asynchronous Field continuations on a newer restore.
   const restoreGeneration=++flSessionRestoreGeneration;
+  flSessionLastReplayStatus='pending';
   flSessionRestoring=true;
   try{
     if(payload.context&&Array.isArray(cases)&&cases.length){
@@ -125,8 +126,15 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
           // An old Field frame must not roll back Data after the user has
           // left Field or another saved session has superseded this restore.
           // Keep G60 replay when the exact same Field restoration is current.
-          if(payload.plots&&restoreGeneration===flSessionRestoreGeneration&&activeAppMode===target)
+          // G64: diagnostics are bounded enum labels only: never case paths,
+          // field names, physical values or private datasets in native logs.
+          if(!payload.plots)flSessionLastReplayStatus='no-plots';
+          else if(restoreGeneration!==flSessionRestoreGeneration)flSessionLastReplayStatus='superseded';
+          else if(activeAppMode!==target)flSessionLastReplayStatus='mode-changed';
+          else{
             window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
+            flSessionLastReplayStatus='applied'
+          }
           return restored
         })
       : Promise.resolve(false);
@@ -186,7 +194,8 @@ function flSessionInstall(){
     tryRestore:flSessionTryRestore,
     clear:flSessionClear,
     pending:()=>!!flSessionPending,
-    whenRestored:()=>flSessionLastRestorePromise
+    whenRestored:()=>flSessionLastRestorePromise,
+    replayStatus:()=>flSessionLastReplayStatus
   };
   return true
 }
