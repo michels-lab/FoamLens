@@ -318,12 +318,14 @@ test('G63b: original navigation wrapper invalidates a Field -> Data -> Field rou
 
 test('G64 privacy-safe native session mismatch diagnostics are bounded booleans, not original case data',()=>{
   assert(session.includes("flSessionLastReplayStatus='pending'"));
-  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'"])
+  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'","'no-field'"])
     assert(session.includes("flSessionLastReplayStatus="+decision),'missing bounded replay decision '+decision);
   assert(session.includes("replayStatus:()=>flSessionLastReplayStatus"));
   assert(program.includes("sessionReplayStatus:String(ss.replayStatus?.()||'unavailable')"));
   for(const flag of ["; savedCatalog=","; restoredCatalog=","; restoredTimeSeries=",
-    "; replayApplied=","; replaySuperseded=","; replayModeChanged="])
+    "; replayApplied=","; replaySuperseded=","; replayModeChanged=",
+    "; replayNoField=","; replayPending=","; replayNoPlots=",
+    "; replayUnavailable=","; fieldSelectionPresent=","; restoredModeField="])
     assert(program.includes(flag),'missing original native sanitized failure flag: '+flag);
   const start=program.indexOf('"FoamLens cross-session state round-trip smoke failed; sanitized "');
   const end=program.indexOf('if (!data.TryGetProperty("fieldRibbonVisible"',start);
@@ -331,6 +333,31 @@ test('G64 privacy-safe native session mismatch diagnostics are bounded booleans,
   const failureMessageSource=program.slice(start,end);
   assert(!failureMessageSource.includes('realCaseJson'),'native fail path must not leak private QuickCup blob');
   assert(!failureMessageSource.includes('sessionSmokeErrorNode.GetString()'),'no raw JS exception in public error message');
+});
+
+
+test('G67: a skipped original Field frame is distinguishable from a pending restoration',()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring','cases',
+    'flSessionFindCase','flSessionSafeMode','setAppMode','flSessionLastRestorePromise',
+    'renderList','updateMeta','currentDataView','renderDataCatalog','draw',
+    'document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration','flSessionLastReplayStatus',
+    session.slice(begin,end)+
+    ';return {restore:flSessionRestoreSnapshot,status:()=>flSessionLastReplayStatus,awaited:()=>flSessionLastRestorePromise}');
+  let preservedView='timeseries';
+  const win={FoamLensPlotSurfaces:{hydrate:stored=>{preservedView=stored.surfaces.data.view},
+    activate:()=>true}};
+  const api=make(win,()=>true,false,[],()=>null,()=> 'data',
+    ()=>{},Promise.resolve(false),()=>{},()=>{},'timeseries',()=>{},()=>{},
+    {dispatchEvent(){}},class{constructor(type,opt){this.type=type;this.detail=opt.detail}},
+    ()=>({}),'data',console,()=>Promise.resolve(true),0,'idle');
+  const snapshot={activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{surfaces:{data:{view:'catalog'}}}};
+  assert.strictEqual(api.restore(snapshot,{force:true}),true);
+  assert.strictEqual(api.status(),'no-field','safe-mode fallback must be explicit in diagnostics');
+  assert.strictEqual(preservedView,'catalog','saved Data view stays physically restored');
 });
 
 Promise.all(pending).then(()=>{
