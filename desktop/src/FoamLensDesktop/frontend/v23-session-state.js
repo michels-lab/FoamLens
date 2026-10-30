@@ -1,7 +1,7 @@
 /* FoamLens Desktop v1.6.0 — persistent cross-workspace session state. */
 
 const flSessionKey='foamlens.session.v1';
-let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false);
+let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false),flSessionRestoreGeneration=0;
 
 function flSessionLoad(){
   try{
@@ -94,6 +94,8 @@ function flSessionRestoreFieldSelection(saved){
 function flSessionRestoreSnapshot(payload,{force=false}={}){
   if(!payload||typeof payload!=='object')return false;
   if(!force&&!flSessionHasWorkspaceData())return false;
+  // G63: supersede older asynchronous Field continuations on a newer restore.
+  const restoreGeneration=++flSessionRestoreGeneration;
   flSessionRestoring=true;
   try{
     if(payload.context&&Array.isArray(cases)&&cases.length){
@@ -120,7 +122,11 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     const restoringField=target==='field'&&payload.fieldSelection;
     flSessionLastRestorePromise=restoringField
       ? Promise.resolve(flSessionRestoreFieldSelection(payload.fieldSelection)).then(restored=>{
-          if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
+          // An old Field frame must not roll back Data after the user has
+          // left Field or another saved session has superseded this restore.
+          // Keep G60 replay when the exact same Field restoration is current.
+          if(payload.plots&&restoreGeneration===flSessionRestoreGeneration&&activeAppMode===target)
+            window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
           return restored
         })
       : Promise.resolve(false);
