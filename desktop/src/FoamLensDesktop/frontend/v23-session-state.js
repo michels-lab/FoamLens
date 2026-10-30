@@ -138,6 +138,9 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
           return restored
         })
       : Promise.resolve(false);
+    // G67: report the exact non-Field path if no frame was scheduled. A
+    // saved snapshot can be valid while Field is temporarily unavailable.
+    if(!restoringField)flSessionLastReplayStatus='no-field';
     try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
   }finally{flSessionRestoring=false}
   document.dispatchEvent(new CustomEvent('foamlens-session-restored',{detail:{mode:activeAppMode,context:flSessionContextSnapshot()}}));
