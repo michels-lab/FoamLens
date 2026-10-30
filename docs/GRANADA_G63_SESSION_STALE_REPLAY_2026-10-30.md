@@ -22,3 +22,11 @@ The original G59c synchronous and G60 asynchronous same-failure cases remain act
 This guard prevents **stale post-frame snapshot replay**. It does not claim to cancel or fully isolate an already-running underlying 3D field loader; that would require a separate owner-level cancellation audit. Do not imply this branch passed six native Windows cycles, scientific experimental validation or physical monitor-DPI acceptance.
 
 **Release remains blocked by #238; no release or RC.**
+
+## G63b — Field → Data → Field before an old frame resolves
+
+- **New negative proof (2026-10-30):** the previous G63 guard only compared the final mode. A user can leave Field and return before the old frame settles, yielding the same final mode and bypassing the protection. A reproduction executes the original `flSessionPatchNavigation` wrapper together with `flSessionRestoreSnapshot`, not a mock direct mode setter.
+- **Owner fix:** a genuine external mode change increments the restore generation after successful navigation, but calls made *inside* an active restore do not invalidate themselves. The old callback may finish loading its original frame; it cannot rehydrate a stale plot snapshot onto the new interaction. This does not claim to cancel the underlying field computation.
+- **Negative/positive tests:** the exact original G63 branch source fails the added Field → Data → Field case. G63b passes, with all **16/16 session tests** green in an isolated execution of the actual repository test source and original production functions.
+- **Commits:** [source e0d1a72](https://github.com/michels-lab/FoamLens/commit/e0d1a72669b17cb3a3eb46ff5243d0b117f5dc85), [test 04c2949](https://github.com/michels-lab/FoamLens/commit/04c29497e9d68648b7c84aa11503e0860920a086).
+- Exact-head Windows native Installed/Portable and PR checks remain required; do not merge on local-test proof alone. G37 6/6 run on G62 main is independent and must not be cancelled. No release.
