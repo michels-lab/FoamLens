@@ -406,8 +406,8 @@ test('G68: packaged native session smoke exports truthful fresh-save and replay 
    "if(!sessionSavedFresh)throw new Error(",
    "if(!stored||!sessionSavedFieldSelectionPresent)"
  ])assert(smoke.includes(token),'fresh native snapshot condition missing: '+token);
- const resultBlock=program.slice(program.indexOf("    sessionStoredDataView:String(sessionSmoke?.storedDataView"),
-                                   program.indexOf("  // The persistence smoke intentionally"));
+ const resultStart=program.indexOf("    sessionStoredDataView:String(sessionSmoke?.storedDataView");
+ const resultBlock=program.slice(resultStart,program.indexOf("    sessionSmokeError,",resultStart));
  for(const token of [
    "sessionReplayStatus:String(sessionSmoke?.sessionReplayStatus||'unavailable')",
    "sessionSavedFresh,",
