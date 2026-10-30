@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findings: 1.
+Tracked: 429; classified: 425; readable documents: 86; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 79 |
+| document | 80 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -28,7 +28,6 @@ Tracked: 428; classified: 424; readable documents: 85; above read cap: 1; findin
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/tests/granada-176-timeseries-ui.spec.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 17283040ffd5a053)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

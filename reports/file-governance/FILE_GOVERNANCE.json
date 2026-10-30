@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 428,
-  "classified_files_total": 424,
-  "docs_content_inspected": 85,
+  "tracked_files_total": 429,
+  "classified_files_total": 425,
+  "docs_content_inspected": 86,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 79,
+    "document": 80,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 54
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "4ce965255523642c4914b1539fd250f1e938dcc2d8519537b6b6aa01a574ccfc",
-  "evidence_fingerprint": "76d2911f9fb0604d423f90c9b51cd201eaf2a3cf6eb955f25708dd2c45d78d19",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "c2ba1b000f14f309f30f6038e58fbe042ae0081664883bc4bcd5b3b08286ca1c",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -636,7 +634,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3e5d711fee1c90c166c691c3d08ab95ec030dce0"
+      "blob": "2997eb7c147b1f2c1ce2b4901085218b58ebfc21"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -804,7 +802,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0db1021383e19f8d38817e92d1346e783aadac57"
+      "blob": "7a02292ec1aac50d780fa6f22bc696157eca9f69"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -888,7 +886,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "285fa0b041c336babec44421771ca900c4aaf9bf"
+      "blob": "bb286d1d36131802ce96757dd18fa3ccd6c16e7a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -972,7 +970,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2fdbb2fbf5131291c09ed85089cd3036a7cbc769"
+      "blob": "1c20758bd888a6ffd3733a8a9fc4cbdf1be8fa54"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js",
@@ -1231,7 +1229,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8d6bad9f4557a63d472d02388f8aaab8c6554f9c"
+      "blob": "ab53b4c5327c957a1d6f7ecce0c6adf0322a7b23"
     },
     {
       "path": "desktop/tests/dynamic-mesh.test.cjs",
@@ -1350,7 +1348,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7e4cc2c3482a7ee05f39d1bb9079b130e940033f"
+      "blob": "5f0a0a8788bfab4d26ca9db39942a73e5d025b92"
     },
     {
       "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
@@ -1644,7 +1642,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "693ec0fa556946c6f95adc581dba64b23d681040"
+      "blob": "65edfb189ba606f0dee8b34e457aa70f538e1c8a"
     },
     {
       "path": "desktop/tests/sidebar-sections.test.cjs",
@@ -1896,7 +1894,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "c0afa26688604c2ed501fbae1a45397c5939da1a"
+      "blob": "c7e81dd47d0a000e861a1036155f6f5485922d9f"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2149,6 +2147,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "c2c4023c9e824e2b8a76a5103099721e5280e8f8"
+    },
+    {
+      "path": "docs/GRANADA_G59_TIMESERIES_MIXED_SOURCE_REFRESH_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5b4d1549e21befa2b307a07f3672dbb7990071f7"
     },
     {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
@@ -2998,17 +3003,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "17283040ffd5a053",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "3 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/tests/granada-176-timeseries-ui.spec.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
