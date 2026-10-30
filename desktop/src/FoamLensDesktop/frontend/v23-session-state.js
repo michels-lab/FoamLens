@@ -121,23 +121,23 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     // Catalog selection. Replay the original saved plot snapshot only after
     // the original frame restoration has settled; do not invent data/frames.
     const restoringField=target==='field'&&payload.fieldSelection;
-    flSessionLastRestorePromise=restoringField
-      ? Promise.resolve(flSessionRestoreFieldSelection(payload.fieldSelection)).then(restored=>{
-          // An old Field frame must not roll back Data after the user has
-          // left Field or another saved session has superseded this restore.
-          // Keep G60 replay when the exact same Field restoration is current.
-          // G64: diagnostics are bounded enum labels only: never case paths,
-          // field names, physical values or private datasets in native logs.
-          if(!payload.plots)flSessionLastReplayStatus='no-plots';
-          else if(restoreGeneration!==flSessionRestoreGeneration)flSessionLastReplayStatus='superseded';
-          else if(activeAppMode!==target)flSessionLastReplayStatus='mode-changed';
-          else{
-            window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
-            flSessionLastReplayStatus='applied'
-          }
-          return restored
-        })
+    // G67: even if no Field frame can be scheduled (e.g. the real 3D case is
+    // not yet compatible), the initial Data snapshot can be overwritten by
+    // the synchronous render below. Its protected post-render replay belongs
+    // to the SAME restoration, not an invented 3D frame or a new selection.
+    const originalFrame=restoringField
+      ? Promise.resolve(flSessionRestoreFieldSelection(payload.fieldSelection))
       : Promise.resolve(false);
+    flSessionLastRestorePromise=originalFrame.then(restored=>{
+      if(!payload.plots)flSessionLastReplayStatus='no-plots';
+      else if(restoreGeneration!==flSessionRestoreGeneration)flSessionLastReplayStatus='superseded';
+      else if(activeAppMode!==target)flSessionLastReplayStatus='mode-changed';
+      else{
+        window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
+        flSessionLastReplayStatus=restoringField?'applied':'applied-no-field'
+      }
+      return restored
+    });
     // G67: report the exact non-Field path if no frame was scheduled. A
     // saved snapshot can be valid while Field is temporarily unavailable.
     if(!restoringField)flSessionLastReplayStatus='no-field';
