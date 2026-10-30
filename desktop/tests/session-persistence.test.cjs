@@ -144,7 +144,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
-    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console','flSessionRestoreGeneration',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console','flSessionRestoreGeneration','flSessionLastReplayStatus',
     session.slice(begin,end)+';return flSessionRestoreSnapshot');
   const state={dataView:'timeseries',mode:'analysis',hydrations:0,navs:0};
   const win={FoamLensPlotSurfaces:{
@@ -166,7 +166,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const restore=make(win,()=>true,false,[],()=>null,mode=>mode,navigate,
     Promise.resolve(false),()=>{},()=>{},'timeseries',()=>{},()=>{},
     {dispatchEvent:()=>{}},class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console,0);
+    ()=>({}),'field',console,0,'idle');
   const payload={activeMode:'field',plots:{schema:1,surfaces:{
     data:{view:'catalog'},analysis:{view:'timeseries'},field:{view:'profile'}}}};
   assert.equal(restore(payload,{force:true}),true);
@@ -188,7 +188,7 @@ test('G60 native regression: asynchronous Field load must not overwrite saved in
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
     'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
-    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration','flSessionLastReplayStatus',
     session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise}');
   const state={dataView:'timeseries',hydrations:0};
   let completeFrame;
@@ -205,7 +205,7 @@ test('G60 native regression: asynchronous Field load must not overwrite saved in
     ()=>{state.dataView='timeseries'},Promise.resolve(false),()=>{},()=>{},
     'timeseries',()=>{},()=>{},{dispatchEvent(){}},
     class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console,delayedFieldLoad,0);
+    ()=>({}),'field',console,delayedFieldLoad,0,'idle');
   const saved={activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
     plots:{schema:1,surfaces:{data:{view:'catalog'},field:{view:'profile'}}}};
   assert.strictEqual(api.restore(saved,{force:true}),true);
@@ -225,7 +225,7 @@ test('G63 stale asynchronous Field restore must not undo newer Data navigation',
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
     'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
-    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration','flSessionLastReplayStatus',
     session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise,setMode:mode=>{activeAppMode=mode}}');
   const state={view:'timeseries',hydrations:0};
   let resolveFrame;
@@ -237,7 +237,7 @@ test('G63 stale asynchronous Field restore must not undo newer Data navigation',
     ()=>{state.view='timeseries'},Promise.resolve(false),()=>{},()=>{},'timeseries',
     ()=>{},()=>{},{dispatchEvent(){}},
     class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console,load,0);
+    ()=>({}),'field',console,load,0,'idle');
   assert.strictEqual(api.restore({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
     plots:{surfaces:{data:{view:'catalog'}}}},{force:true}),true);
   assert.strictEqual(state.view,'catalog');
@@ -254,7 +254,7 @@ test('G63 stale asynchronous restore must not override a newer restore request',
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
     'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
-    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration','flSessionLastReplayStatus',
     session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise}');
   const state={view:'timeseries',views:[]},finish=[];
   const win={FoamLensPlotSurfaces:{hydrate(payload){
@@ -265,7 +265,7 @@ test('G63 stale asynchronous restore must not override a newer restore request',
     ()=>{state.view='timeseries'},Promise.resolve(false),()=>{},()=>{},'timeseries',
     ()=>{},()=>{},{dispatchEvent(){}},
     class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console,load,0);
+    ()=>({}),'field',console,load,0,'idle');
   const payload=view=>({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
     plots:{surfaces:{data:{view}}}});
   api.restore(payload('catalog'),{force:true});
@@ -285,7 +285,7 @@ test('G63b: original navigation wrapper invalidates a Field -> Data -> Field rou
   const navEnd=session.indexOf('function flSessionInstall(){',navBegin);
   assert(begin>=0&&end>begin&&navBegin>=0&&navEnd>navBegin,'G63b actual navigation and restore functions are required');
   const factory=new Function('window','flSessionRestoreFieldSelection','document','CustomEvent','console',
-    "let flSessionRestoring=false,flSessionRestoreGeneration=0,flSessionLastRestorePromise=Promise.resolve(false);"+
+    "let flSessionRestoring=false,flSessionRestoreGeneration=0,flSessionLastRestorePromise=Promise.resolve(false),flSessionLastReplayStatus='idle';"+
     "let activeAppMode='data',currentDataView='timeseries',cases=[];"+
     "let setAppMode=mode=>{activeAppMode=mode;currentDataView='timeseries'};"+
     "let setDataView=mode=>{currentDataView=mode};"+
@@ -313,6 +313,24 @@ test('G63b: original navigation wrapper invalidates a Field -> Data -> Field rou
   await api.whenRestored();
   assert.deepStrictEqual(state.hydrations,['catalog'],'a stale original Field load must not restore Catalog after returning to Field');
   assert.strictEqual(state.view,'timeseries');
+});
+
+
+test('G64 privacy-safe native session mismatch diagnostics are bounded booleans, not original case data',()=>{
+  assert(session.includes("flSessionLastReplayStatus='pending'"));
+  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'"])
+    assert(session.includes("flSessionLastReplayStatus="+decision),'missing bounded replay decision '+decision);
+  assert(session.includes("replayStatus:()=>flSessionLastReplayStatus"));
+  assert(program.includes("sessionReplayStatus:String(ss.replayStatus?.()||'unavailable')"));
+  for(const flag of ["; savedCatalog=","; restoredCatalog=","; restoredTimeSeries=",
+    "; replayApplied=","; replaySuperseded=","; replayModeChanged="])
+    assert(program.includes(flag),'missing original native sanitized failure flag: '+flag);
+  const start=program.indexOf('"FoamLens cross-session state round-trip smoke failed; sanitized "');
+  const end=program.indexOf('if (!data.TryGetProperty("fieldRibbonVisible"',start);
+  assert(start>=0&&end>start,'native failure message not found');
+  const failureMessageSource=program.slice(start,end);
+  assert(!failureMessageSource.includes('realCaseJson'),'native fail path must not leak private QuickCup blob');
+  assert(!failureMessageSource.includes('sessionSmokeErrorNode.GetString()'),'no raw JS exception in public error message');
 });
 
 Promise.all(pending).then(()=>{
