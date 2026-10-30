@@ -318,8 +318,10 @@ test('G63b: original navigation wrapper invalidates a Field -> Data -> Field rou
 
 test('G64 privacy-safe native session mismatch diagnostics are bounded booleans, not original case data',()=>{
   assert(session.includes("flSessionLastReplayStatus='pending'"));
-  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'","'no-field'","'applied-no-field'"])
+  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'no-field'"])
     assert(session.includes("flSessionLastReplayStatus="+decision),'missing bounded replay decision '+decision);
+  assert(session.includes("flSessionLastReplayStatus=restoringField?'applied':'applied-no-field'"),
+    'only a genuinely attempted Field frame may report standard applied; skipped frame must be distinct');
   assert(session.includes("replayStatus:()=>flSessionLastReplayStatus"));
   assert(program.includes("sessionReplayStatus:String(ss.replayStatus?.()||'unavailable')"));
   for(const flag of ["; savedCatalog=","; restoredCatalog=","; restoredTimeSeries=",
