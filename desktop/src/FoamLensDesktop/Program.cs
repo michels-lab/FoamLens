@@ -2029,7 +2029,8 @@ internal sealed class FoamLensForm : Form
                             "; replayNoField=" +
                             (data.TryGetProperty("sessionReplayStatus", out var replayNoFieldNode) &&
                              replayNoFieldNode.ValueKind == JsonValueKind.String &&
-                             string.Equals(replayNoFieldNode.GetString(), "no-field", StringComparison.Ordinal)
+                             (string.Equals(replayNoFieldNode.GetString(), "no-field", StringComparison.Ordinal) ||
+                              string.Equals(replayNoFieldNode.GetString(), "applied-no-field", StringComparison.Ordinal))
                             ).ToString().ToLowerInvariant() +
                             "; replayPending=" +
                             (data.TryGetProperty("sessionReplayStatus", out var replayPendingNode) &&
