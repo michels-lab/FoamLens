@@ -318,7 +318,7 @@ test('G63b: original navigation wrapper invalidates a Field -> Data -> Field rou
 
 test('G64 privacy-safe native session mismatch diagnostics are bounded booleans, not original case data',()=>{
   assert(session.includes("flSessionLastReplayStatus='pending'"));
-  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'","'no-field'"])
+  for(const decision of ["'no-plots'","'superseded'","'mode-changed'","'applied'","'no-field'","'applied-no-field'"])
     assert(session.includes("flSessionLastReplayStatus="+decision),'missing bounded replay decision '+decision);
   assert(session.includes("replayStatus:()=>flSessionLastReplayStatus"));
   assert(program.includes("sessionReplayStatus:String(ss.replayStatus?.()||'unavailable')"));
@@ -358,6 +358,37 @@ test('G67: a skipped original Field frame is distinguishable from a pending rest
   assert.strictEqual(api.restore(snapshot,{force:true}),true);
   assert.strictEqual(api.status(),'no-field','safe-mode fallback must be explicit in diagnostics');
   assert.strictEqual(preservedView,'catalog','saved Data view stays physically restored');
+});
+
+
+test('G67 same-failure: Data Catalog returns after renderer clobbers a safe-mode Field fallback',async()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  const factory=new Function('window','flSessionHasWorkspaceData','flSessionRestoring','cases',
+    'flSessionFindCase','flSessionSafeMode','setAppMode','flSessionLastRestorePromise',
+    'renderList','updateMeta','currentDataView','renderDataCatalog','draw',
+    'document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration','flSessionLastReplayStatus',
+    session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,done:()=>flSessionLastRestorePromise,status:()=>flSessionLastReplayStatus}');
+  const runtime={view:'timeseries',hydrates:0,frames:0};
+  const win={FoamLensPlotSurfaces:{
+    hydrate(stored){runtime.view=stored.surfaces.data.view;runtime.hydrates++},
+    activate(){return true}
+  }};
+  const api=factory(win,()=>true,false,[],()=>null,()=> 'data',()=>{},
+    Promise.resolve(false),()=>{runtime.view='timeseries'},()=>{},'timeseries',
+    ()=>{},()=>{}, {dispatchEvent(){}},
+    class{constructor(type,opt){this.type=type;this.detail=opt.detail}},
+    ()=>({}),'data',console,()=>{runtime.frames++;return Promise.resolve(true)},0,'idle');
+  assert.strictEqual(api.restore({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{surfaces:{data:{view:'catalog'}}}},{force:true}),true);
+  assert.strictEqual(runtime.view,'timeseries','original UI renderer replays Time Series after immediate hydration');
+  assert.strictEqual(api.status(),'no-field');
+  await api.done();
+  assert.strictEqual(runtime.view,'catalog','post-render replay must restore original Catalog without a fake Field frame');
+  assert.strictEqual(runtime.hydrates,2,'exactly one immediate and one protected post-render hydration');
+  assert.strictEqual(runtime.frames,0,'must NOT load a frame when Field is incompatible');
+  assert.strictEqual(api.status(),'applied-no-field');
 });
 
 Promise.all(pending).then(()=>{
