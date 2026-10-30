@@ -466,6 +466,42 @@ require('node:test')('G55 single-series and dual-variable independent-axis gener
   ]),true,'genuine dimensionless field should not be treated as unverified');
 });
 
+
+test('G59 Field exit does not re-hide real Data-owned Time Series Build/Cancel and original source slots',()=>{
+  const start=core.indexOf('function fwLeave(){'),end=core.indexOf('function fwInstall(){',start);
+  assert(start>=0&&end>start,'original Field leave source function missing');
+  const make=new Function('fwState','document','fvStopPlayback','fwTimeStop',
+    'fwSetInspector','fwReturnCompanionControlsToData','window','currentDataView',
+    'updateDatasetViewUI','console',core.slice(start,end)+';return fwLeave');
+  for(const adopted of [true,false]){
+    const classes=new Set(['fwFieldTsControls','hidden']),state={
+      active:true,fieldTsSeq:8,dataViewBeforeField:null
+    };
+    let stop=0,inspector=0,returned=0;
+    const node={
+      closest:selector=>{
+        assert.equal(selector,'#gr176HistoryCard');
+        return adopted?{id:'gr176HistoryCard'}:null
+      },
+      classList:{
+        add:name=>classes.add(name),
+        remove:name=>classes.delete(name),
+        contains:name=>classes.has(name)
+      }
+    };
+    const leave=make(state,{getElementById:id=>id==='fwFieldTsControls'?node:null},
+      ()=>stop++,()=>stop++,()=>inspector++,
+      ()=>returned++,{},'timeseries',()=>{},console);
+    leave();
+    assert.equal(classes.has('hidden'),!adopted,
+      adopted?'G59 native failure regression: Data-owned generator cannot be hidden on Field exit':
+        'original legacy non-Data generator should still be hidden on Field exit');
+    assert.equal(state.active,false,'Field cleanup still deactivates');
+    assert.equal(state.fieldTsSeq,9,'Field exit cancels any earlier source read');
+    assert.equal(stop,2);assert.equal(inspector,1);assert.equal(returned,1);
+  }
+});
+
 test('G58 same native source layout displays both original Time Series slots side by side only when the real parent is wide',()=>{
   const css=candidate.slice(candidate.indexOf('function installStyle(){'),candidate.indexOf('function install(){'));
   assert.match(css,/#gr176HistoryCard\{container-type:inline-size;container-name:foamlens-t2-history\}/,
