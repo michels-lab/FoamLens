@@ -144,7 +144,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
-    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console','flSessionRestoreGeneration',
     session.slice(begin,end)+';return flSessionRestoreSnapshot');
   const state={dataView:'timeseries',mode:'analysis',hydrations:0,navs:0};
   const win={FoamLensPlotSurfaces:{
@@ -166,7 +166,7 @@ test('G59c native installed persistence: original saved Catalog survives field-m
   const restore=make(win,()=>true,false,[],()=>null,mode=>mode,navigate,
     Promise.resolve(false),()=>{},()=>{},'timeseries',()=>{},()=>{},
     {dispatchEvent:()=>{}},class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console);
+    ()=>({}),'field',console,0);
   const payload={activeMode:'field',plots:{schema:1,surfaces:{
     data:{view:'catalog'},analysis:{view:'timeseries'},field:{view:'profile'}}}};
   assert.equal(restore(payload,{force:true}),true);
@@ -188,7 +188,7 @@ test('G60 native regression: asynchronous Field load must not overwrite saved in
     'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
     'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
     'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
-    'flSessionRestoreFieldSelection',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
     session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise}');
   const state={dataView:'timeseries',hydrations:0};
   let completeFrame;
@@ -205,7 +205,7 @@ test('G60 native regression: asynchronous Field load must not overwrite saved in
     ()=>{state.dataView='timeseries'},Promise.resolve(false),()=>{},()=>{},
     'timeseries',()=>{},()=>{},{dispatchEvent(){}},
     class{constructor(type,options){this.type=type;this.detail=options.detail}},
-    ()=>({}),'field',console,delayedFieldLoad);
+    ()=>({}),'field',console,delayedFieldLoad,0);
   const saved={activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
     plots:{schema:1,surfaces:{data:{view:'catalog'},field:{view:'profile'}}}};
   assert.strictEqual(api.restore(saved,{force:true}),true);
