@@ -39,3 +39,13 @@ Estado **CANDIDATO**, no declarado corregido hasta que los tests Windows/Ubuntu 
 - **Same-failure negative test:** existing `desktop/tests/session-persistence.test.cjs` executes the original restore function with a mock navigation that clobbers Data's saved Catalog; rejects old ordering and passes only if restored Catalog is retained. Also rejects public log interpolation of `realCaseJson` in this failure path.
 - **Status:** source candidate not yet accepted on current SHA; new exact-commit Windows/Ubuntu source and genuine Windows installed/portable verification required. Fail-closed native/physical gates preserved; #238 remains blocked. No new stable tag, preview, RC, or user research data copied to source.
 
+
+
+## G60 — Persistencia de Data después de carga asíncrona Field (2026-10-30)
+
+- **Fallo original vigente:** [Windows nativo exact-head G59c run #40622237663](https://github.com/michels-lab/FoamLens/actions/runs/40622237663) compiló y pasó QuickCup original y Portable, pero Windows Installed falló cross-session state round-trip con savedDataViewEqualsRestored=false. El guard ya redactaba datos científicos. La captura GPU posterior falló porque el proceso ya se había cerrado; no prueba un defecto GPU separado.
+- **Segundo mecanismo plausible reproducido con función de producción:** flSessionRestoreSnapshot rehidrata Data tras navegación, pero flSessionRestoreFieldSelection continúa asíncronamente (fvLoadFrame) y una mutación tardía puede reemplazar Catalog por Time Series. En reproducción controlada: anterior = Time Series; G60 = Catalog. Esto **no** demuestra todavía que el fallo original Installed haya sido causado exclusivamente por esa mutación.
+- **Cambio de fuente:** v23-session-state.js conserva hidratación inmediata y, solo para Field con selección asíncrona, reaplica el mismo snapshot de gráficas una vez que la restauración del frame termina. Sin nuevos datos inventados, cambios de malla ni versión.
+- **Regresión:** desktop/tests/session-persistence.test.cjs ejecuta la función original con restauración tardía que deliberadamente sobrescribe Data. Antes de G60 falla la aserción final y con G60 la supera. El runner espera las promesas antes de anunciar PASS. Se conserva el guard contra fugas JSON.
+- **Commits:** [G60 fuente b8453a4](https://github.com/michels-lab/FoamLens/commit/b8453a4371a3cdd9bd856e9b05997830c979e936), [regresión 4948e59](https://github.com/michels-lab/FoamLens/commit/4948e59eee4645bb1f9376c586164305bcd6620c).
+- **Gate pendiente:** CI exact-head de frontend Windows/Ubuntu y Windows Installed + Portable con QuickCup B13 privado; comprobar Catalog, Field, caso y región después de whenRestored; seis ciclos repetidos, DPI real, firma y aceptación visual. Sin merge, sin release (issue #238).
