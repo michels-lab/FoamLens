@@ -150,7 +150,16 @@ function flSessionClear(){
 }
 function flSessionPatchNavigation(){
   const prevSetAppMode=setAppMode;
-  setAppMode=function(...args){const result=prevSetAppMode.apply(this,args);flSessionScheduleSave();return result};
+  setAppMode=function(...args){
+    // G63b: invalidating only on a subsequent session restore misses a
+    // Field -> Data -> Field round-trip while an older Field frame is pending.
+    // The user has started a NEW navigation even if the final mode matches.
+    const externalNavigation=!flSessionRestoring&&String(args[0])!==String(activeAppMode);
+    const result=prevSetAppMode.apply(this,args);
+    if(externalNavigation)++flSessionRestoreGeneration;
+    flSessionScheduleSave();
+    return result
+  };
   const prevSetDataView=setDataView;
   setDataView=function(...args){const result=prevSetDataView.apply(this,args);flSessionScheduleSave();return result}
 }
