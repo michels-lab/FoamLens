@@ -277,6 +277,44 @@ test('G63 stale asynchronous restore must not override a newer restore request',
   assert.deepStrictEqual(state.views,['catalog','log','log'],'only latest restore may replay once');
 });
 
+
+test('G63b: original navigation wrapper invalidates a Field -> Data -> Field round-trip before late frame completion',async()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  const navBegin=session.indexOf('function flSessionPatchNavigation(){');
+  const navEnd=session.indexOf('function flSessionInstall(){',navBegin);
+  assert(begin>=0&&end>begin&&navBegin>=0&&navEnd>navBegin,'G63b actual navigation and restore functions are required');
+  const factory=new Function('window','flSessionRestoreFieldSelection','document','CustomEvent','console',
+    "let flSessionRestoring=false,flSessionRestoreGeneration=0,flSessionLastRestorePromise=Promise.resolve(false);"+
+    "let activeAppMode='data',currentDataView='timeseries',cases=[];"+
+    "let setAppMode=mode=>{activeAppMode=mode;currentDataView='timeseries'};"+
+    "let setDataView=mode=>{currentDataView=mode};"+
+    "const flSessionScheduleSave=()=>{};"+
+    "const flSessionHasWorkspaceData=()=>true,flSessionSafeMode=mode=>mode,flSessionFindCase=()=>null;"+
+    "const flSessionContextSnapshot=()=>({}),renderList=()=>{},updateMeta=()=>{},renderDataCatalog=()=>{},draw=()=>{};"+
+    session.slice(begin,end)+session.slice(navBegin,navEnd)+
+    ";flSessionPatchNavigation();return {restore:flSessionRestoreSnapshot,navigate:mode=>setAppMode(mode),"+
+    "whenRestored:()=>flSessionLastRestorePromise,mode:()=>activeAppMode,generation:()=>flSessionRestoreGeneration};");
+  const state={view:'timeseries',hydrations:[]};let finish;
+  const api=factory({FoamLensPlotSurfaces:{hydrate(snapshot){
+    state.view=snapshot.surfaces.data.view;
+    state.hydrations.push(state.view)
+  }}},()=>new Promise(resolve=>{finish=()=>{state.view='timeseries';resolve(true)}}),
+  {dispatchEvent(){}},class{constructor(type,options){this.type=type;this.detail=options.detail}},console);
+  assert.strictEqual(api.restore({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{surfaces:{data:{view:'catalog'}}}},{force:true}),true);
+  assert.strictEqual(api.mode(),'field');
+  assert.strictEqual(api.generation(),1);
+  api.navigate('data');
+  api.navigate('field');
+  assert.strictEqual(api.mode(),'field','returning to Field alone is not permission for stale saved state');
+  assert.strictEqual(api.generation(),3,'both real user navigations must invalidate original frame replay');
+  finish();
+  await api.whenRestored();
+  assert.deepStrictEqual(state.hydrations,['catalog'],'a stale original Field load must not restore Catalog after returning to Field');
+  assert.strictEqual(state.view,'timeseries');
+});
+
 Promise.all(pending).then(()=>{
   console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
   for(const name of passed)console.log('  ✓ '+name);
