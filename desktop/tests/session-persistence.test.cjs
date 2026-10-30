@@ -393,6 +393,68 @@ test('G67 same-failure: Data Catalog returns after renderer clobbers a safe-mode
   assert.strictEqual(api.status(),'applied-no-field');
 });
 
+
+test('G68: packaged native session smoke exports truthful fresh-save and replay flags to C#',()=>{
+ const start=program.indexOf("  let sessionSmoke=null,sessionSmokeError='';");
+ const end=program.indexOf("  // The persistence smoke intentionally",start);
+ assert(start>=0&&end>start,'require original native source session smoke');
+ const smoke=program.slice(start,end);
+ for(const token of [
+   "sessionReplayApiPresent=typeof ss.replayStatus==='function'",
+   "sessionSavedFresh=ss.save()===true",
+   "sessionSavedFieldSelectionPresent=!!(stored&&Object.prototype.hasOwnProperty.call(stored,'fieldSelection'))",
+   "if(!sessionSavedFresh)throw new Error(",
+   "if(!stored||!sessionSavedFieldSelectionPresent)"
+ ])assert(smoke.includes(token),'fresh native snapshot condition missing: '+token);
+ const resultBlock=program.slice(program.indexOf("    sessionStoredDataView:String(sessionSmoke?.storedDataView"),
+                                   program.indexOf("  // The persistence smoke intentionally"));
+ for(const token of [
+   "sessionReplayStatus:String(sessionSmoke?.sessionReplayStatus||'unavailable')",
+   "sessionSavedFresh,",
+   "sessionReplayApiPresent,",
+   "sessionStoredFieldSelectionPresent:sessionSavedFieldSelectionPresent,"
+ ])assert(resultBlock.includes(token),'diagnostic must actually cross native JSON boundary: '+token);
+ for(const token of [
+   '!sessionSavedFreshNode.GetBoolean()',
+   '!sessionReplayApiNode.GetBoolean()',
+   '!sessionSelectionNode.GetBoolean()',
+   '"savedFresh=" +',
+   '"; replayApiPresent=" +'
+ ])assert(program.includes(token),'C# must fail closed if fresh fields are missing: '+token);
+});
+test('G68: actual native smoke save loop rejects old snapshots and waits for a real accepted save',async()=>{
+ const start=program.indexOf("    if(typeof ss.whenRestored==='function')await ss.whenRestored();");
+ const end=program.indexOf("    const storedDataView=String(stored?.plots",start);
+ assert(start>=0&&end>start,'native current snapshot flow missing');
+ const AsyncFunction=(async()=>{}).constructor;
+ const code=program.slice(start,end);
+ const make=new AsyncFunction('ss','wait',
+   "let sessionSavedFresh=false,sessionSavedFieldSelectionPresent=false;" +
+   "const setTimeout=(fn,ms)=>wait(fn,ms);" +
+   code+
+   "return {sessionSavedFresh,sessionSavedFieldSelectionPresent,stored};");
+ const fresh={schema:1,fieldSelection:{fieldName:'T',time:9.8},
+   plots:{surfaces:{data:{view:'catalog'}}}};
+ let tries=0,reads=0,settled=false;
+ const ss={
+   whenRestored:async()=>{settled=true},
+   save:()=>{assert(settled,'must first await previous restoration');return ++tries>=3},
+   load:()=>{reads++;return fresh}
+ };
+ const good=await make(ss,fn=>fn());
+ assert.strictEqual(tries,3,'must retry guarded save rather than silently read an old session');
+ assert.strictEqual(reads,1,'read only after a successful native save');
+ assert.strictEqual(good.stored,fresh);
+ assert.strictEqual(good.sessionSavedFresh,true);
+ assert.strictEqual(good.sessionSavedFieldSelectionPresent,true);
+ let staleReads=0;
+ await assert.rejects(make({save:()=>false,load:()=>{staleReads++;return fresh}},fn=>fn()),
+   /Guarded session save could not settle/);
+ assert.strictEqual(staleReads,0,'an old WebView2 snapshot must never masquerade as freshly persisted');
+ await assert.rejects(make({save:()=>true,load:()=>({schema:1,plots:{}})},fn=>fn()),
+   /Fresh session snapshot is missing the original Field selection/);
+});
+
 Promise.all(pending).then(()=>{
   console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
   for(const name of passed)console.log('  ✓ '+name);
