@@ -113,7 +113,17 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     // This is source state restoration, not a new chart or data import.
     if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
     if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true});
-    flSessionLastRestorePromise=target==='field'&&payload.fieldSelection?flSessionRestoreFieldSelection(payload.fieldSelection):Promise.resolve(false);
+    // G60: an asynchronous Field frame restore can update plot state after the
+    // synchronous navigation/hydration above, overwriting an inactive Data
+    // Catalog selection. Replay the original saved plot snapshot only after
+    // the original frame restoration has settled; do not invent data/frames.
+    const restoringField=target==='field'&&payload.fieldSelection;
+    flSessionLastRestorePromise=restoringField
+      ? Promise.resolve(flSessionRestoreFieldSelection(payload.fieldSelection)).then(restored=>{
+          if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
+          return restored
+        })
+      : Promise.resolve(false);
     try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
   }finally{flSessionRestoring=false}
   document.dispatchEvent(new CustomEvent('foamlens-session-restored',{detail:{mode:activeAppMode,context:flSessionContextSnapshot()}}));
