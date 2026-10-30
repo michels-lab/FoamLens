@@ -2025,6 +2025,35 @@ internal sealed class FoamLensForm : Form
                             (data.TryGetProperty("sessionReplayStatus", out var replayModeNode) &&
                              replayModeNode.ValueKind == JsonValueKind.String &&
                              string.Equals(replayModeNode.GetString(), "mode-changed", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoField=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoFieldNode) &&
+                             replayNoFieldNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayNoFieldNode.GetString(), "no-field", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayPending=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayPendingNode) &&
+                             replayPendingNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayPendingNode.GetString(), "pending", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoPlots=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoPlotsNode) &&
+                             replayNoPlotsNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayNoPlotsNode.GetString(), "no-plots", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayUnavailable=" +
+                            (!data.TryGetProperty("sessionReplayStatus", out var replayUnavailableNode) ||
+                             replayUnavailableNode.ValueKind != JsonValueKind.String ||
+                             string.Equals(replayUnavailableNode.GetString(), "unavailable", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; fieldSelectionPresent=" +
+                            (data.TryGetProperty("sessionStoredFieldSelectionPresent", out var selectionNode) &&
+                             selectionNode.ValueKind == JsonValueKind.True
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredModeField=" +
+                            (data.TryGetProperty("sessionRestoredMode", out var fieldModeNode) &&
+                             fieldModeNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(fieldModeNode.GetString(), "field", StringComparison.Ordinal)
                             ).ToString().ToLowerInvariant());
 
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
@@ -2982,6 +3011,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       restoredDataView:String(ps.state?.('data')?.view||''),
       // Only a bounded replay-decision enum; never export cases, paths or values.
       sessionReplayStatus:String(ss.replayStatus?.()||'unavailable'),
+      sessionStoredFieldSelectionPresent:!!stored?.fieldSelection,
       inspectorRestored:fieldState.inspector===true,
       fieldViewRestored:String(fieldState.view||'')===String(stored?.field?.view||''),
       fieldCompanionRestored:String(fieldState.companion||'')===String(stored?.field?.companion||'')
