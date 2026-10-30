@@ -217,6 +217,66 @@ test('G60 native regression: asynchronous Field load must not overwrite saved in
   assert.strictEqual(state.hydrations,2,'only one post-frame replay; do not repeatedly rehydrate');
 });
 
+
+test('G63 stale asynchronous Field restore must not undo newer Data navigation',async()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
+    'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
+    'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
+    session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise,setMode:mode=>{activeAppMode=mode}}');
+  const state={view:'timeseries',hydrations:0};
+  let resolveFrame;
+  const win={FoamLensPlotSurfaces:{hydrate(payload){
+    state.hydrations++;state.view=payload.surfaces.data.view
+  }}};
+  const load=()=>new Promise(resolve=>{resolveFrame=()=>{state.view='timeseries';resolve(true)}});
+  const api=make(win,()=>true,false,[],()=>null,mode=>mode,
+    ()=>{state.view='timeseries'},Promise.resolve(false),()=>{},()=>{},'timeseries',
+    ()=>{},()=>{},{dispatchEvent(){}},
+    class{constructor(type,options){this.type=type;this.detail=options.detail}},
+    ()=>({}),'field',console,load,0);
+  assert.strictEqual(api.restore({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{surfaces:{data:{view:'catalog'}}}},{force:true}),true);
+  assert.strictEqual(state.view,'catalog');
+  api.setMode('data');state.view='timeseries'; // Real user leaves Field and selects Time Series.
+  resolveFrame();await api.whenRestored();
+  assert.strictEqual(state.view,'timeseries','late Field callback must not overwrite a newer user choice');
+  assert.strictEqual(state.hydrations,1,'no additional hydrate after leaving Field');
+});
+
+test('G63 stale asynchronous restore must not override a newer restore request',async()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
+    'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
+    'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'flSessionRestoreFieldSelection','flSessionRestoreGeneration',
+    session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise}');
+  const state={view:'timeseries',views:[]},finish=[];
+  const win={FoamLensPlotSurfaces:{hydrate(payload){
+    state.view=payload.surfaces.data.view;state.views.push(state.view)
+  }}};
+  const load=()=>new Promise(resolve=>finish.push(resolve));
+  const api=make(win,()=>true,false,[],()=>null,mode=>mode,
+    ()=>{state.view='timeseries'},Promise.resolve(false),()=>{},()=>{},'timeseries',
+    ()=>{},()=>{},{dispatchEvent(){}},
+    class{constructor(type,options){this.type=type;this.detail=options.detail}},
+    ()=>({}),'field',console,load,0);
+  const payload=view=>({activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{surfaces:{data:{view}}}});
+  api.restore(payload('catalog'),{force:true});
+  api.restore(payload('log'),{force:true});
+  const latest=api.whenRestored();
+  finish[0](true);await Promise.resolve();await Promise.resolve();
+  assert.strictEqual(state.view,'log','older frame continuation cannot replay old Catalog');
+  finish[1](true);await latest;
+  assert.deepStrictEqual(state.views,['catalog','log','log'],'only latest restore may replay once');
+});
+
 Promise.all(pending).then(()=>{
   console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
   for(const name of passed)console.log('  ✓ '+name);
