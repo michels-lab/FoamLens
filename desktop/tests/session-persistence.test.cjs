@@ -12,8 +12,12 @@ const program=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','
 
 new Function(session);new Function(plots);new Function(fieldUx);
 
-const passed=[];
-function test(name,fn){fn();passed.push(name)}
+const passed=[],pending=[];
+function test(name,fn){
+  const result=fn();
+  if(result&&typeof result.then==='function')pending.push(result.then(()=>passed.push(name)));
+  else passed.push(name)
+}
 
 test('session state persists top-level mode context plots and Field state',()=>{
   for(const token of [
@@ -176,5 +180,44 @@ test('G59c native installed persistence: original saved Catalog survives field-m
     'private OpenFOAM values and paths must never appear in public CI session-failure logs');
 });
 
-console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
-for(const name of passed)console.log('  ✓ '+name);
+test('G60 native regression: asynchronous Field load must not overwrite saved inactive Data Catalog',async()=>{
+  const begin=session.indexOf('function flSessionRestoreSnapshot(payload,{force=false}={}){');
+  const end=session.indexOf('function flSessionTryRestore(){',begin);
+  assert(begin>=0&&end>begin,'original session restore implementation missing');
+  const make=new Function('window','flSessionHasWorkspaceData','flSessionRestoring',
+    'cases','flSessionFindCase','flSessionSafeMode','setAppMode',
+    'flSessionLastRestorePromise','renderList','updateMeta','currentDataView',
+    'renderDataCatalog','draw','document','CustomEvent','flSessionContextSnapshot','activeAppMode','console',
+    'flSessionRestoreFieldSelection',
+    session.slice(begin,end)+';return {restore:flSessionRestoreSnapshot,whenRestored:()=>flSessionLastRestorePromise}');
+  const state={dataView:'timeseries',hydrations:0};
+  let completeFrame;
+  const win={FoamLensPlotSurfaces:{
+    hydrate(plots,{activate}){
+      assert.strictEqual(activate,false,'restoration must not activate an unrelated plot');
+      state.dataView=plots.surfaces.data.view;state.hydrations++;
+    }
+  }};
+  const delayedFieldLoad=()=>new Promise(resolve=>{
+    completeFrame=()=>{state.dataView='timeseries';resolve(true)}
+  });
+  const api=make(win,()=>true,false,[],()=>null,mode=>mode,
+    ()=>{state.dataView='timeseries'},Promise.resolve(false),()=>{},()=>{},
+    'timeseries',()=>{},()=>{},{dispatchEvent(){}},
+    class{constructor(type,options){this.type=type;this.detail=options.detail}},
+    ()=>({}),'field',console,delayedFieldLoad);
+  const saved={activeMode:'field',fieldSelection:{fieldName:'T',time:9.8},
+    plots:{schema:1,surfaces:{data:{view:'catalog'},field:{view:'profile'}}}};
+  assert.strictEqual(api.restore(saved,{force:true}),true);
+  assert.strictEqual(state.dataView,'catalog','synchronous navigation/hydration must restore the Data plot');
+  assert.strictEqual(state.hydrations,1);
+  completeFrame(); // Reproduces a late original Field frame event clobbering the inactive Data plot.
+  await api.whenRestored();
+  assert.strictEqual(state.dataView,'catalog','G60: Data Catalog must remain restored after Field frame settles');
+  assert.strictEqual(state.hydrations,2,'only one post-frame replay; do not repeatedly rehydrate');
+});
+
+Promise.all(pending).then(()=>{
+  console.log('FoamLens v1.6 session persistence regression suite passed: '+passed.length+' checks.');
+  for(const name of passed)console.log('  ✓ '+name);
+}).catch(error=>{console.error(error);process.exitCode=1});
