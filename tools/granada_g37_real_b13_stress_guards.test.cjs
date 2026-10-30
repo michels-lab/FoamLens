@@ -27,7 +27,10 @@ function guarded(p,c,w){
  assert.match(p,/FoamLens Windows smoke test passed/,'real original Play/Camera native gate');
  assert.match(p,/Get-FileHash -LiteralPath \$installedExe/,'installed and portable identical');
  assert.match(p,/originalProductReleaseReady=\$false/,'no false stable release');
- assert.match(w,/run-id: 40439636990/,'private measured fixture must be pinned to independent successful source');
+ assert.match(w,/run-id: \$\{\{ env\.G37_B13_FIXTURE_RUN_ID \}\}/,'must download independently produced source-verified B13 artifact');
+ assert.match(w,/\$sourceJobs\.Count -ne 1/,'original QuickCup builder must complete successfully');
+ assert.match(w,/\$matches\.Count -ne 1/,'artifact must be unique, real and unexpired');
+ assert.doesNotMatch(w,/run-id:\s*\d+/,'no permanently pinned expiring artifact run id');
  assert.match(w,/QuickCup-MultiCase-Windows-runtime/,'real 407 MB original B13 fixture');
  assert.match(w,/actions: read/,'read-only artifact permission');
  assert.match(w,/originalProductSourceUntouched -ne \$true/,'fail closed if source is changed');
@@ -122,7 +125,7 @@ test('G40 main automatically checks relevant original Field changes, not metadat
    'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
  ])assert.ok(push.includes("'"+file+"'"),'missing science/Field watcher '+file);
  assert.doesNotMatch(push,/\*\*|\.md'/,'do not trigger huge native test for all metadata/documentation changes');
- assert.match(wf,/run-id: 40439636990/,'must still use original independently produced real fixture');
+ assert.match(wf,/run-id: \$\{\{ env\.G37_B13_FIXTURE_RUN_ID \}\}/,'must use original independently produced real fixture');
  assert.match(wf,/completedAttempts\.Count -ne 6/,'must never drop six real native attempts');
 });
 
@@ -183,4 +186,28 @@ test('G57 smoke-only numerical case is isolated from original normal WebView2 us
     'later Installed failure must not hide earlier real Portable source validation');
   assert.match(ps,/Need \(\$script:attempts\.Count -eq 6\)/,
     'six genuine native starts remain mandatory even after G56 proof');
+});
+
+test('G62 fixture resolver fails closed on missing source provenance',()=>{
+ const guard=w=>{
+  assert.match(w,/git merge-base --is-ancestor \$candidate\.head_sha \$source/);
+  assert.match(w,/\$_ -cnotin \$allowedQA/);
+  assert.match(w,/\$sourceJobs\.Count -ne 1/);
+  assert.match(w,/\$matches\.Count -ne 1/);
+  assert.match(w,/if\(-not \$resolved\)\{throw 'G62:/);
+  assert.doesNotMatch(w,/run-id:\s*\d+/);
+ };
+ guard(wf);
+ for(const broken of [
+  wf.replace('git merge-base --is-ancestor $candidate.head_sha $source','Write-Host trust-any'),
+  wf.replace('$_ -cnotin $allowedQA','$_ -like "*"'),
+  wf.replace('$sourceJobs.Count -ne 1','$false'),
+  wf.replace('$matches.Count -ne 1','$false'),
+  wf.replace('if(-not $resolved){throw','if($false){throw'),
+  wf.replace('run-id: $'+'{{ env.G37_B13_FIXTURE_RUN_ID }}','run-id: 40439636990')
+ ])assert.throws(()=>guard(broken));
+});
+test('G62 PR verifies source but never runs native six-cycle job before merge',()=>{
+ assert.match(wf,/pull_request:\s*\n\s*branches:\s*\n\s*- main/);
+ assert.match(wf,/six-genuine-native-windows-B13:\s*\n\s*if: \$\{\{ github.event_name != 'pull_request' \}\}/);
 });

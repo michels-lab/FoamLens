@@ -1,5 +1,11 @@
 name: G37 real private QuickCup B13 six original Installed and Portable Play cycles - no release
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/granada-g37-real-b13-play-stress.yml'
+      - 'tools/granada_g37_real_b13_stress_guards.test.cjs'
   push:
     branches:
       - main
@@ -56,6 +62,7 @@ jobs:
           [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g37_real_b13_play_stress.ps1').Path,[ref]$tokens,[ref]$errors)
           if($errors.Count){$errors | ForEach-Object { Write-Error $_.Message };throw 'G37 native real B13 test harness cannot parse'}
   six-genuine-native-windows-B13:
+    if: ${{ github.event_name != 'pull_request' }}
     needs: fail-closed-source-regression
     runs-on: windows-latest
     timeout-minutes: 110
@@ -142,13 +149,67 @@ jobs:
           [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
           if(([string]$proj.Project.PropertyGroup.Version).Trim() -ne '1.8.10'){throw 'G37 original source version drift'}
           "G37_ACTUAL_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Retrieve existing independent REAL original B13 metal and mold fixture from successful QuickCup builder
+      # G62: the historical hard-coded run-id expired even while the real
+      # QuickCup source artifact was available from recent independent CI.
+      # Resolve only official successful main builder jobs, exact SHA or
+      # an ancestor differing solely in explicit QA/File Steward paths.
+      - name: Resolve independently generated real QuickCup B13 fixture with strict source provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo=$env:GITHUB_REPOSITORY
+          $source=$env:G37_ACTUAL_SHA
+          $allowedQA=@(
+            '.github/workflows/granada-g37-real-b13-play-stress.yml',
+            'tools/granada_g37_real_b13_stress_guards.test.cjs',
+            'docs/GRANADA_G62_G37_FRESH_B13_ARTIFACT_2026-10-30.md',
+            'docs/audits/FILE_GOVERNANCE_LOG.md',
+            'reports/file-governance/FILE_GOVERNANCE.json',
+            'reports/file-governance/FILE_GOVERNANCE.md',
+            'reports/file-governance/SUMMARY.json')
+          $resolved=$false
+          for($attempt=0;$attempt -lt 24 -and -not $resolved;$attempt++){
+            $recent=gh api "repos/$repo/actions/workflows/build-foamlens-desktop.yml/runs?branch=main&per_page=50" | ConvertFrom-Json
+            if($LASTEXITCODE -ne 0){throw 'G62 unable to query original independent Windows builders'}
+            foreach($candidate in @($recent.workflow_runs)){
+              if($candidate.name -cne 'Build FoamLens Desktop for Windows' -or
+                 $candidate.event -cne 'push' -or $candidate.head_branch -cne 'main' -or
+                 $candidate.head_sha -notmatch '^[0-9a-f]{40}$'){continue}
+              if($candidate.head_sha -cne $source){
+                git merge-base --is-ancestor $candidate.head_sha $source
+                if($LASTEXITCODE -ne 0){continue}
+                $delta=@(git diff --name-only $candidate.head_sha $source)
+                if(@($delta | Where-Object {$_ -cnotin $allowedQA}).Count -gt 0){continue}
+              }
+              $jobs=gh api "repos/$repo/actions/runs/$($candidate.id)/jobs?per_page=100" | ConvertFrom-Json
+              if($LASTEXITCODE -ne 0){throw 'G62 unable to inspect independent QuickCup builder job'}
+              $sourceJobs=@($jobs.jobs | Where-Object {
+                $_.name -ceq 'Real OpenFOAM QuickCup regression' -and $_.status -ceq 'completed' -and $_.conclusion -ceq 'success'
+              })
+              if($sourceJobs.Count -ne 1){continue}
+              $artifactList=gh api "repos/$repo/actions/runs/$($candidate.id)/artifacts?per_page=100" | ConvertFrom-Json
+              if($LASTEXITCODE -ne 0){throw 'G62 unable to verify original B13 artifact metadata'}
+              $matches=@($artifactList.artifacts | Where-Object {
+                $_.name -ceq 'QuickCup-MultiCase-Windows-runtime' -and $_.expired -eq $false -and $_.size_in_bytes -gt 100000000
+              })
+              if($matches.Count -ne 1){continue}
+              "G37_B13_FIXTURE_RUN_ID=$($candidate.id)" | Out-File -FilePath $env:GITHUB_ENV -Append
+              "G37_B13_FIXTURE_SOURCE_SHA=$($candidate.head_sha)" | Out-File -FilePath $env:GITHUB_ENV -Append
+              Write-Host 'G62: independently generated real five-case B13 artifact available from verified product-equivalent source'
+              $resolved=$true
+              break
+            }
+            if(-not $resolved -and $attempt -lt 23){Start-Sleep -Seconds 15}
+          }
+          if(-not $resolved){throw 'G62: no verified unexpired independent B13 artifact from same product source; FAIL CLOSED'}
+      - name: Retrieve provenance-checked REAL original B13 metal and mold fixture
         uses: actions/download-artifact@v4
         with:
-          run-id: 40439636990
+          run-id: ${{ env.G37_B13_FIXTURE_RUN_ID }}
           name: QuickCup-MultiCase-Windows-runtime
           path: quickcup-runtime-fixture
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Fail closed if exact private B13 QuickCup fixture expired or lost original measured metal and mold
         run: |
           if(-not(Test-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14/9.8/metal/T') -or
