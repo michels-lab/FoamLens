@@ -706,7 +706,7 @@ internal sealed class FoamLensForm : Form
                           el(key==='review'?'reviewSurface':'liveSurface');
                         const panelRect=panel?.getBoundingClientRect();
                         const panelOk=visible(panel)&&panelRect.width>100&&panelRect.height>90;
-                        const first=key==='field-compare'?el('fvViewport'):
+                        const first=key==='field-compare'?el('fcViewGrid')?.querySelector('.fvViewport:not(.fcViewport)'):
                           key==='analysis'?el('flRibbonTab-analysis'):
                           el(key==='review'?'reviewTitle':'liveTitle');
                         const secondary=key==='field-compare'?el('fcViewport'):
