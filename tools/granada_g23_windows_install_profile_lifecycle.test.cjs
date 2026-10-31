@@ -52,3 +52,19 @@ test('no synthetic user notes, original OpenFOAM or binaries go into Actions art
  for(const k of ['originalMainSha','originalPortableSHA256','sourceAccuracyIndependentlyCertified=$false','signedStableReleaseApproved=$false'])
   assert(src.includes(k));
 });
+
+
+test('current main automatically retains native reinstall/Unicode protection for installer and session changes',()=>{
+ const trigger=workflow.slice(0,workflow.indexOf('permissions:'));
+ assert(trigger.includes('      - main'),'current main must activate the standalone G23 native gate');
+ for(const file of [
+   '.github/workflows/granada-g23-windows-profile-lifecycle.yml',
+   'tools/granada_g23_windows_install_profile_lifecycle.ps1',
+   'tools/granada_g23_windows_install_profile_lifecycle.test.cjs',
+   'desktop/installer/FoamLens.iss',
+   'desktop/src/FoamLensDesktop/Program.cs',
+   'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj',
+   'desktop/src/FoamLensDesktop/frontend/v23-session-state.js'
+ ])assert(trigger.includes("'"+file+"'"),'relevant original product change does not retrigger G23: '+file);
+ assert(trigger.includes('workflow_dispatch:'),'manual original main QA must remain available');
+});

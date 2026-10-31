@@ -2,7 +2,16 @@ name: G23 original Windows Setup and Portable profile lifecycle (test only)
 on:
   push:
     branches:
+      - main
       - test/granada-g23-windows-profile-lifecycle-20261023
+    paths:
+      - '.github/workflows/granada-g23-windows-profile-lifecycle.yml'
+      - 'tools/granada_g23_windows_install_profile_lifecycle.ps1'
+      - 'tools/granada_g23_windows_install_profile_lifecycle.test.cjs'
+      - 'desktop/installer/FoamLens.iss'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+      - 'desktop/src/FoamLensDesktop/frontend/v23-session-state.js'
   workflow_dispatch:
 permissions:
   contents: read
