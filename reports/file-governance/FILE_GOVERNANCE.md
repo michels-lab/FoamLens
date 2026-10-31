@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 430; classified: 426; readable documents: 87; above read cap: 1; findings: 1.
+Tracked: 431; classified: 427; readable documents: 88; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 430; classified: 426; readable documents: 87; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 81 |
+| document | 82 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -28,7 +28,7 @@ Tracked: 430; classified: 426; readable documents: 87; above read cap: 1; findin
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 2 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g37_real_b13_stress_guards.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID bb1c3d9dd7abe214)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 5 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g37_real_b13_stress_guards.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID a39f008baedfb282)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
