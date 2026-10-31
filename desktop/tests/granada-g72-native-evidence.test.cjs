@@ -19,7 +19,7 @@ test('actual original QuickCup runs real G58 Time Series before G72 source-backe
  assert.match(host,/actual packaged original B13 Windows runtime/);
 });
 test('actual A/B 3D scientific Field compare is mandatory: never a 2D split substitute',()=>{
- for(const s of ["el('fcEnabled')","el('fvViewport')","el('fcViewport')",
+ for(const s of ["el('fcEnabled')","el('fcViewGrid')?.querySelector('.fvViewport:not(.fcViewport)')","el('fcViewport')",
     "visible(el('fvCanvas'))","visible(el('fcCanvas'))",
     "window.FoamLensFieldCompare?.isEnabled?.()===true",
     "panel?.classList.contains('fcCompareMode')"])
