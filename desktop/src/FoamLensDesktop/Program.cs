@@ -1959,7 +1959,13 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens stable Data / Analysis / Field plot-surface runtime smoke failed: {realCaseJson}");
 
-                    if (!data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
+                    if (!data.TryGetProperty("sessionSavedFresh", out var sessionSavedFreshNode) ||
+                        !sessionSavedFreshNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionReplayApiPresent", out var sessionReplayApiNode) ||
+                        !sessionReplayApiNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionStoredFieldSelectionPresent", out var sessionSelectionNode) ||
+                        !sessionSelectionNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
                         !sessionRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("sessionStoredSchema", out var sessionStoredSchemaNode) ||
                         sessionStoredSchemaNode.GetInt32() != 1 ||
@@ -1989,12 +1995,78 @@ internal sealed class FoamLensForm : Form
                         !string.IsNullOrWhiteSpace(sessionSmokeErrorNode.GetString()))
                         throw new InvalidOperationException(
                             "FoamLens cross-session state round-trip smoke failed; sanitized " +
-                            "savedDataViewEqualsRestored=" +
+                            "savedFresh=" +
+                            (data.TryGetProperty("sessionSavedFresh", out var saveFlag) &&
+                             saveFlag.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant() +
+                            "; replayApiPresent=" +
+                            (data.TryGetProperty("sessionReplayApiPresent", out var replayApiFlag) &&
+                             replayApiFlag.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant() +
+                            "; savedDataViewEqualsRestored=" +
                             (data.TryGetProperty("sessionStoredDataView", out var savedView) &&
                              data.TryGetProperty("sessionRestoredDataView", out var restoredView) &&
                              savedView.ValueKind == JsonValueKind.String &&
                              restoredView.ValueKind == JsonValueKind.String &&
                              string.Equals(savedView.GetString(), restoredView.GetString(), StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; savedCatalog=" +
+                            (data.TryGetProperty("sessionStoredDataView", out var storedCatalogNode) &&
+                             storedCatalogNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(storedCatalogNode.GetString(), "catalog", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredCatalog=" +
+                            (data.TryGetProperty("sessionRestoredDataView", out var restoredCatalogNode) &&
+                             restoredCatalogNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(restoredCatalogNode.GetString(), "catalog", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredTimeSeries=" +
+                            (data.TryGetProperty("sessionRestoredDataView", out var restoredTimeseriesNode) &&
+                             restoredTimeseriesNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(restoredTimeseriesNode.GetString(), "timeseries", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayApplied=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayAppliedNode) &&
+                             replayAppliedNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayAppliedNode.GetString(), "applied", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replaySuperseded=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replaySupersededNode) &&
+                             replaySupersededNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replaySupersededNode.GetString(), "superseded", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayModeChanged=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayModeNode) &&
+                             replayModeNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayModeNode.GetString(), "mode-changed", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoField=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoFieldNode) &&
+                             replayNoFieldNode.ValueKind == JsonValueKind.String &&
+                             (string.Equals(replayNoFieldNode.GetString(), "no-field", StringComparison.Ordinal) ||
+                              string.Equals(replayNoFieldNode.GetString(), "applied-no-field", StringComparison.Ordinal))
+                            ).ToString().ToLowerInvariant() +
+                            "; replayPending=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayPendingNode) &&
+                             replayPendingNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayPendingNode.GetString(), "pending", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoPlots=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoPlotsNode) &&
+                             replayNoPlotsNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayNoPlotsNode.GetString(), "no-plots", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayUnavailable=" +
+                            (!data.TryGetProperty("sessionReplayStatus", out var replayUnavailableNode) ||
+                             replayUnavailableNode.ValueKind != JsonValueKind.String ||
+                             string.Equals(replayUnavailableNode.GetString(), "unavailable", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; fieldSelectionPresent=" +
+                            (data.TryGetProperty("sessionStoredFieldSelectionPresent", out var selectionNode) &&
+                             selectionNode.ValueKind == JsonValueKind.True
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredModeField=" +
+                            (data.TryGetProperty("sessionRestoredMode", out var fieldModeNode) &&
+                             fieldModeNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(fieldModeNode.GetString(), "field", StringComparison.Ordinal)
                             ).ToString().ToLowerInvariant());
 
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
@@ -2913,15 +2985,29 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     try{setAppMode('field')}catch{}
   }
   let sessionSmoke=null,sessionSmokeError='';
+  let sessionSavedFresh=false,sessionReplayApiPresent=false,sessionSavedFieldSelectionPresent=false;
   try{
     const ss=window.FoamLensSessionState,ctx=window.FoamLensContextStore,ps=window.FoamLensPlotSurfaces;
     if(!ss||!ctx||!ps)throw new Error('Session persistence APIs are incomplete.');
+    sessionReplayApiPresent=typeof ss.replayStatus==='function';
+    if(!sessionReplayApiPresent)throw new Error('Current packaged session replay API is missing.');
     ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke',apply:false});
     window.FoamLensFieldWorkspace?.setInspector?.(true);
     setAppMode('field');
-    ss.save();
+    // G68: never read an OLD WebView2 localStorage snapshot after a guarded
+    // save returned false while the original Field restoration was active.
+    // Wait for the real stored-session restore and boundedly retry the
+    // original public save API; do not bypass its source-state guards.
+    if(typeof ss.whenRestored==='function')await ss.whenRestored();
+    for(let attempt=0;attempt<50&&!sessionSavedFresh;attempt++){
+      sessionSavedFresh=ss.save()===true;
+      if(!sessionSavedFresh)await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!sessionSavedFresh)throw new Error('Guarded session save could not settle before native persistence QA.');
     const stored=ss.load();
-    if(!stored)throw new Error('Session state was not written to localStorage.');
+    sessionSavedFieldSelectionPresent=!!(stored&&Object.prototype.hasOwnProperty.call(stored,'fieldSelection'));
+    if(!stored||!sessionSavedFieldSelectionPresent)
+      throw new Error('Fresh session snapshot is missing the original Field selection.');
     const storedDataView=String(stored?.plots?.surfaces?.data?.view||'');
     const storedRoot=String(stored?.context?.caseRoot||'');
     const expectedRoot=String(caseById(Number(switchedCase.id))?.rootPath||'');
@@ -2950,6 +3036,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       restoredRegion:String(restoredContext.region||''),
       storedDataView,
       restoredDataView:String(ps.state?.('data')?.view||''),
+      // Only a bounded replay-decision enum; never export cases, paths or values.
+      sessionReplayStatus:String(ss.replayStatus?.()||'unavailable'),
+      sessionStoredFieldSelectionPresent:!!stored?.fieldSelection,
       inspectorRestored:fieldState.inspector===true,
       fieldViewRestored:String(fieldState.view||'')===String(stored?.field?.view||''),
       fieldCompanionRestored:String(fieldState.companion||'')===String(stored?.field?.companion||'')
@@ -3357,6 +3446,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     sessionRestoredRegion:String(sessionSmoke?.restoredRegion||''),
     sessionStoredDataView:String(sessionSmoke?.storedDataView||''),
     sessionRestoredDataView:String(sessionSmoke?.restoredDataView||''),
+    // These bounded flags must be EXPORTED by the native smoke JSON; keeping
+    // them only in sessionSmoke previously caused false diagnostic negatives.
+    sessionReplayStatus:String(sessionSmoke?.sessionReplayStatus||'unavailable'),
+    sessionSavedFresh,
+    sessionReplayApiPresent,
+    sessionStoredFieldSelectionPresent:sessionSavedFieldSelectionPresent,
     sessionInspectorRestored:!!sessionSmoke?.inspectorRestored,
     sessionFieldViewRestored:!!sessionSmoke?.fieldViewRestored,
     sessionFieldCompanionRestored:!!sessionSmoke?.fieldCompanionRestored,
