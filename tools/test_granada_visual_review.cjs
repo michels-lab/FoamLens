@@ -66,6 +66,8 @@ try{
     assert.equal(data.missing_surfaces.length,0);
     assert.equal(data.artifact_checks.installed.state,'verified');
     assert.equal(data.artifact_checks.portable.state,'verified');
+    assert.equal(audit(doc,{root,sha:commit}).status,'INVALID',
+      'even 36 full-size frames must not receive review status without verified exact candidate EXEs');
   });
   test('missing Analysis, Review, Live and Time Series cannot pass strict complete coverage',()=>{
     const copy=structuredClone(doc);
