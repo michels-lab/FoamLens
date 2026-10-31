@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 431,
-  "classified_files_total": 427,
-  "docs_content_inspected": 88,
+  "tracked_files_total": 435,
+  "classified_files_total": 431,
+  "docs_content_inspected": 89,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 82,
+    "document": 83,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 131,
+    "source": 133,
     "test": 116,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 54
+    "workflow": 55
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "6e983b3079402ff55f50255b0d90b368311f20d30047b30b2454ed36120674c4",
-  "evidence_fingerprint": "09bda2a2f5c766d43b806d07132ae6bd0b518bb2e5c5ddc77953f5ba6f991639",
+  "inventory_fingerprint": "4a74012ce65d6c4a6336a1f0ea31ad246bb1818f875cb9452e64a7870809bf2a",
+  "evidence_fingerprint": "b20d010c31ff4e90cbea62f58d536ba487a2fcf900ff058c85ed44af12cb59ee",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -259,6 +259,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "bd2c5c3a54bc9cca092bd437d1c7e036e6f4c253"
+    },
+    {
+      "path": ".github/workflows/granada-g23-windows-profile-lifecycle.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "1f9778e5da539f004615e681248fc20748fdb296"
     },
     {
       "path": ".github/workflows/granada-g24-real-webview2-persistence.yml",
@@ -2039,6 +2046,13 @@
       "blob": "15483d161071182a5e5ea1f620cade0089620cbb"
     },
     {
+      "path": "docs/GRANADA_G23_WINDOWS_PROFILE_LIFECYCLE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4ed36605d4a73ca319ae2e039431fce62bf1008a"
+    },
+    {
       "path": "docs/GRANADA_G24_REAL_WEBVIEW2_STORAGE_2026-10-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2606,6 +2620,20 @@
       "blob": "203c18c03f5cbcb128bb02570325d735b424f01a"
     },
     {
+      "path": "tools/granada_g23_windows_install_profile_lifecycle.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a760d3a898500dc9fd559265c86875c2ae3b3f7c"
+    },
+    {
+      "path": "tools/granada_g23_windows_install_profile_lifecycle.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ded9f97618e14fa01a9710ca3dbb5c3f2d1d15f0"
+    },
+    {
       "path": "tools/granada_g24_real_webview2_lifecycle.ps1",
       "role": "source",
       "purpose": "code/test implementation",
@@ -3021,11 +3049,11 @@
   ],
   "findings": [
     {
-      "id": "a39f008baedfb282",
+      "id": "366a4782c1bc08aa",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "5 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g37_real_b13_stress_guards.test.cjs",
+      "observation": "8 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g23_windows_install_profile_lifecycle.ps1",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
