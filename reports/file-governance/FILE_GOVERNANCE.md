@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 435; classified: 431; readable documents: 89; above read cap: 1; findings: 1.
+Tracked: 439; classified: 435; readable documents: 90; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,19 +16,19 @@ Tracked: 435; classified: 431; readable documents: 89; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 83 |
+| document | 84 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 133 |
-| test | 116 |
+| source | 134 |
+| test | 117 |
 | text_metadata | 1 |
 | web_ui | 2 |
-| workflow | 55 |
+| workflow | 56 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 8 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g23_windows_install_profile_lifecycle.ps1. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 366a4782c1bc08aa)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 11 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 2e978e6b9caf3533)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 435,
-  "classified_files_total": 431,
-  "docs_content_inspected": 89,
+  "tracked_files_total": 439,
+  "classified_files_total": 435,
+  "docs_content_inspected": 90,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 83,
+    "document": 84,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 133,
-    "test": 116,
+    "source": 134,
+    "test": 117,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 55
+    "workflow": 56
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "5df45639143a8873baab060aa753926f55c052fed9129b0312023d192fc2440a",
-  "evidence_fingerprint": "b20d010c31ff4e90cbea62f58d536ba487a2fcf900ff058c85ed44af12cb59ee",
+  "inventory_fingerprint": "6cf9cd043d9e401a984b5cf1c15f42537c068a40f58e627381bcbd1b876ed412",
+  "evidence_fingerprint": "2b58bfef3b0cd6a197b0e7b0ff68d0685b62c1adc39e6a6a2adc294ce052a225",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -175,6 +175,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "fba51cd8f1ecb586dcdc6c5ed78b5e33f9bcab8a"
+    },
+    {
+      "path": ".github/workflows/granada-177-g5-native-visual-review.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "809aa1db6d10668cf8c9f6b35da51700a85b646e"
     },
     {
       "path": ".github/workflows/granada-177-global-ux.yml",
@@ -1969,6 +1976,13 @@
       "blob": "da80f575dc276f4eff364be07249d281a116cdd1"
     },
     {
+      "path": "docs/GRANADA_177_G5_NATIVE_VISUAL_REVIEW_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "967a33cbec185ff1d5c8f102e9ba42585d60d075"
+    },
+    {
       "path": "docs/GRANADA_2D_3D_EQUIVALENT_OBSERVABLES_2026-10-19.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2865,6 +2879,13 @@
       "blob": "1a22b48d4fddb469c974676d88f9f2b8f21bf85f"
     },
     {
+      "path": "tools/granada_visual_review.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6cdf351461dec1a18d467e100b3b9c73cfb14d5a"
+    },
+    {
       "path": "tools/make_visual_evidence.py",
       "role": "source",
       "purpose": "code/test implementation",
@@ -2940,6 +2961,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "512811c07b1815165e2affebc67ddce928442ba1"
+    },
+    {
+      "path": "tools/test_granada_visual_review.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4d5a186930f20215b3c345aff5a617477d0670a8"
     },
     {
       "path": "tools/test_installer_shortcuts.ps1",
@@ -3049,11 +3077,11 @@
   ],
   "findings": [
     {
-      "id": "366a4782c1bc08aa",
+      "id": "2e978e6b9caf3533",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "8 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g23_windows_install_profile_lifecycle.ps1",
+      "observation": "11 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
