@@ -16,7 +16,7 @@ test('actual original QuickCup runs real G58 Time Series before G72 source-backe
         host.indexOf('await CaptureGranadaG72NativeTabsAsync(root, size.Name)'));
  assert.match(host,/CaptureCdpPngAsync\(Path\.Combine\(root, \$"\{tab\}-\{sizeName\}\.png"\)\)/);
  assert.match(host,/await CaptureScientificWorkspaceEvidenceAsync\(\)/);
- assert.match(host,/original native B13 Windows runtime/);
+ assert.match(host,/actual packaged original B13 Windows runtime/);
 });
 test('actual A/B 3D scientific Field compare is mandatory: never a 2D split substitute',()=>{
  for(const s of ["el('fcEnabled')","el('fvViewport')","el('fcViewport')",
