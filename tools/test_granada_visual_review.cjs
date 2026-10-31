@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib');
 const {audit,render,main,MODES,VARIANTS,SIZES,png}=require('./granada_visual_review.cjs');
+const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/granada-177-g5-native-visual-review.yml'),'utf8');
 const commit='1234567890abcdef1234567890abcdef12345678';
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 
@@ -58,6 +59,14 @@ function make(){
 }
 const {doc,setup,portable}=make(),opts={root,sha:commit,setup,portable};
 try{
+  test('G71 continuous evidence audit checks real main screenshot producer without auto-publish',()=>{
+    assert(workflow.includes('  push:')&&workflow.includes('branches: [main]'));
+    assert(workflow.includes("'tools/make_visual_evidence.py'"));
+    assert(workflow.includes("'desktop/src/FoamLensDesktop/Program.cs'"));
+    assert(workflow.includes("github.event_name == 'workflow_dispatch'"),
+      'Windows candidate artifact download and offline report remain manual');
+    assert(!workflow.includes('gh release create'));
+  });
   test('only authentic schema, source SHA, distinct installed/portable artifact bindings qualify',()=>{
     const data=audit(doc,opts);
     assert.equal(data.status,'REQUIRES_HUMAN_REVIEW');

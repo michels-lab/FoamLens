@@ -1,6 +1,15 @@
 name: Granada G5 — native visual review evidence
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/granada_visual_review.cjs'
+      - 'tools/test_granada_visual_review.cjs'
+      - '.github/workflows/granada-177-g5-native-visual-review.yml'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/visual_release_gate.py'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
   pull_request:
     branches: [main]
     paths:
