@@ -43,7 +43,7 @@ test('real G72 PNGs require original bytes; raw scientific fields never exported
  for(const s of ['modeOk','navOk','panelOk','controlsOk','actualCompare'])
   assert(host.includes('key + "="'),'failure must print bounded source-neutral booleans');
  assert(!host.includes('G72 original B13 synthetic screenshot fallback'));
- assert(host.includes('original QuickCup source/time/regions'));
+ assert(host.includes('after real QuickCup source/time/regions and G58 have passed.'));
 });
 test('all 20 additional native screenshot records have distinct exact binary and platform identity',()=>{
  for(const tab of tabs)assert(maker.includes('"'+tab+'"'),'missing workspace '+tab);
