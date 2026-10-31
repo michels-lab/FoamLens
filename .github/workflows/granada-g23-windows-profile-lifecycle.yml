@@ -1,0 +1,140 @@
+name: G23 original Windows Setup and Portable profile lifecycle (test only)
+on:
+  push:
+    branches:
+      - main
+      - test/granada-g23-windows-profile-lifecycle-20261023
+    paths:
+      - '.github/workflows/granada-g23-windows-profile-lifecycle.yml'
+      - 'tools/granada_g23_windows_install_profile_lifecycle.ps1'
+      - 'tools/granada_g23_windows_install_profile_lifecycle.test.cjs'
+      - 'desktop/installer/FoamLens.iss'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+      - 'desktop/src/FoamLensDesktop/frontend/v23-session-state.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g23-native-lifecycle
+  cancel-in-progress: true
+jobs:
+  lifecycle-source-guards:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: All negative profile/privacy/reinstallation source contracts
+        run: node --test tools/granada_g23_windows_install_profile_lifecycle.test.cjs
+      - name: Syntax-check actual Windows PowerShell (no install)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g23_windows_install_profile_lifecycle.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count -gt 0){$errors | ForEach-Object {Write-Error $_.Message};throw 'Native G23 Windows script syntax invalid'}
+  actual-native-installer:
+    needs: lifecycle-source-guards
+    runs-on: windows-latest
+    timeout-minutes: 85
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Refuse drifting or composite product source
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $remote){throw 'G23 must test the exact unmodified current main Windows product'}
+          "G23_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+          node --test qa/tools/granada_g23_windows_install_profile_lifecycle.test.cjs
+          if($LASTEXITCODE -ne 0){throw 'G23 original installer source safety checks failed'}
+      - name: Create only original main embedded frontend and build real Portable
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Canonical original icon dependency unavailable'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'Canonical Windows icon generation failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Official ICO does not match canonical artwork'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force g23-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g23-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g23-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g23-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g23-bundle/LICENSE.txt
+          Compress-Archive -Path g23-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive $bundle -DestinationPath g23-bundle-check -Force
+          if((Get-FileHash g23-bundle-check/index.html -Algorithm SHA256).Hash -ne (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Exact original main front-end bundle differs'}
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g23-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g23-publish/FoamLens.exe)){throw 'Real original Windows Portable missing'}
+      - name: Compile official Inno Setup without publishing
+        working-directory: product
+        run: |
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Original Inno Setup compiler unavailable'}
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($v -notmatch '^\d+\.\d+\.\d+$'){throw 'Original main version not stable semver'}
+          $out=(Resolve-Path artifacts/g23-publish).Path
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc "/DMyAppVersion=$v" "/DPublishDir=$out" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0){throw 'Official original installer did not compile'}
+          $setup="desktop/artifacts/FoamLens-Setup-v$v.exe"
+          if(-not(Test-Path $setup)){throw 'Official original installer missing'}
+      - name: Actual Unicode Portable, two reinstall cycles, native starts and no profile data loss
+        working-directory: product
+        run: |
+          $env:FOAMLENS_SMOKE_SOURCE_SHA=$env:G23_MAIN_SHA
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          ../qa/tools/granada_g23_windows_install_profile_lifecycle.ps1 -Installer "desktop/artifacts/FoamLens-Setup-v$v.exe" -Portable 'artifacts/g23-publish/FoamLens.exe' -TestRoot 'artifacts/g23-native-test' -OriginalMainSha $env:G23_MAIN_SHA -Report '../g23-evidence/report.json'
+          if(-not(Test-Path ../g23-evidence/report.json)){throw 'Missing exact original G23 native safety report'}
+      - name: Check source still exact original official main after native install/uninstall
+        working-directory: product
+        run: |
+          $sha=(git rev-parse HEAD).Trim()
+          $remote=((git ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $env:G23_MAIN_SHA -or $remote -ne $env:G23_MAIN_SHA){throw 'Main source changed during native profile lifecycle'}
+          foreach($f in @('desktop/src/FoamLensDesktop/Program.cs','desktop/installer/FoamLens.iss')){
+            if((git hash-object $f).Trim() -ne (git rev-parse ("HEAD:"+$f)).Trim()){throw 'Official main installer product changed'}
+          }
+          $report=Get-Content ../g23-evidence/report.json -Raw | ConvertFrom-Json
+          if($report.originalMainSha -ne $sha -or $report.innoInstall -ne 2 -or $report.innoUninstall -ne 1 -or $report.syntheticProfileSentinelsPreserved -ne 3){throw 'Actual Windows lifecycle not complete'}
+      - name: Upload hashes and synthetic-test result ONLY; no installers, binaries or user profile contents
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G23-original-main-profile-lifecycle-metadata-only
+          path: g23-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7

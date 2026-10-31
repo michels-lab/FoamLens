@@ -1,0 +1,276 @@
+name: G37 real private QuickCup B13 six original Installed and Portable Play cycles - no release
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/granada-g37-real-b13-play-stress.yml'
+      - 'tools/granada_g37_real_b13_stress_guards.test.cjs'
+  push:
+    branches:
+      - main
+      - test/granada-g37-real-b13-six-native-play-restarts-20261026
+      - fix/granada-g40-g37-live-main-reentry-20261027
+      - fix/granada-g42-file-steward-main-drift-20261027
+    # Avoid 400MB original B13 smoke on metadata-only File Steward commits.
+    # Automatically verify real, newly merged Play/Field and original G37 QA sources.
+    paths:
+      - '.github/workflows/granada-g37-real-b13-play-stress.yml'
+      - 'tools/granada_g37_real_b13_play_stress.ps1'
+      - 'tools/granada_g37_real_b13_stress_guards.test.cjs'
+      - 'desktop/tests/granada-176-timeseries-ui.spec.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v32-granada-field-cameras.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: foamlens-g37-real-native-B13-Play
+  cancel-in-progress: true
+jobs:
+  fail-closed-source-regression:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 17
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Negative proof that real 3+3 B13 process and all original Play geometry thresholds stay mandatory
+        run: node --test tools/granada_g37_real_b13_stress_guards.test.cjs
+      - name: G55 original Time Series and Field ownership source regressions (both OS)
+        run: |
+          node desktop/tests/granada-176-timeseries-ui.spec.cjs
+          node desktop/tests/section-ownership.test.cjs
+      - name: Native Windows QA harness syntax and private-data safety
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors=$null
+          $tokens=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g37_real_b13_play_stress.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count){$errors | ForEach-Object { Write-Error $_.Message };throw 'G37 native real B13 test harness cannot parse'}
+  six-genuine-native-windows-B13:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: fail-closed-source-regression
+    runs-on: windows-latest
+    timeout-minutes: 110
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify EXACT current merged G35/Field main source, current test SHA and no product-source edits
+        run: |
+          $sha=(git rev-parse HEAD).Trim()
+          if($sha -ne '${{ github.sha }}' -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G37 exact source HEAD mismatch'}
+          # G40: official main may contain newer merged product commits.
+          # QA branches still may edit ONLY their explicit QA/doc owner files.
+          $runRef='${{ github.ref }}'
+          $currentMain=((git ls-remote origin refs/heads/main) -split '\s+')[0]
+          if($currentMain -notmatch '^[a-f0-9]{40}$'){throw 'G37 cannot identify live main; fail closed'}
+          if($runRef -eq 'refs/heads/main'){
+            if($sha -ne $currentMain){
+              # G42: only trusted File Steward metadata-only [skip ci] commits
+              # may postdate the exact native source snapshot. Never waive
+              # original application, CAD, CFD, Windows Setup or Play checks.
+              git fetch --no-tags origin main
+              if($LASTEXITCODE -ne 0){throw 'G42 cannot fetch current main lineage'}
+              $fetchedMain=(git rev-parse origin/main).Trim()
+              if($fetchedMain -ne $currentMain){throw 'G42 main changed during provenance fetch'}
+              git merge-base --is-ancestor $sha $currentMain
+              if($LASTEXITCODE -ne 0){throw 'G42 trigger SHA not ancestor of latest main'}
+              $stewardCommits=@(git log --format=%s "$sha..$currentMain")
+              if($stewardCommits.Count -lt 1 -or $stewardCommits.Count -gt 4 -or
+                 @($stewardCommits | Where-Object {$_ -cne 'chore(file-steward): refresh local audit findings [skip ci]'}).Count -gt 0){
+                throw 'G42 unverified main commit after native trigger'
+              }
+              $stewardPaths=@('docs/audits/FILE_GOVERNANCE_LOG.md',
+                               'reports/file-governance/FILE_GOVERNANCE.json',
+                               'reports/file-governance/FILE_GOVERNANCE.md',
+                               'reports/file-governance/SUMMARY.json')
+              $changedAfterSnapshot=@(git diff --name-only $sha $currentMain)
+              if($changedAfterSnapshot.Count -lt 1 -or
+                 @($changedAfterSnapshot | Where-Object {$_ -cnotin $stewardPaths}).Count -gt 0){
+                throw 'G42 non-audit product source changed after native trigger'
+              }
+              $stillCurrent=((git ls-remote origin refs/heads/main) -split '\s+')[0]
+              if($stillCurrent -ne $currentMain){throw 'G42 main changed after audit-only verification'}
+              Write-Host 'G42 checked: only File Steward metadata advanced after original native source SHA'
+            } else {
+              Write-Host 'G37 exact live main source verified'
+            }
+          } elseif($runRef -in @('refs/heads/test/granada-g37-real-b13-six-native-play-restarts-20261026',
+                               'refs/heads/fix/granada-g40-g37-live-main-reentry-20261027',
+                               'refs/heads/fix/granada-g42-file-steward-main-drift-20261027')){
+            $branchBase=(git merge-base HEAD origin/main).Trim()
+            if($branchBase -notmatch '^[a-f0-9]{40}$'){throw 'G37 cannot identify QA branch merge base'}
+            $modified=@(git diff --name-only $branchBase HEAD)
+            $allowed=@('tools/granada_g37_real_b13_play_stress.ps1',
+                     'tools/granada_g37_real_b13_stress_guards.test.cjs',
+                     '.github/workflows/granada-g37-real-b13-play-stress.yml',
+                     'docs/GRANADA_G37_REAL_B13_REPEATED_PLAY_2026-10-26.md',
+                     'docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md',
+                     'docs/GRANADA_G42_FILE_STEWARD_MAIN_LINEAGE_2026-10-27.md',
+                     '.github/workflows/granada-g27-native-culture-matrix.yml',
+                     'tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj',
+                     'tools/granada_g27_culture_probe/Program.cs',
+                     'tools/granada_g27_native_culture_matrix.test.cjs',
+                     'tools/granada_g27_windows_native_culture_matrix.ps1',
+                     'docs/GRANADA_G27_SCIENTIFIC_NATIVE_WINDOWS_CULTURE_2026-10-23.md',
+                     'docs/GIT_AUDIT_LOG.md',
+                     'docs/audits/FILE_GOVERNANCE_LOG.md',
+                     'reports/file-governance/FILE_GOVERNANCE.json',
+                     'reports/file-governance/FILE_GOVERNANCE.md',
+                     'reports/file-governance/SUMMARY.json')
+            if(@($modified | Where-Object {$_ -notin $allowed}).Count -gt 0){throw 'G37 QA branch modifies original CAD, Field, updater or scientific product source'}
+          } else {throw 'G37 unrecognized Git ref; require verified main or original QA branch'}
+          if((git status --porcelain).Count -gt 0){throw 'G37 original source worktree dirty'}
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          if(([string]$proj.Project.PropertyGroup.Version).Trim() -ne '1.8.10'){throw 'G37 original source version drift'}
+          "G37_ACTUAL_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append
+      # G62: the historical hard-coded run-id expired even while the real
+      # QuickCup source artifact was available from recent independent CI.
+      # Resolve only official successful main builder jobs, exact SHA or
+      # an ancestor differing solely in explicit QA/File Steward paths.
+      - name: Resolve independently generated real QuickCup B13 fixture with strict source provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo=$env:GITHUB_REPOSITORY
+          $source=$env:G37_ACTUAL_SHA
+          $allowedQA=@(
+            '.github/workflows/granada-g37-real-b13-play-stress.yml',
+            'tools/granada_g37_real_b13_stress_guards.test.cjs',
+            'docs/GRANADA_G62_G37_FRESH_B13_ARTIFACT_2026-10-30.md',
+            'docs/audits/FILE_GOVERNANCE_LOG.md',
+            'reports/file-governance/FILE_GOVERNANCE.json',
+            'reports/file-governance/FILE_GOVERNANCE.md',
+            'reports/file-governance/SUMMARY.json')
+          $resolved=$false
+          for($attempt=0;$attempt -lt 24 -and -not $resolved;$attempt++){
+            $recent=gh api "repos/$repo/actions/workflows/build-foamlens-desktop.yml/runs?branch=main&per_page=50" | ConvertFrom-Json
+            if($LASTEXITCODE -ne 0){throw 'G62 unable to query original independent Windows builders'}
+            foreach($candidate in @($recent.workflow_runs)){
+              if($candidate.name -cne 'Build FoamLens Desktop for Windows' -or
+                 $candidate.event -cne 'push' -or $candidate.head_branch -cne 'main' -or
+                 $candidate.head_sha -notmatch '^[0-9a-f]{40}$'){continue}
+              if($candidate.head_sha -cne $source){
+                git merge-base --is-ancestor $candidate.head_sha $source
+                if($LASTEXITCODE -ne 0){continue}
+                $delta=@(git diff --name-only $candidate.head_sha $source)
+                if(@($delta | Where-Object {$_ -cnotin $allowedQA}).Count -gt 0){continue}
+              }
+              $jobs=gh api "repos/$repo/actions/runs/$($candidate.id)/jobs?per_page=100" | ConvertFrom-Json
+              if($LASTEXITCODE -ne 0){throw 'G62 unable to inspect independent QuickCup builder job'}
+              $sourceJobs=@($jobs.jobs | Where-Object {
+                $_.name -ceq 'Real OpenFOAM QuickCup regression' -and $_.status -ceq 'completed' -and $_.conclusion -ceq 'success'
+              })
+              if($sourceJobs.Count -ne 1){continue}
+              $artifactList=gh api "repos/$repo/actions/runs/$($candidate.id)/artifacts?per_page=100" | ConvertFrom-Json
+              if($LASTEXITCODE -ne 0){throw 'G62 unable to verify original B13 artifact metadata'}
+              $matches=@($artifactList.artifacts | Where-Object {
+                $_.name -ceq 'QuickCup-MultiCase-Windows-runtime' -and $_.expired -eq $false -and $_.size_in_bytes -gt 100000000
+              })
+              if($matches.Count -ne 1){continue}
+              "G37_B13_FIXTURE_RUN_ID=$($candidate.id)" | Out-File -FilePath $env:GITHUB_ENV -Append
+              "G37_B13_FIXTURE_SOURCE_SHA=$($candidate.head_sha)" | Out-File -FilePath $env:GITHUB_ENV -Append
+              Write-Host 'G62: independently generated real five-case B13 artifact available from verified product-equivalent source'
+              $resolved=$true
+              break
+            }
+            if(-not $resolved -and $attempt -lt 23){Start-Sleep -Seconds 15}
+          }
+          if(-not $resolved){throw 'G62: no verified unexpired independent B13 artifact from same product source; FAIL CLOSED'}
+      - name: Retrieve provenance-checked REAL original B13 metal and mold fixture
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.G37_B13_FIXTURE_RUN_ID }}
+          name: QuickCup-MultiCase-Windows-runtime
+          path: quickcup-runtime-fixture
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail closed if exact private B13 QuickCup fixture expired or lost original measured metal and mold
+        run: |
+          if(-not(Test-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14/9.8/metal/T') -or
+             -not(Test-Path 'quickcup-runtime-fixture/B13_prghPressure_airGapOF14/9.8/mold/T')){
+            throw 'G37 genuine independent B13 source artifact missing or expired; no fake synthetic fallback'
+          }
+          $caseCount=@(Get-ChildItem 'quickcup-runtime-fixture' -Directory).Count
+          if($caseCount -lt 5){throw 'G37 original real five-case QuickCup expected'}
+          Write-Host 'G37 original privately measured source fixture present; input values intentionally never logged or uploaded'
+      - name: Compile SAME exact untouched current main real Windows single-file EXE plus original Inno Setup v1.8.10
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'G37 genuine original icon tooling unavailable'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'G37 real original Windows icon generator failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'G37 original brand icon mismatch'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force -Path g37-source-zip | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g37-source-zip/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g37-source-zip/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g37-source-zip/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g37-source-zip/LICENSE.txt
+          Compress-Archive -Path g37-source-zip/* -DestinationPath $bundle -CompressionLevel Optimal
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o g37-native-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path 'g37-native-publish/FoamLens.exe')){throw 'G37 genuine original compiled app missing'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'G37 genuine original Inno compiler unavailable'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path 'g37-native-publish').Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path 'desktop/artifacts/FoamLens-Setup-v1.8.10.exe')){
+            throw 'G37 actual original Inno installer failed'
+          }
+      - name: Launch EXACT current merged main Windows product 3 times Portable and 3 times Installed with real private B13 Field+Play
+        run: |
+          ./tools/granada_g37_real_b13_play_stress.ps1 -Portable g37-native-publish/FoamLens.exe -Installer desktop/artifacts/FoamLens-Setup-v1.8.10.exe -CaseRoot quickcup-runtime-fixture -SourceSha $env:G37_ACTUAL_SHA -Report g37-sanitized/report.json
+          if(-not(Test-Path g37-sanitized/report.json)){throw 'G37 genuine native six-loop field report missing'}
+      - name: Require all six actual original B13 1140 and 640 Play passes with exact SHA and no fake release
+        run: |
+          if((git rev-parse HEAD).Trim() -ne $env:G37_ACTUAL_SHA){throw 'G37 product source SHA drift'}
+          $r=Get-Content g37-sanitized/report.json -Raw|ConvertFrom-Json
+          if($r.schema -ne 'foamlens/granada-g37-actual-b13-stress/1' -or
+             $r.sourceSha -ne $env:G37_ACTUAL_SHA -or
+             $r.originalProductSourceUntouched -ne $true -or
+             $r.completedAttempts.Count -ne 6 -or
+             $r.realNativeB13SixCycleGatePassed -ne $true -or
+             $r.originalInnoInstalledAndUninstalled -ne $true -or
+             $r.originalProductReleaseReady -ne $false -or
+             $r.humanVisual36Accepted -ne $false){
+            throw 'G37 native real B13 repeat evidence not completed or false release approval'
+          }
+          $port=@($r.completedAttempts | Where-Object {$_.mode -eq 'portable'}).Count
+          $inst=@($r.completedAttempts | Where-Object {$_.mode -eq 'installed'}).Count
+          if($port -ne 3 -or $inst -ne 3){throw 'G37 real B13 original Play six-run coverage incomplete'}
+          Write-Host 'G37 genuine ORIGINAL B13 Play 6/6 PASS: 1140+640px, measured mold+metal, 3 Installed+3 Portable, no release'
+      - name: Preserve only sanitized boolean metadata, NEVER private B13 source, screenshots, browser profiles or unsigned installer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G37-six-original-B13-native-Play-booleans-only
+          path: g37-sanitized/report.json
+          if-no-files-found: warn
+          retention-days: 7
