@@ -1,31 +1,33 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 303,
-  "classified_files_total": 299,
-  "docs_content_inspected": 55,
+  "tracked_files_total": 431,
+  "classified_files_total": 427,
+  "docs_content_inspected": 88,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
     "agent": 9,
     "asset": 6,
     "bitacora": 2,
-    "build_script": 5,
+    "build_script": 10,
     "config": 7,
-    "document": 49,
+    "document": 82,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 88,
-    "test": 97,
+    "source": 131,
+    "test": 116,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 26
+    "workflow": 54
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "017702167c75b3b7b5a52171e37737356b854482cbbb9c348298a5e74c621a6c",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "6e983b3079402ff55f50255b0d90b368311f20d30047b30b2454ed36120674c4",
+  "evidence_fingerprint": "09bda2a2f5c766d43b806d07132ae6bd0b518bb2e5c5ddc77953f5ba6f991639",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -74,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "10ed46c5050d812408b3fb8db3651adcd3a8f6ae"
+      "blob": "880e189d071f33b352d6851134c98978188a9841"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -84,11 +86,25 @@
       "blob": "aa208bfd27ef8e55da0efc2e93bcf22cbcc5daf1"
     },
     {
+      "path": ".github/workflows/cad-surface-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "c92a2c4d681c93622ac6e8f029ca0a5b098412a5"
+    },
+    {
       "path": ".github/workflows/data-loaded-cases-fast.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "d4d4ca5d0fe470de3b0b1cb559a4c11f70fb4733"
+    },
+    {
+      "path": ".github/workflows/equivalent-observables-fast.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "291288776c13b8ccd1072341fc12f3928354551f"
     },
     {
       "path": ".github/workflows/fast-import-regression.yml",
@@ -133,11 +149,53 @@
       "blob": "11ff8aef832e489a2d414864cda3c80d2bf0d078"
     },
     {
+      "path": ".github/workflows/granada-117-real-case-benchmark.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
+    },
+    {
+      "path": ".github/workflows/granada-176-timeseries-t2.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "894b66d10587db676ec44cb78d775c7db2404ce5"
+    },
+    {
+      "path": ".github/workflows/granada-177-g4-review-live.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "197217d921a7751f8e879b57779f091b00931c0b"
+    },
+    {
       "path": ".github/workflows/granada-177-g5-audit-diff.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "fba51cd8f1ecb586dcdc6c5ed78b5e33f9bcab8a"
+    },
+    {
+      "path": ".github/workflows/granada-177-global-ux.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "9dee388505d822e393d2d320e624897e4d8335e8"
+    },
+    {
+      "path": ".github/workflows/granada-backlog-convergence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
+    },
+    {
+      "path": ".github/workflows/granada-developer-note-triage.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "5674d43fba068b24117506a7da78df94b43ddd14"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -189,6 +247,118 @@
       "blob": "2512d5d91b65f66e4e682d486685f545d8e32fe3"
     },
     {
+      "path": ".github/workflows/granada-g21-signed-release-gate.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "201feecc0cbbf1a1171b069b00cbb4cb5e363f98"
+    },
+    {
+      "path": ".github/workflows/granada-g22-compact-css-boundary.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bd2c5c3a54bc9cca092bd437d1c7e036e6f4c253"
+    },
+    {
+      "path": ".github/workflows/granada-g24-real-webview2-persistence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "1a83232fff70dd1fac1b2a72b0e77b56d312cab6"
+    },
+    {
+      "path": ".github/workflows/granada-g25-external-navigation-guard.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "362f44a084fee99195992748a271d679825cf990"
+    },
+    {
+      "path": ".github/workflows/granada-g26-pr-integration-map.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bf3095515ef7a559c490675f78f7126629a7261b"
+    },
+    {
+      "path": ".github/workflows/granada-g27-native-culture-matrix.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "545f8c4820edfbe274e0d24f770283e4360d968a"
+    },
+    {
+      "path": ".github/workflows/granada-g29-real-version-storage-migration.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "a114f2aa781d19e94c6a6a78b5f358191cf37a01"
+    },
+    {
+      "path": ".github/workflows/granada-g30-real-native-offline.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "bd4d13ccfca74f82ea46bb5cef6d9641f8d2c87d"
+    },
+    {
+      "path": ".github/workflows/granada-g31-original-native-package-bom.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d32803d5530be5c1b21492528904b12cac3312d7"
+    },
+    {
+      "path": ".github/workflows/granada-g33-real-native-residue.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "e1814148774a884b37f2077a76736284db7b44e7"
+    },
+    {
+      "path": ".github/workflows/granada-g35-real-cad-trusted-js.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "ec460ab2f3ef979e9b3dc5cb6dfe3269ea269121"
+    },
+    {
+      "path": ".github/workflows/granada-g37-real-b13-play-stress.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "1c5b0871d045fd3118becd55264c2cfe5d20fe41"
+    },
+    {
+      "path": ".github/workflows/granada-g38-scientific-export.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "d97e2695526913518c22cf83f6b1e0687ab8cc17"
+    },
+    {
+      "path": ".github/workflows/granada-g39-findings-integrity.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "61168235fcac41b4b478810b7c33d6c854b41ab2"
+    },
+    {
+      "path": ".github/workflows/granada-g41-play-attribution-guards.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "515e026a695503727ded90a3336b9cceb109b372"
+    },
+    {
+      "path": ".github/workflows/granada-g43-original-play-width.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "cf637a4fb2c3a41d04ec10c08d4a989ddc4de64f"
+    },
+    {
       "path": ".github/workflows/granada-g7-compact-workbench-native.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -200,7 +370,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "c886bf6fb20a828cd75202ca3c2ab003e0a4e50e"
+      "blob": "82b659c01fc65e7386db2a340ffa19725b6415f0"
     },
     {
       "path": ".github/workflows/granada-g8-compact-timeseries.yml",
@@ -210,6 +380,13 @@
       "blob": "b0f638995e20787c980486d33799be09d6685290"
     },
     {
+      "path": ".github/workflows/granada-multiregion-energy.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "079ae9a046373726f9b5f2e64cb15e32dfa9ca6c"
+    },
+    {
       "path": ".github/workflows/granada-original-command-search.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -217,11 +394,32 @@
       "blob": "694d8fcdbf522fa720048417900d7bf9a84204ca"
     },
     {
+      "path": ".github/workflows/granada-physics-evidence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "67d7cfbf1d82310c0e67b724f377b22daf761494"
+    },
+    {
       "path": ".github/workflows/granada-release-proof-readonly.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "cc918e5686e98e0d6614889c8d9e2a6b866906a4"
+    },
+    {
+      "path": ".github/workflows/granada-scientific-case-health.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "2210e7bff420728cbe2d2bd60966c5c71c1d8e51"
+    },
+    {
+      "path": ".github/workflows/granada-thermocouple-xyz.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "6f92cf099986f993129649e1fd542f95159051b8"
     },
     {
       "path": ".github/workflows/mesh-audit-fast.yml",
@@ -256,7 +454,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "0eb546ed65d04e15d16cdfef3b10d6c101c8d4d0"
+      "blob": "783260dc3f69012537205bfb5f68a625387badf1"
     },
     {
       "path": ".michelslab/agents/contrarian.md",
@@ -319,7 +517,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "e46df880f69fd8e94e698e4ab4353a152aecf17c"
+      "blob": "41f16b0547cc6317107d4185c952d7b85382e20d"
     },
     {
       "path": "LICENSE",
@@ -396,7 +594,14 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0dcbef3ece10145ab59970c4542ed8c7733ba6bc"
+      "blob": "02111fe0c566ce58e5203a956babc36da589eb45"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/ExternalNavigationPolicy.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9c928252aa8a78818fa2fe490e64d5bdac6e4ab9"
     },
     {
       "path": "desktop/src/FoamLensDesktop/FoamLensDesktop.csproj",
@@ -431,7 +636,14 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "185a71faeb70bd49c11ac06350c81833bc9343c7"
+      "blob": "d4f125a258eda9ccf16c995390d0a364761c0d00"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a918f6fada577a73baa3c11acd28a288e8db7ee5"
     },
     {
       "path": "desktop/src/FoamLensDesktop/UpdateAssetIntegrity.cs",
@@ -536,7 +748,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "30a6806c192c445ac3fa682c32eb15d903f2ae68"
+      "blob": "0e23cfcdc83d471f416257ca4e4c9d8a6364df28"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-solidification-analysis.js",
@@ -592,7 +804,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d49c6c8479ca4e3f3f53e5ccc9ab9afe1150cf87"
+      "blob": "7a02292ec1aac50d780fa6f22bc696157eca9f69"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -676,7 +888,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1d5201ace3cd7877b4f80db7393dd3ab37df5bc2"
+      "blob": "bb286d1d36131802ce96757dd18fa3ccd6c16e7a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -753,14 +965,77 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c0bf461f390d999e1f7f2993a18e8b28a8aa08f5"
+      "blob": "3cecdb7425c93ae77e37909667773736acd9d99d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v23-session-state.js",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2fdbb2fbf5131291c09ed85089cd3036a7cbc769"
+      "blob": "60e25928784824c87f80acffc760dd8587045159"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "90620e4669c67da83b891fd7f6a2a7497adb35ae"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ef870158a770179fd4ffaccc92c3d8467e6bbebb"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2b829f74fa6cc3b344724095f5ea97c1bd338d16"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2a96cd4e0ebeae9f017d07a3c50598de877717ea"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-timeseries-t2.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "69441e76ca0b23e2626ca03f87aa220ac8f5b274"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f40e3f00f3102815ee706003a922cc65ed5d3383"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-physics-evidence-explorer.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d4ff85d6b0c2984036dd9ab7cf660404ae7d5311"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "90f581236b0eb000390c3581a786ce58dbcbcbc9"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "fb695a65c11bca36208ce87c0320b9eab726f0bd"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js",
@@ -774,14 +1049,14 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ddf4991183ec8c7a3ca0e0fafb125b973249b097"
+      "blob": "e2a4faa94d0b3028b9e60b802bfe106be1c8f034"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6efaf4044ff2b4a9b24c96a1aaae295aeb1fb910"
+      "blob": "99fc2a121861d69972ca63cb35e4dc7df107893f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js",
@@ -816,7 +1091,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5c9b907fb21b760a6c352e19225366aa7f40619d"
+      "blob": "8937ac503571390052a9b863503c6786adf5cd92"
     },
     {
       "path": "desktop/tests/actionable-diagnostics.test.cjs",
@@ -852,6 +1127,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "c641d169cecff2fb4366da2877beacf096db868f"
+    },
+    {
+      "path": "desktop/tests/cad-surface-inspector.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "de3bb8ef329d1c159f936bdfce038a28650cba35"
     },
     {
       "path": "desktop/tests/capability-ui.test.cjs",
@@ -910,6 +1192,13 @@
       "blob": "56081c5eb7c734ce92c36c0eed962be0c06cce54"
     },
     {
+      "path": "desktop/tests/developer-note-triage.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2d208333a528461463ddf6ea282c5d9627c84e2a"
+    },
+    {
       "path": "desktop/tests/developer-twin-audit.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -942,7 +1231,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8d6bad9f4557a63d472d02388f8aaab8c6554f9c"
+      "blob": "ab53b4c5327c957a1d6f7ecce0c6adf0322a7b23"
     },
     {
       "path": "desktop/tests/dynamic-mesh.test.cjs",
@@ -957,6 +1246,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "50c40606a23aabca5d6bfe6ef6ad404540de7d2d"
+    },
+    {
+      "path": "desktop/tests/equivalent-observables.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "441d4b84b5aefd4415a2d046a725f794e51d5528"
     },
     {
       "path": "desktop/tests/experimental-validation.test.cjs",
@@ -1019,14 +1315,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0ce8c6c0df405d0c817b863845cbc3abb2c9386d"
+      "blob": "367839b0e97863284d24eb95f8fccdb04bc82a07"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "65039fe99739894fb5f82a1d312c1af7bfdfc212"
+      "blob": "766b4f181e4e71a6aa68566d9242aa7e1eb48c2e"
     },
     {
       "path": "desktop/tests/flow-analysis.test.cjs",
@@ -1048,6 +1344,41 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "773b4244abf19c923a4bf4060d320394300894e8"
+    },
+    {
+      "path": "desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "5f0a0a8788bfab4d26ca9db39942a73e5d025b92"
+    },
+    {
+      "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "264d61fe8faf6adf0755dbd2d4741da629273663"
+    },
+    {
+      "path": "desktop/tests/granada-177-global-ux.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "d1493e8c55e791e4f865e80826f4fdf9bb26b384"
+    },
+    {
+      "path": "desktop/tests/granada-177-ux-runtime.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "43874939a50458d50e2dc1eac80bfebe73863172"
+    },
+    {
+      "path": "desktop/tests/granada-g43-play-wide-original.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6429e308041ded9c857b778b79a1039b436446f5"
     },
     {
       "path": "desktop/tests/incremental-field-parser.test.cjs",
@@ -1120,6 +1451,20 @@
       "blob": "7481e23bf63b97adcca8428c9d4fbf63a12b6677"
     },
     {
+      "path": "desktop/tests/multiregion-energy-conservation.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1fea4edecd98f90ee8f923cc3194c99d8ef4db48"
+    },
+    {
+      "path": "desktop/tests/multiregion-energy-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "de9c176dece215f5beabbc44353c81b8f4bc46bd"
+    },
+    {
       "path": "desktop/tests/multiregion-release-contract.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1183,6 +1528,20 @@
       "blob": "a93f6533adb172e80af66fa14220a5c833ad4c89"
     },
     {
+      "path": "desktop/tests/physics-evidence-explorer.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "9f986e02c1ed4f8b863ab78e4d4e572d4427a92e"
+    },
+    {
+      "path": "desktop/tests/physics-evidence-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "55223bd2537271612de8c2bde9dd131b4e2616cb"
+    },
+    {
       "path": "desktop/tests/plot-surfaces.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1215,14 +1574,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d477e5dfeb1316e1c40a8d1653eb4cd997c6c12c"
+      "blob": "ee708c5c9755522fa39dbc383557ba43cf875af0"
     },
     {
       "path": "desktop/tests/review-case-binding.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "78ec7ac7011aedfc158e6842e7bfdd53d302a5f7"
+      "blob": "83ceb1277e331982c1b3f634317712b6fe386a05"
     },
     {
       "path": "desktop/tests/ribbon-ui.test.cjs",
@@ -1230,6 +1589,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "97cdfeab1cfdd52c0f81f194053f55d471e01898"
+    },
+    {
+      "path": "desktop/tests/scientific-case-health-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "23bae94ef9811404319de9bab43aa345c238efbb"
+    },
+    {
+      "path": "desktop/tests/scientific-case-health.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c67bb960376256a9b7614fd231e45104e15374c5"
     },
     {
       "path": "desktop/tests/scientific-fast-import.test.cjs",
@@ -1264,14 +1637,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "aafdc3fe5cb74a6cf8d7f5adad1ad06242f190cf"
+      "blob": "1c36379beb364972cdc2bc596f1f4dffd26697bf"
     },
     {
       "path": "desktop/tests/session-persistence.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "693ec0fa556946c6f95adc581dba64b23d681040"
+      "blob": "ab99af2e93526800eaef5f9001af3fcbdde1bd09"
     },
     {
       "path": "desktop/tests/sidebar-sections.test.cjs",
@@ -1344,11 +1717,25 @@
       "blob": "a376fff0a7d362f5cf673f3582b9f2cfd78415be"
     },
     {
+      "path": "desktop/tests/thermocouple-xyz-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "75b89b04e840919c62cf81889c3d255f83338658"
+    },
+    {
+      "path": "desktop/tests/thermocouple-xyz-mapping.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2be878e3cdff7cdf835198b9231a01fc75e023f2"
+    },
+    {
       "path": "desktop/tests/timeseries-provenance.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3b8aabecca20869b5946fcded08301a2a7676b8b"
+      "blob": "44ad0e56ae7464f117f833e5d27f715f0b1eb53c"
     },
     {
       "path": "desktop/tests/timeseries-source-catalog.test.cjs",
@@ -1411,7 +1798,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "84bc1c87c9654de9838d76b5147d937ab56468c8"
+      "blob": "3d74a7c1e80ced54b2fceeb5c7f38fee36a33291"
     },
     {
       "path": "docs/DOCUMENTATION_INDEX.md",
@@ -1509,7 +1896,63 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "bb49cad71186b76cc881d172c6a5530ea9c1d004"
+      "blob": "c7e81dd47d0a000e861a1036155f6f5485922d9f"
+    },
+    {
+      "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7bff8e959245889b91efa4940a151b982dfd3fea"
+    },
+    {
+      "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "bc5bf36efab596f3cad16e02bf935168c2935335"
+    },
+    {
+      "path": "docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "08700efc24cc826755ece4270c3215cc849d9f4b"
+    },
+    {
+      "path": "docs/GRANADA_156_PHASE_MOMENTUM_EVIDENCE_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "1a67095ab210ec8aa5eaad372b25683d3e6d6a60"
+    },
+    {
+      "path": "docs/GRANADA_158_DEVELOPER_NOTE_TRIAGE_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "728912cc4e8cabbd4ab79e3b237f5e14d64a8164"
+    },
+    {
+      "path": "docs/GRANADA_176_G3_TIMESERIES_LAYOUT_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b3ff18c9d1c16053305806f79739cb866d7e20ee"
+    },
+    {
+      "path": "docs/GRANADA_177_G0G1_PRIMARY_RIBBON_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "26daf8152475562e740a78ce4892ff56cac50dcf"
+    },
+    {
+      "path": "docs/GRANADA_177_G4_REVIEW_LIVE_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4f1e4659571110d2e84e07cc1050d281f5a19cc7"
     },
     {
       "path": "docs/GRANADA_177_G5_AUDIT_DIFF_2026-10-21.md",
@@ -1519,11 +1962,32 @@
       "blob": "da80f575dc276f4eff364be07249d281a116cdd1"
     },
     {
+      "path": "docs/GRANADA_2D_3D_EQUIVALENT_OBSERVABLES_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5ee2fd36df7cc41614a1694a082bbcafa0ef2a82"
+    },
+    {
       "path": "docs/GRANADA_APP_PLUGIN_AUDIT_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "e6048a2a9820a9f72f8d2af46f936a9de26566e8"
+    },
+    {
+      "path": "docs/GRANADA_B1_PLAY_TRANSITION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "202ec249683bb29c5e12f5276ef6e0c2d2381782"
+    },
+    {
+      "path": "docs/GRANADA_BACKLOG_CONVERGENCE_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -1561,6 +2025,153 @@
       "blob": "4e93041f5f966e59b84d08fb80ba47d9bbe9652c"
     },
     {
+      "path": "docs/GRANADA_G21_SIGNED_STABLE_RELEASE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "e7e6682e195fd8d8f7f632394467739a56caf0b4"
+    },
+    {
+      "path": "docs/GRANADA_G22_NATIVE_COMPACT_BREAKPOINT_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "15483d161071182a5e5ea1f620cade0089620cbb"
+    },
+    {
+      "path": "docs/GRANADA_G24_REAL_WEBVIEW2_STORAGE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a89208dec7ab430e92f709ff5c1d12a1614cfa75"
+    },
+    {
+      "path": "docs/GRANADA_G25_NATIVE_EXTERNAL_LINKS_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7b3fbe0c0a7a05c75842d95c3d1b24236ea12970"
+    },
+    {
+      "path": "docs/GRANADA_G26_REAL_PR_INTEGRATION_MAP_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "37a01763f446b2bb4578c58372773387c7fc34b9"
+    },
+    {
+      "path": "docs/GRANADA_G27_SCIENTIFIC_NATIVE_WINDOWS_CULTURE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a1b030a9023d3cf96a370c06c016f7d0e45fe28e"
+    },
+    {
+      "path": "docs/GRANADA_G29_CROSS_VERSION_STORAGE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f888758712a598eff80e66e00636522c6ea72bb8"
+    },
+    {
+      "path": "docs/GRANADA_G30_ORIGINAL_NATIVE_OFFLINE_2026-10-23.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "0babe30e83815f16c0c84d227570ec9c79d14769"
+    },
+    {
+      "path": "docs/GRANADA_G31_ORIGINAL_PACKAGE_BOM_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f8255659aa20410b7ee6698be990cc4229c1d847"
+    },
+    {
+      "path": "docs/GRANADA_G33_ORIGINAL_NATIVE_STALE_EXTENSION_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "045c597b512fc8a37840d77f5544a18856371cd7"
+    },
+    {
+      "path": "docs/GRANADA_G35_CAD_TRUSTED_JS_NATIVE_2026-10-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "04be3a544022fba652e50ca7bc44591f9d361ea7"
+    },
+    {
+      "path": "docs/GRANADA_G38_SCIENTIFIC_EXPORT_INTEGRITY_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "49b4cde1d779744d3bfda6c2407ce553715d7ce1"
+    },
+    {
+      "path": "docs/GRANADA_G39_FINDINGS_SCIENCE_PUBLIC_HANDOFF_2026-10-26.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "4bfdfd96591c3ac18458366b51689e2e679e8ae9"
+    },
+    {
+      "path": "docs/GRANADA_G40_G37_MAIN_REENTRY_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7b80ad0afbdbe803a357d1febf345cc9a76fac9e"
+    },
+    {
+      "path": "docs/GRANADA_G41_PLAY_NATIVE_FAILURE_ATTRIBUTION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "835dba476364eb4b8f678b8c986aea7daf2738ae"
+    },
+    {
+      "path": "docs/GRANADA_G42_FILE_STEWARD_MAIN_LINEAGE_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c3a4bbab1c79aa834e2f6a19cbd7273f7be75c96"
+    },
+    {
+      "path": "docs/GRANADA_G43_PLAY_WIDTH_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "34c53730131a03b5e0a95fb1e32ec9106d0f9125"
+    },
+    {
+      "path": "docs/GRANADA_G52_TIMESERIES_SOURCE_PROGRESS_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c2c4023c9e824e2b8a76a5103099721e5280e8f8"
+    },
+    {
+      "path": "docs/GRANADA_G59_TIMESERIES_MIXED_SOURCE_REFRESH_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5b4d1549e21befa2b307a07f3672dbb7990071f7"
+    },
+    {
+      "path": "docs/GRANADA_G62_G37_FRESH_B13_ARTIFACT_2026-10-30.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "bb89954c20ec0ee04ab643f5e9027ddd80adda90"
+    },
+    {
+      "path": "docs/GRANADA_G63_SESSION_STALE_REPLAY_2026-10-30.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "8a2697bcfcc96f9492a423c6b1fa86a9bd1e944d"
+    },
+    {
       "path": "docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -1572,7 +2183,14 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "c37e67dc49b80bd18ea1262d4c59fc8d9d0a894e"
+      "blob": "026ca56953bc8a0a2c20d6a9f8790d21aa621b63"
+    },
+    {
+      "path": "docs/GRANADA_MASTER_PRIORITY_EXECUTION_2026-10-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3a5d79b31e205cba7911293bd4de9d53beb0d039"
     },
     {
       "path": "docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md",
@@ -1614,7 +2232,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "be546ba667e0e6ba7e1513feea1756d925077090"
+      "blob": "ad9944294fa7f7a98d09d17932d29150b04480f1"
     },
     {
       "path": "docs/INSTALLER_ACCEPTANCE_2026-10-12.md",
@@ -1778,6 +2396,13 @@
       "blob": "6479c14c044b152a25300141335d413bc80799f5"
     },
     {
+      "path": "tools/benchmark-real-case.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "60a630898cb17e84d92e780cac3004ec48b2668e"
+    },
+    {
       "path": "tools/capture_gpu_hardware_inventory.ps1",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1876,6 +2501,13 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada_backlog_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c7803f1745ace371bf638ed366c01dd95c4a3489"
+    },
+    {
       "path": "tools/granada_command_search.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1936,14 +2568,259 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "173d80de6968d73a9dae50e54dd9afc02c829957"
+      "blob": "36912a616d900203d0b3988f1afd6a1cc091e641"
     },
     {
       "path": "tools/granada_g17_integrated_guards.test.cjs",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b00fcb676db1258584d7b686099a2bb185826c6c"
+      "blob": "a1d2fb49068affc6840ed1c673c53d3cde40f35d"
+    },
+    {
+      "path": "tools/granada_g21_native_signing.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "346da7afd2ddf4e55ddbb73223f40530406a528a"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bb5f2773cad120e81b8989419fb091e327ea7c74"
+    },
+    {
+      "path": "tools/granada_g21_signing_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1e19f1180230e85479c1811f302327305526657a"
+    },
+    {
+      "path": "tools/granada_g22_compact_media_guard.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "203c18c03f5cbcb128bb02570325d735b424f01a"
+    },
+    {
+      "path": "tools/granada_g24_real_webview2_lifecycle.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "374f49bf4329c3e6c2b2c0f74a3df46fbc3b0a4d"
+    },
+    {
+      "path": "tools/granada_g24_storage_persistence.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c4c915bcca7f42622abda85f275091bc2262cff3"
+    },
+    {
+      "path": "tools/granada_g24_webview2_storage_probe/FoamLensG24StorageProbe.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "ed89a043204e7218edc6a8b0bf5324f0fa223b83"
+    },
+    {
+      "path": "tools/granada_g24_webview2_storage_probe/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "da0b3d0fe9bcbdfde87d3a9e88a723d28c83731f"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "fb14b98d681f3634a08ec935cdf3ccfd2b46901a"
+    },
+    {
+      "path": "tools/granada_g25_external_navigation_harness/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2ed078ba61b9f1f95288b30b22aac2abf98225e5"
+    },
+    {
+      "path": "tools/granada_g25_navigation_wiring.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4e53275597a029e1464de2001e2950dfa906439d"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_board.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "cf6bb2468a47e98b49197e07761d6eea1048ec05"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_board.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0615b365f16c0c37e1f9dd8cbac75c5952f6ed9e"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_html.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3b6845c7cadec8b4fade189904be14495cea7164"
+    },
+    {
+      "path": "tools/granada_g26_pr_conflict_html.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "93298c57c30ac7421186f3230d2826204e49bfcc"
+    },
+    {
+      "path": "tools/granada_g27_culture_probe/GranadaG27CultureProbe.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "702a488613bc0ee064a8b21eb8737071d40a0737"
+    },
+    {
+      "path": "tools/granada_g27_culture_probe/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f0efa3429149f8a69a45fe436bd7af65e6fc0371"
+    },
+    {
+      "path": "tools/granada_g27_native_culture_matrix.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6c750a6b18bd194190ee4ceaac884a0b4aee26c3"
+    },
+    {
+      "path": "tools/granada_g27_windows_native_culture_matrix.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1bb0401ac7711584a22d829deccfca9dc41428f0"
+    },
+    {
+      "path": "tools/granada_g29_actual_cross_version_upgrade.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a32ab46c79e69dfcaa438357f7d01411f16a3af7"
+    },
+    {
+      "path": "tools/granada_g29_upgrade_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c28deef6bb76ee40679813951ce2c36964a9ce77"
+    },
+    {
+      "path": "tools/granada_g30_browser_network_probe/FoamLensG30BrowserNetworkProbe.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "8465e16de1fae799d606bda5161a40634b7c2bc1"
+    },
+    {
+      "path": "tools/granada_g30_browser_network_probe/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b52c458d6da93d7a6a225f0476fefe664135731e"
+    },
+    {
+      "path": "tools/granada_g30_native_offline.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2a6ab98caab985b4cf0c4b7291821b803ca80f24"
+    },
+    {
+      "path": "tools/granada_g30_real_offline_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2e08fe9e4f508c0ca31134eecb26770092a65482"
+    },
+    {
+      "path": "tools/granada_g31_original_package_bom.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "45950c4686341370746e3adf45b089dba8cd7196"
+    },
+    {
+      "path": "tools/granada_g33_actual_native_stale_extension.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4af55fadcdc77182b267ce101cfb11076f4812ab"
+    },
+    {
+      "path": "tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj",
+      "role": "build_script",
+      "purpose": "platform build/project/installer script",
+      "certainty": "inferred",
+      "blob": "58b09e91082e520259e2cf19b38a085bb8f15ec8"
+    },
+    {
+      "path": "tools/granada_g33_local_origin_witness/Program.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "1254727be66b4b37650ff42cefda38db6c8e3122"
+    },
+    {
+      "path": "tools/granada_g33_original_stale_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2b30a860c04c736b24c169dc30700379a90de814"
+    },
+    {
+      "path": "tools/granada_g35_native_cad_trusted_js.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "590c2188d1c375afd09f9b5ae36b8e8b1a739f03"
+    },
+    {
+      "path": "tools/granada_g35_validate_stacked.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c263f61427c11d0e05e42bd100d807b957c5d270"
+    },
+    {
+      "path": "tools/granada_g37_real_b13_play_stress.ps1",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "383e5460ee82ea8d3a03c0681dabc2d1b330fb00"
+    },
+    {
+      "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0fbacd79e3cb7c92414f6644a51272bb9406ea2c"
+    },
+    {
+      "path": "tools/granada_g41_native_play_diagnostics.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ff4441c240490136ea033e547db9743e5cf68c2a"
     },
     {
       "path": "tools/granada_g7_compact_workbench.test.cjs",
@@ -1957,7 +2834,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9a3d82b4d364d23ac23d4d953dfebbbfd0e5b4be"
+      "blob": "1a22b48d4fddb469c974676d88f9f2b8f21bf85f"
     },
     {
       "path": "tools/make_visual_evidence.py",
@@ -2023,6 +2900,20 @@
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
     },
     {
+      "path": "tools/test_granada_backlog_guard.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "8a67bf9eb434dc187415017c4f85aa0a6178f7bb"
+    },
+    {
+      "path": "tools/test_granada_g31_original_package_bom.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "512811c07b1815165e2affebc67ddce928442ba1"
+    },
+    {
       "path": "tools/test_installer_shortcuts.ps1",
       "role": "test",
       "purpose": "code/test implementation",
@@ -2086,6 +2977,13 @@
       "blob": "7a569389607a1432444e22d72ba3ec6e41f2d48c"
     },
     {
+      "path": "tools/tests/benchmark-real-case.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7cfee5efb42d84c4d36e9ed8605bd1dc1f90e457"
+    },
+    {
       "path": "tools/tests/compare-import-performance.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -2121,7 +3019,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "a39f008baedfb282",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "5 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js, desktop/tests/session-persistence.test.cjs, tools/granada_g37_real_b13_stress_guards.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,

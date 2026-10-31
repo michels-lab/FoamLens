@@ -108,6 +108,22 @@ test('Build history shortcut opens original source builder, never invents histor
  assert.equal(jump.disabled,false);jump.click();assert.equal(f.details.open,true);
  assert.equal(f.api.audit().drawerOpen,true);
 });
+test('G51 compact Build shortcut focuses VISIBLE original T2 generator instead of hidden legacy anchor',()=>{
+ const f=fixture(),card=f.document.createElement('section'),field=f.document.createElement('select');
+ let scrolls=0;card.id='gr176HistoryCard';card.scrollIntoView=()=>{scrolls++};
+ field.id='fwTsField1';card.append(field);f.controls.append(card);
+ const shortcut=f.document.getElementById('g8History');
+ assert.equal(shortcut.disabled,false);
+ shortcut.click();
+ assert.equal(scrolls,1,'scroll to source-native visible Time Series card');
+ assert.strictEqual(f.document.activeElement,field,'keyboard focus remains on actual original OpenFOAM field selection');
+ assert.equal(Boolean(f.details.open),false,'obsolete refresh anchor must never become the visible destination');
+ assert.equal(f.api.audit().drawerOpen,false,'do not obscure visible chart with import drawer');
+ // If import drawer was open already, the shortcut closes it and restores chart access.
+ f.api.open();assert.equal(f.api.audit().drawerOpen,true);
+ shortcut.click();assert.equal(f.api.audit().drawerOpen,false);
+ assert.strictEqual(f.document.activeElement,field);
+});
 test('bilingual labels, chart width CSS and independent G7 namespace',()=>{
  const f=fixture({language:'es'});assert.equal(f.document.getElementById('g8Trigger').textContent,'Casos e importar');
  f.languageEl.value='en';f.document.emit('change',{target:f.languageEl});
@@ -136,5 +152,7 @@ test('the real FoamLens native UI owns all selectors and the versioned module bu
   if(id!=='fwDataFieldHistories')assert(original.includes('id="'+id+'"'),id+' missing in original');
  }
  assert(original.includes('class="flGlobalUtilities"'));
- assert(program.includes('Directory.GetFiles(AppRoot, "v*-*.js")'));
+ assert(program.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'));
+ assert(!program.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+   'Never reactivate writable local JS wildcard for a cosmetic compact Time Series fix');
 });

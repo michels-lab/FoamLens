@@ -333,3 +333,384 @@ Automatic evidence deltas, pending human triage. No deletion authority.
 
 - All tracked 303; findings 0; inventory 017702167c75; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
 - Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-23 16:04 UTC
+
+- All tracked 309; findings 0; inventory 87360c677a10; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-26 21:08 UTC
+
+- All tracked 311; findings 0; inventory 7006d2027e9e; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 2 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-26 21:34 UTC
+
+- All tracked 314; findings 1; inventory 2bfde602b636; evidence 0824cc212994. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID c471bbf1ef6d1e4b).
+
+## 2026-10-26 21:35 UTC
+
+- All tracked 314; findings 1; inventory 740318965961; evidence 0824cc212994. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-26 22:28 UTC
+
+- All tracked 317; findings 0; inventory 189e2c2f33d9; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID c471bbf1ef6d1e4b).
+
+## 2026-10-26 22:38 UTC
+
+- All tracked 320; findings 1; inventory afa780f711f6; evidence bf16b52f42f9. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 3a0eabe2ba66d019).
+
+## 2026-10-26 22:54 UTC
+
+- All tracked 325; findings 1; inventory 943f099e59cf; evidence cf686ff4ac91. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bd4b68bc0d64ea26).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 3a0eabe2ba66d019).
+
+## 2026-10-26 23:00 UTC
+
+- All tracked 329; findings 1; inventory b6e7546b6c81; evidence b6b4fb48a510. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID cfa9b2c78a11a8cc).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bd4b68bc0d64ea26).
+
+## 2026-10-27 02:32 UTC
+
+- All tracked 332; findings 0; inventory 33e1e4062c6c; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID cfa9b2c78a11a8cc).
+
+## 2026-10-27 03:06 UTC
+
+- All tracked 337; findings 0; inventory 1ce7683c17d6; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 09:55 UTC
+
+- All tracked 343; findings 0; inventory 05977339943a; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 10:20 UTC
+
+- All tracked 346; findings 0; inventory b322e23609a7; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 10:32 UTC
+
+- All tracked 352; findings 0; inventory e7c323a3e357; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 11:12 UTC
+
+- All tracked 358; findings 0; inventory 5b4eea47a673; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 11:19 UTC
+
+- All tracked 362; findings 0; inventory 179723da04e7; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 11:54 UTC
+
+- All tracked 365; findings 1; inventory cc5a006bff66; evidence fe29e292fc41. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bc7fb44a9bb9e044).
+
+## 2026-10-27 12:09 UTC
+
+- All tracked 366; findings 1; inventory 40f4e496e9ca; evidence dc854722f4b1. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID d44d8b0b75474a19).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bc7fb44a9bb9e044).
+
+## 2026-10-27 12:40 UTC
+
+- All tracked 370; findings 1; inventory cb4dfb4f1525; evidence d8385a50cd07. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 1743e4fcfc64c1a2).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID d44d8b0b75474a19).
+
+## 2026-10-27 12:41 UTC
+
+- All tracked 370; findings 1; inventory 87b5ec2534b1; evidence d8385a50cd07. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 14:26 UTC
+
+- All tracked 375; findings 1; inventory e354ca87e63c; evidence 67c09c6362a9. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 0de06db4fcf8a1a6).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 1743e4fcfc64c1a2).
+
+## 2026-10-27 14:27 UTC
+
+- All tracked 375; findings 1; inventory dc40b4b7ae85; evidence 67c09c6362a9. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 14:54 UTC
+
+- All tracked 379; findings 0; inventory 09997f01599d; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 0de06db4fcf8a1a6).
+
+## 2026-10-27 15:28 UTC
+
+- All tracked 384; findings 0; inventory f278f4e7915b; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 16:02 UTC
+
+- All tracked 389; findings 0; inventory bb9b11c3ee10; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 16:43 UTC
+
+- All tracked 392; findings 0; inventory 262b3670f91f; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 3 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 16:51 UTC
+
+- All tracked 392; findings 0; inventory 2abc138820d6; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 17:01 UTC
+
+- All tracked 396; findings 0; inventory 5a8c20bba9a9; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 17:30 UTC
+
+- All tracked 401; findings 0; inventory 6a95a2b77f43; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 5 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 17:43 UTC
+
+- All tracked 405; findings 0; inventory 3e9c4798da93; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 19:18 UTC
+
+- All tracked 406; findings 0; inventory 092d42364056; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 19:36 UTC
+
+- All tracked 407; findings 1; inventory 56dd8cd11057; evidence 8a1f436d11b6. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 43f088a35848c667).
+
+## 2026-10-27 20:47 UTC
+
+- All tracked 411; findings 1; inventory eb28e3cd36af; evidence 3205e6214e23. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 507b7a90f18d0c62).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 43f088a35848c667).
+
+## 2026-10-27 20:52 UTC
+
+- All tracked 417; findings 1; inventory 1e7cf125e42e; evidence db78647e428d. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 4668656992df8aae).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 507b7a90f18d0c62).
+
+## 2026-10-27 20:55 UTC
+
+- All tracked 423; findings 1; inventory be27747dcb73; evidence 06dd9055dfa0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 6 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 485d7bc973f8cd34).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 4668656992df8aae).
+
+## 2026-10-27 20:56 UTC
+
+- All tracked 423; findings 1; inventory a211e45e0a86; evidence 06dd9055dfa0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 21:30 UTC
+
+- All tracked 427; findings 1; inventory 9b05da9ecdd4; evidence 07493e9e24b3. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 4 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 8d21536a04f3e267).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 485d7bc973f8cd34).
+
+## 2026-10-27 22:34 UTC
+
+- All tracked 427; findings 1; inventory 73a9edcb58f6; evidence 21480ca8c0db. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID ed5f48ad6128cb1c).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 8d21536a04f3e267).
+
+## 2026-10-27 22:56 UTC
+
+- All tracked 428; findings 1; inventory 01ae278c73e6; evidence 5f4c4feea714. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 69883b0d8937aef2).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID ed5f48ad6128cb1c).
+
+## 2026-10-27 22:57 UTC
+
+- All tracked 428; findings 1; inventory b6f3db325c4a; evidence 5f4c4feea714. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-27 23:43 UTC
+
+- All tracked 428; findings 0; inventory 0a0f3a9bac41; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 69883b0d8937aef2).
+
+## 2026-10-28 00:09 UTC
+
+- All tracked 428; findings 0; inventory 8ff33072e712; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 00:11 UTC
+
+- All tracked 428; findings 1; inventory 97332a9d38d1; evidence 9d7b2233803c. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID eff4425afc396a2c).
+
+## 2026-10-28 00:12 UTC
+
+- All tracked 428; findings 1; inventory 81695b3c4b47; evidence 2f1b2ca40060. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID c2a2dd6f8adb5a99).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID eff4425afc396a2c).
+
+## 2026-10-28 00:13 UTC
+
+- All tracked 428; findings 1; inventory 78e4fd9947cd; evidence 2f1b2ca40060. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 00:13 UTC
+
+- All tracked 428; findings 0; inventory 418cfc196386; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID c2a2dd6f8adb5a99).
+
+## 2026-10-28 00:19 UTC
+
+- All tracked 428; findings 0; inventory 76095b894d61; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 00:21 UTC
+
+- All tracked 428; findings 0; inventory 2ef88b90ef50; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 00:22 UTC
+
+- All tracked 428; findings 1; inventory cfb00de319da; evidence defdc8f5b670. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 6ed47f3d1f2a5f62).
+
+## 2026-10-28 00:24 UTC
+
+- All tracked 428; findings 0; inventory edd723d02469; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 6ed47f3d1f2a5f62).
+
+## 2026-10-28 00:29 UTC
+
+- All tracked 428; findings 0; inventory 9284cd7eea7f; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 00:29 UTC
+
+- All tracked 428; findings 1; inventory 437c1aa30b15; evidence ad9b3a4b8b4f. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 935e2c86d5bca42f).
+
+## 2026-10-28 00:30 UTC
+
+- All tracked 428; findings 1; inventory 05cc87efbaf2; evidence a6ae769dfac0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID a6fb5e60f627c3ae).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 935e2c86d5bca42f).
+
+## 2026-10-28 00:32 UTC
+
+- All tracked 428; findings 1; inventory 2a5f689fb0c9; evidence ace72c9c1e2d. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID ffd9a9939e3139ce).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID a6fb5e60f627c3ae).
+
+## 2026-10-28 01:04 UTC
+
+- All tracked 428; findings 0; inventory a12ecc579baa; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID ffd9a9939e3139ce).
+
+## 2026-10-28 01:10 UTC
+
+- All tracked 428; findings 0; inventory 81bdfd2be77b; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 01:17 UTC
+
+- All tracked 428; findings 0; inventory 538e478638cb; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 01:30 UTC
+
+- All tracked 428; findings 0; inventory 8cfd735aeb2a; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 01:40 UTC
+
+- All tracked 428; findings 0; inventory b83fc8bda644; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 01:49 UTC
+
+- All tracked 428; findings 0; inventory 30fa3652f094; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-28 01:50 UTC
+
+- All tracked 428; findings 1; inventory 413e8cd57176; evidence eb8e19cb3154. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9cb6d72f6a410edf).
+
+## 2026-10-28 01:56 UTC
+
+- All tracked 428; findings 1; inventory efc3eae5ce61; evidence 8fbb788f86fc. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9c7fe71fdf95f8fe).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9cb6d72f6a410edf).
+
+## 2026-10-28 01:56 UTC
+
+- All tracked 428; findings 1; inventory 4ce965255523; evidence 76d2911f9fb0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 17283040ffd5a053).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9c7fe71fdf95f8fe).
+
+## 2026-10-30 22:46 UTC
+
+- All tracked 429; findings 0; inventory c2ba1b000f14; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 17283040ffd5a053).
+
+## 2026-10-30 22:55 UTC
+
+- All tracked 430; findings 1; inventory 1141ed47921b; evidence 8df8d32dde2c. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bb1c3d9dd7abe214).
+
+## 2026-10-30 23:13 UTC
+
+- All tracked 430; findings 1; inventory e9527aab50f7; evidence 8df8d32dde2c. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-10-31 00:10 UTC
+
+- All tracked 431; findings 1; inventory 6e983b307940; evidence 09bda2a2f5c7. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID a39f008baedfb282).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID bb1c3d9dd7abe214).

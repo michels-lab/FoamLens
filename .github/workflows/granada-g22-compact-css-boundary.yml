@@ -1,0 +1,33 @@
+name: G22 original compact CSS hard breakpoint safety (no release)
+on:
+  push:
+    branches:
+      - fix/granada-g22-compact-css-breakpoint-20261023
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'tools/granada_g22_compact_media_guard.test.cjs'
+      - '.github/workflows/granada-g22-compact-css-boundary.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compact-vs-wide-guard:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original G7, G16 and G22 real stylesheet ownership regressions
+        run: node --test tools/granada_g7_compact_workbench.test.cjs tools/granada_g16_wide_play_cascade.test.cjs tools/granada_g22_compact_media_guard.test.cjs
+      - name: No cross-project contamination or simulated science fields
+        run: node tools/test_repository_boundaries.cjs
