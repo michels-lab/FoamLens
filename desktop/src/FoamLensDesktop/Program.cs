@@ -647,13 +647,115 @@ internal sealed class FoamLensForm : Form
                 await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
                 Log("G58 original native B13 Time Series layout and source-controls passed at " +
                     size.Name + ": original chart, real T field, two slots, Build and Cancel visible.");
-
+                // G72: record additional genuine workspace screenshots only
+                // after real QuickCup source/time/regions and G58 have passed.
+                await CaptureGranadaG72NativeTabsAsync(root, size.Name);
             }
         }
         finally
         {
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
             await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
+
+    // G72: actual packaged original B13 Windows runtime, never a mock screenshot.
+    // Analysis/Review/Live are real source-owned workspaces; Field Compare
+    // requires the original TWO A/B 3D canvases, not a 3D+2D split proxy.
+    // This audit is at CSS wide/compact only. It never claims physical OS DPI,
+    // scientific accuracy, 36/36 human review or a release authorization.
+    private async Task CaptureGranadaG72NativeTabsAsync(string root, string sizeName)
+    {
+        var tabs = new[] { "field-compare", "analysis", "review", "live" };
+        try
+        {
+            foreach (var tab in tabs)
+            {
+                var js = """
+                    (() => {
+                      const key=__G72_TAB__,el=id=>document.getElementById(id);
+                      const visible=node=>{
+                        const r=node?.getBoundingClientRect(),s=node?getComputedStyle(node):null;
+                        return !!r&&r.width>25&&r.height>8&&s?.display!=='none'&&
+                          s?.visibility!=='hidden'&&!node?.classList.contains('hidden');
+                      };
+                      try{
+                        if(key==='field-compare'){
+                          el('flRibbonTab-field')?.click();
+                          window.FoamLensFieldWorkspace?.setLayout?.('3d');
+                          const check=el('fcEnabled');
+                          if(check&&!check.checked){
+                            check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
+                          }
+                        }else if(key==='analysis'){
+                          el('flRibbonTab-analysis')?.click();
+                        }else{
+                          el('flRibbonTab-home')?.click();
+                          el(key==='review'?'flRaReview':'flRaLive')?.click();
+                        }
+                        const mode=key==='field-compare'?'field':key;
+                        const modeOk=!!document.body.classList.contains('appMode-'+mode)&&
+                          typeof activeAppMode!=='undefined'&&activeAppMode===mode;
+                        const nav=key==='field-compare'?el('flRibbonTab-field'):
+                          key==='analysis'?el('flRibbonTab-analysis'):
+                          el(key==='review'?'flRaReview':'flRaLive');
+                        const navOk=!!nav&&!nav.disabled;
+                        const panel=key==='field-compare'?el('fieldViewPanel'):
+                          key==='analysis'?el('workspace'):
+                          el(key==='review'?'reviewSurface':'liveSurface');
+                        const panelRect=panel?.getBoundingClientRect();
+                        const panelOk=visible(panel)&&panelRect.width>100&&panelRect.height>90;
+                        const first=key==='field-compare'?el('fcViewGrid')?.querySelector('.fvViewport:not(.fcViewport)'):
+                          key==='analysis'?el('flRibbonTab-analysis'):
+                          el(key==='review'?'reviewTitle':'liveTitle');
+                        const secondary=key==='field-compare'?el('fcViewport'):
+                          key==='analysis'?el('flRibbonPanel-analysis'):
+                          el(key==='review'?'reviewTabAuditor':'liveChooseFolder');
+                        const controlsOk=visible(first)&&visible(secondary);
+                        const actualCompare=key!=='field-compare'||(
+                          el('fcEnabled')?.checked===true&&
+                          window.FoamLensFieldCompare?.isEnabled?.()===true&&
+                          panel?.classList.contains('fcCompareMode')&&
+                          !secondary?.classList.contains('hidden')&&
+                          visible(el('fvCanvas'))&&visible(el('fcCanvas'))&&
+                          el('fvCanvas').getBoundingClientRect().width>100&&
+                          el('fcCanvas').getBoundingClientRect().width>100);
+                        return {ok:modeOk&&navOk&&panelOk&&controlsOk&&actualCompare,
+                          modeOk,navOk,panelOk,controlsOk,actualCompare};
+                      }catch{
+                        // No private DOM text, case paths, simulation numbers,
+                        // original scientific fields or JS exception strings.
+                        return{ok:false,modeOk:false,navOk:false,panelOk:false,
+                          controlsOk:false,actualCompare:false}
+                      }
+                    })()
+                    """.Replace("__G72_TAB__", JsonSerializer.Serialize(tab));
+                var result = await _web.CoreWebView2.ExecuteScriptAsync(js);
+                using var report = JsonDocument.Parse(result);
+                var state = report.RootElement;
+                var keys = new[] { "modeOk", "navOk", "panelOk", "controlsOk", "actualCompare" };
+                var checks = keys.Select(key =>
+                    key + "=" + (state.TryGetProperty(key, out var bit) &&
+                        bit.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant());
+                if (!state.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
+                    throw new InvalidOperationException(
+                        "G72 original native " + tab + "/" + sizeName +
+                        " did not satisfy visible workspace/3D comparison contract; " +
+                        string.Join("; ", checks));
+                // Native host screenshot; never generate or copy substitute
+                // panel images and never store a synthetic runtime fallback.
+                await Task.Delay(220);
+                await CaptureCdpPngAsync(Path.Combine(root, $"{tab}-{sizeName}.png"));
+                Log("G72 native original QuickCup workspace screenshot captured: " + tab + "/" + sizeName);
+            }
+        }
+        finally
+        {
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const c=document.getElementById('fcEnabled');" +
+                "if(c?.checked){c.checked=false;c.dispatchEvent(new Event('change',{bubbles:true}))}" +
+                "document.getElementById('flRibbonTab-field')?.click();return true})()");
         }
     }
 

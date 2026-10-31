@@ -700,6 +700,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/developer-twin-audit.test.cjs
 
+      - name: Test original G72 native screenshot owner and workspace provenance
+        shell: pwsh
+        run: node desktop/tests/granada-g72-native-evidence.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
@@ -960,13 +964,21 @@ jobs:
           python -m pip install --disable-pip-version-check Pillow
           $v='${{ steps.ver.outputs.version }}'
           $realMultiregion=@()
-          if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') { $realMultiregion=@('--require-multiregion') }
-          python tools/make_visual_evidence.py --evidence-dir artifacts/visual/installed --portable-evidence-dir artifacts/visual/portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" --source-sha $env:GITHUB_SHA --platform windows --output artifacts/visual/manifest.json @realMultiregion
-          if ($LASTEXITCODE -ne 0) { throw 'Could not bind rendered Windows screenshots to installer SHA-256.' }
+          $g72Required=@()
+          $g72Surfaces='home,about,data,field'
+          if ($env:HAS_QUICKCUP_FIXTURE -eq 'true') {
+            $realMultiregion=@('--require-multiregion')
+            $g72Required=@('--require-g72-native-tabs')
+            $g72Surfaces+=',time-series,field-compare,analysis,review,live'
+          }
+          # Original QuickCup must produce 20 truly distinct additional tab
+          # screenshots, never a synthetic duplicate or a 3D/2D split proxy.
+          python tools/make_visual_evidence.py --evidence-dir artifacts/visual/installed --portable-evidence-dir artifacts/visual/portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" --source-sha $env:GITHUB_SHA --platform windows --output artifacts/visual/manifest.json @realMultiregion @g72Required
+          if ($LASTEXITCODE -ne 0) { throw 'G72 native evidence missing or not bound to exact original candidate.' }
           python tools/test_visual_evidence.py
-          if ($LASTEXITCODE -ne 0) { throw 'Portable/installed evidence negative regression failed.' }
-          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about,data,field --capture-only --require-portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" @realMultiregion
-          if ($LASTEXITCODE -ne 0) { throw 'Rendered UI evidence failed: missing, blank, stale, or incorrect screenshots.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Portable/installed G72 provenance negative regression failed.' }
+          python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces $g72Surfaces --capture-only --require-portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" @realMultiregion
+          if ($LASTEXITCODE -ne 0) { throw 'G72 rendered native screenshot evidence failed original source integrity.' }
 
       - name: Sync canonical Windows ICO for future design builds
         if: ${{ startsWith(github.ref, 'refs/heads/design/') }}
