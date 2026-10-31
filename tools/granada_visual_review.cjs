@@ -87,7 +87,10 @@ function audit(manifest,options={}){
   if(!SHA64.test(installHash||''))issue('error','installed-hash','Missing installer hash');
   if(!SHA64.test(portableHash||''))issue('error','portable-hash','Missing portable hash');
   const artifactChecks={installed:checkArtifact(options.setup,installHash),portable:checkArtifact(options.portable,portableHash)};
-  for(const [v,result] of Object.entries(artifactChecks))if(result.state==='invalid')issue('error','artifact-mismatch',v);
+  for(const [v,result] of Object.entries(artifactChecks)){
+    if(result.state==='not-checked')issue('error','artifact-not-checked',v);
+    if(result.state==='invalid')issue('error','artifact-mismatch',v);
+  }
   if(!Array.isArray(manifest?.screenshots))issue('error','missing-list','No screenshots array');
   for(const [i,shot] of (Array.isArray(manifest?.screenshots)?manifest.screenshots:[]).entries()){
     const v=String(shot?.runtime_variant||''),s=String(shot?.surface||''),size=String(shot?.viewport||'');
