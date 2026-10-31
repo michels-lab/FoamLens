@@ -121,9 +121,19 @@ internal sealed class FoamLensForm : Form
             MaterializeBundle();
             ApplyFrontendExtensions();
             ValidateMaterializedFrontend();
-            Directory.CreateDirectory(Path.Combine(
+            // G57: isolate ONLY opt-in private B13 numerical smoke user-data.
+            // Normal Installed/Portable apps retain their original WebView2 path.
+            // No user profiles are migrated, deleted, or reused for the witness.
+            var originalWebView2Data = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                ProductDataFolder, "Desktop", "WebView2"));
+                ProductDataFolder, "Desktop", "WebView2");
+            var isolatedG56Smoke = _smokeTest && string.Equals(
+                Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIMESERIES_B13"),
+                "1", StringComparison.Ordinal);
+            var userData = isolatedG56Smoke
+                ? Path.Combine(originalWebView2Data, "G56-PrivateNumericSmoke")
+                : originalWebView2Data;
+            Directory.CreateDirectory(userData);
 
             // These Chromium switches are intentional: FoamLens performs long scientific
             // analyses and must not be throttled merely because its window is minimized,
@@ -138,9 +148,6 @@ internal sealed class FoamLensForm : Form
                     "--disable-features=CalculateNativeWinOcclusion"
                 })
             };
-            var userData = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                ProductDataFolder, "Desktop", "WebView2");
             var environment = await CoreWebView2Environment.CreateAsync(null, userData, options);
             await _web.EnsureCoreWebView2Async(environment);
 
@@ -158,15 +165,17 @@ internal sealed class FoamLensForm : Form
 #endif
             _web.CoreWebView2.NewWindowRequested += (_, e) =>
             {
+                // The browser owns ONLY the secure local FoamLens origin.
+                // Windows ShellExecute must never receive WebView2 custom schemes.
                 e.Handled = true;
                 OpenExternal(e.Uri);
             };
             _web.CoreWebView2.NavigationStarting += (_, e) =>
             {
-                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) &&
-                    !string.Equals(uri.Host, "foamlens.local", StringComparison.OrdinalIgnoreCase) &&
-                    uri.Scheme is "http" or "https")
+                if (!ExternalNavigationPolicy.IsInternalNavigation(e.Uri))
                 {
+                    // Cancel all unrecognized navigation, even file:, ms-*,
+                    // javascript:, about:, HTTP-local host and invalid URLs.
                     e.Cancel = true;
                     OpenExternal(e.Uri);
                 }
@@ -450,6 +459,16 @@ internal sealed class FoamLensForm : Form
                         window.FoamLensFieldWorkspace?.getState?.().view==='3d';
                       const playRect=document.getElementById('fwTimePlay')?.getBoundingClientRect();
                       const playButton=document.getElementById('fwTimePlay');
+                      // G41: attribution only. Preserve the original binary Play gate,
+                      // source time checks, visible strings and app layout unchanged.
+                      // Only primitive booleans/pixels are exported to the test-only
+                      // sanitized evidence; never transfer raw WebView2 text.
+                      const playComputed=playButton?getComputedStyle(playButton):null;
+                      const playLabelReady=!!playButton&&/Play|Reproducir/.test(playButton.textContent||'');
+                      const playPauseLabel=!!playButton&&/Pause|Pausa/.test(playButton.textContent||'');
+                      const playLoopAriaReady=!!playButton&&/(loop|bucle)/i.test(playButton.getAttribute('aria-label')||'');
+                      const playTransportContainsPlay=!!document.getElementById('fwTimeTransport')?.contains(playButton);
+                      const playCompactClassAtWide=innerWidth>=1025&&!!document.getElementById('appShell')?.classList.contains('gfwCompact');
                       const playNotCollapsed=!!playRect&&playRect.width>=100&&playRect.height>=28&&
                         playButton.scrollWidth<=playButton.clientWidth+2&&
                         /Play|Reproducir/.test(playButton.textContent||'')&&
@@ -480,6 +499,17 @@ internal sealed class FoamLensForm : Form
                         regionLegendMeasured,independentRegionPalette,region:secondaryName,
                         regionTime:measuredLayer?.sourceTime,regionPalette:regionPalette?.value,
                         cameraDocked,distinctCameras,cameraNamesReadable,fieldNavHidden,playNotCollapsed,cachePopoverValid,
+                        // QA-only primitive measurements for intermittent original Play failures.
+                        playWidth:playRect?.width,playHeight:playRect?.height,
+                        playLeft:playRect?.left,playRight:playRect?.right,
+                        playClientWidth:playButton?.clientWidth,playScrollWidth:playButton?.scrollWidth,
+                        playComputedWidth:playComputed?Number.parseFloat(playComputed.width):null,
+                        playMinWidthAtLeast100:!!playComputed&&Number.parseFloat(playComputed.minWidth)>=100,
+                        playLabelReady,playPauseLabel,playLoopAriaReady,playTransportContainsPlay,
+                        playCompactClassAtWide,
+                        playG12StylesheetPresent:!!document.getElementById('flG12WideFieldRibbonStyle'),
+                        playG16StylesheetPresent:!!document.getElementById('flG16WidePlayCascadeGuard'),
+                        playG7StylesheetPresent:!!document.getElementById('gfwG7Style'),
                         toolbarHeight:b?.height,toolbarWidth:b?.width,
                         toolbarLeft:b?.left,toolbarRight:b?.right,toolbarCanvasOverlap:overlap,
                         shelfScrollLeft:shelf?.scrollLeft,shelfScrollWidth:shelf?.scrollWidth,
@@ -533,12 +563,196 @@ internal sealed class FoamLensForm : Form
                 await Task.Delay(140);
                 await CaptureCdpPngAsync(Path.Combine(root, $"data-{size.Name}.png"));
                 Log("FoamLens real Data/Field screenshot geometry passed: field=" + fieldState + " data=" + dataState);
+                // GRANADA G58: inspect the actual native Data > Time Series workspace
+                // with the original private B13 imported (not a synthetic DOM).
+                // Only primitive booleans are retained; the real screenshot stays
+                // inside the disposable Windows QA runner, never uploaded.
+                var t2Geometry = await _web.CoreWebView2.ExecuteScriptAsync(
+                    """
+                    (() => {
+                      document.getElementById('flRaDataTimeSeries')?.click();
+                      const el=id=>document.getElementById(id);
+                      const panel=el('timeSeriesControls');
+                      const existing=el('gr176ExistingCard'),history=el('gr176HistoryCard');
+                      const first=el('fwTsCase1'),region=el('fwTsRegion1'),
+                        variable=el('fwTsField1'),component=el('fwTsComponent1');
+                      const secondary=el('fwTsCase2'),enable2=el('fwTsEnable2');
+                      const build=el('fwBuildFieldHistories'),cancel=el('gr176Cancel');
+                      const chart=el('chartViewport'),catalog=el('tsdSourceFieldCount');
+                      const rect=node=>node?.getBoundingClientRect();
+                      const visible=node=>{
+                        const r=rect(node),style=node?getComputedStyle(node):null;
+                        return !!r&&r.width>0&&r.height>0&&
+                          style.display!=='none'&&style.visibility!=='hidden';
+                      };
+                      const historyRect=rect(history),existingRect=rect(existing),
+                        chartRect=rect(chart),buildRect=rect(build);
+                      const visibleSources=!!first&&!!region&&!!variable&&!!component&&
+                        !!secondary&&!!enable2&&
+                        [first,region,variable,component,secondary,enable2].every(visible);
+                      const realOriginalField=!!variable&&
+                        Array.from(variable.options||[]).some(option=>option.value==='T');
+                      const originalCatalog=!!catalog&&/OpenFOAM/.test(catalog.textContent||'');
+                      const noHorizontalOverflow=!!history&&
+                        history.scrollWidth<=history.clientWidth+3&&
+                        (!panel||panel.scrollWidth<=panel.clientWidth+3);
+                      const properSurfaces=!!history&&!!existing&&
+                        history.contains(build)&&history.contains(cancel)&&
+                        existing.contains(el('timeSeriesVariable'));
+                      const ok=!!panel&&visible(panel)&&
+                        visible(panel)&&
+                        properSurfaces&&visible(history)&&visible(existing)&&
+                        visible(build)&&visible(cancel)&&visible(chart)&&
+                        visibleSources&&realOriginalField&&originalCatalog&&
+                        buildRect.width>=90&&chartRect.width>180&&
+                        historyRect.width>180&&existingRect.width>180&&
+                        noHorizontalOverflow&&!!cancel.disabled;
+                      return{ok,timeSeriesDataView:visible(panel),
+                        properSurfaces,visibleSources,realOriginalField,
+                        originalCatalog,noHorizontalOverflow,buildVisible:visible(build),
+                        cancelVisible:visible(cancel),chartVisible:visible(chart),
+                        cancelIdleDisabled:!!cancel?.disabled,
+                        sourcePanels:document.querySelectorAll('#gr176HistoryCard .fwTsSeries').length,
+                        chartWideEnough:!!chartRect&&chartRect.width>180,
+                        historyWideEnough:!!historyRect&&historyRect.width>180};
+                    })()
+                    """);
+                using var t2Checked = JsonDocument.Parse(t2Geometry);
+                if (!t2Checked.RootElement.GetProperty("ok").GetBoolean())
+                {
+                    // G59: source/private OpenFOAM values stay out of public CI logs.
+                    // Report only allowlisted rendered-DOM booleans and source slot count,
+                    // so the actual native failing condition is independently diagnosable.
+                    var safeKeys = new[] { "timeSeriesDataView", "properSurfaces",
+                        "visibleSources", "realOriginalField", "originalCatalog",
+                        "noHorizontalOverflow", "buildVisible", "cancelVisible",
+                        "chartVisible", "cancelIdleDisabled", "chartWideEnough",
+                        "historyWideEnough" };
+                    var safeBits = new List<string>();
+                    foreach (var key in safeKeys)
+                    {
+                        if (t2Checked.RootElement.TryGetProperty(key, out var bit) &&
+                            (bit.ValueKind == JsonValueKind.True || bit.ValueKind == JsonValueKind.False))
+                            safeBits.Add(key + "=" + bit.GetBoolean().ToString().ToLowerInvariant());
+                    }
+                    if (t2Checked.RootElement.TryGetProperty("sourcePanels", out var slots) &&
+                        slots.ValueKind == JsonValueKind.Number && slots.TryGetInt32(out var slotCount) &&
+                        slotCount >= 0 && slotCount <= 2)
+                        safeBits.Add("sourcePanels=" + slotCount);
+                    throw new InvalidOperationException(
+                        "G58 actual packaged Time Series controls/layout contract failed at " +
+                        size.Name + " (source values withheld); sanitized visual checks: " + string.Join("; ", safeBits));
+                }
+                await Task.Delay(150);
+                await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
+                Log("G58 original native B13 Time Series layout and source-controls passed at " +
+                    size.Name + ": original chart, real T field, two slots, Build and Cancel visible.");
+                // G72: record additional genuine workspace screenshots only
+                // after real QuickCup source/time/regions and G58 have passed.
+                await CaptureGranadaG72NativeTabsAsync(root, size.Name);
             }
         }
         finally
         {
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
             await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
+
+    // G72: actual packaged original B13 Windows runtime, never a mock screenshot.
+    // Analysis/Review/Live are real source-owned workspaces; Field Compare
+    // requires the original TWO A/B 3D canvases, not a 3D+2D split proxy.
+    // This audit is at CSS wide/compact only. It never claims physical OS DPI,
+    // scientific accuracy, 36/36 human review or a release authorization.
+    private async Task CaptureGranadaG72NativeTabsAsync(string root, string sizeName)
+    {
+        var tabs = new[] { "field-compare", "analysis", "review", "live" };
+        try
+        {
+            foreach (var tab in tabs)
+            {
+                var js = """
+                    (() => {
+                      const key=__G72_TAB__,el=id=>document.getElementById(id);
+                      const visible=node=>{
+                        const r=node?.getBoundingClientRect(),s=node?getComputedStyle(node):null;
+                        return !!r&&r.width>100&&r.height>18&&s?.display!=='none'&&
+                          s?.visibility!=='hidden'&&!node?.classList.contains('hidden');
+                      };
+                      try{
+                        if(key==='field-compare'){
+                          el('flRibbonTab-field')?.click();
+                          window.FoamLensFieldWorkspace?.setLayout?.('3d');
+                          const check=el('fcEnabled');
+                          if(check&&!check.checked){
+                            check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
+                          }
+                        }else if(key==='analysis'){
+                          el('flRibbonTab-analysis')?.click();
+                        }else{
+                          el('flRibbonTab-home')?.click();
+                          el(key==='review'?'flRaReview':'flRaLive')?.click();
+                        }
+                        const mode=key==='field-compare'?'field':key;
+                        const modeOk=!!document.body.classList.contains('appMode-'+mode)&&
+                          typeof activeAppMode!=='undefined'&&activeAppMode===mode;
+                        const nav=key==='field-compare'?el('flRibbonTab-field'):
+                          key==='analysis'?el('flRibbonTab-analysis'):
+                          el(key==='review'?'flRaReview':'flRaLive');
+                        const navOk=!!nav&&!nav.disabled;
+                        const panel=key==='field-compare'?el('fieldViewPanel'):
+                          key==='analysis'?el('flRibbonPanel-analysis'):
+                          el(key==='review'?'reviewSurface':'liveSurface');
+                        const panelOk=visible(panel);
+                        const first=key==='field-compare'?el('fvViewport'):
+                          key==='analysis'?el('flRibbonTab-analysis'):
+                          el(key==='review'?'reviewTitle':'liveTitle');
+                        const secondary=key==='field-compare'?el('fcViewport'):
+                          key==='analysis'?el('flRibbonPanel-analysis'):
+                          el(key==='review'?'reviewTabAuditor':'liveChooseFolder');
+                        const controlsOk=visible(first)&&visible(secondary);
+                        const actualCompare=key!=='field-compare'||(
+                          el('fcEnabled')?.checked===true&&
+                          window.FoamLensFieldCompare?.isEnabled?.()===true&&
+                          panel?.classList.contains('fcCompareMode')&&
+                          !secondary?.classList.contains('hidden')&&
+                          visible(el('fvCanvas'))&&visible(el('fcCanvas')));
+                        return {ok:modeOk&&navOk&&panelOk&&controlsOk&&actualCompare,
+                          modeOk,navOk,panelOk,controlsOk,actualCompare};
+                      }catch{
+                        // No private DOM text, case paths, simulation numbers,
+                        // original scientific fields or JS exception strings.
+                        return{ok:false,modeOk:false,navOk:false,panelOk:false,
+                          controlsOk:false,actualCompare:false}
+                      }
+                    })()
+                    """.Replace("__G72_TAB__", JsonSerializer.Serialize(tab));
+                var result = await _web.CoreWebView2.ExecuteScriptAsync(js);
+                using var report = JsonDocument.Parse(result);
+                var state = report.RootElement;
+                var keys = new[] { "modeOk", "navOk", "panelOk", "controlsOk", "actualCompare" };
+                var checks = keys.Select(key =>
+                    key + "=" + (state.TryGetProperty(key, out var bit) &&
+                        bit.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant());
+                if (!state.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
+                    throw new InvalidOperationException(
+                        "G72 original native " + tab + "/" + sizeName +
+                        " did not satisfy visible workspace/3D comparison contract; " +
+                        string.Join("; ", checks));
+                // Native host screenshot; never generate or copy substitute
+                // panel images and never store a synthetic runtime fallback.
+                await Task.Delay(220);
+                await CaptureCdpPngAsync(Path.Combine(root, $"{tab}-{sizeName}.png"));
+                Log("G72 native original QuickCup workspace screenshot captured: " + tab + "/" + sizeName);
+            }
+        }
+        finally
+        {
+            await _web.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const c=document.getElementById('fcEnabled');" +
+                "if(c?.checked){c.checked=false;c.dispatchEvent(new Event('change',{bubbles:true}))}" +
+                "document.getElementById('flRibbonTab-field')?.click();return true})()");
         }
     }
 
@@ -746,6 +960,81 @@ internal sealed class FoamLensForm : Form
             Log("FoamLens checkMesh scientific report inspector WebView2 smoke passed: " +
                 meshAuditSurfaceJson);
 
+
+            // Confirm the CAD surface inspector is usable inside the real packaged WebView2.
+            // STL surfaces have no implied physical units, and are not volume meshes.
+            var cadSurfaceJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const api=window.FoamLensCadSurface,launch=document.getElementById('cgLaunch'),
+                    nav=document.getElementById('cgNav'),
+                    panel=document.getElementById('cgShell'),canvas=document.getElementById('cgCanvas');
+                  if(!api||!launch||!nav||!panel||!canvas)return{ok:false,reason:'CAD inspector not mounted'};
+                  const obj=api.parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3','native-smoke.obj');
+                  const sum=api.summarize(obj.triangles);
+                  const ascii=api.exportAsciiStl(obj.triangles,'native-smoke',.001);
+                  const stl=api.parseStl(new TextEncoder().encode(ascii).buffer,'native-smoke.stl');
+                  const exportBtn=document.getElementById('cgExportStl');
+                  nav.click();
+                  const opened=!panel.hidden&&canvas.getBoundingClientRect().width>200;
+                  panel.querySelector('#cgClose')?.click();
+                  const closed=panel.hidden;
+                  const ok=opened&&closed&&sum.triangles===1&&sum.boundaryEdges===3&&
+                    sum.enclosedVolumeEstimate===null&&sum.bounds.size[0]===1&&
+                    stl.triangles.length===1&&api.unitScale('unknown')===null&&
+                    exportBtn?.disabled===true;
+                  return{ok,format:stl.format,triangles:sum.triangles,unitUnconfirmed:exportBtn?.disabled};
+                })()
+                """);
+            using (var cadJson = JsonDocument.Parse(cadSurfaceJson))
+            {
+                if (!cadJson.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                    throw new InvalidOperationException(
+                        "FoamLens CAD surface packaged WebView2 smoke failed: " + cadSurfaceJson);
+            }
+            Log("FoamLens CAD STL/OBJ WebView2 smoke passed: " + cadSurfaceJson);
+
+            // Granada #154: the actual packaged WebView2 must expose scientific
+            // observable comparison, without pretending that 2D/3D meshes match.
+            var equivalentObservableJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  const api=window.FoamLensEquivalentObservables, panel=document.getElementById('eoPanel');
+                  if(!api||!panel)return{ok:false,reason:'2D/3D comparator did not mount'};
+                  const sample=(caseId,unit,y)=>({
+                    datasetType:'timeseries',caseId,caseName:'CI '+caseId,
+                    sourcePath:'postProcessing/probes/0/T',field:{canonical:'T',unit,dimensions:'[0 0 0 1 0 0 0]'},
+                    t:[0,1,2],y
+                  });
+                  const r=api.compare(sample(1,'K',[300,310,320]),sample(2,'K',[301,311,321]),{
+                    observable:'matched test temperature',basis:'physical-point',
+                    mapping:'CI synthetic matching physical location metadata only',
+                    confirmed:true
+                  });
+                  const denied=api.compare(sample(1,'K',[300,310,320]),sample(2,'W',[1,2,3]),{
+                    observable:'invalid physical units',basis:'physical-point',
+                    mapping:'CI synthetic location equivalence guard',
+                    confirmed:true
+                  });
+                  const open=panel.querySelector('#eoCalculate')!==null&&
+                    panel.querySelector('#eoSource2d')!==null&&
+                    panel.querySelector('#eoSource3d')!==null;
+                  return{ok:open&&r.valid&&r.metrics.n===3&&
+                    Math.abs(r.metrics.bias3dMinus2d-1)<1e-10&&
+                    r.methods.noFieldSubtraction===true&&r.methods.noExtrapolation===true&&
+                    denied.valid===false,
+                    mounted:open,valid:r.valid,points:r.metrics?.n||0,invalidRejected:!denied.valid};
+                })()
+                """);
+            using (var observableJson = JsonDocument.Parse(equivalentObservableJson))
+            {
+                if (!observableJson.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                    throw new InvalidOperationException(
+                        "FoamLens Granada equivalent-observables native WebView2 smoke failed: " +
+                        equivalentObservableJson);
+            }
+            Log("FoamLens Granada equivalent-observables WebView2 smoke passed: " +
+                equivalentObservableJson);
 
             var hasBridge = await _web.CoreWebView2.ExecuteScriptAsync(
                 "typeof window.chrome?.webview?.postMessage === 'function'");
@@ -1769,7 +2058,13 @@ internal sealed class FoamLensForm : Form
                         throw new InvalidOperationException(
                             $"FoamLens stable Data / Analysis / Field plot-surface runtime smoke failed: {realCaseJson}");
 
-                    if (!data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
+                    if (!data.TryGetProperty("sessionSavedFresh", out var sessionSavedFreshNode) ||
+                        !sessionSavedFreshNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionReplayApiPresent", out var sessionReplayApiNode) ||
+                        !sessionReplayApiNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionStoredFieldSelectionPresent", out var sessionSelectionNode) ||
+                        !sessionSelectionNode.GetBoolean() ||
+                        !data.TryGetProperty("sessionRestored", out var sessionRestoredNode) ||
                         !sessionRestoredNode.GetBoolean() ||
                         !data.TryGetProperty("sessionStoredSchema", out var sessionStoredSchemaNode) ||
                         sessionStoredSchemaNode.GetInt32() != 1 ||
@@ -1798,7 +2093,80 @@ internal sealed class FoamLensForm : Form
                         !data.TryGetProperty("sessionSmokeError", out var sessionSmokeErrorNode) ||
                         !string.IsNullOrWhiteSpace(sessionSmokeErrorNode.GetString()))
                         throw new InvalidOperationException(
-                            $"FoamLens cross-session state round-trip smoke failed: {realCaseJson}");
+                            "FoamLens cross-session state round-trip smoke failed; sanitized " +
+                            "savedFresh=" +
+                            (data.TryGetProperty("sessionSavedFresh", out var saveFlag) &&
+                             saveFlag.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant() +
+                            "; replayApiPresent=" +
+                            (data.TryGetProperty("sessionReplayApiPresent", out var replayApiFlag) &&
+                             replayApiFlag.ValueKind == JsonValueKind.True).ToString().ToLowerInvariant() +
+                            "; savedDataViewEqualsRestored=" +
+                            (data.TryGetProperty("sessionStoredDataView", out var savedView) &&
+                             data.TryGetProperty("sessionRestoredDataView", out var restoredView) &&
+                             savedView.ValueKind == JsonValueKind.String &&
+                             restoredView.ValueKind == JsonValueKind.String &&
+                             string.Equals(savedView.GetString(), restoredView.GetString(), StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; savedCatalog=" +
+                            (data.TryGetProperty("sessionStoredDataView", out var storedCatalogNode) &&
+                             storedCatalogNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(storedCatalogNode.GetString(), "catalog", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredCatalog=" +
+                            (data.TryGetProperty("sessionRestoredDataView", out var restoredCatalogNode) &&
+                             restoredCatalogNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(restoredCatalogNode.GetString(), "catalog", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredTimeSeries=" +
+                            (data.TryGetProperty("sessionRestoredDataView", out var restoredTimeseriesNode) &&
+                             restoredTimeseriesNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(restoredTimeseriesNode.GetString(), "timeseries", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayApplied=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayAppliedNode) &&
+                             replayAppliedNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayAppliedNode.GetString(), "applied", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replaySuperseded=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replaySupersededNode) &&
+                             replaySupersededNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replaySupersededNode.GetString(), "superseded", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayModeChanged=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayModeNode) &&
+                             replayModeNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayModeNode.GetString(), "mode-changed", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoField=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoFieldNode) &&
+                             replayNoFieldNode.ValueKind == JsonValueKind.String &&
+                             (string.Equals(replayNoFieldNode.GetString(), "no-field", StringComparison.Ordinal) ||
+                              string.Equals(replayNoFieldNode.GetString(), "applied-no-field", StringComparison.Ordinal))
+                            ).ToString().ToLowerInvariant() +
+                            "; replayPending=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayPendingNode) &&
+                             replayPendingNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayPendingNode.GetString(), "pending", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayNoPlots=" +
+                            (data.TryGetProperty("sessionReplayStatus", out var replayNoPlotsNode) &&
+                             replayNoPlotsNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(replayNoPlotsNode.GetString(), "no-plots", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; replayUnavailable=" +
+                            (!data.TryGetProperty("sessionReplayStatus", out var replayUnavailableNode) ||
+                             replayUnavailableNode.ValueKind != JsonValueKind.String ||
+                             string.Equals(replayUnavailableNode.GetString(), "unavailable", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant() +
+                            "; fieldSelectionPresent=" +
+                            (data.TryGetProperty("sessionStoredFieldSelectionPresent", out var selectionNode) &&
+                             selectionNode.ValueKind == JsonValueKind.True
+                            ).ToString().ToLowerInvariant() +
+                            "; restoredModeField=" +
+                            (data.TryGetProperty("sessionRestoredMode", out var fieldModeNode) &&
+                             fieldModeNode.ValueKind == JsonValueKind.String &&
+                             string.Equals(fieldModeNode.GetString(), "field", StringComparison.Ordinal)
+                            ).ToString().ToLowerInvariant());
 
                     if (!data.TryGetProperty("fieldRibbonVisible", out var fieldRibbonVisibleNode) ||
                         !fieldRibbonVisibleNode.GetBoolean() ||
@@ -2231,6 +2599,151 @@ internal sealed class FoamLensForm : Form
                 Log($"FoamLens real OpenFOAM packaged runtime smoke passed: {realCaseJson}");
                 await CaptureScientificWorkspaceEvidenceAsync();
 
+                // G56 original native B13 source numerical validation: private CI only.
+                if (string.Equals(Environment.GetEnvironmentVariable("FOAMLENS_SMOKE_TIMESERIES_B13"),
+                        "1", StringComparison.Ordinal))
+                {
+                    await _web.CoreWebView2.ExecuteScriptAsync("window.__foamLensB13TwoRegionTimeseriesResult=null;");
+                    await _web.CoreWebView2.ExecuteScriptAsync(
+                        """
+                        (async()=>{
+                         let stage='init',chosen=[];
+                         const result={ok:false};
+                         try{
+                          const bridge=window.__foamLensB13NumericBridge;
+                          if(!bridge)throw Error('original field history smoke-only bridge missing');
+                          const {fwBuildFieldTimeSeries,fvLoadFrameData,fwRefreshFieldTsSlot,fwPhysicalTimes,
+                            fwEnsureFieldTsControls,fwFieldTsCase,fwFieldTsRegion,fwFieldTsGroup,
+                            fwFieldTsSourceKey,setAppMode,setDataView}=bridge;
+                          const cases=bridge.caseList(),series=bridge.seriesList();
+                          if(typeof fwBuildFieldTimeSeries!=='function'||typeof fvLoadFrameData!=='function')throw Error('original field history missing');
+                          stage='select';
+                          const c=(cases||[]).find(x=>String(x?.name||'').includes('B13_prghPressure_airGapOF14'));
+                          if(!c?.discoveryModel)throw Error('original B13 case missing');
+                          setAppMode('data');setDataView('timeseries');
+                          if(!fwEnsureFieldTsControls())throw Error('original history controls missing');
+                          document.getElementById('fwDataFieldHistories').open=true;
+                          document.getElementById('fwTsEnable2').checked=true;
+                          for(const [slot,region] of [[1,'metal'],[2,'mold']]){
+                           const el=id=>document.getElementById(id+slot);
+                           el('fwTsSource').value='global';fwRefreshFieldTsSlot(slot,false);
+                           el('fwTsCase').value=String(c.id);fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsRegion').value=region;fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsField').value='T';fwRefreshFieldTsSlot(slot,true);
+                           el('fwTsComponent').value='value';el('fwTsStat').value='mean';
+                           const found=fwFieldTsCase(slot),r=fwFieldTsRegion(slot),g=fwFieldTsGroup(slot);
+                           if(String(found?.id)!==String(c.id)||r!==region||g?.name!=='T'||g.kind!=='scalar'||g.storage!=='volume')throw Error('B13 region T source not selected');
+                           chosen.push({c:found,r,g,original:g.times});
+                          }
+                          if(chosen[0].g===chosen[1].g)throw Error('two physical field sources not independent');
+                          stage='physical-times';
+                          const ta=fwPhysicalTimes(chosen[0].g.times),tb=fwPhysicalTimes(chosen[1].g.times);
+                          const common=ta.filter(t=>tb.includes(t));
+                          if(common.length<2)throw Error('B13 requires two common original physical times');
+                          const times=[...new Set([common[0],common[Math.floor((common.length-1)/2)],common[common.length-1]])];
+                          stage='original-generator';
+                          try{
+                           for(const item of chosen)item.g.times=times.slice();
+                           await fwBuildFieldTimeSeries();
+                           const built=chosen.map(item=>(series||[]).find(s=>s.fieldHistoryKey===fwFieldTsSourceKey(item.c,item.r,item.g,'value','mean')&&s.visible===true));
+                           if(built.some(s=>!s))throw Error('original two-source commit missing');
+                           stage='source-recompute';
+                           let matched=0,numericCells=0;
+                           for(let i=0;i<2;i++){
+                            const item=chosen[i],curve=built[i],ev=curve.fieldHistoryEvidence;
+                            if(String(curve.caseId)!==String(item.c.id)||curve.location!==item.r||ev?.region!==item.r||!ev.verifiedDimensions||
+                               ev?.sourceKind!=='global'||ev?.statistic!=='mean'||ev.temporalInterpolation!==false||
+                               ev.originalTimeCount!==times.length||ev.finiteSampleCount!==times.length||
+                               curve.t.length!==times.length||curve.y.length!==times.length||curve.t.some((t,j)=>t!==times[j]))
+                              throw Error('original B13 source or physical-time provenance mismatch');
+                            for(let j=0;j<times.length;j++){
+                             const frame=await fvLoadFrameData(item.c,item.g,item.r,times[j],'value',{includeBoundary:false});
+                             if(!frame?.range?.valid||!frame.fieldValues||!frame.parsed?.dimensions)throw Error('actual source frame not verified');
+                             let sum=0,count=0;
+                             for(const raw of frame.fieldValues){const value=Number(raw);if(Number.isFinite(value)){sum+=value;count++}}
+                             if(!count)throw Error('source has no finite cells');
+                             numericCells+=count;
+                             const reference=sum/count,actual=Number(curve.y[j]);
+                             if(!Number.isFinite(actual)||Math.abs(actual-reference)>Math.max(1e-7,Math.abs(reference)*1e-9))
+                              throw Error('original generated mean differs from source cell arithmetic');
+                             matched++;
+                            }
+                           }
+                           if(matched!==2*times.length||numericCells<matched||
+                              !built[0].y.some((v,j)=>Math.abs(v-built[1].y[j])>1e-7))
+                             throw Error('independent metal/mold original values were not distinguished');
+                           Object.assign(result,{ok:true,caseAndRegionsVerified:true,originalNumericAgreement:true,
+                             sampledPhysicalTimes:times.length,independentSourceFrames:matched,noInterpolation:true,
+                             originalSourceValuesUploaded:false});
+                          }finally{for(const item of chosen)item.g.times=item.original}
+                         }catch(e){Object.assign(result,{ok:false,stage,reason:String(e?.message||e).slice(0,140)})}
+                         window.__foamLensB13TwoRegionTimeseriesResult=result;
+                        })();
+                        """);
+                    string checkedJson = "null";
+                    var checkDeadline = Stopwatch.StartNew();
+                    while (checkDeadline.Elapsed < TimeSpan.FromSeconds(180))
+                    {
+                        await Task.Delay(180);
+                        checkedJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                            "window.__foamLensB13TwoRegionTimeseriesResult");
+                        if (!string.Equals(checkedJson.Trim(), "null", StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(checkedJson.Trim(), "undefined", StringComparison.OrdinalIgnoreCase))
+                            break;
+                    }
+                    using (var checkDoc = JsonDocument.Parse(checkedJson))
+                    {
+                        var proof = checkDoc.RootElement;
+                        bool yes(string key) => proof.TryGetProperty(key, out var p) &&
+                            p.ValueKind == JsonValueKind.True;
+                        bool minimum(string key, int lower) => proof.TryGetProperty(key, out var p) &&
+                            p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int n) && n >= lower;
+                        if (!yes("ok") || !yes("caseAndRegionsVerified") ||
+                            !yes("originalNumericAgreement") || !yes("noInterpolation") ||
+                            !minimum("sampledPhysicalTimes", 2) || !minimum("independentSourceFrames", 4) ||
+                            !proof.TryGetProperty("originalSourceValuesUploaded", out var upload) ||
+                            upload.ValueKind != JsonValueKind.False)
+                        {
+                            // Fixed enums only: never leak private source paths or cell values.
+                            var stageRaw = proof.TryGetProperty("stage", out var st) &&
+                                st.ValueKind == JsonValueKind.String ? st.GetString() : "";
+                            var stageSafe = stageRaw switch
+                            {
+                                "init" => "init",
+                                "select" => "select",
+                                "physical-times" => "physical-times",
+                                "original-generator" => "original-generator",
+                                "source-recompute" => "source-recompute",
+                                _ => "unknown"
+                            };
+                            var reasonRaw = proof.TryGetProperty("reason", out var rs) &&
+                                rs.ValueKind == JsonValueKind.String ? rs.GetString() : "";
+                            var reasonCode = reasonRaw switch
+                            {
+                                "original field history missing" => "missing-source-generator",
+                                "original field history smoke-only bridge missing" => "missing-smoke-bridge",
+                                "original B13 case missing" => "missing-b13-case",
+                                "original history controls missing" => "missing-controls",
+                                "B13 region T source not selected" => "source-selector",
+                                "two physical field sources not independent" => "region-alias",
+                                "B13 requires two common original physical times" => "insufficient-times",
+                                "original two-source commit missing" => "history-commit",
+                                "original B13 source or physical-time provenance mismatch" => "history-provenance",
+                                "actual source frame not verified" => "invalid-source-frame",
+                                "source has no finite cells" => "nonfinite-source",
+                                "original generated mean differs from source cell arithmetic" => "mean-disagreement",
+                                "independent metal/mold original values were not distinguished" => "no-regional-difference",
+                                _ => "unclassified"
+                            };
+                            Log("G56 SAFE FAIL stage=" + stageSafe + " code=" + reasonCode);
+                            throw new InvalidOperationException("G56 original B13 numerical validation failed, safe stage " + stageSafe + ".");
+                        }
+                    }
+                    Log("FoamLens original B13 two-region Time Series numeric smoke passed: physical time and original source cells independently reduced, no private scientific values exported.");
+                    await _web.CoreWebView2.ExecuteScriptAsync("delete window.__foamLensB13TwoRegionTimeseriesResult;");
+                }
+
+
                 // Optional CI handshake: keep the actual rendered metal/mold case
                 // alive while the parent runner samples GPU Process Memory counters.
                 // Never describe those process counters as graphics-card total VRAM.
@@ -2396,10 +2909,9 @@ internal sealed class FoamLensForm : Form
     private void ApplyFrontendExtensions()
     {
         var indexPath = Path.Combine(AppRoot, "index.html");
-        var extensionPaths = Directory.GetFiles(AppRoot, "v*-*.js")
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (extensionPaths.Length == 0) return;
+        // G35: only authoritative embedded original AppBundle JavaScript is executable.
+        // Never enumerate mutable per-user AppRoot v*-*.js residues after ZIP extraction.
+        var bundledExtensions = TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly();
 
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         // Bind the packaged frontend to the assembly version without depending on a historical source-version replacement.
@@ -2429,8 +2941,22 @@ internal sealed class FoamLensForm : Form
 
         // Versioned modules are injected inside the main frontend IIFE so they
         // share the live case/series model without exporting private state.
-        var extension = string.Join(Environment.NewLine,
-            extensionPaths.Select(path => File.ReadAllText(path, Encoding.UTF8)));
+        var extension = string.Join(Environment.NewLine, bundledExtensions);
+        // G56: bridge ONLY while the exact native --smoke-test has explicitly
+        // opted in to the original private B13 numerical test. Never export the
+        // main IIFE's source model or parsing functions to regular user sessions.
+        if (_smokeTest && string.Equals(Environment.GetEnvironmentVariable(
+                "FOAMLENS_SMOKE_TIMESERIES_B13"), "1", StringComparison.Ordinal))
+        {
+            extension += Environment.NewLine + """
+window.__foamLensB13NumericBridge={
+  caseList:()=>cases,seriesList:()=>series,
+  fwBuildFieldTimeSeries,fvLoadFrameData,fwRefreshFieldTsSlot,fwPhysicalTimes,
+  fwEnsureFieldTsControls,fwFieldTsCase,fwFieldTsRegion,fwFieldTsGroup,
+  fwFieldTsSourceKey,setAppMode,setDataView
+};
+""";
+        }
         if (_smokeTest)
         {
             extension += Environment.NewLine + """
@@ -2558,15 +3084,29 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     try{setAppMode('field')}catch{}
   }
   let sessionSmoke=null,sessionSmokeError='';
+  let sessionSavedFresh=false,sessionReplayApiPresent=false,sessionSavedFieldSelectionPresent=false;
   try{
     const ss=window.FoamLensSessionState,ctx=window.FoamLensContextStore,ps=window.FoamLensPlotSurfaces;
     if(!ss||!ctx||!ps)throw new Error('Session persistence APIs are incomplete.');
+    sessionReplayApiPresent=typeof ss.replayStatus==='function';
+    if(!sessionReplayApiPresent)throw new Error('Current packaged session replay API is missing.');
     ctx.set({caseId:Number(switchedCase.id),region:String(fvState.region||'')},{source:'session-smoke',apply:false});
     window.FoamLensFieldWorkspace?.setInspector?.(true);
     setAppMode('field');
-    ss.save();
+    // G68: never read an OLD WebView2 localStorage snapshot after a guarded
+    // save returned false while the original Field restoration was active.
+    // Wait for the real stored-session restore and boundedly retry the
+    // original public save API; do not bypass its source-state guards.
+    if(typeof ss.whenRestored==='function')await ss.whenRestored();
+    for(let attempt=0;attempt<50&&!sessionSavedFresh;attempt++){
+      sessionSavedFresh=ss.save()===true;
+      if(!sessionSavedFresh)await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!sessionSavedFresh)throw new Error('Guarded session save could not settle before native persistence QA.');
     const stored=ss.load();
-    if(!stored)throw new Error('Session state was not written to localStorage.');
+    sessionSavedFieldSelectionPresent=!!(stored&&Object.prototype.hasOwnProperty.call(stored,'fieldSelection'));
+    if(!stored||!sessionSavedFieldSelectionPresent)
+      throw new Error('Fresh session snapshot is missing the original Field selection.');
     const storedDataView=String(stored?.plots?.surfaces?.data?.view||'');
     const storedRoot=String(stored?.context?.caseRoot||'');
     const expectedRoot=String(caseById(Number(switchedCase.id))?.rootPath||'');
@@ -2595,6 +3135,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
       restoredRegion:String(restoredContext.region||''),
       storedDataView,
       restoredDataView:String(ps.state?.('data')?.view||''),
+      // Only a bounded replay-decision enum; never export cases, paths or values.
+      sessionReplayStatus:String(ss.replayStatus?.()||'unavailable'),
+      sessionStoredFieldSelectionPresent:!!stored?.fieldSelection,
       inspectorRestored:fieldState.inspector===true,
       fieldViewRestored:String(fieldState.view||'')===String(stored?.field?.view||''),
       fieldCompanionRestored:String(fieldState.companion||'')===String(stored?.field?.companion||'')
@@ -3002,6 +3545,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     sessionRestoredRegion:String(sessionSmoke?.restoredRegion||''),
     sessionStoredDataView:String(sessionSmoke?.storedDataView||''),
     sessionRestoredDataView:String(sessionSmoke?.restoredDataView||''),
+    // These bounded flags must be EXPORTED by the native smoke JSON; keeping
+    // them only in sessionSmoke previously caused false diagnostic negatives.
+    sessionReplayStatus:String(sessionSmoke?.sessionReplayStatus||'unavailable'),
+    sessionSavedFresh,
+    sessionReplayApiPresent,
+    sessionStoredFieldSelectionPresent:sessionSavedFieldSelectionPresent,
     sessionInspectorRestored:!!sessionSmoke?.inspectorRestored,
     sessionFieldViewRestored:!!sessionSmoke?.fieldViewRestored,
     sessionFieldCompanionRestored:!!sessionSmoke?.fieldCompanionRestored,
@@ -3212,19 +3761,22 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
 
         var installerPath = Path.Combine(updateDir, release.InstallerName);
         var checksumPath = installerPath + ".sha256";
-        await DownloadUpdateFileAsync(release.InstallerUrl!, installerPath);
-        await DownloadUpdateFileAsync(release.ChecksumUrl!, checksumPath);
+        var officialInstallerUrl = UpdateAssetIntegrity.RequireOfficialReleaseAsset(
+            release.InstallerUrl!, release.Tag, release.InstallerName);
+        var officialChecksumUrl = UpdateAssetIntegrity.RequireOfficialReleaseAsset(
+            release.ChecksumUrl!, release.Tag, release.InstallerName + ".sha256");
+        await DownloadUpdateFileAsync(officialInstallerUrl.AbsoluteUri, installerPath);
+        await DownloadUpdateFileAsync(officialChecksumUrl.AbsoluteUri, checksumPath);
 
+        var checksumInfo = new FileInfo(checksumPath);
+        if (checksumInfo.Length is < 64 or > 4096)
+            throw new InvalidDataException("FoamLens update checksum exceeds the permitted manifest size.");
         var checksumText = await File.ReadAllTextAsync(checksumPath, Encoding.ASCII);
-        if (!checksumText.Contains(release.InstallerName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("The update checksum does not identify the downloaded installer.");
-        var match = Regex.Match(checksumText, @"\b[a-fA-F0-9]{64}\b");
-        if (!match.Success)
-            throw new InvalidDataException("The update checksum file does not contain a valid SHA-256 hash.");
+        var expectedHash = UpdateAssetIntegrity.RequireExactSha256(checksumText, release.InstallerName);
 
         await using var installerStream = File.OpenRead(installerPath);
         var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(installerStream));
-        if (!string.Equals(match.Value, actualHash, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("FoamLens update verification failed: installer SHA-256 does not match.");
 
         Log($"Verified FoamLens update {release.Tag}: {actualHash.ToLowerInvariant()}");
@@ -4967,14 +5519,17 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     private void HandleOpenExternal(JsonElement root, string requestId)
     {
         var uri = RequiredString(root, "uri");
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
-            (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp))
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
         {
-            Reply(requestId, false, null, "Only http/https external links are allowed.");
+            Reply(requestId, false, null, "Only safe external HTTP(S) browser links are allowed.");
             return;
         }
-        OpenExternal(parsed.ToString());
-        Reply(requestId, true, new { uri = parsed.ToString() }, null);
+        if (!OpenExternal(externalUrl))
+        {
+            Reply(requestId, false, null, "The system could not open this link.");
+            return;
+        }
+        Reply(requestId, true, new { uri = externalUrl }, null);
     }
 
     private void HandleCancelOperation(JsonElement root, string requestId)
@@ -5099,11 +5654,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         else _web.CoreWebView2?.PostWebMessageAsJson(json);
     }
 
-    private static void OpenExternal(string? uri)
+    private static bool OpenExternal(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) return;
-        try { Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true }); }
-        catch { /* External navigation should never crash FoamLens. */ }
+        // Last-resort defense for ALL callers: WebView2, About links,
+        // update links and the native JS bridge, not only click handlers.
+        if (!ExternalNavigationPolicy.TryExternalHttpUrl(uri, out var externalUrl))
+            return false;
+        try
+        {
+            Process.Start(new ProcessStartInfo(externalUrl) { UseShellExecute = true });
+            return true;
+        }
+        catch { return false; /* Never crash FoamLens if the OS browser is unavailable. */ }
     }
 
     private static void Log(string message)

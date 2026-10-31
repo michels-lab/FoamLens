@@ -1,0 +1,24 @@
+name: Granada 2D-3D observables fast regression
+
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js'
+      - 'desktop/tests/equivalent-observables.test.cjs'
+      - '.github/workflows/equivalent-observables-fast.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js'
+      - 'desktop/tests/equivalent-observables.test.cjs'
+      - '.github/workflows/equivalent-observables-fast.yml'
+  workflow_dispatch:
+jobs:
+  scientific-2d3d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node desktop/tests/equivalent-observables.test.cjs

@@ -24,6 +24,50 @@ function tsdAxisPlan(primaryField,secondaryField){
   const separate=tsdFieldAxisKey(primaryField)!==tsdFieldAxisKey(secondaryField);
   return{primary:'left',secondary:separate?'right':'left',separate}
 }
+
+// Preserve the literal imported scientific identity. A bare numeric column
+// identifier has no demonstrated physical quantity, even if it plots correctly.
+function tsdUnverifiedColumn(field){
+  const f=field||{},raw=String(f.canonical??'').trim();
+  if(!/^\d+(?:\.\d+)?$/.test(raw))return null;
+  const display=String(f.display??'').trim(),original=String(f.original??'').trim();
+  const quantity=String(f.quantity??'').trim().toLowerCase();
+  if((display&&display!==raw)||(original&&original!==raw)||
+     (quantity&&quantity!=='unknown'))return null;
+  return raw
+}
+function tsdEvidenceFieldLabel(field,locale='en'){
+  const column=tsdUnverifiedColumn(field);
+  if(column===null)return null;
+  return locale==='es'?'Columna '+column+' (sin identificar)':
+    'Column '+column+' (unidentified)'
+}
+function tsdSourceEvidence(allSeries,canonical){
+  const key=String(canonical??'');
+  const rows=(allSeries||[]).filter(s=>String(s?.field?.canonical??'')===key);
+  const distinct=a=>[...new Set(a.filter(Boolean))];
+  const fields=rows.map(s=>s.field||{});
+  const units=distinct(fields.map(f=>String(f.unit??'').trim()).filter(v=>v&&v!=='-'&&v!=='?'));
+  const dimensions=distinct(fields.map(f=>String(f.dimensions??'').trim()).filter(v=>v&&v!=='?'));
+  const quantities=distinct(fields.map(f=>String(f.quantity??'').trim()).filter(v=>v&&v!=='unknown'));
+  // A derived: key is NOT a real OpenFOAM file path; keep case/region evidence
+  // but mark exact original per-frame file reference as unavailable.
+  const sources=distinct(rows.map(s=>String(s.sourcePath||s.fileName||'').trim()).filter(p=>!p.startsWith('derived:')));
+  const sourceFields=distinct(rows.map(s=>String(s.postProcessing?.fieldName||'').trim()));
+  const unknownColumns=rows.some(s=>tsdUnverifiedColumn(s.field)!==null);
+  return {
+    canonical:key,curves:rows.length,sources,sourceFields,units,dimensions,quantities,
+    unknownColumns,
+    inconsistentUnits:units.length>1,
+    inconsistentDimensions:dimensions.length>1,
+    inconsistentQuantities:quantities.length>1,
+    incompleteUnits:fields.some(f=>!f.unit||f.unit==='-'||f.unit==='?'),
+    missingSource:rows.some(s=>!(s.sourcePath||s.fileName)||String(s.sourcePath||'').startsWith('derived:')),
+    histories:rows.filter(s=>s.fieldHistoryEvidence?.schema==='foamlens/field-history-evidence/1').map(s=>s.fieldHistoryEvidence),
+    incompleteHistories:rows.some(s=>s.fieldHistoryEvidence?.omittedTimeCount>0),
+    unverifiedHistoryDimensions:rows.some(s=>s.fieldHistoryEvidence&& !s.fieldHistoryEvidence.verifiedDimensions)
+  }
+}
 /* FOAMLENS_DUAL_TIMESERIES_CORE_END */
 
 function tsdUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(document.getElementById('language')?.value==='es'?es:en)}catch{return en}}
@@ -34,6 +78,10 @@ function tsdInjectCss(){
 .timeSeriesControls .tsdGrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.85fr);gap:7px}
 .tsdAxisHint{display:inline-flex;margin-left:5px;padding:1px 5px;border:1px solid var(--line);border-radius:999px;font-size:8px;font-weight:800;color:var(--muted);vertical-align:middle}
 #timeSeriesVariable2:disabled{opacity:.55}
+.tsdScientificEvidence{margin-top:8px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.tsdScientificEvidence summary{cursor:pointer;font-weight:700;padding:6px 0}
+.tsdEvidenceGroup{padding:7px 0;border-top:1px solid var(--line);line-height:1.5}
+.tsdEvidenceWarning{margin:4px 0;color:var(--warning,#b86b24);font-weight:700}
 @media(max-width:640px){.timeSeriesControls .tsdGrid{grid-template-columns:1fr}}
 `;document.head.appendChild(style)
 }
@@ -108,11 +156,111 @@ function tsdUpdateSourceCatalog(){
   info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+'.',
     'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.');
   const details=document.getElementById('fwDataFieldHistories');
-  if(details&&catalog.length&&datasets.length===0){
+  // G59: a real imported postProcessing curve does NOT make newly imported
+  // OpenFOAM 3D source fields disappear. Refresh existing source selectors
+  // whenever their history workspace is open (or the empty-curves fallback
+  // must expose it), without parsing a single frame or creating a curve.
+  // Keep legacy collapsed details collapsed if existing curves are present.
+  const sourceWorkspaceOpen=!!details&&(details.open||
+    !!document.getElementById('gr176HistoryCard')||datasets.length===0);
+  if(sourceWorkspaceOpen&&catalog.length){
     details.open=true;
     try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(e){console.error(e)}
   }
 }
+
+function tsdPatchScientificLabels(){
+  if(typeof localizedFieldName!=='function'||localizedFieldName.__tsdEvidencePatched)return;
+  const original=localizedFieldName;
+  localizedFieldName=function(field){
+    if(typeof currentDataView!=='undefined'&&currentDataView==='timeseries'){
+      const label=tsdEvidenceFieldLabel(field,tsdUi('en','es'));
+      if(label!==null)return label
+    }
+    return original.apply(this,arguments)
+  };
+  localizedFieldName.__tsdEvidencePatched=true
+}
+function tsdUpdateScientificEvidence(){
+  const hint=document.getElementById('timeSeriesFilterHint'),
+    primary=document.getElementById('timeSeriesVariable'),
+    secondary=document.getElementById('timeSeriesVariable2');
+  if(!hint||!primary)return;
+  let panel=document.getElementById('tsdScientificEvidence');
+  const rows=timeSeriesOptionsBase().filter(tsdMatchesFilters);
+  if(!rows.length||primary.dataset.showAll==='1'){
+    if(panel)panel.remove();
+    return
+  }
+  const selected=[primary.value,secondary?.value||''].filter(Boolean);
+  if(!selected.length){if(panel)panel.remove();return}
+  const evidence=selected.map(id=>tsdSourceEvidence(rows,id));
+  const warnings=evidence.filter(e=>e.unknownColumns||e.inconsistentUnits||
+    e.inconsistentDimensions||e.inconsistentQuantities||e.missingSource||
+    e.incompleteHistories||e.unverifiedHistoryDimensions);
+  if(!panel){
+    panel=document.createElement('details');panel.id='tsdScientificEvidence';
+    panel.className='timeSeriesHint tsdScientificEvidence';
+    hint.insertAdjacentElement('afterend',panel)
+  }
+  const wasOpen=panel.open;panel.replaceChildren();
+  const title=document.createElement('summary');
+  title.textContent=tsdUi('Scientific source evidence','Evidencia de origen científico')+
+    ' · '+evidence.length+' '+tsdUi('field(s)','campo(s)')+
+    (warnings.length?' · '+warnings.length+' '+tsdUi('warning(s)','advertencia(s)'):'');
+  panel.appendChild(title);
+  for(const e of evidence){
+    const group=document.createElement('div');group.className='tsdEvidenceGroup';
+    const line=document.createElement('strong');
+    line.textContent=e.canonical+' · '+e.curves+' '+tsdUi('curve(s)','curva(s)');
+    group.appendChild(line);
+    const entry=(label,values)=>{
+      const node=document.createElement('div');
+      node.textContent=label+': '+(values.length?values.join(' | '):tsdUi('not available','no disponible'));
+      group.appendChild(node)
+    };
+    for(const h of e.histories){
+      const detail=document.createElement('div');
+      detail.textContent=tsdUi('Source history','Historia de origen')+': '+
+        h.caseName+' ['+h.caseId+'] · '+(h.region||tsdUi('default region','región predeterminada'))+
+        ' · '+h.field+' · '+h.component+' · '+h.sourceKind+
+        ' · '+h.finiteSampleCount+'/'+h.originalTimeCount+' '+tsdUi('valid source times','tiempos de origen válidos')+
+        (h.aggregation==='arithmetic-unweighted'?' · '+tsdUi('unweighted arithmetic mean','media aritmética sin ponderación'):'');
+      group.appendChild(detail)
+    }
+    entry(tsdUi('Original source fields','Campos originales'),e.sourceFields);
+    entry(tsdUi('Units','Unidades'),e.units);
+    entry(tsdUi('Dimensions','Dimensiones'),e.dimensions);
+    entry(tsdUi('Source files','Archivos de origen'),e.sources.slice(0,4));
+    if(e.sources.length>4)entry(tsdUi('Additional sources','Fuentes adicionales'),[String(e.sources.length-4)]);
+    const notices=[];
+    if(e.unknownColumns)notices.push(tsdUi(
+      'Numeric column identifier is not a verified physical field. Confirm its source header before interpreting the curve.',
+      'El identificador numérico no es un campo físico verificado. Comprueba el encabezado original antes de interpretar la curva.'));
+    if(e.inconsistentUnits||e.inconsistentDimensions||e.inconsistentQuantities)
+      notices.push(tsdUi(
+        'Incompatible known unit/dimension/quantity metadata across curves: comparison requires review.',
+        'Metadatos conocidos de unidades/dimensiones/magnitudes incompatibles: revisa la comparación.'));
+    if(e.incompleteUnits)notices.push(tsdUi(
+      'At least one source has no verified unit; no unit is inferred.',
+      'Al menos una fuente no tiene unidades verificadas; no se infieren.'));
+    if(e.missingSource)notices.push(tsdUi(
+      'At least one curve lacks a source file reference.',
+      'Al menos una curva carece de referencia al archivo de origen.'));
+    if(e.incompleteHistories)notices.push(tsdUi(
+      'Some physical source times had no finite samples; no missing data was interpolated.',
+      'Algunos tiempos físicos no dieron muestras finitas; no se interpolaron datos faltantes.'));
+    if(e.unverifiedHistoryDimensions)notices.push(tsdUi(
+      'One source history lacks verified per-frame dimensions; confirm its OpenFOAM header.',
+      'Una historia carece de dimensiones verificadas por frame; comprueba su encabezado OpenFOAM.'));
+    if(notices.length){const warning=document.createElement('p');
+      warning.className='tsdEvidenceWarning';warning.textContent=notices.join(' ');
+      group.appendChild(warning)}
+    panel.appendChild(group)
+  }
+  panel.open=wasOpen||warnings.length>0
+}
+
 function tsdRefreshTimeSeriesControls(){
   const panel=document.getElementById('timeSeriesControls'),vSel=document.getElementById('timeSeriesVariable'),v2Sel=document.getElementById('timeSeriesVariable2'),pSel=document.getElementById('timeSeriesProbe'),fSel=document.getElementById('timeSeriesFamily');
   if(!panel||!vSel||!v2Sel||!pSel||!fSel)return;
@@ -129,7 +277,7 @@ function tsdRefreshTimeSeriesControls(){
       'No measured time-series has been imported or built. Select an available 3D field below and explicitly build its physical-time history.',
       'No se ha importado o calculado una serie temporal medida. Selecciona abajo un campo 3D disponible y construye explícitamente su historia en tiempo físico.');
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
-    tsdUpdateSourceCatalog();return
+    tsdUpdateSourceCatalog();tsdUpdateScientificEvidence();return
   }
   panel.classList.remove('hidden');
   const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
@@ -163,7 +311,7 @@ function tsdRefreshTimeSeriesControls(){
     `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varsText} · ${probeText}.`
   )
 ;
-  tsdUpdateSourceCatalog()
+  tsdUpdateSourceCatalog();tsdUpdateScientificEvidence()
 }
 function tsdPatchAssignments(){
   if(typeof assignments!=='function'||assignments.__tsdPatched)return;
@@ -182,7 +330,7 @@ function tsdPatchAssignments(){
   };assignments.__tsdPatched=true
 }
 function tsdInstall(){
-  tsdInjectCss();if(!tsdEnsureUi())return false;
+  tsdPatchScientificLabels();tsdInjectCss();if(!tsdEnsureUi())return false;
   timeSeriesMatchesSelection=tsdMatchesFilters;
   refreshTimeSeriesControls=tsdRefreshTimeSeriesControls;
   tsdPatchAssignments();
@@ -199,4 +347,4 @@ function tsdInstall(){
   refreshTimeSeriesControls();return true
 }
 tsdInstall();
-window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdRefreshTimeSeriesControls};
+window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence,tsdRefreshTimeSeriesControls};

@@ -1,5 +1,9 @@
 # FoamLens
 
+## Operación Granada — auditoría de aplicación y plugins (2026-10-21)
+
+[Ver auditoría y bitácora propias de este producto](docs/GRANADA_APP_PLUGIN_AUDIT_2026-10-21.md): evidencia de GitHub Actions, conectores ChatGPT aplicables, servicios existentes, costo cero adicional por defecto, pendientes reales y separación estricta de los demás productos. La documentación no prueba QA físico ni publica una versión.
+
 Scientific analysis and post-processing workspace for OpenFOAM simulation data, created by **Michel Armando Duarte Flores**.
 
 FoamLens is designed for thesis and research workflows where simulation data need to be discovered, compared, inspected, styled, animated, and exported without building a separate plotting script for every case.
@@ -7,7 +11,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Release information
 
 - **FoamLens Web v51**
-- **FoamLens Desktop v1.8.10** for Windows — source and release candidate. [Official latest release and Setup/Portable downloads](https://github.com/michels-lab/FoamLens/releases/latest). A release becomes downloadable only after automated Windows validation and the GitHub publication gate pass.
+- **FoamLens Desktop v1.8.10** for Windows — [verified published stable release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10), 2026-10-19, with Setup/Portable and SHA-256 sidecars (four assets; GitHub release metadata checked 2026-10-21). Publication does **not** prove installation, physical performance or pending G5 integration; future releases still require the release gates.
 - The previous verified [v1.8.7 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.7) remains available. Improvements to 3,008-file cold/warm import time on the owner's machine are not yet measured.
 
 ## Features
@@ -93,3 +97,10 @@ This repository is public for viewing, demonstration, portfolio, and source-revi
 See [`LICENSE`](LICENSE) for the complete terms.
 
 © 2026 Michel Armando Duarte Flores. All Rights Reserved.
+
+## Documentation map and independent OpenFOAM ecosystem
+
+- [Product documentation, engineering logs and audit index](docs/DOCUMENTATION_INDEX.md).
+- [Generic OpenFOAM interoperability and independence from MasterProject](docs/OPENFOAM_ECOSYSTEM.md).
+
+FoamLens does not require MasterProject or any coordination hub to function; scientific source data and physical validation remain with their producers.
