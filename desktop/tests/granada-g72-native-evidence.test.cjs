@@ -30,6 +30,7 @@ test('actual A/B 3D scientific Field compare is mandatory: never a 2D split subs
 test('Analysis, Review and Live must navigate legitimate original visible owners',()=>{
  for(const x of ["el('flRibbonTab-analysis')?.click()","el('flRibbonTab-home')?.click()",
     "el(key==='review'?'flRaReview':'flRaLive')?.click()",
+    "key==='analysis'?el('workspace')",
     "el('flRibbonPanel-analysis')",
     "el(key==='review'?'reviewSurface':'liveSurface')",
     "el(key==='review'?'reviewTitle':'liveTitle')",
