@@ -677,7 +677,7 @@ internal sealed class FoamLensForm : Form
                       const key=__G72_TAB__,el=id=>document.getElementById(id);
                       const visible=node=>{
                         const r=node?.getBoundingClientRect(),s=node?getComputedStyle(node):null;
-                        return !!r&&r.width>100&&r.height>18&&s?.display!=='none'&&
+                        return !!r&&r.width>25&&r.height>8&&s?.display!=='none'&&
                           s?.visibility!=='hidden'&&!node?.classList.contains('hidden');
                       };
                       try{
@@ -704,7 +704,8 @@ internal sealed class FoamLensForm : Form
                         const panel=key==='field-compare'?el('fieldViewPanel'):
                           key==='analysis'?el('flRibbonPanel-analysis'):
                           el(key==='review'?'reviewSurface':'liveSurface');
-                        const panelOk=visible(panel);
+                        const panelRect=panel?.getBoundingClientRect();
+                        const panelOk=visible(panel)&&panelRect.width>100&&panelRect.height>90;
                         const first=key==='field-compare'?el('fvViewport'):
                           key==='analysis'?el('flRibbonTab-analysis'):
                           el(key==='review'?'reviewTitle':'liveTitle');
@@ -717,7 +718,9 @@ internal sealed class FoamLensForm : Form
                           window.FoamLensFieldCompare?.isEnabled?.()===true&&
                           panel?.classList.contains('fcCompareMode')&&
                           !secondary?.classList.contains('hidden')&&
-                          visible(el('fvCanvas'))&&visible(el('fcCanvas')));
+                          visible(el('fvCanvas'))&&visible(el('fcCanvas'))&&
+                          el('fvCanvas').getBoundingClientRect().width>100&&
+                          el('fcCanvas').getBoundingClientRect().width>100);
                         return {ok:modeOk&&navOk&&panelOk&&controlsOk&&actualCompare,
                           modeOk,navOk,panelOk,controlsOk,actualCompare};
                       }catch{
