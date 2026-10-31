@@ -700,6 +700,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/developer-twin-audit.test.cjs
 
+      - name: Test original G72 native screenshot owner and workspace provenance
+        shell: pwsh
+        run: node desktop/tests/granada-g72-native-evidence.test.cjs
+
       - name: Test CI suite manifest
         shell: pwsh
         run: node desktop/tests/test-suite-manifest.test.cjs
