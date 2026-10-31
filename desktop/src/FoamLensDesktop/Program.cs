@@ -702,7 +702,7 @@ internal sealed class FoamLensForm : Form
                           el(key==='review'?'flRaReview':'flRaLive');
                         const navOk=!!nav&&!nav.disabled;
                         const panel=key==='field-compare'?el('fieldViewPanel'):
-                          key==='analysis'?el('flRibbonPanel-analysis'):
+                          key==='analysis'?el('workspace'):
                           el(key==='review'?'reviewSurface':'liveSurface');
                         const panelRect=panel?.getBoundingClientRect();
                         const panelOk=visible(panel)&&panelRect.width>100&&panelRect.height>90;
