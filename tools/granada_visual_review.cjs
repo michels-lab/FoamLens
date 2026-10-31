@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // Offline, exact-artifact FoamLens visual review. Captured !== visually approved.
-const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{parseArgs}=require('node:util');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib'),{parseArgs}=require('node:util');
 const MODES=['home','about','data','field','time-series','field-compare','analysis','review','live'];
 const VARIANTS=['installed','portable'],SIZES=['wide','compact'];
 const SHA64=/^[0-9a-f]{64}$/i,SHA40=/^[0-9a-f]{40}$/i;
@@ -15,13 +15,62 @@ function inside(root,relative){
   if(!rel||rel==='..'||rel.startsWith('..'+path.sep)||path.isAbsolute(rel))throw Error('Image outside manifest root');
   return p;
 }
-function png(buffer){
-  const signature=Buffer.from([137,80,78,71,13,10,26,10]);
-  if(buffer.length<33||!buffer.subarray(0,8).equals(signature)||buffer.readUInt32BE(8)!==13||buffer.toString('ascii',12,16)!=='IHDR')throw Error('Invalid PNG IHDR');
-  const width=buffer.readUInt32BE(16),height=buffer.readUInt32BE(20);
-  if(!width||!height||width>16000||height>16000)throw Error('Invalid PNG size');
-  return{width,height};
+
+const CRC_TABLE=Array.from({length:256},(_,i)=>{
+  let c=i;for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);return c>>>0
+});
+function crc32(buffer){
+  let crc=0xffffffff;
+  for(const value of buffer)crc=CRC_TABLE[(crc^value)&255]^(crc>>>8);
+  return(crc^0xffffffff)>>>0
 }
+function png(buffer){
+  // G71: a PNG signature and spoofed IHDR are NOT a native Windows screenshot.
+  // Verify every chunk's size and CRC, actual decompressed pixels, one complete
+  // PNG stream, non-interlaced scanlines, and no bytes after IEND.
+  const signature=Buffer.from([137,80,78,71,13,10,26,10]);
+  if(!Buffer.isBuffer(buffer)||buffer.length<57||!buffer.subarray(0,8).equals(signature))
+    throw Error('Invalid PNG signature');
+  let pos=8,header=null,ended=false,seenData=false,compressed=0;
+  const idats=[];
+  while(pos<buffer.length){
+    if(pos+12>buffer.length)throw Error('Truncated PNG chunk');
+    const length=buffer.readUInt32BE(pos),kind=buffer.toString('ascii',pos+4,pos+8);
+    if(length>25*1024*1024||length>buffer.length-pos-12)throw Error('Invalid PNG chunk length');
+    const data=buffer.subarray(pos+8,pos+8+length),crc=buffer.readUInt32BE(pos+8+length);
+    if(crc32(buffer.subarray(pos+4,pos+8+length))!==crc)throw Error('Invalid PNG CRC');
+    if(!header&&kind!=='IHDR')throw Error('Missing first PNG IHDR');
+    if(kind==='IHDR'){
+      if(header||length!==13)throw Error('Invalid PNG IHDR');
+      const width=data.readUInt32BE(0),height=data.readUInt32BE(4);
+      const depth=data[8],color=data[9],compression=data[10],filter=data[11],interlace=data[12];
+      if(!width||!height||width>16000||height>16000||width*height>16e6||
+         depth!==8||![0,2,3,4,6].includes(color)||compression!==0||filter!==0||interlace!==0)
+        throw Error('Invalid or unsupported PNG size/format');
+      header={width,height,color};
+    }else if(kind==='IDAT'){
+      if(ended)throw Error('PNG data after end');
+      compressed+=length;
+      if(compressed>25*1024*1024)throw Error('PNG IDAT exceeds cap');
+      seenData=true;idats.push(data)
+    }else if(kind==='IEND'){
+      if(length!==0||!seenData)throw Error('Incomplete PNG stream');
+      ended=true;pos+=12;break
+    }else if(!/^[A-Za-z]{4}$/.test(kind))throw Error('Unknown PNG chunk');
+    pos+=length+12
+  }
+  if(!ended||pos!==buffer.length||!header)throw Error('Missing IEND or appended PNG bytes');
+  const channels={0:1,2:3,3:1,4:2,6:4}[header.color];
+  const row=header.width*channels+1,expected=row*header.height;
+  if(expected>64*1024*1024)throw Error('Excessive PNG decoded pixels');
+  let decoded;
+  try{decoded=zlib.inflateSync(Buffer.concat(idats),{maxOutputLength:expected+1})}
+  catch{throw Error('Invalid or oversized PNG compressed image')}
+  if(decoded.length!==expected)throw Error('Missing PNG pixel scanlines');
+  for(let y=0;y<header.height;y++)if(decoded[y*row]>4)throw Error('Invalid PNG scanline filter');
+  return{width:header.width,height:header.height}
+}
+
 function checkArtifact(filename,expected){
   if(!filename)return{state:'not-checked'};
   if(!SHA64.test(String(expected||'')))return{state:'invalid'};
@@ -58,6 +107,12 @@ function audit(manifest,options={}){
       bytes=fs.readFileSync(file);measured=png(bytes);
       if(digest(bytes).toLowerCase()!==shot.sha256.toLowerCase())throw Error('Screenshot SHA-256 mismatch');
       if(measured.width!==shot.width||measured.height!==shot.height)throw Error('Screenshot dimensions mismatch');
+      // Only actual host capture methods produced by make_visual_evidence.py
+      // qualify, and a tiny fake PNG must never satisfy a 36-slot matrix.
+      const requiredMethod=v==='installed'?'installed-windows-desktop':'running-desktop-app';
+      if(shot.capture_method!==requiredMethod)throw Error('Not an original native Windows capture');
+      const minWidth=size==='wide'?960:540;
+      if(measured.width<minWidth||measured.height<400)throw Error('Screenshot too small for original viewport');
     }catch(e){issue('error','invalid-png',i+': '+e.message);continue}
     const key=[v,size,s].join('|');
     if(captured.has(key)){issue('error','duplicate-slot',key);continue}
