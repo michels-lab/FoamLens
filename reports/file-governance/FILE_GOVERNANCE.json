@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "4a74012ce65d6c4a6336a1f0ea31ad246bb1818f875cb9452e64a7870809bf2a",
+  "inventory_fingerprint": "5df45639143a8873baab060aa753926f55c052fed9129b0312023d192fc2440a",
   "evidence_fingerprint": "b20d010c31ff4e90cbea62f58d536ba487a2fcf900ff058c85ed44af12cb59ee",
   "files": [
     {
@@ -265,7 +265,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "1f9778e5da539f004615e681248fc20748fdb296"
+      "blob": "95bb99c240c89dfc12706517b0700e2f1eadf758"
     },
     {
       "path": ".github/workflows/granada-g24-real-webview2-persistence.yml",
@@ -2631,7 +2631,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ded9f97618e14fa01a9710ca3dbb5c3f2d1d15f0"
+      "blob": "5ed951f0e69bc041d4b3459900b827253d780c25"
     },
     {
       "path": "tools/granada_g24_real_webview2_lifecycle.ps1",
