@@ -205,7 +205,7 @@ for(const needed of ['id="cmrManifest"','crypto.subtle.digest','cmrCompareImport
   'manifestFile!==cmrOwner.manifestFile',
   'originalCaseProvenanceSigned:false',
   'caseBinding:cmrLast.localProvenance?.sourceCaseStatus',
-  "'local-unsigned-manifest-report-and-source-files-sha256-match-at-inspection',"
+  'local-unsigned-manifest-report-and-source-files-sha256-match-at-inspection',
   'source-mesh-not-verified-raw-bytes-unavailable']){
   assert(code.includes(needed),'Missing actual opt-in SHA-256 UI binding: '+needed)
 }
