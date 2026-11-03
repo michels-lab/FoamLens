@@ -89,6 +89,19 @@ function evThermalRebound(t,y,{slopeThreshold=0.05,minDuration=.05,minAmplitude=
 function evCrossingTime(t,y,threshold,direction='down'){
   const p=evFinitePairs(t,y);for(let i=1;i<p.length;i++){const [ta,ya]=p[i-1],[tb,yb]=p[i],hit=direction==='down'?(ya>threshold&&yb<=threshold):(ya<threshold&&yb>=threshold);if(!hit)continue;const dy=yb-ya;if(dy===0)return tb;const f=(threshold-ya)/dy;return ta+f*(tb-ta)}return NaN
 }
+function evNormalizeLiquidFraction(values,role){
+  // The name alpha1 is not proof of the underlying physical fraction.
+  // A user must explicitly establish whether the original data are alphaL or alphaS.
+  if(role!=='liquid'&&role!=='solid')return{ok:false,reason:'unconfirmed-role',alphaL:[]};
+  if(!Array.isArray(values)||values.length<2)return{ok:false,reason:'insufficient-phase-data',alphaL:[]};
+  const alphaL=[];
+  for(const raw of values){
+    const v=typeof raw==='number'?raw:typeof raw==='string'&&raw.trim()?Number(raw):NaN;
+    if(!Number.isFinite(v)||v<0||v>1)return{ok:false,reason:'invalid-phase-range',alphaL:[]};
+    alphaL.push(role==='solid'?1-v:v)
+  }
+  return{ok:true,role,alphaL,conversion:role==='solid'?'alphaL=1-alphaS':'alphaL=source'}
+}
 function evPhaseMetrics(t,alpha,{onsetThreshold=.99,completionThreshold=.01}={}){
   const onset=evCrossingTime(t,alpha,onsetThreshold,'down'),completion=evCrossingTime(t,alpha,completionThreshold,'down');
   return{onsetThreshold,completionThreshold,onset,completion,duration:Number.isFinite(onset)&&Number.isFinite(completion)&&completion>=onset?completion-onset:NaN}
@@ -108,7 +121,7 @@ function evTemperatureSeries(){
   return (Array.isArray(series)?series:[]).filter(s=>datasetTypeOf(s)==='timeseries'&&(s?.field?.quantity==='temperature'||String(s?.field?.canonical||'').toLowerCase()==='t')&&evFinitePairs(s.t,s.y).length>=2)
 }
 function evPhaseSeries(caseId){
-  return (Array.isArray(series)?series:[]).filter(s=>datasetTypeOf(s)==='timeseries'&&Number(s?.caseId)===Number(caseId)&&(s?.field?.quantity==='liquid_fraction'||/alpha/i.test(String(s?.field?.canonical||'')))&&evFinitePairs(s.t,s.y).length>=2)
+  return (Array.isArray(series)?series:[]).filter(s=>datasetTypeOf(s)==='timeseries'&&Number(s?.caseId)===Number(caseId)&&(s?.field?.quantity==='liquid_fraction'||s?.field?.quantity==='solid_fraction'||/alpha/i.test(String(s?.field?.canonical||'')))&&evFinitePairs(s.t,s.y).length>=2)
 }
 function evSeriesLabel(s){
   try{return (caseById(s.caseId)?.name||s.caseName||evUi('Case','Caso'))+' · '+localizedFieldName(s.field)+(s.probe!=null?' · '+evUi('Probe','Sonda')+' '+s.probe:'')}catch{return String(s?.name||s?.fileName||'Series')}
@@ -128,6 +141,7 @@ function evRefreshSelectors(){
   const simSel=document.getElementById('evSimulation'),phaseSel=document.getElementById('evPhase');if(!simSel)return;
   const sims=evTemperatureSeries(),old=simSel.value;simSel.innerHTML=sims.length?sims.map((s,i)=>'<option value="'+evEsc(String(s.id??i))+'">'+evEsc(evSeriesLabel(s))+'</option>').join(''):'<option value="">—</option>';if(sims.some((s,i)=>String(s.id??i)===old))simSel.value=old;
   const sim=evSelectedSimulation()||sims[0]||null,ph=evPhaseSeries(sim?.caseId),oldP=phaseSel.value;phaseSel.innerHTML='<option value="">'+evUi('None / unavailable','Ninguna / no disponible')+'</option>'+ph.map((s,i)=>'<option value="'+evEsc(String(s.id??i))+'">'+evEsc(evSeriesLabel(s))+'</option>').join('');if(ph.some((s,i)=>String(s.id??i)===oldP))phaseSel.value=oldP;
+  if(phaseSel.value!==oldP){const role=document.getElementById('evPhaseRole');if(role)role.value=''}
   const run=document.getElementById('evRun');if(run)run.disabled=!(sim&&evState.experimental);
   const badge=document.getElementById('evBadge');if(badge)badge.textContent=evState.experimental?evUi('data ready','datos listos'):evUi('no experiment','sin experimento')
 }
@@ -145,9 +159,24 @@ function evRunValidation(){
   if(!cmp.valid){flSetIssue(status,'no shared physical-time interval',{analysis:'Experimental Validation',field:sim?.field?.canonical||'Temperature'});return null}
   const slope=Math.max(0,Number(document.getElementById('evSlopeThreshold')?.value)||0),duration=Math.max(0,Number(document.getElementById('evMinDuration')?.value)||0),amp=Math.max(0,Number(document.getElementById('evMinAmplitude')?.value)||0);
   const simMin=evCurveMinimum(cmp.t,cmp.sim),expMin=evCurveMinimum(cmp.t,cmp.exp),simRebound=evThermalRebound(cmp.t,cmp.sim,{slopeThreshold:slope,minDuration:duration,minAmplitude:amp}),expRebound=evThermalRebound(cmp.t,cmp.exp,{slopeThreshold:slope,minDuration:duration,minAmplitude:amp});
-  const phase=evSelectedPhase(sim),high=Math.max(0,Math.min(1,Number(document.getElementById('evAlphaOnset')?.value)||.99)),low=Math.max(0,Math.min(1,Number(document.getElementById('evAlphaComplete')?.value)||.01));
-  const phaseMetrics=phase?evPhaseMetrics(phase.t,phase.y,{onsetThreshold:high,completionThreshold:low}):null,phaseEvidence=phase?evPhaseEvidenceAtRebound(phase.t,phase.y,simRebound):null;
-  const result={simulation:sim,experiment:exp,comparison:cmp,simMin,expMin,simRebound,expRebound,phase,phaseMetrics,phaseEvidence,settings:{timeShift:shift,slopeThreshold:slope,minDuration:duration,minAmplitude:amp,alphaOnset:high,alphaComplete:low},noExtrapolation:true,noAutomaticRecalescenceLabel:true};
+  const phase=evSelectedPhase(sim),phaseRole=document.getElementById('evPhaseRole')?.value||'',
+    high=Number(document.getElementById('evAlphaOnset')?.value),low=Number(document.getElementById('evAlphaComplete')?.value);
+  // Temperature agreement remains valid without phase data. Phase evidence, however,
+  // fails closed until its physical role and numerical range are explicitly verified.
+  const normalized=phase?evNormalizeLiquidFraction(phase.y,phaseRole):null;
+  const dimension=String(phase?.field?.dimensions||phase?.dimensions||'').trim().replace(/\\s+/g,' ');
+  const dimensionValid=!dimension||/^\\[0(?:\\s+0){6}\\]$/.test(dimension);
+  const thresholdsValid=Number.isFinite(high)&&Number.isFinite(low)&&high>low&&high<=1&&low>=0;
+  const phaseValid=!!(phase&&normalized?.ok&&dimensionValid&&thresholdsValid&&evFinitePairs(phase.t,normalized.alphaL).length>=2);
+  const phaseReason=!phase?'no-phase-selected':!normalized?.ok?normalized.reason:!dimensionValid?'phase-not-dimensionless':!thresholdsValid?'invalid-phase-thresholds':!phaseValid?'insufficient-physical-times':'verified-user-role';
+  const phaseMetrics=phaseValid?evPhaseMetrics(phase.t,normalized.alphaL,{onsetThreshold:high,completionThreshold:low}):null,
+    phaseEvidence=phaseValid?evPhaseEvidenceAtRebound(phase.t,normalized.alphaL,simRebound):null;
+  const phaseProvenance={sourceField:phase?.field?.raw||phase?.field?.canonical||phase?.variable||null,
+    caseId:phase?.caseId??null,region:phase?.region||phase?.regionName||null,probe:phase?.probe??null,
+    originalRole:phaseRole||'unconfirmed',conversion:phaseValid?normalized.conversion:null,
+    sourceDimensions:dimension||null,valid:phaseValid,reason:phaseReason,
+    spatialColocationVerified:false};
+  const result={simulation:sim,experiment:exp,comparison:cmp,simMin,expMin,simRebound,expRebound,phase,phaseMetrics,phaseEvidence,phaseProvenance,settings:{timeShift:shift,slopeThreshold:slope,minDuration:duration,minAmplitude:amp,alphaOnset:high,alphaComplete:low,phaseRole},noExtrapolation:true,noAutomaticRecalescenceLabel:true};
   evState.last=result;window.FoamLensLastExperimentalValidation=result;evRender(result);if(status)status.textContent=evUi('Validation calculated on the shared physical-time interval only.','Validación calculada únicamente en el intervalo común de tiempo físico.');return result
 }
 function evReboundStateLabel(s){return s==='solidifying'?evUi('liquid fraction decreasing (solidifying evidence)','fracción líquida decreciente (evidencia de solidificación)'):s==='remelting'?evUi('liquid fraction increasing (remelting evidence)','fracción líquida creciente (evidencia de refusión)'):s==='approximately-stationary'?evUi('liquid fraction approximately stationary','fracción líquida aproximadamente estacionaria'):evUi('phase evidence unavailable','evidencia de fase no disponible')}
@@ -156,13 +185,16 @@ function evRender(r){
   const eventRow=(name,x)=>'<tr><td>'+name+'</td><td>'+evFmt(x?.Tmin)+' K</td><td>'+evFmt(x?.tMin)+' s</td><td>'+evFmt(x?.amplitude)+' K</td><td>'+evFmt(x?.tPeak)+' s</td><td>'+evFmt(x?.maxSlope)+' K/s</td></tr>';
   const minEvent=(m)=>m?{Tmin:m.temperature,tMin:m.time,amplitude:NaN,tPeak:NaN,maxSlope:NaN}:null;
   const simEv=r.simRebound||minEvent(r.simMin),expEv=r.expRebound||minEvent(r.expMin);
+  const phaseNote=r.phaseProvenance?.reason==='no-phase-selected'?''
+    :!r.phaseProvenance?.valid?'<div class="extNote">'+evUi('Phase evidence unavailable: confirm liquid/solid source role, a dimensionless fraction within [0,1], and ordered thresholds (onset > completion). Temperature comparison is unaffected.','Evidencia de fase no disponible: confirma si el campo es fracción líquida/sólida, que sea adimensional y esté entre 0 y 1, y umbrales ordenados (inicio > final). La comparación térmica no cambia.')+'</div>'
+    :'<div class="extNote">'+(r.phaseProvenance.originalRole==='solid'?evUi('Original solid fraction explicitly confirmed: converted to liquid fraction as αL = 1 − αS.','Fracción sólida original confirmada: convertida a líquida como αL = 1 − αS.'):evUi('Original liquid fraction explicitly confirmed; values retained.','Fracción líquida original confirmada; valores conservados.'))+' '+evUi('Same-case phase trend only; spatial co-location has not been independently verified.','Tendencia de fase del mismo caso; la coincidencia espacial no se ha verificado de forma independiente.')+'</div>';
   const phase=r.phaseMetrics?'<div class="extTableWrap" style="margin-top:8px"><table class="extTable"><thead><tr><th>'+evUi('Phase evidence','Evidencia de fase')+'</th><th>'+evUi('Value','Valor')+'</th></tr></thead><tbody>'+
     '<tr><td>'+evUi('Liquid-fraction onset crossing','Cruce de inicio de fracción líquida')+' α='+evFmt(r.phaseMetrics.onsetThreshold)+'</td><td>'+evFmt(r.phaseMetrics.onset)+' s</td></tr>'+
     '<tr><td>'+evUi('Liquid-fraction completion crossing','Cruce de finalización de fracción líquida')+' α='+evFmt(r.phaseMetrics.completionThreshold)+'</td><td>'+evFmt(r.phaseMetrics.completion)+' s</td></tr>'+
     '<tr><td>'+evUi('Phase-defined solidification duration','Duración de solidificación definida por fase')+'</td><td>'+evFmt(r.phaseMetrics.duration)+' s</td></tr>'+
     '<tr><td>'+evUi('Phase trend during simulated rebound candidate','Tendencia de fase durante el rebote simulado candidato')+'</td><td>'+evEsc(evReboundStateLabel(r.phaseEvidence?.state))+(Number.isFinite(r.phaseEvidence?.delta)?' · ΔαL='+evFmt(r.phaseEvidence.delta):'')+'</td></tr>'+
     '</tbody></table></div>':'';
-  body.innerHTML=
+  body.innerHTML=phaseNote+
     '<div class="extNote">'+evUi(
       'A positive dT/dt interval is reported only as a thermal rebound candidate. FoamLens does not label recalescence automatically; phase evolution is shown separately as evidence.',
       'Un intervalo con dT/dt positivo se reporta únicamente como candidato de rebote térmico. FoamLens no etiqueta automáticamente recalescencia; la evolución de fase se muestra por separado como evidencia.'
@@ -187,15 +219,16 @@ function evBuildUi(){
   '<input id="evFileInput" type="file" accept=".csv,.txt,.dat,.tsv" class="hidden"><div class="extActions" style="margin-top:8px"><button class="btn primary" id="evImport" type="button" data-fl-en="Import experimental CSV/TXT" data-fl-es="Importar CSV/TXT experimental">Import experimental CSV/TXT</button></div><div class="extStatus" id="evFileMeta"></div>'+
   '<div class="extGrid3"><div class="field"><label data-fl-en="Time column" data-fl-es="Columna de tiempo">Time column</label><select id="evTimeColumn"></select></div><div class="field"><label data-fl-en="Temperature column" data-fl-es="Columna de temperatura">Temperature column</label><select id="evTempColumn"></select></div><div class="field"><label data-fl-en="Experimental temperature unit" data-fl-es="Unidad de temperatura experimental">Experimental temperature unit</label><select id="evExpUnit"><option value="K">K</option><option value="C">°C</option></select></div></div>'+
   '<div class="field"><label data-fl-en="Simulation temperature series" data-fl-es="Serie de temperatura de simulación">Simulation temperature series</label><select id="evSimulation"></select></div>'+
-  '<div class="field"><label data-fl-en="Optional liquid-fraction evidence" data-fl-es="Evidencia opcional de fracción líquida">Optional liquid-fraction evidence</label><select id="evPhase"></select></div>'+
+  '<div class="extGrid3"><div class="field"><label data-fl-en="Optional phase-fraction source" data-fl-es="Fuente opcional de fracción de fase">Optional phase-fraction source</label><select id="evPhase"></select></div><div class="field"><label data-fl-en="Confirm original fraction meaning" data-fl-es="Confirmar significado original de la fracción">Confirm original fraction meaning</label><select id="evPhaseRole"><option value="" data-fl-en="Unconfirmed — no phase claim" data-fl-es="Sin confirmar — sin conclusión de fase">Unconfirmed — no phase claim</option><option value="liquid" data-fl-en="Liquid fraction αL" data-fl-es="Fracción líquida αL">Liquid fraction αL</option><option value="solid" data-fl-en="Solid fraction αS" data-fl-es="Fracción sólida αS">Solid fraction αS</option></select></div></div>'+
   '<div class="extGrid3"><div class="field"><label data-fl-en="Experimental time shift [s]" data-fl-es="Corrimiento temporal experimental [s]">Experimental time shift [s]</label><input id="evTimeShift" type="number" step="any" value="0"></div><div class="field"><label data-fl-en="Positive-slope threshold [K/s]" data-fl-es="Umbral de pendiente positiva [K/s]">Positive-slope threshold [K/s]</label><input id="evSlopeThreshold" type="number" min="0" step="any" value="0.05"></div><div class="field"><label data-fl-en="Minimum rebound amplitude [K]" data-fl-es="Amplitud mínima de rebote [K]">Minimum rebound amplitude [K]</label><input id="evMinAmplitude" type="number" min="0" step="any" value="0.1"></div></div>'+
   '<div class="extGrid3"><div class="field"><label data-fl-en="Minimum positive-slope duration [s]" data-fl-es="Duración mínima de pendiente positiva [s]">Minimum positive-slope duration [s]</label><input id="evMinDuration" type="number" min="0" step="any" value="0.05"></div><div class="field"><label data-fl-en="Liquid onset threshold αL" data-fl-es="Umbral de inicio líquido αL">Liquid onset threshold αL</label><input id="evAlphaOnset" type="number" min="0" max="1" step="0.01" value="0.99"></div><div class="field"><label data-fl-en="Liquid completion threshold αL" data-fl-es="Umbral de finalización líquido αL">Liquid completion threshold αL</label><input id="evAlphaComplete" type="number" min="0" max="1" step="0.01" value="0.01"></div></div>'+
   '<div class="extActions"><button class="btn primary" id="evRun" type="button" data-fl-en="Run validation" data-fl-es="Ejecutar validación">Run validation</button><button class="btn" id="evAddCurves" type="button" data-fl-en="Add experiment + residual to chart" data-fl-es="Agregar experimento + residual a la gráfica">Add experiment + residual to chart</button></div><div class="extStatus" id="evStatus"></div><div id="evResult"></div>';
   host.appendChild(box);try{flApplyBilingualText(box)}catch{}
   document.getElementById('evImport').onclick=()=>document.getElementById('evFileInput').click();document.getElementById('evFileInput').onchange=e=>evImportFile(e.target.files?.[0]);document.getElementById('evRun').onclick=evRunValidation;document.getElementById('evAddCurves').onclick=evAddCurves;
   for(const id of ['evTimeColumn','evTempColumn','evExpUnit'])document.getElementById(id).addEventListener('change',()=>{evState.experimental=evExperimentalData();evState.last=null;evRender(null);evRefreshSelectors()});
-  document.getElementById('evSimulation').addEventListener('change',()=>{evRefreshSelectors();evState.last=null;evRender(null)});
-  for(const id of ['evPhase','evTimeShift','evSlopeThreshold','evMinAmplitude','evMinDuration','evAlphaOnset','evAlphaComplete'])document.getElementById(id).addEventListener('change',()=>{evState.last=null;evRender(null)});
+  document.getElementById('evSimulation').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evRefreshSelectors();evState.last=null;evRender(null)});
+  document.getElementById('evPhase').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evState.last=null;evRender(null)});
+  for(const id of ['evPhaseRole','evTimeShift','evSlopeThreshold','evMinAmplitude','evMinDuration','evAlphaOnset','evAlphaComplete'])document.getElementById(id).addEventListener('change',()=>{evState.last=null;evRender(null)});
   evRefreshSelectors();return true
 }
 function evInstall(){
