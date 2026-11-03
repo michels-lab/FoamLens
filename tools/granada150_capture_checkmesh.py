@@ -28,6 +28,7 @@ MESH = re.compile(
 OK = re.compile(r"^\s*Mesh\s+OK\.\s*$", re.I | re.M)
 MESH_FILES = ("points", "faces", "owner", "neighbour", "boundary")
 MAX_IMPORT_BYTES = 12 * 1024 * 1024
+FAILURE = re.compile(r"(?:FOAM FATAL ERROR|error in primitiveMesh|\\b[1-9]\\d*\\s+mesh\\s+checks?\\s+failed\\b|^\\s*Errors?\\s*:\\s*[1-9]\\d*\\s*$)", re.I | re.M)
 
 
 class CaptureError(Exception):
@@ -51,6 +52,7 @@ def region_marker_evidence(raw: bytes) -> dict:
         "meshCreationLabels": sorted(created),
         "matched": valid,
         "terminalMeshOk": bool(OK.search(text)),
+        "sourceReportedFailure": bool(FAILURE.search(text)),
     }
 
 
@@ -112,36 +114,65 @@ def capture(
     rows = []
     for region in chosen:
         command = [executable, "-case", str(case), "-region", region, "-allTopology", "-allGeometry"]
-        status, exit_code = "not-run", None
-        try:
-            result = subprocess.run(command, cwd=case, capture_output=True, timeout=timeout, check=False)
-            stdout = result.stdout
-            stderr = result.stderr
-            exit_code = result.returncode
-            status = "captured"
-        except subprocess.TimeoutExpired as exc:
-            stdout = exc.stdout or b""
-            stderr = exc.stderr or b""
-            status = "timed-out"
+        # Stream both outputs directly to new, exclusive files. subprocess.run
+        # with PIPE/capture_output buffers the entire report in RAM, defeating
+        # the 12-MiB import limit for pathological or very verbose checkMesh.
+        # Preserve complete original bytes on disk even when too large to parse.
         log_name = f"checkMesh_{region}.log"
-        (output / log_name).write_bytes(stdout)
-        if stderr:
-            (output / f"checkMesh_{region}.stderr.txt").write_bytes(stderr)
-        evidence = region_marker_evidence(stdout)
-        after = mesh_fingerprints(case, region)
+        log_path = output / log_name
+        stderr_path = output / f"checkMesh_{region}.stderr.txt"
+        status, exit_code = "not-run", None
+        with log_path.open("xb") as log_stream, stderr_path.open("xb") as err_stream:
+            try:
+                result = subprocess.run(
+                    command, cwd=case, stdout=log_stream, stderr=err_stream,
+                    timeout=timeout, check=False,
+                )
+                exit_code = result.returncode
+                status = "captured"
+            except subprocess.TimeoutExpired:
+                # subprocess.run terminates the timed-out process; all bytes
+                # written before termination remain in the original log.
+                status = "timed-out"
+            except OSError:
+                # Executable may disappear/lose permissions after preflight;
+                # keep an explicit failed report and continue other regions.
+                status = "launch-error"
+        stdout_size = log_path.stat().st_size
+        stderr_present = stderr_path.stat().st_size > 0
+        if not stderr_present:
+            stderr_path.unlink()
+        evidence = (
+            region_marker_evidence(log_path.read_bytes())
+            if stdout_size <= MAX_IMPORT_BYTES else
+            {"region": None, "commandLabels": [], "meshCreationLabels": [],
+             "matched": False, "terminalMeshOk": False,
+             "sourceReportedFailure": False}
+        )
+        # Hash the complete raw log without buffering it into process memory.
+        sha = hashlib.sha256()
+        with log_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                sha.update(chunk)
+        try:
+            after = mesh_fingerprints(case, region)
+        except CaptureError:
+            after = {}
         if before[region] != after:
             status = "mesh-fingerprints-changed"
-        elif status == "timed-out":
+        elif status in ("timed-out", "launch-error"):
             pass
         elif exit_code != 0:
             status = "checkMesh-nonzero-exit"
-        elif len(stdout) > MAX_IMPORT_BYTES:
+        elif stdout_size > MAX_IMPORT_BYTES:
             status = "too-large-for-FoamLens-import"
         elif not evidence["matched"] or evidence["region"] != region:
             status = "region-not-proven-by-both-markers"
+        elif evidence["sourceReportedFailure"]:
+            status = "source-reported-checkMesh-failure"
         elif not evidence["terminalMeshOk"]:
             status = "no-terminal-Mesh-OK"
-        elif stderr:
+        elif stderr_present:
             status = "stderr-requires-manual-review"
         else:
             status = "source-report-ready-not-certified"
@@ -150,13 +181,24 @@ def capture(
             "status": status,
             "exitCode": exit_code,
             "log": log_name,
-            "logSha256": hashlib.sha256(stdout).hexdigest(),
-            "stderrPresent": bool(stderr),
+            "logSha256": sha.hexdigest(),
+            "logBytes": stdout_size,
+            "stderrPresent": stderr_present,
             "meshFilesSha256Before": before[region],
             "meshFilesUnchanged": before[region] == after,
             "sourceMarkers": evidence,
             "scientificValidity": "not-certified",
         })
+    # A later command may mutate an earlier region's mesh. Revalidate ALL
+    # original regions after the entire batch, not only after each own run.
+    for row in rows:
+        try:
+            final = mesh_fingerprints(case, row["region"])
+        except CaptureError:
+            final = {}
+        if final != before[row["region"]]:
+            row["status"] = "mesh-fingerprints-changed"
+            row["meshFilesUnchanged"] = False
     manifest = {
         "schema": "foamlens/local-checkmesh-region-capture/1",
         "createdUtc": datetime.now(timezone.utc).isoformat(),
@@ -167,7 +209,7 @@ def capture(
         "scientificValidity": "not-certified",
         "limitations": [
             "Original checkMesh stdout is preserved LOCALLY and can contain the full case path. Never upload logs without reviewing privacy.",
-            "File hashes prove only that the sampled source polyMesh files were unchanged during this local capture, not independent scientific correctness.",
+            "Five original polyMesh files are hashed before and after all runs, detecting cross-region changes but not certifying independent scientific correctness.",
             "This script does not check inter-region face pairing, thermodynamics, CAD alignment, solver validity or Windows installer acceptance.",
             "FoamLens imports only the original checkMesh text files; the local manifest is supporting provenance, not cryptographic runtime binding.",
         ],

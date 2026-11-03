@@ -34,7 +34,11 @@ class CheckMeshCaptureTests(TestCase):
         raw = (f"Exec : checkMesh -region {region} -allTopology -allGeometry\n"
                f"Create polyMesh {region} for time = 0\n"
                "Mesh stats\n points: 4\n faces: 4\n cells: 1\nMesh OK.\n")
-        return subprocess.CompletedProcess(args, returncode, raw.encode(), stderr)
+        # Simulate the exact subprocess.run(streaming-to-file) API, not PIPE.
+        kwargs["stdout"].write(raw.encode())
+        if stderr:
+            kwargs["stderr"].write(stderr)
+        return subprocess.CompletedProcess(args, returncode)
 
     def test_two_regions_are_discovered_and_original_bytes_preserved(self):
         with mock.patch.object(mod.shutil, "which", return_value="/usr/bin/checkMesh"), \
@@ -49,7 +53,9 @@ class CheckMeshCaptureTests(TestCase):
             args = call.args[0]
             self.assertEqual(args[-2:], ["-allTopology", "-allGeometry"])
             self.assertEqual(call.kwargs["cwd"], self.case.resolve())
-            self.assertTrue(call.kwargs["capture_output"])
+            self.assertIn("stdout", call.kwargs)
+            self.assertIn("stderr", call.kwargs)
+            self.assertNotIn("capture_output", call.kwargs)
             self.assertFalse(call.kwargs["check"])
             self.assertNotIn("-writeSets", args)
             self.assertNotIn("foamMultiRun", args)
@@ -127,10 +133,80 @@ class CheckMeshCaptureTests(TestCase):
                 mod.capture(self.case, self.out)
         self.assertFalse(self.out.exists())
 
-    def test_timeout_preserves_incomplete_evidence_and_returns_failure(self):
+    def test_late_cross_region_change_is_not_missed(self):
+        calls = []
+        def mutate_previous_region(args, **kwargs):
+            region = args[args.index("-region") + 1]
+            calls.append(region)
+            if region == "mold":
+                (self.case / "constant" / "metal" / "polyMesh" / "points").write_bytes(b"changed late")
+            return self.response(args, **kwargs)
+        with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
+             mock.patch.object(mod.subprocess, "run", side_effect=mutate_previous_region):
+            result = mod.capture(self.case, self.out)
+        self.assertEqual(calls, ["metal", "mold"])
+        self.assertEqual(result["regions"][0]["status"], "mesh-fingerprints-changed")
+        self.assertFalse(result["regions"][0]["meshFilesUnchanged"])
+        self.assertFalse(result["allSourceReportsReady"])
+
+    def test_large_stdout_streams_directly_and_never_parses_as_valid(self):
+        def huge_log(args, **kwargs):
+            kwargs["stdout"].write(b"x" * (mod.MAX_IMPORT_BYTES + 1))
+            return subprocess.CompletedProcess(args, 0)
+        with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
+             mock.patch.object(mod.subprocess, "run", side_effect=huge_log):
+            result = mod.capture(self.case, self.out, ["metal"])
+        row = result["regions"][0]
+        self.assertEqual(row["status"], "too-large-for-FoamLens-import")
+        self.assertEqual(row["logBytes"], mod.MAX_IMPORT_BYTES + 1)
+        self.assertEqual((self.out / "checkMesh_metal.log").stat().st_size,
+                         mod.MAX_IMPORT_BYTES + 1)
+        self.assertFalse(result["allSourceReportsReady"])
+
+    def test_nonzero_fatal_text_with_zero_process_exit_is_not_ready(self):
+        def fatal(args, **kwargs):
+            self.response(args, **kwargs)
+            kwargs["stdout"].write(b"FOAM FATAL ERROR: face orientation\n")
+            return subprocess.CompletedProcess(args, 0)
+        with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
+             mock.patch.object(mod.subprocess, "run", side_effect=fatal):
+            result = mod.capture(self.case, self.out, ["metal"])
+        self.assertEqual(result["regions"][0]["status"], "source-reported-checkMesh-failure")
+        self.assertFalse(result["allSourceReportsReady"])
+
+    def test_missing_executable_after_preflight_keeps_failure_evidence(self):
+        def fail_for_metal(args, **kwargs):
+            if args[args.index("-region") + 1] == "metal":
+                raise FileNotFoundError("disappeared after which")
+            return self.response(args, **kwargs)
+        with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
+             mock.patch.object(mod.subprocess, "run", side_effect=fail_for_metal):
+            result = mod.capture(self.case, self.out)
+        self.assertEqual(result["regions"][0]["status"], "launch-error")
+        self.assertEqual(result["regions"][1]["status"], "source-report-ready-not-certified")
+        self.assertTrue((self.out / "checkMesh_metal.log").is_file())
+        self.assertTrue((self.out / "checkMesh_capture_manifest.json").is_file())
+        self.assertFalse(result["allSourceReportsReady"])
+
+    def test_stderr_is_retained_and_requires_manual_review(self):
         with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
              mock.patch.object(mod.subprocess, "run",
-                               side_effect=subprocess.TimeoutExpired("checkMesh", 1, output=b"partial", stderr=b"error")):
+                               side_effect=lambda args, **kwargs: self.response(
+                                   args, stderr=b"Unexpected original diagnostics", **kwargs)):
+            result = mod.capture(self.case, self.out, ["metal"])
+        self.assertEqual(result["regions"][0]["status"], "stderr-requires-manual-review")
+        self.assertTrue(result["regions"][0]["stderrPresent"])
+        self.assertEqual((self.out / "checkMesh_metal.stderr.txt").read_bytes(),
+                         b"Unexpected original diagnostics")
+        self.assertFalse(result["allSourceReportsReady"])
+
+    def test_timeout_preserves_incomplete_evidence_and_returns_failure(self):
+        def timed_out(args, **kwargs):
+            kwargs["stdout"].write(b"partial")
+            kwargs["stderr"].write(b"error")
+            raise subprocess.TimeoutExpired("checkMesh", 1)
+        with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
+             mock.patch.object(mod.subprocess, "run", side_effect=timed_out):
             result = mod.capture(self.case, self.out, ["metal"], timeout=1)
         self.assertEqual(result["regions"][0]["status"], "timed-out")
         self.assertEqual((self.out / "checkMesh_metal.log").read_bytes(), b"partial")
