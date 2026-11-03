@@ -1,0 +1,41 @@
+name: Granada 149 — Field viewport DPI and resizing
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js'
+      - 'desktop/tests/field-f2-viewport-layout.spec.cjs'
+      - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
+      - '.github/workflows/granada-field-f2-dpi.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js'
+      - 'desktop/tests/field-f2-viewport-layout.spec.cjs'
+      - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
+      - '.github/workflows/granada-field-f2-dpi.yml'
+  workflow_dispatch:
+jobs:
+  viewport:
+    name: Scientific Field viewport geometry — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing Field multi-view camera and drag-reorder regression
+        run: node desktop/tests/field-multiview-ux.test.cjs
+      - name: Existing Split divider and contextual help regression
+        run: node desktop/tests/context-help-resize.test.cjs
+      - name: Existing 3D viewpoint physics display contract
+        run: node desktop/tests/physical-3d-scale.test.cjs
+      - name: New A–D viewport sizing and CSS/DPI evidence checks
+        run: node desktop/tests/field-f2-viewport-layout.spec.cjs
+      - name: Runtime A/B resizing, focus/restore and captured overlap evidence
+        run: node desktop/tests/field-f2-runtime-interactions.spec.cjs
+      - name: All original required monolithic suite tests remain registered
+        run: node desktop/tests/test-suite-manifest.test.cjs
