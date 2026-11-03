@@ -1,0 +1,131 @@
+name: G31 original Windows package source parity and NuGet BOM (no release)
+on:
+  push:
+    branches:
+      - test/granada-g31-original-bundle-sbom-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g31-original-artifact-bom
+  cancel-in-progress: true
+jobs:
+  adversarial-package-guards:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: ZIP injection, Windows traversal, NuGet dependency mismatch negative fixtures
+        run: python tools/test_granada_g31_original_package_bom.py
+  original-windows-setup-and-package-bom:
+    needs: adversarial-package-guards
+    runs-on: windows-latest
+    timeout-minutes: 85
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: product
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Gate on original exact HEAD and genuine original version
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $live=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $live -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G31 original product main moved or invalid'}
+          [xml]$proj=Get-Content product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $version=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($version -cne '1.8.10'){throw 'G31 cannot claim a different version is original 1.8.10'}
+          $files=@('desktop/src/FoamLensDesktop/Program.cs','desktop/src/FoamLensDesktop/FoamLensDesktop.csproj','desktop/src/FoamLensDesktop/frontend/index.html')
+          foreach($file in $files){
+            if((git -C product hash-object $file).Trim() -ne (git -C product rev-parse ("HEAD:"+$file)).Trim()){throw 'G31 original current main source changed'}
+          }
+          "G31_MAIN_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Package original actual local frontend and genuine FoamLens native single-file executable
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Original icon dependency could not be resolved'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'FoamLens original Windows icon could not be generated'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Original icon verification failed'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path -LiteralPath $bundle){Remove-Item -LiteralPath $bundle -Force}
+          New-Item -ItemType Directory -Force -Path g31-original-source-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g31-original-source-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g31-original-source-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g31-original-source-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g31-original-source-bundle/LICENSE.txt
+          Compress-Archive -Path g31-original-source-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g31-publish
+          if($LASTEXITCODE -ne 0){throw 'Actual original Windows publish failed'}
+          if(-not(Test-Path artifacts/g31-publish/FoamLens.exe)){throw 'Actual original Windows EXE not present'}
+          if(-not(Test-Path desktop/src/FoamLensDesktop/obj/project.assets.json)){throw 'Original resolved NuGet graph missing'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Original Inno Setup unavailable'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path artifacts/g31-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path desktop/artifacts/FoamLens-Setup-v1.8.10.exe)){throw 'Actual original Windows Setup missing'}
+      - name: Audit real embedded frontend ZIP contents, original source parity, exact real package and dependency BOM
+        run: |
+          python qa/tools/granada_g31_original_package_bom.py --bundle product/desktop/src/FoamLensDesktop/AppBundle.zip --frontend product/desktop/src/FoamLensDesktop/frontend --license product/desktop/LICENSE.txt --project product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj --assets product/desktop/src/FoamLensDesktop/obj/project.assets.json --exe product/artifacts/g31-publish/FoamLens.exe --installer product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe --main-sha $env:G31_MAIN_SHA --output g31-evidence/report.json
+          if($LASTEXITCODE -ne 0){throw 'G31 actual original native artifact/NuGet scientific app audit failed'}
+      - name: Fail closed on original source drift, incomplete BOM or invented publisher/scientific release certification
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $live=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $live -or $sha -ne $env:G31_MAIN_SHA){throw 'G31 product SHA drifted during build'}
+          $r=Get-Content g31-evidence/report.json -Raw | ConvertFrom-Json
+          if($r.originalMainSha -ne $sha -or $r.schema -ne 'foamlens/granada-g31-original-packaged-bom/1' -or
+              $r.distributionVersion -ne '1.8.10' -or
+              $r.actualPackagedFrontend.exactOriginalFrontendAssetParity -ne $true -or
+              $r.actualPackagedFrontend.extraVersionedJsFilesRejected -ne $true -or
+              $r.actualNuGetRestore.allRestoredPackagesSha512Bound -ne $true -or
+              $r.actualNuGetRestore.directReferencesPinnedAndMatchRestore -ne $true -or
+              $r.actualNuGetRestore.resolved.Count -lt 1 -or
+              $r.actualPublisherAuthenticodeVerified -ne $false -or
+              $r.securityAdvisoryDatabaseChecked -ne $false -or
+              $r.releaseReady -ne $false){
+            throw 'G31 no valid actual original installer/asset/dependency material provenance'
+          }
+          $a=(Get-FileHash product/artifacts/g31-publish/FoamLens.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $b=(Get-FileHash product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($r.originalNativeWindowsExe.sha256 -ne $a -or $r.originalNativeInnoSetup.sha256 -ne $b){
+            throw 'G31 package report detached from genuine native Windows outputs'
+          }
+          foreach($f in @('desktop/src/FoamLensDesktop/Program.cs','desktop/src/FoamLensDesktop/FoamLensDesktop.csproj','desktop/src/FoamLensDesktop/frontend/index.html')){
+            if((git -C product hash-object $f).Trim() -ne (git -C product rev-parse ("HEAD:"+$f)).Trim()){
+              throw 'G31 source unexpectedly mutated'
+            }
+          }
+          Write-Host "G31 PASS: actual original main Windows EXE + native Setup SHA256, exact unpacked frontend parity, SHA512-verified NuGet graph; no signing or science claims"
+      - name: Upload only path-free BOM/cryptographic metadata; never binaries or private OpenFOAM cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G31-original-native-dependency-and-bundle-metadata-only
+          path: g31-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7

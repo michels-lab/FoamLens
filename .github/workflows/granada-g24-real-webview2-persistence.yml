@@ -1,0 +1,137 @@
+name: G24 original FoamLens real WebView2 data persistence across install (no release)
+on:
+  push:
+    branches:
+      - test/granada-g24-real-webview2-storage-persistence-20261023
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g24-real-webview2-lifecycle
+  cancel-in-progress: true
+jobs:
+  guarded-source:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject fake browser storage, profiler leaks and CI scope broadening
+        run: node --test tools/granada_g24_storage_persistence.test.cjs
+      - name: Check real G24 Windows PowerShell parses before any setup installation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $parseErrors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g24_real_webview2_lifecycle.ps1').Path,[ref]$tokens,[ref]$parseErrors)
+          if($parseErrors.Count -gt 0){$parseErrors | ForEach-Object {Write-Error $_.Message};throw 'G24 native storage lifecycle script parser failed'}
+      - name: Compile the real Windows native WebView2 storage probe before expensive packaging
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build tools/granada_g24_webview2_storage_probe/FoamLensG24StorageProbe.csproj -c Release
+          if($LASTEXITCODE -ne 0){throw 'Actual Windows WebView2 storage probe did not compile'}
+  genuine-original-main-webview2:
+    needs: guarded-source
+    runs-on: windows-latest
+    timeout-minutes: 95
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Refuse unmerged source and pin exact live original product SHA
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $actual=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $actual){throw 'G24 original main product SHA already moved'}
+          "G24_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+          node --test qa/tools/granada_g24_storage_persistence.test.cjs
+          if($LASTEXITCODE -ne 0){throw 'G24 original front-end storage contracts failed'}
+      - name: Build exact-main original WinForms icon, bundled frontend and real Portable
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Original FoamLens icon dependency missing'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'Original Windows icon generation failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Canonical FoamLens Windows icon differs'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force g24-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g24-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g24-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g24-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g24-bundle/LICENSE.txt
+          Compress-Archive -Path g24-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive -Path $bundle -DestinationPath g24-bundle-check -Force
+          if((Get-FileHash g24-bundle-check/index.html -Algorithm SHA256).Hash -ne (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Original main frontend bundle provenance mismatch'}
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g24-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path 'artifacts/g24-publish/FoamLens.exe')){throw 'Real original FoamLens exe build failed'}
+      - name: Compile QA-only real WebView2 test project and original main Inno installer
+        working-directory: product
+        run: |
+          dotnet build ../qa/tools/granada_g24_webview2_storage_probe/FoamLensG24StorageProbe.csproj -c Release -o ../qa/g24-probe-build
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path '../qa/g24-probe-build/FoamLensG24StorageProbe.dll')){throw 'Real browser storage harness missing'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Original Inno Setup compiler unavailable'}
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($v -notmatch '^\d+\.\d+\.\d+$'){throw 'Original main semver unavailable'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc "/DMyAppVersion=$v" "/DPublishDir=$((Resolve-Path artifacts/g24-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path "desktop/artifacts/FoamLens-Setup-v$v.exe")){throw 'Original real installer did not compile'}
+      - name: Run real separate WebView2 processes across app, Inno reinstall/uninstall, host relocation and isolated Developer profile
+        working-directory: product
+        run: |
+          $env:FOAMLENS_SMOKE_SOURCE_SHA=$env:G24_MAIN_SHA
+          [xml]$proj=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          ../qa/tools/granada_g24_real_webview2_lifecycle.ps1 -Portable 'artifacts/g24-publish/FoamLens.exe' -Installer "desktop/artifacts/FoamLens-Setup-v$v.exe" -ProbeDll '../qa/g24-probe-build/FoamLensG24StorageProbe.dll' -Version $v -OriginalMainSha $env:G24_MAIN_SHA -Root 'artifacts/g24-real-native-test' -Report '../g24-evidence/report.json'
+          if(-not(Test-Path ../g24-evidence/report.json)){throw 'Original native Chromium data persistence report not produced'}
+      - name: Final immutable original product SHA and genuine browser report fail-closed check
+        working-directory: product
+        run: |
+          $sha=(git rev-parse HEAD).Trim()
+          $remote=((git ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $env:G24_MAIN_SHA -or $remote -ne $sha){throw 'Official main product changed during browser persistence QA'}
+          foreach($f in @('desktop/src/FoamLensDesktop/Program.cs','desktop/src/FoamLensDesktop/FoamLensDesktop.csproj','desktop/installer/FoamLens.iss')){
+            if((git hash-object $f).Trim() -ne (git rev-parse ("HEAD:"+$f)).Trim()){throw 'Official original FoamLens product source changed'}
+          }
+          $proof=Get-Content ../g24-evidence/report.json -Raw | ConvertFrom-Json
+          if($proof.originalProductMainSha -ne $sha -or $proof.realIndexedDbTransactionPreserved -ne $true -or $proof.realLocalStoragePreserved -ne $true -or $proof.realInnoUninstalls -ne 1 -or $proof.finalReleaseReady -ne $false){throw 'Real WebView2 native acceptance values absent'}
+      - name: Preserve sanitized schema and boolean evidence only; no private browser profiles, notes, executables or CFD data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G24-actual-WebView2-persistence-metadata-only
+          path: g24-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7

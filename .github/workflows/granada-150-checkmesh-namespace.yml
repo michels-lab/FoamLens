@@ -1,0 +1,159 @@
+name: Granada #150 — isolated checkMesh and Multi-panel real source
+
+on:
+  pull_request:
+    branches: [main, feat/granada-150-multiregion-mesh-evidence-20261019]
+  push:
+    branches: [fix/granada-150-checkmesh-namespace-20261020]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-regressions:
+    name: Original checkMesh and Multi-panel runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fail-closed native probe regression tests
+        run: python tools/test_granada150_native_packaged_probe.py
+      - name: CheckMesh original case capture safety and provenance regression
+        run: python tools/test_granada150_capture_checkmesh.py
+      - name: Original polyMesh interface vertex, normal and reciprocal patch regressions
+        run: python tools/test_granada150_interface_geometry.py
+      - name: Original checkMesh evidence and physical source contracts
+        run: node desktop/tests/checkmesh-region-evidence.spec.cjs
+      - name: Two original source modules loaded into same desktop IIFE and real button IDs
+        run: node desktop/tests/checkmesh-multipanel-collision.spec.cjs
+      - name: Canonical export and scientific source owners
+        run: |
+          node desktop/tests/ribbon-ui.test.cjs
+          node desktop/tests/reproducible-export.test.cjs
+          node desktop/tests/section-ownership.test.cjs
+          node desktop/tests/test-suite-manifest.test.cjs
+
+  native-source-smoke:
+    name: Windows native WebView2 checkMesh and Multi-panel coexistence
+    needs: [original-source-regressions]
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build canonical original bundle with corrected checkMesh module
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          $tmp='granada-checkmesh-bundle'
+          if (Test-Path $bundle) { throw 'Unexpected binary in source checkout' }
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $tmp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $tmp 'LICENSE.txt')
+          Compress-Archive -Path "$tmp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $names=@($zip.Entries | ForEach-Object FullName)
+            if ($names -notcontains 'index.html' -or
+                $names -notcontains 'v16-multipanel-export.js' -or
+                $names -notcontains 'v24-checkmesh-region-evidence.js') {
+              throw 'Missing original combined multipanel/checkMesh modules'
+            }
+          } finally { $zip.Dispose() }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inject test-only source-bound WebView2 matrix and multipanel gate
+        shell: pwsh
+        run: |
+          python tools/test_granada150_native_packaged_probe.py
+          if ($LASTEXITCODE -ne 0) { throw 'CI-only injection regression failed' }
+          python tools/granada150_native_packaged_probe.py 'desktop/src/FoamLensDesktop/Program.cs'
+          if ($LASTEXITCODE -ne 0) { throw 'Original native source anchoring failed' }
+      - name: Compile actual Windows FoamLens host with both original modules
+        shell: pwsh
+        run: |
+          dotnet restore 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw 'Native restore failed' }
+          dotnet build 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Native host failed' }
+      - name: Native original-binary polyMesh SHA-256 positive and negative self-test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'Native SHA-256 self-test binary unavailable' }
+          $proc=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--checkmesh-sha256-self-test' -PassThru -Wait
+          if ($proc.ExitCode -ne 0) { throw "Original binary SHA-256 self-test failed: $($proc.ExitCode)" }
+      - name: Smoke real WebView2 with correct module identities and screenshot
+        shell: pwsh
+        env:
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/checkmesh-native
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/checkmesh-native-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Path 'artifacts/checkmesh-native' -Force | Out-Null
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'Native FoamLens.exe missing' }
+          $app=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if (-not $app.WaitForExit(420000)) {
+            try { $app.Kill($true) } catch {}
+            throw 'Native checkMesh/multipanel smoke timed out'
+          }
+          if ($app.ExitCode -ne 0) { throw "Native checkMesh/multipanel smoke failed: $($app.ExitCode)" }
+          Write-Host 'Native smoke completed. Real OpenFOAM multi-region case and installed visual acceptance are separate.'
+      - name: Retain native evidence, never distribute unsigned executables
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granada-150-checkmesh-multipanel-native-evidence
+          path: |
+            artifacts/checkmesh-native/
+            artifacts/checkmesh-native-launch.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  original-quickcup-interface-geometry:
+    name: Real QuickCup B13 original metal/mold face pairing (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QUICKCUP_FIXTURE_TOKEN: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+    steps:
+      - name: Private fixture unavailable — NOT geometrically validated
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN == '' }}
+        run: echo 'No private source fixture; original B13 interface geometry remains NOT VERIFIED.'
+      - uses: actions/checkout@v4
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+      - name: Check out original private B13 polyMesh read-only
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: foamlens-real-fixture-b13
+          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-fixture
+      - uses: actions/setup-python@v5
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        with:
+          python-version: '3.11'
+      - name: Verify exact 240 original interface faces and opposed normals
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: |
+          python tools/granada150_interface_geometry.py --case quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14 --expected-pairs 1 --expected-faces 240

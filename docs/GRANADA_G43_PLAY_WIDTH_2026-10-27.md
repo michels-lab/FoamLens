@@ -1,0 +1,17 @@
+# G43 — original Field Play at 1140px without a stale compact class
+
+Status: P0 **source candidate**, not merged / not released. Scope: original source `v33-granada-wide-play-cascade-guard.js`, deterministic negative source fixture and dual-OS CI. No original numeric OpenFOAM values, field states, QuickCup fixture files, user data, native Test acceptance conditions, G7 compact CSS or shared WinForms host edited.
+
+## Measured failure
+- Original [Windows CI 40526002334 attempt 1](https://github.com/michels-lab/FoamLens/actions/runs/40526002334) (PR #167 source head `3a6e2b1`): measured real original Field Play **70.3906px** at **1140px**, `playMinWidthAtLeast100:false`, `playNotCollapsed:false`, *`playCompactClassAtWide:false`*, all original mold region, clock t=9.8s, Camera and geometry checks true. The exact unchanged source after rerunning failed native build as attempt 2 PASSED; this failure is intermittent.
+- Existing G16 v33 additional guard applies only when the parent has `.gfwCompact`. It therefore **cannot match this confirmed failing noncompact state**. G22 already confines compact-specific G7 CSS to <=1024px and is preserved. The exact upstream reason for computed width 70px when G12 sheet was reportedly present is not yet independently established; no speculative winning-CSS assertion.
+- Targeted source repair: add an independent **original DOM-scoped** `#flRibbonPanel-field #fwTimeTransport #fwTimePlay` minimum 112px `!important` declaration **only under** the genuine wide 1025–1250px CSS media query. Preserve old G16 compact-specific guard, G12, original Play element/handler, 640px compact behavior, physical clock and original Native fail-closed gate. Expand read-only G16 audit to expose computed width, display, box sizing and flexShrink.
+- Negative regression instantiates the real v33 source with noncompact original Field DOM at 1140px, mock measured failing 70.3906px and computed 68px. Asserts G16 read-only result remains FAIL, no fake green, and the new recovery CSS independently matches the original Field Play when `gfwCompact=false`. Confirms original compact-only guard could not match and G7/G12 original source remains. **This is static source/DOM-contract validation, NOT proof of browser CSS cascade or native physical runtime acceptance.**
+
+## Mandatory acceptance and handoff
+1. Dual-OS exact-head source regression, original Ribbon and playback semantics, GitHub code ownership.
+2. Real **QuickCup B13 original five cases** in Windows **Setup and Portable**; non-flaky 1140px and 640px original `playNotCollapsed` + camera + scientific evidence. Repeat >=2 independent runs of same original source including cold/warm native starts, capture actual offending CSSOM and original widths whenever failure occurs.
+3. Original owner screenshots and physical Windows DPI 125/150/175/200%; `#230` stays open until intermittent issue is convincingly prevented.
+4. `#238` signing, SHA-256, updater and distribution verified, prior to any **final stable** release. No RC/beta/prerelease. Stable v1.8.10 remains current.
+
+This P0 repair uses the explicit >12-PR **P0 exception** in `.michelslab/GRANADA.md` rather than inventing feature work. No other active claims were observed in master `.michelslab/task-claims.json` (checked 2026-10-27). Review not a physical certification.

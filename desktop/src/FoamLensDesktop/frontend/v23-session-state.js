@@ -1,7 +1,7 @@
 /* FoamLens Desktop v1.6.0 — persistent cross-workspace session state. */
 
 const flSessionKey='foamlens.session.v1';
-let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false);
+let flSessionRestoring=false,flSessionFieldRestoring=false,flSessionInstalled=false,flSessionPending=null,flSessionSaveTimer=null,flSessionObserver=null,flSessionLastRestorePromise=Promise.resolve(false),flSessionRestoreGeneration=0,flSessionLastReplayStatus='idle';
 
 function flSessionLoad(){
   try{
@@ -94,9 +94,11 @@ function flSessionRestoreFieldSelection(saved){
 function flSessionRestoreSnapshot(payload,{force=false}={}){
   if(!payload||typeof payload!=='object')return false;
   if(!force&&!flSessionHasWorkspaceData())return false;
+  // G63: supersede older asynchronous Field continuations on a newer restore.
+  const restoreGeneration=++flSessionRestoreGeneration;
+  flSessionLastReplayStatus='pending';
   flSessionRestoring=true;
   try{
-    if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
     if(payload.context&&Array.isArray(cases)&&cases.length){
       const match=flSessionFindCase(payload.context);
       const requestedRegion=String(payload.context.region||'');
@@ -108,8 +110,37 @@ function flSessionRestoreSnapshot(payload,{force=false}={}){
     if(payload.field)window.FoamLensWorkspaceUx?.applyState?.(payload.field);
     const target=flSessionSafeMode(payload.activeMode);
     setAppMode(target);
+    // G59c: mode navigation may capture/mutate the currently active plot's
+    // Data view. Rehydrate the SAVED physical plot state only AFTER navigation
+    // so a stored Catalog/Data view cannot silently become Time Series.
+    // This is source state restoration, not a new chart or data import.
+    if(payload.plots)window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
     if(target==='data'||target==='analysis')window.FoamLensPlotSurfaces?.activate?.(target,null,{restore:true});
-    flSessionLastRestorePromise=target==='field'&&payload.fieldSelection?flSessionRestoreFieldSelection(payload.fieldSelection):Promise.resolve(false);
+    // G60: an asynchronous Field frame restore can update plot state after the
+    // synchronous navigation/hydration above, overwriting an inactive Data
+    // Catalog selection. Replay the original saved plot snapshot only after
+    // the original frame restoration has settled; do not invent data/frames.
+    const restoringField=target==='field'&&payload.fieldSelection;
+    // G67: even if no Field frame can be scheduled (e.g. the real 3D case is
+    // not yet compatible), the initial Data snapshot can be overwritten by
+    // the synchronous render below. Its protected post-render replay belongs
+    // to the SAME restoration, not an invented 3D frame or a new selection.
+    const originalFrame=restoringField
+      ? Promise.resolve(flSessionRestoreFieldSelection(payload.fieldSelection))
+      : Promise.resolve(false);
+    flSessionLastRestorePromise=originalFrame.then(restored=>{
+      if(!payload.plots)flSessionLastReplayStatus='no-plots';
+      else if(restoreGeneration!==flSessionRestoreGeneration)flSessionLastReplayStatus='superseded';
+      else if(activeAppMode!==target)flSessionLastReplayStatus='mode-changed';
+      else{
+        window.FoamLensPlotSurfaces?.hydrate?.(payload.plots,{activate:false});
+        flSessionLastReplayStatus=restoringField?'applied':'applied-no-field'
+      }
+      return restored
+    });
+    // G67: report the exact non-Field path if no frame was scheduled. A
+    // saved snapshot can be valid while Field is temporarily unavailable.
+    if(!restoringField)flSessionLastReplayStatus='no-field';
     try{renderList();updateMeta();if(currentDataView==='catalog')renderDataCatalog();else draw()}catch(e){console.warn('Session lightweight render refresh failed',e)}
   }finally{flSessionRestoring=false}
   document.dispatchEvent(new CustomEvent('foamlens-session-restored',{detail:{mode:activeAppMode,context:flSessionContextSnapshot()}}));
@@ -130,7 +161,16 @@ function flSessionClear(){
 }
 function flSessionPatchNavigation(){
   const prevSetAppMode=setAppMode;
-  setAppMode=function(...args){const result=prevSetAppMode.apply(this,args);flSessionScheduleSave();return result};
+  setAppMode=function(...args){
+    // G63b: invalidating only on a subsequent session restore misses a
+    // Field -> Data -> Field round-trip while an older Field frame is pending.
+    // The user has started a NEW navigation even if the final mode matches.
+    const externalNavigation=!flSessionRestoring&&String(args[0])!==String(activeAppMode);
+    const result=prevSetAppMode.apply(this,args);
+    if(externalNavigation)++flSessionRestoreGeneration;
+    flSessionScheduleSave();
+    return result
+  };
   const prevSetDataView=setDataView;
   setDataView=function(...args){const result=prevSetDataView.apply(this,args);flSessionScheduleSave();return result}
 }
@@ -157,7 +197,8 @@ function flSessionInstall(){
     tryRestore:flSessionTryRestore,
     clear:flSessionClear,
     pending:()=>!!flSessionPending,
-    whenRestored:()=>flSessionLastRestorePromise
+    whenRestored:()=>flSessionLastRestorePromise,
+    replayStatus:()=>flSessionLastReplayStatus
   };
   return true
 }

@@ -1,0 +1,24 @@
+# FoamLens Granada G62 — Real B13 fixture freshness and fail-closed provenance (2026-10-30)
+
+## Verified failure
+- The exact merged main source `79ee3fa36745994f9f6b27a611c92d37674174c5` triggered [G37 run 41140345010](https://github.com/michels-lab/FoamLens/actions/runs/41140345010). Source guard checks passed on Windows and Ubuntu, but the six-native-cycle job failed **before build/launch** trying to download `QuickCup-MultiCase-Windows-runtime` from permanently pinned run `40439636990`. That run now has no such unexpired artifact. **Zero native cycles completed** in this G37 run; do not claim a scientific failure or G37 6/6 pass.
+- The same source commit produced a fresh artifact through the independent original Windows builder [run 41140345067](https://github.com/michels-lab/FoamLens/actions/runs/41140345067), size ~407.6 MB. Source content remains private; no payload copied into public Git.
+
+## G62 implementation
+- Replace expiring run-ID with a **read-only GitHub Actions query** of recent successful original `Build FoamLens Desktop for Windows` main-branch fixture job runs. Require actual completed original `Real OpenFOAM QuickCup regression` job and exactly one non-expired `QuickCup-MultiCase-Windows-runtime` artifact above a small size sanity threshold. Check original branch, event and source commit identity before download.
+- Permit a source-ancestral builder only when `git merge-base --is-ancestor` holds and the complete intervening diff has **only** the explicitly whitelisted G37 QA files/documentation or four File Steward report files, never scientific or product code. Otherwise wait for a correct independent builder and ultimately **fail closed**, no synthetic data fallback.
+- Continue verifying real metal + mold T at t=9.8 s, five source cases, original Inno setup, all physical Field Play thresholds and three actual Portable plus three Installed cycles. Continue to upload **sanitized boolean-only results**, not raw fixture/log/images.
+- Add same-failure negative source checks for expired fixed run IDs, missing source ancestry, relaxed allowlist, missing successful independent source job, missing real artifact or missing fail-closed branch. Pull requests run **source guards only**; the costly six-cycle Windows native job remains for allowed push/dispatch events after integration.
+
+## Acceptance and status
+- Product source, original scientific numerical behavior, UI and public release version are untouched by this QA-only change.
+- G37 should pass exact-main `6/6` with an independently generated, non-expired real B13 fixture. If it fails later at native Field, retain real causal stage telemetry and fix that separately. Success of an isolated source guard or other Windows build **does not** close G37.
+- [Release gate #238](https://github.com/michels-lab/FoamLens/issues/238) stays open for signed updater/Authenticode, real DPI 125/150/175/200, 36 screenshot visual acceptance and exact as-shipped tests. **No RC, beta or stable release** until all gates independently pass.
+
+## G64 — verified native 6/6 after G62 integration (2026-10-30)
+
+- **Actual completed test:** [G37 run 41141234200](https://github.com/michels-lab/FoamLens/actions/runs/41141234200), exact original product/QA source `bbe2a430f4cfdfff3b8749b45aaba49d94f53289`, ended `success`; the later File Steward-only commit does not alter application code. Both source/negative guard matrix jobs (Windows/Ubuntu) passed.
+- **Fixture provenance:** original successful QuickCup builder selected dynamically with G62, independently generated B13 metal/mold source verified at `t=9.8 s`, without posting source values or copying private files into the repository.
+- **Physical native startup evidence:** actual original `Portable` 1/3, `Installed` 1/3, `Portable` 2/3, `Installed` 2/3, `Portable` 3/3, `Installed` 3/3 all emitted sanitized success. Original 1140 px/640 px Field Play geometry and source-backed `playNotCollapsed` constraints were checked by the genuine Windows native runner, including actual Inno Setup installation/uninstallation.
+- **Mandatory acceptance step:** `Require all six actual original B13 1140 and 640 Play passes with exact SHA and no fake release` passed; the six-cycle report artifact `FoamLens-G37-six-original-B13-native-Play-booleans-only` (ID `13019920651`, 667 B, retention-limited) was uploaded. No false claim of an independent numerical solver validation, physical monitor DPI, aesthetics, or approved release.
+- **Release remains BLOCKED:** [#238](https://github.com/michels-lab/FoamLens/issues/238) still requires actual Authenticode publisher and signed-updater integrity, exact shipped artifact parity, physical Windows OS DPI 125/150/175/200%, full 36-slot owner visual acceptance and final release authorization. G63 session race PR #270, which was not part of the G37 tested SHA, is tracked independently.

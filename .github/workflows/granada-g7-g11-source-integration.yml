@@ -1,0 +1,65 @@
+name: Granada G7-G11 — original compact UI integration regression
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
+      - 'tools/granada_g7_compact_workbench.test.cjs'
+      - 'tools/granada_g8_compact_timeseries.test.cjs'
+      - 'tools/granada_g10_preview_toolbar.test.cjs'
+      - 'tools/granada_g11_compact_chart_focus.test.cjs'
+      - '.github/workflows/granada-g7-g11-source-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
+      - '.github/workflows/granada-g7-g11-source-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-compact-workbench:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove exact approved G51 G8 Time Series source and test, no G7/G10/G11 rewrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js)" = '99fc2a121861d69972ca63cb35e4dc7df107893f'
+          test "$(git hash-object tools/granada_g8_compact_timeseries.test.cjs)" = '1a22b48d4fddb469c974676d88f9f2b8f21bf85f'
+          test "$(git hash-object .github/workflows/granada-g8-compact-timeseries.yml)" = 'b0f638995e20787c980486d33799be09d6685290'
+          for module in v27-granada-compact-workbench v28-granada-compact-timeseries v29-granada-plot-toolbar v30-granada-chart-focus; do
+            node --check "desktop/src/FoamLensDesktop/frontend/${module}.js"
+          done
+      - name: Run original G7 Field and Analysis responsive source controls
+        run: node --test tools/granada_g7_compact_workbench.test.cjs
+      - name: Run exact original G8 source Time Series responsive and keyboard tests
+        run: node --test tools/granada_g8_compact_timeseries.test.cjs
+      - name: Run G10 out-of-canvas original export button regression
+        run: node --test tools/granada_g10_preview_toolbar.test.cjs
+      - name: Run G11 chart focus, four selectors and user settings regression
+        run: node --test tools/granada_g11_compact_chart_focus.test.cjs
+      - name: Preserve original T1 data identity, units and dual axes
+        run: |
+          node desktop/tests/timeseries-provenance.test.cjs
+          node desktop/tests/dual-timeseries.test.cjs
+          node desktop/tests/timeseries-source-catalog.test.cjs

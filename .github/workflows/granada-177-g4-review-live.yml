@@ -1,0 +1,37 @@
+name: Granada 177 — G4 Review/Live UX
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js'
+      - 'desktop/tests/granada-177-g4-review-live.spec.cjs'
+      - '.github/workflows/granada-177-g4-review-live.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js'
+      - 'desktop/tests/granada-177-g4-review-live.spec.cjs'
+      - '.github/workflows/granada-177-g4-review-live.yml'
+  workflow_dispatch:
+jobs:
+  ux-review-live:
+    name: Original Review/Live commands and geometry — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: G4 source-preserving Review/Live DOM and responsive layout evidence
+        run: node desktop/tests/granada-177-g4-review-live.spec.cjs
+      - name: Original Review scientific case identity and findings
+        run: node desktop/tests/review-case-binding.test.cjs
+      - name: Original read-only OpenFOAM Live monitoring and stop
+        run: node desktop/tests/live-run.test.cjs
+      - name: Original nav and context behavior
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Existing test suite manifest
+        run: node desktop/tests/test-suite-manifest.test.cjs

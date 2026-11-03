@@ -1,0 +1,32 @@
+name: GRANADA G8 - compact Time Series source-native regression
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js'
+      - 'tools/granada_g8_compact_timeseries.test.cjs'
+      - '.github/workflows/granada-g8-compact-timeseries.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  g8-original-scientific-controls:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse standalone Data UX extension
+        run: node --check desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js
+      - name: Exercise actual original controls and navigation
+        run: node --test tools/granada_g8_compact_timeseries.test.cjs
+      - name: Preserve original Time Series source behavior
+        run: node desktop/tests/timeseries-source-catalog.test.cjs

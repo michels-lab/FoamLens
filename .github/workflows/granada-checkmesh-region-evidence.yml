@@ -1,0 +1,33 @@
+name: Granada 150 — Multi-region checkMesh evidence
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js'
+      - 'desktop/tests/checkmesh-region-evidence.spec.cjs'
+      - '.github/workflows/granada-checkmesh-region-evidence.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js'
+      - 'desktop/tests/checkmesh-region-evidence.spec.cjs'
+      - '.github/workflows/granada-checkmesh-region-evidence.yml'
+  workflow_dispatch:
+jobs:
+  source-evidence:
+    name: Scientific checkMesh source comparison — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing checkMesh parser regression
+        run: node desktop/tests/mesh-quality-audit.test.cjs
+      - name: Multi-region source reports, missing data, defects and privacy
+        run: node desktop/tests/checkmesh-region-evidence.spec.cjs
+      - name: Existing scientific test suite manifest
+        run: node desktop/tests/test-suite-manifest.test.cjs
