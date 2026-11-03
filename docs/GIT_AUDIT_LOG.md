@@ -1,5 +1,12 @@
 # FoamLens Git Audit Log
 
+## 2026-11-03 — Granada: checkMesh/multipanel namespacing integrated into source owner #174 (not main)
+
+- GitHub PR #187 (`f7fd6a1cf31278ef83395f96a9689fb68c16b263`) merged successfully into original #174 owner branch at commit `5933eeb7db4365a900ff7a5ced506c625745546c`. The 21 renamed checkMesh symbols/DOM identities under `cmr*`, private IIFE, original independent multipanel owners, and negative source collision regression now reside in #174 rather than only a detached fix branch.
+- Two original corrective-HEAD GitHub Actions runs `39405691356` and `39405691310` were SUCCESS. No new workflow evidence for the merged SHA was returned on inspection; do not translate those successes to exact post-merge source validation, current main, original installed Setup/Portable or a public release.
+- The original owner PR #174 remains DRAFT, unmerged and non-mergeable with current main. Reconcile current-main integration and run original checkMesh+multi-panel negative regression, full native real OpenFOAM region reports, Windows 125–200% physical DPI and Setup/Portable gates before a release; issues #150 and #238 remain OPEN.
+- Backlog convergence separately archived six history-only QA/composer PRs #185, #188, #190, #191, #229, #231 after verifying each has a descendant successor (#189, #192 or #232 respectively), and retained every branch; no product code from these drafts was merged to main. See each PR's closure note.
+
 ## 2026-10-19 — Operación Granada #150: per-region checkMesh evidence matrix (candidate, no release)
 
 - Audited stable `main` `cbf384b81948334b71f1fc67096b026e65b79583`, issue #150, original `v20-mesh-quality-audit.js` and test. Original single-report `maPureCheckMesh` already preserves 2D/3D reported mesh metrics, warning lines, multiple internal `Region:` headings and explicit nulls for unreported metrics; it is NOT rewritten. Open PRs #162, #164–#173, including competing front tracking #170/#171, remain untouched.
