@@ -1,6 +1,14 @@
 # Operación Granada — Fix funcional de colisiones checkMesh + Multi-panel
 
-**Fecha:** 2026-10-20 · **Propietario de la función original:** PR [#174](https://github.com/michels-lab/FoamLens/pull/174) · **Estado:** parche correcto de arquitectura en **rama derivada independiente**; aún no integrado en PR #174 ni en `main`.
+**Origen:** 2026-10-20 · **Propietario:** PR [#174](https://github.com/michels-lab/FoamLens/pull/174). **Actualización verificada 2026-11-03:** la corrección de PR [#187](https://github.com/michels-lab/FoamLens/pull/187) se fusionó en la rama fuente #174 mediante commit `5933eeb7db4365a900ff7a5ced506c625745546c`. **Todavía NO está en `main` ni en una release.**
+
+
+## Actualización de integración 2026-11-03
+
+- **Causa raíz corregida en la rama dueña:** módulo real `v24-checkmesh-region-evidence.js` encapsulado y con selectores `cmr*`; test negativo `checkmesh-multipanel-collision.spec.cjs` conservado. GitHub confirmó el merge #187 → #174 en SHA `5933eeb7db4365a900ff7a5ced506c625745546c`.
+- **Pruebas existentes del HEAD de la corrección antes del merge:** dos runs concluidos SUCCESS (`39405691356`, `39405691310`) asociados a `f7fd6a1cf31278ef83395f96a9689fb68c16b263`. Son prueba de la rama correctiva original; **no** se observaron ejecuciones asociadas al SHA de merge en esta consulta. No afirmar CI exacta ni instalación nueva después del merge.
+- **Limitaciones vigentes:** PR #174 sigue draft y no fusionable con `main` por la situación actual de integración; revisar divergencias de fuentes antes de incorporar el módulo. Volver a montar un candidato vigente de integración multirregión y ejecutar el test original de colisión, suites Ubuntu/Windows y host WebView2 actual. Faltan reportes auténticos `checkMesh -region metal/mold`, pruebas Setup/Portable, DPI físico y aprobación visual. #150 y release gate #238 permanecen abiertos.
+- **Historial abajo:** los párrafos originales describen el plan y las condiciones del **20 de octubre**; ya no son el estado actual de incorporación a la rama propietaria.
 
 ## Diagnóstico probado contra integración nativa Granada #186
 
