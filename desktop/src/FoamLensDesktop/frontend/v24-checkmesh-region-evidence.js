@@ -201,9 +201,89 @@ function cmrEvidence(reports,expectedRegions=[]){
     ]
   }
 }
+
+const cmrSHA256_RE=/^[a-f0-9]{64}$/;
+const cmrPOLYMESH_FILES=['points','faces','owner','neighbour','boundary'];
+function cmrVerifyLocalManifest(manifest,digests,evidence){
+  const fail=reason=>({status:'rejected',reason,rows:[],verified:0});
+  if(!manifest||manifest.schema!=='foamlens/local-checkmesh-region-capture/1'||
+     manifest.scientificValidity!=='not-certified'||
+     manifest.allSourceReportsReady!==true||!Array.isArray(manifest.regions)||
+     !Array.isArray(digests)||manifest.regions.length!==digests.length||
+     manifest.regions.length===0||manifest.regions.length>24)
+    return fail('Manifest schema, readiness or report count unsupported');
+  if(!evidence||!Array.isArray(evidence.regions)||
+     evidence.status!=='all-expected-regions-reported')
+    return fail('Source evidence must have complete, nonconflicting region coverage');
+  const byHash=new Map(),names=new Set(),rows=[];
+  for(const row of manifest.regions){
+    if(!row||!cmrLabel(row.region)||names.has(row.region)||
+       row.status!=='source-report-ready-not-certified'||
+       row.scientificValidity!=='not-certified'||row.meshFilesUnchanged!==true||
+       row.exitCode!==0||row.stderrPresent!==false||
+       !cmrSHA256_RE.test(row.logSha256||'')||
+       byHash.has(row.logSha256)||
+       row.sourceMarkers?.matched!==true||
+       row.sourceMarkers?.region!==row.region||
+       row.sourceMarkers?.terminalMeshOk!==true||
+       row.sourceMarkers?.sourceReportedFailure===true||
+       !row.meshFilesSha256Before||
+       !cmrPOLYMESH_FILES.every(x=>cmrSHA256_RE.test(row.meshFilesSha256Before[x]||'')))
+      return fail('Manifest has invalid, duplicate, incomplete or contradictory local source records');
+    names.add(row.region);byHash.set(row.logSha256,row);
+  }
+  const used=new Set();
+  for(let i=0;i<digests.length;i++){
+    const digest=digests[i],item=byHash.get(digest),source='report-'+String(i+1).padStart(2,'0');
+    if(!cmrSHA256_RE.test(digest||'')||!item||used.has(digest))
+      return fail('Original checkMesh report SHA-256 does not match unique manifest entry');
+    used.add(digest);
+    if(evidence.regions.filter(r=>r.region===item.region&&r.source===source&&
+       !r.conflicted&&/^reported-ok-/.test(r.status)).length!==1)
+      return fail('Manifest region and audited checkMesh region are inconsistent');
+    rows.push({region:item.region,source,logSha256:digest,
+      meshFilesSha256Before:Object.fromEntries(cmrPOLYMESH_FILES.map(k=>[k,item.meshFilesSha256Before[k]]))});
+  }
+  return{status:'original-report-sha256-matches-local-manifest',verified:rows.length,rows,
+    scientificValidity:'not-certified',
+    assurance:'User-supplied unsigned manifest; report integrity checked, original case identity not yet established'}
+}
 /* FOAMLENS_MESH_EVIDENCE_CORE_END */
 function cmrEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cmrLast=null,cmrInputs=[],cmrEpoch=0,cmrOwner=null;
+async function cmrSHA256File(file){
+  if(!globalThis.crypto?.subtle||typeof file?.arrayBuffer!=='function')
+    throw Error('Local SHA-256 digest unavailable in this runtime');
+  const buffer=await file.arrayBuffer();
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buffer)))
+    .map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+async function cmrCompareImportedPolyMesh(rows,c,epoch){
+  if(!c||!Array.isArray(c.allFiles)||!c.allFiles.length)
+    return{status:'source-mesh-not-verified-unavailable',verifiedFiles:0};
+  const all=c.allFiles,selected=[];
+  for(const row of rows)for(const name of cmrPOLYMESH_FILES){
+    const ending='/constant/'+row.region+'/polyMesh/'+name;
+    const found=all.filter(f=>('/'+String(f?.webkitRelativePath||f?.name||'')
+      .replace(/\\/g,'/')).endsWith(ending));
+    if(found.length!==1)
+      return{status:'source-mesh-not-verified-missing-or-duplicate-files',verifiedFiles:0};
+    const file=found[0];
+    // The native bridge's legacy text-based arrayBuffer() is NOT original
+    // binary data. Refuse cryptographic claims until a raw byte API exists.
+    if(file._nativeToken||typeof file.arrayBuffer!=='function'||file.size>24*1024*1024)
+      return{status:'source-mesh-not-verified-raw-bytes-unavailable',verifiedFiles:0};
+    selected.push({file,expected:row.meshFilesSha256Before[name]});
+  }
+  for(const item of selected){
+    if(epoch!==cmrEpoch)return{status:'source-mesh-not-verified-selection-changed',verifiedFiles:0};
+    const actual=await cmrSHA256File(item.file);
+    if(actual!==item.expected)
+      return{status:'source-mesh-sha256-mismatch',verifiedFiles:0};
+  }
+  return{status:'imported-source-polyMesh-sha256-matches-local-manifest',
+    verifiedFiles:selected.length,scientificValidity:'not-certified'}
+}
 function cmrEl(id){return document.getElementById(id)}
 function cmrReset(reason=''){
   cmrEpoch++;cmrLast=null;cmrOwner=null;
@@ -224,10 +304,12 @@ function cmrRefresh(){
   if(all.some(c=>String(c.id)===old))sel.value=old;
   else if(typeof activeContextCaseId!=='undefined'&&all.some(c=>String(c.id)===String(activeContextCaseId)))sel.value=String(activeContextCaseId);
   cmrInputs=[];const file=cmrEl('cmrFiles');if(file)file.value='';
+  const manifest=cmrEl('cmrManifest');if(manifest)manifest.value='';
   cmrReset('Case selection or discovered region names changed. Previously attached reports cleared.')
 }
 async function cmrAnalyze(){
-  const at=++cmrEpoch,file=cmrEl('cmrFiles'),chosen=[...(file?.files||[])],status=cmrEl('cmrStatus');
+  const at=++cmrEpoch,file=cmrEl('cmrFiles'),chosen=[...(file?.files||[])],
+    manifestFile=cmrEl('cmrManifest')?.files?.[0]||null,status=cmrEl('cmrStatus');
   cmrLast=null;cmrEl('cmrExport').disabled=true;
   if(!chosen.length||chosen.length>24){status.textContent='Choose 1–24 original checkMesh text reports.';return}
   const c=cmrCase(),model=c?.discoveryModel,expected=cmrExpected(c),reports=[];
@@ -246,9 +328,38 @@ async function cmrAnalyze(){
       cmrReset('Case discovery changed during file read; please reselect reports.');return
     }
     const result=cmrEvidence(reports,expected);
-    cmrLast=result;cmrInputs=chosen;cmrOwner={case:c,model,expected:expected.join('\0'),files:chosen};
+    let linkage={status:'not-supplied',verified:0},caseLink={status:'source-mesh-not-verified-no-manifest',verifiedFiles:0};
+    if(manifestFile){
+      if(manifestFile.size>256*1024)throw Error('Capture manifest exceeds the 256-KiB safe limit');
+      const contents=await manifestFile.text();if(at!==cmrEpoch)return;
+      let manifest;
+      try{manifest=JSON.parse(contents)}catch{throw Error('Invalid local JSON capture manifest')}
+      const digests=[];
+      for(const selected of chosen){
+        digests.push(await cmrSHA256File(selected));
+        if(at!==cmrEpoch)return
+      }
+      linkage=cmrVerifyLocalManifest(manifest,digests,result);
+      if(linkage.status==='rejected')
+        throw Error('Original report SHA-256 does not match local capture manifest: '+linkage.reason);
+      caseLink=await cmrCompareImportedPolyMesh(linkage.rows,c,at);
+      if(at!==cmrEpoch)return;
+      if(caseLink.status==='source-mesh-sha256-mismatch')
+        throw Error('Imported source case polyMesh SHA-256 disagrees with capture manifest');
+    }
+    if(cmrCase()!==c||c?.discoveryModel!==model){
+      cmrReset('Imported case changed during SHA-256 verification; re-audit.');return
+    }
+    result.localProvenance={reportManifestStatus:linkage.status,
+      sourceCaseStatus:caseLink.status,verifiedOriginalReports:linkage.verified||0,
+      verifiedSourceMeshFiles:caseLink.verifiedFiles||0,
+      originalCaseProvenanceSigned:false,scientificValidity:'not-certified'};
+    cmrLast=result;cmrInputs=chosen;cmrOwner={case:c,model,expected:expected.join('\0'),
+      files:chosen,manifestFile};
     status.textContent=result.status+' · '+result.coverage.evidenced+'/'+result.coverage.expected+
-      ' source-declared regions · '+result.coverage.unattributed+' unattributed reports. Scientific validity NOT certified.';
+      ' source-declared regions · '+result.coverage.unattributed+' unattributed reports. '+
+      'Manifest: '+result.localProvenance.reportManifestStatus+' · source mesh: '+
+      result.localProvenance.sourceCaseStatus+'. Scientific validity NOT certified.';
     const fmt=x=>x===null?'not reported':x.toLocaleString('en-US',{maximumSignificantDigits:8});
     const rows=result.regions.map(r=>'<tr>'+[
       r.region,r.source,r.regionAttribution,r.status,fmt(r.metrics.cells.value),fmt(r.metrics.faces.value),
@@ -268,14 +379,19 @@ async function cmrAnalyze(){
 function cmrExport(){
   const c=cmrCase();
   if(!cmrLast||!cmrOwner)return;
-  const files=[...(cmrEl('cmrFiles')?.files||[])];
+  const files=[...(cmrEl('cmrFiles')?.files||[])],
+    manifestFile=cmrEl('cmrManifest')?.files?.[0]||null;
   if(c!==cmrOwner.case||c?.discoveryModel!==cmrOwner.model||
      cmrExpected(c).join('\0')!==cmrOwner.expected||
+     manifestFile!==cmrOwner.manifestFile||
      files.length!==cmrInputs.length||files.some((f,i)=>f!==cmrInputs[i])){
     cmrReset('Case/regions/report selection changed; recalculate before exporting.');return
   }
   const payload=JSON.stringify({...cmrLast,exportedAt:new Date().toISOString(),
-    caseBinding:'manual-attachment-not-cryptographically-verified'},null,2);
+    caseBinding:cmrLast.localProvenance?.sourceCaseStatus===
+      'imported-source-polyMesh-sha256-matches-local-manifest'?
+      'local-unsigned-manifest-report-and-source-files-sha256-match-at-inspection':
+      'manual-attachment-not-cryptographically-verified'},null,2);
   if(typeof downloadText==='function'){downloadText('FoamLens_multiregion_checkmesh_evidence.json',payload,'application/json');return}
   const link=URL.createObjectURL(new Blob([payload],{type:'application/json'})),a=document.createElement('a');
   a.href=link;a.download='FoamLens_multiregion_checkmesh_evidence.json';document.body.appendChild(a);
@@ -290,6 +406,11 @@ function cmrInstall(){
     '<div class="extGrid2"><div class="field"><label>Imported case (optional expected material regions)</label><select id="cmrCase"></select></div>'+
     '<div class="field"><label>Original local checkMesh reports, max 24</label>'+
     '<input type="file" id="cmrFiles" accept=".log,.txt,.out,text/plain" multiple></div></div>'+
+    '<div class="field"><label>Optional local capture manifest (SHA-256 verification)</label>'+
+    '<input type="file" id="cmrManifest" accept=".json,application/json"></div>'+
+    '<p class="smallnote">When provided, report hashes must match the unsigned local capture manifest. '+
+    'If matching original source polyMesh bytes are available in the imported case, they are checked too. '+
+    'No matching hash certifies mesh validity or solver correctness.</p>'+
     '<div class="extActions"><button type="button" class="btn soft" id="cmrRefresh">Refresh source case</button>'+
     '<button type="button" class="btn primary" id="cmrAnalyze">Compare real report evidence</button>'+
     '<button type="button" class="btn soft" id="cmrExport" disabled>Export source evidence JSON</button></div>'+
@@ -299,6 +420,7 @@ function cmrInstall(){
   cmrEl('cmrExport').onclick=cmrExport;
   cmrEl('cmrCase').onchange=()=>{cmrInputs=[];cmrEl('cmrFiles').value='';cmrReset('Case changed: report attachments cleared.')};
   cmrEl('cmrFiles').onchange=()=>{cmrInputs=[];cmrReset('Original reports changed: re-audit before exporting.')};
+  cmrEl('cmrManifest').onchange=()=>cmrReset('Capture manifest changed: verify original report hashes again.');
   // Opening and closing the panel must not silently erase audited source files.
   cmrRefresh()
 }

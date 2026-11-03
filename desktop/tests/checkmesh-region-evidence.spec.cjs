@@ -6,7 +6,7 @@ const code=fs.readFileSync(path.join(dir,'v24-checkmesh-region-evidence.js'),'ut
 new Function(code);
 const core=code.split('/* FOAMLENS_MESH_EVIDENCE_CORE_START */')[1].split('/* FOAMLENS_MESH_EVIDENCE_CORE_END */')[0];
 const oldCore=parser.split('/* FOAMLENS_CHECKMESH_CORE_START */')[1].split('/* FOAMLENS_CHECKMESH_CORE_END */')[0];
-const me=new Function(core+';return {audit:cmrEvidence,defects:cmrDefects,label:cmrLabel}')();
+const me=new Function(core+';return {audit:cmrEvidence,defects:cmrDefects,label:cmrLabel,manifest:cmrVerifyLocalManifest}')();
 const checkMesh=new Function(oldCore+';return maPureCheckMesh')();
 const run=(name,text)=>({rawText:text,audit:checkMesh(text,name)});
 const metal=[
@@ -154,6 +154,51 @@ const genericMention=me.audit([run('metal.log',
     'Creating mesh for region metal'))],['metal']);
 assert.equal(genericMention.status,'partial-or-unattributed');
 assert.equal(genericMention.regions.length,0);
+// Original SHA-256 capture manifest: hashes must match selected report BY CONTENT,
+// not by name, order, arbitrary filenames, case label or copied JSON assertions.
+const fakeHash=k=>k.repeat(64);
+const realEvidence=me.audit([run('anonymous-original-A',metal),
+  run('anonymous-original-B',mold)],['metal','mold']);
+const mkRow=(name,hash)=>({
+  region:name,status:'source-report-ready-not-certified',scientificValidity:'not-certified',
+  logSha256:hash,meshFilesUnchanged:true,exitCode:0,stderrPresent:false,
+  sourceMarkers:{region:name,matched:true,terminalMeshOk:true},
+  meshFilesSha256Before:Object.fromEntries(
+    ['points','faces','owner','neighbour','boundary'].map(n=>[n,fakeHash('f')]))
+});
+const manifest={schema:'foamlens/local-checkmesh-region-capture/1',
+  scientificValidity:'not-certified',allSourceReportsReady:true,
+  regions:[mkRow('mold',fakeHash('b')),mkRow('metal',fakeHash('a'))]};
+const manifestOk=me.manifest(manifest,[fakeHash('a'),fakeHash('b')],realEvidence);
+assert.equal(manifestOk.status,'original-report-sha256-matches-local-manifest');
+assert.deepEqual(manifestOk.rows.map(r=>r.region),['metal','mold'],
+  'Per-report original sha matching must work independently from manifest order');
+assert.equal(manifestOk.scientificValidity,'not-certified');
+assert.equal(me.manifest(manifest,[fakeHash('b'),fakeHash('a')],realEvidence).status,
+  'rejected','swapped report content may not inherit other regional source labels');
+assert.equal(me.manifest(manifest,[fakeHash('a'),fakeHash('c')],realEvidence).status,'rejected');
+assert.equal(me.manifest({...manifest,allSourceReportsReady:false},
+  [fakeHash('a'),fakeHash('b')],realEvidence).status,'rejected');
+assert.equal(me.manifest({...manifest,regions:[manifest.regions[0],manifest.regions[0]]},
+  [fakeHash('a'),fakeHash('b')],realEvidence).status,'rejected');
+assert.equal(me.manifest({...manifest,regions:[{...manifest.regions[0],
+  meshFilesUnchanged:false},manifest.regions[1]]},
+  [fakeHash('a'),fakeHash('b')],realEvidence).status,'rejected');
+assert.equal(me.manifest({...manifest,regions:[{...manifest.regions[0],
+  status:'checkMesh-nonzero-exit'},manifest.regions[1]]},
+  [fakeHash('a'),fakeHash('b')],realEvidence).status,'rejected');
+assert.equal(me.manifest({...manifest,regions:[{...manifest.regions[0],
+  sourceMarkers:{region:'metal',matched:true,terminalMeshOk:true}},manifest.regions[1]]},
+  [fakeHash('a'),fakeHash('b')],realEvidence).status,'rejected');
+assert.equal(me.manifest(manifest,[fakeHash('a'),fakeHash('b')],
+  me.audit([run('source-no-summary',metal.replace('Mesh OK.','')),
+    run('other-source',mold)],['metal','mold'])).status,'rejected');
+for(const needed of ['id="cmrManifest"','crypto.subtle.digest','cmrCompareImportedPolyMesh',
+  'manifestFile!==cmrOwner.manifestFile',
+  'originalCaseProvenanceSigned:false',
+  'source-mesh-not-verified-raw-bytes-unavailable']){
+  assert(code.includes(needed),'Missing actual opt-in SHA-256 UI binding: '+needed)
+}
 assert.equal(me.audit([],[]).status,'partial-or-unattributed');
 assert.equal(me.audit(Array(25).fill({}),['metal']).status,'not-assessed');
 assert.equal(me.audit([run('a',metal)],['metal','metal']).status,'not-assessed');
