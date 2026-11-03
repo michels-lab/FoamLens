@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 454,
-  "classified_files_total": 450,
-  "docs_content_inspected": 94,
+  "tracked_files_total": 471,
+  "classified_files_total": 467,
+  "docs_content_inspected": 99,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 88,
+    "document": 93,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 137,
-    "test": 122,
+    "source": 142,
+    "test": 127,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 59
+    "workflow": 61
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "e74a0a706abf66d9c2eab8f5bad7b0c26b918f92fb446ded02c3a9ca5fe57846",
-  "evidence_fingerprint": "b966ba3e29790db2c340f171db0c8473ad970a77b1b781f4a1789a96c4522759",
+  "inventory_fingerprint": "e07c3c7272677f28f4dfc2e125f29a3e16a3ce9b7719f2f95e48a3dd56aa2922",
+  "evidence_fingerprint": "34f892a05ce5c342bef290204f1eedbd673fcea8bbcba7bd2161d506c0bc4cb2",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -156,6 +156,13 @@
       "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
     },
     {
+      "path": ".github/workflows/granada-150-checkmesh-namespace.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "2d9213fea13f6a5fd7814aa4f3a692d437e750a3"
+    },
+    {
       "path": ".github/workflows/granada-176-timeseries-t2.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -210,6 +217,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
+    },
+    {
+      "path": ".github/workflows/granada-checkmesh-region-evidence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "4fd8838bdb8d0b7ea0df51281a102423f931290a"
     },
     {
       "path": ".github/workflows/granada-developer-note-triage.yml",
@@ -653,6 +667,13 @@
       "blob": "1f5214c885197584cce28899d5fe6420c4a11120"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/NativeCheckMeshFileHash.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "77a9c8c23fead29002786071c14b225d4be3b3e4"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/NativeTemporalCache.cs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -671,7 +692,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b5130103934117cdfdd27642d03fa0106b52c43c"
+      "blob": "eec31e1bb782fc53f2a07cfb8c1c5d46b2071ff2"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1017,6 +1038,13 @@
       "blob": "90620e4669c67da83b891fd7f6a2a7497adb35ae"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c0e80f658a1ef30d5db5140fef04a62eac78af69"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1204,6 +1232,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "56fd3466791223c9f52bee9dd1b94df0af394eb3"
+    },
+    {
+      "path": "desktop/tests/checkmesh-multipanel-collision.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a7038f97fc92e7ceaa760db70a02f25a9de3d895"
+    },
+    {
+      "path": "desktop/tests/checkmesh-region-evidence.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0181cbd9a01b4775e234120e4e83d117239caf78"
     },
     {
       "path": "desktop/tests/context-help-resize.test.cjs",
@@ -2011,6 +2053,41 @@
       "blob": "7c76b72f542d7ac541023fa5abc954e6879b9f93"
     },
     {
+      "path": "docs/GRANADA_150_CHECKMESH_MULTIPANEL_NAMESPACE_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a8eaf4f2cc532c52f18681ad0f8c15a73ff56902"
+    },
+    {
+      "path": "docs/GRANADA_150_CHECKMESH_REGION_EVIDENCE_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "dd6056b27a1373a0fda9b7fb09e233a19b595736"
+    },
+    {
+      "path": "docs/GRANADA_150_CURRENT_MAIN_INTEGRATION_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3078d4a245a1e14b4dd393b513793448f20eda7b"
+    },
+    {
+      "path": "docs/GRANADA_150_ORIGINAL_POLYMESH_INTERFACE_GEOMETRY.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "d54552a75868819266be725aed30fdd637bc9e2a"
+    },
+    {
+      "path": "docs/GRANADA_150_REAL_OPENFOAM_CHECKMESH_CAPTURE_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b99f6337c426da99f287bdb5fcadc49f233df159"
+    },
+    {
       "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2634,6 +2711,27 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada150_capture_checkmesh.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7776f9a68c1098bef4ca072909a8cdb3a3a359e8"
+    },
+    {
+      "path": "tools/granada150_interface_geometry.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "25b6eb4c2a53a89a1b923c9fc775636fd35c829a"
+    },
+    {
+      "path": "tools/granada150_native_packaged_probe.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6ac5e1832bfdf9ab20a093937c5c6a008fc01623"
+    },
+    {
       "path": "tools/granada_backlog_guard.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -3054,6 +3152,27 @@
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
     },
     {
+      "path": "tools/test_granada150_capture_checkmesh.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "20231bef958b98e318ea2591083df349c06939cb"
+    },
+    {
+      "path": "tools/test_granada150_interface_geometry.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "936541f2596472aa6cc65cf7e170b8b7f91236d8"
+    },
+    {
+      "path": "tools/test_granada150_native_packaged_probe.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ef121c842d8e2de034ac6acf146962403228b6bd"
+    },
+    {
       "path": "tools/test_granada_backlog_guard.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -3182,11 +3301,11 @@
   ],
   "findings": [
     {
-      "id": "32cdd3adf21796fb",
+      "id": "218a05d142e2a9cc",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml",
+      "observation": "39 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-150-checkmesh-namespace.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
