@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 447,
-  "classified_files_total": 443,
-  "docs_content_inspected": 92,
+  "tracked_files_total": 452,
+  "classified_files_total": 448,
+  "docs_content_inspected": 93,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 86,
+    "document": 87,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 136,
-    "test": 119,
+    "source": 137,
+    "test": 121,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 58
+    "workflow": 59
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "dc8cfea5a54d4830243218680acb0b38bda41f3eb77c8fd49d687bd6c000afe7",
-  "evidence_fingerprint": "1e9291ed3b58d76b13040742fb7ee5fa972692bebd77dd021ef977101547ded8",
+  "inventory_fingerprint": "eced796fb60deb9e4dab62c85446811bcbd702e31b8bce5be7dd8d4acce5149b",
+  "evidence_fingerprint": "690d14e2b40266356355db3411469e02f32e6deb93e6e5da75808b6d26aeedb4",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -217,6 +217,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "5674d43fba068b24117506a7da78df94b43ddd14"
+    },
+    {
+      "path": ".github/workflows/granada-field-f2-dpi.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "47fa01bb57eb50a68d257b89c3bea74feab36371"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -1017,6 +1024,13 @@
       "blob": "ef870158a770179fd4ffaccc92c3d8467e6bbebb"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e7fd277916ffc9816a574a0372377925a7aa47fa"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1316,6 +1330,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "f798e8c2804ec1138a59984c5a9f28fd7a3f93b5"
+    },
+    {
+      "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0efd55aa4a7cb1310ccb78b60d588e313a800e72"
+    },
+    {
+      "path": "desktop/tests/field-f2-viewport-layout.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "09a96957edc0733cf3bc83d6ffd5778db37145c0"
     },
     {
       "path": "desktop/tests/field-loop-playback.test.cjs",
@@ -1960,6 +1988,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "7bff8e959245889b91efa4940a151b982dfd3fea"
+    },
+    {
+      "path": "docs/GRANADA_149_FIELD_F2_VIEWPORT_DPI_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7c76b72f542d7ac541023fa5abc954e6879b9f93"
     },
     {
       "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
@@ -3133,11 +3168,11 @@
   ],
   "findings": [
     {
-      "id": "461990afc1efaec7",
+      "id": "a1a3a7047422d3de",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "17 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs",
+      "observation": "21 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
