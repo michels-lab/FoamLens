@@ -30,6 +30,8 @@ jobs:
         run: python tools/test_granada150_native_packaged_probe.py
       - name: CheckMesh original case capture safety and provenance regression
         run: python tools/test_granada150_capture_checkmesh.py
+      - name: Original polyMesh interface vertex, normal and reciprocal patch regressions
+        run: python tools/test_granada150_interface_geometry.py
       - name: Original checkMesh evidence and physical source contracts
         run: node desktop/tests/checkmesh-region-evidence.spec.cjs
       - name: Two original source modules loaded into same desktop IIFE and real button IDs
@@ -126,3 +128,32 @@ jobs:
             artifacts/checkmesh-native-launch.png
           if-no-files-found: warn
           retention-days: 14
+
+  original-quickcup-interface-geometry:
+    name: Real QuickCup B13 original metal/mold face pairing (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QUICKCUP_FIXTURE_TOKEN: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+    steps:
+      - name: Private fixture unavailable — NOT geometrically validated
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN == '' }}
+        run: echo 'No private source fixture; original B13 interface geometry remains NOT VERIFIED.'
+      - uses: actions/checkout@v4
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+      - name: Check out original private B13 polyMesh read-only
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: realmichelduarte/QuickCup-Solidification
+          ref: foamlens-real-fixture-b13
+          token: ${{ secrets.QUICKCUP_FIXTURE_TOKEN }}
+          path: quickcup-fixture
+      - uses: actions/setup-python@v5
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        with:
+          python-version: '3.11'
+      - name: Verify exact 240 original interface faces and opposed normals
+        if: ${{ env.QUICKCUP_FIXTURE_TOKEN != '' }}
+        run: |
+          python tools/granada150_interface_geometry.py --case quickcup-fixture/cases_controlled_buoyancy/B13_prghPressure_airGapOF14 --expected-pairs 1 --expected-faces 240
