@@ -212,9 +212,13 @@ function cmrVerifyLocalManifest(manifest,digests,evidence){
      !Array.isArray(digests)||manifest.regions.length!==digests.length||
      manifest.regions.length===0||manifest.regions.length>24)
     return fail('Manifest schema, readiness or report count unsupported');
+  const hasCaseExpectation=Boolean(evidence?.coverage?.expected>0);
   if(!evidence||!Array.isArray(evidence.regions)||
-     evidence.status!=='all-expected-regions-reported')
-    return fail('Source evidence must have complete, nonconflicting region coverage');
+     evidence.conflicts?.length||evidence.unassigned?.length||
+     evidence.regions.length!==digests.length||
+     (hasCaseExpectation&&evidence.status!=='all-expected-regions-reported')||
+     (!hasCaseExpectation&&evidence.status!=='partial-or-unattributed'))
+    return fail('Source evidence must have complete, nonconflicting original report identity; case regions are optional');
   const byHash=new Map(),names=new Set(),rows=[];
   for(const row of manifest.regions){
     if(!row||!cmrLabel(row.region)||names.has(row.region)||

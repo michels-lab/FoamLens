@@ -174,6 +174,14 @@ assert.equal(manifestOk.status,'original-report-sha256-matches-local-manifest');
 assert.deepEqual(manifestOk.rows.map(r=>r.region),['metal','mold'],
   'Per-report original sha matching must work independently from manifest order');
 assert.equal(manifestOk.scientificValidity,'not-certified');
+const unselectedCase=me.audit([run('no-case-source-A',metal),
+  run('no-case-source-B',mold)],[]);
+assert.equal(unselectedCase.status,'partial-or-unattributed');
+assert.equal(unselectedCase.coverage.expected,0);
+assert.equal(me.manifest(manifest,[fakeHash('a'),fakeHash('b')],unselectedCase).status,
+  'original-report-sha256-matches-local-manifest',
+  'Manifest integrity must be available with no imported case selected');
+
 assert.equal(me.manifest(manifest,[fakeHash('b'),fakeHash('a')],realEvidence).status,
   'rejected','swapped report content may not inherit other regional source labels');
 assert.equal(me.manifest(manifest,[fakeHash('a'),fakeHash('c')],realEvidence).status,'rejected');
