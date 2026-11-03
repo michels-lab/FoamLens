@@ -84,6 +84,31 @@ const sameFile=me.audit([run('two-regions.log',multi)],['metal','mold']);
 assert.equal(sameFile.coverage.evidenced,2);
 assert.equal(sameFile.regions.length,2);
 assert(!sameFile.regions.some(x=>x.status==='error'));
+// Granada fail-closed same-defect regressions: reported region names are NOT proof
+// of a finished, recognized and successful checkMesh source summary.
+const incompleteSource=metal.replace('Mesh OK.','');
+const incompleteAudit=me.audit([run('region-named-no-final-summary',incompleteSource)],['metal']);
+assert.equal(incompleteAudit.regions[0].status,'insufficient-evidence');
+assert.equal(incompleteAudit.status,'partial-or-unattributed',
+  'All source region labels with missing terminal summary must not appear fully reported');
+const forgedLabelSource=run('unsafe-label-only',metal);
+forgedLabelSource.audit={...forgedLabelSource.audit,recognized:false,status:'unrecognized'};
+const forgedLabelResult=me.audit([forgedLabelSource],['metal']);
+assert.equal(forgedLabelResult.status,'partial-or-unattributed',
+  'A source with an explicit region label but unrecognized checkMesh identity cannot be complete');
+assert.equal(forgedLabelResult.regions.length,0,'Unrecognized text must not contribute numeric region evidence');
+assert.equal(forgedLabelResult.coverage.rejected,1);
+const failedOuterSource=run('multi-with-source-fatal',multi);
+failedOuterSource.audit={...failedOuterSource.audit,status:'failed'};
+const globalFailureResult=me.audit([failedOuterSource],['metal','mold']);
+assert.equal(globalFailureResult.status,'conflicting-or-failed',
+  'A source-level failure outside any region must not be ignored by successful region chunks');
+assert.equal(globalFailureResult.coverage.sourceLevelFailures,1);
+assert.equal(globalFailureResult.overallScientificValidity,'not-certified');
+const incompleteMixed=me.audit([run('complete-metal',metal),
+  run('incomplete-mold',mold.replace('Mesh OK.',''))],['metal','mold']);
+assert.equal(incompleteMixed.status,'partial-or-unattributed',
+  'One incomplete region among otherwise complete reports cannot return all expected reported');
 assert.equal(me.audit([],[]).status,'partial-or-unattributed');
 assert.equal(me.audit(Array(25).fill({}),['metal']).status,'not-assessed');
 assert.equal(me.audit([run('a',metal)],['metal','metal']).status,'not-assessed');
