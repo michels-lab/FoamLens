@@ -1,0 +1,41 @@
+name: Granada #177 G6 — original-source export preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-g6-export-preflight.js'
+      - 'desktop/tests/granada-177-g6-export-preflight.spec.cjs'
+      - '.github/workflows/granada-177-g6-export-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Original scientific export regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Granada G6 real export source and reversible guard regressions
+        run: node desktop/tests/granada-177-g6-export-preflight.spec.cjs
+      - name: Original Ribbon / Export actions
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Reproducible scientific provenance
+        run: node desktop/tests/reproducible-export.test.cjs
+      - name: Findings and audit export
+        run: node desktop/tests/findings-export.test.cjs
+      - name: Independent plot owner across workspaces
+        run: node desktop/tests/plot-surfaces.test.cjs
+      - name: Cross-tab ownership / registered suites
+        run: |
+          node desktop/tests/section-ownership.test.cjs
+          node desktop/tests/test-suite-manifest.test.cjs
