@@ -44,7 +44,7 @@ function cmrEvidence(reports,expectedRegions=[]){
   if(normalized.some(x=>!x)||new Set(normalized).size!==normalized.length)
     return no('Case region labels contain missing, duplicate or unsupported values');
   const assigned=new Map(),unassigned=[],conflicts=[],defects=[],sources=[];
-  let rejected=0,unattributedFailures=0;
+  let rejected=0,unattributedFailures=0,sourceLevelFailures=0;
   for(let i=0;i<reports.length;i++){
     const r=reports[i];
     if(!r?.audit||typeof r.audit!=='object'){rejected++;continue}
@@ -52,6 +52,18 @@ function cmrEvidence(reports,expectedRegions=[]){
     sources.push({source,recognized:audit.recognized===true,reportStatus:String(audit.status||'unknown'),
       manuallyAttached:true,originalFilenameExported:false,
       rawTextExported:false});
+    // Source-level failures may occur outside a named region. Never promote
+    // reported per-region metrics to a clean overall result when the source
+    // checkMesh run was failed or its identity cannot be established.
+    if(audit.status==='failed'||audit.reported?.failedChecks>0||
+       audit.reported?.errorsCount>0||(audit.messages?.failures||[]).length>0)
+      sourceLevelFailures++;
+    if(audit.recognized!==true){
+      rejected++;
+      unassigned.push({source,reportStatus:audit.status||'unrecognized',
+        reason:'Unrecognized checkMesh-like source; region labels alone cannot establish report identity'});
+      continue
+    }
     const regionAudits=Array.isArray(audit.regionAudits)?audit.regionAudits:[];
     const labels=Array.isArray(audit.regionLabels)?audit.regionLabels.filter(Boolean):[];
     let groups=[];
@@ -112,9 +124,15 @@ function cmrEvidence(reports,expectedRegions=[]){
   const expected=new Set(normalized),missing=normalized.filter(x=>!assigned.has(x));
   const extra=rows.filter(x=>expected.size&&!expected.has(x.region)).map(x=>x.region);
   if(extra.length)conflicts.push(...extra.map(region=>({region,reason:'Report region not found among the explicitly imported case regions'})));
-  const bad=rows.some(x=>x.status==='error')||conflicts.length>0||unattributedFailures>0;
+  const bad=rows.some(x=>x.status==='error')||conflicts.length>0||
+    unattributedFailures>0||sourceLevelFailures>0;
+  // All expected names being present is NOT equivalent to complete checkMesh
+  // summaries. Incomplete/no-summary/unrecognized input stays partial, never
+  // masquerading as a fully reported source set.
+  const sourceSummariesComplete=sources.every(x=>x.recognized&&x.reportStatus==='reported-ok')&&
+    rows.every(x=>x.status==='reported-ok-no-warnings'||x.status==='reported-ok-with-warnings');
   const full=normalized.length>0&&missing.length===0&&rows.length===normalized.length&&
-    !rejected&&unassigned.length===0&&!bad;
+    !rejected&&unassigned.length===0&&sourceSummariesComplete&&!bad;
   return{
     schema:'foamlens/multiregion-mesh-evidence/1',
     status:bad?'conflicting-or-failed':full?'all-expected-regions-reported':
@@ -122,7 +140,7 @@ function cmrEvidence(reports,expectedRegions=[]){
     overallScientificValidity:'not-certified',
     coverage:{expected:normalized.length,evidenced:rows.filter(x=>expected.has(x.region)).length,
       reportsSupplied:reports.length,rejected,unattributed:unassigned.length,
-      unattributedFailures},
+      unattributedFailures,sourceLevelFailures},
     expectedRegions:normalized,regions:rows,missingRegions:missing,
     unassigned,conflicts,defects,sources,
     limitations:[
