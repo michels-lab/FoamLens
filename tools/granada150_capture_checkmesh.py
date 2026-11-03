@@ -28,7 +28,7 @@ MESH = re.compile(
 OK = re.compile(r"^\s*Mesh\s+OK\.\s*$", re.I | re.M)
 MESH_FILES = ("points", "faces", "owner", "neighbour", "boundary")
 MAX_IMPORT_BYTES = 12 * 1024 * 1024
-FAILURE = re.compile(r"(?:FOAM FATAL ERROR|error in primitiveMesh|\\b[1-9]\\d*\\s+mesh\\s+checks?\\s+failed\\b|^\\s*Errors?\\s*:\\s*[1-9]\\d*\\s*$)", re.I | re.M)
+FAILURE = re.compile(r"(?:FOAM FATAL ERROR|error in primitiveMesh|\b[1-9]\d*\s+mesh\s+checks?\s+failed\b|^\s*Errors?\s*:\s*[1-9]\d*\s*$)", re.I | re.M)
 
 
 class CaptureError(Exception):

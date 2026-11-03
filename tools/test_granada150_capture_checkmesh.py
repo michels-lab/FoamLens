@@ -29,15 +29,15 @@ class CheckMeshCaptureTests(TestCase):
         self.out = self.root / "evidence"
 
     @staticmethod
-    def response(args, region=None, returncode=0, stderr=b"", **kwargs):
+    def response(args, region=None, returncode=0, stderr_data=b"", **kwargs):
         region = region or args[args.index("-region") + 1]
         raw = (f"Exec : checkMesh -region {region} -allTopology -allGeometry\n"
                f"Create polyMesh {region} for time = 0\n"
                "Mesh stats\n points: 4\n faces: 4\n cells: 1\nMesh OK.\n")
         # Simulate the exact subprocess.run(streaming-to-file) API, not PIPE.
         kwargs["stdout"].write(raw.encode())
-        if stderr:
-            kwargs["stderr"].write(stderr)
+        if stderr_data:
+            kwargs["stderr"].write(stderr_data)
         return subprocess.CompletedProcess(args, returncode)
 
     def test_two_regions_are_discovered_and_original_bytes_preserved(self):
@@ -192,7 +192,7 @@ class CheckMeshCaptureTests(TestCase):
         with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
              mock.patch.object(mod.subprocess, "run",
                                side_effect=lambda args, **kwargs: self.response(
-                                   args, stderr=b"Unexpected original diagnostics", **kwargs)):
+                                   args, stderr_data=b"Unexpected original diagnostics", **kwargs)):
             result = mod.capture(self.case, self.out, ["metal"])
         self.assertEqual(result["regions"][0]["status"], "stderr-requires-manual-review")
         self.assertTrue(result["regions"][0]["stderrPresent"])
