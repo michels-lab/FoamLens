@@ -1,0 +1,46 @@
+name: Granada 158 — Developer annotation triage
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/Developer/Audit.js'
+      - 'desktop/tests/developer-note-triage.spec.cjs'
+      - '.github/workflows/granada-developer-note-triage.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/Developer/Audit.js'
+      - 'desktop/tests/developer-note-triage.spec.cjs'
+      - '.github/workflows/granada-developer-note-triage.yml'
+  workflow_dispatch:
+jobs:
+  developer-audit:
+    name: Bounded Developer audits and annotations — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing separate Developer binary/isolation baseline
+        run: node desktop/tests/developer-twin-audit.test.cjs
+      - name: Persistent notes, priority, missing/changed locators and safe AI exports
+        run: node desktop/tests/developer-note-triage.spec.cjs
+  native-developer:
+    name: Real separately compiled Developer exe and WebView2 native smoke
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Developer edition locally and launch real WebView2 audit surface (no artifact upload)
+        shell: pwsh
+        run: ./desktop/developer/build-developer.ps1 -SkipInstaller

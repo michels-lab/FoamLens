@@ -1,0 +1,61 @@
+name: G26 Readonly PR Integration Map - Exact Main / Release Snapshot
+on:
+  push:
+    branches:
+      - test/granada-g26-pr-integration-conflict-board-20261023
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+concurrency:
+  group: foamlens-g26-pr-conflict-report
+  cancel-in-progress: true
+jobs:
+  offline-guard-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only GitHub URI/PR file overlap, false exact-main CI rejection and HTML XSS regressions
+        run: node --test tools/granada_g26_pr_conflict_board.test.cjs tools/granada_g26_pr_conflict_html.test.cjs
+      - name: FoamLens repository boundaries only
+        run: node tools/test_repository_boundaries.cjs
+  current-real-github-integration:
+    needs: offline-guard-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read ALL current public open PR paths, latest stable and exact current-main push CI
+        run: node tools/granada_g26_pr_conflict_board.cjs g26-integration/snapshot.json
+      - name: Build fully offline local interactive ownership map
+        run: node tools/granada_g26_pr_conflict_html.cjs g26-integration/snapshot.json g26-integration/integration-map.html
+      - name: Fail if evidence pretends a snapshot authorizes release or PR merges
+        run: |
+          node -e "const r=require('./g26-integration/snapshot.json');if(!r.analysisOnly||r.readyToRelease!==false||r.release.readyToPublish!==false||r.readyToMergeNumbers.length||!r.coverage.filesComplete||!r.coverage.reportIncludesAllOpenPrs)process.exit(2);console.log('Original-source/read-only/no-release facts validated')"
+      - name: Export only public repository metadata and offline HTML, no private CFD or auth token
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G26-public-integration-map
+          path: |
+            g26-integration/snapshot.json
+            g26-integration/integration-map.html
+          if-no-files-found: error
+          retention-days: 14

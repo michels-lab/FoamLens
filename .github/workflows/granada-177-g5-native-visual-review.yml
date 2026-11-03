@@ -1,0 +1,95 @@
+name: Granada G5 — native visual review evidence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/granada_visual_review.cjs'
+      - 'tools/test_granada_visual_review.cjs'
+      - '.github/workflows/granada-177-g5-native-visual-review.yml'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/visual_release_gate.py'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/granada_visual_review.cjs'
+      - 'tools/test_granada_visual_review.cjs'
+      - '.github/workflows/granada-177-g5-native-visual-review.yml'
+  workflow_dispatch:
+    inputs:
+      windows_run_id:
+        description: "Completed FoamLens Windows build run ID with Setup/Portable & visual evidence"
+        required: true
+        type: string
+      strict:
+        description: "Fail if any of nine workspaces lacks wide/compact evidence"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  self-test:
+    name: Provenance, negative cases, offline HTML (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run synthetic negative checks (NEVER native visual evidence)
+        run: node tools/test_granada_visual_review.cjs
+
+  native-review:
+    name: Generate offline report from real Windows candidate
+    needs: [self-test]
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download existing source-bound Windows candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.windows_run_id }}
+          STRICT: ${{ inputs.strict }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "$RUN_ID" =~ ^[0-9]{1,18}$ ]]; then
+            echo "Windows run ID must be numeric"; exit 2
+          fi
+          src_sha="$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')"
+          if ! [[ "$src_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Source commit unavailable"; exit 2
+          fi
+          mkdir -p candidate results
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'FoamLens-Windows-v*' --dir candidate
+          manifest="$(find candidate -type f -path '*/visual/manifest.json' -print -quit)"
+          setup="$(find candidate -type f -name 'FoamLens-Setup-v*.exe' -print -quit)"
+          portable="$(find candidate -type f -name 'FoamLens-Portable-v*.exe' -print -quit)"
+          if [[ -z "$manifest" || -z "$setup" || -z "$portable" ]]; then
+            echo "Missing exact native Windows Setup/Portable or visual manifest"; exit 2
+          fi
+          args=(--manifest "$manifest" --output results/FoamLens-Granada-G5-Review.html --json results/FoamLens-Granada-G5-Matrix.json --sha "$src_sha" --setup "$setup" --portable "$portable")
+          if [[ "$STRICT" == "true" ]]; then args+=(--strict); fi
+          node tools/granada_visual_review.cjs "${args[@]}"
+
+      - name: Preserve review report on incomplete/failing coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-Granada-G5-native-review-${{ inputs.windows_run_id }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 14

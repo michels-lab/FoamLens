@@ -1,0 +1,31 @@
+name: GRANADA G16 - Wide Field Play compact CSS collision
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+      - 'tools/granada_g16_wide_play_cascade.test.cjs'
+      - '.github/workflows/granada-g16-wide-play-cascade.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-play-real-css-precedence:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate original versioned JS syntax
+        run: node --check desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js
+      - name: Replay 70.39px native installed Play against original G7/G12 cascade
+        run: node --test tools/granada_g16_wide_play_cascade.test.cjs
+      - name: Keep FoamLens scientific and other Michel's Lab apps separated
+        run: node tools/test_repository_boundaries.cjs

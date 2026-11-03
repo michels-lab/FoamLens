@@ -1,0 +1,148 @@
+name: G49 original FoamLens Installed and Portable unbundled JS isolation (no release)
+on:
+  push:
+    branches:
+      - test/granada-g33-actual-stale-extension-native-reproduction-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g33-original-stale-native
+  cancel-in-progress: true
+jobs:
+  original-source-regression:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Adversarial guards for original stale extension origin, real installed and portable source
+        run: node --test tools/granada_g33_original_stale_guards.test.cjs
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows'
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile independent REAL WinForms and WebView2 same-origin witness
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj -c Release
+          if($LASTEXITCODE -ne 0){throw 'G33 native Chromium local-origin probe failed to compile'}
+      - name: Parse full original Windows native harness in PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g33_actual_native_stale_extension.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count){$errors|ForEach-Object{Write-Error $_.Message};throw 'G33 PS script invalid'}
+  genuine-original-native-windows-stale-residue:
+    needs: original-source-regression
+    runs-on: windows-latest
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify current original main signed/build-provenanced embedded module loader
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $remote -or $sha -notmatch '^[a-f0-9]{40}$'){throw 'G33 exact original FoamLens main drift'}
+          [xml]$proj=Get-Content product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          if(([string]$proj.Project.PropertyGroup.Version).Trim() -cne '1.8.10'){throw 'G33 original version drift'}
+          $source=Get-Content product/desktop/src/FoamLensDesktop/Program.cs -Raw
+          if(-not $source.Contains('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()') -or
+             $source.Contains('Directory.GetFiles(AppRoot, "v*-*.js")')){
+             throw 'G49 original source is not the trusted embedded module loader; fail closed'
+          }
+          $trusted=Get-Content product/desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs -Raw
+          if(-not $trusted.Contains('GetManifestResourceStream(BundleResource)') -or
+             -not $trusted.Contains('MaxModuleBytes') -or
+             $trusted.Contains('Directory.GetFiles(AppRoot')){
+             throw 'G49 authoritative runtime module inventory is untrusted'
+          }
+          "G33_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+      - name: Build actual original 1.8.10 Windows WebView2 Portable and genuine Inno Setup from untouched main
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'G33 original icon generator dependencies unavailable'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'G33 original icon generation failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'G33 original icon asset mismatch'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path -LiteralPath $bundle){Remove-Item -LiteralPath $bundle -Force}
+          New-Item -ItemType Directory -Force -Path g33-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g33-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g33-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g33-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g33-bundle/LICENSE.txt
+          Compress-Archive -Path g33-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g33-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g33-publish/FoamLens.exe)){throw 'G33 original Windows exe not built'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'G33 native Inno Setup compiler missing'}
+          $iscc=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $iscc '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path artifacts/g33-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path desktop/artifacts/FoamLens-Setup-v1.8.10.exe)){throw 'G33 original native installer compilation failed'}
+      - name: Build isolated local Chromium readback of ORIGINAL application origin
+        run: |
+          dotnet build qa/tools/granada_g33_local_origin_witness/FoamLensG33LocalOriginWitness.csproj -c Release -o g33-witness
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g33-witness/FoamLensG33LocalOriginWitness.dll)){
+            throw 'G33 real Windows WebView2 readback not built'
+          }
+      - name: Prove original Windows Installed and Portable REFUSE unbundled stale JS
+        run: |
+          & ./qa/tools/granada_g33_actual_native_stale_extension.ps1 -Portable product/artifacts/g33-publish/FoamLens.exe -Installer product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe -WitnessDll g33-witness/FoamLensG33LocalOriginWitness.dll -MainSha $env:G33_MAIN_SHA -Report g33-evidence/report.json
+          if(-not(Test-Path -LiteralPath g33-evidence/report.json)){throw 'G33 original native WebView2 execution proof is missing'}
+      - name: Require exact-current original code SHA and original Chromium both-distribution proof, no false product fix
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $env:G33_MAIN_SHA -or $sha -ne $remote){throw 'G33 exact original code drifted'}
+          $r=Get-Content g33-evidence/report.json -Raw | ConvertFrom-Json
+          if($r.schema -ne 'foamlens/granada-g49-native-stale-script-block/2' -or
+             $r.originalMainSha -ne $sha -or
+             $r.seededScriptShippedInOfficialBundle -ne $false -or
+             $r.unbundledScriptRanInOriginalPortableWebView2 -ne $false -or
+             $r.unbundledScriptRanInOriginalInstalledWebView2 -ne $false -or
+             $r.originalCleanRestartNoLongerExecutesMarker -ne $true -or
+             $r.syntheticMarkerDeleted -ne $true -or
+             $r.originalBothDistributionBinariesMatch -ne $true -or
+             $r.trustedEmbeddedSourceVerified -ne $true -or $r.releaseReady -ne $false){
+            throw 'G49 original native WebView2 failed to REFUSE external local JS, or provenance proof absent'
+          }
+          Write-Host 'G49 original installed and portable native WebView2 both rejected synthetic unbundled local JS; original source built only from trusted embedded archive.'
+      - name: Upload only synthetic boolean/hash evidence, NOT scripts, browser profile, scientific cases or build binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G49-sanitized-original-native-stale-BLOCK-proof
+          path: g33-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7

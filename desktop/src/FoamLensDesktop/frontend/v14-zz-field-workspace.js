@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.6.1 — Field-owned command surface with contextual sidebar and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
 const fwTimeState={playing:false,timer:null,epoch:0};
 let fwRenderFrame=0,fwRenderNeeds3D=false,fwRenderNeeds2D=false;
@@ -297,9 +297,40 @@ function fwFieldTsCanonical(group,component,stat){
 function fwFieldTsSourceKey(c,region,group,component,stat){
   return ['field3d-history',c?.id,region||'',group?.name||'',component||'value',stat||'mean'].join('|')
 }
+// G54: each physical-time sample must retain the field's ORIGINAL dimensions.
+// A changed/missing header must not inherit the first frame's unit silently.
+function fwFieldTsHeaderDimensions(parsed){
+  return typeof parsed?.dimensions==='string'?parsed.dimensions.trim().replace(/\s+/g,' '):''
+}
+function fwFieldTsRequireDimensions(previous,parsed){
+  const actual=fwFieldTsHeaderDimensions(parsed);
+  if(previous!==null&&previous!==actual)
+    throw new Error(fwUi(
+      'OpenFOAM field dimensions change or disappear between physical frames; no mixed-unit history was committed.',
+      'Las dimensiones del campo OpenFOAM cambiaron o desaparecieron entre tiempos físicos; no se guardó una historia con unidades mezcladas.'));
+  return actual
+}
+// Evidence is descriptive only. Plot points are the measured original values;
+// a global mean is the arithmetic (NOT volume-weighted) available-field mean.
+function fwFieldTsHistoryEvidence(c,region,group,component,source,times,x,dimensions,stat){
+  return{
+    schema:'foamlens/field-history-evidence/1',
+    caseId:String(c?.id??''),caseName:String(c?.name??''),region:String(region||''),
+    field:String(group?.name||''),component:String(component||'value'),
+    sourceKind:source,statistic:stat||null,dimensions:dimensions||'',
+    verifiedDimensions:!!dimensions,
+    originalTimeCount:times.length,finiteSampleCount:x.length,
+    omittedTimeCount:times.length-x.length,
+    originalFirstTime:times[0],originalLastTime:times[times.length-1],
+    sampleFirstTime:x[0],sampleLastTime:x[x.length-1],
+    temporalInterpolation:false,
+    aggregation:source==='global'?(stat==='mean'?'arithmetic-unweighted':stat):
+      source==='probe'?'nearest-source-element':'profile-coordinate-sampling'
+  }
+}
 function fwFieldTsField(group,component,stat,parsed){
-  const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',name=String(group?.name||'Field'),comp=component&&component!=='value'?' · '+component:'',metric=fwFieldTsStatLabel(stat);
-  return{canonical:fwFieldTsCanonical(group,component,stat),display:name+comp+' · '+metric,unit:unit||'-',quantity:'field3d_'+name+'_'+component+'_'+stat,dimensions:parsed?.dimensions||group?.dimensions||'',original:'OpenFOAM 3D field history'}
+  const dimensions=fwFieldTsHeaderDimensions(parsed),unit=dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dimensions):'',name=String(group?.name||'Field'),comp=component&&component!=='value'?' · '+component:'',metric=fwFieldTsStatLabel(stat);
+  return{canonical:fwFieldTsCanonical(group,component,stat),display:name+comp+' · '+metric,unit:unit||'-',quantity:'field3d_'+name+'_'+component+'_'+stat,dimensions,original:'OpenFOAM 3D field history'}
 }
 
 function fwFieldTsSource(slot){return document.getElementById('fwTsSource'+slot)?.value||'global'}
@@ -396,7 +427,7 @@ function fwEnsureFieldTsControls(){
     details.appendChild(root);
     root.classList.remove('hidden');
   }
-  const schedule=()=>fwFieldTsSetStatus(fwUi('Ready. Select Build field histories to parse OpenFOAM data.','Listo. Selecciona Construir historias de campo para leer los datos OpenFOAM.'));
+  const schedule=()=>{if(fwFieldTsInvalidateSelection())return;fwFieldTsSetStatus(fwUi('Ready. Select Build field histories to parse OpenFOAM data.','Listo. Selecciona Construir historias de campo para leer los datos OpenFOAM.'))};
   for(const slot of [1,2]){
     document.getElementById('fwTsSource'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,true,'source');schedule()});
     document.getElementById('fwTsCase'+slot)?.addEventListener('change',()=>{fwRefreshFieldTsSlot(slot,false,'case');schedule()});
@@ -414,6 +445,28 @@ function fwEnsureFieldTsControls(){
 }
 function fwFieldTsSetStatus(text,error=false){
   const e=document.getElementById('fwTsStatus'),b=document.getElementById('fwTsStatusBadge');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}if(b)b.textContent=error?fwUi('error','error'):String(text||'—').slice(0,36)
+}
+// G53: changing an original case/region/field/probe/profile selection invalidates
+// the running read before a stale old-source history can be committed.
+function fwFieldTsInvalidateSelection(){
+  if(fwState.fieldTsActiveSeq==null||fwState.fieldTsActiveSeq!==fwState.fieldTsSeq)return false;
+  ++fwState.fieldTsSeq;
+  fwFieldTsSetStatus(fwUi(
+    'Source selection changed. Previous history build cancelled; build again using the new selection.',
+    'Cambió la selección de origen. Se canceló la generación anterior; vuelve a generar con la nueva selección.'));
+  return true
+}
+// G52 Block 2: source-owned counts, never a fabricated percentage or curve.
+// Original atomic series commit and cancellation checks remain untouched.
+function fwFieldTsReportProgress(slot,completed,total,seq,source){
+  if(seq!==fwState.fieldTsSeq||![1,2].includes(slot)||!['global','probe','profile'].includes(source))return false;
+  if(!Number.isSafeInteger(total)||total<1||!Number.isSafeInteger(completed)||completed<1||completed>total)return false;
+  const stride=Math.max(1,Math.ceil(total/24));
+  if(completed!==1&&completed!==total&&completed%stride!==0)return false;
+  document.dispatchEvent(new CustomEvent('foamlens-field-history-progress',{
+    detail:{slot,completed,total,seq,source}
+  }));
+  return true
 }
 function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
   const cSel=document.getElementById('fwTsCase'+slot),rSel=document.getElementById('fwTsRegion'+slot),fSel=document.getElementById('fwTsField'+slot),compSel=document.getElementById('fwTsComponent'+slot),sourceSel=document.getElementById('fwTsSource'+slot);if(!cSel||!rSel||!fSel||!compSel||!sourceSel)return;
@@ -460,13 +513,14 @@ async function fwBuildProbeFieldHistory(slot,seq){
   if(!fwProbeMatchesFieldSource(probe,c,region))
     throw new Error(fwUi('The pinned Probe belongs to a different physical case or region. Select its exact case and region first.',
       'El Probe fijado pertenece a otro caso o región física. Selecciona primero su caso y región exactos.'));
-  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null,maxDistance=0;
+  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null,maxDistance=0,frameDimensions=null;
   if(!times.length)throw new Error(fwUi('No valid OpenFOAM physical times for this Probe history.','No hay tiempos físicos OpenFOAM válidos para esta historia de Probe.'));
-  for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}if(i%3===2)await new Promise(r=>setTimeout(r,0))}
+  for(let i=0;i<times.length;i++){if(seq!==fwState.fieldTsSeq)return null;const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;frameDimensions=fwFieldTsRequireDimensions(frameDimensions,data.parsed);parsed0=parsed0||data.parsed;const sample=fwSampleFieldAtPoint(data,probe.point);if(Number.isFinite(sample.value)){x.push(times[i]);y.push(sample.value);maxDistance=Math.max(maxDistance,Number(sample.distance)||0)}fwFieldTsReportProgress(slot,i+1,times.length,seq,'probe');if(i%3===2)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected Probe position does not intersect usable field data through time.','La posición del Probe seleccionado no intersecta datos utilizables del campo a través del tiempo.'));
   const xyz=probe.point.map(v=>Number(v).toPrecision(8)).join(','),key=['field3d-probe-history',c.id,region,group.name,component,probeId,xyz].join('|'),base=fwFieldTsField(group,component,'mean',parsed0),field={...base,canonical:'probe:'+fwFieldTsCanonical(group,component,probeId),display:String(group.name)+(component!=='value'?' · '+component:'')+' · Probe '+String(probe.view),quantity:'field3d_probe_'+group.name+'_'+component,original:'OpenFOAM 3D field sampled at fixed XYZ'};
   const existing=(series||[]).find(s=>s.fieldHistoryKey===key),loc='XYZ '+probe.point.map(fvFmt).join(', ');
-  const update={caseId:c.id,caseName:c.name,field,probe:'View '+probe.view,location:loc,t:x,y,visible:true,probePoint:[...probe.point]};
+  const fieldHistoryEvidence=fwFieldTsHistoryEvidence(c,region,group,component,'probe',times,x,frameDimensions,null);
+  const update={caseId:c.id,caseName:c.name,field,probe:'View '+probe.view,location:loc,t:x,y,visible:true,probePoint:[...probe.point],fieldHistoryEvidence};
   return existing?{...existing,...update}:
     {datasetType:'timeseries',fileName:'3D Probe field history',sourcePath:'derived:'+key,
       color:null,width:2.2,dash:c.dash||'solid',opacity:1,axis:'Auto',customLabel:'',
@@ -476,12 +530,25 @@ async function fwBuildProfileHistory(slot,seq){
   const q=fwProfileTsSelection(slot);if(!q.caseId||!q.set||!q.field||!q.line)return null;
   if(!Number.isFinite(q.position))throw new Error(fwUi('Enter a valid position on the spatial profile before sampling its time history.','Introduce una posición válida en el perfil espacial antes de construir su historia temporal.'));
   const rows=fwProfileSeriesAll().filter(s=>String(s.caseId??s.caseName??'')===String(q.caseId)&&(s.profileOutputPath||'')===q.set&&s.field?.canonical===q.field&&(s.profileLineKey||s.profileLine||'')===q.line).filter(s=>Number.isFinite(fwPhysicalTime(s.profileTime))).sort((a,b)=>fwPhysicalTime(a.profileTime)-fwPhysicalTime(b.profileTime));if(!rows.length)return null;
-  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}if(i%10===9)await new Promise(r=>setTimeout(r,0))}
+  // All rows must describe the SAME original physical quantity and coordinate.
+  // Duplicate physical timestamps are ambiguous, not independent measurements.
+  const first=rows[0];
+  const identity=s=>[String(s.field?.dimensions||'').trim().replace(/\s+/g,' '),
+    String(s.field?.unit||''),String(s.profileCoordUnit||'')].join('|');
+  if(rows.some(s=>identity(s)!==identity(first)))
+    throw new Error(fwUi('Profile units, dimensions or coordinate units differ across physical times.',
+      'Las unidades, dimensiones o unidades de coordenadas del perfil difieren entre tiempos físicos.'));
+  if(rows.some((s,i)=>i>0&&fwPhysicalTime(s.profileTime)===fwPhysicalTime(rows[i-1].profileTime)))
+    throw new Error(fwUi('Duplicate physical profile times: choose an unambiguous source before building history.',
+      'Tiempos físicos duplicados en perfiles: selecciona una fuente inequívoca antes de generar la historia.'));
+  const x=[],y=[];for(let i=0;i<rows.length;i++){if(seq!==fwState.fieldTsSeq)return null;const t=fwPhysicalTime(rows[i].profileTime);if(!Number.isFinite(t))continue;const pairs=playbackSpatialPairs(rows[i]),value=playbackSpatialValueAt(pairs,q.position);if(Number.isFinite(value)){x.push(t);y.push(value)}fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile');if(i%10===9)await new Promise(r=>setTimeout(r,0))}
   if(!x.length)throw new Error(fwUi('The selected position is outside the available profile domain.','La posición seleccionada está fuera del dominio disponible del perfil.'));
   const base=rows[0],unit=base.profileCoordUnit||'',key=['profile-history',q.caseId,q.set,q.field,q.line,Number(q.position).toPrecision(12)].join('|'),field={...base.field,canonical:'profile:'+base.field.canonical+':'+q.line+':'+Number(q.position).toPrecision(8),display:localizedFieldName(base.field)+' · '+(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:''),original:'Spatial profile sampled at fixed coordinate over physical time'};
   const existing=(series||[]).find(s=>s.fieldHistoryKey===key),caseObj=caseById(base.caseId),
     loc=(base.profileLine||q.line)+' @ '+fvFmt(q.position)+(unit?' '+unit:'');
-  const update={caseId:base.caseId,caseName:caseObj?.name||base.caseName||'',field,location:loc,t:x,y,visible:true};
+  const group={name:base.field?.canonical||q.field},caseSource={id:base.caseId,name:caseObj?.name||base.caseName||''};
+  const fieldHistoryEvidence=fwFieldTsHistoryEvidence(caseSource,base.region||'',group,'value','profile',rows.map(s=>fwPhysicalTime(s.profileTime)),x,String(base.field?.dimensions||'').trim().replace(/\s+/g,' '),null);
+  const update={caseId:base.caseId,caseName:caseObj?.name||base.caseName||'',field,location:loc,t:x,y,visible:true,fieldHistoryEvidence};
   return existing?{...existing,...update}:
     {datasetType:'timeseries',fileName:'Profile time history',sourcePath:'derived:'+key,probe:null,
       color:null,width:2.2,dash:caseObj?.dash||base.dash||'solid',opacity:1,axis:'Auto',
@@ -492,18 +559,20 @@ async function fwBuildOneFieldHistory(slot,seq){
   const source=fwFieldTsSource(slot);if(source==='probe')return fwBuildProbeFieldHistory(slot,seq);if(source==='profile')return fwBuildProfileHistory(slot,seq);
   const c=fwFieldTsCase(slot),region=fwFieldTsRegion(slot),group=fwFieldTsGroup(slot),component=document.getElementById('fwTsComponent'+slot)?.value||'value',stat=document.getElementById('fwTsStat'+slot)?.value||'mean';
   if(!c||!group)return null;
-  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null;
+  const times=fwPhysicalTimes(group.times),x=[],y=[];let parsed0=null,frameDimensions=null;
   if(!times.length)throw new Error(fwUi('No valid OpenFOAM physical times for the selected field.','No hay tiempos físicos OpenFOAM válidos para el campo seleccionado.'));
   for(let i=0;i<times.length;i++){
     if(seq!==fwState.fieldTsSeq)return null;
     const data=await fvLoadFrameData(c,group,region,times[i],component,{includeBoundary:false});if(seq!==fwState.fieldTsSeq)return null;
-    parsed0=parsed0||data.parsed;const value=fwFieldTsMetric(data.range,stat);if(Number.isFinite(value)){x.push(times[i]);y.push(value)}
+    frameDimensions=fwFieldTsRequireDimensions(frameDimensions,data.parsed);parsed0=parsed0||data.parsed;const value=fwFieldTsMetric(data.range,stat);if(Number.isFinite(value)){x.push(times[i]);y.push(value)}
+    fwFieldTsReportProgress(slot,i+1,times.length,seq,'global');
     if(i%3===2)await new Promise(r=>setTimeout(r,0))
   }
   if(!x.length)throw new Error(fwUi('No finite 3D field-history values were produced.','No se produjeron valores finitos para la historia temporal 3D.'));
   const key=fwFieldTsSourceKey(c,region,group,component,stat),field=fwFieldTsField(group,component,stat,parsed0);
   const existing=(series||[]).find(s=>s.fieldHistoryKey===key);
-  const update={caseId:c.id,caseName:c.name,field,t:x,y,visible:true,location:region||'',dash:c.dash||existing?.dash||'solid'};
+  const fieldHistoryEvidence=fwFieldTsHistoryEvidence(c,region,group,component,'global',times,x,frameDimensions,stat);
+  const update={caseId:c.id,caseName:c.name,field,t:x,y,visible:true,location:region||'',dash:c.dash||existing?.dash||'solid',fieldHistoryEvidence};
   return existing?{...existing,...update}:
     {datasetType:'timeseries',fileName:'3D field history',sourcePath:'derived:'+key,probe:null,
       color:null,width:2.2,opacity:1,axis:'Auto',customLabel:'',
@@ -511,6 +580,34 @@ async function fwBuildOneFieldHistory(slot,seq){
 }
 // Prepare all derived series before changing the visible chart. A failing
 // second Probe or cancelled case load must not erase earlier valid curves.
+// GRANADA G55 — No unit/dimension comparison by name alone.
+// Two independent cases may expose the same canonical field with incompatible
+// physical metadata. Reject the ENTIRE generation before any chart mutation.
+function fwFieldTsValidateComparableDrafts(drafts){
+  const known=new Map(),dimensionless='[0 0 0 0 0 0 0]';
+  for(const draft of drafts||[]){
+    const f=draft?.field||{},canonical=String(f.canonical||'').trim();
+    if(!canonical)throw new Error(fwUi(
+      'The selected source has no verified field identity; no history was committed.',
+      'La fuente seleccionada no tiene identidad de campo verificada; no se guardó la historia.'));
+    const dimensions=String(f.dimensions||'').trim().replace(/\s+/g,' ');
+    const unit=String(f.unit||'').trim();
+    const quantity=String(f.quantity||'').trim();
+    const current={dimensions,unit,quantity};
+    const prior=known.get(canonical);
+    if(!prior){known.set(canonical,current);continue}
+    const unverifiable=x=>!x.dimensions||!x.unit||x.unit==='?'||
+      (x.unit==='-'&&x.dimensions!==dimensionless);
+    if(unverifiable(prior)||unverifiable(current)||
+       prior.dimensions!==current.dimensions||
+       prior.unit!==current.unit||prior.quantity!==current.quantity){
+      throw new Error(fwUi(
+        'Same-name Time Series fields have incompatible or unverified units, dimensions or quantities across selected sources. Both histories were rejected; no values were converted.',
+        'Los campos con el mismo nombre tienen unidades, dimensiones o magnitudes incompatibles o sin verificar entre fuentes. Se rechazaron ambas historias sin convertir valores.'));
+    }
+  }
+  return true
+}
 function fwCommitFieldHistoryDrafts(drafts){
   const unique=new Map();
   for(const draft of drafts||[])if(draft?.fieldHistoryKey)unique.set(draft.fieldHistoryKey,draft);
@@ -538,7 +635,11 @@ function fwCommitFieldHistoryDrafts(drafts){
 }
 async function fwBuildFieldTimeSeries(){
   if(activeAppMode!=='data'||currentDataView!=='timeseries')return;
-  const seq=++fwState.fieldTsSeq;fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
+  // One source epoch owns each build. Repeated Build clicks must not parse twice.
+  if(fwState.fieldTsActiveSeq===fwState.fieldTsSeq)return;
+  const seq=++fwState.fieldTsSeq;fwState.fieldTsActiveSeq=seq;
+  fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
+  try{
   const drafts=[];
   for(const slot of [1,2]){
     const draft=await fwBuildOneFieldHistory(slot,seq);
@@ -547,6 +648,8 @@ async function fwBuildFieldTimeSeries(){
   }
   if(seq!==fwState.fieldTsSeq)return;
   if(!drafts.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  // Scientific integrity gate precedes original atomic chart commit.
+  fwFieldTsValidateComparableDrafts(drafts);
   const built=fwCommitFieldHistoryDrafts(drafts);
   try{refreshDatasetControls()}catch{};try{refreshTimeSeriesControls()}catch{}
   const p=document.getElementById('timeSeriesVariable'),s2=document.getElementById('timeSeriesVariable2'),probe=document.getElementById('timeSeriesProbe'),family=document.getElementById('timeSeriesFamily');
@@ -556,8 +659,18 @@ async function fwBuildFieldTimeSeries(){
   // Keep both curves visible instead of reselecting the first probe.
   if(probe){probe.value='';probe.dataset.autoinit='1'}if(family)family.value='';
   try{refreshTimeSeriesControls()}catch{};try{renderList();updateMeta();draw()}catch(e){console.error(e)}
-  fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D'));
+  const coverage=built.map((item,i)=>{const ev=item.fieldHistoryEvidence;return ev?(i+1)+': '+ev.finiteSampleCount+'/'+ev.originalTimeCount:''}).filter(Boolean).join(' · ');
+  fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D')+(coverage?' · '+fwUi('valid samples','muestras válidas')+' '+coverage:''));
   const empty=document.getElementById('fwPlotEmpty');empty?.classList.add('hidden')
+  }catch(error){
+    // A late IO failure from a cancelled build must never overwrite the newer
+    // source's loading state or incorrectly appear as its failure.
+    if(seq!==fwState.fieldTsSeq)return;
+    throw error
+  }finally{
+    // A stale read must not release a later user's active generation.
+    if(fwState.fieldTsActiveSeq===seq)fwState.fieldTsActiveSeq=null
+  }
 }
 
 
@@ -778,7 +891,16 @@ function fwEnter(){
 }
 function fwLeave(){
   if(!fwState.active)return;fwState.active=false;
-  document.getElementById('fwFieldTsControls')?.classList.add('hidden');++fwState.fieldTsSeq;
+  // G59: Field exit must not hide the ORIGINAL 3D history generator once
+  // the G3/T2 Data workspace has adopted that same DOM node. Data already
+  // owns visibility by app mode; no new builder, duplicate handlers or CSS
+  // force-show. Preserve legacy Field-owned hiding for the old layout.
+  const historyControls=document.getElementById('fwFieldTsControls');
+  if(historyControls){
+    if(historyControls.closest('#gr176HistoryCard'))historyControls.classList.remove('hidden');
+    else historyControls.classList.add('hidden');
+  }
+  ++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
   // The plot-surface manager captures the outgoing Field view *after* this

@@ -1,0 +1,53 @@
+name: GRANADA backlog convergence - read only
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/granada_backlog_guard.cjs
+      - tools/test_granada_backlog_guard.cjs
+      - .github/workflows/granada-backlog-convergence.yml
+  pull_request:
+    types: [opened, reopened]
+  schedule:
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+jobs:
+  negative-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check read-only source
+        run: |
+          node --check tools/granada_backlog_guard.cjs
+          node --check tools/test_granada_backlog_guard.cjs
+      - name: Execute true-negative backlog guard fixtures
+        run: node tools/test_granada_backlog_guard.cjs
+  live-inventory:
+    if: github.event_name != 'push'
+    needs: negative-fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inventory current issues and PRs; block only NEW unqualified PRs when congested
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GRANADA_REPOSITORY: ${{ github.repository }}
+          GRANADA_PR_ACTION: ${{ github.event.action }}
+          GRANADA_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node tools/granada_backlog_guard.cjs

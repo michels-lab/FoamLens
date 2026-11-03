@@ -1,0 +1,92 @@
+name: G25 original FoamLens Windows external-navigation security (no release)
+on:
+  push:
+    branches:
+      - fix/granada-g25-external-uri-launch-guard-20261023
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/ExternalNavigationPolicy.cs'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'tools/granada_g25_external_navigation_harness/**'
+      - 'tools/granada_g25_navigation_wiring.test.cjs'
+      - '.github/workflows/granada-g25-external-navigation-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g25-external-scheme-guard
+  cancel-in-progress: true
+jobs:
+  browser-uri-allowlist:
+    name: Real product C# protocol guard plus original WebView2 wiring (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test actual compiled product URL policy with adversarial native schemes
+        run: dotnet run --project tools/granada_g25_external_navigation_harness/G25ExternalNavigationHarness.csproj -c Release
+      - name: Reject source regressions reintroducing unsafe WebView2 ShellExecute
+        run: node --test tools/granada_g25_navigation_wiring.test.cjs
+      - name: Preserve original app-only repository boundaries
+        run: node tools/test_repository_boundaries.cjs
+  original-desktop-host-build:
+    needs: browser-uri-allowlist
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate and verify official original application icon
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Original icon build dependency unavailable'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'Original Windows icon generation failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Official Windows icon differs'}
+      - name: Construct canonical original WebView2 AppBundle from tracked frontend before compiling native host
+        shell: pwsh
+        run: |
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item $bundle -Force}
+          New-Item -ItemType Directory -Force g25-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g25-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g25-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g25-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g25-bundle/LICENSE.txt
+          Compress-Archive -Path g25-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive $bundle -DestinationPath g25-verify -Force
+          if((Get-FileHash g25-verify/index.html -Algorithm SHA256).Hash -ne (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Original main frontend bundle changed during G25 build'}
+      - name: Compile actual production WinForms WebView2 host with safe-link security class
+        shell: pwsh
+        run: |
+          dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64
+          if($LASTEXITCODE -ne 0){throw 'Actual shipped Windows host fails compilation with external URL policy'}
+      - name: Exclude any QA harness from public product assemblies
+        shell: pwsh
+        run: |
+          $project=Get-Content desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -Raw
+          if($project.Contains('G25ExternalNavigationHarness') -or $project.Contains('granada_g25_navigation_wiring')){throw 'G25 test code incorrectly included in public native host'}
+          if(-not(Test-Path 'desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.dll')){throw 'Real original Windows native host compiled assembly absent'}
+          Write-Host 'G25 compiled actual WinForms host; no test-only program embedded in user distribution'
