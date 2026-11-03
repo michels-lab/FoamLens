@@ -91,6 +91,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native restore failed' }
           dotnet build 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj' -c Release -r win-x64 --no-restore
           if ($LASTEXITCODE -ne 0) { throw 'Native host failed' }
+      - name: Native original-binary polyMesh SHA-256 positive and negative self-test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if (-not (Test-Path $exe)) { throw 'Native SHA-256 self-test binary unavailable' }
+          $proc=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--checkmesh-sha256-self-test' -PassThru -Wait
+          if ($proc.ExitCode -ne 0) { throw "Original binary SHA-256 self-test failed: $($proc.ExitCode)" }
       - name: Smoke real WebView2 with correct module identities and screenshot
         shell: pwsh
         env:

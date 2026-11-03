@@ -1,5 +1,16 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const nativeHost=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','Program.cs'),'utf8'),
+  nativeHasher=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop','NativeCheckMeshFileHash.cs'),'utf8');
+assert(nativeHost.includes('case "hashRawMeshFile":')&&
+  nativeHost.includes('ResolveToken(RequiredString(root, "token"))')&&
+  nativeHost.includes('NativeCheckMeshFileHash.HashSelectedAsync(path)')&&
+  nativeHost.includes('--checkmesh-sha256-self-test'));
+for(const token of ['SHA256.HashDataAsync(stream, ct)','FileShare.Read',
+  'constant', 'polyMesh','HashResult','original-raw-native-file-sha256',
+  'LastWriteTimeUtc','MaxBytes + 1']){
+  assert(nativeHasher.includes(token),'Native original byte SHA-256 guard absent: '+token)
+}
 const dir=path.join(__dirname,'..','src','FoamLensDesktop','frontend');
 const code=fs.readFileSync(path.join(dir,'v24-checkmesh-region-evidence.js'),'utf8'),
     parser=fs.readFileSync(path.join(dir,'v20-mesh-quality-audit.js'),'utf8');
@@ -274,6 +285,41 @@ console.log('Granada #150 PASS: per-region source labels, missing/duplicate fail
     'source-mesh-not-verified-missing-or-duplicate-files');
   assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],_nativeToken:'text-only-binary-bug'},
     ...all.slice(1)]},0)).status,'source-mesh-not-verified-raw-bytes-unavailable');
+  const nativeBridge=new Function('crypto','foamLensNativeRequest',
+    "const cmrSHA256_RE=/^[a-f0-9]{64}$/;"+
+    "const cmrPOLYMESH_FILES=['points','faces','owner','neighbour','boundary'];"+
+    'let cmrEpoch=0;'+uiStart+section+
+    ';return {hash:cmrSHA256File,compare:cmrCompareImportedPolyMesh}')(
+      crypto,async(type,payload)=>{
+        assert.equal(type,'hashRawMeshFile');
+        const name=payload.token.replace('native-', '');
+        return{sha256:expected[name],bytes:Buffer.byteLength('real source bytes for '+name),
+          provenance:'original-raw-native-file-sha256'}
+      });
+  const nativeFiles=all.map(x=>({...x,_nativeToken:'native-'+x.name,
+    arrayBuffer:async()=>{throw Error('Native legacy text bridge must not be used')}}));
+  assert.equal((await nativeBridge.compare(rows,{allFiles:nativeFiles},0)).status,
+    'imported-source-polyMesh-sha256-matches-local-manifest',
+    'Native original-byte SHA-256 route should verify imported original polyMesh');
+  const corruptNative=new Function('crypto','foamLensNativeRequest',
+    "const cmrSHA256_RE=/^[a-f0-9]{64}$/;"+
+    "const cmrPOLYMESH_FILES=['points','faces','owner','neighbour','boundary'];"+
+    'let cmrEpoch=0;'+uiStart+section+
+    ';return {compare:cmrCompareImportedPolyMesh}')(
+      crypto,async()=>({sha256:'bogus',bytes:1,provenance:'not-original'}));
+  assert.equal((await corruptNative.compare(rows,{allFiles:nativeFiles},0)).status,
+    'source-mesh-not-verified-raw-bytes-unavailable');
+  const alteredNative=new Function('crypto','foamLensNativeRequest',
+    "const cmrSHA256_RE=/^[a-f0-9]{64}$/;"+
+    "const cmrPOLYMESH_FILES=['points','faces','owner','neighbour','boundary'];"+
+    'let cmrEpoch=0;'+uiStart+section+
+    ';return {compare:cmrCompareImportedPolyMesh}')(
+      crypto,async(type,payload)=>({sha256:'0'.repeat(64),
+        bytes:Buffer.byteLength('real source bytes for '+payload.token.slice(7)),
+        provenance:'original-raw-native-file-sha256'}));
+  assert.equal((await alteredNative.compare(rows,{allFiles:nativeFiles},0)).status,
+    'source-mesh-sha256-mismatch');
+
   assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],size:25*1024*1024},
     ...all.slice(1)]},0)).status,'source-mesh-not-verified-raw-bytes-unavailable');
   assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],arrayBuffer:async()=>

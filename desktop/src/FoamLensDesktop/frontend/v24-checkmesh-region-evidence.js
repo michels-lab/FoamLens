@@ -256,6 +256,19 @@ function cmrVerifyLocalManifest(manifest,digests,evidence){
 function cmrEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cmrLast=null,cmrInputs=[],cmrEpoch=0,cmrOwner=null;
 async function cmrSHA256File(file){
+  // The native FoamLensFile arrayBuffer() is text-encoded and CANNOT hash
+  // original binary polyMesh data. The new host operation reads original
+  // bytes via a registered file token, returning ONLY a digest, never a path.
+  if(file?._nativeToken){
+    if(typeof foamLensNativeRequest!=='function')
+      throw Error('Native original-byte SHA-256 bridge is unavailable');
+    const result=await foamLensNativeRequest('hashRawMeshFile',{token:file._nativeToken});
+    if(!cmrSHA256_RE.test(result?.sha256||'')||
+       result?.provenance!=='original-raw-native-file-sha256'||
+       result?.bytes!==Number(file.size))
+      throw Error('Native original-byte SHA-256 evidence is invalid');
+    return result.sha256
+  }
   if(!globalThis.crypto?.subtle||typeof file?.arrayBuffer!=='function')
     throw Error('Local SHA-256 digest unavailable in this runtime');
   const buffer=await file.arrayBuffer();
@@ -273,15 +286,19 @@ async function cmrCompareImportedPolyMesh(rows,c,epoch){
     if(found.length!==1)
       return{status:'source-mesh-not-verified-missing-or-duplicate-files',verifiedFiles:0};
     const file=found[0];
-    // The native bridge's legacy text-based arrayBuffer() is NOT original
-    // binary data. Refuse cryptographic claims until a raw byte API exists.
-    if(file._nativeToken||typeof file.arrayBuffer!=='function'||file.size>24*1024*1024)
+    // Native files use the registered-token host SHA-256 operation; they
+    // must never fall back to the legacy text-based arrayBuffer() bridge.
+    if((file._nativeToken&&typeof foamLensNativeRequest!=='function')||
+       (!file._nativeToken&&typeof file.arrayBuffer!=='function')||
+       file.size>24*1024*1024)
       return{status:'source-mesh-not-verified-raw-bytes-unavailable',verifiedFiles:0};
     selected.push({file,expected:row.meshFilesSha256Before[name]});
   }
   for(const item of selected){
     if(epoch!==cmrEpoch)return{status:'source-mesh-not-verified-selection-changed',verifiedFiles:0};
-    const actual=await cmrSHA256File(item.file);
+    let actual;
+    try{actual=await cmrSHA256File(item.file)}
+    catch{return{status:'source-mesh-not-verified-raw-bytes-unavailable',verifiedFiles:0}}
     if(actual!==item.expected)
       return{status:'source-mesh-sha256-mismatch',verifiedFiles:0};
   }
