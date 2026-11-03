@@ -33,6 +33,11 @@ internal static class Program
             return;
         }
 #endif
+        if (args.Any(arg => string.Equals(arg, "--checkmesh-sha256-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCheckMeshFileHash.RunSelfTestAsync().GetAwaiter().GetResult();
+            return;
+        }
         ApplicationConfiguration.Initialize();
         var developerSmoke = args.Any(arg =>
             string.Equals(arg, "--developer-audit-smoke-test", StringComparison.OrdinalIgnoreCase));
@@ -3794,6 +3799,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "readSlice":
                     await HandleReadSliceAsync(root, requestId);
                     break;
+                case "hashRawMeshFile":
+                    await HandleHashRawMeshFileAsync(root, requestId);
+                    break;
                 case "parseFoamLogBatch":
                     await HandleFoamLogBatchAsync(root, requestId);
                     break;
@@ -4026,6 +4034,24 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
             read += n;
         }
         Reply(requestId, true, Encoding.UTF8.GetString(buffer, 0, read), null);
+    }
+
+    private async Task HandleHashRawMeshFileAsync(JsonElement root, string requestId)
+    {
+        // Only file tokens issued by trusted native folder enumeration are usable.
+        // Never accept an arbitrary path from a WebView2 message.
+        try
+        {
+            var path = ResolveToken(RequiredString(root, "token"));
+            var data = await NativeCheckMeshFileHash.HashSelectedAsync(path);
+            Reply(requestId, true, data, null);
+        }
+        catch (Exception)
+        {
+            // Filesystem exceptions can include a private absolute user path.
+            // The UI receives a fixed, non-identifying failure reason.
+            Reply(requestId, false, null, "Original polyMesh raw SHA-256 unavailable.");
+        }
     }
 
     private async Task HandleTemporalFileAsync(JsonElement root, string requestId)
