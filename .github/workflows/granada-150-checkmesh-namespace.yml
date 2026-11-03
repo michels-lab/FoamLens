@@ -28,6 +28,8 @@ jobs:
           python-version: '3.11'
       - name: Fail-closed native probe regression tests
         run: python tools/test_granada150_native_packaged_probe.py
+      - name: CheckMesh original case capture safety and provenance regression
+        run: python tools/test_granada150_capture_checkmesh.py
       - name: Original checkMesh evidence and physical source contracts
         run: node desktop/tests/checkmesh-region-evidence.spec.cjs
       - name: Two original source modules loaded into same desktop IIFE and real button IDs
