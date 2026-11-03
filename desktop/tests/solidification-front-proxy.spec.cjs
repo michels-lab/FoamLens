@@ -38,7 +38,7 @@ function cubeMesh(xPositions=[0,1,2],options={}){
   boundsMin:[xPositions[0],0,0],boundsMax:[xPositions.at(-1),1,1]}
 }
 const setup=(t=0,extra={})=>({time:t,low:.05,high:.95,iso:.5,axis:'x',region:'metal',
- dimensions:'[0 0 0 0 0 0 0]',meshIdentity:1,...extra});
+ dimensions:'[0 0 0 0 0 0 0]',meshIdentity:1,role:'liquidFraction',...extra});
 const m1=cubeMesh([0,1]),g1=api.geometry(m1);
 assert(g1.ok,g1.reason);near(g1.totalVolumeM3,1);near(g1.cellVolumes[0],1);
 assert(g1.geometryGuarantee.includes('closed'));
@@ -58,6 +58,17 @@ near(at0.front.areaProxyM2,1);
 near(at0.front.coordinateProxyM,1);
 assert.equal(at0.front.crossedInternalFaces,1);
 near(at0.front.areaWeightedFaceCentroidM[1],.5);
+
+// The same original physically confirmed phase fraction may be supplied as
+// alphaS or alphaL, but an undeclared source role must never be guessed.
+const alphaS=api.snapshot(m2,g2,[1,0],setup(0,{role:'solidFraction'}));
+assert(alphaS.ok,alphaS.reason);
+near(alphaS.volumesM3.solid,at0.volumesM3.solid);
+near(alphaS.volumesM3.liquid,at0.volumesM3.liquid);
+near(alphaS.volumeWeightedLiquidFraction,at0.volumeWeightedLiquidFraction);
+assert.equal(alphaS.sourceRole,'solidFraction');
+assert.equal(alphaS.normalization,'alphaL=1-alphaS');
+assert.equal(api.snapshot(m2,g2,[0,1],setup(0,{role:undefined})).ok,false);
 const at1=api.snapshot(m2,g2,[.2,.8],setup(1));
 near(at1.volumesM3.mushy,3);near(at1.front.coordinateProxyM,1);
 const axisY=api.snapshot(m2,g2,[0,1],setup(1,{axis:'y'}));
@@ -101,7 +112,7 @@ assert(Number.isNaN(api.number('')));
 for(const t of ["pfGeomCache=new WeakMap()","pfRuntimeMeshIdentity(mesh)","pfEl('pfExportCsv').disabled=false",
  "pfEl('pfExportCsv').onclick","id=\"pfCancel\"","pfEl('pfCancel').onclick","function pfPlot(report)","pfRefresh('cases')",
  "fvLoadFrameData(c,g,region,t,'value'","fvFieldGroups(c,region,'scalar','volume')",
- "sourceFrames","meshSnapshotTime","no silent truncation","reporting physical evidence"]){
+ "sourceFrames","meshSnapshotTime","no interpolation, truncation or sampling","reporting physical evidence"]){
  if(t==='reporting physical evidence')continue;
  assert(source.includes(t),'Missing physical source and UI gate: '+t)
 }

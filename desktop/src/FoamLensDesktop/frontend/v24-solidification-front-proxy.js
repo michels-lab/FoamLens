@@ -88,7 +88,12 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
   const t=pfNumber(config.time),lo=pfNumber(config.low),hi=pfNumber(config.high),iso=pfNumber(config.iso);
   if(!Number.isFinite(t)||!(lo>=0&&lo<=hi&&hi<=1)||!(iso>0&&iso<1))
     return fail('Physical time, liquid/mushy limits [0,1] and front alpha iso (0,1) must be explicit and valid');
-  if(!Array.isArray(alpha)&&!ArrayBuffer.isView(alpha))return fail('Original alphaL cell values unavailable');
+  const role=config.role;
+  // Original physical semantics are operator-provided, never inferred from alpha1.
+  if(role!=='liquidFraction'&&role!=='solidFraction')
+    return fail('Explicit original role liquidFraction or solidFraction required');
+  if(!Array.isArray(alpha)&&!ArrayBuffer.isView(alpha))
+    return fail('Original phase-fraction cell values unavailable');
   if(alpha.length!==geometry.cells)return fail('Original alphaL count does not match source polyMesh cell count');
   if(String(config.dimensions||'')!=='[0 0 0 0 0 0 0]')
     return fail('OpenFOAM alphaL dimensionless physical exponents not verified from source field');
@@ -96,7 +101,9 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
   let alphaWeighted=0,nonfinite=0;
   const numeric=new Float64Array(alpha.length);
   for(let i=0;i<alpha.length;i++){
-    const a=pfNumber(alpha[i]);if(!Number.isFinite(a)||a<0||a>1){nonfinite++;continue}
+    const original=pfNumber(alpha[i]);
+    if(!Number.isFinite(original)||original<0||original>1){nonfinite++;continue}
+    const a=role==='solidFraction'?1-original:original;
     numeric[i]=a;
     const state=a>hi?'liquid':a>lo?'mushy':'solid',v=geometry.cellVolumes[i];
     if(!Number.isFinite(v)||v<=0)return fail('Invalid physically measured source volume for cell '+i);
@@ -133,6 +140,7 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
     volumeWeightedLiquidFraction:alphaWeighted/total,
     front,frontIso:iso,phaseThresholds:{solidMushy:lo,mushyLiquid:hi},
     axis:config.axis,meshIdentity:config.meshIdentity??null,
+    sourceRole:role,normalization:role==='solidFraction'?'alphaL=1-alphaS':'alphaL=original alphaL',
     method:'physical polyMesh tetrahedral cell volumes + signed internal-face iso-crossing proxy',
     caveats:[
       'The front is estimated at crossing CELL FACES, not an exact reconstructed continuous iso-surface.',
@@ -149,6 +157,7 @@ function pfEvolution(frames,expectedTimes=[]){
     const current=valid[i],prev=i?valid[i-1]:null,dt=prev?current.timeS-prev.timeS:null;
     if(prev&&!(dt>0))return{ok:false,reason:'Duplicate or decreasing source physical time',rows:[]};
     const same=prev&&current.region===prev.region&&current.axis===prev.axis&&
+      current.sourceRole===prev.sourceRole&&
       current.meshIdentity!=null&&current.meshIdentity===prev.meshIdentity&&
       current.meshCells===prev.meshCells&&
       Math.abs(current.totalVolumeM3-prev.totalVolumeM3)<=1e-8*Math.max(current.totalVolumeM3,prev.totalVolumeM3);
@@ -163,6 +172,23 @@ function pfEvolution(frames,expectedTimes=[]){
   }
   return{ok:true,rows,method:'finite differences of area-weighted crossing-face centroids at actual consecutive source field times',
     caveat:'Apparent centroid displacement is NOT measured local phase-front propagation speed and does not account for mesh deformation or front splitting.'}
+}
+function pfSourceTimeWindow(rawTimes,fromIndex,toExclusive,maxFrames=120){
+  const fail=reason=>({ok:false,reason,times:[]});
+  if(!Array.isArray(rawTimes)||!rawTimes.length)
+    return fail('No original physical times available');
+  const original=rawTimes.map(pfNumber);
+  if(original.some(x=>!Number.isFinite(x)))
+    return fail('Original source contains nonfinite or invalid physical time labels');
+  const all=[...new Set(original)].sort((a,b)=>a-b);
+  const from=pfNumber(fromIndex),to=pfNumber(toExclusive);
+  if(!Number.isSafeInteger(from)||!Number.isSafeInteger(to)||from<0||to<=from||to>all.length)
+    return fail('Invalid original time indices; select 0 <= from < to <= source count');
+  if(!Number.isSafeInteger(maxFrames)||maxFrames<1||maxFrames>240||to-from>maxFrames)
+    return fail('Window exceeds '+maxFrames+' exact original frames; narrow indices without sampling');
+  return{ok:true,times:all.slice(from,to),fromIndex:from,toExclusive:to,
+    sourceTimesAvailable:all.length,explicitlyExcludedTimes:all.length-(to-from),
+    method:'contiguous original source-time indices, no interpolation, truncation or sampling'};
 }
 /* FOAMLENS_FRONT_PROXY_CORE_END */
 function pfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
@@ -194,6 +220,7 @@ function pfOptions(el,values){
 }
 function pfRefresh(scope='cases'){
   pfInvalidate();
+  const confirmed=pfEl('pfConfirmAlpha');if(confirmed)confirmed.checked=false;
   if(scope==='cases'){
     pfOptions(pfEl('pfCase'),[['','Select imported OpenFOAM case'],...(Array.isArray(cases)?cases:[]).map(c=>[c.id,c.name||c.id])])
   }
@@ -203,13 +230,23 @@ function pfRefresh(scope='cases'){
   }
   const {c,region,groups}=pfCurrent();
   pfOptions(pfEl('pfAlpha'),groups.map(g=>[g.name,g.name+' · original dimensionless volume field']));
-  pfEl('pfStatus').textContent=c?(groups.length+' dimensionless source field(s) in the chosen region. Explicitly select liquid fraction αL.'):
-    'Import a source OpenFOAM case with 3D polyMesh and original alphaL field first.'
+  const chosen=groups.find(g=>g.name===pfEl('pfAlpha')?.value);
+  const raw=(chosen?.times||[]).map(pfNumber);
+  const count=raw.every(Number.isFinite)?[...new Set(raw)].length:0;
+  if(pfEl('pfFrom'))pfEl('pfFrom').value='0';
+  if(pfEl('pfTo'))pfEl('pfTo').value=String(Math.min(count,120));
+  if(pfEl('pfTimeCount'))pfEl('pfTimeCount').textContent=count+
+    ' original output times; current explicit index window [0,'+Math.min(count,120)+') out of '+count+
+    '. Change the indices to inspect later times; never silently sample.';
+  pfEl('pfStatus').textContent=c?'Select the original phase fraction role alphaL or alphaS and confirm its meaning.':
+    'Import original OpenFOAM polyMesh and dimensionless phase-fraction field.'
 }
 function pfParams(){
   const {c,region,groups}=pfCurrent(),g=groups.find(g=>g.name===pfEl('pfAlpha')?.value);
   return{c,region,g,low:pfEl('pfLow')?.value,high:pfEl('pfHigh')?.value,iso:pfEl('pfIso')?.value,
-    axis:pfEl('pfAxis')?.value,liquidFractionConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
+    axis:pfEl('pfAxis')?.value,role:pfEl('pfRole')?.value,
+    from:pfEl('pfFrom')?.value,to:pfEl('pfTo')?.value,
+    phaseRoleConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
 }
 function pfPlot(report){
   const canvas=pfEl('pfPlot');if(!canvas||!report?.evolution?.rows?.length)return;
@@ -230,16 +267,19 @@ function pfPlot(report){
 }
 async function pfRun(){
   pfInvalidate('Computing measured cell volumes and threshold-crossing face proxies…');
-  const token=pfToken,{c,region,g,low,high,iso,axis,liquidFractionConfirmed}=pfParams(),status=pfEl('pfStatus');
-  if(!c||!g){status.textContent='Choose a source region and dimensionless volume alpha field.';return}
-  if(!liquidFractionConfirmed){
-    status.textContent='Confirm that the selected original dimensionless field physically represents liquid fraction αL. Names alone are not sufficient.';
-    return
+  const token=pfToken,{c,region,g,low,high,iso,axis,role,from,to,phaseRoleConfirmed}=pfParams(),status=pfEl('pfStatus');
+  if(!c||!g){status.textContent='Choose an original dimensionless phase field.';return}
+  if(!['liquidFraction','solidFraction'].includes(role)){
+    status.textContent='Declare source role alphaL or alphaS explicitly.';return
+  }
+  if(!phaseRoleConfirmed){
+    status.textContent='Confirm the original phase-fraction field has the declared physical role.';return
   }
   const lo=pfNumber(low),hi=pfNumber(high),cut=pfNumber(iso);
   if(!(lo>=0&&lo<=hi&&hi<=1&&cut>0&&cut<1)){status.textContent='Phase thresholds [0,1] and front iso (0,1) invalid.';return}
-  const times=[...new Set(g.times.map(pfNumber).filter(Number.isFinite))].sort((a,b)=>a-b);
-  if(times.length>240){status.textContent='More than 240 source snapshots. Narrow the case before running; no silent truncation.';return}
+  const timeWindow=pfSourceTimeWindow(g.times,from,to,120);
+  if(!timeWindow.ok){status.textContent=timeWindow.reason;return}
+  const times=timeWindow.times;
   const cancel=pfEl('pfCancel');if(cancel)cancel.disabled=false;
   const excluded=[],frames=[],sourceFrames=[];
   const inventory=c.volumeFieldInventory,discovery=c.discoveryModel,meshInventory=c.meshInventory;
@@ -251,10 +291,10 @@ async function pfRun(){
       if(token!==pfToken)return;
       const mesh=frame.mesh,parsed=frame.parsed,dimensions=String(parsed?.dimensions||g.dimensions||'');
       if(frame.storage!=='volume'||dimensions!=='[0 0 0 0 0 0 0]')
-        throw new Error('Source is not a verified dimensionless volume-cell liquid-fraction field');
+        throw new Error('Original source is not an explicitly dimensionless volume-cell phase-fraction field');
       let geometry=pfGeomCache.get(mesh);if(!geometry){geometry=pfMeshGeometry(mesh);if(geometry.ok)pfGeomCache.set(mesh,geometry)}
       const current=pfSnapshot(mesh,geometry,frame.fieldValues,{
-        time:t,low:lo,high:hi,iso:cut,axis,region,dimensions,
+        time:t,low:lo,high:hi,iso:cut,axis,region,dimensions,role,
         meshIdentity:pfRuntimeMeshIdentity(mesh)
       });
       if(!current.ok)throw new Error(current.reason);
@@ -274,9 +314,14 @@ async function pfRun(){
   }
   const evolution=pfEvolution(frames,times);
   if(!evolution.ok){if(cancel)cancel.disabled=true;status.textContent=evolution.reason;return}
-  pfLast={schema:'foamlens/solidification-front-proxy/1',caseId:c.id,caseName:c.name,
+  pfLast={schema:'foamlens/solidification-front-proxy/2',caseId:c.id,caseName:c.name,
     region,field:g.name,dimensions:g.dimensions,axis,
-    fieldRole:{liquidFraction:'user-confirmed',verifiedThermophysicalModel:false},
+    fieldRole:{originalRole:role,sourceSemanticEvidence:'user-confirmed',
+      normalizedLiquidFraction:role==='solidFraction'?'alphaL=1-alphaS':'alphaL=original alphaL',
+      verifiedThermophysicalModel:false},
+    timeWindow:{fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
+      sourceTimesAvailable:timeWindow.sourceTimesAvailable,selectedOriginalTimes:timeWindow.times,
+      explicitlyExcludedTimes:timeWindow.explicitlyExcludedTimes,method:timeWindow.method},
     parameters:{low:lo,high:hi,iso:cut},
     sourceFrames,evolution,excluded,completion:excluded.length?'partial-evidence':'source-backed-evidence',
     interpretations:{automaticNucleation:false,automaticRecalescence:false,automaticMicrostructure:false},
@@ -284,9 +329,12 @@ async function pfRun(){
       'Each phase volume comes from verified geometric polyMesh signed cell volumes, not percentages of equally-sized cells.',
       'Front area and coordinate are a FACE-CROSSING PROXY, not a genuine interpolated isosurface or independently measured solidification front.',
       'The reported apparent centroid velocity is not local front speed, especially during front splitting, topology changes or dynamic meshing.',
-      'Only original physical output times and original material region were analyzed. Missing times are excluded, never imputed.'
+      'Only selected original output times were analyzed. Omitted/missing times are disclosed, never imputed.',
+      'Solid-phase fraction alphaS is normalized to alphaL=1-alphaS only after source-role confirmation; the physical model is not independently certified.'
     ]};
-  pfBinding={c,inventory,discovery,meshInventory,g,fieldName:g.name,region};
+  pfBinding={c,inventory,discovery,meshInventory,g,fieldName:g.name,region,
+    role,fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
+    low:lo,high:hi,iso:cut,axis};
   const fmt=n=>n===null||!Number.isFinite(n)?'not available':n.toLocaleString(undefined,{maximumSignificantDigits:6});
   pfEl('pfResult').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
     ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Centroid ['+axis+', m]','Apparent centroid speed [m/s]']
@@ -297,8 +345,10 @@ async function pfRun(){
     ].map(x=>'<td>'+pfEsc(fmt(x))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
     '<p class="smallnote">Front = face-crossing proxy, NOT true continuous isosurface or local propagation speed. '+pfEsc(pfLast.caveats.join(' '))+'</p>'+
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
-  status.textContent=frames.length+' verified physical-time snapshot(s), '+excluded.length+
-    ' excluded. Regional volumes measured from source polyMesh. Apparent centroid speed is NOT local front velocity.';
+  status.textContent=frames.length+' selected original-time frames, '+excluded.length+
+    ' unavailable in selection, '+timeWindow.explicitlyExcludedTimes+
+    ' source times outside selection. Declared role: '+role+
+    '. Centroid rate is NOT a measured local front velocity.';
   pfPlot(pfLast);if(cancel)cancel.disabled=true;
   pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
 }
@@ -311,7 +361,11 @@ function pfExport(kind){
   if(!pfLast||!pfBinding)return;
   const c=pfParams().c,b=pfBinding,params=pfParams();
   if(c!==b.c||c.volumeFieldInventory!==b.inventory||c.discoveryModel!==b.discovery||
-    c.meshInventory!==b.meshInventory||params.g!==b.g||params.region!==b.region){
+    c.meshInventory!==b.meshInventory||params.g!==b.g||params.region!==b.region||
+    params.role!==b.role||!params.phaseRoleConfirmed||
+    pfNumber(params.from)!==b.fromIndex||pfNumber(params.to)!==b.toExclusive||
+    pfNumber(params.low)!==b.low||pfNumber(params.high)!==b.high||
+    pfNumber(params.iso)!==b.iso||params.axis!==b.axis){
     pfInvalidate('Case, source alpha field or mesh inventory changed. Recalculate before exporting.');return
   }
   if(kind==='json')pfDownload('FoamLens_solidification_front_proxy.json',
@@ -331,12 +385,16 @@ function pfInstall(){
   '<p class="smallnote">Real polyMesh cell volumes and interface crossing-face proxies, by region and actual source times. Not a local front-speed or metallurgical-nucleation diagnosis.</p>'+
   '<div class="extGrid2"><div class="field"><label>OpenFOAM source case</label><select id="pfCase"></select></div>'+
   '<div class="field"><label>Physical material region</label><select id="pfRegion"></select></div>'+
-  '<div class="field"><label>Verified dimensionless liquid-fraction field</label><select id="pfAlpha"></select></div>'+
+  '<div class="field"><label>Original dimensionless phase-fraction field</label><select id="pfAlpha"></select></div>'+
+  '<div class="field"><label>Physical role of original field (required)</label><select id="pfRole"><option value="">Select original role</option><option value="liquidFraction">Original liquid fraction alphaL</option><option value="solidFraction">Original solid fraction alphaS (alphaL = 1 - alphaS)</option></select></div>'+
   '<div class="field"><label>Front centroid physical axis</label><select id="pfAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></div>'+
   '<div class="field"><label>Solid / mushy α threshold</label><input id="pfLow" type="number" min="0" max="1" step="any" value=".05"></div>'+
   '<div class="field"><label>Mushy / liquid α threshold</label><input id="pfHigh" type="number" min="0" max="1" step="any" value=".95"></div>'+
-  '<div class="field"><label>Internal-face front crossing α iso</label><input id="pfIso" type="number" min="0" max="1" step="any" value=".5"></div>'+
-  '</div><label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified this ORIGINAL dimensionless OpenFOAM field represents liquid fraction αL for the chosen material, not another scalar.</label>'+
+  '<div class="field"><label>Original liquid-front alphaL iso</label><input id="pfIso" type="number" min="0" max="1" step="any" value=".5"></div>'+
+  '<div class="field"><label>First original time index, inclusive</label><input id="pfFrom" type="number" min="0" step="1" value="0"></div>'+
+  '<div class="field"><label>End original time index, exclusive</label><input id="pfTo" type="number" min="1" step="1" value="0"></div>'+
+  '</div><p id="pfTimeCount" class="smallnote">Original time range, maximum 120 existing frames per run; no decimation.</p>'+
+  '<label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified the ORIGINAL phase field represents the physical role chosen above for this material; names alone are insufficient.</label>'+
   '<div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
   '<button id="pfCancel" class="btn soft" type="button" disabled>Cancel source analysis</button>'+
@@ -351,9 +409,14 @@ function pfInstall(){
   pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');
   for(const [id,scope] of [['pfCase','cases'],['pfRegion','field'],['pfAlpha','field']])
     pfEl(id).addEventListener('change',()=>pfRefresh(scope));
-  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfConfirmAlpha'])
-    pfEl(id).addEventListener(['pfAxis','pfConfirmAlpha'].includes(id)?'change':'input',
-      ()=>pfInvalidate('Analysis parameters changed. Re-run before exporting physical evidence.'));
+  pfEl('pfRole').addEventListener('change',()=>{
+    pfEl('pfConfirmAlpha').checked=false;
+    pfInvalidate('Original phase role changed; reconfirm its physical meaning before analysis.');
+  });
+  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfFrom','pfTo','pfConfirmAlpha'])
+    for(const type of ['input','change'])
+      pfEl(id).addEventListener(type,
+        ()=>pfInvalidate('Source parameters changed. Re-run before exporting physical evidence.'));
   el.addEventListener('toggle',()=>{if(el.open)pfRefresh('cases')});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(el)}catch{}
   pfRefresh('cases')

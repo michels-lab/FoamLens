@@ -4,6 +4,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-proxy.js'
       - 'desktop/tests/solidification-front-proxy.spec.cjs'
+      - 'desktop/tests/solidification-front-role-window.spec.cjs'
       - 'desktop/tests/solidification-front-loader.spec.cjs'
       - '.github/workflows/granada-solidification-front.yml'
   pull_request:
@@ -35,5 +36,7 @@ jobs:
         run: node desktop/tests/physical-3d-scale.test.cjs
       - name: Actual polyMesh cell volumes and face crossing regression
         run: node desktop/tests/solidification-front-proxy.spec.cjs
+      - name: Original solid-liquid source roles and bounded physical time selections
+        run: node desktop/tests/solidification-front-role-window.spec.cjs
       - name: Native Windows bundle and existing engine contract
         run: node desktop/tests/solidification-front-loader.spec.cjs
