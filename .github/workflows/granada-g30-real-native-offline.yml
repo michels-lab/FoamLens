@@ -1,0 +1,139 @@
+name: G30 genuine FoamLens Windows offline Installed and Portable (no release)
+on:
+  push:
+    branches:
+      - test/granada-g30-real-native-offline-20261023
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g30-actual-offline-native
+  cancel-in-progress: true
+jobs:
+  guarded-source:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 'Adversarial source assurance: no fake offline claims or persistent host firewall mutation'
+        run: node --test tools/granada_g30_real_offline_guards.test.cjs
+      - name: Parse real Windows native offline PowerShell before expensive build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g30_native_offline.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count -gt 0){$errors | ForEach-Object {Write-Error $_.Message};throw 'G30 Windows QA native PowerShell invalid'}
+      - name: Compile real WebView2 connectivity probe on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build tools/granada_g30_browser_network_probe/FoamLensG30BrowserNetworkProbe.csproj -c Release
+          if($LASTEXITCODE -ne 0){throw 'G30 genuine native Chromium network probe failed compilation'}
+  genuine-original-main-offline:
+    needs: guarded-source
+    runs-on: windows-latest
+    timeout-minutes: 95
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: qa
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: product
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Reject unmerged science, modified product and any live-main drift
+        run: |
+          $sha=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($sha -ne $remote){throw 'G30 refuses moving original FoamLens main'}
+          [xml]$proj=Get-Content product/desktop/src/FoamLensDesktop/FoamLensDesktop.csproj
+          $v=([string]$proj.Project.PropertyGroup.Version).Trim()
+          if($v -cne '1.8.10'){throw 'G30 refuses product version drift'}
+          "G30_MAIN_SHA=$sha" | Out-File $env:GITHUB_ENV -Append
+          node --test qa/tools/granada_g30_real_offline_guards.test.cjs
+          if($LASTEXITCODE -ne 0){throw 'G30 original offline safety/source guards failed'}
+      - name: Build original exact-main bundled WebView2 app plus actual Portable and native Inno Setup
+        working-directory: product
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: resvg_py==0.5.0
+          if($LASTEXITCODE -ne 0){throw 'Original FoamLens icon generation dependency missing'}
+          python tools/generate_windows_icon.py
+          if($LASTEXITCODE -ne 0){throw 'Original FoamLens icon failed'}
+          python tools/generate_windows_icon.py --check
+          if($LASTEXITCODE -ne 0){throw 'Canonical official FoamLens icon differs'}
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){Remove-Item -LiteralPath $bundle -Force}
+          New-Item -ItemType Directory -Force g30-bundle | Out-Null
+          Copy-Item desktop/src/FoamLensDesktop/frontend/index.html g30-bundle/index.html
+          Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js g30-bundle/
+          Copy-Item desktop/src/FoamLensDesktop/frontend/assets g30-bundle/assets -Recurse -Force
+          Copy-Item desktop/LICENSE.txt g30-bundle/LICENSE.txt
+          Compress-Archive -Path g30-bundle/* -DestinationPath $bundle -CompressionLevel Optimal
+          Expand-Archive -Path $bundle -DestinationPath g30-bundle-verify -Force
+          if((Get-FileHash g30-bundle-verify/index.html -Algorithm SHA256).Hash -ne
+            (Get-FileHash desktop/src/FoamLensDesktop/frontend/index.html -Algorithm SHA256).Hash){throw 'Original source bundle hash mismatch'}
+          dotnet publish desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/g30-publish
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path artifacts/g30-publish/FoamLens.exe)){throw 'Original Windows FoamLens executable absent'}
+          choco install innosetup --yes --no-progress
+          if($LASTEXITCODE -ne 0){throw 'Original installer compiler unavailable'}
+          $compiler=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          & $compiler '/DMyAppVersion=1.8.10' "/DPublishDir=$((Resolve-Path artifacts/g30-publish).Path)" desktop/installer/FoamLens.iss
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path desktop/artifacts/FoamLens-Setup-v1.8.10.exe)){throw 'Original genuine installer not compiled'}
+      - name: Compile independent native Chromium network probe (QA-only)
+        run: |
+          dotnet build qa/tools/granada_g30_browser_network_probe/FoamLensG30BrowserNetworkProbe.csproj -c Release -o g30-netprobe
+          if($LASTEXITCODE -ne 0 -or -not(Test-Path g30-netprobe/FoamLensG30BrowserNetworkProbe.dll)){throw 'G30 real Chromium online/offline witness not built'}
+      - name: Actual Windows native firewall enforcement, offline Installed + Portable and real normal UI
+        run: |
+          & ./qa/tools/granada_g30_native_offline.ps1 -Portable 'product/artifacts/g30-publish/FoamLens.exe' -Installer 'product/desktop/artifacts/FoamLens-Setup-v1.8.10.exe' -ProbeDll 'g30-netprobe/FoamLensG30BrowserNetworkProbe.dll' -MainSha $env:G30_MAIN_SHA -WorkDir 'g30-native/work' -Report 'g30-evidence/report.json'
+          if(-not(Test-Path g30-evidence/report.json)){throw 'G30 exact native offline evidence missing'}
+      - name: Final exact-original-main SHA and strict offline evidence schema
+        run: |
+          $head=(git -C product rev-parse HEAD).Trim()
+          $remote=((git -C product ls-remote origin refs/heads/main).Trim() -split '\s+')[0]
+          if($head -ne $remote -or $head -ne $env:G30_MAIN_SHA){throw 'G30 original product SHA changed during offline proof'}
+          foreach($f in @('desktop/src/FoamLensDesktop/Program.cs','desktop/installer/FoamLens.iss')){
+            if((git -C product hash-object $f).Trim() -ne (git -C product rev-parse ("HEAD:"+$f)).Trim()){throw 'Original main product source mutated'}
+          }
+          $r=Get-Content g30-evidence/report.json -Raw | ConvertFrom-Json
+          if($r.originalMainSha -ne $head -or $r.realChromiumNetworkSucceededBeforeBlock -ne $true -or
+             $r.realChromiumNetworkFailedDuringBlock -ne $true -or
+             $r.actualFirewallEnforcementMeasuredWithRealChromium -ne $true -or
+             $r.nativeInstalledSmokeCount -ne 2 -or $r.nativePortableSmokeCount -ne 3 -or
+             $r.normalInstalledApplicationRemainedVisible -ne $true -or
+             $r.normalPortableApplicationRemainedVisible -ne $true -or $r.finalReleaseReady -ne $false){
+              throw 'G30 original native browser or Windows/offline evidence is incomplete'
+          }
+      - name: Upload boolean/hash-only disposable Windows evidence, never network responses/browser profiles/CFD
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G30-genuine-native-offline-metadata-only
+          path: g30-evidence/report.json
+          if-no-files-found: warn
+          retention-days: 7

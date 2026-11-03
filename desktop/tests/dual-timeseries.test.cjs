@@ -82,5 +82,42 @@ test('dual Time-Series UI is wired into existing filters and axes',()=>{
   assert(!source.includes("vSel.innerHTML='<option value=\"\">'+tsdEsc(tsdUi('All variables'"),'All variables leaked back into the primary selector.');
 });
 
+
+test('G59: authentic 3D catalog refreshes even when existing postProcessing time series exist',()=>{
+  const begin=source.indexOf('function tsdUpdateSourceCatalog(){');
+  const end=source.indexOf('function tsdPatchScientificLabels(){',begin);
+  assert(begin>=0&&end>begin,'source-owned Time Series catalog refresh must be present');
+  // Execute the exact real production function. Previously its condition
+  // datasets.length===0 incorrectly suppressed T-field selectors with probes.
+  const factory=new Function('document','tsdSourceFieldCatalog','timeSeriesOptionsBase',
+    'tsdUi','fwRefreshFieldTsControls','console',
+    source.slice(begin,end)+';return tsdUpdateSourceCatalog');
+  function exercise(existingCount,has3D,open,hasT2){
+    let refreshes=0;
+    const panel={querySelector:()=>({insertAdjacentElement:()=>{}})};
+    const details={open};
+    const info={textContent:'',setAttribute:()=>{}};
+    const nodes={timeSeriesControls:panel,fwDataFieldHistories:details,tsdSourceFieldCount:info};
+    if(hasT2)nodes.gr176HistoryCard={};
+    const document={getElementById:id=>nodes[id]||null,createElement:()=>({setAttribute:()=>{}})};
+    const catalogs=has3D?[{caseId:'B13',region:'metal',name:'T'}]:[];
+    const measured=Array.from({length:existingCount},(_,i)=>({field:{canonical:'probe'+i}}));
+    const update=factory(document,()=>catalogs,()=>measured,(en)=>en,
+      ()=>{refreshes++},console);
+    update();
+    return {refreshes,details,info};
+  }
+  const mixed=exercise(2,true,false,true);
+  assert.equal(mixed.refreshes,1,'G59 regression: existing measured curves MUST NOT hide imported 3D T');
+  assert.equal(mixed.details.open,true,'source anchor must support original field selector refresh');
+  assert.match(mixed.info.textContent,/Existing measured time-series: 2/);
+  assert.match(mixed.info.textContent,/OpenFOAM 3D fields available.*: 1/);
+  assert.equal(exercise(2,false,true,true).refreshes,0,'do not claim a non-existent 3D source');
+  const legacy=exercise(2,true,false,false);
+  assert.equal(legacy.refreshes,0,'do not force-open a collapsed legacy generator without T2');
+  assert.equal(legacy.details.open,false);
+  assert.equal(exercise(0,true,false,false).refreshes,1,'preserve original zero-curves discovery');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);

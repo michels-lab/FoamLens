@@ -1,0 +1,44 @@
+name: Granada G11 — original compact Time Series chart focus
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
+      - 'tools/granada_g11_compact_chart_focus.test.cjs'
+      - '.github/workflows/granada-g11-chart-focus.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js'
+      - 'tools/granada_g11_compact_chart_focus.test.cjs'
+      - '.github/workflows/granada-g11-chart-focus.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-chart-focus:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify G11 JavaScript syntax
+        run: node --check desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js
+      - name: Run 11 original source-owned compact Chart Focus tests
+        run: node --test tools/granada_g11_compact_chart_focus.test.cjs
+      - name: Preserve existing G10 toolbar and T1 physical source regression
+        run: |
+          node --test tools/granada_g10_preview_toolbar.test.cjs
+          node desktop/tests/timeseries-provenance.test.cjs
+          node desktop/tests/dual-timeseries.test.cjs
+          node desktop/tests/timeseries-source-catalog.test.cjs

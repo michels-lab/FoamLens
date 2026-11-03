@@ -1,0 +1,94 @@
+name: Granada — original command search, keyboard and native smoke
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js'
+      - 'tools/granada_command_search.test.cjs'
+      - '.github/workflows/granada-original-command-search.yml'
+      - 'docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  keyboard-and-controls:
+    name: Original Ribbon keyboard and non-destructive command parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js
+      - run: node --test tools/granada_command_search.test.cjs
+      - run: node desktop/tests/ribbon-ui.test.cjs
+      - run: node desktop/tests/workspace-ux.test.cjs
+
+  native-windows:
+    name: Actual Windows .NET8 WebView2 compile+launch, without publishing
+    runs-on: windows-latest
+    needs: keyboard-and-controls
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retain all original frontend modules plus new command search in native archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if (Test-Path $bundle) { throw 'Unexpected preexisting AppBundle.zip' }
+          $temp='granada-palette-native-frontend'
+          New-Item -ItemType Directory -Path $temp -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $temp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $temp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $temp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $temp 'LICENSE.txt')
+          Compress-Archive -Path "$temp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $zip=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $names=@($zip.Entries | ForEach-Object FullName)
+            foreach($name in @('v15-ribbon-ui.js','v26-granada-command-search.js')) {
+              if ($names -notcontains $name) { throw "Missing original/source-native module: $name" }
+            }
+          } finally { $zip.Dispose() }
+      - name: Compile actual native Windows shell
+        shell: pwsh
+        run: |
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw 'Native restore failed' }
+          dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Native build failed' }
+      - name: Run actual compiled Windows app smoke
+        shell: pwsh
+        env:
+          FOAMLENS_BRAND_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/granada-palette-ui
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/granada-palette-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if(-not(Test-Path $exe)){throw 'Compiled executable missing'}
+          New-Item -Path 'artifacts/granada-palette-ui' -ItemType Directory -Force | Out-Null
+          $p=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if(-not $p.WaitForExit(420000)){try{$p.Kill($true)}catch{};throw 'WebView2 native smoke timeout'}
+          if($p.ExitCode -ne 0){throw "Native executable returned $($p.ExitCode)"}
+          Write-Host 'Native compiled FoamLens launched; full palette keyboard and installed DPI visuals remain separate acceptance tests'
+      - name: Save exact native screenshot evidence (not installer or public release)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: foamlens-granada-command-search-native-smoke
+          path: |
+            artifacts/granada-palette-launch.png
+            artifacts/granada-palette-ui/
+          retention-days: 14
+          if-no-files-found: warn

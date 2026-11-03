@@ -1,0 +1,43 @@
+name: Granada 177 — G2 G3 source-native Data and Analysis
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js'
+      - 'desktop/tests/granada-177-g23-data-analysis.spec.cjs'
+      - '.github/workflows/granada-177-g23-data-analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-control-audit:
+    name: Data / Analysis original-control regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: G2/G3 real native-node and state audit
+        run: node desktop/tests/granada-177-g23-data-analysis.spec.cjs
+      - name: Original sidebar visibility contracts
+        run: node desktop/tests/sidebar-sections.test.cjs
+      - name: Analysis owner, module and native chart
+        run: node desktop/tests/analysis-ui-organization.test.cjs
+      - name: Original Ribbon and all data actions
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Data scientific metadata and existing comparisons
+        run: node desktop/tests/data-loaded-case-comparison.test.cjs
+      - name: Data/Analysis stable independent plots
+        run: node desktop/tests/plot-surfaces.test.cjs
+      - name: Original ownership and source suite coverage
+        run: |
+          node desktop/tests/section-ownership.test.cjs
+          node desktop/tests/test-suite-manifest.test.cjs

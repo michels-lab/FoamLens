@@ -1,0 +1,41 @@
+name: G41 original Windows Field Play diagnostics regression (no release)
+on:
+  push:
+    branches:
+      - fix/granada-g41-play-failure-attribution-20261027
+  pull_request:
+    paths:
+      - desktop/src/FoamLensDesktop/Program.cs
+      - tools/granada_g37_real_b13_play_stress.ps1
+      - tools/granada_g41_native_play_diagnostics.test.cjs
+      - .github/workflows/granada-g41-play-attribution-guards.yml
+permissions:
+  contents: read
+concurrency:
+  group: foamlens-g41-play-attribution-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-source-diagnostics-regression:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute original source/PowerShell fail-closed and adversarial tests
+        run: node --test tools/granada_g41_native_play_diagnostics.test.cjs
+      - name: Validate real PowerShell parse on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'tools/granada_g37_real_b13_play_stress.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count){$errors|ForEach-Object { Write-Error $_.Message };throw 'G41 native diagnostic script failed to parse'}
