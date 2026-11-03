@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 480,
-  "classified_files_total": 476,
-  "docs_content_inspected": 101,
+  "tracked_files_total": 482,
+  "classified_files_total": 478,
+  "docs_content_inspected": 102,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,12 +12,12 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 95,
+    "document": 96,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
     "source": 144,
-    "test": 130,
+    "test": 131,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 63
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "c54ecec63b6a0f0cb604d539d883ef9bc4af221a933ee97ae4ace30b9cbbaf9f",
-  "evidence_fingerprint": "da0644af699caea04a2769c3d5d6f73d9a22c05867b33c9f0c058102d610072f",
+  "inventory_fingerprint": "3951f73fe60dfa10117718cd0093924f70f1627d3e7d9b4a9261231730ab43fa",
+  "evidence_fingerprint": "72210d0f0ad0de9e310344a25182e2e546396ab300e661bfde010c4267b9af48",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "b173fbc7d2a3b694c21871fca92f3e6070861d8b"
+      "blob": "60b115d29f4b96c3bc3117dee49d9bed7200a8c6"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -475,7 +475,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "4d1584ee2ebc36eb8c0a8d3edd1003a5a98c2516"
+      "blob": "e6f50ab812051e5bb376da634b1e7d05dbad01b1"
     },
     {
       "path": ".github/workflows/granada-thermocouple-xyz.yml",
@@ -1133,7 +1133,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4751efb73468ffb85d9dbb55e6ac35f8233da8f8"
+      "blob": "82773328cb72593badf59ded947f706219dade72"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
@@ -1847,7 +1847,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "44da8921d6c205b36a6f3fc0593e86b288df7637"
+      "blob": "76276bd077a2ee39a68f3efeeb5badf1038767c2"
+    },
+    {
+      "path": "desktop/tests/solidification-front-role-window.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "470031e43bfef62f9821bcd3992cf759f750aa25"
     },
     {
       "path": "desktop/tests/spatial-differences.test.cjs",
@@ -2142,6 +2149,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "bc5bf36efab596f3cad16e02bf935168c2935335"
+    },
+    {
+      "path": "docs/GRANADA_153_SOURCE_ROLE_TIME_WINDOW_CONSOLIDATION_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "43b6eaf06be26e5c6a5acebe448886a35e733ec2"
     },
     {
       "path": "docs/GRANADA_153_SOURCE_SOLIDIFICATION_FRONT_2026-10-19.md",
@@ -3364,11 +3378,11 @@
   ],
   "findings": [
     {
-      "id": "54a97bccf3653636",
+      "id": "9ef57d9e0c899c18",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "46 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-150-checkmesh-namespace.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml",
+      "observation": "47 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-150-checkmesh-namespace.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
