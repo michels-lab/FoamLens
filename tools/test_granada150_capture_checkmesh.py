@@ -29,7 +29,7 @@ class CheckMeshCaptureTests(TestCase):
         self.out = self.root / "evidence"
 
     @staticmethod
-    def response(args, region=None, returncode=0, stderr=b""):
+    def response(args, region=None, returncode=0, stderr=b"", **kwargs):
         region = region or args[args.index("-region") + 1]
         raw = (f"Exec : checkMesh -region {region} -allTopology -allGeometry\n"
                f"Create polyMesh {region} for time = 0\n"
@@ -48,6 +48,9 @@ class CheckMeshCaptureTests(TestCase):
         for call in runner.call_args_list:
             args = call.args[0]
             self.assertEqual(args[-2:], ["-allTopology", "-allGeometry"])
+            self.assertEqual(call.kwargs["cwd"], self.case.resolve())
+            self.assertTrue(call.kwargs["capture_output"])
+            self.assertFalse(call.kwargs["check"])
             self.assertNotIn("-writeSets", args)
             self.assertNotIn("foamMultiRun", args)
         self.assertTrue((self.out / "checkMesh_capture_manifest.json").is_file())
