@@ -1,27 +1,53 @@
 /* FoamLens Desktop v1.6.0 — exportable Findings evidence bundle + assistant/GitHub handoff. */
 let flFindingsExportInstalled=false;
 function fxeUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(document.getElementById('language')?.value==='es'?es:en)}catch{return en}}
-function fxeFinite(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function fxeFinite(v){
+  // OpenFOAM physical measurements use numeric dot decimals; JS Number(null/''/false) invents zero.
+  if(typeof v==='number')return Number.isFinite(v)?v:null;
+  if(typeof v!=='string')return null;
+  const str=v.trim();
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(str))return null;
+  const n=Number(str);return Number.isFinite(n)?n:null
+}
 function fxeClone(v,d=0,seen=new WeakSet()){
   if(v==null||['string','number','boolean'].includes(typeof v))return v;
   if(typeof v==='function')return undefined;
   if(d>5)return '[depth limit]';
   if(typeof v==='object'){
     if(seen.has(v))return '[circular]';seen.add(v);
-    if(Array.isArray(v))return v.slice(0,250).map(x=>fxeClone(x,d+1,seen)).filter(x=>x!==undefined);
+    if(Array.isArray(v)){
+      const items=v.slice(0,250).map(x=>fxeClone(x,d+1,seen)).filter(x=>x!==undefined);
+      seen.delete(v);return items
+    }
     const out={};let n=0;
     for(const [k,x] of Object.entries(v)){
       if(['t','y','values','scalarValues','componentValues','points','faces','cells','vertices'].includes(k))continue;
       const y=fxeClone(x,d+1,seen);if(y!==undefined)out[k]=y;if(++n>=120)break;
     }
-    return out
+    seen.delete(v);return out
   }
   return String(v)
 }
 function fxeFieldName(s){return s?.field?.canonical||s?.field?.raw||s?.field?.name||s?.name||''}
+function fxeCaseId(value){
+  // Missing IDs must never alias the genuine source case id 0 via Number(null).
+  if(value==null||typeof value==='boolean')return null;
+  const raw=String(value).trim();
+  if(!/^[+-]?\d+$/.test(raw))return null;
+  const id=Number(raw);return Number.isSafeInteger(id)?id:null
+}
 function fxeTimeRange(s){
-  const ts=Array.isArray(s?.t)?s.t.map(Number).filter(Number.isFinite):[];
-  return ts.length?{min:Math.min(...ts),max:Math.max(...ts),count:ts.length}:Number.isFinite(Number(s?.profileTime))?{min:Number(s.profileTime),max:Number(s.profileTime),count:1}:{min:null,max:null,count:0}
+  // Streaming finite time bounds: no phantom t=0 and no call-stack overflow from Math.min(...largeArray).
+  let min=null,max=null,count=0;
+  if(Array.isArray(s?.t))for(const raw of s.t){
+    const time=fxeFinite(raw);if(time===null)continue;
+    if(min===null||time<min)min=time;
+    if(max===null||time>max)max=time;
+    count++
+  }
+  if(count)return{min,max,count};
+  const profileTime=fxeFinite(s?.profileTime);
+  return profileTime===null?{min:null,max:null,count:0}:{min:profileTime,max:profileTime,count:1}
 }
 function fxeDataset(s){
   return{
@@ -35,7 +61,7 @@ function fxeDataset(s){
   }
 }
 function fxeCase(c){
-  const ss=(series||[]).filter(s=>Number(s?.caseId)===Number(c?.id));
+  const caseKey=fxeCaseId(c?.id),ss=caseKey===null?[]:(series||[]).filter(s=>fxeCaseId(s?.caseId)===caseKey);
   let outputs=[];try{if(typeof outputCompletenessForCase==='function')outputs=outputCompletenessForCase(c)||[]}catch{}
   const r=typeof observedCaseTimeRange==='function'?observedCaseTimeRange(c?.id):{};
   return{
@@ -53,11 +79,16 @@ function fxeCase(c){
   }
 }
 function fxeFinding(f,index,caseMap){
-  const c=caseMap.get(Number(f?.caseId));
+  const caseKey=fxeCaseId(f?.caseId),c=caseKey===null?null:caseMap.get(caseKey);
+  const requestedField=typeof f?.field==='string'?f.field.trim():'';
   const related=(series||[]).filter(s=>{
-    if(Number(s?.caseId)!==Number(f?.caseId))return false;
-    if(!f?.field)return true;
-    const n=fxeFieldName(s);return n===f.field||String(n).includes(String(f.field))||String(f.field).includes(String(n))
+    if(caseKey===null||fxeCaseId(s?.caseId)!==caseKey)return false;
+    if(!requestedField)return true; // Case-level findings may reference the entire case inventory.
+    // Explicit original/canonical aliases only: substring matching invents cross-field evidence,
+    // and String(field).includes('') incorrectly associates datasets with unnamed fields.
+    const aliases=[s?.field?.canonical,s?.field?.raw,s?.field?.name,s?.name]
+      .filter(name=>typeof name==='string'&&name.trim()).map(name=>name.trim());
+    return aliases.includes(requestedField)
   }).slice(0,30).map(fxeDataset);
   return{
     index:index+1,id:f?.id||('finding_'+(index+1)),severity:f?.severity||'',title:f?.title||'',
@@ -68,7 +99,7 @@ function fxeFinding(f,index,caseMap){
 }
 function fxeBundle(){
   const findings=typeof allWorkspaceFindings==='function'?allWorkspaceFindings():[];
-  const caseMap=new Map((cases||[]).map(c=>[Number(c.id),c]));
+  const caseMap=new Map((cases||[]).filter(c=>fxeCaseId(c?.id)!==null).map(c=>[fxeCaseId(c.id),c]));
   let health=null,thresholds={};
   try{const h=workspaceHealthSnapshot||(typeof workspaceHealth==='function'?workspaceHealth():null);if(h)health={state:h.state||'',reason:h.reason||'',counts:fxeClone(h.counts||{})}}catch{}
   try{if(typeof diagSettings==='function')thresholds=diagSettings()}catch{}
@@ -135,20 +166,37 @@ async function fxeChatGPT(){
   const ok=await fxeCopy(prompt),st=document.getElementById('status');if(st)st.textContent=ok?fxeUi('Findings copied for ChatGPT.','Hallazgos copiados para ChatGPT.'):fxeUi('Could not copy findings automatically.','No se pudieron copiar los hallazgos automáticamente.');
   await fxeOpen('https://chatgpt.com/')
 }
+function fxeGithubCounts(b){
+  // Do not trust user-provided health summary text as a public issue payload.
+  const counts={FAIL:0,WARNING:0,NOTICE:0,INFO:0,OTHER:0};
+  for(const finding of Array.isArray(b?.findings)?b.findings:[]){
+    const level=String(finding?.severity??'').toUpperCase();
+    if(Object.prototype.hasOwnProperty.call(counts,level)&&level!=='OTHER')counts[level]++;
+    else counts.OTHER++
+  }
+  return counts
+}
 function fxeGithubBody(b){
-  const c=b.workspace?.health?.counts||{},important=b.findings.filter(f=>f.severity!=='INFO').slice(0,18),L=[
-    '## FoamLens findings review','',
-    'Build: '+b.generatedBy,'Workspace: '+(b.workspace?.name||'—'),'Health: '+(b.workspace?.health?.state||'—'),
-    'Findings: '+b.findings.length+' total · '+(c.FAIL||0)+' FAIL · '+(c.WARNING||0)+' WARNING · '+(c.NOTICE||0)+' NOTICE · '+(c.INFO||0)+' INFO','',
-    '### Highest-priority findings',''
-  ];
-  for(const f of important)L.push('- **['+f.severity+'] '+f.title+'** — '+(f.caseName||'workspace')+(f.field?' · '+f.field:'')+(f.time!=null?' · t='+f.time+' s':'')+': '+(f.detail||f.reason||''));
-  L.push('','### Review request','','Please verify these findings against the available OpenFOAM evidence. Distinguish explicit evidence from inference and document any additional data required.','','> Full Markdown/JSON evidence bundle can be exported from FoamLens via **Export findings**.');
-  return L.join('\n').slice(0,6500)
+  const c=fxeGithubCounts(b);
+  return [
+    '## FoamLens scientific findings review (public-safe summary)',
+    '',
+    'Findings: '+(c.FAIL+c.WARNING+c.NOTICE+c.INFO+c.OTHER),
+    'Severity: '+c.FAIL+' FAIL · '+c.WARNING+' WARNING · '+c.NOTICE+' NOTICE · '+c.INFO+' INFO · '+c.OTHER+' OTHER',
+    '',
+    '### Scientific verification',
+    'Review evidence and distinguish measured results, inferences and missing information.',
+    'Case names, local paths, physical samples, confidential field names, finding text and research metadata are intentionally excluded from this PUBLIC issue link.',
+    'Detailed local Markdown and JSON evidence can be exported from FoamLens and shared only after the owner independently reviews and redacts it.',
+    '',
+    '> This issue is a request for review; it is not evidence of a solver defect or physical validation.'
+  ].join('\n')
 }
 async function fxeGithub(){
-  const b=fxeBundle(),c=b.workspace?.health?.counts||{},title='FoamLens findings review — '+(b.workspace?.name||'workspace')+' ('+(c.FAIL||0)+'F/'+(c.WARNING||0)+'W/'+(c.NOTICE||0)+'N)';
-  const uri='https://github.com/realmichelduarte/FoamLens/issues/new?title='+encodeURIComponent(title)+'&body='+encodeURIComponent(fxeGithubBody(b));
+  const b=fxeBundle(),c=fxeGithubCounts(b);
+  const title='FoamLens findings review ('+c.FAIL+'F/'+c.WARNING+'W/'+c.NOTICE+'N)';
+  // Never send the workspace title or confidential research metadata in an external GET URL.
+  const uri='https://github.com/michels-lab/FoamLens/issues/new?title='+encodeURIComponent(title)+'&body='+encodeURIComponent(fxeGithubBody(b));
   await fxeOpen(uri)
 }
 function fxeMenuHtml(){

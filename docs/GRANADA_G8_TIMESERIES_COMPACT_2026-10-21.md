@@ -1,0 +1,43 @@
+# FoamLens — GRANADA G8 / Time Series compact canvas-first (2026-10-21)
+
+## Actual original visual evidence (not aesthetic approval)
+
+Downloaded original immutable GitHub Actions artifact `Granada-field-cad-observable-native-evidence` (artifact 12371970820), produced by [real Windows B13 G7 workflow 39653782246](https://github.com/michels-lab/FoamLens/actions/runs/39653782246) on PR #207 source SHA `ddbd8405c9d4d1c7efc7f0e065a82fce16208c4f`. Actual **640×900** installed and portable Time Series images show the original case/import sidebar taking more than half the screen width, leaving only a narrow right-hand chart. This is evidence of a persistent usable-plot-area problem despite passing strict 36-slot screenshot integrity; successful capture **is not UX acceptance**.
+
+**Manual reviewed image:** `granada-installed-portable/evidence/visual/installed/time-series-compact.png` within the above artifact. No artificial or simulated screenshots are used for the defect observation; physical OS DPI 125–200% was not tested by this review. Field/Analysis G7 already have separate source-owned fixes in #205; do not overwrite them.
+
+## G8 implemented in independent source branch
+
+- `desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js` activates ONLY in **Data → Time Series at CSS width ≤1024px**. It temporarily relocates the **original `#timeSeriesControls` node** to the **original `#workspace>.plotcard`** above its scientific chart. It never clones source selectors, rewires variable/probe/case callbacks, changes physics, loads data, deletes cases, manufactures a time series or alters persistence.
+- A compact, accessible **Cases & import** action in the existing fixed top utilities opens the **original `.sidebar`** as an explicit dialog for imports, cases and advanced settings; same data, handlers and permissions. Escape/focus restoration/Tab trap/backdrop, ARIA labels, EN/ES and reduced motion included.
+- **Build field history** is a visible contextual action beside the original Time Series controls: it opens and scrolls to the original `#fwDataFieldHistories` generator when present; it **does not pretend to execute or complete generation**. It is disabled when the original builder is unavailable.
+- The narrow chart and original series list use a full-width, vertically stacked layout. Wide or other tab/mode selection restores the same scientific controls to their exact original sidebar position; no saved UI preference is mutated. G7 Field/Analysis remains independent and unaffected.
+- Read-only `window.FoamLensGranadaG8.audit()` distinguishes runtime presence/compact state/original-node identity/errors and explicitly records `humanVisualApproved:false`.
+
+## Real G8 Windows B13 screenshot findings
+
+- The exact [G8/native run 39662729129](https://github.com/michels-lab/FoamLens/actions/runs/39662729129) passed all four Windows/Ubuntu/native physical-case jobs, retained **36 of 36** real installed+portable images, and preserved original B13 metal/mold/case data integrity. Captures were inspected locally against G7 run 39653782246; at 640×900 the original Time Series chart changes from an approximately **220px** continuous white plotting span in the older capture to approximately **598px** in G8 (installed **and** portable, sampled inside the actual plotted region). These spans measure a screenshot footprint, not correctness of all axes or physical precision.
+- Manual review of installed+portable 640 images revealed a residual **empty reserved lower list row**: base FoamLens responsive CSS hides `.listcard` below 1260px, even though G8 reserves a 135px/190px area for the original `#seriesPanel`. A follow-up CSS repair explicitly exposes that same original series list only in the G8 compact Time Series workspace, and source regression guards this override. A later regression fix also respects the ORIGINAL saved `seriesPanelHidden` preference: when a user intentionally hides the list, it remains hidden and G8 collapses the reserved second grid row instead of forcing it back. Original sidebar role, label and tabindex are snapshotted and restored after the accessible drawer closes. This post-capture repair **requires a fresh native installed+portable recapture**, not approval based on prior images.
+- Another visible limitation is the chart's own horizontal scrollbar at 100% scientific zoom; the existing **Fit** command remains available. No implicit modification of persisted zoom or export scaling has been introduced. Plot readability, actual list visibility and complete axes need the new recapture and a human visual pass.
+
+## Checks / integration truth
+
+- `tools/granada_g8_compact_timeseries.test.cjs` tests DOM identity, original source path, wide→compact→wide restoration, changing Data tabs/modes, live accessibility, keyboard and history-builder delegation, bilingual labels and no physics APIs.
+- `.github/workflows/granada-g8-compact-timeseries.yml` is dedicated Ubuntu/Windows source regression, including existing original Time Series source-catalog regression.
+- **Before exact CI result:** candidate only; no claim of real installed G8 screenshots or user aesthetic approval. A G7 screenshot with a narrow graph is *before* evidence, not G8 success.
+- Must integrate into the G7 12-owner composite **ephemerally and source-pin exact immutable owner SHAs**, then rerun real B13 installed+portable screenshot/physical control checks for G8. Inspect the actual new chart, legends, units and cases rather than trusting Node DOM tests. Review at 640/1140 CSS px and Windows OS 125/150/175/200% DPI before releasing.
+- G8 branch is not to be merged into #181 Time Series or #205 G7 without owner coordination. No RC/beta/preview; final stable release only after full release protocol.
+
+## Owner review checklist
+
+- [ ] Original plotted curves, Y axes, legends/units and cursor interactions remain correct; original selector choices unchanged.
+- [ ] Chart at 640 CSS px is measurably wider than the old 640 image; no horizontal clipped overlay, no false numerical output.
+- [ ] Case comparison/import and actual field-history builder reachable, not silent placeholders.
+- [ ] Time Series controls visibly present without opening drawer; other Data modes unchanged.
+- [ ] Real Windows installed+portable G8 36-capture repeat with image integrity, human visual sign-off and physical DPI matrix.
+
+## 2026-10-27 — Granada G51 compact Time Series after native T2 acceptance
+- Current original [Time Series T2 #181](https://github.com/michels-lab/FoamLens/pull/181) **MERGED** (native original Windows QuickCup and Windows installed/portable [40585841786](https://github.com/michels-lab/FoamLens/actions/runs/40585841786) PASS), making `#gr176HistoryCard` the real **visible** original Build control location while `#fwDataFieldHistories` remains invisible/open as refresh anchor. Prior G8 compact `#g8History` still opened the old anchor and chart-obscuring import drawer.
+- G51 changes only original G8 shortcut routing: when visible T2 source history card exists, do not open the import drawer, scroll to the **actual visible** history panel and focus `#fwTsField1` for keyboard selection; if drawer was already open, close it before focus. Preserve G8 historical fallback when T2 is absent, same element identities/handlers and original scientific data, no mock curves.
+- Extend the existing G8 runtime test to require correct visible card access and reversed hidden-anchor behavior, and replace the obsolete `Directory.GetFiles(AppRoot, "v*-*.js")` test expectation with current fail-closed running-assembly `TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()`. No production host, WebView2 profile, OpenFOAM reader, chart plot or other app module changed.
+- Mandatory before merge: G8 Windows+Ubuntu runtime tests, original T2 Windows+Ubuntu and source catalog regressions where applicable, owner scope and authentic Windows Setup/Portable QuickCup full build. Owner 36 screenshot and hardware DPI aesthetics remain separate #176 and release gate #238. No public stable beyond v1.8.10, no RC/beta.

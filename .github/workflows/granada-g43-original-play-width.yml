@@ -1,0 +1,33 @@
+name: Granada G43 — original wide Field Play P0 regression
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+      - 'desktop/tests/granada-g43-play-wide-original.spec.cjs'
+      - '.github/workflows/granada-g43-original-play-width.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v33-granada-wide-play-cascade-guard.js'
+      - 'desktop/tests/granada-g43-play-wide-original.spec.cjs'
+      - '.github/workflows/granada-g43-original-play-width.yml'
+  workflow_dispatch:
+jobs:
+  g43-original-play:
+    name: Original noncompact Play guard / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reproduce original noncompact 1140px 70px failure and verify independent scoped guard
+        run: node desktop/tests/granada-g43-play-wide-original.spec.cjs
+      - name: Validate original Ribbon ownership
+        run: node desktop/tests/ribbon-ui.test.cjs
+      - name: Original physical-time Play and loop semantics
+        run: node desktop/tests/field-loop-playback.test.cjs

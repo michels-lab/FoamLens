@@ -1,3 +1,9 @@
+## 2026-11-03 — source-owner candidate reconciled to current main
+
+This PR retains the isolated **read-only** original 3D source-backed liquid-fraction proxy, but the old Windows loader test has been replaced with a fail-closed check against the **trusted embedded ZIP-only module loader**. Also included explicit UI cancellation for bounded 240-frame analysis. All original physical claims remain proxies, never nucleation, recalescence, physically reconstructed isosurfaces or local propagation speed. The overlapping PR #171 is a separate independent variant and must not be merged automatically. Exact-head CI and physical Windows acceptance must be checked before integrating; #153 and #238 stay OPEN, no release.
+
+---
+
 # Operación Granada #153 — 3D Solidification Front Tracker (source-backed partial implementation)
 
 Status: **independent unreleased scientific candidate**. Branch `feat/granada-153-source-backed-front-proxy-20261019`; does not touch active Field #162, CAD #164, 2D/3D #165, Energy #166, Thermocouple #167, Health #168 or Phase/Momentum #169 pull requests.

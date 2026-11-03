@@ -99,7 +99,7 @@ assert.equal(api.evolution([old,{ok:false,reason:'missing frame'}]).ok,false);
 assert(Number.isNaN(api.number(null)));
 assert(Number.isNaN(api.number('')));
 for(const t of ["pfGeomCache=new WeakMap()","pfRuntimeMeshIdentity(mesh)","pfEl('pfExportCsv').disabled=false",
- "pfEl('pfExportCsv').onclick","function pfPlot(report)","pfRefresh('cases')",
+ "pfEl('pfExportCsv').onclick","id=\"pfCancel\"","pfEl('pfCancel').onclick","function pfPlot(report)","pfRefresh('cases')",
  "fvLoadFrameData(c,g,region,t,'value'","fvFieldGroups(c,region,'scalar','volume')",
  "sourceFrames","meshSnapshotTime","no silent truncation","reporting physical evidence"]){
  if(t==='reporting physical evidence')continue;

@@ -176,7 +176,7 @@ function pfRuntimeMeshIdentity(mesh){
 }
 function pfInvalidate(note=''){
   pfToken++;pfLast=null;pfBinding=null;
-  for(const id of ['pfExport','pfExportCsv']){const b=pfEl(id);if(b)b.disabled=true}
+  for(const id of ['pfExport','pfExportCsv','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
   const out=pfEl('pfResult');if(out)out.textContent='';
   const plot=pfEl('pfPlot'),ctx=plot?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,plot.width,plot.height);
   if(note&&pfEl('pfStatus'))pfEl('pfStatus').textContent=note
@@ -240,6 +240,7 @@ async function pfRun(){
   if(!(lo>=0&&lo<=hi&&hi<=1&&cut>0&&cut<1)){status.textContent='Phase thresholds [0,1] and front iso (0,1) invalid.';return}
   const times=[...new Set(g.times.map(pfNumber).filter(Number.isFinite))].sort((a,b)=>a-b);
   if(times.length>240){status.textContent='More than 240 source snapshots. Narrow the case before running; no silent truncation.';return}
+  const cancel=pfEl('pfCancel');if(cancel)cancel.disabled=false;
   const excluded=[],frames=[],sourceFrames=[];
   const inventory=c.volumeFieldInventory,discovery=c.discoveryModel,meshInventory=c.meshInventory;
   for(let i=0;i<times.length;i++){
@@ -266,13 +267,13 @@ async function pfRun(){
     if(i%3===0)await new Promise(r=>setTimeout(r,0))
   }
   if(token!==pfToken)return;
-  if(!frames.length){status.textContent='No complete source frame can be validated. '+excluded.slice(0,3).map(x=>x.reason).join(' · ');return}
+  if(!frames.length){if(cancel)cancel.disabled=true;status.textContent='No complete source frame can be validated. '+excluded.slice(0,3).map(x=>x.reason).join(' · ');return}
   if(!Array.isArray(cases)||!cases.includes(c)||c.volumeFieldInventory!==inventory||
      c.discoveryModel!==discovery||c.meshInventory!==meshInventory){
     pfInvalidate('Source case/mesh inventory changed during analysis. Re-run to preserve physical provenance.');return
   }
   const evolution=pfEvolution(frames,times);
-  if(!evolution.ok){status.textContent=evolution.reason;return}
+  if(!evolution.ok){if(cancel)cancel.disabled=true;status.textContent=evolution.reason;return}
   pfLast={schema:'foamlens/solidification-front-proxy/1',caseId:c.id,caseName:c.name,
     region,field:g.name,dimensions:g.dimensions,axis,
     fieldRole:{liquidFraction:'user-confirmed',verifiedThermophysicalModel:false},
@@ -298,7 +299,8 @@ async function pfRun(){
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
   status.textContent=frames.length+' verified physical-time snapshot(s), '+excluded.length+
     ' excluded. Regional volumes measured from source polyMesh. Apparent centroid speed is NOT local front velocity.';
-  pfPlot(pfLast);pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
+  pfPlot(pfLast);if(cancel)cancel.disabled=true;
+  pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
 }
 function pfDownload(name,content,type){
   if(typeof downloadText==='function'){downloadText(name,content,type);return}
@@ -337,6 +339,7 @@ function pfInstall(){
   '</div><label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified this ORIGINAL dimensionless OpenFOAM field represents liquid fraction αL for the chosen material, not another scalar.</label>'+
   '<div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
+  '<button id="pfCancel" class="btn soft" type="button" disabled>Cancel source analysis</button>'+
   '<button id="pfExport" class="btn soft" type="button" disabled>Export JSON</button>'+
   '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button></div>'+
   '<p id="pfStatus" class="smallnote" aria-live="polite"></p>'+
@@ -344,6 +347,7 @@ function pfInstall(){
   '<div id="pfResult"></div>';
   host.appendChild(el);
   pfEl('pfRefresh').onclick=()=>pfRefresh('cases');pfEl('pfRun').onclick=()=>void pfRun();
+  pfEl('pfCancel').onclick=()=>pfInvalidate('Source analysis cancelled. No partial evidence exported.');
   pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');
   for(const [id,scope] of [['pfCase','cases'],['pfRegion','field'],['pfAlpha','field']])
     pfEl(id).addEventListener('change',()=>pfRefresh(scope));

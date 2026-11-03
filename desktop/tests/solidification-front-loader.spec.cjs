@@ -8,8 +8,17 @@ const iso=fs.readFileSync(path.join(front,'v14-isosurface.js'),'utf8');
 const field=fs.readFileSync(path.join(front,'v14-field-view.js'),'utf8');
 const solid=fs.readFileSync(path.join(front,'v13-solidification-analysis.js'),'utf8');
 new Function(source);
-for(const token of ['Directory.GetFiles(AppRoot, "v*-*.js")','File.ReadAllText(path, Encoding.UTF8)'])
-  assert(native.includes(token),'Windows packaging must load isolated front proxy module '+token);
+// The old wildcard AppRoot loader was a P0 security defect. The canonical
+// running executable must accept extensions ONLY from the embedded ZIP.
+const trusted=fs.readFileSync(path.join(root,'TrustedEmbeddedFrontendExtensions.cs'),'utf8');
+for(const token of ['TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()',
+  'ApplyFrontendExtensions();','ValidateMaterializedFrontend();'])
+  assert(native.includes(token),'Missing current original safe native loader: '+token);
+assert(!native.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+  'Unsafe legacy AppRoot JS wildcard must never be restored');
+for(const token of ['GetManifestResourceStream(BundleResource)','ReadFromPackage(zipResource)',
+  'MaxModuleCount','MaxTotalModuleBytes'])
+  assert(trusted.includes(token),'Only bundled, bounded original frontend modules may execute: '+token);
 for(const token of ['function fvBuildIsoSurfaceGeometry(','function fvIsoTetra('])
   assert(iso.includes(token),'Field iso-surface reconstruction remains separate, not replaced '+token);
 for(const token of ['function fvCellFaces(','function fvMeshFacePoints(','function fvFieldGroups(',
@@ -18,7 +27,7 @@ for(const token of ['function fvCellFaces(','function fvMeshFacePoints(','functi
 assert(solid.includes('function saAnalyzePhaseSignal('),'Existing phase time-signal analysis must remain independent');
 for(const token of ["el.id='pfPanel'","id=\"pfCase\"","id=\"pfRegion\"","id=\"pfAlpha\"",
   "id=\"pfIso\"","id=\"pfAxis\"","id=\"pfConfirmAlpha\"","id=\"pfExport\"","id=\"pfExportCsv\"",
-  "id=\"pfPlot\"","function pfRun()","function pfExport(","sourceFrames",
+  "id=\"pfPlot\"","id=\"pfCancel\"","function pfRun()","function pfExport(","sourceFrames",
   "pfGeomCache","geometryGuarantee","fvLoadFrameData(c,g,region,t,'value'","pfSnapshot(",
   "window.FoamLensSolidificationFrontProxy","automaticRecalescence:false"])
   assert(source.includes(token),'Missing scientific read-only controls '+token);

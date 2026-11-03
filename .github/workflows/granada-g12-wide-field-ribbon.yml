@@ -1,0 +1,32 @@
+name: GRANADA G12 - real Field Ribbon play-width regression
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js'
+      - 'tools/granada_g12_wide_field_ribbon.test.cjs'
+      - '.github/workflows/granada-g12-wide-field-ribbon.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  g12-original-field-transport:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real versioned module syntax
+        run: node --check desktop/src/FoamLensDesktop/frontend/v31-granada-wide-field-ribbon.js
+      - name: Recreate 1140px visible and invisible original Play
+        run: node --test tools/granada_g12_wide_field_ribbon.test.cjs
+      - name: Preserve FoamLens original source and fixture ownership
+        run: node tools/test_repository_boundaries.cjs

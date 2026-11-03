@@ -1,0 +1,39 @@
+name: Granada 155 — Scientific Case Health
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js'
+      - 'desktop/tests/scientific-case-health.spec.cjs'
+      - 'desktop/tests/scientific-case-health-loader.spec.cjs'
+      - '.github/workflows/granada-scientific-case-health.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js'
+      - 'desktop/tests/scientific-case-health.spec.cjs'
+      - 'desktop/tests/scientific-case-health-loader.spec.cjs'
+      - '.github/workflows/granada-scientific-case-health.yml'
+  workflow_dispatch:
+jobs:
+  case-health:
+    name: Scientific case health / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing mesh audit
+        run: node desktop/tests/mesh-quality-audit.test.cjs
+      - name: Existing convergence and PIMPLE audit
+        run: node desktop/tests/coupling-audit.test.cjs
+      - name: Existing energy audit
+        run: node desktop/tests/energy-audit.test.cjs
+      - name: Scientific Case Health complete, incomplete and fatal regressions
+        run: node desktop/tests/scientific-case-health.spec.cjs
+      - name: Native extension and reused-source wiring
+        run: node desktop/tests/scientific-case-health-loader.spec.cjs
