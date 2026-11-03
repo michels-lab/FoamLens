@@ -240,3 +240,46 @@ for(const token of ["maPureCheckMesh(contents,'local report '","window.FoamLensM
 assert(!code.includes('fetch(')&&!code.includes('XMLHttpRequest'),'No network uploads');
 assert(!code.includes('cases.push(')&&!code.includes('series.push('),'No simulation modification');
 console.log('Granada #150 PASS: per-region source labels, missing/duplicate failures, contextual sanity, explicit error locators and privacy.');
+// Exercise the real source-case File ArrayBuffer SHA-256 path (not just source
+// contract tokens). The native text-decoded binary bridge must never count.
+(async()=>{
+  const {webcrypto,createHash}=require('node:crypto');
+  const oldCrypto=globalThis.crypto;
+  if(!oldCrypto?.subtle)Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
+  const crypto=(globalThis.crypto||webcrypto);
+  const uiStart='async function cmrSHA256File(file){';
+  const section=code.split(uiStart)[1]?.split('function cmrEl(id)')[0];
+  assert(section,'Source-case hashing implementation is missing');
+  const runtime=new Function('crypto',
+    "const cmrPOLYMESH_FILES=['points','faces','owner','neighbour','boundary'];"+
+    'let cmrEpoch=0;'+uiStart+section+
+    ';return {hash:cmrSHA256File,compare:cmrCompareImportedPolyMesh}')(crypto);
+  const names=['points','faces','owner','neighbour','boundary'],all=[],expected={};
+  for(const name of names){
+    const bytes=Buffer.from('real source bytes for '+name,'utf8');
+    expected[name]=createHash('sha256').update(bytes).digest('hex');
+    all.push({name,webkitRelativePath:'B3/constant/metal/polyMesh/'+name,size:bytes.length,
+      arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)});
+  }
+  const rows=[{region:'metal',meshFilesSha256Before:expected}];
+  assert.equal(await runtime.hash(all[0]),expected.points);
+  const same=await runtime.compare(rows,{allFiles:all},0);
+  assert.equal(same.status,'imported-source-polyMesh-sha256-matches-local-manifest');
+  assert.equal(same.verifiedFiles,5);
+  assert.equal(same.scientificValidity,'not-certified');
+  assert.equal((await runtime.compare(rows,{allFiles:all.slice(0,4)},0)).status,
+    'source-mesh-not-verified-missing-or-duplicate-files');
+  assert.equal((await runtime.compare(rows,{allFiles:[...all,all[0]]},0)).status,
+    'source-mesh-not-verified-missing-or-duplicate-files');
+  assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],_nativeToken:'text-only-binary-bug'},
+    ...all.slice(1)]},0)).status,'source-mesh-not-verified-raw-bytes-unavailable');
+  assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],size:25*1024*1024},
+    ...all.slice(1)]},0)).status,'source-mesh-not-verified-raw-bytes-unavailable');
+  assert.equal((await runtime.compare(rows,{allFiles:[{...all[0],arrayBuffer:async()=>
+    new TextEncoder().encode('mutated mesh').buffer},...all.slice(1)]},0)).status,
+    'source-mesh-sha256-mismatch');
+  assert.equal((await runtime.compare(rows,null,0)).status,
+    'source-mesh-not-verified-unavailable');
+  console.log('Granada #150 PASS: SHA-256 of original local imported polyMesh, collisions, native raw-byte guard and mismatch.');
+})().catch(e=>{console.error(e);process.exitCode=1});
+
