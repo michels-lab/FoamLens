@@ -164,8 +164,8 @@ function evRunValidation(){
   // Temperature agreement remains valid without phase data. Phase evidence, however,
   // fails closed until its physical role and numerical range are explicitly verified.
   const normalized=phase?evNormalizeLiquidFraction(phase.y,phaseRole):null;
-  const dimension=String(phase?.field?.dimensions||phase?.dimensions||'').trim().replace(/\\s+/g,' ');
-  const dimensionValid=!dimension||/^\\[0(?:\\s+0){6}\\]$/.test(dimension);
+  const dimension=String(phase?.field?.dimensions||phase?.dimensions||'').trim().replace(/\s+/g,' ');
+  const dimensionValid=!dimension||/^\[0(?:\s+0){6}\]$/.test(dimension);
   const thresholdsValid=Number.isFinite(high)&&Number.isFinite(low)&&high>low&&high<=1&&low>=0;
   const phaseValid=!!(phase&&normalized?.ok&&dimensionValid&&thresholdsValid&&evFinitePairs(phase.t,normalized.alphaL).length>=2);
   const phaseReason=!phase?'no-phase-selected':!normalized?.ok?normalized.reason:!dimensionValid?'phase-not-dimensionless':!thresholdsValid?'invalid-phase-thresholds':!phaseValid?'insufficient-physical-times':'verified-user-role';
