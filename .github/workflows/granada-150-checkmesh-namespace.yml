@@ -23,6 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fail-closed native probe regression tests
+        run: python tools/test_granada150_native_packaged_probe.py
       - name: Original checkMesh evidence and physical source contracts
         run: node desktop/tests/checkmesh-region-evidence.spec.cjs
       - name: Two original source modules loaded into same desktop IIFE and real button IDs
@@ -67,6 +72,16 @@ jobs:
               throw 'Missing original combined multipanel/checkMesh modules'
             }
           } finally { $zip.Dispose() }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inject test-only source-bound WebView2 matrix and multipanel gate
+        shell: pwsh
+        run: |
+          python tools/test_granada150_native_packaged_probe.py
+          if ($LASTEXITCODE -ne 0) { throw 'CI-only injection regression failed' }
+          python tools/granada150_native_packaged_probe.py 'desktop/src/FoamLensDesktop/Program.cs'
+          if ($LASTEXITCODE -ne 0) { throw 'Original native source anchoring failed' }
       - name: Compile actual Windows FoamLens host with both original modules
         shell: pwsh
         run: |
