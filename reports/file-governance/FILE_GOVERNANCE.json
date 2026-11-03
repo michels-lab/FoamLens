@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 452,
-  "classified_files_total": 448,
-  "docs_content_inspected": 93,
+  "tracked_files_total": 454,
+  "classified_files_total": 450,
+  "docs_content_inspected": 94,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,12 +12,12 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 87,
+    "document": 88,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
     "source": 137,
-    "test": 121,
+    "test": 122,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 59
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "eced796fb60deb9e4dab62c85446811bcbd702e31b8bce5be7dd8d4acce5149b",
-  "evidence_fingerprint": "690d14e2b40266356355db3411469e02f32e6deb93e6e5da75808b6d26aeedb4",
+  "inventory_fingerprint": "e74a0a706abf66d9c2eab8f5bad7b0c26b918f92fb446ded02c3a9ca5fe57846",
+  "evidence_fingerprint": "b966ba3e29790db2c340f171db0c8473ad970a77b1b781f4a1789a96c4522759",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "880e189d071f33b352d6851134c98978188a9841"
+      "blob": "44cfb27dac574ef0303efda09ab5c501316266b2"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -125,7 +125,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "3b5b1b206abb98450834815ca5be6f366d45690f"
+      "blob": "bd08f72ec856416f2dd1ea97d2367c7a252f29e1"
     },
     {
       "path": ".github/workflows/file-governance-audit.yml",
@@ -671,7 +671,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d4f125a258eda9ccf16c995390d0a364761c0d00"
+      "blob": "b5130103934117cdfdd27642d03fa0106b52c43c"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -860,7 +860,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4880fdc2ea4bd7aeb2e0b1d1dc62ea537626d7de"
+      "blob": "6173a91a258cdeb894be7507120036d6be335138"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -909,7 +909,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "371f1187c62e2280eb623ac138e0d4fe158be0c6"
+      "blob": "948fd6ab61181669172b55197a422bb318dd8d19"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1329,7 +1329,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f798e8c2804ec1138a59984c5a9f28fd7a3f93b5"
+      "blob": "e84a1ee86ca7c67e42b0c9ae535d53a41ab68a80"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -1358,6 +1358,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "b265fc60eaee540398b01255e38e92828dce7a52"
+    },
+    {
+      "path": "desktop/tests/field-multiregion-views.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "000cc5fbb5df1558c6a9bc8e9a8dcd21edfc128f"
     },
     {
       "path": "desktop/tests/field-multiview-ux.test.cjs",
@@ -1988,6 +1995,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "7bff8e959245889b91efa4940a151b982dfd3fea"
+    },
+    {
+      "path": "docs/GRANADA_145_FIELD_F1_2026-11-02.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "f6c5cf6599193c989f9b9d0ec9bfaa1cc1586d40"
     },
     {
       "path": "docs/GRANADA_149_FIELD_F2_VIEWPORT_DPI_2026-10-19.md",
@@ -3168,11 +3182,11 @@
   ],
   "findings": [
     {
-      "id": "a1a3a7047422d3de",
+      "id": "32cdd3adf21796fb",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "21 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml",
+      "observation": "27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }

@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 452; classified: 448; readable documents: 93; above read cap: 1; findings: 1.
+Tracked: 454; classified: 450; readable documents: 94; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,19 +16,19 @@ Tracked: 452; classified: 448; readable documents: 93; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 87 |
+| document | 88 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
 | source | 137 |
-| test | 121 |
+| test | 122 |
 | text_metadata | 1 |
 | web_ui | 2 |
 | workflow | 59 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 21 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID a1a3a7047422d3de)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 32cdd3adf21796fb)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
