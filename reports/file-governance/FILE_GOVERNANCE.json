@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 443,
-  "classified_files_total": 439,
-  "docs_content_inspected": 91,
+  "tracked_files_total": 447,
+  "classified_files_total": 443,
+  "docs_content_inspected": 92,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 85,
+    "document": 86,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 135,
-    "test": 118,
+    "source": 136,
+    "test": 119,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 57
+    "workflow": 58
   },
   "finding_counts": {
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "522b00a7c926587a5b14ed1bba103595f7e0144671a10477123ece3dabfce727",
-  "evidence_fingerprint": "987220ac61904ac3f9e3df0e342dc57f14571e24a291a722c15f405197e590fc",
+  "inventory_fingerprint": "dc8cfea5a54d4830243218680acb0b38bda41f3eb77c8fd49d687bd6c000afe7",
+  "evidence_fingerprint": "1e9291ed3b58d76b13040742fb7ee5fa972692bebd77dd021ef977101547ded8",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -189,6 +189,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "809aa1db6d10668cf8c9f6b35da51700a85b646e"
+    },
+    {
+      "path": ".github/workflows/granada-177-g6-export-preflight.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "8907450057edbfee746e244808038c6ced4dfde4"
     },
     {
       "path": ".github/workflows/granada-177-global-ux.yml",
@@ -1024,6 +1031,13 @@
       "blob": "2b829f74fa6cc3b344724095f5ea97c1bd338d16"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g6-export-preflight.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3d33a6c686bcdf21531c331154c3c4159bba14f3"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-global-ux.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1393,6 +1407,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "264d61fe8faf6adf0755dbd2d4741da629273663"
+    },
+    {
+      "path": "desktop/tests/granada-177-g6-export-preflight.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "806e8cf1b46562955c7c0f9ea297164b290c39c3"
     },
     {
       "path": "desktop/tests/granada-177-global-ux.spec.cjs",
@@ -2009,6 +2030,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "967a33cbec185ff1d5c8f102e9ba42585d60d075"
+    },
+    {
+      "path": "docs/GRANADA_177_G6_SOURCE_NATIVE_EXPORT_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "6d5bce60047b870579999fdb5b4efd86838f81d1"
     },
     {
       "path": "docs/GRANADA_2D_3D_EQUIVALENT_OBSERVABLES_2026-10-19.md",
@@ -3105,11 +3133,11 @@
   ],
   "findings": [
     {
-      "id": "0e249bbf87801328",
+      "id": "461990afc1efaec7",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "14 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v23-session-state.js",
+      "observation": "17 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-g23-windows-profile-lifecycle.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, desktop/src/FoamLensDesktop/Program.cs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
