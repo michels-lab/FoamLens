@@ -429,6 +429,14 @@ jobs:
         shell: pwsh
         run: node desktop/tests/solidification-analysis.test.cjs
 
+      - name: Test real polyMesh 3D source-backed phase volumes and safe front proxy
+        shell: pwsh
+        run: node desktop/tests/solidification-front-proxy.spec.cjs
+
+      - name: Test native trusted embedded source and safe front analysis integration
+        shell: pwsh
+        run: node desktop/tests/solidification-front-loader.spec.cjs
+
       - name: Test general Thermal Analysis
         shell: pwsh
         run: node desktop/tests/thermal-analysis.test.cjs

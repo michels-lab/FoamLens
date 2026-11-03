@@ -1,0 +1,39 @@
+name: Granada 153 - 3D solidification front source evidence
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-proxy.js'
+      - 'desktop/tests/solidification-front-proxy.spec.cjs'
+      - 'desktop/tests/solidification-front-loader.spec.cjs'
+      - '.github/workflows/granada-solidification-front.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-proxy.js'
+      - 'desktop/tests/solidification-front-proxy.spec.cjs'
+      - 'desktop/tests/solidification-front-loader.spec.cjs'
+      - '.github/workflows/granada-solidification-front.yml'
+  workflow_dispatch:
+jobs:
+  source-front:
+    name: 3D source front and geometry - ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing 3D iso-surface test
+        run: node desktop/tests/isosurface.test.cjs
+      - name: Existing solidification source signals
+        run: node desktop/tests/solidification-analysis.test.cjs
+      - name: Existing 3D physical scale test
+        run: node desktop/tests/physical-3d-scale.test.cjs
+      - name: Actual polyMesh cell volumes and face crossing regression
+        run: node desktop/tests/solidification-front-proxy.spec.cjs
+      - name: Native Windows bundle and existing engine contract
+        run: node desktop/tests/solidification-front-loader.spec.cjs
