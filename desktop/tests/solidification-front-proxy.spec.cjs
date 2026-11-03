@@ -112,7 +112,7 @@ assert(Number.isNaN(api.number('')));
 for(const t of ["pfGeomCache=new WeakMap()","pfRuntimeMeshIdentity(mesh)","pfEl('pfExportCsv').disabled=false",
  "pfEl('pfExportCsv').onclick","id=\"pfCancel\"","pfEl('pfCancel').onclick","function pfPlot(report)","pfRefresh('cases')",
  "fvLoadFrameData(c,g,region,t,'value'","fvFieldGroups(c,region,'scalar','volume')",
- "sourceFrames","meshSnapshotTime","no silent truncation","reporting physical evidence"]){
+ "sourceFrames","meshSnapshotTime","no interpolation, truncation or sampling","reporting physical evidence"]){
  if(t==='reporting physical evidence')continue;
  assert(source.includes(t),'Missing physical source and UI gate: '+t)
 }
