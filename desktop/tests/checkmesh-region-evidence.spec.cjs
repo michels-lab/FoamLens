@@ -204,6 +204,8 @@ assert.equal(me.manifest(manifest,[fakeHash('a'),fakeHash('b')],
 for(const needed of ['id="cmrManifest"','crypto.subtle.digest','cmrCompareImportedPolyMesh',
   'manifestFile!==cmrOwner.manifestFile',
   'originalCaseProvenanceSigned:false',
+  'caseBinding:cmrLast.localProvenance?.sourceCaseStatus',
+  "'local-unsigned-manifest-report-and-source-files-sha256-match-at-inspection',"
   'source-mesh-not-verified-raw-bytes-unavailable']){
   assert(code.includes(needed),'Missing actual opt-in SHA-256 UI binding: '+needed)
 }
@@ -231,7 +233,7 @@ assert.equal(me.defects('X'.repeat(12*1024*1024+1)).unsupported,true);
 for(const token of ["maPureCheckMesh(contents,'local report '","window.FoamLensMultiRegionMeshEvidence",
  "generalAnalysisModules","id=\"cmrCase\"","id=\"cmrFiles\"","id=\"cmrExport\"",
  "cmrReset('Original reports changed: re-audit before exporting.')",
- "caseBinding:'manual-attachment-not-cryptographically-verified'",
+ "'manual-attachment-not-cryptographically-verified'",
  'overallScientificValidity:\'not-certified\'']){
  assert(code.includes(token),'Missing source-backed UI contract '+token)
 }
