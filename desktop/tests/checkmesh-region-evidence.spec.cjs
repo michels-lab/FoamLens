@@ -109,6 +109,51 @@ const incompleteMixed=me.audit([run('complete-metal',metal),
   run('incomplete-mold',mold.replace('Mesh OK.',''))],['metal','mold']);
 assert.equal(incompleteMixed.status,'partial-or-unattributed',
   'One incomplete region among otherwise complete reports cannot return all expected reported');
+// OpenFOAM's genuine checkMesh -region stdout uses both Exec and "Create
+// polyMesh <region> for time = ..." even when no "Region:" header exists.
+// Test output STRUCTURE here is a fixture, not an actual checked polyMesh.
+const nativeMetal=metal.replace('Region: metal','Create polyMesh metal for time = 0');
+const nativeMold=mold.replace('Region: mold','Create mesh mold for time = 0');
+const nativePaired=me.audit([run('unknown-a.log',nativeMetal),
+  run('unrelated-b.log',nativeMold)],['metal','mold']);
+assert.equal(nativePaired.status,'all-expected-regions-reported');
+assert.deepEqual(nativePaired.regions.map(x=>x.region),['metal','mold']);
+assert(nativePaired.regions.every(x=>x.regionAttribution===
+  'paired-checkMesh-region-option-and-OpenFOAM-named-mesh-creation'));
+assert.equal(nativePaired.regions[0].metrics.cells.value,80);
+assert.equal(nativePaired.regions[1].metrics.cells.value,90);
+assert.equal(nativePaired.overallScientificValidity,'not-certified');
+// The command ALONE and the mesh line ALONE are insufficient evidence.
+const missingMeshMarker=me.audit([run('metal-filename.log',
+  nativeMetal.replace('Create polyMesh metal for time = 0',''))],['metal']);
+const missingExecMarker=me.audit([run('metal-filename.log',
+  nativeMetal.replace('Exec : checkMesh -region metal','Exec : checkMesh'))],['metal']);
+assert.deepEqual(missingMeshMarker.missingRegions,['metal']);
+assert.deepEqual(missingExecMarker.missingRegions,['metal']);
+assert.equal(missingMeshMarker.coverage.unattributed,1);
+assert.equal(missingExecMarker.coverage.unattributed,1);
+const markerConflict=me.audit([run('metal.log',
+  nativeMetal.replace('Create polyMesh metal','Create polyMesh mold'))],['metal','mold']);
+assert.equal(markerConflict.status,'conflicting-or-failed');
+assert.equal(markerConflict.regions.length,0);
+assert.equal(markerConflict.coverage.unattributed,1);
+assert.equal(markerConflict.conflicts.length,1);
+const headerConflict=me.audit([run('mold.log',
+  metal.replace('Region: metal','Region: mold'))],['metal','mold']);
+assert.equal(headerConflict.status,'conflicting-or-failed');
+assert.equal(headerConflict.regions.length,0);
+// Repeated or inconsistent region command lines are not single-region proof.
+const repeatedOption=me.audit([run('unrelated.log',nativeMetal+
+  '\nExec : checkMesh -region mold')],['metal','mold']);
+assert.equal(repeatedOption.status,'conflicting-or-failed');
+assert.equal(repeatedOption.regions.length,0);
+// Generic stdout mentioning a region without *both* original checkMesh
+// source identities cannot silently be promoted to region evidence.
+const genericMention=me.audit([run('metal.log',
+  nativeMetal.replace('Create polyMesh metal for time = 0',
+    'Creating mesh for region metal'))],['metal']);
+assert.equal(genericMention.status,'partial-or-unattributed');
+assert.equal(genericMention.regions.length,0);
 assert.equal(me.audit([],[]).status,'partial-or-unattributed');
 assert.equal(me.audit(Array(25).fill({}),['metal']).status,'not-assessed');
 assert.equal(me.audit([run('a',metal)],['metal','metal']).status,'not-assessed');

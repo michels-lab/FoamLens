@@ -13,6 +13,33 @@ function cmrLabel(s){
   const value=String(s??'').trim();
   return value.length>0&&value.length<=120&&/^[A-Za-z0-9_.-]+$/.test(value)?value:null
 }
+function cmrOriginalRegionEvidence(text){
+  // Exact source-output attribution only: a command-line region request AND
+  // OpenFOAM's own named mesh creation must independently agree. No filename,
+  // import-case choice or unsupported "region" word may establish identity.
+  const empty={label:null,command:null,created:null,conflict:false,
+    evidence:'not-established'};
+  if(typeof text!=='string'||text.length>12*1024*1024)return empty;
+  const fromExec=[],fromMesh=[];
+  for(const line of text.split(/\r?\n/)){
+    const exec=/^\s*Exec\s*:\s*checkMesh(?:\s|$)([^\r\n]*)$/i.exec(line);
+    if(exec){
+      for(const m of exec[1].matchAll(/(?:^|\s)-region(?:\s+|=)([A-Za-z0-9_.-]{1,120})(?=\s|$)/g)){
+        const label=cmrLabel(m[1]);if(label)fromExec.push(label)
+      }
+    }
+    const mesh=/^\s*Create\s+(?:polyMesh|mesh)\s+([A-Za-z0-9_.-]{1,120})\s+for\s+time\s*=\s*[-+]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?\s*$/i.exec(line);
+    if(mesh){const label=cmrLabel(mesh[1]);if(label)fromMesh.push(label)}
+  }
+  const execLabels=[...new Set(fromExec)],meshLabels=[...new Set(fromMesh)];
+  const command=execLabels.length===1?execLabels[0]:null;
+  const created=meshLabels.length===1?meshLabels[0]:null;
+  const conflict=execLabels.length>1||meshLabels.length>1||
+    Boolean(command&&created&&command!==created);
+  return{label:!conflict&&command&&created?command:null,command,created,conflict,
+    evidence:!conflict&&command&&created?
+      'paired-checkMesh-region-option-and-OpenFOAM-named-mesh-creation':'not-established'}
+}
 function cmrDefects(text){
   if(typeof text!=='string'||text.length>12*1024*1024)
     return{items:[],truncated:false,unsupported:true};
@@ -66,18 +93,38 @@ function cmrEvidence(reports,expectedRegions=[]){
     }
     const regionAudits=Array.isArray(audit.regionAudits)?audit.regionAudits:[];
     const labels=Array.isArray(audit.regionLabels)?audit.regionLabels.filter(Boolean):[];
+    // The original v20 parser already isolates explicit multi-region sections.
+    // For a single-region source, reconcile its declared label (if present)
+    // with both independent OpenFOAM source markers rather than silently
+    // trusting a filename or conflicting command/mesh creation.
+    const proof=regionAudits.length?null:cmrOriginalRegionEvidence(r.rawText||'');
+    const header=labels.length===1?cmrLabel(labels[0]):null;
+    if(proof&&(proof.conflict||(header&&
+       (proof.command&&proof.command!==header||
+        proof.created&&proof.created!==header)))){
+      conflicts.push({source,reason:'Contradictory original checkMesh region identity markers; cannot bind report to region'});
+      unassigned.push({source,reportStatus:audit.status||'unknown',
+        reason:'Conflicting header, command option or named-mesh creation; no region guessed'});
+      continue
+    }
     let groups=[];
     if(regionAudits.length){
       groups=regionAudits.map(x=>({label:cmrLabel(x.region),metrics:x.metrics||{},
-        status:x.status,reported:x.reported||{},messages:x.messages||{}}))
+        status:x.status,reported:x.reported||{},messages:x.messages||{},
+        regionAttribution:'explicit-Region-header-in-multi-region-report'}))
     }else if(labels.length===1){
-      groups=[{label:cmrLabel(labels[0]),metrics:audit.metrics||{},status:audit.status,
-        reported:audit.reported||{},messages:audit.messages||{}}]
+      groups=[{label:header,metrics:audit.metrics||{},status:audit.status,
+        reported:audit.reported||{},messages:audit.messages||{},
+        regionAttribution:'explicit-Region-header'}]
+    }else if(labels.length===0&&proof?.label){
+      groups=[{label:proof.label,metrics:audit.metrics||{},status:audit.status,
+        reported:audit.reported||{},messages:audit.messages||{},
+        regionAttribution:proof.evidence}]
     }
     if(!groups.length||groups.some(x=>!x.label)){
       if(audit.status==='failed')unattributedFailures++;
       unassigned.push({source,reportStatus:audit.status||'unknown',reason:!audit.recognized?'Unrecognized source text':
-        'No unique explicit region label in report; cannot infer region from filename or selected case'});
+        'No consistent explicit report region marker: need Region: header or matching checkMesh -region and Create mesh lines; filenames/case selection never prove it'});
     }else for(const g of groups){
       if(assigned.has(g.label)){
         conflicts.push({region:g.label,first:assigned.get(g.label).source,second:source,
@@ -113,7 +160,7 @@ function cmrEvidence(reports,expectedRegions=[]){
             'insufficient-evidence',
           originalReportStatus:g.status,metrics,topologyIssues,
           warnings:reportedWarnings,failures:(g.messages?.failures||[]).length,
-          originalCheckMeshSummary:g.reported||{},conflicted:false,
+          originalCheckMeshSummary:g.reported||{},regionAttribution:g.regionAttribution||'not-established',conflicted:false,
           reportEvidence:'reported-only; not independently computed from actual polyMesh'});
       }
     }
@@ -145,7 +192,7 @@ function cmrEvidence(reports,expectedRegions=[]){
     unassigned,conflicts,defects,sources,
     limitations:[
       'The checked inputs are user-selected local checkMesh text reports, not solver execution or independently inspected source polyMesh.',
-      'Region names must appear explicitly inside each original checkMesh report. Filenames and case names never establish region attribution.',
+      'Regions are attributed only from explicit Region: report headers, or a matching checkMesh -region option and OpenFOAM named mesh creation line. Filenames and selected cases never establish region attribution.',
       'Report labels are matched against case discovery region names for coverage only. That does not bind a report to its original OpenFOAM case.',
       'Metrics from duplicate labels or overlapping case reports are NOT aggregated or overwritten.',
       'A checkMesh Mesh OK summary does not certify polyMesh interfaces, physical dimensions, CAD units, heat transfer, conservation or CFD solution validity.',
@@ -204,12 +251,12 @@ async function cmrAnalyze(){
       ' source-declared regions · '+result.coverage.unattributed+' unattributed reports. Scientific validity NOT certified.';
     const fmt=x=>x===null?'not reported':x.toLocaleString('en-US',{maximumSignificantDigits:8});
     const rows=result.regions.map(r=>'<tr>'+[
-      r.region,r.source,r.status,fmt(r.metrics.cells.value),fmt(r.metrics.faces.value),
+      r.region,r.source,r.regionAttribution,r.status,fmt(r.metrics.cells.value),fmt(r.metrics.faces.value),
       fmt(r.metrics.totalVolume.value),fmt(r.metrics.maxNonOrthogonality.value),
       r.warnings,r.topologyIssues.join('; ')||'—'
     ].map(v=>'<td>'+cmrEsc(v)+'</td>').join('')+'</tr>').join('');
     cmrEl('cmrReport').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
-      ['Region','Source','Evidence status','Cells','Faces','Total m³','Max non-orth. °','Warnings','Count/volume contradictions']
+      ['Region','Source','Region evidence','Evidence status','Cells','Faces','Total m³','Max non-orth. °','Warnings','Count/volume contradictions']
         .map(x=>'<th>'+cmrEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
       '<p class="smallnote">Missing: '+cmrEsc(result.missingRegions.join(', ')||'none')+
       ' · Conflicts: '+result.conflicts.length+' · Text-only defect locator clues: '+result.defects.length+
