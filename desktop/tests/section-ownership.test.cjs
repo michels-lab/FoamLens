@@ -362,7 +362,9 @@ test('Data field histories reject false OpenFOAM t=0 in Probe, statistics and sp
 });
 
 test('Data two-curve histories commit atomically after successful OpenFOAM reads, never blanking previous plots',()=>{
-  const begin=field.indexOf('function fwCommitFieldHistoryDrafts(');
+  // Execute original G55 physical metadata guard together with original atomic commit.
+  // Isolating only the old commit helper misses the real function dependency.
+  const begin=field.indexOf('function fwFieldTsValidateComparableDrafts(');
   const end=field.indexOf('function fw3DProfileStatus(',begin);
   assert(begin>0&&end>begin,'Missing real atomic Data history commit implementation');
   const code=field.slice(begin,end);

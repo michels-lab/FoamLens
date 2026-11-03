@@ -1,0 +1,87 @@
+name: GRANADA G7 — Field + Analysis compact workbench, native Windows
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js'
+      - 'tools/granada_g7_compact_workbench.test.cjs'
+      - 'docs/GRANADA_G7_COMPACT_WORKBENCH_2026-10-21.md'
+      - '.github/workflows/granada-g7-compact-workbench-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-controls:
+    name: Compact source-owned UI interactions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check desktop/src/FoamLensDesktop/frontend/v27-granada-compact-workbench.js
+      - run: node --test tools/granada_g7_compact_workbench.test.cjs
+      - run: node --test desktop/tests/ribbon-ui.test.cjs desktop/tests/workspace-ux.test.cjs desktop/tests/field-3d-navigation-cache.test.cjs
+  actual-windows-webview2:
+    name: Build and launch REAL Windows FoamLens G7 with original files
+    runs-on: windows-latest
+    needs: original-controls
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Bundle original native ribbon/Field/science + G7 extension
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle='desktop/src/FoamLensDesktop/AppBundle.zip'
+          if(Test-Path $bundle){throw 'Unexpected AppBundle already exists'}
+          $tmp='granada-g7-webview2'
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/index.html' (Join-Path $tmp 'index.html')
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/v*-*.js' $tmp
+          Copy-Item 'desktop/src/FoamLensDesktop/frontend/assets' (Join-Path $tmp 'assets') -Recurse
+          Copy-Item 'desktop/LICENSE.txt' (Join-Path $tmp 'LICENSE.txt')
+          Compress-Archive -Path "$tmp/*" -DestinationPath $bundle -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $z=[IO.Compression.ZipFile]::OpenRead((Resolve-Path $bundle))
+          try {
+            $names=@($z.Entries | ForEach-Object FullName)
+            foreach($name in @('v14-field-view.js','v14-zz-field-workspace.js',
+              'v15-ribbon-ui.js','v27-granada-compact-workbench.js')){
+              if($names -notcontains $name){throw "Missing source-owned module $name"}
+            }
+          } finally {$z.Dispose()}
+      - name: Compile actual Windows WinForms WebView2 host
+        shell: pwsh
+        run: |
+          dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
+          if($LASTEXITCODE -ne 0){throw 'Native restore failed'}
+          dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --no-restore
+          if($LASTEXITCODE -ne 0){throw 'Native compile failed'}
+      - name: Run original Windows native smoke with new responsive module
+        shell: pwsh
+        env:
+          FOAMLENS_SMOKE_LAUNCH_SCREENSHOT: ${{ github.workspace }}/artifacts/g7-native-launch.png
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          $exe='desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe'
+          if(-not(Test-Path $exe)){throw 'Compiled FoamLens.exe missing'}
+          $p=Start-Process -FilePath (Resolve-Path $exe) -ArgumentList '--smoke-test' -PassThru
+          if(-not $p.WaitForExit(420000)){try{$p.Kill($true)}catch{};throw 'Actual WebView2 startup timeout'}
+          if($p.ExitCode -ne 0){throw "Actual native application exited $($p.ExitCode)"}
+          Write-Host 'Original native FoamLens WinForms/WebView2 started with G7 bundled; real B13, 640px, 125-200% physical DPI acceptance remain separate'
+      - name: Save technical native startup evidence (not public install/release)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-G7-native-compact-technical-smoke
+          path: artifacts/g7-native-launch.png
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,40 @@
+name: Granada G2 Field source-native command workbench
+on:
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js'
+      - 'desktop/tests/granada-177-g2-field-source-dock.test.cjs'
+      - '.github/workflows/granada-177-g2-field-command-dock.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js'
+      - 'desktop/tests/granada-177-g2-field-source-dock.test.cjs'
+      - '.github/workflows/granada-177-g2-field-command-dock.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  field-dock:
+    name: Field G2 original controls and camera regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse Field source-native extension
+        run: node --check desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js
+      - name: Original control identity, direct camera access and keyboard tests
+        run: node --test desktop/tests/granada-177-g2-field-source-dock.test.cjs
+      - name: Regression of all seven physical camera directions
+        run: node desktop/tests/field-3d-navigation-cache.test.cjs
+      - name: Original multi-view and Ribbon regression
+        run: node desktop/tests/field-multiview-ux.test.cjs
+      - name: Field workspace ownership/layout regression
+        run: node desktop/tests/workspace-ux.test.cjs

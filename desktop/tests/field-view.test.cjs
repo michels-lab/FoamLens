@@ -847,8 +847,22 @@ test('browser fallback stays explicit about binary mesh limitation',()=>{
   assert.equal(r.reason,'binary-format');
 });
 
-test('versioned frontend extensions are loaded generically',()=>{
-  assert(program.includes('Directory.GetFiles(AppRoot, "v*-*.js")'));
+test('versioned frontend extensions come only from trusted embedded ZIP, never writable local JS',()=>{
+  const helper=fs.readFileSync(path.join(root,'src','FoamLensDesktop','TrustedEmbeddedFrontendExtensions.cs'),'utf8');
+  const method=program.split('private void ApplyFrontendExtensions()',2)[1]
+    .split('private static HttpClient CreateUpdateHttpClient()',1)[0];
+  assert(method.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+    'Native host must load approved modules from executable-embedded bundle');
+  assert(method.includes('string.Join(Environment.NewLine, bundledExtensions)'),
+    'The injected main IIFE must consume the official embedded modules');
+  assert(!method.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+    'Do not reintroduce executing unbundled local JS from writable AppRoot');
+  assert(!method.includes('extensionPaths.Select(path => File.ReadAllText(path'),
+    'Never read arbitrary on-disk JavaScript for execution');
+  assert(helper.includes('GetManifestResourceStream(BundleResource)'),
+    'Trusted frontend source must originate from the actual embedded application resource');
+  assert(!helper.includes('Directory.GetFiles')&&!helper.includes('File.ReadAllText'),
+    'The product trusted-source helper must not consult mutable user JS files');
 });
 
 test('Field selector remount prefers the loaded renderer field and component',()=>{
