@@ -87,7 +87,7 @@ class CheckMeshCaptureTests(TestCase):
 
     def test_inconsistent_source_region_fails_but_preserves_original_log(self):
         def misleading(args, **kwargs):
-            return self.response(args, region="mold")
+            return self.response(args, region="mold", **kwargs)
         with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
              mock.patch.object(mod.subprocess, "run", side_effect=misleading):
             result = mod.capture(self.case, self.out, regions=["metal"])
@@ -104,14 +104,14 @@ class CheckMeshCaptureTests(TestCase):
     def test_nonzero_checkmesh_exit_is_not_success(self):
         with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
              mock.patch.object(mod.subprocess, "run",
-                               side_effect=lambda args, **kwargs: self.response(args, returncode=2)):
+                               side_effect=lambda args, **kwargs: self.response(args, returncode=2, **kwargs)):
             result = mod.capture(self.case, self.out, regions=["metal"])
         self.assertEqual(result["regions"][0]["status"], "checkMesh-nonzero-exit")
 
     def test_source_mesh_modified_during_capture_is_detected(self):
         def mutating(args, **kwargs):
             (self.case / "constant" / "metal" / "polyMesh" / "points").write_bytes(b"modified")
-            return self.response(args)
+            return self.response(args, **kwargs)
         with mock.patch.object(mod.shutil, "which", return_value="/bin/checkMesh"), \
              mock.patch.object(mod.subprocess, "run", side_effect=mutating):
             result = mod.capture(self.case, self.out, regions=["metal"])
