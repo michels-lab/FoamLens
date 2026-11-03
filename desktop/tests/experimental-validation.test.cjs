@@ -14,7 +14,7 @@ const end='/* FOAMLENS_EXPERIMENTAL_VALIDATION_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Experimental validation core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound};')();
+const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound,evNormalizeLiquidFraction};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -71,6 +71,68 @@ test('phase evidence distinguishes solidifying and remelting during rebound inte
   const rebound={tMin:1,tPeak:3};
   const a=api.evPhaseEvidenceAtRebound([0,1,2,3,4],[1,.9,.7,.5,.4],rebound);assert.equal(a.state,'solidifying');near(a.delta,-.4);
   const b=api.evPhaseEvidenceAtRebound([0,1,2,3,4],[.4,.5,.65,.8,.9],rebound);assert.equal(b.state,'remelting');near(b.delta,.3);
+});
+
+test('phase role is never inferred from alpha1, and conversion is explicit',()=>{
+  const unknown=api.evNormalizeLiquidFraction([0,.2,.5,1],'');
+  assert.equal(unknown.ok,false);assert.equal(unknown.reason,'unconfirmed-role');
+  const liquid=api.evNormalizeLiquidFraction([1,.8,.5,0],'liquid');
+  assert.equal(liquid.ok,true);assert.deepEqual(liquid.alphaL,[1,.8,.5,0]);
+  const solid=api.evNormalizeLiquidFraction([0,.2,.5,1],'solid');
+  assert.equal(solid.ok,true);assert.deepEqual(solid.alphaL,[1,.8,.5,0]);
+  assert.equal(solid.conversion,'alphaL=1-alphaS');
+  for(const bad of [[0,.5,1.1],[0,-.1,1],[0,'',1],[0,NaN,1],['NaN',.5,1]]){
+    assert.equal(api.evNormalizeLiquidFraction(bad,'solid').ok,false);
+  }
+});
+
+test('opposite physical fractions give identical phase evidence after verified conversion',()=>{
+  const t=[0,1,2,3,4,5],solid=api.evNormalizeLiquidFraction([0,.1,.4,.7,.9,1],'solid');
+  const liquid=api.evNormalizeLiquidFraction([1,.9,.6,.3,.1,0],'liquid');
+  const rebound={tMin:1,tPeak:4};
+  assert.deepEqual(solid.alphaL,liquid.alphaL);
+  const x=api.evPhaseEvidenceAtRebound(t,solid.alphaL,rebound);
+  const y=api.evPhaseEvidenceAtRebound(t,liquid.alphaL,rebound);
+  assert.equal(x.state,'solidifying');assert.equal(y.state,'solidifying');
+  near(x.delta,-.8);near(y.delta,-.8);
+  const a=api.evPhaseMetrics(t,solid.alphaL,{onsetThreshold:.95,completionThreshold:.05});
+  const b=api.evPhaseMetrics(t,liquid.alphaL,{onsetThreshold:.95,completionThreshold:.05});
+  near(a.onset,b.onset);near(a.completion,b.completion);near(a.duration,b.duration);
+});
+
+test('phase classification is blocked in actual run path until source role and dimensions are valid',()=>{
+  const start=source.indexOf('function evRunValidation(){'),end=source.indexOf('function evReboundStateLabel(',start);
+  assert(start>=0&&end>start,'Original run-validation function must be present');
+  const runSource=source.slice(start,end);
+  const selectors={evPhaseRole:'',evAlphaOnset:'0.99',evAlphaComplete:'0.01',evTimeShift:'0',
+    evSlopeThreshold:'0.05',evMinDuration:'0.05',evMinAmplitude:'0.1'};
+  const document={getElementById(id){return {value:selectors[id]??'0',textContent:''}}};
+  const simulation={caseId:7,t:[0,1,2,3,4,5],y:[100,90,80,85,90,88],field:{canonical:'T',unit:'K'}};
+  const exp={t:[0,1,2,3,4,5],yK:[99,89,79,84,89,87]};
+  const phase={caseId:7,t:[0,1,2,3,4,5],y:[0,.1,.4,.7,.9,1],field:{canonical:'alpha1',dimensions:'[0 0 0 0 0 0 0]'}};
+  const state={last:null},win={},issues=[];
+  const run=new Function('document','window','evSelectedSimulation','evExperimentalData','flClearIssue','flSetIssue',
+    'evSimUnit','evSelectedPhase','evRender','evState','evUi',
+    core+'\n'+runSource+'\nreturn evRunValidation;')(
+    document,win,()=>simulation,()=>exp,()=>{},(...args)=>issues.push(args),
+    ()=>'K',()=>phase,()=>{},state,(en)=>en);
+  const unchecked=run();
+  assert(unchecked.comparison.valid);assert.equal(unchecked.phaseMetrics,null);
+  assert.equal(unchecked.phaseEvidence,null);assert.equal(unchecked.phaseProvenance.reason,'unconfirmed-role');
+  selectors.evPhaseRole='solid';
+  const validated=run();
+  assert(validated.comparison.valid);assert.equal(validated.phaseProvenance.valid,true);
+  assert.equal(validated.phaseProvenance.conversion,'alphaL=1-alphaS');
+  assert.equal(validated.phaseProvenance.spatialColocationVerified,false);
+  assert.equal(validated.phaseEvidence.state,'solidifying');
+  selectors.evAlphaOnset='0.01';selectors.evAlphaComplete='0.99';
+  assert.equal(run().phaseProvenance.reason,'invalid-phase-thresholds');
+  selectors.evAlphaOnset='0.99';selectors.evAlphaComplete='0.01';
+  phase.field.dimensions='[0 1 -2 0 0 0 0]';
+  assert.equal(run().phaseProvenance.reason,'phase-not-dimensionless');
+  phase.field.dimensions='[0 0 0 0 0 0 0]';phase.y[2]=1.5;
+  assert.equal(run().phaseProvenance.reason,'invalid-phase-range');
+  assert.equal(issues.length,0,'Valid thermal comparison should not be rejected by optional phase failure');
 });
 
 test('product wiring keeps thermal rebound and phase evidence separate',()=>{
