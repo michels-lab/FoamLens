@@ -101,7 +101,24 @@ grid.handlers.keydown({key:'Escape',preventDefault:()=>defaults++,stopPropagatio
 assert.equal(defaults,1,'Idle Escape must remain available to other FoamLens actions');
 assert.equal(stops,1);
 assert.equal(api.focus(b.panel),true);
+elements.set('language',{value:'es'});
+documentHandlers['foamlens-language-change']();
+assert.equal(b.panel.buttons.focus.textContent,'Restaurar','Spanish maximize state must follow actual language');
+assert.match(b.panel.buttons.focus.attributes['aria-label'],/Vista B.*Restaurar/);
 assert.equal(api.focus(b.panel),true);
+assert.equal(b.panel.buttons.focus.textContent,'Maximizar');
+elements.get('language').value='en';
+documentHandlers['foamlens-language-change']();
+assert.equal(b.panel.buttons.focus.textContent,'Maximize');
+assert.equal(api.focus(b.panel),true);
+const removed=b.panel;
+elements.delete('fcViewport');
+const index=grid.children.indexOf(removed);grid.children.splice(index,1);
+layoutObserver.callback();
+assert(!grid.classList.contains('pvFocus'),
+  'Replacing/detaching focused B view restores A rather than leaving a blank screen');
+grid.children.splice(index,0,removed);elements.set('fcViewport',removed);
+layoutObserver.callback();
 
 const report=api.measure();
 assert.equal(report.schema,'foamlens/field-f2-layout/1');
@@ -126,4 +143,4 @@ assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'false',
 context.window.FoamLensF2Layout.measure();
 const exportedSource=source.includes('pvExport()')&&source.includes('downloadText(');
 assert(exportedSource,'Local deliberate report export must remain available');
-console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore, hidden view safety, stored sizes, actual CSS/DPR/canvas geometry, deliberate conflict evidence.');
+console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore/Escape, hidden/detached view safety, ES/EN labels, stored sizes, CSS/DPR/canvas geometry, conflict evidence.');
