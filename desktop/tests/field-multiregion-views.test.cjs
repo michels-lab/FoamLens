@@ -102,7 +102,7 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     'B should display projected axes with numeric metric labels');
   input.checked=false;api.fcPhysicalOverlayFor('B',stateB,{width:800,height:480},[],{projection:'orthographic'});
   assert.strictEqual(x.innerHTML,'','Dimensions disabled in B should not alter A');
-  for(const fragment of ['fcPhysicalMenu(toolbar.dataset.fcToolbar)','data-fc-regions','data-fc-dimensions',
+  for(const fragment of ['fcPhysicalMenu(bar.dataset.fcToolbar)','data-fc-regions','data-fc-dimensions',
     'fcPhysicalRenderLayers(fcState,visual)','fcPhysicalRenderLayers(state,visual)',
     "fcPhysicalMenu('B')","fcPhysicalMenu(String(state.id))",
     "fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer)"])

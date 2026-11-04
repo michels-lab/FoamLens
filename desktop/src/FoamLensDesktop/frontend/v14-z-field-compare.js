@@ -245,7 +245,9 @@ function fcSyncToolbars(){
       if(mirror.value!==actual.value)mirror.value=actual.value;
       mirror.disabled=!!actual.disabled||!actual.options.length
     }
-    fcPhysicalMenu(toolbar.dataset.fcToolbar)
+    // bar is the actual viewport toolbar from this loop; an undefined
+    // toolbar name used to abort all A–D selector/physical-region refreshes.
+    fcPhysicalMenu(bar.dataset.fcToolbar)
   })
 }
 function fcAddViewportToolbar(viewport,view){
