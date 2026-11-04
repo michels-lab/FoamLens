@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 482,
-  "classified_files_total": 478,
-  "docs_content_inspected": 102,
+  "tracked_files_total": 483,
+  "classified_files_total": 479,
+  "docs_content_inspected": 103,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 96,
+    "document": 97,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 63
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "3951f73fe60dfa10117718cd0093924f70f1627d3e7d9b4a9261231730ab43fa",
-  "evidence_fingerprint": "72210d0f0ad0de9e310344a25182e2e546396ab300e661bfde010c4267b9af48",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "2f7727b00f6cd63d5dd264a7c702e718a177d7789336557ca99429652ef33af8",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -888,7 +886,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8ea3e5c4add965fbf58f7cc5d3946b17954fad77"
+      "blob": "5256a29d3150b6e276de0cfcc1ac472e4fc589f1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-field-view.js",
@@ -1385,7 +1383,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "fcb54431506707f79e4c216c64f907467c615d56"
+      "blob": "47bc489555491a8e64769cbe98494761c18b1bd3"
     },
     {
       "path": "desktop/tests/field-3d-navigation-cache.test.cjs",
@@ -2085,7 +2083,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "c7e81dd47d0a000e861a1036155f6f5485922d9f"
+      "blob": "02fa0459b48fb8d13b720fc2c71fa37286c61472"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2268,6 +2266,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
+    },
+    {
+      "path": "docs/GRANADA_EXPERIMENTAL_PHASE_ROLE_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "62ebe48bbc511fc43b7f2789375a2eb595701064"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -3376,17 +3381,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "9ef57d9e0c899c18",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "47 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-150-checkmesh-namespace.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
