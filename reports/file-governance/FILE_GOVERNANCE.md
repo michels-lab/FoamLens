@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findings: 1.
+Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -28,7 +28,6 @@ Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 10 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g20-original-main-b13.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g20_field_f1_png_gate.py, tools/granada_g20_original_main_real_b13.ps1, tools/granada_g20_private_b13_extract.py, tools/granada_g37_per_restart_source_gate.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID ad3b3d8b6e5caddd)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

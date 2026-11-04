@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 64
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "1756ae8f410181121bc6de70b5985028ece0fd55c812ed133a56601d84e8d25a",
-  "evidence_fingerprint": "b7a03cb2d9bd78824f0e9e665a39237a7c24091bd7ee0356689b17ee1a741bae",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "a25a8e7bd8daf6d738243425af0e86a3547a2410e19f16477709ebfb3158c00e",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
