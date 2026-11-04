@@ -21,7 +21,9 @@ function el(id='',name='div'){
   e.classList={
     contains(k){return classes().has(k)},
     add(...names){const s=classes();names.forEach(n=>s.add(n));e.className=[...s].join(' ')},
-    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')}
+    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')},
+    toggle(k,forced){const s=classes(),on=forced===undefined?!s.has(k):!!forced;
+      if(on)s.add(k);else s.delete(k);e.className=[...s].join(' ');return on}
   };
   e.appendChild=function(c){
     if(c.parentNode){const old=c.parentNode.children;old.splice(old.indexOf(c),1)}
@@ -52,10 +54,11 @@ function treeFind(root,id){
   for(const child of root.children){const match=treeFind(child,id);if(match)return match}
   return null
 }
-function mockApp(){
+function mockApp({initiallyHidden=false}={}){
   const html=el('documentRoot','html'),head=el('head','head'),body=el('body','body');
   html.appendChild(head);html.appendChild(body);
   const panel=el('timeSeriesControls');
+  if(initiallyHidden)panel.classList.add('hidden');
   body.appendChild(panel);
   const originalTitle=el('sourceTitle');
   originalTitle.className='analysisTitle';panel.appendChild(originalTitle);
@@ -139,6 +142,46 @@ test('Time Series explains no curves, filter-only empty state and existing OpenF
   widget.refreshEmpty();
   assert.match(note.textContent,/Aún no hay curvas temporales/);
   assert(!String(candidate).includes('Variable 0'),'never invent a Variable 0 fallback');
+});
+
+test('Real Data zero-history refresh leaves actual Create history available',()=>{
+  const start=index.indexOf('function refreshTimeSeriesControls(){');
+  const stop=index.indexOf('\nfunction ',start+30);
+  assert(start>=0&&stop>start,'Original Data Time Series controller required');
+  const original=index.slice(start,stop);
+  function check(withBuilder,view){
+    const panel=el('timeSeriesControls'),variable=el('timeSeriesVariable'),
+      second=el('timeSeriesVariable2'),probe=el('timeSeriesProbe'),
+      cases=el('timeSeriesFamily'),badge=el('timeSeriesFocusBadge'),
+      hint=el('timeSeriesFilterHint');
+    const nodes={timeSeriesControls:panel,timeSeriesVariable:variable,
+      timeSeriesVariable2:second,timeSeriesProbe:probe,
+      timeSeriesFamily:cases,timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
+    if(withBuilder){
+      nodes.gr176HistoryCard=el('gr176HistoryCard');
+      nodes.fwBuildFieldHistories=el('fwBuildFieldHistories');
+    }
+    const refresh=new Function('$','timeSeriesOptionsBase','flUi','currentDataView',
+      original+';return refreshTimeSeriesControls;')(
+      id=>nodes[id]||null,()=>[],(en,es)=>en,view);
+    refresh();return{panel,second,badge,hint}
+  }
+  const first=check(true,'timeseries');
+  assert.equal(first.panel.classList.contains('hidden'),false,
+    'Do not hide real Build merely because no history has been plotted yet');
+  assert.equal(first.badge.textContent,'0 curves');
+  assert.equal(first.second.disabled,true,'Empty second variable stays disabled');
+  assert.match(first.hint.textContent,/Build|Create history/);
+  assert.equal(check(true,'profile').panel.classList.contains('hidden'),true,
+    'Build stays inside Time Series, not Data Profiles');
+  assert.equal(check(false,'timeseries').panel.classList.contains('hidden'),true,
+    'Do not expose an unmounted fake source generator');
+});
+test('Late generator mount reveals zero-curve builder that Data initially hid',()=>{
+  const app=mockApp({initiallyHidden:true});
+  assert.equal(app.panel.classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('fwBuildFieldHistories'),app.button);
+  assert.equal(app.document.getElementById('gr176HistoryCard').parentNode,app.panel);
 });
 test('Cancel visibly disables after atomic generation epoch is invalidated',()=>{
   const app=mockApp(),get=id=>app.document.getElementById(id);
