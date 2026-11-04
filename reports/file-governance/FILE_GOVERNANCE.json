@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "e676620534fcc18e83fa5042b07f48b8d3c4e7776c7028102a31a4d737ed2d4b",
+  "inventory_fingerprint": "32891d9b31025d3573edcf927441ee66952da5268656f40d301d1b3c9e8be65a",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -963,7 +963,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "71aca4bedef4ade6ead152613dfb0221dce79753"
+      "blob": "bede70b302b453b9bb50cdc7582ff3b33e600ee4"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1985,7 +1985,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "fa3648b88482e67f47b7f356a11caa98788025a3"
+      "blob": "83f08faea5cf6df0938c2947d3c4e34fe8a8ea89"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
@@ -2090,7 +2090,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b6d220f09dfd7e4d9879c4a713aba81483176e19"
+      "blob": "c3249d448abef9beef9d7097ceea59acb6ec466c"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
