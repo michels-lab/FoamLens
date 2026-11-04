@@ -114,6 +114,32 @@ test('runtime preserves EXACT original controls and bound generator action',()=>
   app.button.click();
   assert.equal(app.getOriginalClicks(),1,'existing core generator listener must still fire');
 });
+test('Time Series explains no curves, filter-only empty state and existing OpenFOAM fields without faking data',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const note=get('gr176EmptyHint'),badge=get('timeSeriesFocusBadge'),widget=app.sandbox.window.FoamLensGranadaT2;
+  assert(note&&note.parentNode.id==='gr176ExistingCard','empty help sits with existing curves, not inside Field generator');
+  assert.equal(note.hidden,false);
+  assert.match(note.textContent,/No time-series curves yet/);
+  assert.match(note.textContent,/Available fields are not curves/);
+  assert.equal(get('fwBuildFieldHistories'),app.button,'original Build action is reused');
+  assert.equal(get('fwDataFieldHistories').open,true,'late OpenFOAM field source refresh must survive');
+  app.sandbox.series=[{datasetType:'timeseries',t:[0,1],y:[2,3]}];
+  badge.textContent='0 curves';
+  widget.refreshEmpty();
+  assert.equal(note.hidden,false);
+  assert.match(note.textContent,/No plotted curves match the current filters/);
+  badge.textContent='1 curve';
+  widget.refreshEmpty();
+  assert.equal(note.hidden,true,'one real plotted curve hides the empty message');
+  badge.textContent='0 curves';
+  app.document.getElementById('language').value='es';
+  app.events.get('foamlens-language-change')();
+  assert.match(note.textContent,/Ninguna curva coincide/,'Spanish retranslation uses the actual filtered state');
+  app.sandbox.series=[];
+  widget.refreshEmpty();
+  assert.match(note.textContent,/Aún no hay curvas temporales/);
+  assert(!String(candidate).includes('Variable 0'),'never invent a Variable 0 fallback');
+});
 test('Cancel visibly disables after atomic generation epoch is invalidated',()=>{
   const app=mockApp(),get=id=>app.document.getElementById(id);
   const cancel=get('gr176Cancel');
