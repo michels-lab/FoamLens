@@ -25,6 +25,20 @@ assert.deepStrictEqual(api.fcViewSourceMap('B'),{Case:'fcCase',Region:'fcRegion'
 assert.deepStrictEqual(api.fcViewSourceMap(3),{Case:'fcExtra3Case',Region:'fcExtra3Region',Field:'fcExtra3Field',Component:'fcExtra3Component'});
 assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not independently selectable');
 
+{
+  // Reproducible pre-fix bug: Add C/D while Field DOM is not mounted
+  // silently pushes two phantom views into the 4-view limit.
+  const start=source.indexOf('function fcExtraAdd(){'),end=source.indexOf('async function fcCopyPrimarySettingsToCompare()',start);
+  assert(start>=0&&end>start,'original Field add-view source required');
+  const views=[],notMounted={getElementById:()=>null};
+  const add=new Function('fcExtraViews','FC_MAX_TOTAL_VIEWS','document',
+    source.slice(start,end)+';return fcExtraAdd;')(views,4,notMounted);
+  assert.strictEqual(add(),false,'No grid or controls must reject a view creation');
+  assert.strictEqual(add(),false,'Repeated premature clicks still must not consume C/D');
+  assert.strictEqual(views.length,0,'No phantom C/D occupying available slots');
+}
+
+
  
 // Same-failure regression: the original runtime selector refresh referenced
 // "toolbar" instead of the actual loop variable "bar". It threw ReferenceError
