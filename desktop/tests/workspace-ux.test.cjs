@@ -269,3 +269,80 @@ test('Field 3D time-series statistics do not turn missing/reversed range limits 
   assert.equal(metric({valid:true,min:'0',max:'1e1',mean:'5'},'delta'),10);
 });
 
+
+
+test('Field 3D + Profile reuses original plot surface and restores Data without leaking history controls',()=>{
+  const begin=field.indexOf('function fwSyncProfileCompanionButton(){');
+  const end=field.indexOf('function fwSetInspector(',begin);
+  assert(begin>0&&end>begin,'Production profile companion and original layout owner required');
+  assert(field.includes('id="fwToggle3DProfile"'));
+  const mainCard=field.slice(field.indexOf('<div class="fwGrid layout-3d"'),
+    field.indexOf('</main>',field.indexOf('<div class="fwGrid layout-3d"')));
+  const hiddenWorkspaceBar=field.slice(field.indexOf('id="fwViewTabs"'),
+    field.indexOf('<div class="fwGrid layout-3d"'));
+  assert(mainCard.includes('id="fwToggle3DProfile"'),
+    'Profile companion action must be in the always-visible 3D card header');
+  assert(!hiddenWorkspaceBar.includes('id="fwToggle3DProfile"'),
+    'Ribbon hides fwWorkspaceBar: never mount the only companion action there');
+  assert(ribbon.includes('body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important'),
+    'The test must exercise the actual Ribbon-hides-toolbar contract');
+  assert(!field.includes('data-fw-view="split"'),'Field must retain original single 3D navigation tab');
+  const classes=new Set(['layout-3d']),attrs={};
+  const original={id:'dataOwner'},fieldHost={id:'fw2DControlsHost'};
+  const profile={id:'profileControls',parentNode:original,nextSibling:null,dataset:{}};
+  const history={id:'timeSeriesControls',parentNode:original};
+  const generator={id:'fwBuildFieldHistories',parentNode:history};
+  const group={style:{display:'none'}};
+  const button={attributes:attrs,textContent:'',setAttribute:(k,v)=>{attrs[k]=v}};
+  const grid={classList:{toggle:(k,on)=>{if(on)classes.add(k);else classes.delete(k)}}};
+  const host={},nodes={fwToggle3DProfile:button,fw2DHost:host,fwGrid:grid,
+    profileControls:profile,timeSeriesControls:history,
+    fwBuildFieldHistories:generator,fw2DControlsHost:fieldHost,fw2DControlGroup:group};
+  const document={getElementById:id=>nodes[id]||null};
+  const fwState={active:true,layout:'3d',view:'3d',companion:'profile'};
+  const fwDataControlOrigins=new Map();
+  const evidence={moves:[],renders:[],companions:[]};
+  const factory=new Function('document','fwState','fwDataControlOrigins','evidence','original',
+    'let currentDataView="timeseries",active="data";'+
+    'const snapshots={data:"timeseries",field:"profile"};'+
+    'const manager={ensure:(key,into)=>key==="field"&&into?{}:null,'+
+    'active:()=>active,activate:(key)=>{snapshots[active]=currentDataView;active=key;'+
+    'currentDataView=snapshots[key];return true}};'+
+    'const window={FoamLensPlotSurfaces:manager};'+
+    'const fwUi=(en)=>en;'+
+    'const fwScheduleRender=r=>evidence.renders.push(r);'+
+    'const fwSetCompanion=m=>{fwState.companion=m;evidence.companions.push(m)};'+
+    'const fwPrevSetDataView=m=>{currentDataView=m};'+
+    'const fwAdoptFieldNode=(id,target)=>{const node=document.getElementById(id);'+
+      'if(node){node.parentNode=document.getElementById(target);evidence.moves.push(id);return node}return null};'+
+    'const fwReturnCompanionControlsToData=()=>{const node=document.getElementById("profileControls");'+
+      'if(node&&fwDataControlOrigins.has("profileControls"))node.parentNode=original};'+
+    'const console={warn(){}};'+field.slice(begin,end)+
+    ';return{toggle:fwToggleProfileCompanion,view:()=>currentDataView,'+
+    'active:()=>active,snapshots,button:fwSyncProfileCompanionButton};'
+  );
+  const api=factory(document,fwState,fwDataControlOrigins,evidence,original);
+  assert.equal(api.view(),'timeseries');
+  assert.equal(api.toggle(true),true);
+  assert.equal(fwState.view,'3d','Field keeps its original 3D navigation owner');
+  assert.equal(fwState.layout,'split','User sees actual side-by-side grid');
+  assert(classes.has('layout-split')&&!classes.has('layout-3d'));
+  assert.equal(api.active(),'field','Original Field plot surface owns visible profile');
+  assert.equal(api.view(),'profile');
+  assert.equal(api.snapshots.data,'timeseries','Original Data plot selection must be retained');
+  assert.equal(profile.parentNode,fieldHost,'Only original profile selectors are borrowed');
+  assert.equal(history.parentNode,original,'Original Time Series Build/Cancel remains Data-owned');
+  assert.equal(generator.parentNode,history);
+  assert.equal(attrs['aria-pressed'],'true');
+  assert.equal(evidence.companions.at(-1),'profile');
+  assert(evidence.renders.some(x=>x.threeD&&x.twoD),'Both original render paths are scheduled');
+  assert.equal(api.toggle(false),true);
+  assert.equal(fwState.layout,'3d');
+  assert.equal(api.active(),'data');
+  assert.equal(api.view(),'timeseries','Data returns to exactly its previous plot selection');
+  assert.equal(profile.parentNode,original,'Profile selectors return to their original owner');
+  assert.equal(attrs['aria-pressed'],'false');
+  assert.equal(api.toggle(false),true,'Idempotent close must not re-activate the plot');
+  fwState.active=false;
+  assert.equal(api.toggle(true),false,'Unopened Field cannot borrow plot controls');
+});

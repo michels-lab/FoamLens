@@ -54,6 +54,7 @@ function fwUpdateNavText(){
   const clearProfile=document.getElementById('fwClear3DProfile');if(clearProfile)clearProfile.textContent=fwUi('Clear line','Borrar línea');
   const lab=document.getElementById('fwCompanionLabel');if(lab)lab.textContent=fwUi('Companion plot','Gráfica complementaria');
   const sync=document.getElementById('fwSyncLabel');if(sync)sync.textContent=fwUi('Follow 3D physical time','Seguir tiempo físico 3D');
+  fwSyncProfileCompanionButton();
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
@@ -89,7 +90,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -126,7 +127,7 @@ function fwCreateSurface(){
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
+    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
@@ -139,6 +140,7 @@ function fwCreateSurface(){
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
+  document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
   document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
@@ -160,6 +162,53 @@ function fwCreateSurface(){
   fwEnsureFieldTsControls(); // Data-only explicit scientific history builder
   fwUpdateNavText()
 }
+function fwSyncProfileCompanionButton(){
+  const button=document.getElementById('fwToggle3DProfile');if(!button)return;
+  const showing=fwState.layout==='split';
+  button.setAttribute('aria-pressed',showing?'true':'false');
+  button.textContent=showing?fwUi('3D only','Solo 3D'):fwUi('3D + Profile','3D + Perfil');
+  button.setAttribute('aria-label',showing?
+    fwUi('Hide spatial profile and return to full 3D','Ocultar perfil espacial y volver a 3D'):
+    fwUi('Show original spatial profiles alongside 3D','Mostrar perfiles espaciales originales junto al 3D'))
+}
+function fwOwnProfileCompanionControls(){
+  // Borrow just the original PROFILE selectors; never move the Time Series
+  // Build/Cancel history panel out of its Data owner.
+  const id='profileControls',node=document.getElementById(id);
+  if(node&&!fwDataControlOrigins.has(id))
+    fwDataControlOrigins.set(id,{parent:node.parentNode,next:node.nextSibling});
+  return !!fwAdoptFieldNode(id,'fw2DControlsHost')
+}
+function fwToggleProfileCompanion(force){
+  const enable=typeof force==='boolean'?force:fwState.layout!=='split';
+  if(!enable){
+    if(fwState.layout!=='split'){fwSyncProfileCompanionButton();return true}
+    fwSetLayout('3d');
+    fwReturnCompanionControlsToData();
+    const manager=window.FoamLensPlotSurfaces;
+    if(manager?.active?.()==='field')manager.activate?.('data',null,{restore:true});
+    const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='none';
+    fwSyncProfileCompanionButton();
+    return true
+  }
+  if(!fwState.active)return false;
+  const manager=window.FoamLensPlotSurfaces,host=document.getElementById('fw2DHost'),
+    grid=document.getElementById('fwGrid'),profile=document.getElementById('profileControls');
+  if(!host||!grid||!profile||typeof manager?.ensure!=='function'||
+    typeof manager?.activate!=='function')return false;
+  // Capture Data's view/pins before giving Field its own canonical canvas.
+  // The manager is the sole owner of canvas identity and state restoration.
+  const surface=manager.ensure('field',host);if(!surface)return false;
+  if(manager.activate('field',host,{restore:true})===false)return false;
+  fwOwnProfileCompanionControls();
+  if(currentDataView!=='profile')try{fwPrevSetDataView('profile')}catch(e){console.warn('Field profile view:',e)}
+  fwSetLayout('split');
+  fwSetCompanion('profile');
+  const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='';
+  fwSyncProfileCompanionButton();
+  fwScheduleRender({threeD:true,twoD:true});
+  return true
+}
 function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
@@ -170,7 +219,9 @@ function fwSetInspector(open){
   drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
 }
 function fwActivateView(view){
-  // Field owns 3D geometry only. Imported legacy layouts cannot reopen Data plots here.
+  // Field's primary tab remains 3D. The optional companion uses its own
+  // surface, never an imported Data navigation tab or a duplicate chart.
+  if(fwState.layout==='split')fwToggleProfileCompanion(false);
   view='3d';fwState.view=view;
   if(view==='profile'){fwSetCompanion('profile');fwSetLayout('plot')}
   else if(view==='timeseries'){fwSetCompanion('timeseries');fwSetLayout('plot')}
@@ -908,6 +959,9 @@ function fwLeave(){
   ++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
+  // Leaving Field must not leave a stale split flag, but the plot manager
+  // still captures the FIELD plot before activating/restoring Data below.
+  if(fwState.layout==='split'){fwSetLayout('3d');fwSyncProfileCompanionButton()}
   // The plot-surface manager captures the outgoing Field view *after* this
   // handler returns. Do not overwrite currentDataView beforehand or the Field
   // snapshot inherits Data's previous view (and loses its own plot selection).
