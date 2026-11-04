@@ -73,6 +73,40 @@ test('phase evidence distinguishes solidifying and remelting during rebound inte
   const b=api.evPhaseEvidenceAtRebound([0,1,2,3,4],[.4,.5,.65,.8,.9],rebound);assert.equal(b.state,'remelting');near(b.delta,.3);
 });
 
+test('missing temperature and time samples are never silently converted into physical zero',()=>{
+  assert.deepEqual(api.evFinitePairs([null,1],[800,700]),[[1,700]]);
+  assert.deepEqual(api.evFinitePairs([0,1],[800,'']),[[0,800]]);
+  assert.deepEqual(api.evFinitePairs([0,1],[800,false]),[[0,800]]);
+  const kelvin=api.evTemperatureToKelvin(['',null,'NaN',20],'C');
+  assert(kelvin.slice(0,3).every(Number.isNaN));
+  near(kelvin[3],293.15);
+  const table={rows:[[null,900],[1,800],['',700],[2,700]],headers:['time','T']};
+  assert.deepEqual(api.evExtractColumns(table,0,1),{t:[1,2],y:[800,700]});
+});
+
+test('comparison rejects singleton overlap, repeated-only time, bad shift and conflicting duplicate temperatures',()=>{
+  const single=api.evCompareCurves([0,1,2],[100,90,80],[1,10],[91,40]);
+  assert.equal(single.valid,false,'one shared time is not a cooling curve');
+  assert.equal(single.n,0);
+  const repeated=api.evCompareCurves([0,1,2],[100,90,80],[1,1],[91,92]);
+  assert.equal(repeated.valid,false,'same instant twice is not two independent samples');
+  const contradictory=api.evCompareCurves([0,1,1,2],[100,90,91,80],[0,1,2],[100,90,80]);
+  assert.equal(contradictory.valid,false,'conflicting model temperatures at one timestamp must fail closed');
+  const shifted=api.evCompareCurves([0,1,2],[100,90,80],[0,1,2],[100,90,80],NaN);
+  assert.equal(shifted.valid,false,'invalid shift must not silently become zero');
+  const identicalRepeat=api.evCompareCurves([0,1,1,2],[100,90,90,80],[0,1,2],[100,90,80],0);
+  assert(identicalRepeat.valid);
+  assert.equal(identicalRepeat.n,3,'identical duplicate samples must not overweight RMSE');
+  near(identicalRepeat.rmse,0);
+});
+
+test('same-time conflicting phase values cannot create fabricated phase onset and duration',()=>{
+  const r=api.evPhaseMetrics([0,0,1],[1,0,0],{onsetThreshold:.95,completionThreshold:.05});
+  assert(Number.isNaN(r.onset));
+  assert(Number.isNaN(r.completion));
+  assert(Number.isNaN(r.duration));
+});
+
 test('phase role is never inferred from alpha1, and conversion is explicit',()=>{
   const unknown=api.evNormalizeLiquidFraction([0,.2,.5,1],'');
   assert.equal(unknown.ok,false);assert.equal(unknown.reason,'unconfirmed-role');
