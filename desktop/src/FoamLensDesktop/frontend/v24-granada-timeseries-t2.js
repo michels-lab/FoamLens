@@ -2,7 +2,7 @@
    Existing selectors, generator controls, and listeners are reparented, never cloned. */
 (function(){
   'use strict';
-  const state={installed:false,busy:false,cancel:null,build:null,observer:null,progress:null};
+  const state={installed:false,busy:false,cancel:null,build:null,observer:null,emptyObserver:null,progress:null};
   const byId=id=>document.getElementById(id);
   function translate(en,es){
     try{return typeof flUi==='function'?flUi(en,es):(byId('language')?.value==='es'?es:en)}catch{return en}
@@ -47,6 +47,24 @@
       'Cancelado. La lectura en curso puede terminar, pero no se guardará la historia cancelada.'));
     return true;
   }
+  function refreshEmptyState(){
+    const note=byId('gr176EmptyHint'),badge=byId('timeSeriesFocusBadge');
+    if(!note||!badge)return;
+    // The original chart/filter code owns the matching-curve count. Do not
+    // confuse an available OpenFOAM 3D field with an already plotted history.
+    const current=Number.parseInt(String(badge.textContent||'').trim(),10);
+    if(!Number.isFinite(current)){note.hidden=true;return}
+    note.hidden=current!==0;
+    if(note.hidden)return;
+    const all=typeof series!=='undefined'&&Array.isArray(series)?
+      series.filter(s=>typeof datasetTypeOf==='function'?
+        datasetTypeOf(s)==='timeseries':s?.datasetType==='timeseries').length:null;
+    note.textContent=all>0?
+      translate('No plotted curves match the current filters. Use Reset filters or Show all variables above to see existing histories.',
+                'Ninguna curva coincide con los filtros actuales. Usa Restablecer filtros o Mostrar todas las variables arriba para ver las historias existentes.'):
+      translate('No time-series curves yet. Choose an original OpenFOAM case, region and field in the Create history panel below, then Build. Available fields are not curves until the build finishes.',
+                'Aún no hay curvas temporales. Elige un caso OpenFOAM original, región y campo en Crear historia abajo y pulsa Generar. Los campos disponibles no son curvas hasta terminar la generación.');
+  }
   function updateLanguage(){
     const t=byId('gr176ExistingTitle'),h=byId('gr176HistoryTitle'),note=byId('gr176HistoryHelp'),cancel=byId('gr176Cancel');
     if(t)t.textContent=translate('Existing time series','Series temporales existentes');
@@ -56,6 +74,7 @@
       'Dos fuentes independientes. Elige caso, región, campo, componente y estadístico en tiempo físico. No hay curva hasta terminar la generación.');
     if(cancel){cancel.textContent=translate('Cancel build','Cancelar generación');cancel.setAttribute('aria-label',cancel.textContent)}
     if(state.busy)setBusy(true);
+    refreshEmptyState();
   }
   function installStyle(){
     if(byId('gr176TimeSeriesStyle'))return;
@@ -88,6 +107,8 @@
       '.gr176Pending{font-size:10px;line-height:1.5;color:var(--muted)}',
       '.gr176Pending:empty{display:none}',
       '.gr176Card #fwTsStatus{min-height:18px;overflow-wrap:anywhere}',
+      '.gr176EmptyHint{margin:0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:var(--panel);color:var(--muted);font-size:11px;line-height:1.5}',
+      '.gr176EmptyHint[hidden]{display:none!important}',
       '.gr176Card .timeSeriesActions{display:flex;gap:7px;flex-wrap:wrap}',
       '.gr176Card .timeSeriesHint,.gr176Card .smallnote{font-size:10px;line-height:1.5;overflow-wrap:anywhere}',
       '.gr176Card :is(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
@@ -107,6 +128,9 @@
     const existingHead=document.createElement('div');existingHead.className='gr176CardHead';
     const existingTitle=document.createElement('h3');existingTitle.id='gr176ExistingTitle';existingHead.appendChild(existingTitle);
     existing.appendChild(existingHead);
+    const empty=document.createElement('p');empty.id='gr176EmptyHint';
+    empty.className='gr176EmptyHint';empty.setAttribute('role','status');
+    empty.setAttribute('aria-live','polite');existing.appendChild(empty);
     const history=document.createElement('section');history.id='gr176HistoryCard';history.className='gr176Card';
     history.setAttribute('aria-labelledby','gr176HistoryTitle');
     const historyHead=document.createElement('div');historyHead.className='gr176CardHead';
@@ -153,11 +177,16 @@
       });
       state.observer.observe(status,{subtree:true,characterData:true,childList:true});
     }
+    const count=byId('timeSeriesFocusBadge');
+    if(count){
+      state.emptyObserver=new MutationObserver(refreshEmptyState);
+      state.emptyObserver.observe(count,{childList:true,characterData:true,subtree:true});
+    }
     document.addEventListener('foamlens-language-change',updateLanguage);
     document.addEventListener('foamlens-field-history-progress',onSourceProgress);
     updateLanguage();
     try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(error){console.warn('Granada G3 field options refresh not ready',error)}
-    window.FoamLensGranadaT2={installed:()=>state.installed,isBuilding:()=>state.busy,cancel:cancelHistory,refreshLabels:updateLanguage};
+    window.FoamLensGranadaT2={installed:()=>state.installed,isBuilding:()=>state.busy,cancel:cancelHistory,refreshLabels:updateLanguage,refreshEmpty:refreshEmptyState};
     return true;
   }
   if(!install()){
