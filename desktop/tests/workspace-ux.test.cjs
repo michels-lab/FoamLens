@@ -276,6 +276,16 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
   const end=field.indexOf('function fwSetInspector(',begin);
   assert(begin>0&&end>begin,'Production profile companion and original layout owner required');
   assert(field.includes('id="fwToggle3DProfile"'));
+  const mainCard=field.slice(field.indexOf('<div class="fwGrid layout-3d"'),
+    field.indexOf('</main>',field.indexOf('<div class="fwGrid layout-3d"')));
+  const hiddenWorkspaceBar=field.slice(field.indexOf('id="fwViewTabs"'),
+    field.indexOf('<div class="fwGrid layout-3d"'));
+  assert(mainCard.includes('id="fwToggle3DProfile"'),
+    'Profile companion action must be in the always-visible 3D card header');
+  assert(!hiddenWorkspaceBar.includes('id="fwToggle3DProfile"'),
+    'Ribbon hides fwWorkspaceBar: never mount the only companion action there');
+  assert(ribbon.includes('body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important'),
+    'The test must exercise the actual Ribbon-hides-toolbar contract');
   assert(!field.includes('data-fw-view="split"'),'Field must retain original single 3D navigation tab');
   const classes=new Set(['layout-3d']),attrs={};
   const original={id:'dataOwner'},fieldHost={id:'fw2DControlsHost'};
