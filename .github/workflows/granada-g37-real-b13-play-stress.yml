@@ -36,7 +36,10 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: foamlens-g37-real-native-B13-Play
+  # The PR event deliberately skips the genuine private native job. Keep it from
+  # cancelling the push event that actually runs 3 Portable + 3 Installed starts.
+  # Separate refs also prevent one QA branch cancelling a live-main proof.
+  group: foamlens-g37-real-native-B13-Play-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   fail-closed-source-regression:
