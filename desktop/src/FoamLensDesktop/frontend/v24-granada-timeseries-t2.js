@@ -2,13 +2,13 @@
    Existing selectors, generator controls, and listeners are reparented, never cloned. */
 (function(){
   'use strict';
-  const state={installed:false,busy:false,cancel:null,build:null,observer:null,emptyObserver:null,progress:null};
+  const state={installed:false,busy:false,cancel:null,build:null,observer:null,emptyObserver:null,progressBySlot:{}};
   const byId=id=>document.getElementById(id);
   function translate(en,es){
     try{return typeof flUi==='function'?flUi(en,es):(byId('language')?.value==='es'?es:en)}catch{return en}
   }
   function setBusy(busy){
-    if(busy&&!state.busy)state.progress=null;
+    if(busy&&!state.busy)state.progressBySlot={};
     state.busy=!!busy;
     if(state.cancel)state.cancel.disabled=!state.busy;
     if(state.build){state.build.setAttribute('aria-busy',state.busy?'true':'false')}
@@ -16,7 +16,8 @@
     if(section)section.dataset.loading=state.busy?'true':'false';
     const pending=byId('gr176Pending');
     if(pending)pending.textContent=state.busy?
-      (state.progress?historyProgressLabel(state.progress):
+      (Object.keys(state.progressBySlot).length?
+        [1,2].filter(slot=>state.progressBySlot[slot]).map(slot=>historyProgressLabel(state.progressBySlot[slot])).join(' · '):
         translate('Reading original source data…','Leyendo datos originales de la fuente…')):'';
   }
   function historyProgressLabel(p){
@@ -31,9 +32,14 @@
     if(typeof fwState==='undefined'||p.seq!==fwState.fieldTsSeq)return;
     if(!Number.isSafeInteger(p.completed)||!Number.isSafeInteger(p.total)||
       p.total<1||p.completed<1||p.completed>p.total)return;
-    state.progress={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
+    const old=state.progressBySlot[p.slot];
+    // A late duplicate/out-of-order event must never move a source backwards
+    // or present a different source type as progress from the same build slot.
+    if(old&&(old.seq!==p.seq||old.source!==p.source||old.total!==p.total||p.completed<=old.completed))return;
+    state.progressBySlot[p.slot]={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
     const status=byId('gr176Pending');
-    if(status)status.textContent=historyProgressLabel(state.progress);
+    if(status)status.textContent=[1,2].filter(slot=>state.progressBySlot[slot])
+      .map(slot=>historyProgressLabel(state.progressBySlot[slot])).join(' · ');
   }
   function cancelHistory(){
     if(!state.busy)return false;
@@ -72,7 +78,7 @@
     if(note)note.textContent=translate(
       'Two independent source slots. Choose a case, region, field, component and physical-time statistic. No curve exists until Build finishes.',
       'Dos fuentes independientes. Elige caso, región, campo, componente y estadístico en tiempo físico. No hay curva hasta terminar la generación.');
-    if(cancel){cancel.textContent=translate('Cancel build','Cancelar generación');cancel.setAttribute('aria-label',cancel.textContent)}
+    if(cancel){cancel.textContent=translate('Cancel build (Esc)','Cancelar generación (Esc)');cancel.setAttribute('aria-label',cancel.textContent)}
     if(state.busy)setBusy(true);
     refreshEmptyState();
   }
@@ -154,7 +160,7 @@
     const actions=document.createElement('div');actions.className='gr176HistoryActions';
     build.parentNode.insertBefore(actions,build);actions.appendChild(build);
     const cancel=document.createElement('button');cancel.id='gr176Cancel';cancel.type='button';
-    cancel.className='btn soft';cancel.disabled=true;actions.appendChild(cancel);
+    cancel.className='btn soft';cancel.disabled=true;cancel.setAttribute('aria-keyshortcuts','Escape');actions.appendChild(cancel);
     const pending=document.createElement('div');pending.id='gr176Pending';pending.className='gr176Pending';
     pending.setAttribute('role','status');pending.setAttribute('aria-live','polite');
     actions.insertAdjacentElement('afterend',pending);
@@ -167,6 +173,12 @@
       if(allowed&&!build.disabled)setBusy(true);
     },true);
     cancel.addEventListener('click',cancelHistory);
+    // Scope Escape to focused controls inside Time Series. Never consume a
+    // global Escape (e.g. a modal or 3D camera shortcut) when no build is active.
+    panel.addEventListener('keydown',event=>{
+      if(event?.key!=='Escape'||!state.busy)return;
+      if(cancelHistory()){event.preventDefault?.();event.stopPropagation?.()}
+    });
     const status=byId('fwTsStatus');
     if(status){
       status.setAttribute('aria-live','polite');
