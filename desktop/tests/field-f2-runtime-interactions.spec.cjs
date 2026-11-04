@@ -101,7 +101,6 @@ grid.handlers.keydown({key:'Escape',preventDefault:()=>defaults++,stopPropagatio
 assert.equal(defaults,1,'Idle Escape must remain available to other FoamLens actions');
 assert.equal(stops,1);
 assert.equal(api.focus(b.panel),true);
-document.getElementById; // Keep this runtime test independent of specific theme DOM.
 assert.equal(api.focus(b.panel),true);
 
 const report=api.measure();
