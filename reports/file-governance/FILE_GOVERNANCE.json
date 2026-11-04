@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 64
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "1756ae8f410181121bc6de70b5985028ece0fd55c812ed133a56601d84e8d25a",
-  "evidence_fingerprint": "b7a03cb2d9bd78824f0e9e665a39237a7c24091bd7ee0356689b17ee1a741bae",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "a25a8e7bd8daf6d738243425af0e86a3547a2410e19f16477709ebfb3158c00e",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1112,7 +1110,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "69441e76ca0b23e2626ca03f87aa220ac8f5b274"
+      "blob": "2d596182611acbc14821fac43e6537af95da0702"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
@@ -1504,7 +1502,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5f0a0a8788bfab4d26ca9db39942a73e5d025b92"
+      "blob": "6e196f5a9370c23fc1818e7345e39028d1d793fe"
     },
     {
       "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
@@ -2092,7 +2090,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "02fa0459b48fb8d13b720fc2c71fa37286c61472"
+      "blob": "43b050bc647dd0e230c35106cceefd01eec89233"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3453,17 +3451,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "ad3b3d8b6e5caddd",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "10 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g20-original-main-b13.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g20_field_f1_png_gate.py, tools/granada_g20_original_main_real_b13.ps1, tools/granada_g20_private_b13_extract.py, tools/granada_g37_per_restart_source_gate.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
