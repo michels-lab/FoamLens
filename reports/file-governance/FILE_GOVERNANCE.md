@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 486; classified: 482; readable documents: 104; above read cap: 1; findings: 1.
+Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,19 +16,19 @@ Tracked: 486; classified: 482; readable documents: 104; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 98 |
+| document | 99 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 146 |
-| test | 131 |
+| source | 149 |
+| test | 133 |
 | text_metadata | 1 |
 | web_ui | 2 |
-| workflow | 63 |
+| workflow | 64 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 4 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g37_per_restart_source_gate.cjs, tools/granada_g37_per_restart_source_gate.test.cjs, tools/granada_g37_real_b13_play_stress.ps1. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID ed696ca9d89a0395)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 10 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g20-original-main-b13.yml, .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g20_field_f1_png_gate.py, tools/granada_g20_original_main_real_b13.ps1, tools/granada_g20_private_b13_extract.py, tools/granada_g37_per_restart_source_gate.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID ad3b3d8b6e5caddd)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
