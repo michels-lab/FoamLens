@@ -90,7 +90,8 @@ function pvSyncFocusButtons(){
     btn.setAttribute('aria-pressed',focused?'true':'false');
     btn.setAttribute('aria-label',prefix+label);
     btn.title=prefix+label;
-    btn.textContent=label;
+    // A watched subtree must not self-trigger an endless MutationObserver loop.
+    if(btn.textContent!==label)btn.textContent=label;
   }
 }
 function pvReconcileFocus(){
