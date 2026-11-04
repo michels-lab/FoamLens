@@ -118,6 +118,12 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
  $doG56=($variant -eq 'portable' -and $n -eq 1)
  if($doG56){$env:FOAMLENS_SMOKE_TIMESERIES_B13='1'}else{Remove-Item Env:FOAMLENS_SMOKE_TIMESERIES_B13 -ErrorAction SilentlyContinue}
  if(Test-Path -LiteralPath $log){Remove-Item -LiteralPath $log -Force}
+ # Original source files are SHA-256 sealed immediately before EACH native
+ # restart, rather than trusting a single once-per-job fixture check.
+ $metalOriginal=Join-Path $fixture 'B13_prghPressure_airGapOF14/9.8/metal/T'
+ $moldOriginal=Join-Path $fixture 'B13_prghPressure_airGapOF14/9.8/mold/T'
+ $metalShaBefore=(Get-FileHash -LiteralPath $metalOriginal -Algorithm SHA256).Hash.ToLowerInvariant()
+ $moldShaBefore=(Get-FileHash -LiteralPath $moldOriginal -Algorithm SHA256).Hash.ToLowerInvariant()
  Write-Host "G37 GENUINE PRIVATE B13 native $variant attempt $n/3: 1140+640px Field Play and real metal/mold"
  $p=Start-Process -FilePath $app -ArgumentList @('--smoke-test') -PassThru
  try{
@@ -144,6 +150,14 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   $picture=Join-Path $env:FOAMLENS_BRAND_EVIDENCE_DIR $png
   Need ((Test-Path -LiteralPath $picture) -and (Get-Item -LiteralPath $picture).Length -gt 10000) "$variant/$n real native $png absent"
  }
+ # G14b→G37: a successful EXE exit and image file size are not independent
+ # source/PNG evidence. Check 9.8s metal+mold bytes are identical to their
+ # pre-launch SHA values AND validate full PNG chunk CRC + decoded pixel stream
+ # for both original Field viewports on EVERY one of the six startups.
+ # Only sanitized booleans escape this ephemeral private folder.
+ & node tools/granada_g37_per_restart_source_gate.cjs --case-root $fixture --capture-dir $folder --native-log $log --expected-metal $metalShaBefore --expected-mold $moldShaBefore
+ Need ($LASTEXITCODE -eq 0) "$variant/$n original metal/mold SHA or Field PNG CRC per-restart evidence failed"
+ Need (Test-Path -LiteralPath (Join-Path $folder 'original-source-and-png-proof.json')) "$variant/$n per-start original source proof absent"
  Write-Host "G57 SANITIZED native completion: $variant cycle $n / 3 (real B13, no private scientific values)"
  $script:attempts+=@{
   mode=$variant
@@ -154,6 +168,9 @@ function Native-Smoke([string]$app,[string]$variant,[int]$n){
   originalTimeSeriesWideAndCompactScreenshots=$true
   realFieldPlayWide1140AndCompact640=$true
   bothOriginalWebView2FieldPng=$true
+  sourceAndPngEvidencePassed=$true
+  originalMetalMoldShaUnchangedPerStart=$true
+  originalFieldWideAndCompactPngCrcDecoded=$true
  }
 }
 function Run-Inno([string]$path,[string[]]$installOptions,[string]$label){
@@ -186,6 +203,7 @@ try{
  Need (-not(Test-Path -LiteralPath $installedExe)) 'native installed binary left after uninstall'
  Need ($script:attempts.Count -eq 6) 'six fresh real native original B13 Field/Play cases required'
  Need (@($script:attempts|Where-Object {$_.originalB13TwoRegionTimeSeriesNumbersVerified -eq $true}).Count -eq 1) 'original B13 two-region numeric evidence required'
+ Need (@($script:attempts|Where-Object {$_.sourceAndPngEvidencePassed -ne $true}).Count -eq 0) 'original source SHA and PNG CRC witness missing on one or more native starts'
  $success=$true
  Write-Host 'G37 PASS actual real B13 native 3 Portable+3 Installed, original 1140/640 Play and metal/mold'
 }catch{
@@ -204,6 +222,7 @@ try{
   expectedInstalledStarts=3
   completedAttempts=@($script:attempts)
   realNativeB13SixCycleGatePassed=$success
+  originalB13AllSixPerRestartSourceAndPngGatePassed=$success
   originalInnoInstalledAndUninstalled=$success
   publishedRealCaseFilesOrImages=$false
   physicalWindowsDpiAcceptance=$false
