@@ -1,8 +1,7 @@
 name: G20 real measured QuickCup B13 on original main Windows (no release)
 on:
-  push:
-    branches:
-      - test/granada-g20-real-quickcup-original-main-20261023
+  # A single automatic QA entry point avoids duplicate expensive QuickCup
+  # native runs and the old cross-event cancellation of a valid 2+2 proof.
   pull_request:
     paths:
       - '.github/workflows/granada-g20-original-main-b13.yml'
@@ -12,7 +11,8 @@ on:
       - 'tools/granada_g20_private_b13_extract.py'
   workflow_dispatch:
 concurrency:
-  group: foamlens-original-g20-science
+  # PR revisions deduplicate; manual scientific reruns use a separate group.
+  group: foamlens-original-g20-science-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
