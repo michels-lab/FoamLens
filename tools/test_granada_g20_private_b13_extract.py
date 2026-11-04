@@ -36,5 +36,25 @@ class G20PrivateB13Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Destination must be new"):
             prepare(Path("."),Path("."))
 
+    def test_g20_private_native_run_does_not_compete_with_its_own_pr(self):
+        workflow = (Path(__file__).resolve().parent.parent /
+                    ".github/workflows/granada-g20-original-main-b13.yml").read_text(encoding="utf-8")
+        triggers = workflow.split("on:\n", 1)[1].split("concurrency:\n", 1)[0]
+        concurrency = workflow.split("concurrency:\n", 1)[1].split("permissions:\n", 1)[0]
+        self.assertIn("  pull_request:\n", triggers)
+        self.assertIn("  workflow_dispatch:\n", triggers)
+        self.assertNotIn("  push:\n", triggers, "old push+PR collision must not return")
+        self.assertIn("github.event_name", concurrency)
+        self.assertIn("github.event.pull_request.number || github.ref", concurrency)
+        self.assertIn("cancel-in-progress: true", concurrency)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", workflow,
+                      "private B13 may never be exposed to a fork PR")
+        self.assertIn("HAS_QUICKCUP", workflow)
+        # Same-failure negative fixture: reintroducing old parallel push event must fail.
+        mutated = triggers.replace("  pull_request:\n", "  push:\n  pull_request:\n")
+        with self.assertRaises(AssertionError):
+            self.assertNotIn("  push:\n", mutated)
+
+
 if __name__=="__main__":
     unittest.main()
