@@ -2,13 +2,13 @@
    Existing selectors, generator controls, and listeners are reparented, never cloned. */
 (function(){
   'use strict';
-  const state={installed:false,busy:false,cancel:null,build:null,observer:null,progress:null};
+  const state={installed:false,busy:false,cancel:null,build:null,observer:null,emptyObserver:null,progressBySlot:{}};
   const byId=id=>document.getElementById(id);
   function translate(en,es){
     try{return typeof flUi==='function'?flUi(en,es):(byId('language')?.value==='es'?es:en)}catch{return en}
   }
   function setBusy(busy){
-    if(busy&&!state.busy)state.progress=null;
+    if(busy&&!state.busy)state.progressBySlot={};
     state.busy=!!busy;
     if(state.cancel)state.cancel.disabled=!state.busy;
     if(state.build){state.build.setAttribute('aria-busy',state.busy?'true':'false')}
@@ -16,7 +16,8 @@
     if(section)section.dataset.loading=state.busy?'true':'false';
     const pending=byId('gr176Pending');
     if(pending)pending.textContent=state.busy?
-      (state.progress?historyProgressLabel(state.progress):
+      (Object.keys(state.progressBySlot).length?
+        [1,2].filter(slot=>state.progressBySlot[slot]).map(slot=>historyProgressLabel(state.progressBySlot[slot])).join(' · '):
         translate('Reading original source data…','Leyendo datos originales de la fuente…')):'';
   }
   function historyProgressLabel(p){
@@ -31,9 +32,14 @@
     if(typeof fwState==='undefined'||p.seq!==fwState.fieldTsSeq)return;
     if(!Number.isSafeInteger(p.completed)||!Number.isSafeInteger(p.total)||
       p.total<1||p.completed<1||p.completed>p.total)return;
-    state.progress={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
+    const old=state.progressBySlot[p.slot];
+    // A late duplicate/out-of-order event must never move a source backwards
+    // or present a different source type as progress from the same build slot.
+    if(old&&(old.seq!==p.seq||old.source!==p.source||old.total!==p.total||p.completed<=old.completed))return;
+    state.progressBySlot[p.slot]={slot:p.slot,completed:p.completed,total:p.total,seq:p.seq,source:p.source};
     const status=byId('gr176Pending');
-    if(status)status.textContent=historyProgressLabel(state.progress);
+    if(status)status.textContent=[1,2].filter(slot=>state.progressBySlot[slot])
+      .map(slot=>historyProgressLabel(state.progressBySlot[slot])).join(' · ');
   }
   function cancelHistory(){
     if(!state.busy)return false;
@@ -47,6 +53,24 @@
       'Cancelado. La lectura en curso puede terminar, pero no se guardará la historia cancelada.'));
     return true;
   }
+  function refreshEmptyState(){
+    const note=byId('gr176EmptyHint'),badge=byId('timeSeriesFocusBadge');
+    if(!note||!badge)return;
+    // The original chart/filter code owns the matching-curve count. Do not
+    // confuse an available OpenFOAM 3D field with an already plotted history.
+    const current=Number.parseInt(String(badge.textContent||'').trim(),10);
+    if(!Number.isFinite(current)){note.hidden=true;return}
+    note.hidden=current!==0;
+    if(note.hidden)return;
+    const all=typeof series!=='undefined'&&Array.isArray(series)?
+      series.filter(s=>typeof datasetTypeOf==='function'?
+        datasetTypeOf(s)==='timeseries':s?.datasetType==='timeseries').length:null;
+    note.textContent=all>0?
+      translate('No plotted curves match the current filters. Use Reset filters or Show all variables above to see existing histories.',
+                'Ninguna curva coincide con los filtros actuales. Usa Restablecer filtros o Mostrar todas las variables arriba para ver las historias existentes.'):
+      translate('No time-series curves yet. Choose an original OpenFOAM case, region and field in the Create history panel below, then Build. Available fields are not curves until the build finishes.',
+                'Aún no hay curvas temporales. Elige un caso OpenFOAM original, región y campo en Crear historia abajo y pulsa Generar. Los campos disponibles no son curvas hasta terminar la generación.');
+  }
   function updateLanguage(){
     const t=byId('gr176ExistingTitle'),h=byId('gr176HistoryTitle'),note=byId('gr176HistoryHelp'),cancel=byId('gr176Cancel');
     if(t)t.textContent=translate('Existing time series','Series temporales existentes');
@@ -54,8 +78,9 @@
     if(note)note.textContent=translate(
       'Two independent source slots. Choose a case, region, field, component and physical-time statistic. No curve exists until Build finishes.',
       'Dos fuentes independientes. Elige caso, región, campo, componente y estadístico en tiempo físico. No hay curva hasta terminar la generación.');
-    if(cancel){cancel.textContent=translate('Cancel build','Cancelar generación');cancel.setAttribute('aria-label',cancel.textContent)}
+    if(cancel){cancel.textContent=translate('Cancel build (Esc)','Cancelar generación (Esc)');cancel.setAttribute('aria-label',cancel.textContent)}
     if(state.busy)setBusy(true);
+    refreshEmptyState();
   }
   function installStyle(){
     if(byId('gr176TimeSeriesStyle'))return;
@@ -88,6 +113,8 @@
       '.gr176Pending{font-size:10px;line-height:1.5;color:var(--muted)}',
       '.gr176Pending:empty{display:none}',
       '.gr176Card #fwTsStatus{min-height:18px;overflow-wrap:anywhere}',
+      '.gr176EmptyHint{margin:0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:var(--panel);color:var(--muted);font-size:11px;line-height:1.5}',
+      '.gr176EmptyHint[hidden]{display:none!important}',
       '.gr176Card .timeSeriesActions{display:flex;gap:7px;flex-wrap:wrap}',
       '.gr176Card .timeSeriesHint,.gr176Card .smallnote{font-size:10px;line-height:1.5;overflow-wrap:anywhere}',
       '.gr176Card :is(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
@@ -107,6 +134,9 @@
     const existingHead=document.createElement('div');existingHead.className='gr176CardHead';
     const existingTitle=document.createElement('h3');existingTitle.id='gr176ExistingTitle';existingHead.appendChild(existingTitle);
     existing.appendChild(existingHead);
+    const empty=document.createElement('p');empty.id='gr176EmptyHint';
+    empty.className='gr176EmptyHint';empty.setAttribute('role','status');
+    empty.setAttribute('aria-live','polite');existing.appendChild(empty);
     const history=document.createElement('section');history.id='gr176HistoryCard';history.className='gr176Card';
     history.setAttribute('aria-labelledby','gr176HistoryTitle');
     const historyHead=document.createElement('div');historyHead.className='gr176CardHead';
@@ -130,7 +160,7 @@
     const actions=document.createElement('div');actions.className='gr176HistoryActions';
     build.parentNode.insertBefore(actions,build);actions.appendChild(build);
     const cancel=document.createElement('button');cancel.id='gr176Cancel';cancel.type='button';
-    cancel.className='btn soft';cancel.disabled=true;actions.appendChild(cancel);
+    cancel.className='btn soft';cancel.disabled=true;cancel.setAttribute('aria-keyshortcuts','Escape');actions.appendChild(cancel);
     const pending=document.createElement('div');pending.id='gr176Pending';pending.className='gr176Pending';
     pending.setAttribute('role','status');pending.setAttribute('aria-live','polite');
     actions.insertAdjacentElement('afterend',pending);
@@ -143,6 +173,12 @@
       if(allowed&&!build.disabled)setBusy(true);
     },true);
     cancel.addEventListener('click',cancelHistory);
+    // Scope Escape to focused controls inside Time Series. Never consume a
+    // global Escape (e.g. a modal or 3D camera shortcut) when no build is active.
+    panel.addEventListener('keydown',event=>{
+      if(event?.key!=='Escape'||!state.busy)return;
+      if(cancelHistory()){event.preventDefault?.();event.stopPropagation?.()}
+    });
     const status=byId('fwTsStatus');
     if(status){
       status.setAttribute('aria-live','polite');
@@ -153,11 +189,16 @@
       });
       state.observer.observe(status,{subtree:true,characterData:true,childList:true});
     }
+    const count=byId('timeSeriesFocusBadge');
+    if(count){
+      state.emptyObserver=new MutationObserver(refreshEmptyState);
+      state.emptyObserver.observe(count,{childList:true,characterData:true,subtree:true});
+    }
     document.addEventListener('foamlens-language-change',updateLanguage);
     document.addEventListener('foamlens-field-history-progress',onSourceProgress);
     updateLanguage();
     try{if(typeof fwRefreshFieldTsControls==='function')fwRefreshFieldTsControls()}catch(error){console.warn('Granada G3 field options refresh not ready',error)}
-    window.FoamLensGranadaT2={installed:()=>state.installed,isBuilding:()=>state.busy,cancel:cancelHistory,refreshLabels:updateLanguage};
+    window.FoamLensGranadaT2={installed:()=>state.installed,isBuilding:()=>state.busy,cancel:cancelHistory,refreshLabels:updateLanguage,refreshEmpty:refreshEmptyState};
     return true;
   }
   if(!install()){
