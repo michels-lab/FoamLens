@@ -837,7 +837,12 @@ function fwAdd3DView(){
       fwUpdateViewCount();setTimeout(()=>(document.querySelector('#fcViewport [data-fc-bind="Case"]')||document.getElementById('fcCase'))?.focus(),0);return
     }
     if(typeof fcExtraAdd==='function'&&2+fcExtraViews.length<FC_MAX_TOTAL_VIEWS){
-      fcExtraAdd();fwUpdateViewCount();
+      const added=fcExtraAdd();fwUpdateViewCount();
+      if(!added){
+        fvSetStatus(fwUi('3D view controls are not ready yet. Open Field and try again.',
+          'Los controles 3D aún no están listos. Abre Field e inténtalo de nuevo.'),true);
+        return
+      }
       const id=fcExtraViews.at(-1)?.id;if(id)setTimeout(()=>(document.querySelector('#fcExtra'+id+'Viewport [data-fc-bind="Case"]')||document.getElementById('fcExtra'+id+'Case'))?.focus(),0);
       return
     }
