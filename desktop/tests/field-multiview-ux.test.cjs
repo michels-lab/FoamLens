@@ -22,7 +22,7 @@ const api=new Function(
   'fvState','fcState','fcExtraViews','fcCamerasLinked','fcCameraFor',
   'fvRender','fcRender','fcRenderDifference','fcExtraRender','fcScheduleLayoutRender',
   'document','requestAnimationFrame','fcFitAllCameras','fvCameraFitCurrent','fcFitCameraState',
-  source.slice(begin,end)+';return{fcViewSourceMap,fcZoomViewport,fcMoveViewport,fcFitViewport};'
+  source.slice(begin,end)+';return{fcViewSourceMap,fcZoomViewport,fcMoveViewport,fcFitViewport,fcVisibleViewportNeighbor};'
 )(fvState,fcState,fcExtraViews,()=>linked,(state)=>state.camera,
   ()=>redraw.primary++,()=>redraw.secondary++,()=>redraw.difference++,()=>redraw.extra++,()=>redraw.layout++,
   {},()=>0,
@@ -138,6 +138,21 @@ assert.strictEqual(api.fcMoveViewport(grid,nodes[0],nodes[1],true),true);
 assert.deepStrictEqual(order.map(x=>x.id),['b','a','c'],'drag reorder must retain identical existing renderer DOM nodes');
 assert.strictEqual(api.fcMoveViewport(grid,nodes[0],nodes[0],false),false,'self-drop must do nothing');
 assert.strictEqual(redraw.layout,1);
+{
+  const v=[{id:'A'},{id:'Δ'},{id:'B'},{id:'C'}];
+  for(let i=0;i<v.length;i++){
+    const me=v[i];
+    me.classList={contains:key=>key==='fvViewport'||(key==='hidden'&&me.id==='Δ')};
+    Object.defineProperty(me,'previousElementSibling',{get:()=>v[i-1]||null});
+    Object.defineProperty(me,'nextElementSibling',{get:()=>v[i+1]||null});
+  }
+  assert.strictEqual(api.fcVisibleViewportNeighbor(v[0],'ArrowRight'),v[2],
+    'ArrowRight must skip a hidden derived panel instead of moving into it');
+  assert.strictEqual(api.fcVisibleViewportNeighbor(v[2],'ArrowLeft'),v[0]);
+  assert.strictEqual(api.fcVisibleViewportNeighbor(v[3],'ArrowRight'),null);
+  assert.strictEqual(api.fcVisibleViewportNeighbor(v[0],'Escape'),null,
+    'Unrelated shortcuts must remain untouched');
+}
 // Per-view Fit: B and C use their own measured mesh and camera only while
 // independent. Linked cameras explicitly request shared Fit All instead.
 linked=false;
