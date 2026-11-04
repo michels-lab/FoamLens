@@ -261,6 +261,16 @@ function tsdUpdateScientificEvidence(){
   panel.open=wasOpen||warnings.length>0
 }
 
+// The dual-variable override runs after the original Data controller. Keep
+// visibility scoped to its real workspace; otherwise a language/source refresh
+// can resurrect a hidden Time Series panel over Profiles or Field.
+function tsdShouldShowPanel(hasCurves){
+  const inData=typeof activeAppMode==='undefined'||activeAppMode==='data';
+  const inTimeSeries=typeof currentDataView==='undefined'||currentDataView==='timeseries';
+  const builder=!!document.getElementById('gr176HistoryCard')&&
+    !!document.getElementById('fwBuildFieldHistories');
+  return inData&&inTimeSeries&&(!!hasCurves||builder)
+}
 function tsdRefreshTimeSeriesControls(){
   const panel=document.getElementById('timeSeriesControls'),vSel=document.getElementById('timeSeriesVariable'),v2Sel=document.getElementById('timeSeriesVariable2'),pSel=document.getElementById('timeSeriesProbe'),fSel=document.getElementById('timeSeriesFamily');
   if(!panel||!vSel||!v2Sel||!pSel||!fSel)return;
@@ -268,7 +278,7 @@ function tsdRefreshTimeSeriesControls(){
   if(!ts.length){
     // Never hide the Field History builder merely because no histories have
     // been generated; that is precisely when it must be discoverable.
-    panel.classList.remove('hidden');
+    panel.classList.toggle('hidden',!tsdShouldShowPanel(false));
     vSel.innerHTML='<option value="">'+tsdEsc(tsdUi('No generated curves yet','Aún no hay curvas generadas'))+'</option>';
     v2Sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>';
     v2Sel.disabled=true;pSel.innerHTML='';fSel.innerHTML='';
@@ -279,7 +289,7 @@ function tsdRefreshTimeSeriesControls(){
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
     tsdUpdateSourceCatalog();tsdUpdateScientificEvidence();return
   }
-  panel.classList.remove('hidden');
+  panel.classList.toggle('hidden',!tsdShouldShowPanel(true));
   const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
   vSel.innerHTML=vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
   vSel.value=tsdPrimaryChoice(vars,oldV);

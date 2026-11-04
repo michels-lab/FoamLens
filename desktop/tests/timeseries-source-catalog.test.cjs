@@ -23,7 +23,7 @@ assert.deepStrictEqual(list[1].components,['x','y','z','magnitude']);
 assert.strictEqual(list[0].timeCount,3);
 assert.strictEqual(costlyFrameReads,0,'Catalog must not parse time-dependent field frames');
 for(const fragment of [
-  "panel.classList.remove('hidden')","No generated curves yet",
+  "panel.classList.toggle('hidden',!tsdShouldShowPanel(false))","No generated curves yet",
   "tsdUpdateSourceCatalog();tsdUpdateScientificEvidence();return","details.open=true",
   "fwRefreshFieldTsControls()","Existing measured time-series",
   "OpenFOAM 3D fields available for explicit history generation",
