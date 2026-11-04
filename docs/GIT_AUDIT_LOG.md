@@ -1,3 +1,10 @@
+## 2026-11-04 — Granada Time Series: aclarar curvas vacías y campos aún no convertidos (UI, #176)
+
+- **Prioridad del usuario:** se pospone la calibración/aceptación científica experimental para dedicar Granada a la interfaz real, controles, Time Series/Field, comparación y estabilidad de Windows. Las pruebas funcionales básicas siguen siendo necesarias; no interpretar un CI verde como aprobación física o científica.
+- **Defecto UX existente:** el card de series temporales muestra «0 curves» sin explicar si no existe ninguna curva, si los filtros excluyen curvas cargadas o si hay campos OpenFOAM que todavía requieren generar su historia. El generador original de dos fuentes sí está a la vista en T2, pero carece de ese contexto.
+- **Corrección en el módulo UI original** `v24-granada-timeseries-t2.js`: un estado vacío accesible y bilingüe se actualiza con el badge real y el catálogo real de series, distingue ausencia total frente a filtros activos y desaparece cuando hay curvas visibles. Emplea el observador DOM existente, sin duplicar acciones, modificar datos, inventar «Variable 0» o reintroducir menús colapsados. Mantiene visibles las dos fuentes originales, Build, Cancel y el progreso.
+- **Regresión real del módulo:** `desktop/tests/granada-176-timeseries-ui.spec.cjs` comprueba los tres estados, reactividad, idioma ES, identidad del botón original y origen de los controles. CI Windows/Ubuntu y revisión visual del propietario siguen **PENDIENTES**; sin mezcla con PR científica #272 y sin release. El backlog #176/#177 continúa abierto.
+
 ## 2026-11-03 — Granada experimental validation αL/αS ambiguity (isolated correction, PR QA pending)
 
 - **Root cause in current main:** `v14-experimental-validation.js` accepted any `alpha` field as liquid-fraction evidence. A real αS field could invert solidification/remelting interpretation and liquid-fraction onset/completion. Earlier tests exercised only descending αL.
