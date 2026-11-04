@@ -179,6 +179,48 @@ test('G52 live progress shows ONLY verified original source counts and respects 
   notify({detail:{slot:2,completed:6,total:6,seq:18,source:'profile'}});
   assert.equal(get('gr176Pending').textContent,'','cancelled in-flight WebView2 read cannot resurface old progress');
 });
+test('two-source histories keep BOTH actual per-slot progress counts and ignore stale regressions',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const progress=app.events.get('foamlens-field-history-progress');
+  app.button.click();
+  progress({detail:{slot:1,completed:10,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 10 \/ 10 OpenFOAM frames inspected/);
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
+  const previous=get('gr176Pending').textContent;
+  progress({detail:{slot:2,completed:1,total:6,seq:18,source:'profile'}});
+  progress({detail:{slot:1,completed:6,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:3,total:100,seq:18,source:'profile'}});
+  progress({detail:{slot:2,completed:3,total:6,seq:18,source:'probe'}});
+  assert.equal(get('gr176Pending').textContent,previous,'stale or switched progress may not overwrite verified counts');
+  app.events.get('foamlens-language-change')();
+  assert.equal(get('gr176Pending').textContent,previous,'English retranslation keeps both source slots');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(get('gr176Pending').textContent,'','cancel clears all slot histories');
+});
+test('Escape cancels active history only inside Time Series without stealing idle or unrelated keys',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const shortcut=(app.panel.handlers.get('keydown')||[])[0];
+  assert.equal(typeof shortcut,'function');
+  const event=(key)=>({key,prevented:0,stopped:0,preventDefault(){this.prevented++},stopPropagation(){this.stopped++}});
+  const idle=event('Escape');shortcut(idle);
+  assert.equal(idle.prevented,0);
+  assert.equal(idle.stopped,0);
+  app.button.click();
+  assert.equal(get('gr176Cancel').attributes['aria-keyshortcuts'],'Escape');
+  const unrelated=event('Enter');shortcut(unrelated);
+  assert.equal(unrelated.prevented,0);
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),true);
+  const esc=event('Escape');shortcut(esc);
+  assert.equal(esc.prevented,1);
+  assert.equal(esc.stopped,1);
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19,'source epoch invalidates immediately');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),false);
+  assert.equal(get('gr176Cancel').disabled,true);
+  const second=event('Escape');shortcut(second);
+  assert.equal(second.prevented,0,'repeated Esc must remain available for other UI');
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19);
+});
 test('G52 progress producer reports original frames in ALL three build paths and never commits partial data',()=>{
   const begin=core.indexOf('function fwFieldTsReportProgress(');
   const end=core.indexOf('function fwRefreshFieldTsSlot(',begin);
