@@ -226,6 +226,25 @@ function fcZoomViewport(view,factor){
   if(view==='A'||linked)fvRender();else if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
+// Fit uses only the selected original mesh/camera. No inferred geometry or
+// forced common scale between unequal A/B/C/D OpenFOAM cases.
+function fcFitViewport(view){
+  const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
+  const mesh=view==='A'?fvState.mesh:state?.mesh;
+  const lo=mesh?.boundsMin,hi=mesh?.boundsMax;
+  if(!Array.isArray(lo)||!Array.isArray(hi)||lo.length!==3||hi.length!==3||
+    ![...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v))||
+    lo.some((v,i)=>hi[i]<v))return false;
+  if(fcCamerasLinked()){
+    // In linked mode all view cameras derive from A. One button must not
+    // pretend to change just B or C when its camera is actually shared.
+    fcFitAllCameras();return true
+  }
+  if(view==='A'){fvCameraFitCurrent();return true}
+  fcFitCameraState(state,mesh);
+  if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
+  return true
+}
 function fcMoveViewport(grid,moving,target,after=false){
   if(!grid||!moving||!target||moving===target||!grid.contains(moving)||!grid.contains(target))return false;
   grid.insertBefore(moving,after?target.nextSibling:target);fcScheduleLayoutRender();return true
@@ -257,7 +276,7 @@ function fcAddViewportToolbar(viewport,view){
   const en=fcUi('View','Vista');
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
     (mapping?'<div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div>':'<span class="fcViewDiffLabel">Δ</span>')+
-    '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button></div>';
+    '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
     const holder=document.createElement('div');holder.className='fcPhysicalMenu';holder.dataset.fcRegions='1';
     const dim=document.createElement('label');dim.className='fcDimensionSwitch';
@@ -291,6 +310,7 @@ function fcAddViewportToolbar(viewport,view){
     source.value=mirror.value;source.dispatchEvent(new Event('change',{bubbles:true}));fcScheduleToolbarSync()
   }));
   for(const [name,factor] of [['in',.8],['out',1.25]])bar.querySelector('[data-fc-zoom="'+name+'"]').addEventListener('click',()=>fcZoomViewport(mapping?view:'B',factor));
+  bar.querySelector('[data-fc-fit]')?.addEventListener('click',()=>fcFitViewport(mapping?view:'B'));
   const handle=bar.querySelector('.fcMoveHandle');
   handle.addEventListener('dragstart',e=>{fcDraggedView=viewport;viewport.classList.add('fcDraggingView');e.dataTransfer?.setData('text/plain',viewport.id);if(e.dataTransfer)e.dataTransfer.effectAllowed='move'});
   handle.addEventListener('dragend',()=>{viewport.classList.remove('fcDraggingView');fcDraggedView=null});
