@@ -54,6 +54,7 @@ function fwUpdateNavText(){
   const clearProfile=document.getElementById('fwClear3DProfile');if(clearProfile)clearProfile.textContent=fwUi('Clear line','Borrar línea');
   const lab=document.getElementById('fwCompanionLabel');if(lab)lab.textContent=fwUi('Companion plot','Gráfica complementaria');
   const sync=document.getElementById('fwSyncLabel');if(sync)sync.textContent=fwUi('Follow 3D physical time','Seguir tiempo físico 3D');
+  fwSyncProfileCompanionButton();
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
@@ -76,6 +77,7 @@ function fwCreateSurface(){
       <div class="fwWorkspaceBar">
         <div class="fwViewTabs" id="fwViewTabs" role="tablist" aria-label="Field workspace views">
           <button class="fwViewTab active" type="button" role="tab" aria-selected="true" data-fw-view="3d">3D</button>
+          <button class="fwViewTab" type="button" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button>
         </div>
         <div class="fwSplitChooser hidden" id="fwSplitChooser"><label for="fwCompanion" data-fl-en="Second pane" data-fl-es="Segundo panel">Second pane</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option></select></div>
         <div class="fwTimeTransport" id="fwTimeTransport" aria-label="Physical time playback">
@@ -139,6 +141,7 @@ function fwCreateSurface(){
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
+  document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
   document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
@@ -160,6 +163,53 @@ function fwCreateSurface(){
   fwEnsureFieldTsControls(); // Data-only explicit scientific history builder
   fwUpdateNavText()
 }
+function fwSyncProfileCompanionButton(){
+  const button=document.getElementById('fwToggle3DProfile');if(!button)return;
+  const showing=fwState.layout==='split';
+  button.setAttribute('aria-pressed',showing?'true':'false');
+  button.textContent=showing?fwUi('3D only','Solo 3D'):fwUi('3D + Profile','3D + Perfil');
+  button.setAttribute('aria-label',showing?
+    fwUi('Hide spatial profile and return to full 3D','Ocultar perfil espacial y volver a 3D'):
+    fwUi('Show original spatial profiles alongside 3D','Mostrar perfiles espaciales originales junto al 3D'))
+}
+function fwOwnProfileCompanionControls(){
+  // Borrow just the original PROFILE selectors; never move the Time Series
+  // Build/Cancel history panel out of its Data owner.
+  const id='profileControls',node=document.getElementById(id);
+  if(node&&!fwDataControlOrigins.has(id))
+    fwDataControlOrigins.set(id,{parent:node.parentNode,next:node.nextSibling});
+  return !!fwAdoptFieldNode(id,'fw2DControlsHost')
+}
+function fwToggleProfileCompanion(force){
+  const enable=typeof force==='boolean'?force:fwState.layout!=='split';
+  if(!enable){
+    if(fwState.layout!=='split'){fwSyncProfileCompanionButton();return true}
+    fwSetLayout('3d');
+    fwReturnCompanionControlsToData();
+    const manager=window.FoamLensPlotSurfaces;
+    if(manager?.active?.()==='field')manager.activate?.('data',null,{restore:true});
+    const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='none';
+    fwSyncProfileCompanionButton();
+    return true
+  }
+  if(!fwState.active)return false;
+  const manager=window.FoamLensPlotSurfaces,host=document.getElementById('fw2DHost'),
+    grid=document.getElementById('fwGrid'),profile=document.getElementById('profileControls');
+  if(!host||!grid||!profile||typeof manager?.ensure!=='function'||
+    typeof manager?.activate!=='function')return false;
+  // Capture Data's view/pins before giving Field its own canonical canvas.
+  // The manager is the sole owner of canvas identity and state restoration.
+  const surface=manager.ensure('field',host);if(!surface)return false;
+  if(manager.activate('field',host,{restore:true})===false)return false;
+  fwOwnProfileCompanionControls();
+  if(currentDataView!=='profile')try{fwPrevSetDataView('profile')}catch(e){console.warn('Field profile view:',e)}
+  fwSetLayout('split');
+  fwSetCompanion('profile');
+  const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='';
+  fwSyncProfileCompanionButton();
+  fwScheduleRender({threeD:true,twoD:true});
+  return true
+}
 function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
@@ -170,7 +220,9 @@ function fwSetInspector(open){
   drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
 }
 function fwActivateView(view){
-  // Field owns 3D geometry only. Imported legacy layouts cannot reopen Data plots here.
+  // Field's primary tab remains 3D. The optional companion uses its own
+  // surface, never an imported Data navigation tab or a duplicate chart.
+  if(fwState.layout==='split')fwToggleProfileCompanion(false);
   view='3d';fwState.view=view;
   if(view==='profile'){fwSetCompanion('profile');fwSetLayout('plot')}
   else if(view==='timeseries'){fwSetCompanion('timeseries');fwSetLayout('plot')}
@@ -908,6 +960,9 @@ function fwLeave(){
   ++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
+  // Leaving Field must not leave a stale split flag, but the plot manager
+  // still captures the FIELD plot before activating/restoring Data below.
+  if(fwState.layout==='split'){fwSetLayout('3d');fwSyncProfileCompanionButton()}
   // The plot-surface manager captures the outgoing Field view *after* this
   // handler returns. Do not overwrite currentDataView beforehand or the Field
   // snapshot inherits Data's previous view (and loses its own plot selection).
