@@ -119,5 +119,48 @@ test('G59: authentic 3D catalog refreshes even when existing postProcessing time
   assert.equal(exercise(0,true,false,false).refreshes,1,'preserve original zero-curves discovery');
 });
 
+
+test('G Granada: dual-variable refresh cannot leak the Time Series panel into Field or Profiles',()=>{
+  const start=source.indexOf('function tsdShouldShowPanel(');
+  const end=source.indexOf('function tsdPatchAssignments(',start);
+  assert(start>0&&end>start,'production visibility owner and refresher must exist');
+  const build=new Function('document','timeSeriesOptionsBase','tsdEsc','tsdUi',
+    'tsdUpdateSourceCatalog','tsdUpdateScientificEvidence','currentDataView','activeAppMode',
+    source.slice(start,end)+';return {show:tsdShouldShowPanel,refresh:tsdRefreshTimeSeriesControls};');
+  function exercise({view='timeseries',mode='data',builder=true,curves=0}={}){
+    const hidden=new Set(['hidden']);
+    const panel={classList:{toggle:(name,on)=>{
+      if(on)hidden.add(name);else hidden.delete(name);
+    }}};
+    const variable={innerHTML:'',dataset:{}};
+    const second={innerHTML:'',disabled:false,dataset:{}};
+    const probe={innerHTML:'',dataset:{}},family={innerHTML:'',dataset:{}};
+    const badge={textContent:''},hint={textContent:''};
+    const nodes={timeSeriesControls:panel,timeSeriesVariable:variable,
+      timeSeriesVariable2:second,timeSeriesProbe:probe,timeSeriesFamily:family,
+      timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
+    if(builder){nodes.gr176HistoryCard={};nodes.fwBuildFieldHistories={}}
+    const doc={getElementById:id=>nodes[id]||null};
+    let updates=0;
+    const api=build(doc,()=>curves? [{field:{canonical:'T'}}]:[],String,(en)=>en,
+      ()=>{updates++},()=>{updates++},view,mode);
+    // Exercise the original zero-curves branch, not a duplicated implementation.
+    if(curves===0)api.refresh();
+    return {visible:!hidden.has('hidden'),wanted:api.show(curves>0),
+      updates,badge,second,hint};
+  }
+  const fresh=exercise();
+  assert.equal(fresh.visible,true,'Data → Time Series must show real Build even with zero curves');
+  assert.equal(fresh.badge.textContent,'0 existing curves');
+  assert.equal(fresh.second.disabled,true,'second field must remain disabled with zero histories');
+  assert.equal(fresh.updates,2,'real original catalog and evidence refresh must execute');
+  assert.equal(exercise({builder:false}).visible,false,'no fake Build panel');
+  assert.equal(exercise({view:'profile'}).visible,false,'Data Profiles must not show Time Series');
+  assert.equal(exercise({mode:'field'}).visible,false,'Field must not show the Data builder');
+  assert.equal(exercise({view:'timeseries',mode:'review'}).visible,false,'Review must not show Data controls');
+  assert.equal(exercise({curves:1,builder:false}).wanted,true,'existing curves remain visible in Data');
+  assert.equal(exercise({curves:1,builder:false,mode:'field'}).wanted,false,'even existing curves cannot leak into Field');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
