@@ -166,6 +166,12 @@
     actions.insertAdjacentElement('afterend',pending);
     panel.appendChild(existing);panel.appendChild(history);
     panel.classList.add('gr176TimeSeries');
+    // The legacy Data chart can have already marked this whole panel hidden
+    // because there were zero curves BEFORE the actual builder was mounted.
+    // Reveal only when Data → Time Series is the requested current view.
+    const dataView=(typeof currentDataView==='undefined'||currentDataView==='timeseries');
+    const dataMode=(typeof activeAppMode==='undefined'||activeAppMode==='data');
+    if(dataView&&dataMode)panel.classList.remove('hidden');
     state.installed=true;state.build=build;state.cancel=cancel;
     build.addEventListener('click',()=>{
       const allowed=(typeof activeAppMode==='undefined'||activeAppMode==='data')&&

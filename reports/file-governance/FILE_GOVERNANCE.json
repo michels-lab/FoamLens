@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "6aaf07151a1db8cb9603b35b58d92631fcaa519dde432a3850e9b5835ff492bf",
+  "inventory_fingerprint": "e676620534fcc18e83fa5042b07f48b8d3c4e7776c7028102a31a4d737ed2d4b",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -774,7 +774,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "6e36492b8789c63a6a19440567f07d3c36734ff8"
+      "blob": "72c73dda1a4040a420b497f896a369ca3bd821d3"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -1110,7 +1110,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2d596182611acbc14821fac43e6537af95da0702"
+      "blob": "1f72994afec030b11a7fe73f7ae759ae23246cb7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
@@ -1502,7 +1502,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6e196f5a9370c23fc1818e7345e39028d1d793fe"
+      "blob": "dccb2045463bcbb6d7732206b4bbbcbbdf209ef5"
     },
     {
       "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
@@ -2090,7 +2090,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "5d6eb01104d82e2953589cdfe6c87bfe30f5b262"
+      "blob": "b6d220f09dfd7e4d9879c4a713aba81483176e19"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",

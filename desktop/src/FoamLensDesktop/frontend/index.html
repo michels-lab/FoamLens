@@ -2653,10 +2653,18 @@ function refreshTimeSeriesControls(){
   if(!panel||!vSel||!sSel||!pSel||!fSel)return;
   const ts=timeSeriesOptionsBase();
   if(!ts.length){
-    panel.classList.add('hidden');
+    // A fresh OpenFOAM case has real fields but no computed/loaded history yet.
+    // Do not hide the original Build panel just because the first curve hasn't
+    // been created. Previous logic trapped users at "0 curves" permanently.
+    const hasBuilder=!!$('gr176HistoryCard')&&!!$('fwBuildFieldHistories');
+    const onTimeSeries=typeof currentDataView==='undefined'||currentDataView==='timeseries';
+    panel.classList.toggle('hidden',!(hasBuilder&&onTimeSeries));
     vSel.innerHTML='';sSel.innerHTML='';sSel.disabled=true;pSel.innerHTML='';fSel.innerHTML='';
     $('timeSeriesFocusBadge').textContent=flUi('0 curves','0 curvas');
-    $('timeSeriesFilterHint').textContent=flUi('Load probe time-series data to focus the comparison panel.','Carga series temporales de sondas para enfocar el panel de comparación.');
+    $('timeSeriesFilterHint').textContent=hasBuilder?
+      flUi('No histories yet. Choose original OpenFOAM sources in Create history below, then Build.',
+        'Aún no hay historias. Elige fuentes OpenFOAM originales en Crear historia abajo y pulsa Generar.'):
+      flUi('Load probe time-series data to focus the comparison panel.','Carga series temporales de sondas para enfocar el panel de comparación.');
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
     return;
   }
