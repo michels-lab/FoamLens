@@ -245,6 +245,17 @@ function fcFitViewport(view){
   if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
+function fcVisibleViewportNeighbor(viewport,key){
+  if(!viewport||!['ArrowLeft','ArrowRight'].includes(key))return null;
+  let node=key==='ArrowLeft'?viewport.previousElementSibling:viewport.nextElementSibling;
+  // Compare may hide B/C/D or derived Δ without removing them from the
+  // original grid. Arrow moves must land on a *visible* viewport, not a ghost.
+  while(node){
+    if(node.classList?.contains('fvViewport')&&!node.classList.contains('hidden'))return node;
+    node=key==='ArrowLeft'?node.previousElementSibling:node.nextElementSibling
+  }
+  return null
+}
 function fcMoveViewport(grid,moving,target,after=false){
   if(!grid||!moving||!target||moving===target||!grid.contains(moving)||!grid.contains(target))return false;
   grid.insertBefore(moving,after?target.nextSibling:target);fcScheduleLayoutRender();return true
@@ -314,7 +325,7 @@ function fcAddViewportToolbar(viewport,view){
   const handle=bar.querySelector('.fcMoveHandle');
   handle.addEventListener('dragstart',e=>{fcDraggedView=viewport;viewport.classList.add('fcDraggingView');e.dataTransfer?.setData('text/plain',viewport.id);if(e.dataTransfer)e.dataTransfer.effectAllowed='move'});
   handle.addEventListener('dragend',()=>{viewport.classList.remove('fcDraggingView');fcDraggedView=null});
-  handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const to=e.key==='ArrowLeft'?viewport.previousElementSibling:viewport.nextElementSibling;if(to&&fcMoveViewport(viewport.parentElement,viewport,to,e.key==='ArrowRight'))e.preventDefault()});
+  handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const to=fcVisibleViewportNeighbor(viewport,e.key);if(to&&fcMoveViewport(viewport.parentElement,viewport,to,e.key==='ArrowRight'))e.preventDefault()});
   viewport.addEventListener('dragover',e=>{if(fcDraggedView&&fcDraggedView!==viewport){e.preventDefault();viewport.classList.add('fcDropTarget')}});
   viewport.addEventListener('dragleave',e=>{if(!viewport.contains(e.relatedTarget))viewport.classList.remove('fcDropTarget')});
   viewport.addEventListener('drop',e=>{if(!fcDraggedView)return;e.preventDefault();viewport.classList.remove('fcDropTarget');const rect=viewport.getBoundingClientRect();fcMoveViewport(viewport.parentElement,fcDraggedView,viewport,e.clientX>rect.left+rect.width/2);fcDraggedView.classList.remove('fcDraggingView');fcDraggedView=null});
