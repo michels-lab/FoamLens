@@ -77,8 +77,8 @@ function fwCreateSurface(){
       <div class="fwWorkspaceBar">
         <div class="fwViewTabs" id="fwViewTabs" role="tablist" aria-label="Field workspace views">
           <button class="fwViewTab active" type="button" role="tab" aria-selected="true" data-fw-view="3d">3D</button>
-          <button class="fwViewTab" type="button" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button>
         </div>
+        <button class="fwViewTab fwProfileSplitAction" type="button" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button>
         <div class="fwSplitChooser hidden" id="fwSplitChooser"><label for="fwCompanion" data-fl-en="Second pane" data-fl-es="Segundo panel">Second pane</label><select id="fwCompanion"><option value="profile">Spatial Profile</option><option value="timeseries">Time Series</option><option value="log">Solver Logs</option></select></div>
         <div class="fwTimeTransport" id="fwTimeTransport" aria-label="Physical time playback">
           <button class="btn tiny" id="fwTimePrev" type="button" title="Previous physical-time frame" aria-label="Previous frame">‹</button>
