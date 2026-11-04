@@ -143,4 +143,28 @@ assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'false',
 context.window.FoamLensF2Layout.measure();
 const exportedSource=source.includes('pvExport()')&&source.includes('downloadText(');
 assert(exportedSource,'Local deliberate report export must remain available');
+// Same-failure negative case: the Field grid is NOT present at DOMContentLoaded.
+// The original startup-only Escape binding silently missed this normal route.
+const lateMap=new Map(),lateRaf=[],lateEvents={};
+const lateGrid={children:[],handlers:{},classList:classes(),
+  addEventListener(type,handler){this.handlers[type]=handler}};
+const lateContext={
+  window:{innerHeight:720,innerWidth:1280,devicePixelRatio:1,addEventListener(){}},
+  document:{readyState:'complete',getElementById:id=>lateMap.get(id)||null,
+    addEventListener:(type,handler)=>{lateEvents[type]=handler},
+    querySelector:()=>null,createElement:()=>({id:'',textContent:''}),
+    head:{append:el=>lateMap.set(el.id,el)}},
+  localStorage:{getItem:()=>null,setItem(){}},
+  requestAnimationFrame:handler=>{lateRaf.push(handler);return lateRaf.length},
+  MutationObserver:undefined,ResizeObserver:undefined,Number,Math,Array,Object,
+  Map,Set,String,JSON,Date,console
+};
+vm.runInNewContext(source,lateContext,{timeout:3000});
+assert.equal(lateGrid.handlers.keydown,undefined);
+assert(lateRaf.length>=1,'Field module should retry discovery after startup');
+lateMap.set('fcViewGrid',lateGrid);
+lateRaf.shift()();
+assert.equal(typeof lateGrid.handlers.keydown,'function',
+  'Actual late-mounted Field grid must receive Escape listener on discovery');
+
 console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore/Escape, hidden/detached view safety, ES/EN labels, stored sizes, CSS/DPR/canvas geometry, conflict evidence.');
