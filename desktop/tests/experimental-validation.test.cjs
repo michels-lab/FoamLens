@@ -90,7 +90,7 @@ test('opposite physical fractions give identical phase evidence after verified c
   const t=[0,1,2,3,4,5],solid=api.evNormalizeLiquidFraction([0,.1,.4,.7,.9,1],'solid');
   const liquid=api.evNormalizeLiquidFraction([1,.9,.6,.3,.1,0],'liquid');
   const rebound={tMin:1,tPeak:4};
-  assert.deepEqual(solid.alphaL,liquid.alphaL);
+  solid.alphaL.forEach((value,i)=>near(value,liquid.alphaL[i]));
   const x=api.evPhaseEvidenceAtRebound(t,solid.alphaL,rebound);
   const y=api.evPhaseEvidenceAtRebound(t,liquid.alphaL,rebound);
   assert.equal(x.state,'solidifying');assert.equal(y.state,'solidifying');
