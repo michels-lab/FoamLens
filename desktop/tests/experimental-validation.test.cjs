@@ -14,7 +14,7 @@ const end='/* FOAMLENS_EXPERIMENTAL_VALIDATION_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Experimental validation core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound,evNormalizeLiquidFraction};')();
+const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evFinitePairs,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound,evNormalizeLiquidFraction};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
