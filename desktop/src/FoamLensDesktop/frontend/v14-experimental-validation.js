@@ -166,15 +166,17 @@ function evRunValidation(){
   const normalized=phase?evNormalizeLiquidFraction(phase.y,phaseRole):null;
   const dimension=String(phase?.field?.dimensions||phase?.dimensions||'').trim().replace(/\s+/g,' ');
   const dimensionValid=!dimension||/^\[0(?:\s+0){6}\]$/.test(dimension);
+  const originalUnit=String(phase?.field?.unit||phase?.unit||'').trim().toLowerCase();
+  const unitValid=!originalUnit||['1','-','unitless','dimensionless','fraction'].includes(originalUnit);
   const thresholdsValid=Number.isFinite(high)&&Number.isFinite(low)&&high>low&&high<=1&&low>=0;
-  const phaseValid=!!(phase&&normalized?.ok&&dimensionValid&&thresholdsValid&&evFinitePairs(phase.t,normalized.alphaL).length>=2);
-  const phaseReason=!phase?'no-phase-selected':!normalized?.ok?normalized.reason:!dimensionValid?'phase-not-dimensionless':!thresholdsValid?'invalid-phase-thresholds':!phaseValid?'insufficient-physical-times':'verified-user-role';
+  const phaseValid=!!(phase&&normalized?.ok&&dimensionValid&&unitValid&&thresholdsValid&&evFinitePairs(phase.t,normalized.alphaL).length>=2);
+  const phaseReason=!phase?'no-phase-selected':!normalized?.ok?normalized.reason:!dimensionValid?'phase-not-dimensionless':!unitValid?'phase-incompatible-unit':!thresholdsValid?'invalid-phase-thresholds':!phaseValid?'insufficient-physical-times':'verified-user-role';
   const phaseMetrics=phaseValid?evPhaseMetrics(phase.t,normalized.alphaL,{onsetThreshold:high,completionThreshold:low}):null,
     phaseEvidence=phaseValid?evPhaseEvidenceAtRebound(phase.t,normalized.alphaL,simRebound):null;
   const phaseProvenance={sourceField:phase?.field?.raw||phase?.field?.canonical||phase?.variable||null,
     caseId:phase?.caseId??null,region:phase?.region||phase?.regionName||null,probe:phase?.probe??null,
     originalRole:phaseRole||'unconfirmed',conversion:phaseValid?normalized.conversion:null,
-    sourceDimensions:dimension||null,valid:phaseValid,reason:phaseReason,
+    sourceDimensions:dimension||null,sourceUnit:originalUnit||null,valid:phaseValid,reason:phaseReason,
     spatialColocationVerified:false};
   const result={simulation:sim,experiment:exp,comparison:cmp,simMin,expMin,simRebound,expRebound,phase,phaseMetrics,phaseEvidence,phaseProvenance,settings:{timeShift:shift,slopeThreshold:slope,minDuration:duration,minAmplitude:amp,alphaOnset:high,alphaComplete:low,phaseRole},noExtrapolation:true,noAutomaticRecalescenceLabel:true};
   evState.last=result;window.FoamLensLastExperimentalValidation=result;evRender(result);if(status)status.textContent=evUi('Validation calculated on the shared physical-time interval only.','Validación calculada únicamente en el intervalo común de tiempo físico.');return result
@@ -186,7 +188,7 @@ function evRender(r){
   const minEvent=(m)=>m?{Tmin:m.temperature,tMin:m.time,amplitude:NaN,tPeak:NaN,maxSlope:NaN}:null;
   const simEv=r.simRebound||minEvent(r.simMin),expEv=r.expRebound||minEvent(r.expMin);
   const phaseNote=r.phaseProvenance?.reason==='no-phase-selected'?''
-    :!r.phaseProvenance?.valid?'<div class="extNote">'+evUi('Phase evidence unavailable: confirm liquid/solid source role, a dimensionless fraction within [0,1], and ordered thresholds (onset > completion). Temperature comparison is unaffected.','Evidencia de fase no disponible: confirma si el campo es fracción líquida/sólida, que sea adimensional y esté entre 0 y 1, y umbrales ordenados (inicio > final). La comparación térmica no cambia.')+'</div>'
+    :!r.phaseProvenance?.valid?'<div class="extNote">'+evUi('Phase evidence unavailable: confirm liquid/solid source role, a dimensionless fraction within [0,1] (including its declared unit), and ordered thresholds (onset > completion). Temperature comparison is unaffected.','Evidencia de fase no disponible: confirma si el campo es fracción líquida/sólida, que sea adimensional y esté entre 0 y 1 (incluida su unidad declarada), y umbrales ordenados (inicio > final). La comparación térmica no cambia.')+'</div>'
     :'<div class="extNote">'+(r.phaseProvenance.originalRole==='solid'?evUi('Original solid fraction explicitly confirmed: converted to liquid fraction as αL = 1 − αS.','Fracción sólida original confirmada: convertida a líquida como αL = 1 − αS.'):evUi('Original liquid fraction explicitly confirmed; values retained.','Fracción líquida original confirmada; valores conservados.'))+' '+evUi('Same-case phase trend only; spatial co-location has not been independently verified.','Tendencia de fase del mismo caso; la coincidencia espacial no se ha verificado de forma independiente.')+'</div>';
   const phase=r.phaseMetrics?'<div class="extTableWrap" style="margin-top:8px"><table class="extTable"><thead><tr><th>'+evUi('Phase evidence','Evidencia de fase')+'</th><th>'+evUi('Value','Valor')+'</th></tr></thead><tbody>'+
     '<tr><td>'+evUi('Liquid-fraction onset crossing','Cruce de inicio de fracción líquida')+' α='+evFmt(r.phaseMetrics.onsetThreshold)+'</td><td>'+evFmt(r.phaseMetrics.onset)+' s</td></tr>'+
