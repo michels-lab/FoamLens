@@ -24,6 +24,67 @@ assert.deepStrictEqual(api.fcViewSourceMap('A'),{Case:'fvCase',Region:'fvRegion'
 assert.deepStrictEqual(api.fcViewSourceMap('B'),{Case:'fcCase',Region:'fcRegion',Field:'fcField',Component:'fcComponent'});
 assert.deepStrictEqual(api.fcViewSourceMap(3),{Case:'fcExtra3Case',Region:'fcExtra3Region',Field:'fcExtra3Field',Component:'fcExtra3Component'});
 assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not independently selectable');
+
+ 
+// Same-failure regression: the original runtime selector refresh referenced
+// "toolbar" instead of the actual loop variable "bar". It threw ReferenceError
+// before refreshing Physical regions in A/B/C/D. Check the real source function,
+// not a string or a hardcoded mock implementation.
+{
+  const start=source.indexOf('function fcSyncToolbars(){');
+  const stop=source.indexOf('function fcAddViewportToolbar(',start);
+  assert(start>=0&&stop>start,'Original A–D toolbar refresh must exist');
+  const views=['A','B','3','4','Δ'],menus=[];
+  const sources=new Map(),bars=[];
+  for(const view of views){
+    const mirrorByKey=new Map();
+    for(const key of ['Case','Region','Field','Component'])mirrorByKey.set(key,{
+      innerHTML:'',value:'',disabled:true
+    });
+    bars.push({dataset:{fcToolbar:view},
+      querySelector:selector=>{
+        const match=selector.match(/^\[data-fc-bind="(Case|Region|Field|Component)"\]$/);
+        return match?mirrorByKey.get(match[1]):null
+      },mirrorByKey});
+    const ids=api.fcViewSourceMap(view);
+    if(!ids)continue;
+    for(const [key,id] of Object.entries(ids))sources.set(id,{
+      innerHTML:'<option value="'+view+'-'+key+'">'+view+' '+key+'</option>',
+      value:view+'-'+key,options:[{value:view+'-'+key}],disabled:false
+    });
+  }
+  // Unavailable source field disables its own view only; other views continue.
+  sources.get('fcExtra4Field').disabled=true;
+  const dom={getElementById:id=>id==='fcViewGrid'?
+    {querySelectorAll:()=>bars}:sources.get(id)||null};
+  const factory=new Function('document','fcViewSourceMap','fcPhysicalMenu',
+    source.slice(start,stop)+';return fcSyncToolbars;');
+  const refresh=factory(dom,api.fcViewSourceMap,view=>menus.push(view));
+  assert.doesNotThrow(refresh,
+    'A/B/C/D selector synchronization must never throw ReferenceError toolbar');
+  assert.deepStrictEqual(menus,['A','B','3','4'],
+    'Every independent real 3D view must refresh its own Physical regions');
+  for(const bar of bars){
+    const view=bar.dataset.fcToolbar;
+    if(view==='Δ')continue;
+    for(const key of ['Case','Region','Field','Component']){
+      const mirror=bar.mirrorByKey.get(key);
+      assert.strictEqual(mirror.value,view+'-'+key,
+        'Viewport '+view+' must reflect only its own '+key+' source');
+      assert.strictEqual(mirror.disabled,view==='4'&&key==='Field',
+        'Unavailability must disable only the affected physical source');
+    }
+  }
+  // The same source select can change after a case import; refresh must
+  // propagate it without fabricating any options or mutating another case.
+  sources.get('fcExtra3Field').innerHTML='<option value="C-new">C new</option>';
+  sources.get('fcExtra3Field').value='C-new';
+  refresh();
+  assert.strictEqual(bars[2].mirrorByKey.get('Field').value,'C-new');
+  assert.strictEqual(bars[1].mirrorByKey.get('Field').value,'B-Field');
+  assert.deepStrictEqual(menus,['A','B','3','4','A','B','3','4']);
+}
+
 assert.strictEqual(api.fcZoomViewport('B',.8),true);
 assert.strictEqual(cameraB.distance,16,'B zoom must adjust the independent B camera');
 assert.strictEqual(cameraA.distance,10,'B zoom must not change A');
