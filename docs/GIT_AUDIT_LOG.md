@@ -1,3 +1,10 @@
+## 2026-11-03 — Granada experimental validation αL/αS ambiguity (isolated correction, PR QA pending)
+
+- **Root cause in current main:** `v14-experimental-validation.js` accepted any `alpha` field as liquid-fraction evidence. A real αS field could invert solidification/remelting interpretation and liquid-fraction onset/completion. Earlier tests exercised only descending αL.
+- **Implemented on branch `fix/granada-experimental-explicit-phase-role-20261103`:** explicit user-confirmed αL or αS source role (default unconfirmed), validated [0,1] dimensionless data, αS→αL normalization, fail-closed invalid thresholds/source metadata, provenance, source-role reset and conspicuous bilingual notice. Temperature validation remains independently available; no private case modifications or network use.
+- **Negative regression added:** unconfirmed role, original solid fraction, invalid samples, non-dimensionless field, inverted thresholds; genuine `evRunValidation` run path now rejects phase conclusions while retaining quantitative temperature curve comparison.
+- **Evidence truth:** JavaScript syntax checked with V8. Node CI, Windows native WebView2, physical case/calibration and owner acceptance **PENDING**; not merged, not released. Scientific tracker #153 and thermocouple mapping #152 remain independently open; stable release gate #238 remains blocked. [Full source note](GRANADA_EXPERIMENTAL_PHASE_ROLE_2026-11-03.md).
+
 ## 2026-10-27 — Granada G59c: exact Installed failure and lossless Data view restore (candidate)
 
 - [Native original packaged Windows #40620213812](https://github.com/michels-lab/FoamLens/actions/runs/40620213812): Portable original QuickCup/T2/Field smoke **PASS** after G59b; Inno compiled/checksum/wizard **PASS**; Installed original real WebView2 state-restoration smoke **FAIL** because stored Data Catalog view returned as Time Series. No overall native acceptance, no release.

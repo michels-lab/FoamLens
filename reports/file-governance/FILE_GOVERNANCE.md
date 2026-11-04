@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 454; classified: 450; readable documents: 94; above read cap: 1; findings: 1.
+Tracked: 483; classified: 479; readable documents: 103; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -16,19 +16,18 @@ Tracked: 454; classified: 450; readable documents: 94; above read cap: 1; findin
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 88 |
+| document | 97 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 137 |
-| test | 122 |
+| source | 144 |
+| test | 131 |
 | text_metadata | 1 |
 | web_ui | 2 |
-| workflow | 59 |
+| workflow | 63 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 32cdd3adf21796fb)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

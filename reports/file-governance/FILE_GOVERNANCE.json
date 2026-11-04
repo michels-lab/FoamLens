@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 454,
-  "classified_files_total": 450,
-  "docs_content_inspected": 94,
+  "tracked_files_total": 483,
+  "classified_files_total": 479,
+  "docs_content_inspected": 103,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,22 +12,20 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 88,
+    "document": 97,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 137,
-    "test": 122,
+    "source": 144,
+    "test": 131,
     "text_metadata": 1,
     "web_ui": 2,
-    "workflow": 59
+    "workflow": 63
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "e74a0a706abf66d9c2eab8f5bad7b0c26b918f92fb446ded02c3a9ca5fe57846",
-  "evidence_fingerprint": "b966ba3e29790db2c340f171db0c8473ad970a77b1b781f4a1789a96c4522759",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "2f7727b00f6cd63d5dd264a7c702e718a177d7789336557ca99429652ef33af8",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +74,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "44cfb27dac574ef0303efda09ab5c501316266b2"
+      "blob": "60b115d29f4b96c3bc3117dee49d9bed7200a8c6"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -156,11 +154,25 @@
       "blob": "a274f6db6a94b006a9aecf36634040181b10ce52"
     },
     {
+      "path": ".github/workflows/granada-150-checkmesh-namespace.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "2d9213fea13f6a5fd7814aa4f3a692d437e750a3"
+    },
+    {
       "path": ".github/workflows/granada-176-timeseries-t2.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "894b66d10587db676ec44cb78d775c7db2404ce5"
+    },
+    {
+      "path": ".github/workflows/granada-177-g2-field-command-dock.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "7971b134e86eaee17faf9c99c6087cd8b958823e"
     },
     {
       "path": ".github/workflows/granada-177-g23-data-analysis.yml",
@@ -210,6 +222,13 @@
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
       "blob": "835314ac0fb3b586a45ee98c3cc1637dabceee4d"
+    },
+    {
+      "path": ".github/workflows/granada-checkmesh-region-evidence.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "4fd8838bdb8d0b7ea0df51281a102423f931290a"
     },
     {
       "path": ".github/workflows/granada-developer-note-triage.yml",
@@ -450,6 +469,13 @@
       "blob": "2210e7bff420728cbe2d2bd60966c5c71c1d8e51"
     },
     {
+      "path": ".github/workflows/granada-solidification-front.yml",
+      "role": "workflow",
+      "purpose": "GitHub Actions automation",
+      "certainty": "rule",
+      "blob": "e6f50ab812051e5bb376da634b1e7d05dbad01b1"
+    },
+    {
       "path": ".github/workflows/granada-thermocouple-xyz.yml",
       "role": "workflow",
       "purpose": "GitHub Actions automation",
@@ -653,6 +679,13 @@
       "blob": "1f5214c885197584cce28899d5fe6420c4a11120"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/NativeCheckMeshFileHash.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "77a9c8c23fead29002786071c14b225d4be3b3e4"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/NativeTemporalCache.cs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -671,7 +704,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b5130103934117cdfdd27642d03fa0106b52c43c"
+      "blob": "eec31e1bb782fc53f2a07cfb8c1c5d46b2071ff2"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -853,7 +886,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8ea3e5c4add965fbf58f7cc5d3946b17954fad77"
+      "blob": "5256a29d3150b6e276de0cfcc1ac472e4fc589f1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-field-view.js",
@@ -1017,6 +1050,13 @@
       "blob": "90620e4669c67da83b891fd7f6a2a7497adb35ae"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c0e80f658a1ef30d5db5140fef04a62eac78af69"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-equivalent-observables.js",
       "role": "source",
       "purpose": "code/test implementation",
@@ -1087,11 +1127,25 @@
       "blob": "90f581236b0eb000390c3581a786ce58dbcbcbc9"
     },
     {
+      "path": "desktop/src/FoamLensDesktop/frontend/v24-solidification-front-proxy.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "82773328cb72593badf59ded947f706219dade72"
+    },
+    {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "fb695a65c11bca36208ce87c0320b9eab726f0bd"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4a203ce64f58ba188677960bd0693d757cd490ab"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v26-granada-command-search.js",
@@ -1206,6 +1260,20 @@
       "blob": "56fd3466791223c9f52bee9dd1b94df0af394eb3"
     },
     {
+      "path": "desktop/tests/checkmesh-multipanel-collision.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a7038f97fc92e7ceaa760db70a02f25a9de3d895"
+    },
+    {
+      "path": "desktop/tests/checkmesh-region-evidence.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "0181cbd9a01b4775e234120e4e83d117239caf78"
+    },
+    {
       "path": "desktop/tests/context-help-resize.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1315,7 +1383,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "fcb54431506707f79e4c216c64f907467c615d56"
+      "blob": "47bc489555491a8e64769cbe98494761c18b1bd3"
     },
     {
       "path": "desktop/tests/field-3d-navigation-cache.test.cjs",
@@ -1428,6 +1496,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "5f0a0a8788bfab4d26ca9db39942a73e5d025b92"
+    },
+    {
+      "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "19ea4359b5aee19d4d4055db51676d28a83e5281"
     },
     {
       "path": "desktop/tests/granada-177-g23-data-analysis.spec.cjs",
@@ -1759,6 +1834,27 @@
       "blob": "a9053be0b4bd79a3f6c578f4dbbd8094539091e8"
     },
     {
+      "path": "desktop/tests/solidification-front-loader.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6e60cb0ade6d376f06d58056fd39df9b442b0463"
+    },
+    {
+      "path": "desktop/tests/solidification-front-proxy.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "76276bd077a2ee39a68f3efeeb5badf1038767c2"
+    },
+    {
+      "path": "desktop/tests/solidification-front-role-window.spec.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "470031e43bfef62f9821bcd3992cf759f750aa25"
+    },
+    {
       "path": "desktop/tests/spatial-differences.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1987,7 +2083,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "c7e81dd47d0a000e861a1036155f6f5485922d9f"
+      "blob": "02fa0459b48fb8d13b720fc2c71fa37286c61472"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2011,11 +2107,60 @@
       "blob": "7c76b72f542d7ac541023fa5abc954e6879b9f93"
     },
     {
+      "path": "docs/GRANADA_150_CHECKMESH_MULTIPANEL_NAMESPACE_2026-10-20.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "a8eaf4f2cc532c52f18681ad0f8c15a73ff56902"
+    },
+    {
+      "path": "docs/GRANADA_150_CHECKMESH_REGION_EVIDENCE_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "dd6056b27a1373a0fda9b7fb09e233a19b595736"
+    },
+    {
+      "path": "docs/GRANADA_150_CURRENT_MAIN_INTEGRATION_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3078d4a245a1e14b4dd393b513793448f20eda7b"
+    },
+    {
+      "path": "docs/GRANADA_150_ORIGINAL_POLYMESH_INTERFACE_GEOMETRY.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "d54552a75868819266be725aed30fdd637bc9e2a"
+    },
+    {
+      "path": "docs/GRANADA_150_REAL_OPENFOAM_CHECKMESH_CAPTURE_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "b99f6337c426da99f287bdb5fcadc49f233df159"
+    },
+    {
       "path": "docs/GRANADA_152_THERMOCOUPLE_XYZ_2026-10-19.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "bc5bf36efab596f3cad16e02bf935168c2935335"
+    },
+    {
+      "path": "docs/GRANADA_153_SOURCE_ROLE_TIME_WINDOW_CONSOLIDATION_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "43b6eaf06be26e5c6a5acebe448886a35e733ec2"
+    },
+    {
+      "path": "docs/GRANADA_153_SOURCE_SOLIDIFICATION_FRONT_2026-10-19.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "55cf3fc7d02332f2265b80dc9968db0699ac1bd9"
     },
     {
       "path": "docs/GRANADA_155_SCIENTIFIC_CASE_HEALTH_2026-10-19.md",
@@ -2058,6 +2203,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "077c2a63a78bef9a98454ba69003efc79f502c5c"
+    },
+    {
+      "path": "docs/GRANADA_177_G2_FIELD_WORKBENCH_2026-10-21.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "427ad6fc3cbe849adb4a68c9b1298c68153cbdb6"
     },
     {
       "path": "docs/GRANADA_177_G4_REVIEW_LIVE_2026-10-20.md",
@@ -2114,6 +2266,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
+    },
+    {
+      "path": "docs/GRANADA_EXPERIMENTAL_PHASE_ROLE_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "62ebe48bbc511fc43b7f2789375a2eb595701064"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -2634,6 +2793,27 @@
       "blob": "817a6928c65c72846ee5e097d10e51fe2575ba31"
     },
     {
+      "path": "tools/granada150_capture_checkmesh.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "7776f9a68c1098bef4ca072909a8cdb3a3a359e8"
+    },
+    {
+      "path": "tools/granada150_interface_geometry.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "25b6eb4c2a53a89a1b923c9fc775636fd35c829a"
+    },
+    {
+      "path": "tools/granada150_native_packaged_probe.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "6ac5e1832bfdf9ab20a093937c5c6a008fc01623"
+    },
+    {
       "path": "tools/granada_backlog_guard.cjs",
       "role": "source",
       "purpose": "code/test implementation",
@@ -3054,6 +3234,27 @@
       "blob": "6bbdf48ba836d0c56631774411df07c58906f7c7"
     },
     {
+      "path": "tools/test_granada150_capture_checkmesh.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "20231bef958b98e318ea2591083df349c06939cb"
+    },
+    {
+      "path": "tools/test_granada150_interface_geometry.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "936541f2596472aa6cc65cf7e170b8b7f91236d8"
+    },
+    {
+      "path": "tools/test_granada150_native_packaged_probe.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "ef121c842d8e2de034ac6acf146962403228b6bd"
+    },
+    {
       "path": "tools/test_granada_backlog_guard.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -3180,17 +3381,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "32cdd3adf21796fb",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-177-g23-data-analysis.yml, .github/workflows/granada-177-g5-native-visual-review.yml, .github/workflows/granada-177-g6-export-preflight.yml, .github/workflows/granada-field-f2-dpi.yml",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
