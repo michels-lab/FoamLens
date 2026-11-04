@@ -138,7 +138,7 @@ test('original G37 six-start Windows wrapper binds SHA before each launch and va
 
 test('PR-only source check must never cancel the real six-start push gate',()=>{
  const root=path.resolve(__dirname,'..');
- const workflow=fs.readFileSync(path.join(root,'.github/workflows/granada-g37-real-b13-play-stress.yml'),'utf8');
+ const workflow=fs.readFileSync(path.join(root,'.github/workflows/granada-g37-real-b13-play-stress.yml'),'utf8').replace(/\r\n/g,'\n');
  const concurrency=workflow.split('\nconcurrency:\n')[1]?.split('\njobs:\n')[0]||'';
  const push=workflow.split('\n  push:\n')[1]?.split('\n  workflow_dispatch:\n')[0]||'';
  assert.match(concurrency,/group:\s*foamlens-g37-real-native-B13-Play-\$\{\{ github\.event_name \}\}-\$\{\{ github\.ref \}\}/,
@@ -148,6 +148,9 @@ test('PR-only source check must never cancel the real six-start push gate',()=>{
  assert.match(workflow,/six-genuine-native-windows-B13:\s*\n\s*if: \$\{\{ github\.event_name != 'pull_request' \}\}/,
    'PR-only checks must skip the secret-bearing real native gate');
  assert.doesNotMatch(workflow.replace(concurrency,'\n'),/contents:\s*write|continue-on-error:\s*true/);
+ const windowsText=workflow.replace(/\n/g,'\r\n');
+ const windowsConcurrency=windowsText.replace(/\r\n/g,'\n').split('\nconcurrency:\n')[1]?.split('\njobs:\n')[0]||'';
+ assert.equal(windowsConcurrency,concurrency,'same workflow guard must work with Windows CRLF checkout');
  const unscoped=concurrency.replace('-${{ github.event_name }}-${{ github.ref }}','');
  assert.doesNotMatch(unscoped,/github\.event_name/,'regression reproduces the old cross-event cancellation configuration');
  assert.notEqual(unscoped,concurrency);
