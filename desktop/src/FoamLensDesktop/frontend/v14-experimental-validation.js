@@ -38,28 +38,53 @@ function evAutoColumns(table){
   let time=h.findIndex(x=>timeAliases.has(x)||x.startsWith('time')||x.startsWith('tiempo')),temperature=h.findIndex((x,i)=>i!==time&&(tempAliases.has(x)||x.includes('temperature')||x.includes('temperatura')||x.includes('thermocouple')));
   if(time<0)time=0;if(temperature<0)temperature=time===0?1:0;return{time,temperature}
 }
+function evStrictNumber(raw){
+  // Number('')/Number(null)/Number(false) all equal zero, but none is a measurement.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim())return NaN;
+  const value=Number(raw.trim());return Number.isFinite(value)?value:NaN
+}
 function evExtractColumns(table,timeIndex,tempIndex){
-  const p=[];for(const row of table?.rows||[]){const t=Number(row?.[timeIndex]),y=Number(row?.[tempIndex]);if(Number.isFinite(t)&&Number.isFinite(y))p.push([t,y])}
-  p.sort((a,b)=>a[0]-b[0]);const out=[];for(const q of p){if(out.length&&Math.abs(out.at(-1)[0]-q[0])<=Math.max(1e-12,Math.max(Math.abs(q[0]),1)*1e-10))out[out.length-1]=q;else out.push(q)}
-  return{t:out.map(x=>x[0]),y:out.map(x=>x[1])}
+  const t=[],y=[];
+  for(const row of table?.rows||[]){
+    const time=evStrictNumber(row?.[timeIndex]),temp=evStrictNumber(row?.[tempIndex]);
+    if(Number.isFinite(time)&&Number.isFinite(temp)){t.push(time);y.push(temp)}
+  }
+  const pairs=evFinitePairs(t,y);
+  return{t:pairs.map(p=>p[0]),y:pairs.map(p=>p[1])}
 }
 function evTemperatureToKelvin(values,unit){
-  const u=evNorm(unit);return(values||[]).map(Number).map(v=>Number.isFinite(v)?((u==='c'||u==='celsius'||u==='degc'||u==='oc')?v+273.15:v):NaN)
+  const u=evNorm(unit);return(values||[]).map(evStrictNumber).map(v=>Number.isFinite(v)?((u==='c'||u==='celsius'||u==='degc'||u==='oc')?v+273.15:v):NaN)
 }
 function evFinitePairs(t,y){
-  const p=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const x=Number(t[i]),v=Number(y[i]);if(Number.isFinite(x)&&Number.isFinite(v))p.push([x,v])}
-  p.sort((a,b)=>a[0]-b[0]);return p
+  const p=[];
+  for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){
+    const x=evStrictNumber(t[i]),v=evStrictNumber(y[i]);
+    if(Number.isFinite(x)&&Number.isFinite(v))p.push([x,v])
+  }
+  p.sort((a,b)=>a[0]-b[0]);
+  const distinct=[];
+  for(const q of p){
+    if(distinct.length&&q[0]===distinct.at(-1)[0]){
+      // A conflicting pair at the same physical time is ambiguous. Fail closed
+      // rather than arbitrarily picking one or double-counting RMSE evidence.
+      if(q[1]!==distinct.at(-1)[1])return [];
+    }else distinct.push(q)
+  }
+  return distinct
 }
 function evInterpolate(t,y,x){
-  const p=evFinitePairs(t,y);x=Number(x);if(!p.length||!Number.isFinite(x)||x<p[0][0]||x>p.at(-1)[0])return NaN;
+  const p=evFinitePairs(t,y);x=evStrictNumber(x);if(!p.length||!Number.isFinite(x)||x<p[0][0]||x>p.at(-1)[0])return NaN;
   let lo=0,hi=p.length-1;while(lo<=hi){const m=(lo+hi)>>1;if(p[m][0]<x)lo=m+1;else if(p[m][0]>x)hi=m-1;else return p[m][1]}
   if(lo<=0||lo>=p.length)return NaN;const a=p[lo-1],b=p[lo],f=(x-a[0])/(b[0]-a[0]);return a[1]+f*(b[1]-a[1])
 }
 function evCompareCurves(simT,simY,expT,expY,expShift=0){
-  const st=evFinitePairs(simT,simY),ep=evFinitePairs(expT,expY).map(([t,y])=>[t+Number(expShift||0),y]);if(st.length<2||ep.length<2)return{valid:false,n:0};
+  const shift=evStrictNumber(expShift);if(!Number.isFinite(shift))return{valid:false,n:0};
+  const st=evFinitePairs(simT,simY),ep=evFinitePairs(expT,expY).map(([t,y])=>[t+shift,y]);if(st.length<2||ep.length<2)return{valid:false,n:0};
   const tt=[],sim=[],exp=[],diff=[];
   for(const [t,e] of ep){const s=evInterpolate(st.map(q=>q[0]),st.map(q=>q[1]),t);if(!Number.isFinite(s))continue;tt.push(t);sim.push(s);exp.push(e);diff.push(s-e)}
-  if(!diff.length)return{valid:false,n:0};
+  // A singleton or repeated instant cannot establish cooling-curve agreement.
+  if(diff.length<2||tt[0]>=tt.at(-1))return{valid:false,n:0};
   const abs=diff.map(Math.abs),mae=abs.reduce((a,b)=>a+b,0)/abs.length,rmse=Math.sqrt(diff.reduce((a,b)=>a+b*b,0)/diff.length),bias=diff.reduce((a,b)=>a+b,0)/diff.length;
   return{valid:true,n:diff.length,t:tt,sim,exp,diff,mae,rmse,bias,maxAbs:Math.max(...abs),range:{start:tt[0],end:tt.at(-1)},noExtrapolation:true}
 }
@@ -142,7 +167,7 @@ function evRefreshSelectors(){
   const sims=evTemperatureSeries(),old=simSel.value;simSel.innerHTML=sims.length?sims.map((s,i)=>'<option value="'+evEsc(String(s.id??i))+'">'+evEsc(evSeriesLabel(s))+'</option>').join(''):'<option value="">—</option>';if(sims.some((s,i)=>String(s.id??i)===old))simSel.value=old;
   const sim=evSelectedSimulation()||sims[0]||null,ph=evPhaseSeries(sim?.caseId),oldP=phaseSel.value;phaseSel.innerHTML='<option value="">'+evUi('None / unavailable','Ninguna / no disponible')+'</option>'+ph.map((s,i)=>'<option value="'+evEsc(String(s.id??i))+'">'+evEsc(evSeriesLabel(s))+'</option>').join('');if(ph.some((s,i)=>String(s.id??i)===oldP))phaseSel.value=oldP;
   if(phaseSel.value!==oldP){const role=document.getElementById('evPhaseRole');if(role)role.value=''}
-  const run=document.getElementById('evRun');if(run)run.disabled=!(sim&&evState.experimental);
+  const run=document.getElementById('evRun');if(run)run.disabled=!(sim&&evState.experimental&&evState.experimental.t.length>=2);
   const badge=document.getElementById('evBadge');if(badge)badge.textContent=evState.experimental?evUi('data ready','datos listos'):evUi('no experiment','sin experimento')
 }
 function evPopulateColumns(){
@@ -155,7 +180,9 @@ async function evImportFile(file){
 }
 function evRunValidation(){
   const sim=evSelectedSimulation(),exp=evExperimentalData(),status=document.getElementById('evStatus');if(!exp){flSetIssue(status,'experimental-data-missing',{analysis:'Experimental Validation'});return null}if(!sim){flSetIssue(status,'simulation-temperature-missing',{analysis:'Experimental Validation'});return null}flClearIssue(status)
-  evState.experimental=exp;const simYK=evTemperatureToKelvin(sim.y,evSimUnit(sim)),shift=Number(document.getElementById('evTimeShift')?.value)||0,cmp=evCompareCurves(sim.t,simYK,exp.t,exp.yK,shift);
+  evState.experimental=exp;const simYK=evTemperatureToKelvin(sim.y,evSimUnit(sim)),shift=evStrictNumber(document.getElementById('evTimeShift')?.value??'0');
+  if(!Number.isFinite(shift)){flSetIssue(status,'invalid-experimental-time-shift',{analysis:'Experimental Validation'});return null}
+  const cmp=evCompareCurves(sim.t,simYK,exp.t,exp.yK,shift);
   if(!cmp.valid){flSetIssue(status,'no shared physical-time interval',{analysis:'Experimental Validation',field:sim?.field?.canonical||'Temperature'});return null}
   const slope=Math.max(0,Number(document.getElementById('evSlopeThreshold')?.value)||0),duration=Math.max(0,Number(document.getElementById('evMinDuration')?.value)||0),amp=Math.max(0,Number(document.getElementById('evMinAmplitude')?.value)||0);
   const simMin=evCurveMinimum(cmp.t,cmp.sim),expMin=evCurveMinimum(cmp.t,cmp.exp),simRebound=evThermalRebound(cmp.t,cmp.sim,{slopeThreshold:slope,minDuration:duration,minAmplitude:amp}),expRebound=evThermalRebound(cmp.t,cmp.exp,{slopeThreshold:slope,minDuration:duration,minAmplitude:amp});
