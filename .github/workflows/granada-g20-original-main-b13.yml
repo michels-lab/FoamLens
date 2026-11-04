@@ -9,6 +9,7 @@ on:
       - 'tools/granada_g20_field_f1_png_gate.py'
       - 'tools/test_granada_g20_field_f1_png_gate.py'
       - 'tools/granada_g20_private_b13_extract.py'
+      - 'tools/test_granada_g20_private_b13_extract.py'
   workflow_dispatch:
 concurrency:
   # PR revisions deduplicate; manual scientific reruns use a separate group.
