@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "a25a8e7bd8daf6d738243425af0e86a3547a2410e19f16477709ebfb3158c00e",
+  "inventory_fingerprint": "606f21a2aed6923233fdd8768e7a5a7682b51abbf885353f899b492e13cf4b15",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -1075,7 +1075,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e7fd277916ffc9816a574a0372377925a7aa47fa"
+      "blob": "29828e00995050a4176e4899857c0935908c5559"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1411,7 +1411,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0efd55aa4a7cb1310ccb78b60d588e313a800e72"
+      "blob": "0ade44eeffc334ef21c64e41912b28d6d7273774"
     },
     {
       "path": "desktop/tests/field-f2-viewport-layout.spec.cjs",
@@ -2090,7 +2090,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "43b050bc647dd0e230c35106cceefd01eec89233"
+      "blob": "c19b5131e4582c57401b17b898b72986dd7f86e4"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
