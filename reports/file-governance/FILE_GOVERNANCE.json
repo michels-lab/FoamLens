@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 483,
-  "classified_files_total": 479,
-  "docs_content_inspected": 103,
+  "tracked_files_total": 486,
+  "classified_files_total": 482,
+  "docs_content_inspected": 104,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,20 +12,22 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 97,
+    "document": 98,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 144,
+    "source": 146,
     "test": 131,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 63
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "2f7727b00f6cd63d5dd264a7c702e718a177d7789336557ca99429652ef33af8",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "ded33ead823e5d8bb0828f3a2a6847a089d245094ff5f9445192b702d1b4fc44",
+  "evidence_fingerprint": "a2fb2e89463c44da1a5fb546f55e1c624806c3cb8306e79098e48f2a38c889fc",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -382,7 +384,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "1c5b0871d045fd3118becd55264c2cfe5d20fe41"
+      "blob": "7e164f9998700e73c18b4c3cc33d0ca6c09855ce"
     },
     {
       "path": ".github/workflows/granada-g38-scientific-export.yml",
@@ -2289,6 +2291,13 @@
       "blob": "e9697e03bd40af0bb8f89867d58b48ccc29ce2e8"
     },
     {
+      "path": "docs/GRANADA_G14B_G37_PER_START_SOURCE_PNG_2026-11-03.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5ecf2c479bb9ea651bcaa0ef6b517d06871f2014"
+    },
+    {
       "path": "docs/GRANADA_G15_UPDATER_RELEASE_ASSET_INTEGRITY_2026-10-22.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -3129,11 +3138,25 @@
       "blob": "c263f61427c11d0e05e42bd100d807b957c5d270"
     },
     {
+      "path": "tools/granada_g37_per_restart_source_gate.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "bf940d6b94d02e637e0679fc02105f6364f6821a"
+    },
+    {
+      "path": "tools/granada_g37_per_restart_source_gate.test.cjs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f1eb7a46bc91f8bebe507290de01ff14b349aeae"
+    },
+    {
       "path": "tools/granada_g37_real_b13_play_stress.ps1",
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "383e5460ee82ea8d3a03c0681dabc2d1b330fb00"
+      "blob": "9e335e9d4c2d189f591687980032bbe31a737dd7"
     },
     {
       "path": "tools/granada_g37_real_b13_stress_guards.test.cjs",
@@ -3381,7 +3404,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "ed696ca9d89a0395",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g37_per_restart_source_gate.cjs, tools/granada_g37_per_restart_source_gate.test.cjs, tools/granada_g37_real_b13_play_stress.ps1",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,

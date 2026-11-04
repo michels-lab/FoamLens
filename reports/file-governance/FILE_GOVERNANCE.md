@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 483; classified: 479; readable documents: 103; above read cap: 1; findings: 0.
+Tracked: 486; classified: 482; readable documents: 104; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,11 +16,11 @@ Tracked: 483; classified: 479; readable documents: 103; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 97 |
+| document | 98 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 144 |
+| source | 146 |
 | test | 131 |
 | text_metadata | 1 |
 | web_ui | 2 |
@@ -28,6 +28,7 @@ Tracked: 483; classified: 479; readable documents: 103; above read cap: 1; findi
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 4 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-g37-real-b13-play-stress.yml, tools/granada_g37_per_restart_source_gate.cjs, tools/granada_g37_per_restart_source_gate.test.cjs, tools/granada_g37_real_b13_play_stress.ps1. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID ed696ca9d89a0395)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
