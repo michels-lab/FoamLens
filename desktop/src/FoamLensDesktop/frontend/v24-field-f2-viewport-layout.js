@@ -53,7 +53,7 @@ function pvClassify(sample){
 }
 /* FOAMLENS_F2_LAYOUT_CORE_END */
 function pvEl(id){return document.getElementById(id)}
-let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvLast=null;
+let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
 function pvLoad(){
   try{const x=JSON.parse(localStorage.getItem(pvKey)||'{}');
@@ -280,9 +280,19 @@ function pvAuditPanel(){
 }
 function pvDiscover(){
   const grid=pvEl('fcViewGrid');if(!grid)return false;
+  // The Field grid is created lazily after launch in some navigation paths.
+  // Bind Escape when the real grid exists, not only on DOMContentLoaded.
+  if(pvEscapeGrid!==grid){
+    grid.addEventListener('keydown',e=>{
+      if(e.key!=='Escape'||!pvFocus)return;
+      pvResetFocus();e.preventDefault?.();e.stopPropagation?.()
+    });
+    pvEscapeGrid=grid
+  }
   pvStyles();pvAuditPanel();
   for(const child of grid.children)pvMountViewport(child);
-  if(!pvObserver&&typeof MutationObserver!=='undefined'){
+  if(pvObservedGrid!==grid&&typeof MutationObserver!=='undefined'){
+    pvObserver?.disconnect?.();
     pvObserver=new MutationObserver(()=>{
       for(const child of grid.children)pvMountViewport(child);
       pvReconcileFocus();
@@ -290,7 +300,8 @@ function pvDiscover(){
     });
     // Compare views are commonly hidden by class changes, NOT removed from
     // the grid. Observing childList alone leaves an invisible maximized view.
-    pvObserver.observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['class']})
+    pvObserver.observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+    pvObservedGrid=grid
   }
   pvReconcileFocus();
   pvSyncFocusButtons();
@@ -309,13 +320,6 @@ function pvInstall(){
     if(['fcEnabled','fcDifference'].includes(e.target?.id))pvResetFocus()
   },true);
   document.addEventListener('foamlens-language-change',pvSyncFocusButtons);
-  const grid=pvEl('fcViewGrid');
-  if(grid)grid.addEventListener('keydown',e=>{
-    // Escape restores the grid only while a viewport is maximized. Never
-    // consume Escape from normal 3D orbit, dialogs or other FoamLens modes.
-    if(e.key!=='Escape'||!pvFocus)return;
-    pvResetFocus();e.preventDefault?.();e.stopPropagation?.()
-  });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pvInstall,{once:true});
 else pvInstall();
