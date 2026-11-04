@@ -130,7 +130,9 @@ test('phase classification is blocked in actual run path until source role and d
   selectors.evAlphaOnset='0.99';selectors.evAlphaComplete='0.01';
   phase.field.dimensions='[0 1 -2 0 0 0 0]';
   assert.equal(run().phaseProvenance.reason,'phase-not-dimensionless');
-  phase.field.dimensions='[0 0 0 0 0 0 0]';phase.y[2]=1.5;
+  phase.field.dimensions='[0 0 0 0 0 0 0]';phase.field.unit='K';
+  assert.equal(run().phaseProvenance.reason,'phase-incompatible-unit');
+  phase.field.unit='1';phase.y[2]=1.5;
   assert.equal(run().phaseProvenance.reason,'invalid-phase-range');
   assert.equal(issues.length,0,'Valid thermal comparison should not be rejected by optional phase failure');
 });
