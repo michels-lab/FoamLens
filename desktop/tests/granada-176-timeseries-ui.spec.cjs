@@ -21,7 +21,9 @@ function el(id='',name='div'){
   e.classList={
     contains(k){return classes().has(k)},
     add(...names){const s=classes();names.forEach(n=>s.add(n));e.className=[...s].join(' ')},
-    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')}
+    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')},
+    toggle(name,forced){const s=classes();const on=forced===undefined?!s.has(name):!!forced;
+      if(on)s.add(name);else s.delete(name);e.className=[...s].join(' ');return on}
   };
   e.appendChild=function(c){
     if(c.parentNode){const old=c.parentNode.children;old.splice(old.indexOf(c),1)}
@@ -52,10 +54,11 @@ function treeFind(root,id){
   for(const child of root.children){const match=treeFind(child,id);if(match)return match}
   return null
 }
-function mockApp(){
+function mockApp({initiallyHidden=false}={}){
   const html=el('documentRoot','html'),head=el('head','head'),body=el('body','body');
   html.appendChild(head);html.appendChild(body);
   const panel=el('timeSeriesControls');
+  if(initiallyHidden)panel.classList.add('hidden');
   body.appendChild(panel);
   const originalTitle=el('sourceTitle');
   originalTitle.className='analysisTitle';panel.appendChild(originalTitle);
@@ -139,6 +142,502 @@ test('Time Series explains no curves, filter-only empty state and existing OpenF
   widget.refreshEmpty();
   assert.match(note.textContent,/Aún no hay curvas temporales/);
   assert(!String(candidate).includes('Variable 0'),'never invent a Variable 0 fallback');
+});
+
+test('Original Data Time Series controller keeps FIRST-history Build visible even at zero curves',()=>{
+  const start=index.indexOf('function refreshTimeSeriesControls(){');
+  const stop=index.indexOf('\nfunction ',start+30);
+  assert(start>=0&&stop>start,'Real original Data control function must exist');
+  const actual=index.slice(start,stop);
+  function check({withHistory,view}){
+    const panel=el('timeSeriesControls'),v=el('timeSeriesVariable'),secondary=el('timeSeriesVariable2'),
+      probe=el('timeSeriesProbe'),cases=el('timeSeriesFamily'),
+      badge=el('timeSeriesFocusBadge'),hint=el('timeSeriesFilterHint');
+    const map={timeSeriesControls:panel,timeSeriesVariable:v,timeSeriesVariable2:secondary,
+      timeSeriesProbe:probe,timeSeriesFamily:cases,timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
+    if(withHistory){map.gr176HistoryCard=el('gr176HistoryCard');map.fwBuildFieldHistories=el('fwBuildFieldHistories')}
+    const run=new Function('
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const cancel=get('gr176Cancel');
+  assert.equal(cancel.disabled,true,'disabled but discoverable at idle');
+  app.button.click();
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),true);
+  assert.equal(cancel.disabled,false);
+  assert.equal(app.button.attributes['aria-busy'],'true');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19);
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),false);
+  assert.equal(cancel.disabled,true);
+  assert.match(app.getLastStatus(),/Cancelled/);
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),false,'cannot cancel twice');
+});
+test('G52 live progress shows ONLY verified original source counts and respects cancellation epoch',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const notify=app.events.get('foamlens-field-history-progress');
+  assert.equal(typeof notify,'function','T2 must listen to the actual scientific progress event');
+  assert.equal(get('gr176Pending').textContent,'');
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
+  assert.equal(get('gr176Pending').textContent,'','idle UI must ignore asynchronous stale events');
+  app.button.click();
+  notify({detail:{slot:1,completed:5,total:10,seq:18,source:'global'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 5 \/ 10 OpenFOAM frames inspected/);
+  const ok=get('gr176Pending').textContent;
+  notify({detail:{slot:2,completed:7,total:10,seq:17,source:'probe'}});
+  notify({detail:{slot:1,completed:50,total:10,seq:18,source:'global'}});
+  assert.equal(get('gr176Pending').textContent,ok,'reject obsolete epoch and fabricated >total progress');
+  notify({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
+  const lang=app.events.get('foamlens-language-change');app.document.getElementById('language').value='es';
+  if(lang)lang();
+  assert.match(get('gr176Pending').textContent,/Serie 2: 2 \/ 6 filas reales de perfil revisadas/,'translation must not erase actual frame evidence');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(get('gr176Pending').textContent,'');
+  notify({detail:{slot:2,completed:6,total:6,seq:18,source:'profile'}});
+  assert.equal(get('gr176Pending').textContent,'','cancelled in-flight WebView2 read cannot resurface old progress');
+});
+test('two-source histories keep BOTH actual per-slot progress counts and ignore stale regressions',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const progress=app.events.get('foamlens-field-history-progress');
+  app.button.click();
+  progress({detail:{slot:1,completed:10,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 10 \/ 10 OpenFOAM frames inspected/);
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
+  const previous=get('gr176Pending').textContent;
+  progress({detail:{slot:2,completed:1,total:6,seq:18,source:'profile'}});
+  progress({detail:{slot:1,completed:6,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:3,total:100,seq:18,source:'profile'}});
+  progress({detail:{slot:2,completed:3,total:6,seq:18,source:'probe'}});
+  assert.equal(get('gr176Pending').textContent,previous,'stale or switched progress may not overwrite verified counts');
+  app.events.get('foamlens-language-change')();
+  assert.equal(get('gr176Pending').textContent,previous,'English retranslation keeps both source slots');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(get('gr176Pending').textContent,'','cancel clears all slot histories');
+});
+test('Escape cancels active history only inside Time Series without stealing idle or unrelated keys',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const shortcut=(app.panel.handlers.get('keydown')||[])[0];
+  assert.equal(typeof shortcut,'function');
+  const event=(key)=>({key,prevented:0,stopped:0,preventDefault(){this.prevented++},stopPropagation(){this.stopped++}});
+  const idle=event('Escape');shortcut(idle);
+  assert.equal(idle.prevented,0);
+  assert.equal(idle.stopped,0);
+  app.button.click();
+  assert.equal(get('gr176Cancel').attributes['aria-keyshortcuts'],'Escape');
+  const unrelated=event('Enter');shortcut(unrelated);
+  assert.equal(unrelated.prevented,0);
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),true);
+  const esc=event('Escape');shortcut(esc);
+  assert.equal(esc.prevented,1);
+  assert.equal(esc.stopped,1);
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19,'source epoch invalidates immediately');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),false);
+  assert.equal(get('gr176Cancel').disabled,true);
+  const second=event('Escape');shortcut(second);
+  assert.equal(second.prevented,0,'repeated Esc must remain available for other UI');
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19);
+});
+test('G52 progress producer reports original frames in ALL three build paths and never commits partial data',()=>{
+  const begin=core.indexOf('function fwFieldTsReportProgress(');
+  const end=core.indexOf('function fwRefreshFieldTsSlot(',begin);
+  assert(begin>=0&&end>begin,'real field history generator progress reporter absent');
+  const events=[];
+  class CustomEvent{constructor(type,options){this.type=type;this.detail=options.detail}}
+  const state={fieldTsSeq:42};
+  const progress=new Function('fwState','document','CustomEvent',core.slice(begin,end)+';return fwFieldTsReportProgress')(
+    state,{dispatchEvent:event=>events.push(event)},CustomEvent);
+  assert.equal(progress(1,1,50,42,'global'),true);
+  assert.equal(progress(1,2,50,42,'global'),false,'limit large-case UI events without hiding real work');
+  assert.equal(progress(1,3,50,42,'global'),true);
+  assert.equal(progress(2,50,50,42,'profile'),true);
+  assert.equal(progress(2,51,50,42,'profile'),false,'never exceed original timestep count');
+  assert.equal(progress(1,4,50,42,'invented'),false,'do not accept fabricated scientific source kinds');
+  assert.equal(progress(3,1,50,42,'probe'),false,'only two real independent generator slots');
+  state.fieldTsSeq++;
+  assert.equal(progress(1,4,50,42,'global'),false,'cancelled epoch cannot emit frame updates');
+  assert.deepEqual(events.map(e=>e.detail),[
+    {slot:1,completed:1,total:50,seq:42,source:'global'},
+    {slot:1,completed:3,total:50,seq:42,source:'global'},
+    {slot:2,completed:50,total:50,seq:42,source:'profile'}
+  ]);
+  assert(events.every(e=>e.type==='foamlens-field-history-progress'));
+  assert.equal((core.match(/fwFieldTsReportProgress\(slot,i\+1,times\.length,seq,'(?:global|probe)'\)/g)||[]).length,2,
+    'probe and global 3D OpenFOAM histories must report exactly their processed frames');
+  assert(core.includes("fwFieldTsReportProgress(slot,i+1,rows.length,seq,'profile')"),
+    'profile history reports inspected original physical-time rows, not guessed percentages');
+  assert(core.includes('if(seq!==fwState.fieldTsSeq)return;')&&
+    core.includes('const built=fwCommitFieldHistoryDrafts(drafts)'),
+    'original cancelled build must remain atomic');
+});
+test('two source slots and real-field selectors remain independent',()=>{
+  const a=mockApp(),get=id=>a.document.getElementById(id);
+  assert.notEqual(get('sourceA'),get('sourceB'));
+  assert.equal(get('sourceA').parentNode,get('sourceB').parentNode);
+  assert.equal(get('fwFieldTsControls').parentNode.id,'gr176HistoryCard');
+  assert.equal(a.primary.parentNode.id,'filtersA');
+  assert.equal(a.secondary.parentNode.id,'filtersA');
+  assert.equal(a.document.getElementById('fwDataFieldHistories').children.length,0);
+});
+test('no parser, scientific data, 3D camera or Field output mutations in the T2 module',()=>{
+  for(const token of ['fvLoadFrameData(','fwCommitFieldHistoryDrafts(','series.push(','setAppMode(','setDataView(','fvState.','fcState.'])
+    assert(!candidate.includes(token),'T2 may not modify the functional scientific/Field domain: '+token);
+  for(const token of ['if(seq!==fwState.fieldTsSeq)return','if(seq!==fwState.fieldTsSeq)return null',
+    'const built=fwCommitFieldHistoryDrafts(drafts)'])
+    assert(core.includes(token),'cancel safety requires existing source loop and atomic commit gate: '+token);
+  assert(core.includes("if(!root||!details?.open)return"),'retain the source refresh guard');
+});
+test('real structural data/error/states exist without fake variable-0 fallback',()=>{
+  for(const id of ['timeSeriesControls','timeSeriesVariable','timeSeriesVariable2','fwTsStatus','timeSeriesFilterHint'])
+    assert(index.includes('id="'+id+'"')||core.includes('id="'+id+'"'),'missing original control '+id);
+  assert(candidate.includes("fwState.fieldTsSeq"),'functional cancel epoch');
+  assert(candidate.includes('foamlens-field-history-progress'), 'live source-frame progress event must be used');
+  assert(!candidate.includes('progress is not reported by this engine'), 'obsolete unavailable-progress message must be removed');
+  assert(!candidate.includes('Variable 0'));
+  const trusted=fs.readFileSync(path.join(__dirname,'..','src','FoamLensDesktop',
+  'TrustedEmbeddedFrontendExtensions.cs'),'utf8');
+const realBuild=fs.readFileSync(path.join(__dirname,'..','..','.github','workflows',
+  'build-foamlens-desktop.yml'),'utf8');
+assert(host.includes('TrustedEmbeddedFrontendExtensions.ReadFromRunningAssembly()'),
+  'G35 production host must execute only assembly-embedded original versioned scripts');
+assert(!host.includes('Directory.GetFiles(AppRoot, "v*-*.js")'),
+  'Never restore user-writable local wildcard JS to satisfy a historical T2 test');
+assert(trusted.includes('FoamLensDesktop.AppBundle.zip')&&trusted.includes('MaxModuleBytes'),
+  'Versioned T2 code must use genuine bounded original assembly bundle');
+assert(realBuild.includes('Copy-Item desktop/src/FoamLensDesktop/frontend/v*-*.js bundle_tmp/'),
+  'Native Windows original executable must actually bundle T2 original module');
+});
+test('responsive, keyboard, localization and no replacement controls',()=>{
+  for(const token of [':focus-visible','repeat(auto-fit,minmax','aria-live','aria-labelledby',
+    'foamlens-language-change','fwDataFieldHistories','appendChild(root)','appendChild(build)'])
+    assert(candidate.includes(token),'missing UI/interaction guarantee '+token);
+  assert(!candidate.includes("innerHTML='<select"),'T2 must not fabricate selectors');
+});
+
+test('G53 invalidates an active scientific history exactly once on ANY source selector change',()=>{
+  const start=core.indexOf('function fwFieldTsInvalidateSelection(){');
+  const end=core.indexOf('// G52 Block 2:',start);
+  assert(start>=0&&end>start,'original source invalidation helper required');
+  const statuses=[],state={fieldTsSeq:28,fieldTsActiveSeq:null};
+  const invalidate=new Function('fwState','fwFieldTsSetStatus','fwUi',
+    core.slice(start,end)+';return fwFieldTsInvalidateSelection')(
+      state,text=>statuses.push(text),(en,es)=>en);
+  assert.equal(invalidate(),false,'idle UI change cannot cancel or advance epoch');
+  assert.equal(state.fieldTsSeq,28);
+  state.fieldTsActiveSeq=28;
+  assert.equal(invalidate(),true,'a changed case/region/field/probe invalidates current real read');
+  assert.equal(state.fieldTsSeq,29);
+  assert.match(statuses.at(-1),/selection changed/i);
+  assert.equal(invalidate(),false,'already cancelled read cannot increment epoch again');
+  state.fieldTsActiveSeq=30;state.fieldTsSeq=30;
+  assert.equal(invalidate(),true,'a newer independent build can also be cancelled');
+  assert.equal(state.fieldTsSeq,31);
+  const owner=core.slice(core.indexOf('function fwEnsureFieldTsControls(){'),
+    core.indexOf('function fwFieldTsSetStatus('));
+  assert(owner.includes('const schedule=()=>{if(fwFieldTsInvalidateSelection())return;'),
+    'original change handlers must invalidate the source before showing Ready');
+  for(const name of ['fwTsSource','fwTsCase','fwTsRegion','fwTsField','fwTsComponent',
+    'fwTsStat','fwTsProbe','fwTsProfileCase','fwTsProfilePosition','fwTsEnable2'])
+    assert(owner.includes(name),'real original selector change must retain a source-bound listener: '+name);
+});
+require('node:test')('G53 real async builder ignores stale reads, late failures and duplicate Build',async()=>{
+  const start=core.indexOf('async function fwBuildFieldTimeSeries(){');
+  // GitHub Windows checkout may use CRLF; function boundaries must not depend on LF-only files.
+  const end=core.indexOf('function fw3DProfileStatus(',start);
+  assert(start>=0&&end>start,'source builder must exist');
+  const validationStart=core.indexOf('function fwFieldTsValidateComparableDrafts(');
+  const validationEnd=core.indexOf('function fwCommitFieldHistoryDrafts(',validationStart);
+  assert(validationStart>=0&&validationEnd>validationStart,'original G55 scientific gate must exist');
+  const code=core.slice(validationStart,validationEnd)+core.slice(start,end);
+  const statuses=[],state={fieldTsSeq:0,fieldTsActiveSeq:null};
+  let commits=0,readCount=0,resolveFrame;
+  const read=(slot)=>{readCount++;return slot===1?new Promise(resolve=>{resolveFrame=resolve}):null};
+  const create=(fetchOne)=>new Function(
+    'fwState','fwFieldTsSetStatus','fwUi','fwBuildOneFieldHistory',
+    'activeAppMode','currentDataView','fwCommitFieldHistoryDrafts',
+    'refreshDatasetControls','refreshTimeSeriesControls','document',
+    'renderList','updateMeta','draw','console',code+';return fwBuildFieldTimeSeries')(
+      state,text=>statuses.push(text),(en,es)=>en,fetchOne,'data','timeseries',
+      drafts=>{commits++;return drafts},()=>{},()=>{}, {getElementById:()=>null},
+      ()=>{},()=>{},()=>{},console);
+  const build=create(read),pending=build();
+  assert.equal(readCount,1,'first real source starts reading');
+  await build();
+  assert.equal(readCount,1,'double click may not start a second concurrent parse');
+  const cancelStart=core.indexOf('function fwFieldTsInvalidateSelection(){');
+  const cancelEnd=core.indexOf('// G52 Block 2:',cancelStart);
+  const invalidate=new Function('fwState','fwFieldTsSetStatus','fwUi',
+    core.slice(cancelStart,cancelEnd)+';return fwFieldTsInvalidateSelection')(
+      state,text=>statuses.push(text),(en,es)=>en);
+  assert.equal(invalidate(),true);
+  resolveFrame({fieldHistoryKey:'old-case',field:{canonical:'T'}});
+  await pending;
+  assert.equal(commits,0,'cancelled source may not commit any curve');
+  assert.equal(state.fieldTsActiveSeq,null,'cancelled finished reader must clear its own active token');
+
+  const positive=create(async slot=>({
+    fieldHistoryKey:slot===1?'case-A|metal|T':'case-B|mold|U',
+    field:{canonical:slot===1?'T':'U'}
+  }));
+  await positive();
+  assert.equal(commits,1,'a subsequent two-slot history must commit atomically once');
+  assert.equal(state.fieldTsActiveSeq,null,'successful build clears active token');
+
+  let rejectOld;const stale=create(()=>new Promise((resolve,reject)=>{rejectOld=reject}));
+  const pendingFailure=stale();
+  assert.equal(invalidate(),true);
+  const visibleStatus=statuses.at(-1);
+  rejectOld(new Error('stale discarded IO error'));
+  await pendingFailure;
+  assert.equal(statuses.at(-1),visibleStatus,
+    'late cancelled IO errors cannot replace the current source status');
+  assert.equal(commits,1,'stale failed data cannot commit a second time');
+
+  // One variable T across two genuinely independent cases is legal only with
+  // verified identical dimensions and unit: metal vs mold is a valid use case.
+  const common={canonical:'field3d:T:value:mean',dimensions:'[0 0 0 1 0 0 0]',
+    quantity:'field3d_T_value_mean',unit:'K'};
+  const draftsFor=(a,b)=>async slot=>({
+    fieldHistoryKey:slot===1?'CASE_A|metal|T':'CASE_B|mold|T',
+    caseId:slot===1?'CASE_A':'CASE_B',
+    field:slot===1?a:b,t:[0,1],y:slot===1?[700,690]:[310,320],
+    fieldHistoryEvidence:{region:slot===1?'metal':'mold'}
+  });
+  await create(draftsFor({...common},{...common}))();
+  assert.equal(commits,2,'matching physical T metadata across two cases must be committed atomically');
+  await assert.rejects(create(draftsFor(common,{...common,unit:'°C'}))(),/incompatible or unverified units/,
+    'same canonical field with Celsius vs Kelvin must fail before commit');
+  assert.equal(commits,2,'unit mismatch cannot replace either previous valid curve');
+  await assert.rejects(create(draftsFor(common,{...common,dimensions:'[0 1 -1 0 0 0 0]'}))(),/incompatible or unverified units/,
+    'T with velocity dimensions in another case must be rejected');
+  await assert.rejects(create(draftsFor(common,{...common,unit:'-',dimensions:''}))(),/incompatible or unverified units/,
+    'unverified physical dimensions may not be silently equated');
+  await assert.rejects(create(draftsFor(common,{...common,quantity:'field3d_alpha_value_mean'}))(),/incompatible or unverified units/,
+    'same label with different declared physical quantity cannot share one axis');
+  assert.equal(commits,2,'all incompatible field histories must leave previously visible data untouched');
+  await create(draftsFor(
+    {canonical:'field3d:alpha:value:mean',dimensions:'[0 0 0 0 0 0 0]',
+      quantity:'field3d_alpha_value_mean',unit:'-'},
+    {canonical:'field3d:alpha:value:mean',dimensions:'[0 0 0 0 0 0 0]',
+      quantity:'field3d_alpha_value_mean',unit:'-'}
+  ))();
+  assert.equal(commits,3,'verified dimensionless liquid fractions remain comparable');
+  assert.equal(state.fieldTsActiveSeq,null,'all failed and successful paths release active builder ownership');
+});
+
+
+require('node:test')('G54 two independent OpenFOAM histories preserve case, region, physical time, units and no invented points',async()=>{
+  const fn=(start,end)=>{const a=core.indexOf(start),b=core.indexOf(end,a);
+    assert(a>=0&&b>a,'source-owned function missing: '+start);return core.slice(a,b)};
+  const helpers=fn('function fwFieldTsHeaderDimensions(','function fwFieldTsField(');
+  const original=fn('async function fwBuildOneFieldHistory(','// Prepare all derived series before changing');
+  const prefix=fn('function fwFieldTsMetric(','function fwFieldTsSource(');
+  let caseBySlot=new Map([[1,{id:'CASE-A',name:'Iron metal' }],[2,{id:'CASE-B',name:'Mold B'}]]);
+  const regionBySlot={1:'metal',2:'mold'},fieldBySlot={1:'T',2:'T'};
+  const group={name:'T',kind:'scalar',times:[0,2,4]};
+  const sourceFrames={
+    'CASE-A|metal':{0:700,2:695,4:680},
+    'CASE-B|mold':{0:300,2:310,4:330}
+  };
+  const sourceDims={0:'[0 0 0 1 0 0 0]',2:'[0 0 0 1 0 0 0]',4:'[0 0 0 1 0 0 0]'};
+  let incompleteAt=null;
+  const uiValues={fwTsEnable2:{checked:true},fwTsComponent1:{value:'value'},fwTsComponent2:{value:'value'},
+    fwTsStat1:{value:'mean'},fwTsStat2:{value:'mean'}};
+  const state={fieldTsSeq:12};
+  let discarded=[],provenance;
+  const funcs=new Function('fwState','fwFieldTsSource','fwBuildProbeFieldHistory','fwBuildProfileHistory',
+    'fwFieldTsCase','fwFieldTsRegion','fwFieldTsGroup','document','fwPhysicalTimes',
+    'fvLoadFrameData','fwFieldTsMetric','fwFieldTsRequireDimensions','fwFieldTsReportProgress',
+    'fwFieldTsSourceKey','fwFieldTsField','fwFieldTsHistoryEvidence','fwUi',
+    'series','fwMeasuredNumber','pmUnitFromDimensions','fwFieldTsStatLabel','fwFieldTsCanonical',
+    'fwFieldTsHeaderDimensions',original+';return fwBuildOneFieldHistory')(
+      state,()=> 'global',()=>null,()=>null,s=>caseBySlot.get(s),s=>regionBySlot[s],
+      s=>({...group,name:fieldBySlot[s]}),{getElementById:id=>uiValues[id]||null},
+      times=>[...new Set(times)].sort((a,b)=>a-b),
+      async(c,g,r,t)=>({parsed:{dimensions:sourceDims[t]},range:{
+        valid:true,min:sourceFrames[c.id+'|'+r][t],max:sourceFrames[c.id+'|'+r][t],
+        mean:incompleteAt===t?NaN:sourceFrames[c.id+'|'+r][t]}}),
+      new Function('fwMeasuredNumber',prefix.slice(prefix.indexOf('function fwFieldTsMetric('),prefix.indexOf('function fwFieldTsStatLabel('))+';return fwFieldTsMetric')(
+        v=>typeof v==='number'&&Number.isFinite(v)?v:NaN),
+      new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en),
+      ()=>{},(c,r,g,comp,stat)=>[c.id,r,g.name,comp,stat].join('|'),
+      new Function('fwFieldTsHeaderDimensions','pmUnitFromDimensions','fwFieldTsStatLabel','fwFieldTsCanonical',
+        fn('function fwFieldTsField(','function fwFieldTsSource(')+';return fwFieldTsField')(
+        new Function('fwUi',helpers+';return fwFieldTsHeaderDimensions')((en,es)=>en),
+        ()=>'K',()=> 'Mean',(g,c,s)=>[g.name,c,s].join(':')),
+      new Function('fwUi',helpers+';return fwFieldTsHistoryEvidence')((en,es)=>en),
+      (en,es)=>en,[],v=>v,()=>'K',()=>'Mean',(g,c,s)=>[g.name,c,s].join(':'),
+      new Function('fwUi',helpers+';return fwFieldTsHeaderDimensions')((en,es)=>en));
+  const a=await funcs(1,12),b=await funcs(2,12);
+  assert.deepEqual(a.t,[0,2,4]);assert.deepEqual(b.t,[0,2,4]);
+  assert.deepEqual(a.y,[700,695,680]);assert.deepEqual(b.y,[300,310,330]);
+  assert.notEqual(a.fieldHistoryKey,b.fieldHistoryKey);
+  assert.equal(a.caseId,'CASE-A');assert.equal(b.caseId,'CASE-B');
+  assert.equal(a.fieldHistoryEvidence.region,'metal');assert.equal(b.fieldHistoryEvidence.region,'mold');
+  assert.equal(a.fieldHistoryEvidence.originalTimeCount,3);
+  assert.equal(a.fieldHistoryEvidence.finiteSampleCount,3);
+  assert.equal(a.fieldHistoryEvidence.omittedTimeCount,0);
+  assert.equal(a.fieldHistoryEvidence.dimensions,'[0 0 0 1 0 0 0]');
+  assert.equal(a.fieldHistoryEvidence.aggregation,'arithmetic-unweighted');
+  assert.equal(b.fieldHistoryEvidence.temporalInterpolation,false);
+  // A SOURCE TIME WITH NO FINITE STATISTIC IS OMITTED, never converted to 0.
+  incompleteAt=2;
+  const partial=await funcs(1,12);
+  assert.deepEqual(partial.t,[0,4]);
+  assert.deepEqual(partial.y,[700,680]);
+  assert.equal(partial.fieldHistoryEvidence.originalTimeCount,3);
+  assert.equal(partial.fieldHistoryEvidence.finiteSampleCount,2);
+  assert.equal(partial.fieldHistoryEvidence.omittedTimeCount,1);
+  incompleteAt=null;
+  // This test fails on the original defective first-frame-only dimension path.
+  sourceDims[2]='[0 1 -1 0 0 0 0]';
+  await assert.rejects(funcs(1,12),/dimensions change/);
+  sourceDims[2]='[0 0 0 1 0 0 0]';
+  sourceDims[4]=undefined;
+  await assert.rejects(funcs(2,12),/dimensions change/);
+  sourceDims[4]='[0 0 0 1 0 0 0]';
+
+  const dimensionGuard=new Function('fwUi',helpers+';return fwFieldTsRequireDimensions')((en,es)=>en);
+  assert.equal(dimensionGuard(null,{dimensions:'[0 0 0 1 0 0 0]'}),'[0 0 0 1 0 0 0]');
+  assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{dimensions:'[0 1 -1 0 0 0 0]'}),/dimensions change/);
+  assert.throws(()=>dimensionGuard('[0 0 0 1 0 0 0]',{}),/dimensions change/);
+  assert.equal(dimensionGuard('',{}),'','two absent source headers remain unknown, not invented');
+});
+
+
+require('node:test')('G54 profile builder refuses mixed source units and duplicate physical-time rows before plotting',async()=>{
+  const a=core.indexOf('async function fwBuildProfileHistory(');
+  const b=core.indexOf('async function fwBuildOneFieldHistory(',a);
+  assert(a>=0&&b>a,'source-owned spatial-to-temporal history builder must exist');
+  const fn=new Function('fwProfileTsSelection','fwProfileSeriesAll','fwPhysicalTime',
+    'fwUi','playbackSpatialPairs','playbackSpatialValueAt','fwState','fwFieldTsReportProgress',
+    'fwMeasuredNumber','fvFmt','localizedFieldName','caseById','series','document',
+    core.slice(a,b)+';return fwBuildProfileHistory')(
+      ()=>({caseId:'iron',set:'postProcessing/sample',field:'T',line:'y20',position:0.02}),
+      ()=>currentRows,x=>Number(x),(en,es)=>en,
+      ()=>{throw Error('no profile should be plotted on rejected metadata')},
+      ()=>{throw Error('no source interpolation permitted on invalid metadata')},
+      {fieldTsSeq:1},()=>{},x=>Number(x),String,x=>x?.canonical,
+      ()=>({id:'iron',name:'Iron'}),[],{getElementById:()=>null});
+  const row=(time,unit='K',coord='m')=>({
+    caseId:'iron',caseName:'Iron',profileOutputPath:'postProcessing/sample',
+    field:{canonical:'T',unit,dimensions:'[0 0 0 1 0 0 0]'},
+    profileLineKey:'y20',profileLine:'Y 20',profileTime:time,profileCoordUnit:coord
+  });
+  let currentRows=[row(0),row(1,'m/s')];
+  await assert.rejects(fn(1,1),/Profile units/);
+  currentRows=[row(0,'K','m'),row(1,'K','mm')];
+  await assert.rejects(fn(1,1),/Profile units/);
+  currentRows=[row(0),row('0.0')];
+  await assert.rejects(fn(1,1),/Duplicate physical profile times/);
+});
+
+
+require('node:test')('G55 single-series and dual-variable independent-axis generation are not overblocked',()=>{
+  const a=core.indexOf('function fwFieldTsValidateComparableDrafts(');
+  const b=core.indexOf('function fwCommitFieldHistoryDrafts(',a);
+  assert(a>=0&&b>a);
+  const fn=new Function('fwUi',core.slice(a,b)+';return fwFieldTsValidateComparableDrafts')((en,es)=>en);
+  const u=(canonical,unit,dimensions,quantity)=>({field:{canonical,unit,dimensions,quantity}});
+  assert.equal(fn([u('T','-','','field3d_T')]),true,
+    'a SINGLE unknown-unit history may still be inspected with honest missing-unit warning');
+  assert.equal(fn([
+    u('T','K','[0 0 0 1 0 0 0]','temperature'),
+    u('U','m/s','[0 1 -1 0 0 0 0]','velocity')
+  ]),true,'different canonical variables may use separate, appropriately labelled Y axes');
+  assert.equal(fn([
+    u('alpha','-','[0 0 0 0 0 0 0]','liquid_fraction'),
+    u('alpha','-','[0 0 0 0 0 0 0]','liquid_fraction')
+  ]),true,'genuine dimensionless field should not be treated as unverified');
+});
+
+
+test('G59 Field exit does not re-hide real Data-owned Time Series Build/Cancel and original source slots',()=>{
+  const start=core.indexOf('function fwLeave(){'),end=core.indexOf('function fwInstall(){',start);
+  assert(start>=0&&end>start,'original Field leave source function missing');
+  const make=new Function('fwState','document','fvStopPlayback','fwTimeStop',
+    'fwSetInspector','fwReturnCompanionControlsToData','window','currentDataView',
+    'updateDatasetViewUI','console',core.slice(start,end)+';return fwLeave');
+  for(const adopted of [true,false]){
+    const classes=new Set(['fwFieldTsControls','hidden']),state={
+      active:true,fieldTsSeq:8,dataViewBeforeField:null
+    };
+    let stop=0,inspector=0,returned=0;
+    const node={
+      closest:selector=>{
+        assert.equal(selector,'#gr176HistoryCard');
+        return adopted?{id:'gr176HistoryCard'}:null
+      },
+      classList:{
+        add:name=>classes.add(name),
+        remove:name=>classes.delete(name),
+        contains:name=>classes.has(name)
+      }
+    };
+    const leave=make(state,{getElementById:id=>id==='fwFieldTsControls'?node:null},
+      ()=>stop++,()=>stop++,()=>inspector++,
+      ()=>returned++,{},'timeseries',()=>{},console);
+    leave();
+    assert.equal(classes.has('hidden'),!adopted,
+      adopted?'G59 native failure regression: Data-owned generator cannot be hidden on Field exit':
+        'original legacy non-Data generator should still be hidden on Field exit');
+    assert.equal(state.active,false,'Field cleanup still deactivates');
+    assert.equal(state.fieldTsSeq,9,'Field exit cancels any earlier source read');
+    assert.equal(stop,2);assert.equal(inspector,1);assert.equal(returned,1);
+  }
+});
+
+test('G58 same native source layout displays both original Time Series slots side by side only when the real parent is wide',()=>{
+  const css=candidate.slice(candidate.indexOf('function installStyle(){'),candidate.indexOf('function install(){'));
+  assert.match(css,/#gr176HistoryCard\{container-type:inline-size;container-name:foamlens-t2-history\}/,
+    'layout must adapt to real card width rather than screen DPI guess');
+  assert.match(css,/@container foamlens-t2-history \(min-width:760px\)/,
+    'independent case+region controls use columns only if enough room');
+  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,
+    'two independent real 3D field history slots should be side by side at wide widths');
+  for(const selector of ['.analysisTitle','>.smallnote','>.gr176HistoryActions','>#gr176Pending','>#fwTsStatus'])
+    assert(css.includes(selector),'essential status/action remains a full width row '+selector);
+  assert(!css.includes('position:fixed')&&!css.includes('display:none!important}#gr176HistoryCard'),
+    'never overlay or conceal the actual field history workflow');
+  assert(host.includes('G58 actual packaged Time Series controls/layout contract failed'),
+    'native G58 must fail closed when actual Time Series layout is broken');
+  for(const part of ['realOriginalField','visibleSources','properSurfaces','noHorizontalOverflow',
+      'cancelIdleDisabled','time-series-{size.Name}.png'])
+    assert(host.includes(part),'native actual WebView2 visual witness must verify '+part);
+  const g37=fs.readFileSync(path.join(__dirname,'..','..','tools','granada_g37_real_b13_play_stress.ps1'),'utf8');
+  for(const picture of ['time-series-wide.png','time-series-compact.png'])
+    assert(g37.includes(picture),'native Windows original B13 6/6 must require actual '+picture);
+  assert(g37.includes("originalB13TwoRegionTimeSeriesNumbersVerified=$doG56"),
+    'new G58 screenshot check cannot disable G56 original numeric proof');
+});
+
+console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
+for(const result of checks)console.log('  ✓ '+result);
+,'timeSeriesOptionsBase','flUi','currentDataView',
+      actual+';return refreshTimeSeriesControls;')(id=>map[id]||null,()=>[],(en,es)=>en,view);
+    run();
+    return{panel,v,secondary,badge,hint}
+  }
+  const ready=check({withHistory:true,view:'timeseries'});
+  assert.equal(ready.panel.classList.contains('hidden'),false,
+    'Generator exists even when 0 plotted curves; existing Data UI must NOT hide it');
+  assert.equal(ready.badge.textContent,'0 curves','No fabricated time-series evidence');
+  assert.equal(ready.secondary.disabled,true,'Empty chart variable selector remains disabled');
+  assert.match(ready.hint.textContent,/Build|Create history/,
+    'Guide user to original Build action instead of requiring a non-existent probe series');
+  const otherView=check({withHistory:true,view:'profile'});
+  assert.equal(otherView.panel.classList.contains('hidden'),true,
+    'Time Series controls must remain hidden from unrelated Data/Profiles views');
+  const notReady=check({withHistory:false,view:'timeseries'});
+  assert.equal(notReady.panel.classList.contains('hidden'),true,
+    'Do not show empty controls if actual source-history generator was never mounted');
+});
+test('Late T2 mount reveals Build on first visit after original Data controller hid empty chart',()=>{
+  const app=mockApp({initiallyHidden:true}),get=id=>app.document.getElementById(id);
+  assert.equal(app.panel.classList.contains('hidden'),false,
+    'T2 mounting must undo the old empty-series panel hide when Time Series is active');
+  assert.equal(get('fwBuildFieldHistories'),app.button,'Actual original Build node must remain bound');
+  assert.equal(get('gr176HistoryCard').parentNode,app.panel);
+  assert.equal(app.button.parentNode.className,'gr176HistoryActions');
 });
 test('Cancel visibly disables after atomic generation epoch is invalidated',()=>{
   const app=mockApp(),get=id=>app.document.getElementById(id);
