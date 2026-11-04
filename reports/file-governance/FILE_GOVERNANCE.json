@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 64
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "32891d9b31025d3573edcf927441ee66952da5268656f40d301d1b3c9e8be65a",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "005fcc57b282bbf3a8177d9df82508c5b692645432ec2fbceaad1975b1658860",
+  "evidence_fingerprint": "e88d9370c1770c3d228010309b808893b13ee8ec74c5b2c8204ae425e72e1b74",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -879,7 +881,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7a02292ec1aac50d780fa6f22bc696157eca9f69"
+      "blob": "c67799e900090cef1e497f32061dcec2fe6096f0"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1362,7 +1364,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ab53b4c5327c957a1d6f7ecce0c6adf0322a7b23"
+      "blob": "532beb0b3c04bed0d7fdce7f9a1b78d6f9cd2f84"
     },
     {
       "path": "desktop/tests/dynamic-mesh.test.cjs",
@@ -1936,7 +1938,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2988137c45a4da299399a23eef811a26a94b86f2"
+      "blob": "8ab7b8b5f4a88560e6348159ae48b8f6e3247c84"
     },
     {
       "path": "desktop/tests/v16-final-ux-audit.test.cjs",
@@ -3451,7 +3453,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "05f6cada4e07cb88",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "3 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
