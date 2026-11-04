@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "606f21a2aed6923233fdd8768e7a5a7682b51abbf885353f899b492e13cf4b15",
+  "inventory_fingerprint": "0360bff7cf01068deab1747f3c6cfbeae2fc5e10201b7cff408c07869a292605",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -949,7 +949,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "948fd6ab61181669172b55197a422bb318dd8d19"
+      "blob": "8e2f5e487c85e1d08595149ec14a784e2a2a3f3d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1439,14 +1439,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "000cc5fbb5df1558c6a9bc8e9a8dcd21edfc128f"
+      "blob": "6dd8cd24aeb93c3b213f3193ac61436f178351d2"
     },
     {
       "path": "desktop/tests/field-multiview-ux.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "113658b6f77fbc02062d07d77af5b5c4564cdeb3"
+      "blob": "78e64ed45642df25d17a04def5bff9f8194790da"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -2090,7 +2090,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "c19b5131e4582c57401b17b898b72986dd7f86e4"
+      "blob": "2acf50d180b75a14281b55310aa7f87c0ee7d235"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
