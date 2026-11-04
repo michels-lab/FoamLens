@@ -169,6 +169,10 @@ test('phase classification is blocked in actual run path until source role and d
   phase.field.unit='1';phase.y[2]=1.5;
   assert.equal(run().phaseProvenance.reason,'invalid-phase-range');
   assert.equal(issues.length,0,'Valid thermal comparison should not be rejected by optional phase failure');
+  selectors.evTimeShift='';
+  assert.equal(run(),null,'empty time-shift input must not silently turn into zero');
+  assert.equal(issues.length,1);
+  assert.equal(issues[0][1],'invalid-experimental-time-shift');
 });
 
 test('product wiring keeps thermal rebound and phase evidence separate',()=>{
