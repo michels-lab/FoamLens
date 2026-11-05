@@ -254,9 +254,19 @@ function fvPaletteStops(name){
   if(name==='turbo')return[[0,[.19,.071,.232]],[.2,[.16,.49,.86]],[.4,[.11,.82,.55]],[.6,[.72,.91,.18]],[.8,[.98,.54,.09]],[1,[.48,.016,.011]]];
   return[[0,[.267,.005,.329]],[.25,[.23,.322,.545]],[.5,[.128,.567,.551]],[.75,[.369,.789,.383]],[1,[.993,.906,.144]]]
 }
+// The three immutable palette definitions are shared by the entire Field
+// workspace. Building nested stop arrays once per triangle/point color used
+// to add massive short-lived allocations when scrubbing large OpenFOAM cases.
+const fvPaletteStopCache=new Map();
+function fvPaletteStopsStable(name){
+  const key=name==='coolwarm'||name==='turbo'?name:'viridis';
+  let stops=fvPaletteStopCache.get(key);
+  if(!stops){stops=fvPaletteStops(key);fvPaletteStopCache.set(key,stops)}
+  return stops
+}
 function fvColorMap(value,min,max,palette='viridis'){
   value=Number(value);min=Number(min);max=Number(max);let t=(Number.isFinite(value)&&Number.isFinite(min)&&Number.isFinite(max)&&max>min)?(value-min)/(max-min):.5;t=fvClamp(t,0,1);
-  const s=fvPaletteStops(palette);let a=s[0],b=s.at(-1);for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
+  const s=fvPaletteStopsStable(palette);let a=s[0],b=s.at(-1);for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
   const f=b[0]===a[0]?0:(t-a[0])/(b[0]-a[0]);return a[1].map((v,i)=>v+(b[1][i]-v)*f)
 }
 function fvLegendGradient(name){
