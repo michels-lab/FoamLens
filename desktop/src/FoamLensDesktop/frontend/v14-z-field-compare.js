@@ -720,7 +720,11 @@ async function fcRefreshFrame(){
     await fcPhysicalLoad(fcState,selected,region,fcState.time,fcRender);
     if(seq!==fcState.seq)return;
     fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+fcSyncText(sync))
-  }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
+  }catch(e){
+    // A superseded async read cannot erase a newer successful B frame.
+    if(seq!==fcState.seq)return;
+    console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)
+  }
 }
 function fcRefreshVisuals(){
   if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fvState.time,fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
@@ -836,7 +840,12 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
     await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
     if(seq!==state.seq)return;
-    if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
+    if(status)status.textContent=fcSyncText(sync)}catch(e){
+    // On fast playback the older frame may reject after a newer C/D upload.
+    // Only the still-current request is allowed to clear the viewport.
+    if(seq!==state.seq)return;
+    fcExtraInvalidateFrame(state,String(e?.message||e))
+  }
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
