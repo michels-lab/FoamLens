@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "e5b1eb84129e1620429a9b8a3fbb1b5711e8293773e95b0b4e40c62c076f2ff3",
+  "inventory_fingerprint": "b4f258e854a46fdaa7ff14fb2b3d673c63d9004acabe394526fcc9dd9fa8e545",
   "evidence_fingerprint": "14009586f7753691de2a3646b54a51171e28ae6737fc0b6de91bf22b1b235fea",
   "files": [
     {
@@ -902,7 +902,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "80b29fbc52dfa603b8ea5faa5837b21b39291791"
+      "blob": "b9ef83ddab27d49ee429bd21d67136f65370c858"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -1469,7 +1469,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1d58c96665d672a9f40c071c6e2ff899fdfb3128"
+      "blob": "e58a76ecd08365b5e57c6a3d1b43d31a1144ef89"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
