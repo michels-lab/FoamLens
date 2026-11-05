@@ -54,6 +54,8 @@ function fwUpdateNavText(){
   const clearProfile=document.getElementById('fwClear3DProfile');if(clearProfile)clearProfile.textContent=fwUi('Clear line','Borrar línea');
   const lab=document.getElementById('fwCompanionLabel');if(lab)lab.textContent=fwUi('Companion plot','Gráfica complementaria');
   const sync=document.getElementById('fwSyncLabel');if(sync)sync.textContent=fwUi('Follow 3D physical time','Seguir tiempo físico 3D');
+  const syncLabel=document.getElementById('fwProfileTimeSyncLabel');
+  if(syncLabel)syncLabel.textContent=fwUi('Sync physical time','Sincronizar tiempo físico');
   fwSyncProfileCompanionButton();
 }
 function fwCreateSurface(){
@@ -90,7 +92,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -124,6 +126,7 @@ function fwCreateSurface(){
     .fwProfilePickStatus{max-width:190px;align-self:center}.fwProfileOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;overflow:visible}.fwProfileOverlay line{stroke:#fff2a6;stroke-width:2.5;stroke-dasharray:7 4;filter:drop-shadow(0 0 2px #000)}.fwProfileOverlay circle{fill:#ffbd2e;stroke:#111;stroke-width:2}.fwProfileOverlay text{font-size:11px;font-weight:900;fill:#fff7c9;stroke:#111;stroke-width:3;paint-order:stroke}.fwCompact input[type="number"]{width:82px}
     .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0}
     .fwGrid.layout-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .fwProfileTimeSync{display:none;align-items:center;gap:6px;cursor:pointer;font-size:10px;font-weight:750;white-space:nowrap;color:var(--muted)}.fwProfileTimeSync input{accent-color:var(--accent)}.fwGrid.layout-split .fwProfileTimeSync{display:inline-flex}
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
@@ -141,6 +144,10 @@ function fwCreateSurface(){
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
   document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
+  document.getElementById('fwProfileTimeSync')?.addEventListener('change',e=>{
+    fwState.syncTime=!!e.target.checked;
+    if(fwState.syncTime)fwSyncCompanionTime(fvState?.time);
+  });
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
   document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
@@ -163,6 +170,7 @@ function fwCreateSurface(){
   fwUpdateNavText()
 }
 function fwSyncProfileCompanionButton(){
+  const sync=document.getElementById('fwProfileTimeSync');if(sync)sync.checked=!!fwState.syncTime;
   const button=document.getElementById('fwToggle3DProfile');if(!button)return;
   const showing=fwState.layout==='split';
   button.setAttribute('aria-pressed',showing?'true':'false');
@@ -193,8 +201,9 @@ function fwToggleProfileCompanion(force){
   }
   if(!fwState.active)return false;
   const manager=window.FoamLensPlotSurfaces,host=document.getElementById('fw2DHost'),
-    grid=document.getElementById('fwGrid'),profile=document.getElementById('profileControls');
-  if(!host||!grid||!profile||typeof manager?.ensure!=='function'||
+    grid=document.getElementById('fwGrid'),profile=document.getElementById('profileControls'),
+    controlsHost=document.getElementById('fw2DControlsHost');
+  if(!host||!grid||!profile||!controlsHost||typeof manager?.ensure!=='function'||
     typeof manager?.activate!=='function')return false;
   // Capture Data's view/pins before giving Field its own canonical canvas.
   // The manager is the sole owner of canvas identity and state restoration.
@@ -204,6 +213,10 @@ function fwToggleProfileCompanion(force){
   if(currentDataView!=='profile')try{fwPrevSetDataView('profile')}catch(e){console.warn('Field profile view:',e)}
   fwSetLayout('split');
   fwSetCompanion('profile');
+  // Opening the split after a 3D frame was already loaded must not display an
+  // unrelated, stale Data profile time until the *next* Play/Next action.
+  // Missing physical times remain missing; never synthesize t=0.
+  fwSyncCompanionTime(fvState?.time);
   const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='';
   fwSyncProfileCompanionButton();
   fwScheduleRender({threeD:true,twoD:true});
@@ -279,7 +292,10 @@ async function fwTimeLoadIndex(index){
       try{stopLogAnimation()}catch{}
       syncLogTimeNavigator(Number(time))
     }else{
-      fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(time)
+      fvStopPlayback();await fvLoadFrame(i);
+      // fwInstall wraps fvLoadFrame to synchronize all real frame sources.
+      // Do not apply the same profile frame twice for Field transport playback.
+      if(!fvLoadFrame.__fwPatched)fwSyncCompanionTime(time)
     }
     fwUpdateTimeBadge();fwRefreshGlobalTime();return true
   }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}return false}
@@ -862,7 +878,8 @@ function fwUpdateTimeBadge(){
 }
 function fwSyncCompanionTime(time){
   const requested=fwPhysicalTime(time);
-  if(!fwState.active||!fwState.syncTime||!Number.isFinite(requested))return;
+  // Never mutate Data's saved profile clock while the Field plot is hidden.
+  if(!fwState.active||fwState.layout!=='split'||!fwState.syncTime||!Number.isFinite(requested))return;
   try{
     if(fwState.companion==='profile'&&profileOptionsBase().length)
       applyProfileTimeValue(requested,{renderListToo:false});
