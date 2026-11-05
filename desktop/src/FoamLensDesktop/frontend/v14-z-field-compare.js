@@ -767,18 +767,18 @@ function fcExtraUpdateLabel(state){
 // forces browser style/layout work. C/D field catalogs may contain hundreds
 // of original OpenFOAM fields; during playback they are unchanged. Reuse the
 // *original* option nodes when their source-backed markup is identical.
-function fcExtraSetOptionMarkup(select,markup){
-  if(select.innerHTML===markup)return false;
+function fcExtraSetOptionMarkup(select,markup,force=false){
+  if(!force&&select.innerHTML===markup)return false;
   select.innerHTML=markup;
   return true
 }
 function fcExtraRefreshSelectors(state,preserve=true){
   const caseSel=fcExtraDom(state.id,'Case'),regionSel=fcExtraDom(state.id,'Region'),fieldSel=fcExtraDom(state.id,'Field'),compSel=fcExtraDom(state.id,'Component');if(!caseSel||!regionSel||!fieldSel||!compSel)return;
-  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';fcExtraSetOptionMarkup(caseSel,eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join('')||'<option value="">—</option>');
+  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';fcExtraSetOptionMarkup(caseSel,eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join('')||'<option value="">—</option>',!preserve);
   if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
-  const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>');if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
-  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>');if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
-  const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''));if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
+  const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>',!preserve);if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
+  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
+  const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
   state.caseId=caseSel.value;state.region=regionSel.value;state.fieldName=fieldSel.value;state.component=compSel.value;fcExtraUpdateLabel(state);fcScheduleToolbarSync()
 }
 function fcExtraInvalidateFrame(state,message){
