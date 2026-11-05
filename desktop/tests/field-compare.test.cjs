@@ -187,8 +187,10 @@ test('secondary and extra 3D case selectors preserve the case explicitly chosen 
     'View 2 case change still discards the selected comparison case.');
   assert(!source.includes("document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(false)"),
     'View 2 still resets its Case selector to the primary case.');
-  assert(source.includes("fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state)"),
-    'Views 3/4 do not preserve their selected case while rebuilding dependent selectors.');
+  assert(source.includes("fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)"),
+    'Views 3/4 must preserve the chosen case while avoiding a duplicate dependent refresh.');
+  assert(source.includes("if(!selectorsReady)fcExtraRefreshSelectors(state,true)"),
+    'Uncontrolled playback must still refresh real case/region/field selectors.');
   assert(!source.includes("fcExtraRefreshSelectors(state,suffix!=='Case')"),
     'Views 3/4 still reset case selection on Case change.');
 });
