@@ -293,4 +293,178 @@ for(const fragment of [
     'Unrelated playback routes must retain their source-refresh fallback');
 }
 
+
+{
+  // Execute production GPU upload logic, not a mirrored test implementation.
+  // C/D previously triangulated and re-uploaded the *same* polyMesh every
+  // timestep although its scientific field values changed independently.
+  const start=source.indexOf('function fcExtraUpload(state,data){');
+  const end=source.indexOf('function fcExtraUpdateLabel(',start);
+  assert(start>=0&&end>start,'Original GPU upload function unavailable');
+  const invalidStart=source.indexOf('function fcExtraInvalidateFrame(state,message){');
+  const invalidEnd=source.indexOf('async function fcExtraRefreshFrame(',invalidStart);
+  assert(invalidStart>=0&&invalidEnd>invalidStart,'Original invalidation function unavailable');
+  const writes={},counts={surfaceBuild:0,faceBuild:0,render:0,legend:0,stats:0,release:0};
+  const meshA={id:'B3-metal',surfaceTriangles:[0,1,2],points:[0,0,0,1,0,0,0,1,0]};
+  const meshB={id:'C3-metal',surfaceTriangles:[0,1,2],points:[0,0,0,2,0,0,0,2,0]};
+  const canvas={};
+  const renderer=()=>({gl:{DYNAMIC_DRAW:35048},surfacePos:null,edgePos:null,edgeColor:null,surfaceColor:null,faceFieldPos:null,faceFieldColor:null});
+  const helpers={
+    fcExtraDom:(id,suffix)=>suffix==='Canvas'?canvas:{textContent:''},
+    fvCreateRenderer:()=>renderer(),
+    fvBuildSurfaceBuffers:mesh=>{
+      counts.surfaceBuild++;
+      return{surfacePositions:new Float32Array([0,0,0,1,0,0,0,1,0]),
+        edgePositions:new Float32Array([0,0,0,1,0,0])}
+    },
+    fcVisualFor:()=>({palette:'viridis',slice:false,iso:false}),
+    fvUploadBuffer:(r,key,data)=>{
+      writes[key]=(writes[key]||0)+1;
+      r[key]={length:data.length,serial:writes[key]}
+    },
+    fvConstantColors:(n)=>new Float32Array(n*3),
+    fvPointSurfaceColors:()=>new Float32Array(9),
+    fvBuildInternalFaceBuffers:mesh=>{
+      counts.faceBuild++;
+      return{positions:new Float32Array([0,0,0,1,0,0,0,1,0]),triangleFaces:[0]}
+    },
+    fvInternalFaceColors:(_,values)=>new Float32Array([values[0],0,0]),
+    fvSurfaceColors:(_,values)=>new Float32Array([values[0],0,0]),
+    fcUpdateViewportLegend:()=>counts.legend++,
+    fcExtraRender:()=>counts.render++,
+    fcUpdateStatsGrid:()=>counts.stats++,
+    document:{getElementById:()=>null}
+  };
+  const upload=new Function('h',
+    'const {'+Object.keys(helpers).join(',')+'}=h;'+source.slice(start,end)+';return fcExtraUpload;')(helpers);
+  const state={id:3,renderer:null,geometryUpload:null,fieldName:'T',component:'value'};
+  const data=(mesh,storage,value)=>({mesh,storage,fieldValues:[value],parsed:{dimensions:'K'},
+    range:{valid:true,min:0,max:500}});
+  for(let t=0;t<128;t++)upload(state,data(meshA,'volume',t));
+  assert.equal(counts.surfaceBuild,1,'128 source frames on one polyMesh must triangulate exactly once');
+  assert.equal(writes.surfacePos,1,'128 frames must upload static surface positions once');
+  assert.equal(writes.edgePos,1,'128 frames must upload static edge positions once');
+  assert.equal(writes.edgeColor,1,'128 frames must upload static edge colors once');
+  assert.equal(writes.surfaceColor,128,'Scientific colors must still change every measured frame');
+  assert.equal(state.fieldValues[0],127,'Latest physical field data must be retained');
+  assert.equal(counts.render,128,'Every physical timestep still triggers 3D redraw');
+  assert.equal(counts.stats,128,'Every field timestep still updates statistics');
+  const originalRenderer=state.renderer;
+  for(let t=0;t<24;t++)upload(state,data(meshA,'surface',t));
+  assert.equal(counts.surfaceBuild,1,'Surface-associated data must reuse same mesh');
+  assert.equal(counts.faceBuild,1,'Same internal-face geometry must be built once');
+  assert.equal(writes.faceFieldPos,1,'Internal face GPU positions stay uploaded across frames');
+  assert.equal(writes.faceFieldColor,24,'Surface-associated measured colors must be updated');
+  assert.equal(writes.surfaceColor,129,'Gray surface scaffold should upload only once');
+  upload(state,data(meshA,'point',77));
+  upload(state,data(meshA,'surface',99));
+  assert.equal(writes.surfaceColor,131,'Switching association restores the correct color scaffold');
+  assert.equal(counts.faceBuild,1,'Association changes must not retriangulate same internal faces');
+  upload(state,data(meshB,'surface',121));
+  assert.equal(counts.surfaceBuild,2,'New OpenFOAM geometry must invalidate static GPU buffers');
+  assert.equal(counts.faceBuild,2,'Changed mesh must rebuild internal faces');
+  assert.equal(writes.surfacePos,2);assert.equal(writes.faceFieldPos,2);
+  state.renderer=null;
+  upload(state,data(meshB,'volume',122));
+  assert.notStrictEqual(state.renderer,originalRenderer,'Renderer recreation is observed');
+  assert.equal(counts.surfaceBuild,3,'New WebGL renderer must upload its own geometry');
+  assert.equal(writes.surfacePos,3);
+  const invalidation=new Function('fcPhysicalRelease','fcExtraUpdateLabel','fcExtraDom',
+    source.slice(invalidStart,invalidEnd)+';return fcExtraInvalidateFrame;')(
+    ()=>counts.release++,()=>{},helpers.fcExtraDom);
+  state.seq=4;state.time=9.8;invalidation(state,'missing measured time');
+  assert.equal(state.seq,5);
+  assert.strictEqual(state.geometryUpload,null,'Invalidated frame must forget old GPU buffers');
+  assert.strictEqual(state.mesh,null);
+  assert(Number.isNaN(state.time),'Missing physical timestamps must not retain prior time');
+  assert.equal(state.renderer.surfaceCount,0,'Stale surface vertices cannot remain drawable');
+  upload(state,data(meshB,'volume',123));
+  assert.equal(counts.surfaceBuild,4,'Restoring valid frame after invalidation uploads fresh GPU geometry');
+}
+
+
+(async()=>{
+  // Original B and C/D async loaders must treat only the latest request's
+  // errors as authoritative; a stale rejection must never erase a newer
+  // measured frame when the user scrubs fast across a large OpenFOAM case.
+  const deferred=()=>{
+    let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});
+    return{promise,resolve,reject}
+  };
+  const create=(snippet,name,deps)=>new Function('deps',
+    'const {'+Object.keys(deps).join(',')+'}=deps;'+snippet+';return '+name+';')(deps);
+  const bStart=source.indexOf('async function fcRefreshFrame(){'),
+    bEnd=source.indexOf('\n}',bStart)+2;
+  assert(bStart>=0&&bEnd>bStart,'Original B frame loader required');
+  let bTarget=9.8,bClears=0,bUploads=0;
+  const bPending=new Map([[9.8,deferred()],[10,deferred()],[11,deferred()]]);
+  const bState={seq:0,mesh:null,enabled:true};
+  const bDeps={
+    fcRefreshSelectors:()=>{},fcState:bState,
+    document:{getElementById:id=>id==='fcEnabled'?{checked:true}:null},
+    fcUpdateLayout:()=>{},fcClearRenderer:()=>{bClears++;bState.mesh=null},
+    fcCase:()=>({id:'B3',name:'B3'}),fcRegion:()=> 'metal',
+    fcCurrentFieldName:()=> 'T',fcCurrentComponent:()=> 'value',
+    fcPrimaryPhysicalTime:()=>bTarget,fcFieldFor:()=>({times:[9.8,10,11]}),
+    fcResolveTime:(times,target)=>({ok:true,time:target,delta:0}),
+    fcMode:()=> 'nearest',fcSetStatus:()=>{},fcUi:en=>en,
+    fcLoadSynchronizedData:(c,g,region,target)=>bPending.get(target).promise,
+    fcUploadMesh:()=>{bUploads++},fcApplySharedRange:range=>range,
+    fcUpdateDerived:()=>{},fcUpdateViewportLegend:()=>{},
+    fcVisualFor:()=>({palette:'viridis'}),fcUpdateStatsGrid:()=>{},
+    fcUpdateDifference:()=>{},fvState:{mesh:{},fieldValues:[]},
+    fcUpdateVectors:async()=>{},fcUpdateLabels:()=>{},fcPhysicalMenu:()=>{},
+    fcRender:()=>{},fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
+    fcSyncText:()=> 'exact',console:{error:()=>{}}
+  };
+  const loadB=create(source.slice(bStart,bEnd),'fcRefreshFrame',bDeps);
+  const oldB=loadB();bTarget=10;const currentB=loadB();
+  const measuredB={ok:true,mesh:{name:'current'},storage:'volume',
+    fieldValues:[400],parsed:{},range:{min:200,max:500},sync:{time:10,delta:0}};
+  bPending.get(10).resolve(measuredB);await currentB;
+  assert.equal(bState.time,10);assert.equal(bUploads,1);
+  bPending.get(9.8).reject(new Error('stale old frame unavailable'));await oldB;
+  assert.equal(bClears,0,'Old B read failure must not clear newest valid mesh');
+  assert.strictEqual(bState.mesh,measuredB.mesh);
+  bTarget=11;const failedB=loadB();
+  bPending.get(11).reject(new Error('current B source unavailable'));await failedB;
+  assert.equal(bClears,1,'Latest B read failure must still clear invalid scene');
+
+  const cStart=source.indexOf('async function fcExtraRefreshFrame('),
+    cEnd=source.indexOf('\n}',cStart)+2;
+  assert(cStart>=0&&cEnd>cStart,'Original C/D frame loader required');
+  let cTarget=9.8,cClears=0,cUploads=0;
+  const cPending=new Map([[9.8,deferred()],[10,deferred()],[11,deferred()]]);
+  const cState={id:3,seq:0,mesh:null};
+  const cDeps={
+    fcState:{enabled:true},fcExtraRefreshSelectors:()=>{},
+    fcExtraCase:()=>({id:'C3',name:'C3'}),fcExtraRegion:()=> 'metal',
+    fcExtraField:()=> 'T',fcExtraComponent:()=> 'value',
+    fcPrimaryPhysicalTime:()=>cTarget,
+    fcExtraDom:()=>({textContent:''}),fcExtraInvalidateFrame:state=>{
+      cClears++;state.seq++;state.mesh=null;state.time=NaN
+    },
+    fcUi:en=>en,fcFieldFor:()=>({times:[9.8,10,11]}),
+    fcResolveTime:(times,target)=>({ok:true,time:target,delta:0}),
+    fcMode:()=> 'nearest',
+    fcLoadSynchronizedData:(c,g,region,target)=>cPending.get(target).promise,
+    fcExtraUpload:(state,data)=>{cUploads++;state.mesh=data.mesh},
+    fcExtraUpdateLabel:()=>{},fcPhysicalMenu:()=>{},
+    fcPhysicalLoad:async()=>{},fcExtraRender:()=>{},fcSyncText:()=> 'exact'
+  };
+  const loadC=create(source.slice(cStart,cEnd),'fcExtraRefreshFrame',cDeps);
+  const oldC=loadC(cState);cTarget=10;const currentC=loadC(cState);
+  const measuredC={ok:true,mesh:{name:'C current'},storage:'volume',
+    fieldValues:[300],parsed:{},range:{min:0,max:500},sync:{time:10,delta:0}};
+  cPending.get(10).resolve(measuredC);await currentC;
+  assert.equal(cState.time,10);assert.equal(cUploads,1);
+  cPending.get(9.8).reject(new Error('stale C field unavailable'));await oldC;
+  assert.equal(cClears,0,'Old C read failure must not invalidate a newer C/D frame');
+  assert.strictEqual(cState.mesh,measuredC.mesh);
+  cTarget=11;const failedC=loadC(cState);
+  cPending.get(11).reject(new Error('current C field unavailable'));await failedC;
+  assert.equal(cClears,1,'Current C/D read failure must still invalidate stale physics');
+  console.log('Field playback stale-error regressions PASS: newest B/C/D frames survive superseded failures.');
+})().catch(error=>{console.error(error);process.exitCode=1});
+
 console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/Fit, linked Fit All, no phantom slots, async removal, drag reorder, Ribbon.');

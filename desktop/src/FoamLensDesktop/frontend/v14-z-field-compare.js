@@ -720,7 +720,11 @@ async function fcRefreshFrame(){
     await fcPhysicalLoad(fcState,selected,region,fcState.time,fcRender);
     if(seq!==fcState.seq)return;
     fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+fcSyncText(sync))
-  }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
+  }catch(e){
+    // A superseded async read cannot erase a newer successful B frame.
+    if(seq!==fcState.seq)return;
+    console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)
+  }
 }
 function fcRefreshVisuals(){
   if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fvState.time,fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
@@ -749,13 +753,48 @@ function fcExtraRender(state,exportSize=null){
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
-  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=fcVisualFor(state,'fcExtra'+state.id).palette;
-  fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
+  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;
+  if(!state.renderer)state.renderer=fvCreateRenderer(canvas);
+  const r=state.renderer,mesh=data.mesh,
+    range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,
+    palette=fcVisualFor(state,'fcExtra'+state.id).palette;
+  // Frame values change far more often than an OpenFOAM polyMesh. Building
+  // surface triangulation and re-uploading static positions/edges on every
+  // physical timestep was O(mesh triangles) CPU + GPU work for C and D.
+  // Cache *only* GPU geometry belonging to this precise mesh and renderer;
+  // colors, scientific values, legends and optional slices remain per-frame.
+  let geometry=state.geometryUpload;
+  if(!geometry||geometry.mesh!==mesh||geometry.renderer!==r||
+     !r.surfacePos||!r.edgePos||!r.edgeColor){
+    const b=fvBuildSurfaceBuffers(mesh);
+    fvUploadBuffer(r,'surfacePos',b.surfacePositions);
+    fvUploadBuffer(r,'edgePos',b.edgePositions);
+    fvUploadBuffer(r,'edgeColor',fvConstantColors(b.edgePositions.length/3,[.12,.16,.22]));
+    geometry={mesh,renderer:r,surfaceCount:b.surfacePositions.length/3,
+      edgeCount:b.edgePositions.length/3,faceTriangles:null,faceCount:0,graySurface:false};
+    state.geometryUpload=geometry
+  }
+  r.surfaceCount=geometry.surfaceCount;r.edgeCount=geometry.edgeCount;
   state.storage=data.storage;const visual=fcVisualFor(state,'fcExtra'+state.id);
-  if(data.storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
-  else if(data.storage==='surface'){
-    fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const fb=fvBuildInternalFaceBuffers(mesh);fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(fb.triangleFaces,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=fb.positions.length/3
-  }else fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
+  if(data.storage==='point'){
+    geometry.graySurface=false;
+    fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }else if(data.storage==='surface'){
+    if(!geometry.graySurface||!r.surfaceColor){
+      fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);
+      geometry.graySurface=true
+    }
+    if(!geometry.faceTriangles||!r.faceFieldPos){
+      const fb=fvBuildInternalFaceBuffers(mesh);
+      fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);
+      geometry.faceTriangles=fb.triangleFaces;geometry.faceCount=fb.positions.length/3
+    }
+    r.faceFieldCount=geometry.faceCount;
+    fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(geometry.faceTriangles,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }else{
+    geometry.graySurface=false;
+    fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }
   const interior=data.storage!=='surface';if(interior&&visual.slice){const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,geom=data.storage==='point'?fvBuildPointSliceGeometry(mesh,data.fieldValues,axis,position):fvBuildSliceGeometry(mesh,data.fieldValues,axis,position);fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,range,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3}else r.sliceCount=0;
   if(interior&&visual.iso&&typeof fvBuildIsoSurfaceGeometry==='function'){const iso=Number(document.getElementById('fvIsoValue')?.value),geom=data.storage==='point'&&typeof fvBuildPointIsoSurfaceGeometry==='function'?fvBuildPointIsoSurfaceGeometry(mesh,data.fieldValues,iso):fvBuildIsoSurfaceGeometry(mesh,data.fieldValues,iso);fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,range,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3}else r.isoCount=0;
   state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range,palette);fcExtraRender(state);fcUpdateStatsGrid()
@@ -786,7 +825,7 @@ function fcExtraInvalidateFrame(state,message){
   ++state.seq;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
-  state.mesh=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
+  state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
   fcExtraUpdateLabel(state);
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
 }
@@ -801,7 +840,12 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
     await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
     if(seq!==state.seq)return;
-    if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
+    if(status)status.textContent=fcSyncText(sync)}catch(e){
+    // On fast playback the older frame may reject after a newer C/D upload.
+    // Only the still-current request is allowed to clear the viewport.
+    if(seq!==state.seq)return;
+    fcExtraInvalidateFrame(state,String(e?.message||e))
+  }
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
@@ -810,6 +854,7 @@ function fcExtraRemove(id){
   // Invalidate any pending await fcLoadSynchronizedData/physical layer load.
   // A removed view cannot later commit stale data or GPU resources.
   ++fcExtraViews[i].seq;
+  fcExtraViews[i].geometryUpload=null;
   fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync();return true
 }
 function fcExtraAdd(){
@@ -818,7 +863,7 @@ function fcExtraAdd(){
   // DOM hosts exist: the old order silently consumed slots on premature clicks.
   const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');
   if(!controls||!grid)return false;
-  let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
+  let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,geometryUpload:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
   const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcExtra'+id+'Surface" type="checkbox" checked> '+fcUi('Surface','Superficie')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Edges','Aristas')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcExtra'+id+'Iso" type="checkbox"> Iso</label></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcTimeBadge" id="fcExtra'+id+'TimeBadge">View '+id+' · —</div><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);fcComposeViewport(viewport);fcAddViewportToolbar(viewport,id);
   fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{state.probe=null;fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)});
