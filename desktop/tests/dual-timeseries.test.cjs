@@ -233,5 +233,31 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
   assert.equal(catalogRefreshes,10,'Original source/evidence refresh still runs for all states');
 });
 
+test('Granada: real Case change event recomputes dependent probe choices before redraw exactly once',()=>{
+  const start=source.indexOf('function tsdWireCaseFilterRefresh(){');
+  const end=source.indexOf('function tsdInstall(){',start);
+  assert(start>=0&&end>start,'Original Time Series Case change wiring is missing');
+  const events=[],cases={dataset:{},addEventListener:(type,fn,capture)=>{
+    events.push({type,fn,capture});
+  }};
+  let refreshes=0;
+  const doc={getElementById:id=>id==='timeSeriesFamily'?cases:null};
+  const wire=new Function('document','refreshTimeSeriesControls',
+    source.slice(start,end)+';return tsdWireCaseFilterRefresh;')(doc,()=>{refreshes++});
+  assert.equal(wire(),true);
+  assert.equal(wire(),false,'Remount must not duplicate original case listeners');
+  assert.equal(events.length,1);
+  assert.equal(events[0].type,'change');
+  assert.equal(events[0].capture,true,'Case-specific probes must refresh before the core redraw');
+  cases.value='case:C13';
+  events[0].fn();
+  assert.equal(refreshes,1,'Changing case must refresh original dependent probe options');
+  cases.value='case:B13';
+  events[0].fn();
+  assert.equal(refreshes,2);
+  assert(source.includes('tsdPatchAssignments();\n  tsdWireCaseFilterRefresh();'),
+    'Install must attach Case filter after binding the original Time Series refresh');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
