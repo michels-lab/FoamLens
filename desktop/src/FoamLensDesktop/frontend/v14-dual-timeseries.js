@@ -298,18 +298,25 @@ function tsdRefreshTimeSeriesControls(){
   if(showAll){v2Sel.value='';v2Sel.disabled=true;secondary=''}
   const selected=showAll?[]:tsdVariableSet(vSel.value,secondary);
   const byVars=selected.length?ts.filter(s=>selected.includes(s.field.canonical)):ts;
-  const probeEntries=[...new Set(byVars.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
-  pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
-  // A first import can contain two original cases with different probe IDs.
-  // Selecting the first probe implicitly hid the other case on initial load.
-  // Default to All probes across cases; preserve only an explicit valid choice.
-  pSel.value=probeEntries.some(v=>String(v)===String(oldP))?String(oldP):'';
-  pSel.dataset.autoinit='1';
-  const byProbe=byVars.filter(s=>pSel.value===''||String(s.probe)===String(pSel.value)),caseMap=new Map();
-  for(const item of byProbe)if(item.caseId!=null&&!caseMap.has(item.caseId))caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
+  // Resolve cases before probes. The previous byProbe -> caseMap path hid
+  // loaded cases as soon as the user selected a probe present only in Case A.
+  // Case choices must be based on the selected physical variables, not on
+  // a probe ID belonging to a different simulation.
+  const caseMap=new Map();
+  for(const item of byVars)if(item.caseId!=null&&!caseMap.has(item.caseId))
+    caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
   const caseOptions=[...caseMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{numeric:true}));
   fSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All matching cases','Todos los casos coincidentes'))+'</option>'+caseOptions.map(c=>`<option value="case:${c.id}">${tsdEsc(c.name||`${tsdUi('Case','Caso')} ${c.id}`)}</option>`).join('');
   if([...fSel.options].some(o=>o.value===oldF)&&!String(oldF).startsWith('family:'))fSel.value=oldF;else fSel.value='';
+  // Selecting another case must immediately offer *that case's* real probes.
+  // Keep a valid explicit probe; otherwise show All probes instead of a
+  // fabricated or arbitrarily selected probe from the previous case.
+  const byCase=byVars.filter(s=>!fSel.value||fSel.value===`case:${s.caseId}`);
+  const probeEntries=[...new Set(byCase.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))]
+    .sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
+  pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
+  pSel.value=probeEntries.some(v=>String(v)===String(oldP))?String(oldP):'';
+  pSel.dataset.autoinit='1';
   const caseLabel=document.querySelector('label[for="timeSeriesFamily"]');if(caseLabel)caseLabel.textContent=tsdUi('Cases','Casos');
   const matching=timeSeriesOptionsBase().filter(tsdMatchesFilters),uniqueCases=new Set(matching.map(s=>s.caseId)).size;
   document.getElementById('timeSeriesFocusBadge').textContent=`${matching.length} ${tsdUi('curves','curvas')}`;
