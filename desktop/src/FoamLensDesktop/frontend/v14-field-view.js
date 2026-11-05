@@ -1602,14 +1602,27 @@ function fvBuildSurfaceBuffers(mesh){
   return{surfacePositions:pos,edgePositions:ep}
 }
 function fvSurfaceColors(mesh,values,min,max,palette){
-  const owners=mesh.surfaceOwners||[],out=new Float32Array(owners.length*9);
-  for(let ti=0;ti<owners.length;ti++){const rgb=fvColorMap(values?.[owners[ti]],min,max,palette);for(let v=0;v<3;v++){const base=(ti*3+v)*3;out[base]=rgb[0];out[base+1]=rgb[1];out[base+2]=rgb[2]}}
+  const owners=mesh.surfaceOwners||[],out=new Float32Array(owners.length*9),colors=new Map();
+  for(let ti=0;ti<owners.length;ti++){const rgb=fvIndexedFrameColor(owners[ti],values,min,max,palette,colors);for(let v=0;v<3;v++){const base=(ti*3+v)*3;out[base]=rgb[0];out[base+1]=rgb[1];out[base+2]=rgb[2]}}
   return out
 }
 function fvPointSurfaceColors(mesh,values,min,max,palette){
-  const tri=mesh?.surfaceTriangles||[],out=new Float32Array(tri.length*3);
-  for(let v=0;v<tri.length;v++){const rgb=fvColorMap(values?.[tri[v]],min,max,palette);out[3*v]=rgb[0];out[3*v+1]=rgb[1];out[3*v+2]=rgb[2]}
+  const tri=mesh?.surfaceTriangles||[],out=new Float32Array(tri.length*3),colors=new Map();
+  for(let v=0;v<tri.length;v++){const rgb=fvIndexedFrameColor(tri[v],values,min,max,palette,colors);out[3*v]=rgb[0];out[3*v+1]=rgb[1];out[3*v+2]=rgb[2]}
   return out
+}
+// A rendered OpenFOAM cell, mesh vertex or internal face is shared by many
+// triangles. Map its color once per *field-array/range/palette invocation*,
+// not once per triangle. Discard the memo after the frame so a new measured
+// field, range, component or palette can never inherit stale scientific color.
+// Clear after a bounded number of distinct indices to avoid an unbounded
+// color table for multi-million-element meshes.
+function fvIndexedFrameColor(index,values,min,max,palette,colors){
+  if(colors.has(index))return colors.get(index);
+  const rgb=fvColorMap(values?.[index],min,max,palette);
+  if(colors.size>=8192)colors.clear();
+  colors.set(index,rgb);
+  return rgb
 }
 function fvBuildInternalFaceBuffers(mesh){
   const pts=mesh?.points||[],positions=[],triangleFaces=[],n=Math.max(0,Number(mesh?.internalFaceCount)||0);
@@ -1617,8 +1630,8 @@ function fvBuildInternalFaceBuffers(mesh){
   return{positions:new Float32Array(positions),triangleFaces}
 }
 function fvInternalFaceColors(triangleFaces,values,min,max,palette){
-  const out=new Float32Array((triangleFaces?.length||0)*9);
-  for(let ti=0;ti<(triangleFaces?.length||0);ti++){const rgb=fvColorMap(values?.[triangleFaces[ti]],min,max,palette);for(let v=0;v<3;v++){const b=(ti*3+v)*3;out[b]=rgb[0];out[b+1]=rgb[1];out[b+2]=rgb[2]}}
+  const out=new Float32Array((triangleFaces?.length||0)*9),colors=new Map();
+  for(let ti=0;ti<(triangleFaces?.length||0);ti++){const rgb=fvIndexedFrameColor(triangleFaces[ti],values,min,max,palette,colors);for(let v=0;v<3;v++){const b=(ti*3+v)*3;out[b]=rgb[0];out[b+1]=rgb[1];out[b+2]=rgb[2]}}
   return out
 }
 function fvAssociationLabel(storage){
