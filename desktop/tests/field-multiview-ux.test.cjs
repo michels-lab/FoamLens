@@ -382,4 +382,89 @@ for(const fragment of [
   assert.equal(counts.surfaceBuild,4,'Restoring valid frame after invalidation uploads fresh GPU geometry');
 }
 
+
+(async()=>{
+  // Original B and C/D async loaders must treat only the latest request's
+  // errors as authoritative; a stale rejection must never erase a newer
+  // measured frame when the user scrubs fast across a large OpenFOAM case.
+  const deferred=()=>{
+    let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});
+    return{promise,resolve,reject}
+  };
+  const create=(snippet,name,deps)=>new Function('deps',
+    'const {'+Object.keys(deps).join(',')+'}=deps;'+snippet+';return '+name+';')(deps);
+  const bStart=source.indexOf('async function fcRefreshFrame(){'),
+    bEnd=source.indexOf('\n}',bStart)+2;
+  assert(bStart>=0&&bEnd>bStart,'Original B frame loader required');
+  let bTarget=9.8,bClears=0,bUploads=0;
+  const bPending=new Map([[9.8,deferred()],[10,deferred()],[11,deferred()]]);
+  const bState={seq:0,mesh:null,enabled:true};
+  const bDeps={
+    fcRefreshSelectors:()=>{},fcState:bState,
+    document:{getElementById:id=>id==='fcEnabled'?{checked:true}:null},
+    fcUpdateLayout:()=>{},fcClearRenderer:()=>{bClears++;bState.mesh=null},
+    fcCase:()=>({id:'B3',name:'B3'}),fcRegion:()=> 'metal',
+    fcCurrentFieldName:()=> 'T',fcCurrentComponent:()=> 'value',
+    fcPrimaryPhysicalTime:()=>bTarget,fcFieldFor:()=>({times:[9.8,10,11]}),
+    fcResolveTime:(times,target)=>({ok:true,time:target,delta:0}),
+    fcMode:()=> 'nearest',fcSetStatus:()=>{},fcUi:en=>en,
+    fcLoadSynchronizedData:(c,g,region,target)=>bPending.get(target).promise,
+    fcUploadMesh:()=>{bUploads++},fcApplySharedRange:range=>range,
+    fcUpdateDerived:()=>{},fcUpdateViewportLegend:()=>{},
+    fcVisualFor:()=>({palette:'viridis'}),fcUpdateStatsGrid:()=>{},
+    fcUpdateDifference:()=>{},fvState:{mesh:{},fieldValues:[]},
+    fcUpdateVectors:async()=>{},fcUpdateLabels:()=>{},fcPhysicalMenu:()=>{},
+    fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
+    fcSyncText:()=> 'exact',console:{error:()=>{}}
+  };
+  const loadB=create(source.slice(bStart,bEnd),'fcRefreshFrame',bDeps);
+  const oldB=loadB();bTarget=10;const currentB=loadB();
+  const measuredB={ok:true,mesh:{name:'current'},storage:'volume',
+    fieldValues:[400],parsed:{},range:{min:200,max:500},sync:{time:10,delta:0}};
+  bPending.get(10).resolve(measuredB);await currentB;
+  assert.equal(bState.time,10);assert.equal(bUploads,1);
+  bPending.get(9.8).reject(new Error('stale old frame unavailable'));await oldB;
+  assert.equal(bClears,0,'Old B read failure must not clear newest valid mesh');
+  assert.strictEqual(bState.mesh,measuredB.mesh);
+  bTarget=11;const failedB=loadB();
+  bPending.get(11).reject(new Error('current B source unavailable'));await failedB;
+  assert.equal(bClears,1,'Latest B read failure must still clear invalid scene');
+
+  const cStart=source.indexOf('async function fcExtraRefreshFrame('),
+    cEnd=source.indexOf('\n}',cStart)+2;
+  assert(cStart>=0&&cEnd>cStart,'Original C/D frame loader required');
+  let cTarget=9.8,cClears=0,cUploads=0;
+  const cPending=new Map([[9.8,deferred()],[10,deferred()],[11,deferred()]]);
+  const cState={id:3,seq:0,mesh:null};
+  const cDeps={
+    fcState:{enabled:true},fcExtraRefreshSelectors:()=>{},
+    fcExtraCase:()=>({id:'C3',name:'C3'}),fcExtraRegion:()=> 'metal',
+    fcExtraField:()=> 'T',fcExtraComponent:()=> 'value',
+    fcPrimaryPhysicalTime:()=>cTarget,
+    fcExtraDom:()=>({textContent:''}),fcExtraInvalidateFrame:state=>{
+      cClears++;state.seq++;state.mesh=null;state.time=NaN
+    },
+    fcUi:en=>en,fcFieldFor:()=>({times:[9.8,10,11]}),
+    fcResolveTime:(times,target)=>({ok:true,time:target,delta:0}),
+    fcMode:()=> 'nearest',
+    fcLoadSynchronizedData:(c,g,region,target)=>cPending.get(target).promise,
+    fcExtraUpload:(state,data)=>{cUploads++;state.mesh=data.mesh},
+    fcExtraUpdateLabel:()=>{},fcPhysicalMenu:()=>{},
+    fcPhysicalLoad:async()=>{},fcExtraRender:()=>{},fcSyncText:()=> 'exact'
+  };
+  const loadC=create(source.slice(cStart,cEnd),'fcExtraRefreshFrame',cDeps);
+  const oldC=loadC(cState);cTarget=10;const currentC=loadC(cState);
+  const measuredC={ok:true,mesh:{name:'C current'},storage:'volume',
+    fieldValues:[300],parsed:{},range:{min:0,max:500},sync:{time:10,delta:0}};
+  cPending.get(10).resolve(measuredC);await currentC;
+  assert.equal(cState.time,10);assert.equal(cUploads,1);
+  cPending.get(9.8).reject(new Error('stale C field unavailable'));await oldC;
+  assert.equal(cClears,0,'Old C read failure must not invalidate a newer C/D frame');
+  assert.strictEqual(cState.mesh,measuredC.mesh);
+  cTarget=11;const failedC=loadC(cState);
+  cPending.get(11).reject(new Error('current C field unavailable'));await failedC;
+  assert.equal(cClears,1,'Current C/D read failure must still invalidate stale physics');
+  console.log('Field playback stale-error regressions PASS: newest B/C/D frames survive superseded failures.');
+})().catch(error=>{console.error(error);process.exitCode=1});
+
 console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/Fit, linked Fit All, no phantom slots, async removal, drag reorder, Ribbon.');
