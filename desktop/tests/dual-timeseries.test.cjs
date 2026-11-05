@@ -162,5 +162,63 @@ test('G Granada: dual-variable refresh cannot leak the Time Series panel into Fi
   assert.equal(exercise({curves:1,builder:false,mode:'field'}).wanted,false,'even existing curves cannot leak into Field');
 });
 
+test('Granada multi-case: Time Series defaults to all probes and retains explicit filters',()=>{
+  const begin=source.indexOf('function tsdShouldShowPanel(');
+  const end=source.indexOf('function tsdPatchAssignments(',begin);
+  assert(begin>0&&end>begin,'Original dual-variable refresh source is required');
+  const maker=new Function(
+    'document','timeSeriesOptionsBase','tsdFields','tsdPrimaryChoice','tsdPopulateSecondary',
+    'tsdVariableSet','tsdEsc','tsdUi','localizedFieldName','tr','caseById',
+    'tsdMatchesFilters','tsdAxisPlan','tsdUpdateSourceCatalog','tsdUpdateScientificEvidence',
+    'currentDataView','activeAppMode',
+    source.slice(begin,end)+';return tsdRefreshTimeSeriesControls;'
+  );
+  const rows=[
+    {field:{canonical:'T',unit:'K'},caseId:'B13',caseName:'B13',probe:'1'},
+    {field:{canonical:'T',unit:'K'},caseId:'C13',caseName:'C13',probe:'2'}
+  ];
+  const select=(value='')=>({value,innerHTML:'',dataset:{},disabled:false});
+  const primary=select(),secondary=select(),probe=select(),family=select();
+  family.options=[];
+  let html='';
+  Object.defineProperty(family,'innerHTML',{
+    get(){return html},
+    set(value){html=value;this.options=[...value.matchAll(/<option value="([^"]*)"/g)]
+      .map(match=>({value:match[1]}))}
+  });
+  const badge={textContent:''},hint={textContent:''},panel={
+    classList:{toggle(){}}
+  },caseLabel={textContent:''};
+  const nodes={timeSeriesControls:panel,timeSeriesVariable:primary,
+    timeSeriesVariable2:secondary,timeSeriesProbe:probe,timeSeriesFamily:family,
+    timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint,
+    gr176HistoryCard:{},fwBuildFieldHistories:{}};
+  const document={getElementById:id=>nodes[id]||null,querySelector:()=>caseLabel};
+  let catalogRefreshes=0;
+  const refresh=maker(document,()=>rows,()=>[{canonical:'T',unit:'K'}],
+    (vars,wanted)=>vars.some(v=>v.canonical===wanted)?wanted:vars[0].canonical,
+    ()=>'',primary=>primary?[primary]:[],String,en=>en,f=>f.canonical,
+    ()=> 'probe',id=>({id,name:id}),
+    row=>(!probe.value||String(row.probe)===probe.value)&&
+      (!family.value||family.value==='case:'+row.caseId),
+    ()=>({separate:false}),()=>{catalogRefreshes++},
+    ()=>{catalogRefreshes++},'timeseries','data');
+  refresh();
+  assert.equal(probe.value,'','A new multi-case import must default to All probes');
+  assert.equal(badge.textContent,'2 curves','Both OpenFOAM cases are visible initially');
+  assert(family.options.some(o=>o.value==='case:B13'));
+  assert(family.options.some(o=>o.value==='case:C13'));
+  assert.match(hint.textContent,/2 case\(s\)/);
+  probe.value='2';refresh();
+  assert.equal(probe.value,'2','An explicitly selected real probe remains selected');
+  assert.equal(badge.textContent,'1 curves','Explicit filtering still works');
+  assert(family.options.some(o=>o.value==='case:C13'));
+  assert(!family.options.some(o=>o.value==='case:B13'));
+  probe.value='gone';refresh();
+  assert.equal(probe.value,'','A disappeared probe returns to All instead of selecting a random one');
+  assert.equal(badge.textContent,'2 curves');
+  assert.equal(catalogRefreshes,6,'Original source/evidence refresh still runs for all states');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
