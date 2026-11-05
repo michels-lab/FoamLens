@@ -128,14 +128,14 @@ function fvCombinePartitionMeshes(parts){
   // Materialize each face exactly once, from its original local polyMesh
   // indices. The short-lived local face is discarded after use; neither
   // internals nor boundaries are held in another full-size face list.
-  const appendFace=(m,range,fi,isInternal)=>{
-    const face=fvMeshFacePoints(m,fi),globalFace=owners.length;
+  const appendFace=(m,range,fi,isInternal,face=fvMeshFacePoints(m,fi))=>{
+    const globalFace=owners.length;
     for(let i=0;i<face.length;i++)facePoints.push(face[i]+range.pointStart);
     faceOffsets.push(facePoints.length);
     owners.push(Number(m.owners?.[fi])+range.cellStart);
     if(isInternal)neighbours.push(Number(m.neighbours?.[fi])+range.cellStart);
     facePartition.push(range.partition);faceLocal.push(fi);
-    return{face,globalFace}
+    return globalFace
   };
   for(const {mesh:m,range} of partitionMeshes)
     for(let fi=0;fi<(m.internalFaceCount||0);fi++)appendFace(m,range,fi,true);
@@ -145,7 +145,7 @@ function fvCombinePartitionMeshes(parts){
       const startFace=owners.length,processor=fvIsProcessorPatch(patch);
       let count=0;
       for(let fi=Number(patch.startFace);fi<Number(patch.startFace)+Number(patch.nFaces);fi++){
-        const {face,globalFace}=appendFace(m,range,fi,false);count++;
+        const face=fvMeshFacePoints(m,fi),globalFace=appendFace(m,range,fi,false,face);count++;
         if(!processor){
           const offset=range.pointStart,owner=Number(m.owners?.[fi])+range.cellStart;
           for(let j=1;j<face.length-1;j++){surfaceTriangles.push(face[0]+offset,face[j]+offset,face[j+1]+offset);surfaceOwners.push(owner);surfaceTriangleFaces.push(globalFace)}
