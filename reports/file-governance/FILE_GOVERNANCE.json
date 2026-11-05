@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "e494064d1dad169b4dc0be7feae5a538ae5b59305f50a312d4782f54b1a8808e",
-  "evidence_fingerprint": "64387c1d95910f5e8011bd8262570075858e2a162c428b5a8c3c8892c887df16",
+  "inventory_fingerprint": "3d19ac3ceb9212f077de778191b163af9f124a7c9d91b0ee63d27004a71eab83",
+  "evidence_fingerprint": "9b86e8e540cdde1941c0c72ac06cdbd592315274d1039ee650b843b699f82271",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -951,7 +951,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8c28cd3027eccc32926b474e8fd762f32e3f20f5"
+      "blob": "db9f1682b96b3f99a9d0806a58de798f7d11ea0f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1406,7 +1406,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e84a1ee86ca7c67e42b0c9ae535d53a41ab68a80"
+      "blob": "f0ca9d809441fc98504cc24f4aaf764aa451c966"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -1448,7 +1448,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2bec82b5a3bbec1ddea1dbfe5a0c76d78069bf3a"
+      "blob": "3bd50f7d4d23f283a0e883acd7fb88988ade0063"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -3455,11 +3455,11 @@
   ],
   "findings": [
     {
-      "id": "e9673569ebf83893",
+      "id": "be3aa1014dd1715b",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "6 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/section-ownership.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs, desktop/tests/workspace-ux.test.cjs",
+      "observation": "9 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs, desktop/tests/field-multiview-ux.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
