@@ -999,6 +999,12 @@ function fwPromoteViewCaseSelectors(){
     present.add(letter);
     if(letter==='A')primaryReady=true;
     card.classList.toggle('hidden',letter!=='A'&&!enabled);
+    // Keep the rows themselves scoped as hidden too. WebView2 native smoke
+    // and accessibility tooling inspect the computed style of the original
+    // selector's closest .row2; a hidden ancestor alone does not make that
+    // row's own computed display equal 'none'.
+    caseRow.classList.toggle('hidden',letter!=='A'&&!enabled);
+    fieldRow.classList.toggle('hidden',letter!=='A'&&!enabled);
     caseRow.classList.toggle('fwViewACaseRow',letter==='A');
     fieldRow.classList.toggle('fwViewAFieldRow',letter==='A');
     caseRow.classList.toggle('fwViewBCaseRow',letter==='B');
