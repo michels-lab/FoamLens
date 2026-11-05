@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "5c7948fd26749fcb8dfd6993a7dcfa65079137376b98f4ec9c9a74c6a631534c",
-  "evidence_fingerprint": "9b86e8e540cdde1941c0c72ac06cdbd592315274d1039ee650b843b699f82271",
+  "inventory_fingerprint": "e5b1eb84129e1620429a9b8a3fbb1b5711e8293773e95b0b4e40c62c076f2ff3",
+  "evidence_fingerprint": "14009586f7753691de2a3646b54a51171e28ae6737fc0b6de91bf22b1b235fea",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -902,7 +902,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6173a91a258cdeb894be7507120036d6be335138"
+      "blob": "80b29fbc52dfa603b8ea5faa5837b21b39291791"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -1469,7 +1469,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "367839b0e97863284d24eb95f8fccdb04bc82a07"
+      "blob": "1d58c96665d672a9f40c071c6e2ff899fdfb3128"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -3455,11 +3455,11 @@
   ],
   "findings": [
     {
-      "id": "be3aa1014dd1715b",
+      "id": "b0ca25446a056683",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "9 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs, desktop/tests/field-multiview-ux.test.cjs",
+      "observation": "11 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }

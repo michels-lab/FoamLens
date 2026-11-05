@@ -28,7 +28,7 @@ Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 9 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs, desktop/tests/field-multiview-ux.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID be3aa1014dd1715b)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 11 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID b0ca25446a056683)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
