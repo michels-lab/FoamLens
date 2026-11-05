@@ -452,7 +452,7 @@ test('Field/Data time badge and synchronization use measured OpenFOAM timestamps
   const a=field.indexOf('function fwPhysicalTime('),b=field.indexOf('function fwAdoptFieldNode(',a),
     c=field.indexOf('function fwUpdateTimeBadge()'),d=field.indexOf('function fwUpdateViewCount()',c);
   assert(a>=0&&b>a&&c>=0&&d>c,'Missing actual physical-clock or badge/sync implementation');
-  const state={companion:'profile',active:true,syncTime:true};
+  const state={companion:'profile',active:true,syncTime:true,layout:'split'};
   const inputs={
     fwPlotTime:{textContent:''},profileTimeInput:{value:''},profileTime:{value:''},
     logCurrentTime:{value:''}
@@ -480,7 +480,10 @@ test('Field/Data time badge and synchronization use measured OpenFOAM timestamps
   assert.deepStrictEqual(pushed,[],'Absent physical time cannot synchronize Data to an invented zero');
   api.sync('0');api.sync(9.8);
   assert.deepStrictEqual(pushed,[0,9.8]);
-  state.companion='log';inputs.logCurrentTime.value='';
+  state.layout='3d';api.sync(20);
+  assert.deepStrictEqual(pushed,[0,9.8],
+    'Hidden 3D-only Field must preserve the independent Data profile time');
+  state.layout='split';state.companion='log';inputs.logCurrentTime.value='';
   api.badge();assert.equal(inputs.fwPlotTime.textContent,'—','Blank log time is not t=0');
   inputs.logCurrentTime.value='0';
   api.badge();assert.equal(inputs.fwPlotTime.textContent,'t = 0 s');

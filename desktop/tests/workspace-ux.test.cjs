@@ -271,6 +271,49 @@ test('Field 3D time-series statistics do not turn missing/reversed range limits 
 
 
 
+
+test('Field companion profile time changes only in an active split, never in hidden Data state',()=>{
+  const begin=field.indexOf('function fwSyncCompanionTime(');
+  const end=field.indexOf('function fwUpdateViewCount(',begin);
+  assert(begin>0&&end>begin,'Original Field time sync function must be present');
+  const numberStart=field.indexOf('function fwPhysicalTime(');
+  const numberEnd=field.indexOf('function fwPhysicalTimes(',numberStart);
+  assert(numberStart>=0&&numberEnd>numberStart);
+  const fwPhysicalTime=new Function('window',field.slice(numberStart,numberEnd)+
+    ';return fwPhysicalTime;')({});
+  const changes=[],badges=[];
+  const state={active:true,layout:'3d',syncTime:true,companion:'profile'};
+  const factory=new Function('fwState','fwPhysicalTime','profileOptionsBase',
+    'applyProfileTimeValue','fwUpdateTimeBadge','console',
+    'logContextOptionsBase','fwPhysicalTimes','logAvailableTimes','nearestValue','syncLogTimeNavigator',
+    field.slice(begin,end)+';return fwSyncCompanionTime;');
+  const sync=factory(state,fwPhysicalTime,()=>[{name:'original OpenFOAM profile'}],
+    (t,opts)=>changes.push({t,opts}),()=>badges.push('updated'),{warn(){}},
+    ()=>[],()=>[],()=>[],()=>null,()=>{});
+  sync(9.8);
+  assert.equal(changes.length,0,'3D-only playback must not mutate Data profile');
+  assert.equal(badges.length,0,'Hidden Field plots must not update stale badges');
+  state.layout='split';sync(9.8);
+  assert.deepStrictEqual(changes,[{t:9.8,opts:{renderListToo:false}}],
+    'Opening the visible split follows the real loaded physical frame once');
+  assert.equal(badges.length,1);
+  sync(null);sync('');sync(false);sync(NaN);
+  assert.equal(changes.length,1,'Blank or unavailable frame times never become t=0');
+  sync(0);
+  assert.equal(changes.length,2,'Real measured t=0 remains valid');
+  assert.equal(changes.at(-1).t,0);
+  state.syncTime=false;sync(20);
+  assert.equal(changes.length,2,'Unchecked time sync freezes independent profile selection');
+  state.syncTime=true;state.active=false;sync(30);
+  assert.equal(changes.length,2,'Inactive Field cannot mutate any profile');
+  assert(field.includes('id="fwProfileTimeSync"')&&
+    field.includes("fwState.syncTime=!!e.target.checked")&&
+    field.includes("if(fwState.syncTime)fwSyncCompanionTime(fvState?.time)"),
+    'Original Field header must expose a real wired sync toggle');
+  assert(field.includes('if(!fvLoadFrame.__fwPatched)fwSyncCompanionTime(time)'),
+    'Patched 3D frame loader must not replay the same profile sync twice');
+});
+
 test('Field 3D + Profile reuses original plot surface and restores Data without leaking history controls',()=>{
   const begin=field.indexOf('function fwSyncProfileCompanionButton(){');
   const end=field.indexOf('function fwSetInspector(',begin);
@@ -293,15 +336,16 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
   const history={id:'timeSeriesControls',parentNode:original};
   const generator={id:'fwBuildFieldHistories',parentNode:history};
   const group={style:{display:'none'}};
+  const sync={checked:true};
   const button={attributes:attrs,textContent:'',setAttribute:(k,v)=>{attrs[k]=v}};
   const grid={classList:{toggle:(k,on)=>{if(on)classes.add(k);else classes.delete(k)}}};
-  const host={},nodes={fwToggle3DProfile:button,fw2DHost:host,fwGrid:grid,
+  const host={},nodes={fwToggle3DProfile:button,fwProfileTimeSync:sync,fw2DHost:host,fwGrid:grid,
     profileControls:profile,timeSeriesControls:history,
     fwBuildFieldHistories:generator,fw2DControlsHost:fieldHost,fw2DControlGroup:group};
   const document={getElementById:id=>nodes[id]||null};
-  const fwState={active:true,layout:'3d',view:'3d',companion:'profile'};
+  const fwState={active:true,layout:'3d',view:'3d',companion:'profile',syncTime:true};
   const fwDataControlOrigins=new Map();
-  const evidence={moves:[],renders:[],companions:[]};
+  const evidence={moves:[],renders:[],companions:[],synchronized:[]};
   const factory=new Function('document','fwState','fwDataControlOrigins','evidence','original',
     'let currentDataView="timeseries",active="data";'+
     'const snapshots={data:"timeseries",field:"profile"};'+
@@ -311,6 +355,8 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
     'const window={FoamLensPlotSurfaces:manager};'+
     'const fwUi=(en)=>en;'+
     'const fwScheduleRender=r=>evidence.renders.push(r);'+
+    'const fvState={time:9.8};'+
+    'const fwSyncCompanionTime=t=>evidence.synchronized.push(t);'+
     'const fwSetCompanion=m=>{fwState.companion=m;evidence.companions.push(m)};'+
     'const fwPrevSetDataView=m=>{currentDataView=m};'+
     'const fwAdoptFieldNode=(id,target)=>{const node=document.getElementById(id);'+
@@ -335,6 +381,9 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
   assert.equal(generator.parentNode,history);
   assert.equal(attrs['aria-pressed'],'true');
   assert.equal(evidence.companions.at(-1),'profile');
+  assert.deepStrictEqual(evidence.synchronized,[9.8],
+    'Opening Field split must sync the already loaded original 3D frame');
+  assert.equal(sync.checked,true,'Sync checkbox must reflect preserved user choice');
   assert(evidence.renders.some(x=>x.threeD&&x.twoD),'Both original render paths are scheduled');
   assert.equal(api.toggle(false),true);
   assert.equal(fwState.layout,'3d');
@@ -345,4 +394,8 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
   assert.equal(api.toggle(false),true,'Idempotent close must not re-activate the plot');
   fwState.active=false;
   assert.equal(api.toggle(true),false,'Unopened Field cannot borrow plot controls');
+  fwState.active=true;
+  delete nodes.fw2DControlsHost;
+  assert.equal(api.toggle(true),false,'Missing profile control host must abort before surface ownership');
+  assert.equal(api.active(),'data','Failed preflight must not steal the Data surface');
 });
