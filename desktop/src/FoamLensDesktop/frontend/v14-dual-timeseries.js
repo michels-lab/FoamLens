@@ -348,11 +348,22 @@ function tsdPatchAssignments(){
     return out
   };assignments.__tsdPatched=true
 }
+function tsdWireCaseFilterRefresh(){
+  const select=document.getElementById('timeSeriesFamily');
+  if(!select||select.dataset.tsdCaseRefreshWired==='1')return false;
+  // The original source's Case change handler redraws but never rebuilds
+  // the dependent Probe selector. Capture before its redraw and recompute
+  // with the newly selected case; attach only once across UI remounts.
+  select.dataset.tsdCaseRefreshWired='1';
+  select.addEventListener('change',()=>refreshTimeSeriesControls(),true);
+  return true
+}
 function tsdInstall(){
   tsdPatchScientificLabels();tsdInjectCss();if(!tsdEnsureUi())return false;
   timeSeriesMatchesSelection=tsdMatchesFilters;
   refreshTimeSeriesControls=tsdRefreshTimeSeriesControls;
   tsdPatchAssignments();
+  tsdWireCaseFilterRefresh();
   const primary=document.getElementById('timeSeriesVariable'),secondary=document.getElementById('timeSeriesVariable2');
   if(primary&&!primary.dataset.tsdModeWired){
     primary.dataset.tsdModeWired='1';primary.addEventListener('change',()=>{delete primary.dataset.showAll},true)
