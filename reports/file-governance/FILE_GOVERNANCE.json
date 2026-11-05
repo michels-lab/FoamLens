@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "767ac6163ba7445ce90230d017b778b966358a02fc9fea651fc683a8bea6c720",
+  "inventory_fingerprint": "75ab454ec14122d9a4c96794cc745c426c5fd1482617d4036debded3cca01e7a",
   "evidence_fingerprint": "14009586f7753691de2a3646b54a51171e28ae6737fc0b6de91bf22b1b235fea",
   "files": [
     {
@@ -965,7 +965,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "bfd48d27e5dd74daa6d61b2cfe81f4e7e87dbe0a"
+      "blob": "fc03057436f14d53828b3ab921e1b75c2a698b75"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1987,7 +1987,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5c4180642f0f2216fd277e72156ed7ba87cfa41b"
+      "blob": "9bc0c71b293469293770c402e1726085ecc1ec65"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
