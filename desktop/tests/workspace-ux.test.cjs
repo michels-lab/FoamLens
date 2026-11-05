@@ -237,6 +237,8 @@ test('Field A–D Inspector cards reuse original Case/Region and Field/Component
     const owned=c.querySelector('.fwViewCardControls');
     assert.equal(owned.children.length,2,'Each view card owns exactly two paired source rows');
     assert.equal(c.classList.contains('hidden'),letter!=='A','Comparison remains off by default');
+    assert(owned.children.every(row=>row.classList.contains('hidden')===(letter!=='A')),
+      'Native WebView2 must see original B–D .row2 controls hidden, not just their parent cards');
     assert.equal(c.open,true,'New views open to allow immediate Case/Region/Field/Component selection');
     assert.equal(document.getElementById(c.id+'Title').textContent,
       'Vista '+letter+' · '+(letter==='A'?'Principal':'Comparación'));
@@ -259,11 +261,15 @@ test('Field A–D Inspector cards reuse original Case/Region and Field/Component
   assert.equal(host.children.length,4,'Repeated mounts must not duplicate cards');
   assert.equal(card('A').open,false,'A collapsed card must retain user expansion state');
   assert(['B','C','D'].every(letter=>!card(letter).classList.contains('hidden')));
+  assert(['B','C','D'].every(letter=>card(letter).querySelector('.fwViewCardControls').children.every(row=>!row.classList.contains('hidden'))),
+    'Enabled comparison must expose the real B–D rows to the native selector and accessibility checks');
   originals.fcExtra4Field.select.selectedOptions[0].textContent='T · scalar';
   controls.fwRefreshViewCardSummaries();
   assert(document.getElementById('fwViewCardDSummary').textContent.includes('T · scalar'));
   enabled.checked=false;controls.fwPromoteViewCaseSelectors();
   assert(['B','C','D'].every(letter=>card(letter).classList.contains('hidden')));
+  assert(['B','C','D'].every(letter=>card(letter).querySelector('.fwViewCardControls').children.every(row=>row.classList.contains('hidden'))),
+    'Original controls must report hidden independently of ancestor card display');
   assert.equal(host.children.length,4,'Disabling comparison must preserve C/D selectors and card state');
   enabled.checked=true;controls.fwPromoteViewCaseSelectors();
   fcExtraViews.splice(0,1);
