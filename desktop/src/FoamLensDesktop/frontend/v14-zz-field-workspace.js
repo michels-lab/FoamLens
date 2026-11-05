@@ -921,6 +921,8 @@ function fwAdd3DView(){
 // cloning them. Each view gets Case/Region and Field/Component next to each
 // other, including views C/D created after Field was opened.
 function fwPromoteViewControlRow(host,selectorId,letter,kind,extraId=null){
+  // Move the original paired controls, not cloned selects: their Region and
+  // Component peers, scientific values and existing change handlers survive.
   const row=document.getElementById(selectorId)?.closest('.row2');if(!row)return null;
   const en='View '+letter+' · '+(kind==='case'?'Case':'Field');
   const es='Vista '+letter+' · '+(kind==='case'?'Caso':'Variable');
@@ -931,34 +933,84 @@ function fwPromoteViewControlRow(host,selectorId,letter,kind,extraId=null){
   if(row.parentElement!==host)host.appendChild(row);
   return row
 }
+function fwEnsureViewCard(host,letter,extraId=null){
+  const cardId='fwViewCard'+letter;
+  let card=document.getElementById(cardId);
+  if(!card){
+    card=document.createElement('details');card.id=cardId;card.className='fwViewCard';card.open=true;card.dataset.fwCard=letter;
+    const head=document.createElement('summary');head.className='fwViewCardHead';
+    const symbol=document.createElement('span');symbol.className='fwViewCardLetter';symbol.textContent=letter;
+    const description=document.createElement('span');description.className='fwViewCardDescription';
+    const title=document.createElement('strong');title.id=cardId+'Title';
+    const status=document.createElement('span');status.className='fwViewCardSummary';status.id=cardId+'Summary';
+    description.appendChild(title);description.appendChild(status);head.appendChild(symbol);head.appendChild(description);
+    const controls=document.createElement('div');controls.className='fwViewCardControls';
+    card.appendChild(head);card.appendChild(controls);host.appendChild(card)
+  }
+  if(extraId!=null){card.dataset.fwExtra=String(extraId);card.classList.add('fwViewExtraCard')}
+  return card
+}
+function fwViewCardControlIds(letter){
+  const prefix=letter==='A'?'fv':letter==='B'?'fc':'fcExtra'+(letter.charCodeAt(0)-64);
+  return[prefix+'Case',prefix+'Region',prefix+'Field',prefix+'Component']
+}
+function fwRefreshViewCardSummaries(){
+  for(const letter of ['A','B','C','D']){
+    const card=document.getElementById('fwViewCard'+letter);if(!card)continue;
+    const title=document.getElementById(card.id+'Title');
+    if(title)title.textContent=fwUi('View','Vista')+' '+letter+' · '+(letter==='A'?fwUi('Primary','Principal'):fwUi('Compare','Comparación'));
+    const selection=fwViewCardControlIds(letter).map(id=>document.getElementById(id));
+    const optionText=(select,fallback)=>{
+      if(!select)return fallback;
+      const current=select.selectedOptions?.[0];
+      return String(current?.textContent||current?.text||select.value||fallback).trim()
+    };
+    const [caseName,region,field,component]=[
+      optionText(selection[0],fwUi('No case','Sin caso')),
+      optionText(selection[1],fwUi('No region','Sin región')),
+      optionText(selection[2],fwUi('No field','Sin variable')),
+      optionText(selection[3],fwUi('No component','Sin componente'))
+    ];
+    const summary=document.getElementById(card.id+'Summary');
+    if(summary){summary.textContent=caseName+' · '+region+' | '+field+' · '+component;summary.title=summary.textContent}
+  }
+}
 function fwPromoteViewCaseSelectors(){
   const host=document.getElementById('fw3DViewCases');if(!host)return false;
-  const a=fwPromoteViewControlRow(host,'fvCase','A','case');
-  const aField=fwPromoteViewControlRow(host,'fvField','A','field');
-  a?.classList.add('fwViewACaseRow');aField?.classList.add('fwViewAFieldRow');
-  const b=fwPromoteViewControlRow(host,'fcCase','B','case');
-  const bField=fwPromoteViewControlRow(host,'fcField','B','field');
-  b?.classList.add('fwViewBCaseRow');bField?.classList.add('fwViewBFieldRow');
   const enabled=!!document.getElementById('fcEnabled')?.checked;
-  b?.classList.toggle('hidden',!enabled);bField?.classList.toggle('hidden',!enabled);
-  const present=new Set();
+  const views=[{letter:'A',id:null},{letter:'B',id:null}];
   if(typeof fcExtraViews!=='undefined')for(const state of fcExtraViews){
-    const id=Number(state?.id);if(!Number.isInteger(id)||id<3||id>4)continue;
-    const letter=String.fromCharCode(64+id);
-    const caseRow=fwPromoteViewControlRow(host,'fcExtra'+id+'Case',letter,'case',id);
-    const fieldRow=fwPromoteViewControlRow(host,'fcExtra'+id+'Field',letter,'field',id);
-    if(!caseRow||!fieldRow)continue;
-    present.add(id);caseRow.classList.add('fwViewExtraCaseRow');fieldRow.classList.add('fwViewExtraFieldRow');
-    caseRow.classList.toggle('hidden',!enabled);fieldRow.classList.toggle('hidden',!enabled)
+    const id=Number(state?.id);if(Number.isInteger(id)&&id>=3&&id<=4)
+      views.push({letter:String.fromCharCode(64+id),id})
   }
-  // fcExtraRemove releases the view's original controls; the two adopted
-  // rows live outside its card and must disappear together on removal.
-  host.querySelectorAll('.fwViewExtraControlRow').forEach(row=>{
-    if(!present.has(Number(row.dataset.viewId)))row.remove()
-  });
-  host.dataset.viewCount=enabled?String(2+present.size):'1';
-  return !!a&&!!aField
+  const present=new Set();
+  let primaryReady=false;
+  for(const {letter,id} of views){
+    const card=fwEnsureViewCard(host,letter,id),controls=card.querySelector('.fwViewCardControls');
+    const ids=fwViewCardControlIds(letter);
+    const caseRow=fwPromoteViewControlRow(controls,ids[0],letter,'case',id);
+    const fieldRow=fwPromoteViewControlRow(controls,ids[2],letter,'field',id);
+    if(!caseRow||!fieldRow){if(letter!=='A')card.remove();continue}
+    present.add(letter);
+    if(letter==='A')primaryReady=true;
+    card.classList.toggle('hidden',letter!=='A'&&!enabled);
+    caseRow.classList.toggle('fwViewACaseRow',letter==='A');
+    fieldRow.classList.toggle('fwViewAFieldRow',letter==='A');
+    caseRow.classList.toggle('fwViewBCaseRow',letter==='B');
+    fieldRow.classList.toggle('fwViewBFieldRow',letter==='B');
+  }
+  // C/D source controls were adopted from their viewport cards. Remove the
+  // *whole* borrowed inspector card when a 3D viewport is truly deleted,
+  // but retain them hidden if comparison is merely switched off.
+  for(const letter of ['C','D']){
+    const card=document.getElementById('fwViewCard'+letter);
+    if(card&&!present.has(letter))card.remove()
+  }
+  host.dataset.viewCount=enabled?String(present.size):'1';
+  fwRefreshViewCardSummaries();
+  return primaryReady
 }
+
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
