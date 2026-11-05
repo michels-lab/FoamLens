@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "a7b6d4e85903d8f42122af2070bfcef8b91bb350d21e2784a1250441859ad7f7",
-  "evidence_fingerprint": "e88d9370c1770c3d228010309b808893b13ee8ec74c5b2c8204ae425e72e1b74",
+  "inventory_fingerprint": "e4fbe13c074cdc65cb729f23962c2378f0a48daddf758021e44685b553332c5f",
+  "evidence_fingerprint": "64387c1d95910f5e8011bd8262570075858e2a162c428b5a8c3c8892c887df16",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -965,7 +965,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "bede70b302b453b9bb50cdc7582ff3b33e600ee4"
+      "blob": "f07bbdaffccc0fa719412c3c7aa651d507f81df8"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1812,7 +1812,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1c36379beb364972cdc2bc596f1f4dffd26697bf"
+      "blob": "4e9037e051ac6d0668093c707edc34c3085f021e"
     },
     {
       "path": "desktop/tests/session-persistence.test.cjs",
@@ -1987,7 +1987,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "83f08faea5cf6df0938c2947d3c4e34fe8a8ea89"
+      "blob": "fa1fdfa3deb74645d40a7a49cda61b4dfd1bb794"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
@@ -3455,11 +3455,11 @@
   ],
   "findings": [
     {
-      "id": "05f6cada4e07cb88",
+      "id": "e9673569ebf83893",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "3 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs",
+      "observation": "6 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/section-ownership.test.cjs, desktop/tests/timeseries-source-catalog.test.cjs, desktop/tests/workspace-ux.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
