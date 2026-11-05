@@ -247,6 +247,95 @@ test('decomposed mesh composition keeps processor interfaces out of the physical
   assert(m.surfaceTriangleFaces.every(fi=>!processorFaces.has(fi)),'processor interface leaked into physical surface');
 });
 
+
+test('streamed internal and boundary faces preserve original OpenFOAM indices, patch order and scientific topology',()=>{
+  const sourceStart=source.indexOf('function fvCombinePartitionMeshes(parts){');
+  const sourceEnd=source.indexOf('\n}',sourceStart)+2;
+  const implementation=source.slice(sourceStart,sourceEnd);
+  assert(implementation.includes('for(const {mesh:m,range} of partitionMeshes)'),
+    'Production must directly walk original processor meshes in internal-then-boundary order');
+  assert(!implementation.includes('internal.push(')&&!implementation.includes('boundary.push('),
+    'No temporary per-face internal or boundary record lists should survive');
+  const make=(shift)=>({
+    supported:true,
+    points:[shift,0,0, shift+1,0,0, shift+1,1,0, shift,1,0, shift,0,1, shift+1,0,1],
+    cellCenters:[shift+.25,.25,.25,shift+.75,.25,.5],
+    pointCount:6,cellCount:2,
+    faceOffsets:[0,4,7,11,14,17],
+    facePoints:[0,1,2,3, 0,1,4, 1,2,5,4, 0,3,4, 2,3,5],
+    owners:[0,1,0,1,0],neighbours:[1,0],
+    internalFaceCount:2,faceCount:5,boundaryFaceCount:3,
+    // Deliberately unordered. The original compositing algorithm sorts
+    // patches by local startFace before constructing global faces.
+    boundaryPatches:[
+      {name:'wall',type:'wall',startFace:3,nFaces:2},
+      {name:'processorPair',type:'processor',startFace:2,nFaces:1}
+    ],
+    sourceBytes:123
+  });
+  const meshes=[{partition:'processor0',mesh:make(0)},{partition:'processor1',mesh:make(2)}];
+  const out=api.fvCombinePartitionMeshes(meshes);
+  assert.equal(out.supported,true,out.reason);
+  assert.equal(out.pointCount,12);
+  assert.equal(out.cellCount,4);
+  assert.equal(out.internalFaceCount,4);
+  assert.equal(out.boundaryFaceCount,6);
+  assert.equal(out.faceCount,10);
+  assert.deepStrictEqual(out.facePartition,
+    ['processor0','processor0','processor1','processor1','processor0','processor0','processor0','processor1','processor1','processor1']);
+  assert.deepStrictEqual(out.faceLocal,[0,1,0,1,2,3,4,2,3,4]);
+  assert.deepStrictEqual(out.faceOffsets,[0,4,7,11,14,18,21,24,28,31,34],
+    'Face vertex offsets must remain internal-first, then sorted boundary patches');
+  assert.deepStrictEqual(out.owners,[0,1,2,3,0,1,0,2,3,2]);
+  assert.deepStrictEqual(out.neighbours,[1,0,3,2]);
+  assert.deepStrictEqual(out.boundaryPatches.map(p=>[p.name,p.startFace,p.nFaces,p.processor]),[
+    ['processor0:processorPair',4,1,true],['processor0:wall',5,2,false],
+    ['processor1:processorPair',7,1,true],['processor1:wall',8,2,false]
+  ]);
+  assert.deepStrictEqual(out.surfaceTriangleFaces,[5,6,8,9],
+    'Processor interface faces must be excluded from the physical surface');
+  assert.deepStrictEqual(out.surfaceOwners,[1,0,3,2]);
+  assert.deepStrictEqual(out.surfaceTriangles,[
+    0,3,4, 2,3,5, 6,9,10, 8,9,11
+  ]);
+  assert.deepStrictEqual(out.partitionRanges.map(p=>[p.partition,p.pointStart,p.cellStart,p.internalFaceStart]),[
+    ['processor0',0,0,0],['processor1',6,2,2]
+  ]);
+  assert.equal(out.sourceBytes,246);
+  const processorIds=new Set(out.boundaryPatches.filter(p=>p.processor)
+    .flatMap(p=>Array.from({length:p.nFaces},(_,i)=>p.startFace+i)));
+  assert(out.surfaceTriangleFaces.every(i=>!processorIds.has(i)),
+    'An original internal processor interface must never color the physical surface');
+});
+
+test('streamed large OpenFOAM polyMesh composes tens of thousands of internal and boundary faces',()=>{
+  const internals=18000,boundaries=12000,points=[0,0,0,1,0,0,0,1,0,0,0,1],
+    faceOffsets=new Int32Array(internals+boundaries+1),
+    facePoints=new Int32Array((internals+boundaries)*3),
+    owners=new Int32Array(internals+boundaries),neighbours=new Int32Array(internals);
+  for(let i=0;i<internals+boundaries;i++){
+    faceOffsets[i+1]=(i+1)*3;facePoints.set([0,1,2],i*3);
+  }
+  const mesh={supported:true,points,cellCenters:[.25,.25,.25,.75,.25,.25],
+    pointCount:4,cellCount:2,faceCount:internals+boundaries,
+    internalFaceCount:internals,boundaryFaceCount:boundaries,
+    faceOffsets,facePoints,owners,neighbours,boundaryPatches:[
+      {name:'processorInterface',type:'processor',startFace:internals,nFaces:1000},
+      {name:'wall',type:'wall',startFace:internals+1000,nFaces:boundaries-1000}
+    ]};
+  const combined=api.fvCombinePartitionMeshes([{partition:'processor0',mesh}]);
+  assert.equal(combined.supported,true,combined.reason);
+  assert.equal(combined.internalFaceCount,internals);
+  assert.equal(combined.boundaryFaceCount,boundaries);
+  assert.equal(combined.faceOffsets.length,internals+boundaries+1);
+  assert.equal(combined.facePoints.length,(internals+boundaries)*3);
+  assert.equal(combined.surfaceTriangleFaces.length,boundaries-1000);
+  assert.equal(combined.surfaceTriangleFaces[0],internals+1000);
+  assert.equal(combined.surfaceTriangleFaces.at(-1),internals+boundaries-1);
+  assert.equal(combined.neighbours.length,internals);
+  assert.equal(combined.facePartition.length,internals+boundaries);
+});
+
 test('decomposed composition refuses mesh partitions without complete patch topology',()=>{
   const mesh={supported:true,points:[0,0,0],faceOffsets:[0,1],facePoints:[0],owners:[0],neighbours:[],cellCenters:[0,0,0],pointCount:1,faceCount:1,internalFaceCount:0,boundaryFaceCount:1,cellCount:1,boundaryPatches:[]};
   const m=api.fvCombinePartitionMeshes([{partition:'processor0',mesh}]);
