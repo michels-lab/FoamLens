@@ -255,7 +255,7 @@ test('Granada: real Case change event recomputes dependent probe choices before 
   cases.value='case:B13';
   events[0].fn();
   assert.equal(refreshes,2);
-  assert(source.includes('tsdPatchAssignments();\n  tsdWireCaseFilterRefresh();'),
+  assert(/tsdPatchAssignments\(\);\s*tsdWireCaseFilterRefresh\(\);/.test(source),
     'Install must attach Case filter after binding the original Time Series refresh');
 });
 
