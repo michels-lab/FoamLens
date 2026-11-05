@@ -2557,6 +2557,7 @@ test('finite large physical-region bounds keep correct transparent fallback orde
     'A settled frame must not be retained in memory and must be independently reloadable');
 
   const cTwin={id:'B3'},gTwin={name:'T',storage:'surface'};
+  const beforeVariants=stats.mesh;
   const distinct=[
     loader.fvLoadFrameData(c,g,'metal',10,'value',{includeBoundary:true}),
     loader.fvLoadFrameData(c,g,'metal',10,'value',{includeBoundary:false}),
@@ -2566,7 +2567,6 @@ test('finite large physical-region bounds keep correct transparent fallback orde
     loader.fvLoadFrameData(c,gTwin,'metal',10,'value',{includeBoundary:false}),
     loader.fvLoadFrameData(cTwin,g,'metal',10,'value',{includeBoundary:false})
   ];
-  const beforeVariants=stats.mesh;
   const unique=await Promise.all(distinct);
   assert.equal(stats.mesh,beforeVariants+7,
     'Different physical times, region, component, boundary mode or original source identity must not coalesce');
