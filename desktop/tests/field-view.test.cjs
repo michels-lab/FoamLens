@@ -2591,3 +2591,141 @@ test('finite large physical-region bounds keep correct transparent fallback orde
   assert.equal(recovered.range.max,310,'Retry after failure must read fresh physical values');
   console.log('Field A–D in-flight OpenFOAM frame coalescing PASS: same source, independent selections, boundary safety, memory cleanup and retry.');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+
+test('large original processor coordinate arrays combine without JavaScript spread argument limits',()=>{
+  // Realistic per-processor lengths previously raised "Maximum call stack
+  // size exceeded" on browsers that limit rest-argument count.
+  const pts=new Float64Array(240003),centers=new Float64Array(210000);
+  for(let i=0;i<pts.length;i++)pts[i]=i%3+(Math.floor(i/3)%100)/1000;
+  for(let i=0;i<centers.length;i++)centers[i]=(i%3)+.5;
+  const mesh={
+    supported:true,points:pts,cellCenters:centers,
+    pointCount:pts.length/3,cellCount:centers.length/3,
+    faceOffsets:[0,3],facePoints:[0,1,2],owners:[0],neighbours:[],
+    faceCount:1,internalFaceCount:0,boundaryFaceCount:1,
+    boundaryPatches:[{name:'wall',type:'wall',startFace:0,nFaces:1}]
+  };
+  const out=api.fvCombinePartitionMeshes([{partition:'processor0',mesh}]);
+  assert.equal(out.supported,true,out.reason);
+  assert.equal(out.points.length,pts.length);
+  assert.equal(out.cellCenters.length,centers.length);
+  assert.equal(out.pointCount,80001);
+  assert.equal(out.cellCount,70000);
+  assert.equal(out.surfaceTriangles.length,3);
+  assert.deepStrictEqual(out.partitionRanges.map(x=>x.partition),['processor0']);
+  assert.equal(out.points[pts.length-1],pts[pts.length-1]);
+  assert.equal(out.cellCenters[centers.length-1],centers[centers.length-1]);
+});
+
+test('large original decomposed scalar field combines without spread and preserves processor offsets',()=>{
+  const start=source.indexOf('function fvCombinePartitionFieldValues('),
+    end=source.indexOf('\n}',start)+2;
+  assert(start>=0&&end>start,'Real OpenFOAM partition component combiner required');
+  const combine=new Function('pmComponentValues',source.slice(start,end)+
+    ';return fvCombinePartitionFieldValues;')(
+    (part,component,expected)=>{
+      assert.equal(component,'value');
+      return {ok:part.data.length===expected,values:part.data}
+    });
+  const n=160000,values0=Float64Array.from({length:n},(_,i)=>200+i/100),
+    values1=Float64Array.from({length:n},(_,i)=>400+i/100);
+  const m={decomposed:true,partitionRanges:[
+    {partition:'processor0',cellCount:n,pointCount:1,internalFaceCount:0},
+    {partition:'processor1',cellCount:n,pointCount:1,internalFaceCount:0}
+  ]};
+  const p0={partition:'processor0',data:values0},p1={partition:'processor1',data:values1};
+  const result=combine(m,[p1,p0],'value','volume');
+  assert.equal(result.ok,true,result.reason);
+  assert.strictEqual(result.parsed,p0,'Representative dimensions stay tied to first mesh partition');
+  assert.equal(result.values.length,n*2);
+  assert.equal(result.values[0],values0[0]);
+  assert.equal(result.values[n-1],values0[n-1]);
+  assert.equal(result.values[n],values1[0]);
+  assert.equal(result.values[n*2-1],values1[n-1]);
+  assert.equal(combine(m,[p0],'value','volume').reason,'field-partition-missing:processor1');
+  const missingCount={partition:'processor1',data:values1.subarray(1)};
+  assert.equal(combine(m,[p0,missingCount],'value','volume').reason,
+    'partition-association-count-mismatch:processor1');
+});
+
+(async()=>{
+  // Exercise original fvLoadMesh + fvLoadMeshUncached, with artificially gated
+  // processor reads to verify concurrency, identity, bounded capacity,
+  // source order, failure cleanup and recovery against actual production code.
+  const begin=source.indexOf('const fvMeshInflight=new Map();'),
+    uncached=source.indexOf('async function fvLoadMeshUncached(',begin),
+    end=source.indexOf('\n}',uncached)+2;
+  assert(begin>=0&&uncached>begin&&end>uncached,'Original mesh load pipeline missing');
+  let unblock;const gate=new Promise(resolve=>{unblock=resolve});
+  const opened=[],active={current:0,peak:0},events={parses:0,composites:0},meshCache=new Map();
+  const fsFiles=()=>({
+    points:{text:async()=>{
+      opened.push('points');active.current++;active.peak=Math.max(active.peak,active.current);
+      await gate;active.current--;return 'points'
+    }},
+    faces:{text:async()=> 'faces'},
+    owner:{text:async()=> 'owner'},
+    neighbour:{text:async()=> 'neighbour'}
+  });
+  const snapshot=i=>({id:'part-'+i,complete:true,files:fsFiles(),time:9.8,
+    timeLabel:'9.8',dynamic:false});
+  const c={id:'B3'},parts=Array.from({length:7},(_,i)=>({
+    partition:'processor'+i,snapshot:snapshot(i)
+  }));
+  const composite={id:'composite-B3',complete:true,decomposed:true,
+    region:'metal',time:9.8,parts,timeLabel:'9.8',changed:[]};
+  const helpers={
+    fvState:{meshCache},
+    fvMeshCacheKey:(c,g)=>String(c.id)+':'+g.id,
+    flUi:en=>en,FOAMLENS_NATIVE:false,
+    fvBuildMeshFromTexts:()=>{
+      events.parses++;
+      return{supported:true,points:[0,0,0],boundaryPatches:[{name:'wall'}]}
+    },
+    fvCombinePartitionMeshes:loaded=>{
+      events.composites++;
+      assert.deepStrictEqual(loaded.map(x=>x.partition),parts.map(x=>x.partition),
+        'Bounded workers must not shuffle OpenFOAM processor order');
+      assert(loaded.every(x=>x.mesh?.supported));
+      return{supported:true,partitionRanges:loaded.map(x=>x.partition),decomposed:true}
+    }
+  };
+  const apiLoad=new Function('helpers',
+    'const {'+Object.keys(helpers).join(',')+'}=helpers;'+source.slice(begin,end)+
+    ';return {fvLoadMesh,fvMeshInflight};')(helpers);
+  const requests=Array.from({length:4},()=>apiLoad.fvLoadMesh(c,composite));
+  assert.equal(opened.length,3,
+    'Only 3 processor mesh reads may start concurrently, even across 4 A–D callers');
+  assert.equal(apiLoad.fvMeshInflight.size,4,
+    'One composite and only its three active processor parses should be pending');
+  unblock();
+  const results=await Promise.all(requests);
+  assert.equal(opened.length,7,'Seven distinct processor meshes should each be parsed once');
+  assert.equal(active.peak,3,'Large processor parsing must be capped to three in flight');
+  assert.equal(events.parses,7);
+  assert.equal(events.composites,1,'All A–D consumers must share one source composite');
+  assert(results.every(x=>x===results[0]),
+    'All identical requests must receive the exact same original polyMesh object');
+  assert.deepStrictEqual(results[0].partitionRanges,parts.map(x=>x.partition));
+  assert.equal(apiLoad.fvMeshInflight.size,0,'Settled in-flight records must be released');
+  assert.equal(meshCache.size,8,'Source and composite meshes retain existing mesh cache semantics');
+  const cached=await apiLoad.fvLoadMesh(c,composite);
+  assert.strictEqual(cached,results[0],'Subsequent call must reuse settled source-backed polyMesh');
+  assert.equal(events.parses,7);
+
+  let failOnce=true;
+  const bad=snapshot('failure');
+  bad.files.points.text=async()=>{
+    if(failOnce){failOnce=false;throw Error('Simulated native polyMesh read failure')}
+    return 'points'
+  };
+  const first=await Promise.allSettled([apiLoad.fvLoadMesh(c,bad),apiLoad.fvLoadMesh(c,bad)]);
+  assert(first.every(r=>r.status==='rejected'),'An in-flight source failure must reach every caller');
+  assert.equal(apiLoad.fvMeshInflight.size,0,'Failed loads must not leave poisoned promises');
+  assert.equal(meshCache.has('B3:part-failure'),false,'Failed meshes must not populate the cache');
+  const recovered=await apiLoad.fvLoadMesh(c,bad);
+  assert.equal(recovered.supported,true,'Original mesh must reload after transient parse failure');
+  assert.equal(apiLoad.fvMeshInflight.size,0);
+  console.log('Field decomposed mesh Granada PASS: 7 processors, <=3 concurrent, 4 A–D callers, exact order, retry.');
+})().catch(error=>{console.error(error);process.exitCode=1});

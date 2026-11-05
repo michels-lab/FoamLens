@@ -110,7 +110,11 @@ function fvCombinePartitionMeshes(parts){
   const internal=[],boundary=[],points=[],centers=[],ranges=[],partitionMeshes=[],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let pointOffset=0,cellOffset=0,internalOffset=0;
   for(const part of parts){
     const m=part.mesh,coverage=fvBoundaryPatchCoverage(m);if(!coverage.valid)return{supported:false,reason:String(part.partition)+':'+coverage.reason,format:'decomposed'};
-    const localPoints=m.points||[],localCenters=m.cellCenters||[];points.push(...localPoints);centers.push(...localCenters);
+    const localPoints=m.points||[],localCenters=m.cellCenters||[];
+    // OpenFOAM partitions can contain millions of coordinates. Spreading a
+    // full typed array into push() exceeds JS's argument limit on real cases.
+    for(let i=0;i<localPoints.length;i++)points.push(localPoints[i]);
+    for(let i=0;i<localCenters.length;i++)centers.push(localCenters[i]);
     for(let i=0;i<localPoints.length;i+=3)for(let a=0;a<3;a++){const v=Number(localPoints[i+a]);if(Number.isFinite(v)){min[a]=Math.min(min[a],v);max[a]=Math.max(max[a],v)}}
     const range={partition:String(part.partition),pointStart:pointOffset,pointCount:Number(m.pointCount)||0,cellStart:cellOffset,cellCount:Number(m.cellCount)||0,internalFaceStart:internalOffset,internalFaceCount:Number(m.internalFaceCount)||0};
     ranges.push(range);partitionMeshes.push({partition:String(part.partition),mesh:m,range});
@@ -152,7 +156,9 @@ function fvCombinePartitionFieldValues(mesh,set,component,storage){
   const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),out=[];let representative=null;
   for(const range of mesh.partitionRanges||[]){const parsed=byPart.get(range.partition);if(!parsed)return{ok:false,reason:'field-partition-missing:'+range.partition,values:[]};
     const expected=storage==='point'?range.pointCount:storage==='surface'?range.internalFaceCount:range.cellCount,v=pmComponentValues(parsed,component,expected);if(!v.ok||v.values.length!==expected)return{ok:false,reason:'partition-association-count-mismatch:'+range.partition,values:[]};
-    if(!representative)representative=parsed;out.push(...v.values)
+    if(!representative)representative=parsed;
+    // Large processor fields cannot safely be spread into function arguments.
+    for(let i=0;i<v.values.length;i++)out.push(v.values[i])
   }
   if(byPart.size!==(mesh.partitionRanges||[]).length)return{ok:false,reason:'field-mesh-partition-set-mismatch',values:[]};
   return{ok:true,reason:'',values:out,parsed:representative}
@@ -1438,11 +1444,34 @@ function fvNormalizeNativeMesh(data){
     cellCount:Number(data?.cellCount)||0,boundsMin:(data?.boundsMin||[]).map(Number),boundsMax:(data?.boundsMax||[]).map(Number),cellCenterMethod:String(data?.cellCenterMethod||''),sourceBytes:Number(data?.sourceBytes)||0,boundaryPatches:(data?.boundaryPatches||[]).map(p=>({name:String(p?.name||''),type:String(p?.type||''),startFace:Number(p?.startFace),nFaces:Number(p?.nFaces)})),boundaryPatchStatus:String(data?.boundaryPatchStatus||'not-provided')
   }
 }
+// Different fields and physical overlays may require the same original
+// polyMesh simultaneously. Share only an in-flight mesh parse/composition,
+// then use the existing bounded-by-workspace meshCache for settled meshes.
+const fvMeshInflight=new Map();
 async function fvLoadMesh(c,g){
   if(!c||!g?.complete)throw new Error(flUi('No complete polyMesh state is available for this region/time.','No hay un estado polyMesh completo disponible para esta región/tiempo.'));
-  const key=fvMeshCacheKey(c,g);if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
+  const key=fvMeshCacheKey(c,g);
+  if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
+  const existing=fvMeshInflight.get(key);
+  if(existing)return existing;
+  const task=fvLoadMeshUncached(c,g,key);
+  fvMeshInflight.set(key,task);
+  const cleanup=()=>{if(fvMeshInflight.get(key)===task)fvMeshInflight.delete(key)};
+  task.then(cleanup,cleanup);
+  return task
+}
+async function fvLoadMeshUncached(c,g,key){
   if(g.decomposed){
-    const loaded=[];for(const part of g.parts||[]){const mesh=await fvLoadMesh(c,part.snapshot);loaded.push({partition:part.partition,mesh})}
+    const parts=g.parts||[],loaded=new Array(parts.length);
+    // Parse independent processor meshes concurrently without starting
+    // hundreds of memory-heavy native parsers at once. Preserve original
+    // partition order, critical to cell/face/point source indices.
+    let next=0;
+    const worker=async()=>{while(next<parts.length){
+      const index=next++,part=parts[index];
+      loaded[index]={partition:part.partition,mesh:await fvLoadMesh(c,part.snapshot)}
+    }};
+    await Promise.all(Array.from({length:Math.min(3,parts.length)},()=>worker()));
     const composite=fvCombinePartitionMeshes(loaded);if(!composite.supported)throw new Error(flUi('Decomposed mesh composition failed: ','Falló la composición de la malla descompuesta: ')+composite.reason);
     composite.meshTime=Number.isFinite(Number(g.time))?Number(g.time):null;composite.meshTimeLabel=g.timeLabel||String(g.time??'');composite.dynamicMesh=!!g.dynamic;composite.changedMeshFiles=[...(g.changed||[])];fvState.meshCache.set(key,composite);return composite
   }
