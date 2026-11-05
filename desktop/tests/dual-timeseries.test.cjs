@@ -213,11 +213,50 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
   assert.equal(probe.value,'2','An explicitly selected real probe remains selected');
   assert.equal(badge.textContent,'1 curves','Explicit filtering still works');
   assert(family.options.some(o=>o.value==='case:C13'));
-  assert(!family.options.some(o=>o.value==='case:B13'));
-  probe.value='gone';refresh();
+  assert(family.options.some(o=>o.value==='case:B13'),
+    'Other original cases must remain selectable when their probe IDs differ');
+  family.value='case:B13';refresh();
+  assert.equal(family.value,'case:B13','A real selected case remains selected');
+  assert.equal(probe.value,'','Case B13 must not retain C13-only probe 2');
+  assert.match(probe.innerHTML,/value="1"/,'Only B13 real probe becomes selectable');
+  assert(!probe.innerHTML.includes('value="2"'),'C13-only probe must not appear as a B13 option');
+  assert.equal(badge.textContent,'1 curves');
+  family.value='case:C13';refresh();
+  assert.equal(family.value,'case:C13','Switching to the other case must stay possible');
+  assert.equal(probe.value,'','A new case shows All its probes by default');
+  assert.match(probe.innerHTML,/value="2"/);
+  assert(!probe.innerHTML.includes('value="1"'),'B13-only probe must not leak into C13');
+  assert.equal(badge.textContent,'1 curves');
+  family.value='';probe.value='gone';refresh();
   assert.equal(probe.value,'','A disappeared probe returns to All instead of selecting a random one');
   assert.equal(badge.textContent,'2 curves');
-  assert.equal(catalogRefreshes,6,'Original source/evidence refresh still runs for all states');
+  assert.equal(catalogRefreshes,10,'Original source/evidence refresh still runs for all states');
+});
+
+test('Granada: real Case change event recomputes dependent probe choices before redraw exactly once',()=>{
+  const start=source.indexOf('function tsdWireCaseFilterRefresh(){');
+  const end=source.indexOf('function tsdInstall(){',start);
+  assert(start>=0&&end>start,'Original Time Series Case change wiring is missing');
+  const events=[],cases={dataset:{},addEventListener:(type,fn,capture)=>{
+    events.push({type,fn,capture});
+  }};
+  let refreshes=0;
+  const doc={getElementById:id=>id==='timeSeriesFamily'?cases:null};
+  const wire=new Function('document','refreshTimeSeriesControls',
+    source.slice(start,end)+';return tsdWireCaseFilterRefresh;')(doc,()=>{refreshes++});
+  assert.equal(wire(),true);
+  assert.equal(wire(),false,'Remount must not duplicate original case listeners');
+  assert.equal(events.length,1);
+  assert.equal(events[0].type,'change');
+  assert.equal(events[0].capture,true,'Case-specific probes must refresh before the core redraw');
+  cases.value='case:C13';
+  events[0].fn();
+  assert.equal(refreshes,1,'Changing case must refresh original dependent probe options');
+  cases.value='case:B13';
+  events[0].fn();
+  assert.equal(refreshes,2);
+  assert(/tsdPatchAssignments\(\);\s*tsdWireCaseFilterRefresh\(\);/.test(source),
+    'Install must attach Case filter after binding the original Time Series refresh');
 });
 
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
