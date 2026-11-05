@@ -213,4 +213,84 @@ for(const fragment of [
   'fwTimeTransport{box-sizing:border-box!important',
   'flRibbonInstallChromeMeasurement()'
 ])assert(ribbon.includes(fragment),'Ribbon can still overlap at compact widths: '+fragment);
+
+{
+  // Exercise the actual C/D selector production function with multiple
+  // original OpenFOAM catalog entries, not a duplicated toy implementation.
+  // Every physical-time frame previously reparsed all four <select> trees.
+  const start=source.indexOf('function fcExtraSetOptionMarkup(');
+  const end=source.indexOf('async function fcExtraRefreshFrame(',start);
+  assert(start>=0&&end>start,'Original C/D selector refresh and option-reuse owner required');
+  const selector=(initial='')=>{
+    let html='',value=initial,writes=0;
+    const el={
+      get innerHTML(){return html},
+      set innerHTML(next){
+        writes++;html=String(next);
+        const choices=[...html.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);
+        if(!choices.includes(value))value=choices[0]||'';
+      },
+      get value(){return value},
+      set value(next){value=String(next)},
+      get writes(){return writes}
+    };
+    return el
+  };
+  const selects={Case:selector(),Region:selector(),Field:selector(),Component:selector()};
+  const cases=[
+    {id:'B3',name:'B3',regions:['metal','mold'],groups:{
+      metal:[{name:'T',kind:'scalar',storage:'volume'},
+        {name:'alpha1',kind:'scalar',storage:'volume'}],
+      mold:[{name:'T',kind:'scalar',storage:'volume'}]}},
+    {id:'C3',name:'C3',regions:['metal'],groups:{
+      metal:[{name:'U',kind:'vector',storage:'volume'}]}}
+  ];
+  const doc={getElementById:id=>({fvCase:{value:'B3'},fvRegion:{value:'metal'},
+    fvField:{value:'T'},fvComponent:{value:'value'}})[id]||null};
+  const state={id:3},stats={labels:0,toolbar:0};
+  const factory=new Function('cases','fcExtraDom','fvCaseViewAvailable','fcEsc',
+    'document','fcExtraCase','fvReadyRegions','fcUi','fvFieldGroups',
+    'fvAssociationLabel','fvFieldComponents','fcExtraUpdateLabel','fcScheduleToolbarSync',
+    source.slice(start,end)+';return{fcExtraRefreshSelectors,fcExtraSetOptionMarkup};');
+  const api=factory(cases,(id,suffix)=>id===3?selects[suffix]:null,()=>true,
+    String,doc,()=>cases.find(c=>String(c.id)===selects.Case.value),
+    c=>c?.regions||[],en=>en,(c,region)=>c?.groups?.[region]||[],
+    storage=>storage,group=>group?.kind==='vector'
+      ?[{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]
+      :[{v:'value',t:'Value'}],
+    ()=>stats.labels++,()=>stats.toolbar++);
+  api.fcExtraRefreshSelectors(state,true);
+  assert.deepStrictEqual(Object.fromEntries(Object.entries(selects).map(([k,v])=>[k,v.writes])),
+    {Case:1,Region:1,Field:1,Component:1},
+    'Initial C/D controls must mount the real original options once');
+  for(let frame=0;frame<128;frame++)api.fcExtraRefreshSelectors(state,true);
+  assert.deepStrictEqual(Object.fromEntries(Object.entries(selects).map(([k,v])=>[k,v.writes])),
+    {Case:1,Region:1,Field:1,Component:1},
+    '128 time frames must not replace unchanged source-backed option DOM nodes');
+  assert.equal(state.caseId,'B3');assert.equal(state.region,'metal');
+  assert.equal(state.fieldName,'T');assert.equal(state.component,'value');
+  selects.Case.value='C3';api.fcExtraRefreshSelectors(state,true);
+  assert.equal(state.caseId,'C3');assert.equal(state.fieldName,'U');
+  assert.equal(state.component,'x');
+  assert.equal(selects.Case.writes,1,'Selecting C3 does not rebuild unchanged case choices');
+  assert.equal(selects.Region.writes,2,'New region catalog must rebuild');
+  assert.equal(selects.Field.writes,2,'New source field catalog must rebuild');
+  assert.equal(selects.Component.writes,2,'New vector components must rebuild');
+  cases[1].name='C3 updated';
+  api.fcExtraRefreshSelectors(state,true);
+  assert.equal(selects.Case.writes,2,'Imported catalog label changes cannot be cached away');
+  cases[1].groups.metal.push({name:'T',kind:'scalar',storage:'volume'});
+  api.fcExtraRefreshSelectors(state,true);
+  assert.equal(selects.Field.writes,3,'New real fields in same case must become selectable');
+  api.fcExtraRefreshSelectors(state,false);
+  assert.equal(selects.Case.writes,3,'Explicit non-preserving refresh must still replace case options');
+  assert.equal(selects.Region.writes,3);
+  assert.equal(selects.Field.writes,4);
+  assert.equal(selects.Component.writes,3);
+  assert(source.includes("fcExtraRefreshFrame(state,true)"),
+    'Real change/add handlers must avoid a redundant second selector refresh');
+  assert(source.includes("if(!selectorsReady)fcExtraRefreshSelectors(state,true)"),
+    'Unrelated playback routes must retain their source-refresh fallback');
+}
+
 console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/Fit, linked Fit All, no phantom slots, async removal, drag reorder, Ribbon.');
