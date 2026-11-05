@@ -414,7 +414,7 @@ for(const fragment of [
     fcVisualFor:()=>({palette:'viridis'}),fcUpdateStatsGrid:()=>{},
     fcUpdateDifference:()=>{},fvState:{mesh:{},fieldValues:[]},
     fcUpdateVectors:async()=>{},fcUpdateLabels:()=>{},fcPhysicalMenu:()=>{},
-    fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
+    fcRender:()=>{},fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
     fcSyncText:()=> 'exact',console:{error:()=>{}}
   };
   const loadB=create(source.slice(bStart,bEnd),'fcRefreshFrame',bDeps);
