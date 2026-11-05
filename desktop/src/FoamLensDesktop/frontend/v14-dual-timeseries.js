@@ -300,9 +300,11 @@ function tsdRefreshTimeSeriesControls(){
   const byVars=selected.length?ts.filter(s=>selected.includes(s.field.canonical)):ts;
   const probeEntries=[...new Set(byVars.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
   pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
-  if(probeEntries.some(v=>String(v)===String(oldP)))pSel.value=String(oldP);
-  else if(!pSel.dataset.autoinit&&probeEntries.length){pSel.value=String(probeEntries[0]);pSel.dataset.autoinit='1'}
-  else pSel.value='';
+  // A first import can contain two original cases with different probe IDs.
+  // Selecting the first probe implicitly hid the other case on initial load.
+  // Default to All probes across cases; preserve only an explicit valid choice.
+  pSel.value=probeEntries.some(v=>String(v)===String(oldP))?String(oldP):'';
+  pSel.dataset.autoinit='1';
   const byProbe=byVars.filter(s=>pSel.value===''||String(s.probe)===String(pSel.value)),caseMap=new Map();
   for(const item of byProbe)if(item.caseId!=null&&!caseMap.has(item.caseId))caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
   const caseOptions=[...caseMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{numeric:true}));
