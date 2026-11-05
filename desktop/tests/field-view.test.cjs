@@ -2482,3 +2482,112 @@ test('finite large physical-region bounds keep correct transparent fallback orde
   assert.deepStrictEqual(run(),['far','near'],
     'Finite OpenFOAM mesh bounds must sort by measured camera depth rather than overflow-to-Infinity and lexical tie order');
 });
+
+
+(async()=>{
+  // Run the actual production loader with source-shaped case/field identities.
+  // Native field-file caching alone does not remove duplicate concurrent
+  // component decoding, range computation or partition mapping in A–D.
+  const begin=source.indexOf('const fvFrameDataInflight=new WeakMap();');
+  const inner=source.indexOf('async function fvLoadFrameDataUncached(',begin);
+  const end=source.indexOf('\n}',inner)+2;
+  assert(begin>=0&&inner>begin&&end>inner,
+    'Real shared frame loader and original decoder are required');
+  let unblock;
+  const gate=new Promise(resolve=>{unblock=resolve});
+  const stats={layout:0,mesh:0,field:0,component:0,boundary:0,range:0};
+  const denied=new Set();
+  const helpers={
+    fvResolveFieldMeshLayout:(c,region,g,time)=>{
+      stats.layout++;
+      return {valid:true,mode:'reconstructed',snapshot:{region,time}}
+    },
+    fvLoadMeshForLayout:async(c,layout,region,time)=>{
+      stats.mesh++;await gate;
+      if(denied.has(time))throw Error('Original OpenFOAM field geometry unavailable');
+      return {mesh:{cellCount:3,region,time},key:'mesh:'+region+':'+time,
+        snapshot:layout.snapshot}
+    },
+    fvLoadFieldSetCached:async(caseId,name,time,region)=>{
+      stats.field++;return {parsed:{name,time,region}}
+    },
+    fvPickFieldPart:set=>set.parsed,
+    fvAssociationCount:()=>3,
+    pmComponentValues:(parsed,component,expected)=>{
+      stats.component++;
+      assert.equal(expected,3);
+      return{ok:true,values:[290,300,310]}
+    },
+    fvLoadSurfaceBoundaryValues:async()=>{
+      stats.boundary++;
+      return {values:new Map([['face-0',400]])}
+    },
+    fvFiniteRange:values=>{
+      stats.range++;
+      return{valid:true,min:Math.min(...values),max:Math.max(...values),count:values.length}
+    },
+    fvCombinePartitionFieldValues:()=>{throw Error('Reconstructed path expected')},
+    flUi:en=>en
+  };
+  const loader=new Function('helpers',
+    'const {'+Object.keys(helpers).join(',')+'}=helpers;'+source.slice(begin,end)+
+    ';return {fvLoadFrameData,fvFrameDataInflight};')(helpers);
+  const c={id:'B3'},g={name:'T',storage:'surface'};
+  const same=Array.from({length:4},()=>loader.fvLoadFrameData(c,g,'metal',9.8,'value',
+    {includeBoundary:true}));
+  assert.equal(stats.layout,1,'Four identical A–D requests must create one frame layout');
+  assert.equal(stats.mesh,1,'Only one original geometry preparation may run concurrently');
+  assert.equal(loader.fvFrameDataInflight.get(c).get(g).size,1,
+    'Exactly one in-flight task should be retained for the original source');
+  unblock();
+  const ready=await Promise.all(same);
+  assert.equal(stats.mesh,1);assert.equal(stats.field,1);
+  assert.equal(stats.component,1,'A–D must share one physical component decode');
+  assert.equal(stats.boundary,1,'Same requested boundary mode should be read once');
+  assert.equal(stats.range,1,'Identical source measurements need one finite-range pass');
+  assert(ready.every(x=>x===ready[0]),
+    'All consumers must receive the exact same settled, read-only frame data');
+  assert.equal(ready[0].range.max,400,'Explicit boundary values must be preserved');
+  assert.equal(loader.fvFrameDataInflight.get(c).get(g).size,0,
+    'Settled field arrays must not be retained in a permanent cache');
+
+  const before=stats.mesh;
+  await loader.fvLoadFrameData(c,g,'metal',9.8,'value',{includeBoundary:true});
+  assert.equal(stats.mesh,before+1,
+    'A settled frame must not be retained in memory and must be independently reloadable');
+
+  const cTwin={id:'B3'},gTwin={name:'T',storage:'surface'};
+  const beforeVariants=stats.mesh;
+  const distinct=[
+    loader.fvLoadFrameData(c,g,'metal',10,'value',{includeBoundary:true}),
+    loader.fvLoadFrameData(c,g,'metal',10,'value',{includeBoundary:false}),
+    loader.fvLoadFrameData(c,g,'mold',10,'value',{includeBoundary:false}),
+    loader.fvLoadFrameData(c,g,'metal',11,'value',{includeBoundary:false}),
+    loader.fvLoadFrameData(c,g,'metal',10,'x',{includeBoundary:false}),
+    loader.fvLoadFrameData(c,gTwin,'metal',10,'value',{includeBoundary:false}),
+    loader.fvLoadFrameData(cTwin,g,'metal',10,'value',{includeBoundary:false})
+  ];
+  const unique=await Promise.all(distinct);
+  assert.equal(stats.mesh,beforeVariants+7,
+    'Different physical times, region, component, boundary mode or original source identity must not coalesce');
+  assert.equal(unique[0].range.max,400);
+  assert.equal(unique[1].range.max,310,
+    'Boundary-excluded comparison frames must not inherit boundary-inclusive range');
+  assert(unique.every(x=>x.mesh),'Every independent selection needs its own valid original mesh');
+
+  const failedBefore=stats.mesh;
+  denied.add(19.6);
+  const failed=await Promise.allSettled([
+    loader.fvLoadFrameData(c,g,'metal',19.6,'value',{includeBoundary:false}),
+    loader.fvLoadFrameData(c,g,'metal',19.6,'value',{includeBoundary:false})
+  ]);
+  assert(failed.every(x=>x.status==='rejected'),'Both callers must see the real parse error');
+  assert.equal(stats.mesh,failedBefore+1,'Concurrent rejected work must also be coalesced');
+  assert.equal(loader.fvFrameDataInflight.get(c).get(g).size,0,
+    'A rejected frame must be cleared promptly; do not cache failures');
+  denied.delete(19.6);
+  const recovered=await loader.fvLoadFrameData(c,g,'metal',19.6,'value',{includeBoundary:false});
+  assert.equal(stats.mesh,failedBefore+2);
+  assert.equal(recovered.range.max,310,'Retry after failure must read fresh physical values');
+  console.log('Field A–D in-flight OpenFOAM frame coalescing PASS: same source, independent selections, boundary safety, memory cleanup and retry.');
+})().catch(error=>{console.error(error);process.exitCode=1});

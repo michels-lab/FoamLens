@@ -1933,7 +1933,34 @@ function fvLegend(range,parsed){
 }
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
+// Field A/B/C/D and physical region overlays can request the exact same
+// measured frame concurrently. The native field and mesh caches already
+// coalesce reads, but decoding components and mapping processor partitions
+// were still repeated for every viewport. Share *only* in-flight preparations,
+// keyed by actual case/field object identity and the entire source selection.
+// Nothing persists after settle, so large field arrays cannot accumulate here.
+const fvFrameDataInflight=new WeakMap();
 async function fvLoadFrameData(c,g,region,time,component,{includeBoundary=true}={}){
+  const options={includeBoundary};
+  if(!c||typeof c!=='object'||!g||typeof g!=='object')
+    return fvLoadFrameDataUncached(c,g,region,time,component,options);
+  let groups=fvFrameDataInflight.get(c);
+  if(!groups){groups=new WeakMap();fvFrameDataInflight.set(c,groups)}
+  let requests=groups.get(g);
+  if(!requests){requests=new Map();groups.set(g,requests)}
+  const key=JSON.stringify([region,time,component,includeBoundary]);
+  let pending=requests.get(key);
+  if(!pending){
+    pending=fvLoadFrameDataUncached(c,g,region,time,component,options);
+    requests.set(key,pending);
+    const release=()=>{if(requests.get(key)===pending)requests.delete(key)};
+    // Both outcomes remove the promise. Avoid an unobserved rejected promise
+    // from .finally(), which would otherwise surface during fast scrubbing.
+    pending.then(release,release)
+  }
+  return pending
+}
+async function fvLoadFrameDataUncached(c,g,region,time,component,{includeBoundary=true}={}){
   const layout=fvResolveFieldMeshLayout(c,region,g,time);if(!layout.valid)throw new Error(flUi('No safe field/mesh correspondence exists for this timestep: ','No existe una correspondencia campo/malla segura para este timestep: ')+layout.reason);
   const meshInfo=await fvLoadMeshForLayout(c,layout,region,time),mesh=meshInfo.mesh,set=await fvLoadFieldSetCached(c.id,g.name,time,region),storage=String(g.storage||'volume');let parsed,fieldValues,surfaceBoundary=null;
   if(layout.mode==='decomposed'){
