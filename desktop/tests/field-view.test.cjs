@@ -272,6 +272,42 @@ test('colormap stays finite and normalized',()=>{
 });
 
 
+
+test('shared palette stops preserve exact legacy color mappings without per-triangle stop allocations',()=>{
+  const from=source.indexOf('function fvPaletteStops(name){');
+  const to=source.indexOf('function fvLegendGradient(name){',from);
+  assert(from>=0&&to>from,'Production original palette stops and mapper missing');
+  const palette=new Function('fvClamp',source.slice(from,to)+
+    ';return {fvPaletteStops,fvPaletteStopsStable,fvColorMap,fvPaletteStopCache};')(
+    (v,min,max)=>Math.max(min,Math.min(max,Number(v))));
+  const oldColor=(value,min,max,p)=>{
+    value=Number(value);min=Number(min);max=Number(max);
+    let t=(Number.isFinite(value)&&Number.isFinite(min)&&Number.isFinite(max)&&max>min)
+      ?(value-min)/(max-min):.5;
+    t=Math.max(0,Math.min(1,t));
+    const s=palette.fvPaletteStops(p);
+    let a=s[0],b=s.at(-1);
+    for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
+    const f=b[0]===a[0]?0:(t-a[0])/(b[0]-a[0]);
+    return a[1].map((v,i)=>v+(b[1][i]-v)*f)
+  };
+  for(const name of ['viridis','coolwarm','turbo','unknown']){
+    const a=palette.fvPaletteStopsStable(name);
+    const b=palette.fvPaletteStopsStable(name);
+    assert.strictEqual(a,b,'Same palette must use a single immutable set of stops');
+    const key=name==='coolwarm'||name==='turbo'?name:'viridis';
+    assert.deepStrictEqual(a,palette.fvPaletteStops(key));
+    for(const range of [[0,1],[100,100],[100,500]]){
+      for(const v of [undefined,null,NaN,-Infinity,-1,0,.5,1,2,250,Infinity]){
+        assert.deepStrictEqual(palette.fvColorMap(v,...range,name),oldColor(v,...range,name),
+          'Source physical values and default nonfinite mapping must not change')
+      }
+    }
+  }
+  assert.equal(palette.fvPaletteStopCache.size,3,
+    'An arbitrary palette name must not create an unbounded color-stop cache');
+});
+
 test('large 3D cell, point and internal-face colors memoize source indices per frame without changing measured RGB',()=>{
   const start=source.indexOf('function fvSurfaceColors('),stop=source.indexOf('function fvConstantColors(',start);
   assert(start>=0&&stop>start,'Real Field association color pipeline missing');
