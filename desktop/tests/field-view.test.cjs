@@ -271,6 +271,82 @@ test('colormap stays finite and normalized',()=>{
   }
 });
 
+
+test('large 3D cell, point and internal-face colors memoize source indices per frame without changing measured RGB',()=>{
+  const start=source.indexOf('function fvSurfaceColors('),stop=source.indexOf('function fvConstantColors(',start);
+  assert(start>=0&&stop>start,'Real Field association color pipeline missing');
+  let paints=0;
+  const colors=new Function('fvColorMap',source.slice(start,stop)+
+    ';return {fvSurfaceColors,fvPointSurfaceColors,fvInternalFaceColors,fvIndexedFrameColor};')(
+    (...args)=>{paints++;return api.fvColorMap(...args)});
+  const expected=(indices,values,min,max,palette,face)=>{
+    const result=new Float32Array(indices.length*(face?9:3));
+    for(let i=0;i<indices.length;i++){
+      const rgb=api.fvColorMap(values?.[indices[i]],min,max,palette);
+      const count=face?3:1;
+      for(let v=0;v<count;v++){
+        const b=(i*count+v)*3;
+        result[b]=rgb[0];result[b+1]=rgb[1];result[b+2]=rgb[2]
+      }
+    }
+    return result
+  };
+  const values=Float64Array.from({length:96},(_,i)=>i*3.4+210);
+  const owners=Array.from({length:6400},(_,i)=>i%96);
+  const mesh={surfaceOwners:owners};
+  for(const palette of ['viridis','turbo','coolwarm']){
+    paints=0;
+    const actual=colors.fvSurfaceColors(mesh,values,210,530,palette);
+    assert.deepStrictEqual(actual,expected(owners,values,210,530,palette,true),
+      'Original cell-associated scientific RGB and triangle ownership must not change');
+    assert.equal(paints,96,'Color conversion must occur once per measured source cell');
+  }
+  const vertices=Array.from({length:9000},(_,i)=>(i*7)%64);
+  const pointValues=Float64Array.from({length:64},(_,i)=>.2*i);
+  paints=0;
+  assert.deepStrictEqual(colors.fvPointSurfaceColors({surfaceTriangles:vertices},pointValues,0,12,'turbo'),
+    expected(vertices,pointValues,0,12,'turbo',false));
+  assert.equal(paints,64,'Triangle vertices must reuse source point RGB');
+  const faces=Array.from({length:8000},(_,i)=>(i*5)%29);
+  const faceValues=Float64Array.from({length:29},(_,i)=>i*2.5);
+  paints=0;
+  assert.deepStrictEqual(colors.fvInternalFaceColors(faces,faceValues,0,70,'coolwarm'),
+    expected(faces,faceValues,0,70,'coolwarm',true));
+  assert.equal(paints,29,'Multiple triangles of the same internal face must use its one color');
+  // Missing/nonfinite values still obey the original legend's fallback
+  // semantics. Do not substitute zero for absent experimental measurements.
+  const sparse=[NaN,null,undefined,5,Infinity,-Infinity];
+  const ids=[0,1,2,3,4,5,0,2,3,1,5];
+  paints=0;
+  assert.deepStrictEqual(colors.fvSurfaceColors({surfaceOwners:ids},sparse,0,10,'viridis'),
+    expected(ids,sparse,0,10,'viridis',true));
+  assert.equal(paints,6);
+  const changing=Float64Array.from([300,305,310]);
+  const repeated=[0,1,2,0,1,2,0,1,2];
+  const previous=colors.fvSurfaceColors({surfaceOwners:repeated},changing,300,310,'viridis');
+  changing[0]=375;
+  const changed=colors.fvSurfaceColors({surfaceOwners:repeated},changing,300,400,'viridis');
+  assert.notDeepStrictEqual(previous,changed,'New measured source arrays/ranges must not reuse old frame RGB');
+  assert.deepStrictEqual(changed,expected(repeated,changing,300,400,'viridis',true));
+  assert.notDeepStrictEqual(changed,colors.fvSurfaceColors({surfaceOwners:repeated},changing,300,400,'turbo'),
+    'Changed palette must recompute scientifically correct RGB');
+  // Bound memo memory independently of the number of OpenFOAM mesh elements.
+  const bounded=new Map(),unique=14000;
+  for(let i=0;i<unique;i++){
+    colors.fvIndexedFrameColor(i,[],0,1,'viridis',bounded);
+    assert(bounded.size<=8192,'Color memo must remain bounded even for huge meshes')
+  }
+  assert.deepStrictEqual(colors.fvIndexedFrameColor(7,[6],0,10,'coolwarm',new Map()),
+    api.fvColorMap(undefined,0,10,'coolwarm'));
+  // Measure the cache by calls rather than asserting an ungrounded FPS claim.
+  paints=0;
+  for(let t=0;t<32;t++){
+    values[0]=220+t;
+    colors.fvSurfaceColors(mesh,values,210,530,'viridis')
+  }
+  assert.equal(paints,32*96,'A new physical frame must recolor each unique cell exactly once');
+});
+
 test('legend gradient follows the selected colormap',()=>{
   const viridis=api.fvLegendGradient('viridis'),turbo=api.fvLegendGradient('turbo'),coolwarm=api.fvLegendGradient('coolwarm');
   assert(/^linear-gradient\(90deg,/.test(viridis));
