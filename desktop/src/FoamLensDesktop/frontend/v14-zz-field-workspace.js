@@ -103,7 +103,7 @@ function fwCreateSurface(){
       </div>
       <aside class="fwControlsCard fwControlsDrawer hidden" id="fwControlsDrawer" aria-hidden="true">
         <div class="fwInspectorHead"><strong data-fl-en="Inspector" data-fl-es="Inspector">Inspector</strong><button class="btn tiny" id="fwInspectorClose" type="button" aria-label="Close inspector">×</button></div>
-        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div class="fw3DViewCases" id="fw3DViewCases" aria-label="3D case selection by view"></div><div id="fw3DControlsHost"></div></details>
+        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div class="fw3DViewCases" id="fw3DViewCases" aria-label="3D case, region, field and component by view"></div><div id="fw3DControlsHost"></div></details>
         <details open class="fwControlGroup" id="fw2DControlGroup"><summary><strong id="fw2DControlTitle">Spatial Profile controls</strong></summary><div id="fw2DControlsHost"></div></details>
       </aside>
     </div>`;
@@ -135,7 +135,7 @@ function fwCreateSurface(){
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
-    .fw3DViewCases{display:grid;gap:7px;border-bottom:1px solid var(--line);margin-bottom:9px;padding-top:5px!important}.fw3DViewCases .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}.fw3DViewCases .row2 label{font-weight:800}.fw3DViewCases .fwViewBCaseRow.hidden{display:none!important}
+    .fw3DViewCases{display:grid;gap:7px;border-bottom:1px solid var(--line);margin-bottom:9px;padding-top:5px!important}.fw3DViewCases .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}.fw3DViewCases .row2 label{font-weight:800}.fw3DViewCases .fwViewBCaseRow.hidden,.fw3DViewCases .fwViewBFieldRow.hidden,.fw3DViewCases .fwViewExtraControlRow.hidden{display:none!important}.fw3DViewCases .fwViewBCaseRow,.fw3DViewCases .fwViewExtraCaseRow{border-top:1px dashed var(--line);padding-top:9px;margin-top:3px}
     .fwDataFieldHistories{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--panel2)}.fwDataFieldHistories>summary{cursor:pointer;font-size:11px;font-weight:800;padding:7px 5px;color:var(--text)}.fwDataFieldHistories[open]>summary{margin-bottom:9px}.fwDataFieldHistories .fwFieldTsControls{padding:6px;min-width:0}.fwDataFieldHistories #fwBuildFieldHistories{justify-self:start}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
@@ -917,22 +917,47 @@ function fwAdd3DView(){
     fvSetStatus(fwUi('Maximum of four synchronized 3D views reached.','Se alcanzó el máximo de cuatro vistas 3D sincronizadas.'),false)
   }catch(e){console.error(e)}
 }
+// Adopt the real selectors (and their original change handlers) rather than
+// cloning them. Each view gets Case/Region and Field/Component next to each
+// other, including views C/D created after Field was opened.
+function fwPromoteViewControlRow(host,selectorId,letter,kind,extraId=null){
+  const row=document.getElementById(selectorId)?.closest('.row2');if(!row)return null;
+  const en='View '+letter+' · '+(kind==='case'?'Case':'Field');
+  const es='Vista '+letter+' · '+(kind==='case'?'Caso':'Variable');
+  const label=row.querySelector('label');
+  if(label){label.dataset.flEn=en;label.dataset.flEs=es;label.textContent=fwUi(en,es)}
+  row.dataset.fwControlView=letter;row.dataset.fwControlKind=kind;
+  if(extraId!=null){row.classList.add('fwViewExtraControlRow');row.dataset.viewId=String(extraId)}
+  if(row.parentElement!==host)host.appendChild(row);
+  return row
+}
 function fwPromoteViewCaseSelectors(){
   const host=document.getElementById('fw3DViewCases');if(!host)return false;
-  const primary=document.getElementById('fvCase')?.closest('.row2'),compare=document.getElementById('fcCase')?.closest('.row2');
-  if(primary&&primary.parentElement!==host){primary.classList.add('fwViewACaseRow');const label=primary.querySelector('label');if(label){label.textContent='View A · Case';label.dataset.flEn='View A · Case';label.dataset.flEs='Vista A · Caso'}host.appendChild(primary)}
-  if(compare&&compare.parentElement!==host){compare.classList.add('fwViewBCaseRow');const label=compare.querySelector('label');if(label){label.textContent='View B · Case';label.dataset.flEn='View B · Case';label.dataset.flEs='Vista B · Caso'}host.appendChild(compare)}
+  const a=fwPromoteViewControlRow(host,'fvCase','A','case');
+  const aField=fwPromoteViewControlRow(host,'fvField','A','field');
+  a?.classList.add('fwViewACaseRow');aField?.classList.add('fwViewAFieldRow');
+  const b=fwPromoteViewControlRow(host,'fcCase','B','case');
+  const bField=fwPromoteViewControlRow(host,'fcField','B','field');
+  b?.classList.add('fwViewBCaseRow');bField?.classList.add('fwViewBFieldRow');
   const enabled=!!document.getElementById('fcEnabled')?.checked;
-  compare?.classList.toggle('hidden',!enabled);
+  b?.classList.toggle('hidden',!enabled);bField?.classList.toggle('hidden',!enabled);
   const present=new Set();
   if(typeof fcExtraViews!=='undefined')for(const state of fcExtraViews){
-    const id=Number(state?.id),selector=document.getElementById('fcExtra'+id+'Case'),row=selector?.closest('.row2');
-    if(!row)continue;present.add(id);row.classList.add('fwViewExtraCaseRow');row.dataset.viewId=String(id);
-    if(row.parentElement!==host){const label=row.querySelector('label');if(label){label.textContent='View '+id+' · Case';label.dataset.flEn='View '+id+' · Case';label.dataset.flEs='Vista '+id+' · Caso'}host.appendChild(row)}
-    row.classList.toggle('hidden',!enabled)
+    const id=Number(state?.id);if(!Number.isInteger(id)||id<3||id>4)continue;
+    const letter=String.fromCharCode(64+id);
+    const caseRow=fwPromoteViewControlRow(host,'fcExtra'+id+'Case',letter,'case',id);
+    const fieldRow=fwPromoteViewControlRow(host,'fcExtra'+id+'Field',letter,'field',id);
+    if(!caseRow||!fieldRow)continue;
+    present.add(id);caseRow.classList.add('fwViewExtraCaseRow');fieldRow.classList.add('fwViewExtraFieldRow');
+    caseRow.classList.toggle('hidden',!enabled);fieldRow.classList.toggle('hidden',!enabled)
   }
-  host.querySelectorAll('.fwViewExtraCaseRow').forEach(row=>{if(!present.has(Number(row.dataset.viewId)))row.remove()});
-  host.dataset.viewCount=enabled?String(2+present.size):'1';return !!primary
+  // fcExtraRemove releases the view's original controls; the two adopted
+  // rows live outside its card and must disappear together on removal.
+  host.querySelectorAll('.fwViewExtraControlRow').forEach(row=>{
+    if(!present.has(Number(row.dataset.viewId)))row.remove()
+  });
+  host.dataset.viewCount=enabled?String(2+present.size):'1';
+  return !!a&&!!aField
 }
 function fwMount3D(){
   if(!fwFieldReady())return false;

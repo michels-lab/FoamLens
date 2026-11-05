@@ -151,8 +151,13 @@ for(const name of passed)console.log('  ✓ '+name);
 
 test('3D cases are selectable in the sidebar and comparison stays opt-in',()=>{
   const w=fs.readFileSync(path.join(root,'v14-zz-field-workspace.js'),'utf8');
-  assert(w.includes('fwPromoteViewCaseSelectors')&&w.includes("getElementById('fvCase')?.closest('.row2')")&&w.includes("getElementById('fcCase')?.closest('.row2')"),'Independent A/B case selectors not promoted');
-  assert(w.includes("compare?.classList.toggle('hidden',!enabled)"),'View B selector must hide until comparison');
+  assert(w.includes('fwPromoteViewCaseSelectors')&&
+    w.includes("fwPromoteViewControlRow(host,'fvCase','A','case')")&&
+    w.includes("fwPromoteViewControlRow(host,'fcCase','B','case')"),
+    'Independent original A/B case selectors not promoted');
+  assert(w.includes("b?.classList.toggle('hidden',!enabled)")&&
+    w.includes("bField?.classList.toggle('hidden',!enabled)"),
+    'Both View B scientific selector rows must hide until comparison');
   assert(w.includes('compareUserRequested:false')&&w.includes('if(!fwState.compareUserRequested)'),'No implicit comparison on Field entry');
 });
 
@@ -162,6 +167,87 @@ test('Field 3D components are relocated out of Data before initial entry',()=>{
   assert(block.includes("fwAdoptFieldNode('fieldViewControls','fw3DControlsHost')"),'Data cannot contain initial 3D controls');
   assert(block.includes("fwAdoptFieldNode('fieldViewPanel','fw3DHost')"),'Data cannot host initial 3D viewport');
 });
+
+test('Field A–D original case, region, field and component controls move together without cloned selectors',()=>{
+  const start=field.indexOf('function fwPromoteViewControlRow(');
+  const end=field.indexOf('function fwMount3D(){',start);
+  assert(start>0&&end>start,'The original A–D Field selector owner must be present');
+  const children=[];
+  const host={
+    dataset:{},
+    appendChild(row){
+      if(row.parentElement===this)return row;
+      row.parentElement=this;children.push(row);return row;
+    },
+    querySelectorAll(selector){
+      assert.equal(selector,'.fwViewExtraControlRow');
+      return children.filter(row=>row.classes.has('fwViewExtraControlRow'));
+    }
+  };
+  function row(name,caseValue){
+    const classes=new Set(),label={textContent:'',dataset:{}};
+    const result={
+      name,classes,dataset:{},parentElement:{name:'original'},value:caseValue,
+      classList:{
+        add:x=>classes.add(x),
+        toggle:(x,enabled)=>enabled?classes.add(x):classes.delete(x)
+      },
+      querySelector:key=>key==='label'?label:null,
+      remove(){
+        const i=children.indexOf(result);if(i>=0)children.splice(i,1);
+        result.parentElement=null;
+      }
+    };
+    return {row:result,label,select:{value:caseValue,closest:key=>key==='.row2'?result:null}}
+  }
+  const controls={},saved={};
+  const ids=[
+    ['fvCase','A','case-A'],['fvField','A','field-A'],
+    ['fcCase','B','case-B'],['fcField','B','field-B'],
+    ['fcExtra3Case','C','case-C'],['fcExtra3Field','C','field-C'],
+    ['fcExtra4Case','D','case-D'],['fcExtra4Field','D','field-D']
+  ];
+  for(const [id,letter,value] of ids){
+    const entry=row(letter+'-'+id,value);
+    controls[id]=entry.select;saved[id]=entry;
+  }
+  const enabled={checked:false};
+  const document={getElementById:id=>id==='fw3DViewCases'?host:
+    id==='fcEnabled'?enabled:controls[id]||null};
+  const fcExtraViews=[{id:3},{id:4}];
+  const promote=new Function('document','fcExtraViews','fwUi',
+    field.slice(start,end)+';return fwPromoteViewCaseSelectors;')(
+      document,fcExtraViews,(_,es)=>es);
+  assert.equal(promote(),true);
+  assert.equal(children.length,8,'Original A/B/C/D case+field rows are adopted exactly once');
+  assert.equal(host.dataset.viewCount,'1','Single view remains active until explicit comparison');
+  for(const [id,letter,value] of ids){
+    const entry=saved[id];
+    assert.strictEqual(entry.row.parentElement,host);
+    assert.equal(entry.select.value,value,'Original real selector value and listeners are preserved');
+    assert.equal(entry.row.dataset.fwControlKind,id.endsWith('Field')?'field':'case');
+    assert.equal(entry.row.dataset.fwControlView,letter);
+    assert.equal(entry.label.dataset.flEs,'Vista '+letter+' · '+(id.endsWith('Field')?'Variable':'Caso'));
+    assert.equal(entry.row.classes.has('hidden'),letter!=='A',
+      'Inactive B/C/D must hide both case/region and field/component rows');
+  }
+  enabled.checked=true;assert.equal(promote(),true);
+  assert.equal(children.length,8,'Remount must not duplicate any original selector');
+  assert.equal(host.dataset.viewCount,'4');
+  assert(children.every(x=>!x.classes.has('hidden')),
+    'All four views expose original Case/Region and Field/Component when active');
+  fcExtraViews.splice(0,1);assert.equal(promote(),true);
+  assert.equal(host.dataset.viewCount,'3');
+  assert(!children.includes(saved.fcExtra3Case.row)&&!children.includes(saved.fcExtra3Field.row),
+    'Removing View C cleans both borrowed original rows, not just Case');
+  assert(children.includes(saved.fcExtra4Case.row)&&children.includes(saved.fcExtra4Field.row),
+    'View D remains selectable after independent C removal');
+  enabled.checked=false;assert.equal(promote(),true);
+  assert.equal(host.dataset.viewCount,'1');
+  assert(saved.fcField.row.classes.has('hidden'));
+  assert(saved.fcExtra4Field.row.classes.has('hidden'));
+});
+
 test('Data has a real Ribbon route for profiles, time series, logs and comparing curves',()=>{
   for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
     assert(ribbon.includes(id),'Missing Data toolbar action: '+id);
