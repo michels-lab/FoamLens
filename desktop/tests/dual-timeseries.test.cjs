@@ -213,11 +213,24 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
   assert.equal(probe.value,'2','An explicitly selected real probe remains selected');
   assert.equal(badge.textContent,'1 curves','Explicit filtering still works');
   assert(family.options.some(o=>o.value==='case:C13'));
-  assert(!family.options.some(o=>o.value==='case:B13'));
-  probe.value='gone';refresh();
+  assert(family.options.some(o=>o.value==='case:B13'),
+    'Other original cases must remain selectable when their probe IDs differ');
+  family.value='case:B13';refresh();
+  assert.equal(family.value,'case:B13','A real selected case remains selected');
+  assert.equal(probe.value,'','Case B13 must not retain C13-only probe 2');
+  assert.match(probe.innerHTML,/value="1"/,'Only B13 real probe becomes selectable');
+  assert(!probe.innerHTML.includes('value="2"'),'C13-only probe must not appear as a B13 option');
+  assert.equal(badge.textContent,'1 curves');
+  family.value='case:C13';refresh();
+  assert.equal(family.value,'case:C13','Switching to the other case must stay possible');
+  assert.equal(probe.value,'','A new case shows All its probes by default');
+  assert.match(probe.innerHTML,/value="2"/);
+  assert(!probe.innerHTML.includes('value="1"'),'B13-only probe must not leak into C13');
+  assert.equal(badge.textContent,'1 curves');
+  family.value='';probe.value='gone';refresh();
   assert.equal(probe.value,'','A disappeared probe returns to All instead of selecting a random one');
   assert.equal(badge.textContent,'2 curves');
-  assert.equal(catalogRefreshes,6,'Original source/evidence refresh still runs for all states');
+  assert.equal(catalogRefreshes,10,'Original source/evidence refresh still runs for all states');
 });
 
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
