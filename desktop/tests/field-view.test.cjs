@@ -292,12 +292,11 @@ test('streamed internal and boundary faces preserve original OpenFOAM indices, p
     ['processor0:processorPair',4,1,true],['processor0:wall',5,2,false],
     ['processor1:processorPair',7,1,true],['processor1:wall',8,2,false]
   ]);
-  assert.deepStrictEqual(out.surfaceTriangleFaces,[5,5,6,8,8,9],
-    'Processor interface faces must be excluded and quad triangulation preserved');
-  assert.deepStrictEqual(out.surfaceOwners,[1,1,0,3,3,2]);
+  assert.deepStrictEqual(out.surfaceTriangleFaces,[5,6,8,9],
+    'Processor interface faces must be excluded from the physical surface');
+  assert.deepStrictEqual(out.surfaceOwners,[1,0,3,2]);
   assert.deepStrictEqual(out.surfaceTriangles,[
-    0,3,4, 0,4,0, 2,3,5,
-    6,9,10, 6,10,6, 8,9,11
+    0,3,4, 2,3,5, 6,9,10, 8,9,11
   ]);
   assert.deepStrictEqual(out.partitionRanges.map(p=>[p.partition,p.pointStart,p.cellStart,p.internalFaceStart]),[
     ['processor0',0,0,0],['processor1',6,2,2]
