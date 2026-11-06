@@ -15,6 +15,16 @@ new Function(ux);new Function(plotSurfaces);new Function(field);new Function(rib
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
+
+test('Field workspace labels and playback readouts remain legible',()=>{
+  const start=field.indexOf('style.textContent=');
+  assert(start>=0,'Field workspace style sheet is missing');
+  const style=field.slice(start,field.indexOf('`;',start));
+  const undersized=[...style.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].filter(([,size])=>Number(size)<11);
+  assert.deepStrictEqual(undersized.map(match=>match[0]),[],'Field workspace has labels smaller than 11px');
+  for(const selector of ['.fwTimeReadout','.fwHeader p','.fwCompact label','.fwProfileTimeSync'])
+    assert(style.includes(selector),'Missing critical readable control: '+selector);
+});
 test('Field Workspace persists v2 view state instead of obsolete permanent split state',()=>{
   for(const token of [
     "foamlens.fieldWorkspace.ux.v2",'schema:2','view:','companion:',
