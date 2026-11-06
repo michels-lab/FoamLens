@@ -17,9 +17,10 @@ function test(name,fn){fn();passed.push(name)}
 
 
 test('Field workspace labels and playback readouts remain legible',()=>{
-  const style=field.match(/style\\.textContent=\x60([\\s\\S]*?)\x60;/)?.[1];
-  assert(style,'Field workspace style sheet is missing');
-  const undersized=[...style.matchAll(/font-size:\\s*(\\d+(?:\\.\\d+)?)px/g)].filter(([,size])=>Number(size)<11);
+  const start=field.indexOf('style.textContent=');
+  assert(start>=0,'Field workspace style sheet is missing');
+  const style=field.slice(start,field.indexOf('`;',start));
+  const undersized=[...style.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].filter(([,size])=>Number(size)<11);
   assert.deepStrictEqual(undersized.map(match=>match[0]),[],'Field workspace has labels smaller than 11px');
   for(const selector of ['.fwTimeReadout','.fwHeader p','.fwCompact label','.fwProfileTimeSync'])
     assert(style.includes(selector),'Missing critical readable control: '+selector);
