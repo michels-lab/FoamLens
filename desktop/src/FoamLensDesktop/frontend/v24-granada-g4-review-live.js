@@ -64,8 +64,119 @@ function g4Review(){
  document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&more.open){e.preventDefault();more.open=false;summary.focus()}
  },true);
- document.addEventListener('foamlens-language-change',g4Sync);
+ document.addEventListener('foamlens-language-change',()=>{g4Sync();g4FindingLabels();g4FilterFindings()});
  g4Sync();return true
+}
+// Findings stay owned by the ORIGINAL Review renderer (#allFindings).
+// Local filters affect only the displayed rows, never currentFindings, severity,
+// acknowledgements, pinned findings, source files or the Review model.
+let g4FindingsObserver=null;
+const g4Severities=['FAIL','WARNING','NOTICE','INFO'];
+function g4FindingText(value){
+ return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim()
+}
+function g4FindingSeverity(row){
+ const badge=row.querySelector('.findingSeverity');
+ return g4Severities.find(severity=>badge?.classList.contains(severity))||''
+}
+function g4FindingLabels(){
+ const es=g4Spanish(),search=g4El('g4FindingSearch'),severity=g4El('g4FindingSeverity'),
+       clear=g4El('g4FindingClear');
+ if(!search||!severity||!clear)return;
+ search.placeholder=es?'Buscar título, detalle, caso o campo…':'Search title, detail, case or field…';
+ search.setAttribute('aria-label',es?'Buscar en hallazgos visibles':'Search visible findings');
+ search.title=es?'Enter o flecha abajo: ir al primer hallazgo visible':'Enter or Down arrow: jump to first visible finding';
+ const label=g4El('g4FindingSeverityLabel');
+ if(label)label.textContent=es?'Severidad':'Severity';
+ const options=[
+  ['',es?'Todas':'All severities'],
+  ['FAIL',es?'Errores':'Failures'],
+  ['WARNING',es?'Advertencias':'Warnings'],
+  ['NOTICE',es?'Avisos':'Notices'],
+  ['INFO',es?'Información':'Information']
+ ];
+ for(const [key,title] of options){
+  const option=[...severity.options].find(x=>x.value===key);
+  if(option)option.textContent=title
+ }
+ clear.textContent=es?'Limpiar filtros':'Clear filters'
+}
+function g4FilterFindings(){
+ const list=g4El('allFindings'),search=g4El('g4FindingSearch'),
+       severity=g4El('g4FindingSeverity'),count=g4El('g4FindingCount'),
+       empty=g4El('g4FindingEmpty'),clear=g4El('g4FindingClear');
+ if(!list||!search||!severity||!count||!empty||!clear)return false;
+ const query=g4FindingText(search.value),level=severity.value,
+       rows=[...list.querySelectorAll('.findingRow')];
+ let shown=0;
+ for(const row of rows){
+  const matches=(!level||g4FindingSeverity(row)===level)&&
+     (!query||g4FindingText(row.textContent).includes(query));
+  row.hidden=!matches;
+  if(matches)shown++
+ }
+ const es=g4Spanish();
+ count.textContent=es?`${shown} de ${rows.length} hallazgos mostrados`:
+    `${shown} of ${rows.length} findings shown`;
+ empty.hidden=rows.length===0||shown!==0;
+ empty.textContent=es?'No hay hallazgos que coincidan. Cambia los filtros o límpialos.':
+   'No findings match. Change or clear your filters.';
+ clear.disabled=!query&&!level;
+ return true
+}
+// Focus the original Review row, not a duplicate search result or scientific model.
+function g4FocusFirstVisibleFinding(){
+ const first=[...(g4El('allFindings')?.querySelectorAll('.findingRow')||[])]
+   .find(row=>!row.hidden&&row.isConnected!==false);
+ if(!first)return false;
+ if(!first.hasAttribute('tabindex'))first.setAttribute('tabindex','-1');
+ first.focus?.({preventScroll:true});
+ first.scrollIntoView?.({block:'nearest',behavior:'auto'});
+ return true
+}
+function g4ReviewFindings(){
+ const list=g4El('allFindings'),pane=list?.parentElement;
+ if(!list||!pane)return false;
+ if(g4El('g4FindingFilters'))return true;
+ const bar=document.createElement('section');bar.id='g4FindingFilters';bar.className='g4FindingFilters';
+ bar.setAttribute('aria-label','Review findings filters');
+ const search=document.createElement('input');search.id='g4FindingSearch';search.type='search';
+ search.autocomplete='off';bar.appendChild(search);
+ const label=document.createElement('label');label.id='g4FindingSeverityLabel';
+ label.setAttribute('for','g4FindingSeverity');bar.appendChild(label);
+ const select=document.createElement('select');select.id='g4FindingSeverity';
+ for(const severity of ['',...g4Severities]){
+  const option=document.createElement('option');option.value=severity;
+  option.textContent=severity||'All severities';select.appendChild(option)
+ }
+ select.value='';bar.appendChild(select);
+ const clear=document.createElement('button');clear.id='g4FindingClear';
+ clear.className='btn soft';clear.type='button';bar.appendChild(clear);
+ const count=document.createElement('p');count.id='g4FindingCount';count.className='g4FindingCount';
+ count.setAttribute('role','status');count.setAttribute('aria-live','polite');bar.appendChild(count);
+ const empty=document.createElement('p');empty.id='g4FindingEmpty';
+ empty.className='g4FindingEmpty';empty.hidden=true;bar.appendChild(empty);
+ pane.insertBefore(bar,list);
+ search.addEventListener('input',g4FilterFindings);
+ search.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&search.value){
+   event.preventDefault();search.value='';g4FilterFindings();return
+  }
+  if((event.key==='Enter'||event.key==='ArrowDown')&&!event.isComposing&&
+     !event.altKey&&!event.ctrlKey&&!event.metaKey&&g4FocusFirstVisibleFinding())event.preventDefault()
+ });
+ select.addEventListener('change',g4FilterFindings);
+ clear.addEventListener('click',()=>{
+  search.value='';select.value='';g4FilterFindings();search.focus()
+ });
+ if(typeof MutationObserver!=='undefined'){
+  g4FindingsObserver=new MutationObserver(g4FilterFindings);
+  // Watch updates to original rows, not only full-list replacement.
+  // The filter writes [hidden], which is intentionally NOT observed to prevent loops.
+  g4FindingsObserver.observe(list,{childList:true,subtree:true,characterData:true,
+    attributes:true,attributeFilter:['class']});
+ }
+ g4FindingLabels();g4FilterFindings();return true
 }
 function g4Live(){
  const surface=g4El('liveSurface'),grid=surface?.querySelector('.surfaceGrid'),
@@ -107,6 +218,16 @@ function g4CSS(){
  '#reviewSurface .g4ReviewResults .reviewPane.active .auditCaseSelect{gap:12px;align-items:end;flex-wrap:wrap}',
  '#reviewSurface .g4ReviewResults .reviewPane.active .auditCaseSelect .field{flex:1 1 260px}',
  '#reviewSurface .g4ReviewResults .reviewPane.active .auditCaseSelect select{min-height:37px}',
+ '#reviewSurface .g4FindingFilters{display:grid;grid-template-columns:minmax(210px,1fr) auto minmax(135px,200px) auto;gap:8px;align-items:center;margin:0 0 12px}',
+ '#reviewSurface .g4FindingFilters input,#reviewSurface .g4FindingFilters select{min-width:0;width:100%;min-height:37px;box-sizing:border-box;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font-size:12px}',
+ '#reviewSurface .g4FindingFilters label{font-size:11px;font-weight:700;color:var(--muted)}',
+ '#reviewSurface .g4FindingFilters button{min-height:37px;white-space:nowrap}',
+ '#reviewSurface .g4FindingFilters :is(input,select,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
+ '#reviewSurface .g4FindingCount,#reviewSurface .g4FindingEmpty{grid-column:1/-1;font-size:11px;line-height:1.45;color:var(--muted);margin:0}',
+ '#reviewSurface .g4FindingEmpty:not([hidden]){padding:12px;border:1px dashed var(--line);border-radius:9px}',
+ '#reviewSurface .g4FindingEmpty[hidden],#reviewSurface #allFindings .findingRow[hidden]{display:none!important}',
+ '@media(max-width:1050px){#reviewSurface .g4FindingFilters{grid-template-columns:minmax(0,1fr) auto minmax(110px,160px)}#reviewSurface .g4FindingFilters button{grid-column:1/-1;justify-self:start}}',
+ '@media(max-width:610px){#reviewSurface .g4FindingFilters{grid-template-columns:1fr 1fr}#reviewSurface .g4FindingFilters input{grid-column:1/-1}#reviewSurface .g4FindingFilters label{text-align:right}#reviewSurface .g4FindingFilters button{grid-column:1/-1}}',
  '#reviewSurface .reviewTab:focus-visible,#reviewSurface .g4ReviewMore>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
  '#liveSurface .g4LiveDock{padding:0 15px 12px;border-radius:15px;margin-bottom:12px}',
  '#liveSurface .g4LiveDock>.surfaceCardHead{padding:12px 0 9px;margin:0 0 9px;border-bottom:1px solid var(--line);background:var(--panel);gap:9px;align-items:center}',
@@ -149,9 +270,9 @@ function g4Audit(){
 }
 function g4Install(){
  if(g4Installed)return true;
- if(!g4Review()||!g4Live())return false;
+ if(!g4Review()||!g4Live()||!g4ReviewFindings())return false;
  g4CSS();g4Installed=true;
- window.FoamLensGranadaG4={audit:g4Audit,sync:g4Sync,
+ window.FoamLensGranadaG4={audit:g4Audit,sync:g4Sync,filterFindings:g4FilterFindings,
    primaryReview:g4ReviewMain.slice(),secondaryReview:g4ReviewSecondary.slice()};
  return true
 }

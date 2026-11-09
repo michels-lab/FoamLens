@@ -261,6 +261,16 @@ function tsdUpdateScientificEvidence(){
   panel.open=wasOpen||warnings.length>0
 }
 
+// The dual-variable override runs after the original Data controller. Keep
+// visibility scoped to its real workspace; otherwise a language/source refresh
+// can resurrect a hidden Time Series panel over Profiles or Field.
+function tsdShouldShowPanel(hasCurves){
+  const inData=typeof activeAppMode==='undefined'||activeAppMode==='data';
+  const inTimeSeries=typeof currentDataView==='undefined'||currentDataView==='timeseries';
+  const builder=!!document.getElementById('gr176HistoryCard')&&
+    !!document.getElementById('fwBuildFieldHistories');
+  return inData&&inTimeSeries&&(!!hasCurves||builder)
+}
 function tsdRefreshTimeSeriesControls(){
   const panel=document.getElementById('timeSeriesControls'),vSel=document.getElementById('timeSeriesVariable'),v2Sel=document.getElementById('timeSeriesVariable2'),pSel=document.getElementById('timeSeriesProbe'),fSel=document.getElementById('timeSeriesFamily');
   if(!panel||!vSel||!v2Sel||!pSel||!fSel)return;
@@ -268,18 +278,20 @@ function tsdRefreshTimeSeriesControls(){
   if(!ts.length){
     // Never hide the Field History builder merely because no histories have
     // been generated; that is precisely when it must be discoverable.
-    panel.classList.remove('hidden');
+    panel.classList.toggle('hidden',!tsdShouldShowPanel(false));
     vSel.innerHTML='<option value="">'+tsdEsc(tsdUi('No generated curves yet','Aún no hay curvas generadas'))+'</option>';
     v2Sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>';
     v2Sel.disabled=true;pSel.innerHTML='';fSel.innerHTML='';
     document.getElementById('timeSeriesFocusBadge').textContent=tsdUi('0 existing curves','0 curvas existentes');
-    document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
+    const emptyHint=document.getElementById('timeSeriesFilterHint');
+    emptyHint.setAttribute('role','status');emptyHint.setAttribute('aria-live','polite');
+    emptyHint.textContent=tsdUi(
       'No measured time-series has been imported or built. Select an available 3D field below and explicitly build its physical-time history.',
       'No se ha importado o calculado una serie temporal medida. Selecciona abajo un campo 3D disponible y construye explícitamente su historia en tiempo físico.');
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
     tsdUpdateSourceCatalog();tsdUpdateScientificEvidence();return
   }
-  panel.classList.remove('hidden');
+  panel.classList.toggle('hidden',!tsdShouldShowPanel(true));
   const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
   vSel.innerHTML=vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
   vSel.value=tsdPrimaryChoice(vars,oldV);
@@ -288,29 +300,44 @@ function tsdRefreshTimeSeriesControls(){
   if(showAll){v2Sel.value='';v2Sel.disabled=true;secondary=''}
   const selected=showAll?[]:tsdVariableSet(vSel.value,secondary);
   const byVars=selected.length?ts.filter(s=>selected.includes(s.field.canonical)):ts;
-  const probeEntries=[...new Set(byVars.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))].sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
-  pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
-  if(probeEntries.some(v=>String(v)===String(oldP)))pSel.value=String(oldP);
-  else if(!pSel.dataset.autoinit&&probeEntries.length){pSel.value=String(probeEntries[0]);pSel.dataset.autoinit='1'}
-  else pSel.value='';
-  const byProbe=byVars.filter(s=>pSel.value===''||String(s.probe)===String(pSel.value)),caseMap=new Map();
-  for(const item of byProbe)if(item.caseId!=null&&!caseMap.has(item.caseId))caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
+  // Resolve cases before probes. The previous byProbe -> caseMap path hid
+  // loaded cases as soon as the user selected a probe present only in Case A.
+  // Case choices must be based on the selected physical variables, not on
+  // a probe ID belonging to a different simulation.
+  const caseMap=new Map();
+  for(const item of byVars)if(item.caseId!=null&&!caseMap.has(item.caseId))
+    caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
   const caseOptions=[...caseMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{numeric:true}));
   fSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All matching cases','Todos los casos coincidentes'))+'</option>'+caseOptions.map(c=>`<option value="case:${c.id}">${tsdEsc(c.name||`${tsdUi('Case','Caso')} ${c.id}`)}</option>`).join('');
   if([...fSel.options].some(o=>o.value===oldF)&&!String(oldF).startsWith('family:'))fSel.value=oldF;else fSel.value='';
+  // Selecting another case must immediately offer *that case's* real probes.
+  // Keep a valid explicit probe; otherwise show All probes instead of a
+  // fabricated or arbitrarily selected probe from the previous case.
+  const byCase=byVars.filter(s=>!fSel.value||fSel.value===`case:${s.caseId}`);
+  const probeEntries=[...new Set(byCase.map(s=>String(s.probe)).filter(v=>v!==''&&v!=='null'&&v!=='undefined'))]
+    .sort((a,b)=>Number(a)-Number(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));
+  pSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All probes','Todas las sondas'))+'</option>'+probeEntries.map(v=>`<option value="${tsdEsc(v)}">${tsdEsc(tr('probe'))} ${tsdEsc(v)}</option>`).join('');
+  pSel.value=probeEntries.some(v=>String(v)===String(oldP))?String(oldP):'';
+  pSel.dataset.autoinit='1';
   const caseLabel=document.querySelector('label[for="timeSeriesFamily"]');if(caseLabel)caseLabel.textContent=tsdUi('Cases','Casos');
   const matching=timeSeriesOptionsBase().filter(tsdMatchesFilters),uniqueCases=new Set(matching.map(s=>s.caseId)).size;
+  const selectedCase=caseOptions.find(c=>`case:${c.id}`===fSel.value);
+  const caseContext=selectedCase?String(selectedCase.name||`${tsdUi('Case','Caso')} ${selectedCase.id}`):tsdUi('all matching cases','todos los casos coincidentes');
   document.getElementById('timeSeriesFocusBadge').textContent=`${matching.length} ${tsdUi('curves','curvas')}`;
   const pf=vars.find(f=>f.canonical===vSel.value),sf=vars.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
   const allButton=document.getElementById('timeSeriesShowAllVars');if(allButton){allButton.classList.toggle('primary',showAll);allButton.classList.toggle('soft',!showAll);allButton.textContent=showAll?tsdUi('Showing all variables','Mostrando todas'):tsdUi('Show all variables','Mostrar todas las variables')}
   const primaryText=showAll?tsdUi('all variables','todas las variables'):(pf?localizedFieldName(pf):''),secondaryText=!showAll&&sf?localizedFieldName(sf):'';
   const probeText=pSel.value!==''?`${tr('probe')} ${pSel.value}`:tsdUi('all probes','todas las sondas');
   const varsText=secondaryText?`${primaryText} [Y-L] + ${secondaryText} [${plan.separate?'Y-R':'Y-L'}]`:primaryText;
-  document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
-    `Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${varsText} · ${probeText}.`,
-    `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varsText} · ${probeText}.`
-  )
-;
+  const filterHint=document.getElementById('timeSeriesFilterHint');
+  filterHint.setAttribute('role','status');filterHint.setAttribute('aria-live','polite');
+  filterHint.textContent=matching.length?tsdUi(
+    `Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${caseContext} · ${varsText} · ${probeText}.`,
+    `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${caseContext} · ${varsText} · ${probeText}.`
+  ):tsdUi(
+    `No curves match · ${caseContext} · ${varsText} · ${probeText}. Try All probes, All matching cases or Show all variables.`,
+    `No hay curvas coincidentes · ${caseContext} · ${varsText} · ${probeText}. Prueba Todas las sondas, Todos los casos coincidentes o Mostrar todas las variables.`
+  );
   tsdUpdateSourceCatalog();tsdUpdateScientificEvidence()
 }
 function tsdPatchAssignments(){
@@ -329,11 +356,22 @@ function tsdPatchAssignments(){
     return out
   };assignments.__tsdPatched=true
 }
+function tsdWireCaseFilterRefresh(){
+  const select=document.getElementById('timeSeriesFamily');
+  if(!select||select.dataset.tsdCaseRefreshWired==='1')return false;
+  // The original source's Case change handler redraws but never rebuilds
+  // the dependent Probe selector. Capture before its redraw and recompute
+  // with the newly selected case; attach only once across UI remounts.
+  select.dataset.tsdCaseRefreshWired='1';
+  select.addEventListener('change',()=>refreshTimeSeriesControls(),true);
+  return true
+}
 function tsdInstall(){
   tsdPatchScientificLabels();tsdInjectCss();if(!tsdEnsureUi())return false;
   timeSeriesMatchesSelection=tsdMatchesFilters;
   refreshTimeSeriesControls=tsdRefreshTimeSeriesControls;
   tsdPatchAssignments();
+  tsdWireCaseFilterRefresh();
   const primary=document.getElementById('timeSeriesVariable'),secondary=document.getElementById('timeSeriesVariable2');
   if(primary&&!primary.dataset.tsdModeWired){
     primary.dataset.tsdModeWired='1';primary.addEventListener('change',()=>{delete primary.dataset.showAll},true)

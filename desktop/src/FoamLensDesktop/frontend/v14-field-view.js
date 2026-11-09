@@ -107,39 +107,63 @@ function fvBoundaryPatchCoverage(mesh){
 }
 function fvCombinePartitionMeshes(parts){
   parts=(parts||[]).filter(x=>x?.mesh?.supported&&String(x?.partition||''));if(!parts.length)return{supported:false,reason:'no-valid-partition-meshes',format:'decomposed'};
-  const internal=[],boundary=[],points=[],centers=[],ranges=[],partitionMeshes=[],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];let pointOffset=0,cellOffset=0,internalOffset=0;
+  // Two passes preserve OpenFOAM ordering (ALL internal faces first, then
+  // physical and processor boundary patches) without allocating a temporary
+  // object and a second point-index array for *every* original mesh face.
+  // On large processor meshes those retained intermediate face records were
+  // comparable in size to the final mesh topology itself.
+  const points=[],centers=[],ranges=[],partitionMeshes=[],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  let pointOffset=0,cellOffset=0,internalOffset=0;
   for(const part of parts){
     const m=part.mesh,coverage=fvBoundaryPatchCoverage(m);if(!coverage.valid)return{supported:false,reason:String(part.partition)+':'+coverage.reason,format:'decomposed'};
-    const localPoints=m.points||[],localCenters=m.cellCenters||[];points.push(...localPoints);centers.push(...localCenters);
+    const localPoints=m.points||[],localCenters=m.cellCenters||[];
+    for(let i=0;i<localPoints.length;i++)points.push(localPoints[i]);
+    for(let i=0;i<localCenters.length;i++)centers.push(localCenters[i]);
     for(let i=0;i<localPoints.length;i+=3)for(let a=0;a<3;a++){const v=Number(localPoints[i+a]);if(Number.isFinite(v)){min[a]=Math.min(min[a],v);max[a]=Math.max(max[a],v)}}
     const range={partition:String(part.partition),pointStart:pointOffset,pointCount:Number(m.pointCount)||0,cellStart:cellOffset,cellCount:Number(m.cellCount)||0,internalFaceStart:internalOffset,internalFaceCount:Number(m.internalFaceCount)||0};
     ranges.push(range);partitionMeshes.push({partition:String(part.partition),mesh:m,range});
-    for(let fi=0;fi<(m.internalFaceCount||0);fi++)internal.push({partition:String(part.partition),points:fvMeshFacePoints(m,fi).map(pi=>pi+pointOffset),owner:Number(m.owners?.[fi])+cellOffset,neighbour:Number(m.neighbours?.[fi])+cellOffset,localFace:fi});
-    const patches=[...(m.boundaryPatches||[])].sort((a,b)=>Number(a.startFace)-Number(b.startFace));
-    for(const patch of patches)for(let fi=Number(patch.startFace);fi<Number(patch.startFace)+Number(patch.nFaces);fi++)boundary.push({partition:String(part.partition),points:fvMeshFacePoints(m,fi).map(pi=>pi+pointOffset),owner:Number(m.owners?.[fi])+cellOffset,localFace:fi,patch});
     pointOffset+=Number(m.pointCount)||0;cellOffset+=Number(m.cellCount)||0;internalOffset+=Number(m.internalFaceCount)||0
   }
   const faceOffsets=[0],facePoints=[],owners=[],neighbours=[],globalBoundaryPatches=[],surfaceTriangles=[],surfaceOwners=[],surfaceTriangleFaces=[],surfaceEdges=[],edgeSet=new Set(),facePartition=[],faceLocal=[];
-  const addFace=(rec,isInternal)=>{const fi=owners.length;facePoints.push(...rec.points);faceOffsets.push(facePoints.length);owners.push(rec.owner);if(isInternal)neighbours.push(rec.neighbour);facePartition.push(rec.partition);faceLocal.push(rec.localFace);return fi};
-  for(const rec of internal)addFace(rec,true);
-  let bi=0;
-  while(bi<boundary.length){
-    const first=boundary[bi],patch=first.patch,part=first.partition,startFace=owners.length;let count=0;
-    while(bi<boundary.length&&boundary[bi].partition===part&&boundary[bi].patch===patch){
-      const rec=boundary[bi++],globalFace=addFace(rec,false),face=rec.points;count++;
-      if(!fvIsProcessorPatch(patch)){
-        for(let j=1;j<face.length-1;j++){surfaceTriangles.push(face[0],face[j],face[j+1]);surfaceOwners.push(rec.owner);surfaceTriangleFaces.push(globalFace)}
-        for(let j=0;j<face.length;j++){const a=face[j],b=face[(j+1)%face.length],lo=Math.min(a,b),hi=Math.max(a,b),key=lo+':'+hi;if(!edgeSet.has(key)){edgeSet.add(key);surfaceEdges.push(lo,hi)}}
+  // Materialize each face exactly once, from its original local polyMesh
+  // indices. The short-lived local face is discarded after use; neither
+  // internals nor boundaries are held in another full-size face list.
+  const appendFace=(m,range,fi,isInternal,face=fvMeshFacePoints(m,fi))=>{
+    const globalFace=owners.length;
+    for(let i=0;i<face.length;i++)facePoints.push(face[i]+range.pointStart);
+    faceOffsets.push(facePoints.length);
+    owners.push(Number(m.owners?.[fi])+range.cellStart);
+    if(isInternal)neighbours.push(Number(m.neighbours?.[fi])+range.cellStart);
+    facePartition.push(range.partition);faceLocal.push(fi);
+    return globalFace
+  };
+  for(const {mesh:m,range} of partitionMeshes)
+    for(let fi=0;fi<(m.internalFaceCount||0);fi++)appendFace(m,range,fi,true);
+  for(const {mesh:m,range} of partitionMeshes){
+    const patches=[...(m.boundaryPatches||[])].sort((a,b)=>Number(a.startFace)-Number(b.startFace));
+    for(const patch of patches){
+      const startFace=owners.length,processor=fvIsProcessorPatch(patch);
+      let count=0;
+      for(let fi=Number(patch.startFace);fi<Number(patch.startFace)+Number(patch.nFaces);fi++){
+        const face=fvMeshFacePoints(m,fi),globalFace=appendFace(m,range,fi,false,face);count++;
+        if(!processor){
+          const offset=range.pointStart,owner=Number(m.owners?.[fi])+range.cellStart;
+          for(let j=1;j<face.length-1;j++){surfaceTriangles.push(face[0]+offset,face[j]+offset,face[j+1]+offset);surfaceOwners.push(owner);surfaceTriangleFaces.push(globalFace)}
+          for(let j=0;j<face.length;j++){
+            const a=face[j]+offset,b=face[(j+1)%face.length]+offset,lo=Math.min(a,b),hi=Math.max(a,b),key=lo+':'+hi;
+            if(!edgeSet.has(key)){edgeSet.add(key);surfaceEdges.push(lo,hi)}
+          }
+        }
       }
+      globalBoundaryPatches.push({name:range.partition+':'+String(patch?.name||''),sourceName:String(patch?.name||''),type:String(patch?.type||''),partition:range.partition,startFace,nFaces:count,processor})
     }
-    globalBoundaryPatches.push({name:String(part)+':'+String(patch?.name||''),sourceName:String(patch?.name||''),type:String(patch?.type||''),partition:part,startFace,nFaces:count,processor:fvIsProcessorPatch(patch)})
   }
   if(!min.every(Number.isFinite)||!max.every(Number.isFinite))return{supported:false,reason:'partition-bounds-invalid',format:'decomposed'};
   return{
     supported:true,reason:'',format:'decomposed',decomposed:true,partitions:ranges.map(r=>r.partition),partitionRanges:ranges,partitionMeshes,
     points,surfaceTriangles,surfaceOwners,surfaceTriangleFaces,surfaceEdges,cellCenters:centers,faceOffsets,facePoints,owners,neighbours,
     facePartition,faceLocal,boundaryPatches:globalBoundaryPatches,boundaryPatchStatus:'decomposed-explicit',
-    pointCount:pointOffset,faceCount:owners.length,internalFaceCount:internal.length,boundaryFaceCount:boundary.length,cellCount:cellOffset,
+    pointCount:pointOffset,faceCount:owners.length,internalFaceCount:internalOffset,boundaryFaceCount:owners.length-internalOffset,cellCount:cellOffset,
     boundsMin:min,boundsMax:max,cellCenterMethod:'decomposed-partition-centroids',sourceBytes:parts.reduce((n,p)=>n+(Number(p.mesh?.sourceBytes)||0),0)
   }
 }
@@ -152,7 +176,9 @@ function fvCombinePartitionFieldValues(mesh,set,component,storage){
   const byPart=new Map((set||[]).filter(x=>String(x?.partition||'')).map(x=>[String(x.partition),x])),out=[];let representative=null;
   for(const range of mesh.partitionRanges||[]){const parsed=byPart.get(range.partition);if(!parsed)return{ok:false,reason:'field-partition-missing:'+range.partition,values:[]};
     const expected=storage==='point'?range.pointCount:storage==='surface'?range.internalFaceCount:range.cellCount,v=pmComponentValues(parsed,component,expected);if(!v.ok||v.values.length!==expected)return{ok:false,reason:'partition-association-count-mismatch:'+range.partition,values:[]};
-    if(!representative)representative=parsed;out.push(...v.values)
+    if(!representative)representative=parsed;
+    // Large processor fields cannot safely be spread into function arguments.
+    for(let i=0;i<v.values.length;i++)out.push(v.values[i])
   }
   if(byPart.size!==(mesh.partitionRanges||[]).length)return{ok:false,reason:'field-mesh-partition-set-mismatch',values:[]};
   return{ok:true,reason:'',values:out,parsed:representative}
@@ -254,9 +280,19 @@ function fvPaletteStops(name){
   if(name==='turbo')return[[0,[.19,.071,.232]],[.2,[.16,.49,.86]],[.4,[.11,.82,.55]],[.6,[.72,.91,.18]],[.8,[.98,.54,.09]],[1,[.48,.016,.011]]];
   return[[0,[.267,.005,.329]],[.25,[.23,.322,.545]],[.5,[.128,.567,.551]],[.75,[.369,.789,.383]],[1,[.993,.906,.144]]]
 }
+// The three immutable palette definitions are shared by the entire Field
+// workspace. Building nested stop arrays once per triangle/point color used
+// to add massive short-lived allocations when scrubbing large OpenFOAM cases.
+const fvPaletteStopCache=new Map();
+function fvPaletteStopsStable(name){
+  const key=name==='coolwarm'||name==='turbo'?name:'viridis';
+  let stops=fvPaletteStopCache.get(key);
+  if(!stops){stops=fvPaletteStops(key);fvPaletteStopCache.set(key,stops)}
+  return stops
+}
 function fvColorMap(value,min,max,palette='viridis'){
   value=Number(value);min=Number(min);max=Number(max);let t=(Number.isFinite(value)&&Number.isFinite(min)&&Number.isFinite(max)&&max>min)?(value-min)/(max-min):.5;t=fvClamp(t,0,1);
-  const s=fvPaletteStops(palette);let a=s[0],b=s.at(-1);for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
+  const s=fvPaletteStopsStable(palette);let a=s[0],b=s.at(-1);for(let i=1;i<s.length;i++)if(t<=s[i][0]){a=s[i-1];b=s[i];break}
   const f=b[0]===a[0]?0:(t-a[0])/(b[0]-a[0]);return a[1].map((v,i)=>v+(b[1][i]-v)*f)
 }
 function fvLegendGradient(name){
@@ -1428,11 +1464,34 @@ function fvNormalizeNativeMesh(data){
     cellCount:Number(data?.cellCount)||0,boundsMin:(data?.boundsMin||[]).map(Number),boundsMax:(data?.boundsMax||[]).map(Number),cellCenterMethod:String(data?.cellCenterMethod||''),sourceBytes:Number(data?.sourceBytes)||0,boundaryPatches:(data?.boundaryPatches||[]).map(p=>({name:String(p?.name||''),type:String(p?.type||''),startFace:Number(p?.startFace),nFaces:Number(p?.nFaces)})),boundaryPatchStatus:String(data?.boundaryPatchStatus||'not-provided')
   }
 }
+// Different fields and physical overlays may require the same original
+// polyMesh simultaneously. Share only an in-flight mesh parse/composition,
+// then use the existing bounded-by-workspace meshCache for settled meshes.
+const fvMeshInflight=new Map();
 async function fvLoadMesh(c,g){
   if(!c||!g?.complete)throw new Error(flUi('No complete polyMesh state is available for this region/time.','No hay un estado polyMesh completo disponible para esta región/tiempo.'));
-  const key=fvMeshCacheKey(c,g);if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
+  const key=fvMeshCacheKey(c,g);
+  if(fvState.meshCache.has(key))return fvState.meshCache.get(key);
+  const existing=fvMeshInflight.get(key);
+  if(existing)return existing;
+  const task=fvLoadMeshUncached(c,g,key);
+  fvMeshInflight.set(key,task);
+  const cleanup=()=>{if(fvMeshInflight.get(key)===task)fvMeshInflight.delete(key)};
+  task.then(cleanup,cleanup);
+  return task
+}
+async function fvLoadMeshUncached(c,g,key){
   if(g.decomposed){
-    const loaded=[];for(const part of g.parts||[]){const mesh=await fvLoadMesh(c,part.snapshot);loaded.push({partition:part.partition,mesh})}
+    const parts=g.parts||[],loaded=new Array(parts.length);
+    // Parse independent processor meshes concurrently without starting
+    // hundreds of memory-heavy native parsers at once. Preserve original
+    // partition order, critical to cell/face/point source indices.
+    let next=0;
+    const worker=async()=>{while(next<parts.length){
+      const index=next++,part=parts[index];
+      loaded[index]={partition:part.partition,mesh:await fvLoadMesh(c,part.snapshot)}
+    }};
+    await Promise.all(Array.from({length:Math.min(3,parts.length)},()=>worker()));
     const composite=fvCombinePartitionMeshes(loaded);if(!composite.supported)throw new Error(flUi('Decomposed mesh composition failed: ','Falló la composición de la malla descompuesta: ')+composite.reason);
     composite.meshTime=Number.isFinite(Number(g.time))?Number(g.time):null;composite.meshTimeLabel=g.timeLabel||String(g.time??'');composite.dynamicMesh=!!g.dynamic;composite.changedMeshFiles=[...(g.changed||[])];fvState.meshCache.set(key,composite);return composite
   }
@@ -1602,14 +1661,27 @@ function fvBuildSurfaceBuffers(mesh){
   return{surfacePositions:pos,edgePositions:ep}
 }
 function fvSurfaceColors(mesh,values,min,max,palette){
-  const owners=mesh.surfaceOwners||[],out=new Float32Array(owners.length*9);
-  for(let ti=0;ti<owners.length;ti++){const rgb=fvColorMap(values?.[owners[ti]],min,max,palette);for(let v=0;v<3;v++){const base=(ti*3+v)*3;out[base]=rgb[0];out[base+1]=rgb[1];out[base+2]=rgb[2]}}
+  const owners=mesh.surfaceOwners||[],out=new Float32Array(owners.length*9),colors=new Map();
+  for(let ti=0;ti<owners.length;ti++){const rgb=fvIndexedFrameColor(owners[ti],values,min,max,palette,colors);for(let v=0;v<3;v++){const base=(ti*3+v)*3;out[base]=rgb[0];out[base+1]=rgb[1];out[base+2]=rgb[2]}}
   return out
 }
 function fvPointSurfaceColors(mesh,values,min,max,palette){
-  const tri=mesh?.surfaceTriangles||[],out=new Float32Array(tri.length*3);
-  for(let v=0;v<tri.length;v++){const rgb=fvColorMap(values?.[tri[v]],min,max,palette);out[3*v]=rgb[0];out[3*v+1]=rgb[1];out[3*v+2]=rgb[2]}
+  const tri=mesh?.surfaceTriangles||[],out=new Float32Array(tri.length*3),colors=new Map();
+  for(let v=0;v<tri.length;v++){const rgb=fvIndexedFrameColor(tri[v],values,min,max,palette,colors);out[3*v]=rgb[0];out[3*v+1]=rgb[1];out[3*v+2]=rgb[2]}
   return out
+}
+// A rendered OpenFOAM cell, mesh vertex or internal face is shared by many
+// triangles. Map its color once per *field-array/range/palette invocation*,
+// not once per triangle. Discard the memo after the frame so a new measured
+// field, range, component or palette can never inherit stale scientific color.
+// Clear after a bounded number of distinct indices to avoid an unbounded
+// color table for multi-million-element meshes.
+function fvIndexedFrameColor(index,values,min,max,palette,colors){
+  if(colors.has(index))return colors.get(index);
+  const rgb=fvColorMap(values?.[index],min,max,palette);
+  if(colors.size>=8192)colors.clear();
+  colors.set(index,rgb);
+  return rgb
 }
 function fvBuildInternalFaceBuffers(mesh){
   const pts=mesh?.points||[],positions=[],triangleFaces=[],n=Math.max(0,Number(mesh?.internalFaceCount)||0);
@@ -1617,8 +1689,8 @@ function fvBuildInternalFaceBuffers(mesh){
   return{positions:new Float32Array(positions),triangleFaces}
 }
 function fvInternalFaceColors(triangleFaces,values,min,max,palette){
-  const out=new Float32Array((triangleFaces?.length||0)*9);
-  for(let ti=0;ti<(triangleFaces?.length||0);ti++){const rgb=fvColorMap(values?.[triangleFaces[ti]],min,max,palette);for(let v=0;v<3;v++){const b=(ti*3+v)*3;out[b]=rgb[0];out[b+1]=rgb[1];out[b+2]=rgb[2]}}
+  const out=new Float32Array((triangleFaces?.length||0)*9),colors=new Map();
+  for(let ti=0;ti<(triangleFaces?.length||0);ti++){const rgb=fvIndexedFrameColor(triangleFaces[ti],values,min,max,palette,colors);for(let v=0;v<3;v++){const b=(ti*3+v)*3;out[b]=rgb[0];out[b+1]=rgb[1];out[b+2]=rgb[2]}}
   return out
 }
 function fvAssociationLabel(storage){
@@ -1910,7 +1982,34 @@ function fvLegend(range,parsed){
 }
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
+// Field A/B/C/D and physical region overlays can request the exact same
+// measured frame concurrently. The native field and mesh caches already
+// coalesce reads, but decoding components and mapping processor partitions
+// were still repeated for every viewport. Share *only* in-flight preparations,
+// keyed by actual case/field object identity and the entire source selection.
+// Nothing persists after settle, so large field arrays cannot accumulate here.
+const fvFrameDataInflight=new WeakMap();
 async function fvLoadFrameData(c,g,region,time,component,{includeBoundary=true}={}){
+  const options={includeBoundary};
+  if(!c||typeof c!=='object'||!g||typeof g!=='object')
+    return fvLoadFrameDataUncached(c,g,region,time,component,options);
+  let groups=fvFrameDataInflight.get(c);
+  if(!groups){groups=new WeakMap();fvFrameDataInflight.set(c,groups)}
+  let requests=groups.get(g);
+  if(!requests){requests=new Map();groups.set(g,requests)}
+  const key=JSON.stringify([region,time,component,includeBoundary]);
+  let pending=requests.get(key);
+  if(!pending){
+    pending=fvLoadFrameDataUncached(c,g,region,time,component,options);
+    requests.set(key,pending);
+    const release=()=>{if(requests.get(key)===pending)requests.delete(key)};
+    // Both outcomes remove the promise. Avoid an unobserved rejected promise
+    // from .finally(), which would otherwise surface during fast scrubbing.
+    pending.then(release,release)
+  }
+  return pending
+}
+async function fvLoadFrameDataUncached(c,g,region,time,component,{includeBoundary=true}={}){
   const layout=fvResolveFieldMeshLayout(c,region,g,time);if(!layout.valid)throw new Error(flUi('No safe field/mesh correspondence exists for this timestep: ','No existe una correspondencia campo/malla segura para este timestep: ')+layout.reason);
   const meshInfo=await fvLoadMeshForLayout(c,layout,region,time),mesh=meshInfo.mesh,set=await fvLoadFieldSetCached(c.id,g.name,time,region),storage=String(g.storage||'volume');let parsed,fieldValues,surfaceBoundary=null;
   if(layout.mode==='decomposed'){

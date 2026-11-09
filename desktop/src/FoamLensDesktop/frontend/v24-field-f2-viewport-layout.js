@@ -53,7 +53,7 @@ function pvClassify(sample){
 }
 /* FOAMLENS_F2_LAYOUT_CORE_END */
 function pvEl(id){return document.getElementById(id)}
-let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvLast=null;
+let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
 function pvLoad(){
   try{const x=JSON.parse(localStorage.getItem(pvKey)||'{}');
@@ -74,26 +74,51 @@ function pvSetHeight(viewport,height,persist=true){
   if(persist){pvHeights[viewport.id]=value;pvSave()}
   pvRedraw();return value
 }
+function pvFocusLabel(en,es){
+  try{return typeof flUi==='function'?flUi(en,es):
+    (document.getElementById('language')?.value==='es'?es:en)}catch{return en}
+}
+function pvSyncFocusButtons(){
+  const grid=pvEl('fcViewGrid');if(!grid)return;
+  for(const view of grid.children){
+    if(!pvViews[view.id])continue;
+    const btn=view.querySelector?.('[data-pv-control="focus"]');
+    if(!btn)continue;
+    const focused=view.id===pvFocus;
+    const label=focused?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Maximize','Maximizar');
+    const prefix=pvFocusLabel('View','Vista')+' '+pvViews[view.id]+' · ';
+    btn.setAttribute('aria-pressed',focused?'true':'false');
+    btn.setAttribute('aria-label',prefix+label);
+    btn.title=prefix+label;
+    // A watched subtree must not self-trigger an endless MutationObserver loop.
+    if(btn.textContent!==label)btn.textContent=label;
+  }
+}
+function pvReconcileFocus(){
+  if(!pvFocus)return false;
+  const grid=pvEl('fcViewGrid'),view=pvEl(pvFocus);
+  if(!grid||!view||view.parentElement!==grid||view.classList.contains('hidden')||
+    view.getBoundingClientRect().width<=0){
+    pvResetFocus();return true
+  }
+  return false
+}
 function pvFocusViewport(viewport){
   if(!viewport||!pvViews[viewport.id]||viewport.classList.contains('hidden'))return false;
-  const grid=pvEl('fcViewGrid');if(!grid)return false;
+  const grid=pvEl('fcViewGrid');if(!grid||viewport.parentElement!==grid)return false;
   pvFocus=pvFocus===viewport.id?null:viewport.id;
   grid.classList.toggle('pvFocus',!!pvFocus);
   for(const el of grid.children)if(pvViews[el.id]){
     el.classList.toggle('pvFocusTarget',el.id===pvFocus);
-    const btn=el.querySelector('[data-pv-control="focus"]');
-    if(btn)btn.setAttribute('aria-pressed',el.id===pvFocus?'true':'false')
   }
+  pvSyncFocusButtons();
   pvRedraw();return true
 }
 function pvResetFocus(){
   pvFocus=null;const grid=pvEl('fcViewGrid');
   grid?.classList.remove('pvFocus');
-  if(grid)for(const child of grid.children){
-    child.classList.remove('pvFocusTarget');
-    // Clearing maximization must also clear the real button's accessibility state.
-    child.querySelector?.('[data-pv-control="focus"]')?.setAttribute('aria-pressed','false');
-  }
+  if(grid)for(const child of grid.children)child.classList.remove('pvFocusTarget');
+  pvSyncFocusButtons();
   pvRedraw()
 }
 function pvSampleOverlay(scene,query,name){
@@ -202,6 +227,7 @@ function pvMountViewport(viewport){
     };div.append(b)
   }
   toolbar.appendChild(div);
+  pvSyncFocusButtons();
   const grip=document.createElement('div');grip.className='pvGrip';grip.tabIndex=0;
   grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','horizontal');
   grip.setAttribute('aria-label','View '+pvViews[viewport.id]+' resize height using drag or arrow keys');
@@ -254,15 +280,31 @@ function pvAuditPanel(){
 }
 function pvDiscover(){
   const grid=pvEl('fcViewGrid');if(!grid)return false;
+  // The Field grid is created lazily after launch in some navigation paths.
+  // Bind Escape when the real grid exists, not only on DOMContentLoaded.
+  if(pvEscapeGrid!==grid){
+    grid.addEventListener('keydown',e=>{
+      if(e.key!=='Escape'||!pvFocus)return;
+      pvResetFocus();e.preventDefault?.();e.stopPropagation?.()
+    });
+    pvEscapeGrid=grid
+  }
   pvStyles();pvAuditPanel();
   for(const child of grid.children)pvMountViewport(child);
-  if(!pvObserver&&typeof MutationObserver!=='undefined'){
+  if(pvObservedGrid!==grid&&typeof MutationObserver!=='undefined'){
+    pvObserver?.disconnect?.();
     pvObserver=new MutationObserver(()=>{
       for(const child of grid.children)pvMountViewport(child);
-      if(pvFocus&&(!pvEl(pvFocus)||pvEl(pvFocus)?.classList.contains('hidden')))pvResetFocus()
+      pvReconcileFocus();
+      pvSyncFocusButtons()
     });
-    pvObserver.observe(grid,{childList:true})
+    // Compare views are commonly hidden by class changes, NOT removed from
+    // the grid. Observing childList alone leaves an invisible maximized view.
+    pvObserver.observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+    pvObservedGrid=grid
   }
+  pvReconcileFocus();
+  pvSyncFocusButtons();
   return true
 }
 function pvInstall(){
@@ -276,10 +318,11 @@ function pvInstall(){
   // when compare/difference is disabled, rather than hiding the only live view.
   document.addEventListener('change',e=>{
     if(['fcEnabled','fcDifference'].includes(e.target?.id))pvResetFocus()
-  },true)
+  },true);
+  document.addEventListener('foamlens-language-change',pvSyncFocusButtons);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pvInstall,{once:true});
 else pvInstall();
 window.FoamLensF2Layout={resize:pvSetHeight,focus:pvFocusViewport,
-  resetFocus:pvResetFocus,measure:pvAudit,core:{height:pvHeight,maxHeight:pvMaxHeight,
+  resetFocus:pvResetFocus,reconcileFocus:pvReconcileFocus,measure:pvAudit,core:{height:pvHeight,maxHeight:pvMaxHeight,
     overlap:pvOverlap,within:pvWithin,buffer:pvBuffer,classify:pvClassify}};

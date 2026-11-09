@@ -33,21 +33,34 @@ for(const v of [a,b,c])v.panel.buttons.focus={
    attributes:{},setAttribute(k,val){this.attributes[k]=val}
 };
 const list=[a.panel,b.panel,c.panel],elements=new Map(list.map(v=>[v.id,v]));
-const grid={classList:classes(),children:list};
+const grid={classList:classes(),children:list,handlers:{},addEventListener(type,fn){this.handlers[type]=fn}};
+for(const panel of list)panel.parentElement=grid;
 elements.set('fcViewGrid',grid);
 const status={textContent:''},out={textContent:''},exp={disabled:true};
 elements.set('pvStatus',status);elements.set('pvEvidence',out);elements.set('pvExport',exp);
-const stored=new Map(),downloads=[];
+const stored=new Map(),downloads=[],documentHandlers={};
+let layoutObserver=null,observedOptions=null;
+class MockMutationObserver{
+  constructor(callback){this.callback=callback;layoutObserver=this}
+  observe(node,options){observedOptions=options}
+}
 const context={
  window:{innerWidth:1280,innerHeight:720,devicePixelRatio:1.5,
-   visualViewport:{scale:1},getComputedStyle:()=>({display:'block',visibility:'visible'})},
- document:{readyState:'loading',addEventListener:()=>{},getElementById:id=>elements.get(id)||null},
+   visualViewport:{scale:1},getComputedStyle:()=>({display:'block',visibility:'visible'}),addEventListener:()=>{}},
+ document:{readyState:'loading',addEventListener:(type,fn)=>{documentHandlers[type]=fn},getElementById:id=>elements.get(id)||null,
+   querySelector:()=>null,createElement:tag=>({id:'',textContent:'',tagName:tag}),
+   head:{append:el=>elements.set(el.id,el)}},
  localStorage:{getItem:k=>stored.get(k)||null,setItem:(k,v)=>stored.set(k,v)},
  requestAnimationFrame:()=>1,downloadText:(name,text,mime)=>downloads.push({name,text,mime}),
  URL,JSON,Set,Map,Number,Math,Date,Array,Object,String,console,ResizeObserver:undefined,
- MutationObserver:undefined
+ MutationObserver:MockMutationObserver
 };
 vm.runInNewContext(source,context,{timeout:3000});
+assert.equal(typeof documentHandlers.DOMContentLoaded,'function');
+documentHandlers.DOMContentLoaded();
+assert.equal(typeof grid.handlers.keydown,'function','Field grid must handle Escape on actual DOM');
+assert(observedOptions?.attributes===true && observedOptions.attributeFilter.includes('class'),
+  'View visibility class changes must be observed, not only inserted/removed views');
 const api=context.window.FoamLensF2Layout;
 assert(api,'Runtime host control must be exported');
 assert.equal(api.resize(a.panel,900),590,'Max CSS scene height clamps to current viewport 720px × 82%');
@@ -63,9 +76,50 @@ assert(grid.classList.contains('pvFocus'));
 assert(b.panel.classList.contains('pvFocusTarget'));
 assert(!a.panel.classList.contains('pvFocusTarget'));
 assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'true');
+assert.equal(b.panel.buttons.focus.textContent,'Restore','Maximized panel must not still say Maximize');
+assert.match(b.panel.buttons.focus.attributes['aria-label'],/View B.*Restore/);
 assert.equal(api.focus(b.panel),true);
 assert(!grid.classList.contains('pvFocus'),'Second click restores earlier A/B/C visibility');
+assert.equal(b.panel.buttons.focus.textContent,'Maximize','Restore label must reset with grid');
 assert.equal(api.focus(c.panel),false,'Hidden Field view cannot be maximized');
+assert.equal(api.focus(b.panel),true);
+b.panel.classList.add('hidden');
+layoutObserver.callback();
+assert(!grid.classList.contains('pvFocus'),
+  'A hidden compared view cannot stay maximized and mask all other Field panels');
+assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'false');
+assert.equal(b.panel.buttons.focus.textContent,'Maximize');
+b.panel.classList.remove('hidden');
+assert.equal(api.focus(b.panel),true);
+let stops=0,defaults=0;
+grid.handlers.keydown({key:'Escape',preventDefault:()=>defaults++,stopPropagation:()=>stops++});
+assert.equal(defaults,1);
+assert.equal(stops,1);
+assert(!grid.classList.contains('pvFocus'),'Escape restores the actual Field A/B grid');
+assert.equal(b.panel.buttons.focus.textContent,'Maximize');
+grid.handlers.keydown({key:'Escape',preventDefault:()=>defaults++,stopPropagation:()=>stops++});
+assert.equal(defaults,1,'Idle Escape must remain available to other FoamLens actions');
+assert.equal(stops,1);
+assert.equal(api.focus(b.panel),true);
+elements.set('language',{value:'es'});
+documentHandlers['foamlens-language-change']();
+assert.equal(b.panel.buttons.focus.textContent,'Restaurar','Spanish maximize state must follow actual language');
+assert.match(b.panel.buttons.focus.attributes['aria-label'],/Vista B.*Restaurar/);
+assert.equal(api.focus(b.panel),true);
+assert.equal(b.panel.buttons.focus.textContent,'Maximizar');
+elements.get('language').value='en';
+documentHandlers['foamlens-language-change']();
+assert.equal(b.panel.buttons.focus.textContent,'Maximize');
+assert.equal(api.focus(b.panel),true);
+const removed=b.panel;
+elements.delete('fcViewport');
+const index=grid.children.indexOf(removed);grid.children.splice(index,1);
+layoutObserver.callback();
+assert(!grid.classList.contains('pvFocus'),
+  'Replacing/detaching focused B view restores A rather than leaving a blank screen');
+grid.children.splice(index,0,removed);elements.set('fcViewport',removed);
+layoutObserver.callback();
+
 const report=api.measure();
 assert.equal(report.schema,'foamlens/field-f2-layout/1');
 assert.equal(report.environment.innerCssPx.width,1280);
@@ -89,4 +143,28 @@ assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'false',
 context.window.FoamLensF2Layout.measure();
 const exportedSource=source.includes('pvExport()')&&source.includes('downloadText(');
 assert(exportedSource,'Local deliberate report export must remain available');
-console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore, hidden view safety, stored sizes, actual CSS/DPR/canvas geometry, deliberate conflict evidence.');
+// Same-failure negative case: the Field grid is NOT present at DOMContentLoaded.
+// The original startup-only Escape binding silently missed this normal route.
+const lateMap=new Map(),lateRaf=[],lateEvents={};
+const lateGrid={children:[],handlers:{},classList:classes(),
+  addEventListener(type,handler){this.handlers[type]=handler}};
+const lateContext={
+  window:{innerHeight:720,innerWidth:1280,devicePixelRatio:1,addEventListener(){}},
+  document:{readyState:'complete',getElementById:id=>lateMap.get(id)||null,
+    addEventListener:(type,handler)=>{lateEvents[type]=handler},
+    querySelector:()=>null,createElement:()=>({id:'',textContent:''}),
+    head:{append:el=>lateMap.set(el.id,el)}},
+  localStorage:{getItem:()=>null,setItem(){}},
+  requestAnimationFrame:handler=>{lateRaf.push(handler);return lateRaf.length},
+  MutationObserver:undefined,ResizeObserver:undefined,Number,Math,Array,Object,
+  Map,Set,String,JSON,Date,console
+};
+vm.runInNewContext(source,lateContext,{timeout:3000});
+assert.equal(lateGrid.handlers.keydown,undefined);
+assert(lateRaf.length>=1,'Field module should retry discovery after startup');
+lateMap.set('fcViewGrid',lateGrid);
+lateRaf.shift()();
+assert.equal(typeof lateGrid.handlers.keydown,'function',
+  'Actual late-mounted Field grid must receive Escape listener on discovery');
+
+console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore/Escape, hidden/detached view safety, ES/EN labels, stored sizes, CSS/DPR/canvas geometry, conflict evidence.');

@@ -327,6 +327,14 @@ jobs:
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
           dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true --no-restore
 
+      - name: Verify compiled native CAD surfaceCheck allowlist and STL validation
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe').Path
+          $test = Start-Process -FilePath $exe -ArgumentList '--cad-surfacecheck-self-test' -PassThru -Wait
+          if ($test.ExitCode -ne 0) { throw "Native CAD STL/command allowlist regression failed: exit $($test.ExitCode)" }
+          Write-Host 'Native CAD surfaceCheck security and input validation self-test PASS (no WSL invocation in CI)'
+
       - name: Verify native scientific temporal cache and stale-file rejection
         shell: pwsh
         run: |
@@ -635,6 +643,10 @@ jobs:
       - name: Test CAD surface import, topology, units and triSurface export
         shell: pwsh
         run: node desktop/tests/cad-surface-inspector.test.cjs
+
+      - name: Test original CAD native surfaceCheck request, cancellation and permission gates
+        shell: pwsh
+        run: node desktop/tests/cad-native-surfacecheck.test.cjs
 
       - name: Test Granada 2D/3D source-backed equivalent observables
         shell: pwsh

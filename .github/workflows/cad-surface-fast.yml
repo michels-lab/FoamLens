@@ -3,11 +3,17 @@ name: CAD surface scientific fast tests
 on:
   push:
     paths:
+      - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/tests/cad-native-surfacecheck.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   pull_request:
     paths:
+      - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'desktop/tests/cad-native-surfacecheck.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
@@ -24,3 +30,5 @@ jobs:
           node-version: '22'
       - name: Import formats, metric safety and topology tests
         run: node desktop/tests/cad-surface-inspector.test.cjs
+      - name: Native WSL surfaceCheck browser request and fail-closed tests
+        run: node desktop/tests/cad-native-surfacecheck.test.cjs

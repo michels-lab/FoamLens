@@ -65,4 +65,120 @@ assert.throws(()=>exportAsciiStl(tri.triangles,'unconfirmed',0),/Explicit positi
 assert(!script.includes('constant/triSurface'),'Do not silently assume an OpenFOAM distribution path');
 for(const s of ['data-cg-part','data-cg-unit','partsVisible','partSummaries','unit:\'unknown\'','id="cgFiles"','id="cgCanvas"','data-cg-view="top"','cgUnitWarning','cgUnitScale','sourceUnitConfirmedByUser','openFoamCaseMutated:false','FOAMLENS_CAD_CORE_END'])
   assert(script.includes(s),'CAD provenance/UI contract missing '+s);
+
+// Batch export is an actual standalone, offline ZIP of per-region binary STL surfaces.
+const {binaryStl,batchRegions,storeZip,crc32}=
+ new Function(script.slice(start,end)+
+   ';return {binaryStl:cgBinaryStl,batchRegions:cgVisibleRegionBatch,storeZip:cgStoreZip,crc32:cgCrc32}')();
+assert.equal(crc32(new TextEncoder().encode('123456789')),0xcbf43926,'ZIP CRC-32 canonical check');
+const metal=parseObj('v 0 0 0\nv 1000 0 0\nv 0 1000 0\ng metal\nf 1 2 3','metal.obj'),
+ mold=parseObj('v 0 0 0\nv 100 0 0\nv 0 100 0\ng mold\nf 1 2 3','mold.obj'),
+ disabled=parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0\ng hidden\nf 1 2 3','hidden.obj');
+const models=[
+ {name:'metal.obj',format:'obj-surface',bytes:47,triangles:metal.triangles,
+  partsVisible:new Map([['metal',true]]),unit:'mm',visible:true},
+ {name:'mold.obj',format:'obj-surface',bytes:46,triangles:mold.triangles,
+  partsVisible:new Map([['mold',true]]),unit:'cm',visible:true},
+ {name:'hidden.obj',format:'obj-surface',bytes:47,triangles:disabled.triangles,
+  partsVisible:new Map([['hidden',false]]),unit:'unknown',visible:true}
+];
+assert.throws(()=>binaryStl(metal.triangles,0,'bad'),/Confirm/);
+const actual=binaryStl(metal.triangles,.001,'metal');
+assert.equal(actual.byteLength,134,'binary STL has 84 bytes header + 50 per triangle');
+const actualParsed=parseStl(actual.buffer,'round-trip.stl');
+assert.equal(actualParsed.format,'binary-stl');
+assert(Math.abs(actualParsed.triangles[0].vertices[1][0]-1)<1e-6,'millimeters converted to meters');
+assert.throws(()=>binaryStl([{vertices:[[Infinity,0,0],[0,1,0],[0,0,1]]}],1,'bad'),/Non-finite/);
+const batch=batchRegions(models);
+assert.equal(batch.manifest.schema,'foamlens/cad-batch-surfaces/1');
+assert.equal(batch.manifest.regionCount,2);
+assert.equal(batch.manifest.triangleCount,2);
+assert.equal(batch.topologyWarnings,2,'open triangle surfaces require user confirmation');
+assert.equal(batch.files.length,3,'two separate binary regions and manifest');
+assert(batch.files[0].name.startsWith('surfaces/model001_region001_'));
+assert(batch.files[1].name.startsWith('surfaces/model002_region001_'));
+assert(batch.files.every(e=>e.name!=='surfaces/hidden.stl'));
+assert.equal(batch.manifest.regions[0].sourceUnitConfirmedByUser,'mm');
+assert.equal(batch.manifest.regions[1].sourceUnitConfirmedByUser,'cm');
+assert.equal(batch.manifest.regions[0].sourceToMeterScale,.001);
+assert.equal(batch.manifest.regions[1].sourceToMeterScale,.01);
+assert.deepEqual(batch.manifest.regions[0].boundsMeters,[1,1,0]);
+assert.equal(batch.manifest.openFoamCaseMutated,false);
+assert.deepEqual(batch.manifest.toolsExecuted,[]);
+assert.equal(batch.manifest.regions[0].outputFile,batch.files[0].name);
+const batchArchive=storeZip(batch.files),dvZip=new DataView(batchArchive.buffer);
+assert.equal(dvZip.getUint32(batchArchive.length-22,true),0x06054b50,'standard ZIP end header');
+assert.equal(dvZip.getUint16(batchArchive.length-12,true),3,'3 central-directory entries');
+let byteOffset=0;
+const extracted=new Map(),decoder=new TextDecoder();
+for(let i=0;i<batch.files.length;i++){
+ assert.equal(dvZip.getUint32(byteOffset,true),0x04034b50,'ZIP local header');
+ assert.equal(dvZip.getUint16(byteOffset+8,true),0,'ZIP STORE mode: offline and uncompressed');
+ const length=dvZip.getUint32(byteOffset+18,true),n=dvZip.getUint16(byteOffset+26,true);
+ const name=decoder.decode(batchArchive.slice(byteOffset+30,byteOffset+30+n));
+ const payload=batchArchive.slice(byteOffset+30+n,byteOffset+30+n+length);
+ assert.equal(dvZip.getUint32(byteOffset+14,true),crc32(payload),'ZIP CRC per file');
+ assert.equal(name,batch.files[i].name,'archive order preserves region naming');
+ extracted.set(name,payload);
+ byteOffset+=30+n+length
+}
+assert.equal(dvZip.getUint32(byteOffset,true),0x02014b50,'valid central directory begins');
+const restored=JSON.parse(decoder.decode(extracted.get('manifest.json')));
+assert.equal(restored.regions.length,2,'manifest is inside archive');
+assert.equal(restored.regions[0].outputFile,batch.files[0].name);
+const firstZipStl=parseStl(extracted.get(batch.files[0].name).buffer,'metal.stl');
+const secondZipStl=parseStl(extracted.get(batch.files[1].name).buffer,'mold.stl');
+assert(Math.abs(firstZipStl.triangles[0].vertices[1][0]-1)<1e-6);
+assert(Math.abs(secondZipStl.triangles[0].vertices[1][0]-1)<1e-6);
+assert.throws(()=>batchRegions([{...models[0],unit:'unknown'}]),/Confirm/);
+assert.throws(()=>batchRegions(models.map(m=>({...m,visible:false}))),/Select at least/);
+assert.throws(()=>storeZip([{name:'../traversal.stl',data:new Uint8Array([1])}]),/Unsafe/);
+assert.throws(()=>storeZip([{name:'same.stl',data:new Uint8Array([1])},{name:'same.stl',data:new Uint8Array([2])}]),/Unsafe/);
+assert(script.includes('id="cgExportBatch"'),'native CAD viewer has one-click visible regions ZIP control');
+assert(script.includes("document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch"),
+ 'original CAD UI binds the real batch exporter');
+
+
+const {readStoredZip,restoreBatch}=
+ new Function(script.slice(start,end)+';return {readStoredZip:cgReadStoredZip,restoreBatch:cgRestoreRegionBatch}')();
+const restoredPackage=restoreBatch(batchArchive);
+assert.equal(restoredPackage.manifest.regionCount,2);
+assert.equal(restoredPackage.models.length,2,'one model per original named region');
+assert.deepStrictEqual(restoredPackage.models.map(m=>[...m.partsVisible.keys()]),[['metal'],['mold']]);
+assert.deepStrictEqual(restoredPackage.models.map(m=>m.unit),['m','m'],
+ 'binary STL was already scaled to meters: no double scaling');
+assert.deepStrictEqual(restoredPackage.models.map(m=>m.sourceProvenance.originalUnit),['mm','cm']);
+assert(restoredPackage.models.every(m=>m.format==='foamlens-zip-binary-stl'));
+assert(restoredPackage.models.every(m=>m.summary.triangles===1));
+assert(Math.abs(restoredPackage.models[0].summary.bounds.size[0]-1)<1e-6);
+assert(Math.abs(restoredPackage.models[1].summary.bounds.size[0]-1)<1e-6);
+assert.equal(readStoredZip(batchArchive).length,3);
+const reexportBatch=batchRegions(restoredPackage.models);
+const reexportedModels=restoreBatch(storeZip(reexportBatch.files)).models;
+assert.equal(reexportedModels.length,2,'source-owned multi-region batch still works after reimport');
+assert(Math.abs(reexportedModels[0].summary.bounds.size[0]-1)<1e-6);
+const badZip=batchArchive.slice();badZip[35]^=1;
+assert.throws(()=>readStoredZip(badZip),/CRC|differs|mismatch|unsupported|truncated/);
+function rewrittenManifest(edit){
+ const manifest=JSON.parse(JSON.stringify(batch.manifest));edit(manifest);
+ return storeZip([...batch.files.slice(0,-1),{name:'manifest.json',data:JSON.stringify(manifest)}])
+}
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.schema='invalid'})),/manifest/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].outputCoordinates='mm'})),/provenance|manifest/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].sourceToMeterScale=1000})),/units/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].boundsMeters[0]=999})),/dimensions/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].boundsMeters=null})),/bounds/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].areaSquareMeters=999})),/surface area/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].areaSquareMeters=null})),/surface area/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].sourceTopology.triangles=3})),/triangle/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[1].outputFile=m.regions[0].outputFile})),/duplicate|manifest/i);
+assert.throws(()=>restoreBatch(storeZip(batch.files.slice(0,-1))),/manifest/i);
+assert.throws(()=>readStoredZip(new Uint8Array([80,75,3,4])),/ZIP|size/i);
+const deflatedArchive=batchArchive.slice();
+new DataView(deflatedArchive.buffer).setUint16(8,8,true);
+assert.throws(()=>readStoredZip(deflatedArchive),/Compressed|header|unsupported/);
+assert(script.includes('accept=".stl,.obj,.zip'),'CAD UI accepts a FoamLens ZIP');
+assert(script.includes('cgRestoreRegionBatch(await file.arrayBuffer()).models'),'ZIP enters original inventory');
+assert(script.includes('cgModels.push(...prepared)'),'append only after full ZIP validation');
+
 console.log('FoamLens CAD surface PASS: OBJ groups/negative indices, closed/open topology, winding, ASCII/binary STL, units and export.');

@@ -187,8 +187,10 @@ test('secondary and extra 3D case selectors preserve the case explicitly chosen 
     'View 2 case change still discards the selected comparison case.');
   assert(!source.includes("document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(false)"),
     'View 2 still resets its Case selector to the primary case.');
-  assert(source.includes("fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state)"),
-    'Views 3/4 do not preserve their selected case while rebuilding dependent selectors.');
+  assert(source.includes("fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)"),
+    'Views 3/4 must preserve the chosen case while avoiding a duplicate dependent refresh.');
+  assert(source.includes("if(!selectorsReady)fcExtraRefreshSelectors(state,true)"),
+    'Uncontrolled playback must still refresh real case/region/field selectors.');
   assert(!source.includes("fcExtraRefreshSelectors(state,suffix!=='Case')"),
     'Views 3/4 still reset case selection on Case change.');
 });
@@ -284,6 +286,25 @@ test('each 3D viewport keeps its own Probe selection and statistics table',()=>{
     'window.FoamLensFieldProbe?.getLast?.()','ProbeMarker'
   ])assert(source.includes(token),'Missing per-view Probe/statistics token: '+token);
   assert(source.includes("document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled)"),'Legacy single-view statistics are not replaced by per-view tables during comparison.');
+});
+
+test('compare badges distinguish unresolved physical frames from real exact, nearest and interpolated times',()=>{
+  const start=source.indexOf('function fcSyncText(sync){'),stop=source.indexOf('const fcState=',start);
+  assert(start>0&&stop>start,'Source-owned temporal badge handler must exist');
+  const actual=source.slice(start,stop);
+  const english=new Function('fcUi','fcFmt',core+actual+';return fcSyncText;')((en,es)=>en,String);
+  const spanish=new Function('fcUi','fcFmt',core+actual+';return fcSyncText;')((en,es)=>es,String);
+  const noExact=api.fcResolveTime([0,1],0.25,'exact');
+  const outOfRange=api.fcResolveTime([0,1],2,'interpolate');
+  assert.equal(noExact.ok,false);assert.equal(outOfRange.ok,false);
+  assert.equal(english(null),'—');
+  assert.equal(english(noExact),'Not synchronized');
+  assert.equal(spanish(outOfRange),'Sin sincronizar');
+  assert.equal(english({ok:true,time:null,exact:true}),'Not synchronized');
+  assert.equal(english({ok:true,time:0.5,interpolated:true,lowerTime:null,upperTime:1}),'Not synchronized');
+  assert.equal(english(api.fcResolveTime([0,1],0,'exact')),'Exact');
+  assert(english(api.fcResolveTime([0,1],0.6,'nearest')).startsWith('Nearest'));
+  assert(english(api.fcResolveTime([0,1],0.25,'interpolate')).startsWith('Interpolated'));
 });
 
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');

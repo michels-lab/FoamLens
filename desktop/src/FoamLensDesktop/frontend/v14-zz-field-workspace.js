@@ -54,6 +54,9 @@ function fwUpdateNavText(){
   const clearProfile=document.getElementById('fwClear3DProfile');if(clearProfile)clearProfile.textContent=fwUi('Clear line','Borrar línea');
   const lab=document.getElementById('fwCompanionLabel');if(lab)lab.textContent=fwUi('Companion plot','Gráfica complementaria');
   const sync=document.getElementById('fwSyncLabel');if(sync)sync.textContent=fwUi('Follow 3D physical time','Seguir tiempo físico 3D');
+  const syncLabel=document.getElementById('fwProfileTimeSyncLabel');
+  if(syncLabel)syncLabel.textContent=fwUi('Sync physical time','Sincronizar tiempo físico');
+  fwSyncProfileCompanionButton();
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
@@ -70,7 +73,7 @@ function fwCreateSurface(){
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
-          <button class="btn" id="fwInspectorToggle" type="button" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
+          <button class="btn" id="fwInspectorToggle" type="button" aria-controls="fwControlsDrawer" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
         </div>
       </div>
       <div class="fwWorkspaceBar">
@@ -89,7 +92,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -100,7 +103,7 @@ function fwCreateSurface(){
       </div>
       <aside class="fwControlsCard fwControlsDrawer hidden" id="fwControlsDrawer" aria-hidden="true">
         <div class="fwInspectorHead"><strong data-fl-en="Inspector" data-fl-es="Inspector">Inspector</strong><button class="btn tiny" id="fwInspectorClose" type="button" aria-label="Close inspector">×</button></div>
-        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div class="fw3DViewCases" id="fw3DViewCases" aria-label="3D case selection by view"></div><div id="fw3DControlsHost"></div></details>
+        <details open class="fwControlGroup" id="fw3DControlGroup"><summary><strong>3D controls</strong></summary><div class="fw3DViewCases" id="fw3DViewCases" aria-label="3D case, region, field and component by view"></div><div id="fw3DControlsHost"></div></details>
         <details open class="fwControlGroup" id="fw2DControlGroup"><summary><strong id="fw2DControlTitle">Spatial Profile controls</strong></summary><div id="fw2DControlsHost"></div></details>
       </aside>
     </div>`;
@@ -111,27 +114,28 @@ function fwCreateSurface(){
     .fieldWorkspaceSurface{padding:14px;overflow:auto;position:relative}
     .fwShell{display:grid;gap:12px;min-width:0}
     .fwWorkspaceBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-    .fwViewTabs{display:flex;gap:4px;flex-wrap:wrap}.fwViewTab{border:1px solid transparent;background:transparent;color:var(--muted);padding:7px 10px;border-radius:9px;font-size:9px;font-weight:800}.fwViewTab:hover{border-color:var(--line);color:var(--text)}.fwViewTab.active{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--text)}
-    .fwSplitChooser{display:flex;align-items:center;gap:6px}.fwSplitChooser label{font-size:8px;color:var(--muted);font-weight:800}.fwSplitChooser.hidden{display:none!important}
-    .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,320px) max-content 68px;align-items:center;gap:6px;min-width:0;width:max-content;max-width:100%}.fwTimeTransport #fwTimePlay{box-sizing:border-box;min-width:100px;width:max-content!important;max-width:none!important;white-space:nowrap;overflow:visible;text-overflow:clip;display:inline-flex;gap:6px;align-items:center;justify-content:center;line-height:1.15;font-size:12px;font-weight:800;padding:8px 11px!important}.fwTimeTransport #fwTimePlay[aria-pressed="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fwTimeTransport #fwTimePlay span{color:var(--accent);font-size:13px}.fwTimeTransport #fwTimePrev,.fwTimeTransport #fwTimeNext{min-width:32px;width:32px;padding:5px;text-align:center}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
+    .fwViewTabs{display:flex;gap:4px;flex-wrap:wrap}.fwViewTab{border:1px solid transparent;background:transparent;color:var(--muted);padding:7px 10px;border-radius:9px;font-size:12px;font-weight:800}.fwViewTab:hover{border-color:var(--line);color:var(--text)}.fwViewTab.active{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--text)}
+    .fwSplitChooser{display:flex;align-items:center;gap:6px}.fwSplitChooser label{font-size:11px;color:var(--muted);font-weight:800}.fwSplitChooser.hidden{display:none!important}
+    .fwTimeTransport{margin-left:auto;display:grid;grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,320px) max-content 68px;align-items:center;gap:6px;min-width:0;width:max-content;max-width:100%}.fwTimeTransport #fwTimePlay{box-sizing:border-box;min-width:100px;width:max-content!important;max-width:none!important;white-space:nowrap;overflow:visible;text-overflow:clip;display:inline-flex;gap:6px;align-items:center;justify-content:center;line-height:1.15;font-size:12px;font-weight:800;padding:8px 11px!important}.fwTimeTransport #fwTimePlay[aria-pressed="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}.fwTimeTransport #fwTimePlay span{color:var(--accent);font-size:13px}.fwTimeTransport #fwTimePrev,.fwTimeTransport #fwTimeNext{min-width:32px;width:32px;padding:5px;text-align:center}.fwTimeTransport input[type="range"]{width:100%}.fwTimeReadout{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.fwTimeTransport select{width:auto;min-width:66px}
     body.appMode-field .fvTimeline,body.appMode-field #profileTimeline,body.appMode-field #playbackGlobal,body.appMode-field #logPlayTime,body.appMode-field #logTimePrev,body.appMode-field #logTimeSlider,body.appMode-field #logTimeNext{display:none!important}
     .fwHeader{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
-    .fwEyebrow{font-size:8px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
-    .fwHeader h2{margin:3px 0 2px;font-size:18px}.fwHeader p{margin:0;color:var(--muted);font-size:9px}
-    .fwHeaderActions{display:flex;align-items:end;justify-content:flex-end;gap:7px;flex-wrap:wrap}.fwCompact{display:grid;gap:3px}.fwCompact label{font-size:8px;color:var(--muted);font-weight:700}.fwCompact select{min-width:120px}
+    .fwEyebrow{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+    .fwHeader h2{margin:3px 0 2px;font-size:18px}.fwHeader p{margin:0;color:var(--muted);font-size:12px}
+    .fwHeaderActions{display:flex;align-items:end;justify-content:flex-end;gap:7px;flex-wrap:wrap}.fwCompact{display:grid;gap:3px}.fwCompact label{font-size:11px;color:var(--muted);font-weight:700}.fwCompact select{min-width:120px}
     .fwSyncCheck{align-self:center;white-space:nowrap}.fwMultiHint{max-width:260px;align-self:center}.fwCompareConfig,.fwAnimationConfig{outline:1px solid color-mix(in srgb,var(--accent) 32%,transparent)}
     .fwProfilePickStatus{max-width:190px;align-self:center}.fwProfileOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;overflow:visible}.fwProfileOverlay line{stroke:#fff2a6;stroke-width:2.5;stroke-dasharray:7 4;filter:drop-shadow(0 0 2px #000)}.fwProfileOverlay circle{fill:#ffbd2e;stroke:#111;stroke-width:2}.fwProfileOverlay text{font-size:11px;font-weight:900;fill:#fff7c9;stroke:#111;stroke-width:3;paint-order:stroke}.fwCompact input[type="number"]{width:82px}
     .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0}
     .fwGrid.layout-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .fwProfileTimeSync{display:none;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:750;white-space:nowrap;color:var(--muted)}.fwProfileTimeSync input{accent-color:var(--accent)}.fwGrid.layout-split .fwProfileTimeSync{display:inline-flex}
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
+    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
     .fwControlGroup{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.fwControlGroup>summary{cursor:pointer;padding:9px 10px}.fwControlGroup>div{padding:0 9px 9px}
-    .fw3DViewCases{display:grid;gap:7px;border-bottom:1px solid var(--line);margin-bottom:9px;padding-top:5px!important}.fw3DViewCases .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}.fw3DViewCases .row2 label{font-weight:800}.fw3DViewCases .fwViewBCaseRow.hidden{display:none!important}
+    .fw3DViewCases{display:grid;gap:8px;border-bottom:1px solid var(--line);margin-bottom:9px;padding-top:5px!important}.fw3DViewCases .fwViewCard{border:1px solid var(--line);background:var(--panel);border-radius:11px;min-width:0;overflow:hidden}.fw3DViewCases .fwViewCard.hidden{display:none!important}.fw3DViewCases .fwViewCardHead{display:flex;align-items:center;gap:9px;padding:9px 10px;cursor:pointer;list-style:none}.fw3DViewCases .fwViewCardHead::-webkit-details-marker{display:none}.fw3DViewCases .fwViewCardHead:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.fw3DViewCases .fwViewCardLetter{flex:none;display:grid;place-items:center;width:27px;height:27px;border-radius:8px;background:var(--accentSoft);color:var(--accent);font-size:11px;font-weight:900}.fw3DViewCases .fwViewCardDescription{display:grid;gap:3px;min-width:0;flex:1}.fw3DViewCases .fwViewCardDescription strong{font-size:12px}.fw3DViewCases .fwViewCardSummary{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}.fw3DViewCases .fwViewCardHead:after{content:'⌄';font-weight:900;color:var(--muted)}.fw3DViewCases .fwViewCard[open]>.fwViewCardHead:after{transform:rotate(180deg)}.fw3DViewCases .fwViewCardControls{display:grid;gap:8px;padding:8px 9px 10px;border-top:1px solid var(--line);min-width:0}.fw3DViewCases .fwViewCardControls .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;margin:0!important;padding:0!important;border:0!important}.fw3DViewCases .fwViewCardControls .row2 .field{min-width:0}.fw3DViewCases .fwViewCardControls .row2 select{min-width:0;width:100%}.fw3DViewCases .fwViewCardControls .row2 label{font-weight:800}.fw3DViewCases .fwViewCardControls .row2.hidden{display:none!important}
     .fwDataFieldHistories{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--panel2)}.fwDataFieldHistories>summary{cursor:pointer;font-size:11px;font-weight:800;padding:7px 5px;color:var(--text)}.fwDataFieldHistories[open]>summary{margin-bottom:9px}.fwDataFieldHistories .fwFieldTsControls{padding:6px;min-width:0}.fwDataFieldHistories #fwBuildFieldHistories{justify-self:start}
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
@@ -139,8 +143,16 @@ function fwCreateSurface(){
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
+  document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
+  document.getElementById('fwProfileTimeSync')?.addEventListener('change',e=>{
+    fwState.syncTime=!!e.target.checked;
+    if(fwState.syncTime)fwSyncCompanionTime(fvState?.time);
+  });
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
-  document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
+  document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false,true));
+  document.getElementById('fwControlsDrawer')?.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&fwState.inspector){e.preventDefault();e.stopPropagation();fwSetInspector(false,true)}
+  });
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
   document.getElementById('fwTimeNext')?.addEventListener('click',()=>fwTimeStep(1));
   document.getElementById('fwTimePlay')?.addEventListener('click',()=>fwTimeState.playing?fwTimeStop():fwTimePlay());
@@ -155,22 +167,84 @@ function fwCreateSurface(){
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  document.getElementById('fw3DViewCases')?.addEventListener('change',()=>{
+    // Native selectors update each other on change. Refresh the collapsed
+    // card labels *after* those original scientific option updates finish.
+    setTimeout(fwRefreshViewCardSummaries,0)
+  });
   fwMountContextSidebar();
   fwEnsureCompanionSurface();
   fwEnsureFieldTsControls(); // Data-only explicit scientific history builder
   fwUpdateNavText()
+}
+function fwSyncProfileCompanionButton(){
+  const sync=document.getElementById('fwProfileTimeSync');if(sync)sync.checked=!!fwState.syncTime;
+  const button=document.getElementById('fwToggle3DProfile');if(!button)return;
+  const showing=fwState.layout==='split';
+  button.setAttribute('aria-pressed',showing?'true':'false');
+  button.textContent=showing?fwUi('3D only','Solo 3D'):fwUi('3D + Profile','3D + Perfil');
+  button.setAttribute('aria-label',showing?
+    fwUi('Hide spatial profile and return to full 3D','Ocultar perfil espacial y volver a 3D'):
+    fwUi('Show original spatial profiles alongside 3D','Mostrar perfiles espaciales originales junto al 3D'))
+}
+function fwOwnProfileCompanionControls(){
+  // Borrow just the original PROFILE selectors; never move the Time Series
+  // Build/Cancel history panel out of its Data owner.
+  const id='profileControls',node=document.getElementById(id);
+  if(node&&!fwDataControlOrigins.has(id))
+    fwDataControlOrigins.set(id,{parent:node.parentNode,next:node.nextSibling});
+  return !!fwAdoptFieldNode(id,'fw2DControlsHost')
+}
+function fwToggleProfileCompanion(force){
+  const enable=typeof force==='boolean'?force:fwState.layout!=='split';
+  if(!enable){
+    if(fwState.layout!=='split'){fwSyncProfileCompanionButton();return true}
+    fwSetLayout('3d');
+    fwReturnCompanionControlsToData();
+    const manager=window.FoamLensPlotSurfaces;
+    if(manager?.active?.()==='field')manager.activate?.('data',null,{restore:true});
+    const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='none';
+    fwSyncProfileCompanionButton();
+    return true
+  }
+  if(!fwState.active)return false;
+  const manager=window.FoamLensPlotSurfaces,host=document.getElementById('fw2DHost'),
+    grid=document.getElementById('fwGrid'),profile=document.getElementById('profileControls'),
+    controlsHost=document.getElementById('fw2DControlsHost');
+  if(!host||!grid||!profile||!controlsHost||typeof manager?.ensure!=='function'||
+    typeof manager?.activate!=='function')return false;
+  // Capture Data's view/pins before giving Field its own canonical canvas.
+  // The manager is the sole owner of canvas identity and state restoration.
+  const surface=manager.ensure('field',host);if(!surface)return false;
+  if(manager.activate('field',host,{restore:true})===false)return false;
+  fwOwnProfileCompanionControls();
+  if(currentDataView!=='profile')try{fwPrevSetDataView('profile')}catch(e){console.warn('Field profile view:',e)}
+  fwSetLayout('split');
+  fwSetCompanion('profile');
+  // Opening the split after a 3D frame was already loaded must not display an
+  // unrelated, stale Data profile time until the *next* Play/Next action.
+  // Missing physical times remain missing; never synthesize t=0.
+  fwSyncCompanionTime(fvState?.time);
+  const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='';
+  fwSyncProfileCompanionButton();
+  fwScheduleRender({threeD:true,twoD:true});
+  return true
 }
 function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
   fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.layout!=='3d'})
 }
-function fwSetInspector(open){
+function fwSetInspector(open,returnFocus=false){
   fwMountContextSidebar();fwState.inspector=!!open;const drawer=document.getElementById('fwControlsDrawer'),toggle=document.getElementById('fwInspectorToggle');
-  drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
+  if(!fwState.inspector&&drawer?.contains(document.activeElement))returnFocus=true;
+  drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false');
+  if(!fwState.inspector&&returnFocus&&fwState.active)toggle?.focus()
 }
 function fwActivateView(view){
-  // Field owns 3D geometry only. Imported legacy layouts cannot reopen Data plots here.
+  // Field's primary tab remains 3D. The optional companion uses its own
+  // surface, never an imported Data navigation tab or a duplicate chart.
+  if(fwState.layout==='split')fwToggleProfileCompanion(false);
   view='3d';fwState.view=view;
   if(view==='profile'){fwSetCompanion('profile');fwSetLayout('plot')}
   else if(view==='timeseries'){fwSetCompanion('timeseries');fwSetLayout('plot')}
@@ -228,7 +302,10 @@ async function fwTimeLoadIndex(index){
       try{stopLogAnimation()}catch{}
       syncLogTimeNavigator(Number(time))
     }else{
-      fvStopPlayback();await fvLoadFrame(i);fwSyncCompanionTime(time)
+      fvStopPlayback();await fvLoadFrame(i);
+      // fwInstall wraps fvLoadFrame to synchronize all real frame sources.
+      // Do not apply the same profile frame twice for Field transport playback.
+      if(!fvLoadFrame.__fwPatched)fwSyncCompanionTime(time)
     }
     fwUpdateTimeBadge();fwRefreshGlobalTime();return true
   }catch(e){try{fvSetStatus(String(e?.message||e),true)}catch{}return false}
@@ -811,7 +888,8 @@ function fwUpdateTimeBadge(){
 }
 function fwSyncCompanionTime(time){
   const requested=fwPhysicalTime(time);
-  if(!fwState.active||!fwState.syncTime||!Number.isFinite(requested))return;
+  // Never mutate Data's saved profile clock while the Field plot is hidden.
+  if(!fwState.active||fwState.layout!=='split'||!fwState.syncTime||!Number.isFinite(requested))return;
   try{
     if(fwState.companion==='profile'&&profileOptionsBase().length)
       applyProfileTimeValue(requested,{renderListToo:false});
@@ -837,30 +915,118 @@ function fwAdd3DView(){
       fwUpdateViewCount();setTimeout(()=>(document.querySelector('#fcViewport [data-fc-bind="Case"]')||document.getElementById('fcCase'))?.focus(),0);return
     }
     if(typeof fcExtraAdd==='function'&&2+fcExtraViews.length<FC_MAX_TOTAL_VIEWS){
-      fcExtraAdd();fwUpdateViewCount();
+      const added=fcExtraAdd();fwUpdateViewCount();
+      if(!added){
+        fvSetStatus(fwUi('3D view controls are not ready yet. Open Field and try again.',
+          'Los controles 3D aún no están listos. Abre Field e inténtalo de nuevo.'),true);
+        return
+      }
       const id=fcExtraViews.at(-1)?.id;if(id)setTimeout(()=>(document.querySelector('#fcExtra'+id+'Viewport [data-fc-bind="Case"]')||document.getElementById('fcExtra'+id+'Case'))?.focus(),0);
       return
     }
     fvSetStatus(fwUi('Maximum of four synchronized 3D views reached.','Se alcanzó el máximo de cuatro vistas 3D sincronizadas.'),false)
   }catch(e){console.error(e)}
 }
+// Adopt the real selectors (and their original change handlers) rather than
+// cloning them. Each view gets Case/Region and Field/Component next to each
+// other, including views C/D created after Field was opened.
+function fwPromoteViewControlRow(host,selectorId,letter,kind,extraId=null){
+  // Move the original paired controls, not cloned selects: their Region and
+  // Component peers, scientific values and existing change handlers survive.
+  const row=document.getElementById(selectorId)?.closest('.row2');if(!row)return null;
+  const en='View '+letter+' · '+(kind==='case'?'Case':'Field');
+  const es='Vista '+letter+' · '+(kind==='case'?'Caso':'Variable');
+  const label=row.querySelector('label');
+  if(label){label.dataset.flEn=en;label.dataset.flEs=es;label.textContent=fwUi(en,es)}
+  row.dataset.fwControlView=letter;row.dataset.fwControlKind=kind;
+  if(extraId!=null){row.classList.add('fwViewExtraControlRow');row.dataset.viewId=String(extraId)}
+  if(row.parentElement!==host)host.appendChild(row);
+  return row
+}
+function fwEnsureViewCard(host,letter,extraId=null){
+  const cardId='fwViewCard'+letter;
+  let card=document.getElementById(cardId);
+  if(!card){
+    card=document.createElement('details');card.id=cardId;card.className='fwViewCard';card.open=true;card.dataset.fwCard=letter;
+    const head=document.createElement('summary');head.className='fwViewCardHead';
+    const symbol=document.createElement('span');symbol.className='fwViewCardLetter';symbol.textContent=letter;
+    const description=document.createElement('span');description.className='fwViewCardDescription';
+    const title=document.createElement('strong');title.id=cardId+'Title';
+    const status=document.createElement('span');status.className='fwViewCardSummary';status.id=cardId+'Summary';
+    description.appendChild(title);description.appendChild(status);head.appendChild(symbol);head.appendChild(description);
+    const controls=document.createElement('div');controls.className='fwViewCardControls';
+    card.appendChild(head);card.appendChild(controls);host.appendChild(card)
+  }
+  if(extraId!=null){card.dataset.fwExtra=String(extraId);card.classList.add('fwViewExtraCard')}
+  return card
+}
+function fwViewCardControlIds(letter){
+  const prefix=letter==='A'?'fv':letter==='B'?'fc':'fcExtra'+(letter.charCodeAt(0)-64);
+  return[prefix+'Case',prefix+'Region',prefix+'Field',prefix+'Component']
+}
+function fwRefreshViewCardSummaries(){
+  for(const letter of ['A','B','C','D']){
+    const card=document.getElementById('fwViewCard'+letter);if(!card)continue;
+    const title=document.getElementById(card.id+'Title');
+    if(title)title.textContent=fwUi('View','Vista')+' '+letter+' · '+(letter==='A'?fwUi('Primary','Principal'):fwUi('Compare','Comparación'));
+    const selection=fwViewCardControlIds(letter).map(id=>document.getElementById(id));
+    const optionText=(select,fallback)=>{
+      if(!select)return fallback;
+      const current=select.selectedOptions?.[0];
+      return String(current?.textContent||current?.text||select.value||fallback).trim()
+    };
+    const [caseName,region,field,component]=[
+      optionText(selection[0],fwUi('No case','Sin caso')),
+      optionText(selection[1],fwUi('No region','Sin región')),
+      optionText(selection[2],fwUi('No field','Sin variable')),
+      optionText(selection[3],fwUi('No component','Sin componente'))
+    ];
+    const summary=document.getElementById(card.id+'Summary');
+    if(summary){summary.textContent=caseName+' · '+region+' | '+field+' · '+component;summary.title=summary.textContent}
+  }
+}
 function fwPromoteViewCaseSelectors(){
   const host=document.getElementById('fw3DViewCases');if(!host)return false;
-  const primary=document.getElementById('fvCase')?.closest('.row2'),compare=document.getElementById('fcCase')?.closest('.row2');
-  if(primary&&primary.parentElement!==host){primary.classList.add('fwViewACaseRow');const label=primary.querySelector('label');if(label){label.textContent='View A · Case';label.dataset.flEn='View A · Case';label.dataset.flEs='Vista A · Caso'}host.appendChild(primary)}
-  if(compare&&compare.parentElement!==host){compare.classList.add('fwViewBCaseRow');const label=compare.querySelector('label');if(label){label.textContent='View B · Case';label.dataset.flEn='View B · Case';label.dataset.flEs='Vista B · Caso'}host.appendChild(compare)}
   const enabled=!!document.getElementById('fcEnabled')?.checked;
-  compare?.classList.toggle('hidden',!enabled);
-  const present=new Set();
+  const views=[{letter:'A',id:null},{letter:'B',id:null}];
   if(typeof fcExtraViews!=='undefined')for(const state of fcExtraViews){
-    const id=Number(state?.id),selector=document.getElementById('fcExtra'+id+'Case'),row=selector?.closest('.row2');
-    if(!row)continue;present.add(id);row.classList.add('fwViewExtraCaseRow');row.dataset.viewId=String(id);
-    if(row.parentElement!==host){const label=row.querySelector('label');if(label){label.textContent='View '+id+' · Case';label.dataset.flEn='View '+id+' · Case';label.dataset.flEs='Vista '+id+' · Caso'}host.appendChild(row)}
-    row.classList.toggle('hidden',!enabled)
+    const id=Number(state?.id);if(Number.isInteger(id)&&id>=3&&id<=4)
+      views.push({letter:String.fromCharCode(64+id),id})
   }
-  host.querySelectorAll('.fwViewExtraCaseRow').forEach(row=>{if(!present.has(Number(row.dataset.viewId)))row.remove()});
-  host.dataset.viewCount=enabled?String(2+present.size):'1';return !!primary
+  const present=new Set();
+  let primaryReady=false;
+  for(const {letter,id} of views){
+    const card=fwEnsureViewCard(host,letter,id),controls=card.querySelector('.fwViewCardControls');
+    const ids=fwViewCardControlIds(letter);
+    const caseRow=fwPromoteViewControlRow(controls,ids[0],letter,'case',id);
+    const fieldRow=fwPromoteViewControlRow(controls,ids[2],letter,'field',id);
+    if(!caseRow||!fieldRow){if(letter!=='A')card.remove();continue}
+    present.add(letter);
+    if(letter==='A')primaryReady=true;
+    card.classList.toggle('hidden',letter!=='A'&&!enabled);
+    // Keep the rows themselves scoped as hidden too. WebView2 native smoke
+    // and accessibility tooling inspect the computed style of the original
+    // selector's closest .row2; a hidden ancestor alone does not make that
+    // row's own computed display equal 'none'.
+    caseRow.classList.toggle('hidden',letter!=='A'&&!enabled);
+    fieldRow.classList.toggle('hidden',letter!=='A'&&!enabled);
+    caseRow.classList.toggle('fwViewACaseRow',letter==='A');
+    fieldRow.classList.toggle('fwViewAFieldRow',letter==='A');
+    caseRow.classList.toggle('fwViewBCaseRow',letter==='B');
+    fieldRow.classList.toggle('fwViewBFieldRow',letter==='B');
+  }
+  // C/D source controls were adopted from their viewport cards. Remove the
+  // *whole* borrowed inspector card when a 3D viewport is truly deleted,
+  // but retain them hidden if comparison is merely switched off.
+  for(const letter of ['C','D']){
+    const card=document.getElementById('fwViewCard'+letter);
+    if(card&&!present.has(letter))card.remove()
+  }
+  host.dataset.viewCount=enabled?String(present.size):'1';
+  fwRefreshViewCardSummaries();
+  return primaryReady
 }
+
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
@@ -903,6 +1069,9 @@ function fwLeave(){
   ++fwState.fieldTsSeq;
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
+  // Leaving Field must not leave a stale split flag, but the plot manager
+  // still captures the FIELD plot before activating/restoring Data below.
+  if(fwState.layout==='split'){fwSetLayout('3d');fwSyncProfileCompanionButton()}
   // The plot-surface manager captures the outgoing Field view *after* this
   // handler returns. Do not overwrite currentDataView beforehand or the Field
   // snapshot inherits Data's previous view (and loses its own plot selection).
@@ -930,7 +1099,15 @@ function fwInstall(){
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
   if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
-  document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
+  // Keep adopted C/D selectors and view count coherent immediately after
+  // Add/Remove, including clicks on the viewport's own remove button.
+  if(typeof fcExtraAdd==='function'&&!fcExtraAdd.__fwCardsPatched){
+    const original=fcExtraAdd;fcExtraAdd=function(...args){const result=original.apply(this,args);if(result){fwPromoteViewCaseSelectors();fwUpdateViewCount()}return result};fcExtraAdd.__fwCardsPatched=true
+  }
+  if(typeof fcExtraRemove==='function'&&!fcExtraRemove.__fwCardsPatched){
+    const original=fcExtraRemove;fcExtraRemove=function(...args){const result=original.apply(this,args);if(result){fwPromoteViewCaseSelectors();fwUpdateViewCount()}return result};fcExtraRemove.__fwCardsPatched=true
+  }
+  document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();fwRefreshViewCardSummaries();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
   document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'){if(e.isTrusted)fwComparisonExplicitlyRequested();setTimeout(()=>{fwPromoteViewCaseSelectors();fwUpdateViewCount()},0)}else if(String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
 }
 let fwPrevSetDataView=setDataView;

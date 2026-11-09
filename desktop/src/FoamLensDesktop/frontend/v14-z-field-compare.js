@@ -105,8 +105,13 @@ async function fcLoadSynchronizedData(c,g,region,target,component,mode=fcMode(),
   return{ok:true,...a,fieldValues,range,sync,sourceTimes:[sync.lowerTime,sync.upperTime],interpolated:true}
 }
 function fcSyncText(sync){
-  if(!sync)return'—';if(sync.exact)return fcUi('Exact','Exacto');if(sync.interpolated)return fcUi('Interpolated','Interpolado')+' '+fcFmt(sync.lowerTime)+'↔'+fcFmt(sync.upperTime)+' s';
-  return fcUi('Nearest','Más cercano')+(Number.isFinite(sync.delta)?' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s':'')
+  if(!sync)return'—';
+  if(sync.ok!==true||!Number.isFinite(fcPhysicalNumber(sync.time))||
+    (sync.interpolated&&(!Number.isFinite(fcPhysicalNumber(sync.lowerTime))||!Number.isFinite(fcPhysicalNumber(sync.upperTime)))))
+    return fcUi('Not synchronized','Sin sincronizar');
+  if(sync.exact)return fcUi('Exact','Exacto');
+  if(sync.interpolated)return fcUi('Interpolated','Interpolado')+' '+fcFmt(sync.lowerTime)+'↔'+fcFmt(sync.upperTime)+' s';
+  return fcUi('Nearest','Más cercano')+(Number.isFinite(fcPhysicalNumber(sync.delta))?' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s':'')
 }
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
@@ -226,6 +231,36 @@ function fcZoomViewport(view,factor){
   if(view==='A'||linked)fvRender();else if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
+// Fit uses only the selected original mesh/camera. No inferred geometry or
+// forced common scale between unequal A/B/C/D OpenFOAM cases.
+function fcFitViewport(view){
+  const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
+  const mesh=view==='A'?fvState.mesh:state?.mesh;
+  const lo=mesh?.boundsMin,hi=mesh?.boundsMax;
+  if(!Array.isArray(lo)||!Array.isArray(hi)||lo.length!==3||hi.length!==3||
+    ![...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v))||
+    lo.some((v,i)=>hi[i]<v))return false;
+  if(fcCamerasLinked()){
+    // In linked mode all view cameras derive from A. One button must not
+    // pretend to change just B or C when its camera is actually shared.
+    fcFitAllCameras();return true
+  }
+  if(view==='A'){fvCameraFitCurrent();return true}
+  fcFitCameraState(state,mesh);
+  if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
+  return true
+}
+function fcVisibleViewportNeighbor(viewport,key){
+  if(!viewport||!['ArrowLeft','ArrowRight'].includes(key))return null;
+  let node=key==='ArrowLeft'?viewport.previousElementSibling:viewport.nextElementSibling;
+  // Compare may hide B/C/D or derived Δ without removing them from the
+  // original grid. Arrow moves must land on a *visible* viewport, not a ghost.
+  while(node){
+    if(node.classList?.contains('fvViewport')&&!node.classList.contains('hidden'))return node;
+    node=key==='ArrowLeft'?node.previousElementSibling:node.nextElementSibling
+  }
+  return null
+}
 function fcMoveViewport(grid,moving,target,after=false){
   if(!grid||!moving||!target||moving===target||!grid.contains(moving)||!grid.contains(target))return false;
   grid.insertBefore(moving,after?target.nextSibling:target);fcScheduleLayoutRender();return true
@@ -245,7 +280,9 @@ function fcSyncToolbars(){
       if(mirror.value!==actual.value)mirror.value=actual.value;
       mirror.disabled=!!actual.disabled||!actual.options.length
     }
-    fcPhysicalMenu(toolbar.dataset.fcToolbar)
+    // bar is the actual viewport toolbar from this loop; an undefined
+    // toolbar name used to abort all A–D selector/physical-region refreshes.
+    fcPhysicalMenu(bar.dataset.fcToolbar)
   })
 }
 function fcAddViewportToolbar(viewport,view){
@@ -255,7 +292,7 @@ function fcAddViewportToolbar(viewport,view){
   const en=fcUi('View','Vista');
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
     (mapping?'<div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div>':'<span class="fcViewDiffLabel">Δ</span>')+
-    '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button></div>';
+    '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
     const holder=document.createElement('div');holder.className='fcPhysicalMenu';holder.dataset.fcRegions='1';
     const dim=document.createElement('label');dim.className='fcDimensionSwitch';
@@ -289,10 +326,11 @@ function fcAddViewportToolbar(viewport,view){
     source.value=mirror.value;source.dispatchEvent(new Event('change',{bubbles:true}));fcScheduleToolbarSync()
   }));
   for(const [name,factor] of [['in',.8],['out',1.25]])bar.querySelector('[data-fc-zoom="'+name+'"]').addEventListener('click',()=>fcZoomViewport(mapping?view:'B',factor));
+  bar.querySelector('[data-fc-fit]')?.addEventListener('click',()=>fcFitViewport(mapping?view:'B'));
   const handle=bar.querySelector('.fcMoveHandle');
   handle.addEventListener('dragstart',e=>{fcDraggedView=viewport;viewport.classList.add('fcDraggingView');e.dataTransfer?.setData('text/plain',viewport.id);if(e.dataTransfer)e.dataTransfer.effectAllowed='move'});
   handle.addEventListener('dragend',()=>{viewport.classList.remove('fcDraggingView');fcDraggedView=null});
-  handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const to=e.key==='ArrowLeft'?viewport.previousElementSibling:viewport.nextElementSibling;if(to&&fcMoveViewport(viewport.parentElement,viewport,to,e.key==='ArrowRight'))e.preventDefault()});
+  handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const to=fcVisibleViewportNeighbor(viewport,e.key);if(to&&fcMoveViewport(viewport.parentElement,viewport,to,e.key==='ArrowRight'))e.preventDefault()});
   viewport.addEventListener('dragover',e=>{if(fcDraggedView&&fcDraggedView!==viewport){e.preventDefault();viewport.classList.add('fcDropTarget')}});
   viewport.addEventListener('dragleave',e=>{if(!viewport.contains(e.relatedTarget))viewport.classList.remove('fcDropTarget')});
   viewport.addEventListener('drop',e=>{if(!fcDraggedView)return;e.preventDefault();viewport.classList.remove('fcDropTarget');const rect=viewport.getBoundingClientRect();fcMoveViewport(viewport.parentElement,fcDraggedView,viewport,e.clientX>rect.left+rect.width/2);fcDraggedView.classList.remove('fcDraggingView');fcDraggedView=null});
@@ -687,7 +725,11 @@ async function fcRefreshFrame(){
     await fcPhysicalLoad(fcState,selected,region,fcState.time,fcRender);
     if(seq!==fcState.seq)return;
     fcSetStatus(selected.name+' · '+(region||fcUi('default region','región predeterminada'))+' · '+field+' · '+fvAssociationLabel(data.storage)+' · '+fcSyncText(sync))
-  }catch(e){console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)}
+  }catch(e){
+    // A superseded async read cannot erase a newer successful B frame.
+    if(seq!==fcState.seq)return;
+    console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)
+  }
 }
 function fcRefreshVisuals(){
   if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fvState.time,fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
@@ -716,13 +758,48 @@ function fcExtraRender(state,exportSize=null){
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
 }
 function fcExtraUpload(state,data){
-  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;if(!state.renderer)state.renderer=fvCreateRenderer(canvas);const r=state.renderer,mesh=data.mesh,b=fvBuildSurfaceBuffers(mesh),range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,palette=fcVisualFor(state,'fcExtra'+state.id).palette;
-  fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
+  const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;
+  if(!state.renderer)state.renderer=fvCreateRenderer(canvas);
+  const r=state.renderer,mesh=data.mesh,
+    range=state.videoRangeOverride?.valid?state.videoRangeOverride:data.range,
+    palette=fcVisualFor(state,'fcExtra'+state.id).palette;
+  // Frame values change far more often than an OpenFOAM polyMesh. Building
+  // surface triangulation and re-uploading static positions/edges on every
+  // physical timestep was O(mesh triangles) CPU + GPU work for C and D.
+  // Cache *only* GPU geometry belonging to this precise mesh and renderer;
+  // colors, scientific values, legends and optional slices remain per-frame.
+  let geometry=state.geometryUpload;
+  if(!geometry||geometry.mesh!==mesh||geometry.renderer!==r||
+     !r.surfacePos||!r.edgePos||!r.edgeColor){
+    const b=fvBuildSurfaceBuffers(mesh);
+    fvUploadBuffer(r,'surfacePos',b.surfacePositions);
+    fvUploadBuffer(r,'edgePos',b.edgePositions);
+    fvUploadBuffer(r,'edgeColor',fvConstantColors(b.edgePositions.length/3,[.12,.16,.22]));
+    geometry={mesh,renderer:r,surfaceCount:b.surfacePositions.length/3,
+      edgeCount:b.edgePositions.length/3,faceTriangles:null,faceCount:0,graySurface:false};
+    state.geometryUpload=geometry
+  }
+  r.surfaceCount=geometry.surfaceCount;r.edgeCount=geometry.edgeCount;
   state.storage=data.storage;const visual=fcVisualFor(state,'fcExtra'+state.id);
-  if(data.storage==='point')fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
-  else if(data.storage==='surface'){
-    fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);const fb=fvBuildInternalFaceBuffers(mesh);fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(fb.triangleFaces,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);r.faceFieldCount=fb.positions.length/3
-  }else fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW);
+  if(data.storage==='point'){
+    geometry.graySurface=false;
+    fvUploadBuffer(r,'surfaceColor',fvPointSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }else if(data.storage==='surface'){
+    if(!geometry.graySurface||!r.surfaceColor){
+      fvUploadBuffer(r,'surfaceColor',fvConstantColors(r.surfaceCount,[.32,.38,.46]),r.gl.DYNAMIC_DRAW);
+      geometry.graySurface=true
+    }
+    if(!geometry.faceTriangles||!r.faceFieldPos){
+      const fb=fvBuildInternalFaceBuffers(mesh);
+      fvUploadBuffer(r,'faceFieldPos',fb.positions,r.gl.DYNAMIC_DRAW);
+      geometry.faceTriangles=fb.triangleFaces;geometry.faceCount=fb.positions.length/3
+    }
+    r.faceFieldCount=geometry.faceCount;
+    fvUploadBuffer(r,'faceFieldColor',fvInternalFaceColors(geometry.faceTriangles,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }else{
+    geometry.graySurface=false;
+    fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(mesh,data.fieldValues,range.min,range.max,palette),r.gl.DYNAMIC_DRAW)
+  }
   const interior=data.storage!=='surface';if(interior&&visual.slice){const axis=document.getElementById('fvSliceAxis')?.value||'x',position=Number(document.getElementById('fvSlicePosition')?.value)||0,geom=data.storage==='point'?fvBuildPointSliceGeometry(mesh,data.fieldValues,axis,position):fvBuildSliceGeometry(mesh,data.fieldValues,axis,position);fvUploadBuffer(r,'slicePos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'sliceColor',fvSliceColors(geom.values,range,palette),r.gl.DYNAMIC_DRAW);r.sliceCount=geom.positions.length/3}else r.sliceCount=0;
   if(interior&&visual.iso&&typeof fvBuildIsoSurfaceGeometry==='function'){const iso=Number(document.getElementById('fvIsoValue')?.value),geom=data.storage==='point'&&typeof fvBuildPointIsoSurfaceGeometry==='function'?fvBuildPointIsoSurfaceGeometry(mesh,data.fieldValues,iso):fvBuildIsoSurfaceGeometry(mesh,data.fieldValues,iso);fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,range,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3}else r.isoCount=0;
   state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range,palette);fcExtraRender(state);fcUpdateStatsGrid()
@@ -730,13 +807,22 @@ function fcExtraUpload(state,data){
 function fcExtraUpdateLabel(state){
   const e=fcExtraDom(state.id,'Label'),badge=fcExtraDom(state.id,'TimeBadge'),c=fcExtraCase(state);if(e)e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'');if(badge)badge.textContent=String.fromCharCode(64+Number(state.id))+' · '+fcSyncText(state.sync)
 }
+// Changing a <select>.innerHTML destroys all of its option nodes and
+// forces browser style/layout work. C/D field catalogs may contain hundreds
+// of original OpenFOAM fields; during playback they are unchanged. Reuse the
+// *original* option nodes when their source-backed markup is identical.
+function fcExtraSetOptionMarkup(select,markup,force=false){
+  if(!force&&select.innerHTML===markup)return false;
+  select.innerHTML=markup;
+  return true
+}
 function fcExtraRefreshSelectors(state,preserve=true){
   const caseSel=fcExtraDom(state.id,'Case'),regionSel=fcExtraDom(state.id,'Region'),fieldSel=fcExtraDom(state.id,'Field'),compSel=fcExtraDom(state.id,'Component');if(!caseSel||!regionSel||!fieldSel||!compSel)return;
-  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';caseSel.innerHTML=eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join('')||'<option value="">—</option>';
+  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';fcExtraSetOptionMarkup(caseSel,eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join('')||'<option value="">—</option>',!preserve);
   if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
-  const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';regionSel.innerHTML=regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>';if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
-  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fieldSel.innerHTML=groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>';if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
-  const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';compSel.innerHTML=components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join('');if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
+  const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>',!preserve);if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
+  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
+  const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
   state.caseId=caseSel.value;state.region=regionSel.value;state.fieldName=fieldSel.value;state.component=compSel.value;fcExtraUpdateLabel(state);fcScheduleToolbarSync()
 }
 function fcExtraInvalidateFrame(state,message){
@@ -744,32 +830,50 @@ function fcExtraInvalidateFrame(state,message){
   ++state.seq;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
-  state.mesh=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
+  state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
   fcExtraUpdateLabel(state);
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
 }
-async function fcExtraRefreshFrame(state){
-  if(!fcState.enabled)return;fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcPrimaryPhysicalTime(),status=fcExtraDom(state.id,'Status');
+async function fcExtraRefreshFrame(state,selectorsReady=false){
+  if(!fcState.enabled)return;
+  // Direct playback/sync calls still refresh from the real OpenFOAM catalog;
+  // handlers that just refreshed selectors must not do the same work twice.
+  if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcPrimaryPhysicalTime(),status=fcExtraDom(state.id,'Status');
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
     await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
     if(seq!==state.seq)return;
-    if(status)status.textContent=fcSyncText(sync)}catch(e){fcExtraInvalidateFrame(state,String(e?.message||e))}
+    if(status)status.textContent=fcSyncText(sync)}catch(e){
+    // On fast playback the older frame may reject after a newer C/D upload.
+    // Only the still-current request is allowed to clear the viewport.
+    if(seq!==state.seq)return;
+    fcExtraInvalidateFrame(state,String(e?.message||e))
+  }
 }
 async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
 function fcExtraRemove(id){
-  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return;fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync()
+  const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return false;
+  // Invalidate any pending await fcLoadSynchronizedData/physical layer load.
+  // A removed view cannot later commit stale data or GPU resources.
+  ++fcExtraViews[i].seq;
+  fcExtraViews[i].geometryUpload=null;
+  fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync();return true
 }
 function fcExtraAdd(){
-  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return;let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
-  const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');if(!controls||!grid)return;const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcExtra'+id+'Surface" type="checkbox" checked> '+fcUi('Surface','Superficie')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Edges','Aristas')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcExtra'+id+'Iso" type="checkbox"> Iso</label></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
+  if(2+fcExtraViews.length>=FC_MAX_TOTAL_VIEWS)return false;
+  // Field can be entered after startup. Never reserve C/D before their real
+  // DOM hosts exist: the old order silently consumed slots on premature clicks.
+  const controls=document.getElementById('fcExtraControls'),grid=document.getElementById('fcViewGrid');
+  if(!controls||!grid)return false;
+  let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,geometryUpload:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
+  const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcExtra'+id+'Surface" type="checkbox" checked> '+fcUi('Surface','Superficie')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Edges','Aristas')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcExtra'+id+'Iso" type="checkbox"> Iso</label></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcTimeBadge" id="fcExtra'+id+'TimeBadge">View '+id+' · —</div><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);fcComposeViewport(viewport);fcAddViewportToolbar(viewport,id);
-  fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{state.probe=null;fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state)});
+  fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{state.probe=null;fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)});
   for(const suffix of ['Palette','Opacity','Surface','Edges','Slice','Iso'])fcExtraDom(id,suffix)?.addEventListener(suffix==='Opacity'?'input':'change',()=>{state.visual=null;if(state.mesh&&state.fieldValues&&state.range)fcExtraUpload(state,{mesh:state.mesh,storage:state.storage,fieldValues:state.fieldValues,parsed:state.fieldParsed,range:state.range});else fcExtraRender(state)});fcSyncVisualUi();const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas,state,()=>state.mesh,()=>fcExtraRender(state));fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
-  if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state);fcUpdateLayout();fcScheduleToolbarSync()
+  if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state,true);fcUpdateLayout();fcScheduleToolbarSync();return true
 }
 async function fcCopyPrimarySettingsToCompare(){
   const region=document.getElementById('fvRegion')?.value||'',field=document.getElementById('fvField')?.value||'',component=document.getElementById('fvComponent')?.value||'value';
@@ -853,7 +957,7 @@ function fcInstallUi(){
   const diff=document.createElement('div');diff.id='fcDifferenceViewport';diff.className='fvViewport fcViewport hidden';diff.innerHTML='<canvas id="fcDifferenceCanvas" aria-label="3D OpenFOAM difference field visualization"></canvas><div class="fcTimeBadge" id="fcDifferenceTimeBadge">Δ · —</div><div class="fcViewLabel" id="fcDifferenceLabel">Δ field · A − B</div><div class="extStatus fcDifferenceStatus" id="fcDifferenceStatus"></div>';grid.appendChild(diff);
   for(const viewport of [primary,second,diff])fcComposeViewport(viewport);fcAddViewportToolbar(primary,'A');fcAddViewportToolbar(second,'B');fcAddViewportToolbar(diff,'Δ');
   const statsGrid=document.createElement('div');statsGrid.id='fcStatsGrid';statsGrid.className='fcStatsGrid hidden';grid.insertAdjacentElement('afterend',statsGrid);
-  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-items:start}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))}.fcViewport.hidden{display:none}.fcComposedViewport{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.fcViewportScene{position:relative;min-width:0;height:clamp(340px,36vw,500px);min-height:340px;flex:0 0 auto;overflow:hidden}.fcViewportCaption{display:flex;align-items:start;min-width:0;max-width:100%;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2)}.fcViewportCaption:empty{display:none}.fcComposedViewport .fcViewportScene>canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcComposedViewport .fcViewportScene>#fvCanvas{height:100%;min-height:0}.fcViewport .fcViewportScene>#fcCanvas,.fcViewport .fcViewportScene>#fcDifferenceCanvas,.fcViewport .fcViewportScene>canvas[id^="fcExtra"]{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcTimeBadge{position:absolute;left:12px;top:12px;z-index:8;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 90%,transparent);font-size:8px;font-weight:850;backdrop-filter:blur(8px)}.fcViewLabel{position:static;display:block;min-width:0;max-width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:11px;line-height:1.45;font-weight:750;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;box-shadow:none;backdrop-filter:none}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:8px;color:var(--muted)}.fcLegendTicks span{display:block;min-width:0;overflow-wrap:anywhere;text-align:center}.fcLegendTicks span:first-child{text-align:left}.fcLegendTicks span:last-child{text-align:right}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));align-items:start;gap:10px;margin-top:10px;min-width:0}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:10px;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:11px;line-height:1.45;font-weight:850;margin-bottom:9px;overflow-wrap:anywhere;white-space:normal;max-width:100%}.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}.fcStatsCells>div{padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0;min-height:56px}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:3px;font-size:12px;line-height:1.4;white-space:normal;overflow:visible;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.fcSelectedStat{grid-column:span 2}.fcViewToolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}.fcMoveHandle{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:7px 9px;color:var(--text);cursor:grab;white-space:nowrap;font-weight:800;font-size:10px}.fcMoveHandle:active{cursor:grabbing}.fcDropTarget{outline:2px solid var(--accent);outline-offset:-2px}.fcDraggingView{opacity:.48}.fcViewFieldRow{display:flex;flex:1 1 240px;min-width:0;flex-wrap:wrap;gap:6px}.fcViewPicker{display:grid;gap:3px;flex:1 1 115px;min-width:88px;max-width:265px;margin:0}.fcViewPicker span{font-size:9px;font-weight:750;color:var(--muted)}.fcViewPicker select{height:32px;padding:4px 6px;width:100%;min-width:0!important;max-width:100%;font-size:11px;text-overflow:ellipsis}.fcPickerRegion,.fcPickerComponent{flex:1 1 88px;max-width:145px}.fcViewZoom{display:flex;gap:3px;margin-left:auto;flex:0 0 auto}.fcViewZoom button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);width:34px;height:34px;font-size:19px;font-weight:750;cursor:pointer}.fcViewZoom button:hover{border-color:var(--accent);color:var(--accent)}.fcPhysicalMenu{flex:1 0 100%;min-width:0}.fcPhysicalMenu details{border-top:1px solid var(--line);padding-top:5px}.fcPhysicalMenu summary{cursor:pointer;font-weight:750;font-size:10px;color:var(--text);width:max-content;max-width:100%;padding:4px 7px;border:1px solid var(--line);border-radius:7px}.fcPhysicalRows{display:flex;flex-direction:column;gap:7px;margin-top:7px}.fcPhysicalRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(110px,1.6fr) minmax(90px,1fr) minmax(110px,1fr);align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:7px}.fcPhysicalToggle{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fcPhysicalRegionRow select{min-width:0;width:100%;height:30px}.fcPhysicalOpacity{display:flex;align-items:center;gap:4px;font-size:9px}.fcPhysicalOpacity input{min-width:45px;width:100%}.fcPhysicalRegionStatus{grid-column:1/-1;font-size:9px;color:var(--muted)}.fcDimensionSwitch{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;white-space:nowrap}.fcMetricAxes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}.fcMetricBounds{position:absolute;z-index:6;top:39px;left:9px;max-width:calc(100% - 20px);border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--panel) 90%,transparent);padding:5px 7px;font-size:9px;line-height:1.45;pointer-events:none}.fcMetricBounds[hidden]{display:none}.fcPhysicalLegends{display:flex;flex-wrap:wrap;gap:8px;width:100%}.fcPhysicalLegend{min-width:120px;max-width:220px;font-size:9px}.fcPhysicalLegend .fvRegionLegendBar{height:8px}.fcViewportCaption:has(.fcPhysicalLegends:not(:empty)){flex-wrap:wrap}.fcPhysicalLegend .fvRegionLegendBounds{display:flex;justify-content:space-between}@media(max-width:700px){.fcPhysicalRegionRow{grid-template-columns:minmax(90px,1fr) minmax(100px,1.2fr)}.fcPhysicalRegionStatus{grid-column:1/-1}}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcComposedViewport .fcViewportScene{height:420px}}';document.head.appendChild(style);
+  const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-items:start}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))}.fcViewport.hidden{display:none}.fcComposedViewport{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.fcViewportScene{position:relative;min-width:0;height:clamp(340px,36vw,500px);min-height:340px;flex:0 0 auto;overflow:hidden}.fcViewportCaption{display:flex;align-items:start;min-width:0;max-width:100%;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2)}.fcViewportCaption:empty{display:none}.fcComposedViewport .fcViewportScene>canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcComposedViewport .fcViewportScene>#fvCanvas{height:100%;min-height:0}.fcViewport .fcViewportScene>#fcCanvas,.fcViewport .fcViewportScene>#fcDifferenceCanvas,.fcViewport .fcViewportScene>canvas[id^="fcExtra"]{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcTimeBadge{position:absolute;left:12px;top:12px;z-index:8;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 90%,transparent);font-size:8px;font-weight:850;backdrop-filter:blur(8px)}.fcViewLabel{position:static;display:block;min-width:0;max-width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:11px;line-height:1.45;font-weight:750;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;box-shadow:none;backdrop-filter:none}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:8px;color:var(--muted)}.fcLegendTicks span{display:block;min-width:0;overflow-wrap:anywhere;text-align:center}.fcLegendTicks span:first-child{text-align:left}.fcLegendTicks span:last-child{text-align:right}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));align-items:start;gap:10px;margin-top:10px;min-width:0}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:10px;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:11px;line-height:1.45;font-weight:850;margin-bottom:9px;overflow-wrap:anywhere;white-space:normal;max-width:100%}.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}.fcStatsCells>div{padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0;min-height:56px}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:3px;font-size:12px;line-height:1.4;white-space:normal;overflow:visible;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.fcSelectedStat{grid-column:span 2}.fcViewToolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}.fcMoveHandle{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:7px 9px;color:var(--text);cursor:grab;white-space:nowrap;font-weight:800;font-size:10px}.fcMoveHandle:active{cursor:grabbing}.fcDropTarget{outline:2px solid var(--accent);outline-offset:-2px}.fcDraggingView{opacity:.48}.fcViewFieldRow{display:flex;flex:1 1 240px;min-width:0;flex-wrap:wrap;gap:6px}.fcViewPicker{display:grid;gap:3px;flex:1 1 115px;min-width:88px;max-width:265px;margin:0}.fcViewPicker span{font-size:9px;font-weight:750;color:var(--muted)}.fcViewPicker select{height:32px;padding:4px 6px;width:100%;min-width:0!important;max-width:100%;font-size:11px;text-overflow:ellipsis}.fcPickerRegion,.fcPickerComponent{flex:1 1 88px;max-width:145px}.fcViewZoom{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;margin-left:auto;flex:0 0 auto}.fcViewZoom button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);width:34px;height:34px;font-size:19px;font-weight:750;cursor:pointer}.fcViewZoom [data-fc-fit]{width:auto;min-width:48px;padding:0 8px;font-size:11px;font-weight:750}.fcViewZoom button:hover{border-color:var(--accent);color:var(--accent)}.fcPhysicalMenu{flex:1 0 100%;min-width:0}.fcPhysicalMenu details{border-top:1px solid var(--line);padding-top:5px}.fcPhysicalMenu summary{cursor:pointer;font-weight:750;font-size:10px;color:var(--text);width:max-content;max-width:100%;padding:4px 7px;border:1px solid var(--line);border-radius:7px}.fcPhysicalRows{display:flex;flex-direction:column;gap:7px;margin-top:7px}.fcPhysicalRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(110px,1.6fr) minmax(90px,1fr) minmax(110px,1fr);align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:7px}.fcPhysicalToggle{display:flex;align-items:center;gap:6px;font-size:10px;min-width:0}.fcPhysicalRegionRow select{min-width:0;width:100%;height:30px}.fcPhysicalOpacity{display:flex;align-items:center;gap:4px;font-size:9px}.fcPhysicalOpacity input{min-width:45px;width:100%}.fcPhysicalRegionStatus{grid-column:1/-1;font-size:9px;color:var(--muted)}.fcDimensionSwitch{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;white-space:nowrap}.fcMetricAxes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}.fcMetricBounds{position:absolute;z-index:6;top:39px;left:9px;max-width:calc(100% - 20px);border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--panel) 90%,transparent);padding:5px 7px;font-size:9px;line-height:1.45;pointer-events:none}.fcMetricBounds[hidden]{display:none}.fcPhysicalLegends{display:flex;flex-wrap:wrap;gap:8px;width:100%}.fcPhysicalLegend{min-width:120px;max-width:220px;font-size:9px}.fcPhysicalLegend .fvRegionLegendBar{height:8px}.fcViewportCaption:has(.fcPhysicalLegends:not(:empty)){flex-wrap:wrap}.fcPhysicalLegend .fvRegionLegendBounds{display:flex;justify-content:space-between}@media(max-width:700px){.fcPhysicalRegionRow{grid-template-columns:minmax(90px,1fr) minmax(100px,1.2fr)}.fcPhysicalRegionStatus{grid-column:1/-1}}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:1180px){.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:980px){.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:1fr}.fcComposedViewport .fcViewportScene{height:420px}}';document.head.appendChild(style);
   try{flApplyBilingualText(box)}catch{}
   document.getElementById('fcEnabled').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
   document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcState.probe=null;fcRefreshFrame()});

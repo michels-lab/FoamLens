@@ -21,7 +21,9 @@ function el(id='',name='div'){
   e.classList={
     contains(k){return classes().has(k)},
     add(...names){const s=classes();names.forEach(n=>s.add(n));e.className=[...s].join(' ')},
-    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')}
+    remove(...names){const s=classes();names.forEach(n=>s.delete(n));e.className=[...s].join(' ')},
+    toggle(k,forced){const s=classes(),on=forced===undefined?!s.has(k):!!forced;
+      if(on)s.add(k);else s.delete(k);e.className=[...s].join(' ');return on}
   };
   e.appendChild=function(c){
     if(c.parentNode){const old=c.parentNode.children;old.splice(old.indexOf(c),1)}
@@ -52,10 +54,11 @@ function treeFind(root,id){
   for(const child of root.children){const match=treeFind(child,id);if(match)return match}
   return null
 }
-function mockApp(){
+function mockApp({initiallyHidden=false}={}){
   const html=el('documentRoot','html'),head=el('head','head'),body=el('body','body');
   html.appendChild(head);html.appendChild(body);
   const panel=el('timeSeriesControls');
+  if(initiallyHidden)panel.classList.add('hidden');
   body.appendChild(panel);
   const originalTitle=el('sourceTitle');
   originalTitle.className='analysisTitle';panel.appendChild(originalTitle);
@@ -114,6 +117,72 @@ test('runtime preserves EXACT original controls and bound generator action',()=>
   app.button.click();
   assert.equal(app.getOriginalClicks(),1,'existing core generator listener must still fire');
 });
+test('Time Series explains no curves, filter-only empty state and existing OpenFOAM fields without faking data',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const note=get('gr176EmptyHint'),badge=get('timeSeriesFocusBadge'),widget=app.sandbox.window.FoamLensGranadaT2;
+  assert(note&&note.parentNode.id==='gr176ExistingCard','empty help sits with existing curves, not inside Field generator');
+  assert.equal(note.hidden,false);
+  assert.match(note.textContent,/No time-series curves yet/);
+  assert.match(note.textContent,/Available fields are not curves/);
+  assert.equal(get('fwBuildFieldHistories'),app.button,'original Build action is reused');
+  assert.equal(get('fwDataFieldHistories').open,true,'late OpenFOAM field source refresh must survive');
+  app.sandbox.series=[{datasetType:'timeseries',t:[0,1],y:[2,3]}];
+  badge.textContent='0 curves';
+  widget.refreshEmpty();
+  assert.equal(note.hidden,false);
+  assert.match(note.textContent,/No plotted curves match the current filters/);
+  badge.textContent='1 curve';
+  widget.refreshEmpty();
+  assert.equal(note.hidden,true,'one real plotted curve hides the empty message');
+  badge.textContent='0 curves';
+  app.document.getElementById('language').value='es';
+  app.events.get('foamlens-language-change')();
+  assert.match(note.textContent,/Ninguna curva coincide/,'Spanish retranslation uses the actual filtered state');
+  app.sandbox.series=[];
+  widget.refreshEmpty();
+  assert.match(note.textContent,/Aún no hay curvas temporales/);
+  assert(!String(candidate).includes('Variable 0'),'never invent a Variable 0 fallback');
+});
+
+test('Real Data zero-history refresh leaves actual Create history available',()=>{
+  const start=index.indexOf('function refreshTimeSeriesControls(){');
+  const stop=index.indexOf('\nfunction ',start+30);
+  assert(start>=0&&stop>start,'Original Data Time Series controller required');
+  const original=index.slice(start,stop);
+  function check(withBuilder,view){
+    const panel=el('timeSeriesControls'),variable=el('timeSeriesVariable'),
+      second=el('timeSeriesVariable2'),probe=el('timeSeriesProbe'),
+      cases=el('timeSeriesFamily'),badge=el('timeSeriesFocusBadge'),
+      hint=el('timeSeriesFilterHint');
+    const nodes={timeSeriesControls:panel,timeSeriesVariable:variable,
+      timeSeriesVariable2:second,timeSeriesProbe:probe,
+      timeSeriesFamily:cases,timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
+    if(withBuilder){
+      nodes.gr176HistoryCard=el('gr176HistoryCard');
+      nodes.fwBuildFieldHistories=el('fwBuildFieldHistories');
+    }
+    const refresh=new Function('$','timeSeriesOptionsBase','flUi','currentDataView',
+      original+';return refreshTimeSeriesControls;')(
+      id=>nodes[id]||null,()=>[],(en,es)=>en,view);
+    refresh();return{panel,second,badge,hint}
+  }
+  const first=check(true,'timeseries');
+  assert.equal(first.panel.classList.contains('hidden'),false,
+    'Do not hide real Build merely because no history has been plotted yet');
+  assert.equal(first.badge.textContent,'0 curves');
+  assert.equal(first.second.disabled,true,'Empty second variable stays disabled');
+  assert.match(first.hint.textContent,/Build|Create history/);
+  assert.equal(check(true,'profile').panel.classList.contains('hidden'),true,
+    'Build stays inside Time Series, not Data Profiles');
+  assert.equal(check(false,'timeseries').panel.classList.contains('hidden'),true,
+    'Do not expose an unmounted fake source generator');
+});
+test('Late generator mount reveals zero-curve builder that Data initially hid',()=>{
+  const app=mockApp({initiallyHidden:true});
+  assert.equal(app.panel.classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('fwBuildFieldHistories'),app.button);
+  assert.equal(app.document.getElementById('gr176HistoryCard').parentNode,app.panel);
+});
 test('Cancel visibly disables after atomic generation epoch is invalidated',()=>{
   const app=mockApp(),get=id=>app.document.getElementById(id);
   const cancel=get('gr176Cancel');
@@ -152,6 +221,48 @@ test('G52 live progress shows ONLY verified original source counts and respects 
   assert.equal(get('gr176Pending').textContent,'');
   notify({detail:{slot:2,completed:6,total:6,seq:18,source:'profile'}});
   assert.equal(get('gr176Pending').textContent,'','cancelled in-flight WebView2 read cannot resurface old progress');
+});
+test('two-source histories keep BOTH actual per-slot progress counts and ignore stale regressions',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const progress=app.events.get('foamlens-field-history-progress');
+  app.button.click();
+  progress({detail:{slot:1,completed:10,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:2,total:6,seq:18,source:'profile'}});
+  assert.match(get('gr176Pending').textContent,/Series 1: 10 \/ 10 OpenFOAM frames inspected/);
+  assert.match(get('gr176Pending').textContent,/Series 2: 2 \/ 6 real profile rows inspected/);
+  const previous=get('gr176Pending').textContent;
+  progress({detail:{slot:2,completed:1,total:6,seq:18,source:'profile'}});
+  progress({detail:{slot:1,completed:6,total:10,seq:18,source:'global'}});
+  progress({detail:{slot:2,completed:3,total:100,seq:18,source:'profile'}});
+  progress({detail:{slot:2,completed:3,total:6,seq:18,source:'probe'}});
+  assert.equal(get('gr176Pending').textContent,previous,'stale or switched progress may not overwrite verified counts');
+  app.events.get('foamlens-language-change')();
+  assert.equal(get('gr176Pending').textContent,previous,'English retranslation keeps both source slots');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.cancel(),true);
+  assert.equal(get('gr176Pending').textContent,'','cancel clears all slot histories');
+});
+test('Escape cancels active history only inside Time Series without stealing idle or unrelated keys',()=>{
+  const app=mockApp(),get=id=>app.document.getElementById(id);
+  const shortcut=(app.panel.handlers.get('keydown')||[])[0];
+  assert.equal(typeof shortcut,'function');
+  const event=(key)=>({key,prevented:0,stopped:0,preventDefault(){this.prevented++},stopPropagation(){this.stopped++}});
+  const idle=event('Escape');shortcut(idle);
+  assert.equal(idle.prevented,0);
+  assert.equal(idle.stopped,0);
+  app.button.click();
+  assert.equal(get('gr176Cancel').attributes['aria-keyshortcuts'],'Escape');
+  const unrelated=event('Enter');shortcut(unrelated);
+  assert.equal(unrelated.prevented,0);
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),true);
+  const esc=event('Escape');shortcut(esc);
+  assert.equal(esc.prevented,1);
+  assert.equal(esc.stopped,1);
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19,'source epoch invalidates immediately');
+  assert.equal(app.sandbox.window.FoamLensGranadaT2.isBuilding(),false);
+  assert.equal(get('gr176Cancel').disabled,true);
+  const second=event('Escape');shortcut(second);
+  assert.equal(second.prevented,0,'repeated Esc must remain available for other UI');
+  assert.equal(app.sandbox.fwState.fieldTsSeq,19);
 });
 test('G52 progress producer reports original frames in ALL three build paths and never commits partial data',()=>{
   const begin=core.indexOf('function fwFieldTsReportProgress(');

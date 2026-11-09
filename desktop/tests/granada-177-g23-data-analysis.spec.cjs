@@ -12,7 +12,7 @@ function mock(){
  const nodes=[],watchers=[],storage=new Map(),events=new Map();
  let document;
  function el(id='',tag='div',className=''){
-  const n={id,tagName:tag.toUpperCase(),className,children:[],parentElement:null,style:{display:''},
+  const n={id,tagName:tag.toUpperCase(),className,children:[],parentElement:null,style:{display:'',setProperty(name,value){this[name]=value}},
     dataset:{},attributes:{},disabled:false,open:false,textContent:'',value:'',role:'',handlers:new Map(),
     isConnected:true};
   nodes.push(n);
@@ -42,22 +42,27 @@ function mock(){
   n.querySelector=function(s){
    function walk(x){for(const c of x.children){
     if(s==='.datasetTabs'&&c.classList.contains('datasetTabs')||s==='span'&&c.tagName==='SPAN'||
-       s==='small'&&c.tagName==='SMALL')return c;
+       s==='small'&&c.tagName==='SMALL'||s==='.plotcard'&&c.classList.contains('plotcard')||
+       s==='select[data-pm-role]'&&c.tagName==='SELECT'&&c.dataset.pmRole)return c;
     const deeper=walk(c);if(deeper)return deeper
    }return null}return walk(n);
   };
   n.addEventListener=function(k,fn){if(!n.handlers.has(k))n.handlers.set(k,[]);n.handlers.get(k).push(fn)};
   n.dispatch=function(k,ev={}){for(const fn of n.handlers.get(k)||[])fn(ev)};
+  n.dispatchEvent=function(event){n.dispatch(event.type,event);return true};
   n.setAttribute=function(k,v){n.attributes[k]=String(v)};
   n.hasAttribute=k=>Object.prototype.hasOwnProperty.call(n.attributes,k);
   n.focus=function(){document.activeElement=n;n.focusCount=(n.focusCount||0)+1};
   n.scrollIntoView=function(){n.scrolled=true};
-  n.getBoundingClientRect=()=>({width:120,height:35});
+  n.getBoundingClientRect=()=>({width:id==='workspace'?1280:id==='seriesPanel'?360:120,height:35});
   return n
  }
  const html=el('html'),head=el('head'),body=el('body','body','appMode-data');
  html.appendChild(head);html.appendChild(body);
  const sidebar=el('sidebar','aside','sidebar');body.appendChild(sidebar);
+ const workspace=el('workspace','section','workspace');body.appendChild(workspace);
+ const plot=el('originalPlot','div','plotcard'),seriesPanel=el('seriesPanel','div','listcard');
+ workspace.appendChild(plot);workspace.appendChild(seriesPanel);
  const dataCard=el('dataCard','div','card flSidebarSection flSidebarSectionCollapsed');
  sidebar.appendChild(dataCard);
  const count=el('countBadge');dataCard.appendChild(count);
@@ -80,6 +85,23 @@ function mock(){
   if(id==='fieldMappingTools'||id==='phaseMomentumTools')node.classList.add('pmHidden');
   host.appendChild(node);modules[id]=node
  }
+ const nativeControls={};
+ const select=(parent,id,entries,value)=>{
+   const control=el(id,'select');control.options=entries.map(([key,label])=>({value:String(key),textContent:label}));
+   control.value=String(value);parent.appendChild(control);nativeControls[id]=control;
+   return control
+ };
+ select(modules.couplingDiagnostics,'diagCase',[[1,'B3'],[2,'C3']],'2');
+ select(modules.couplingDiagnostics,'diagRoot',[['p_rgh','p_rgh'],['T','T']],'p_rgh');
+ select(modules.fieldMappingTools,'pmMappingCase',[[1,'B3'],[2,'C3']],'2');
+ const mappingRows=el('pmMappingRows');modules.fieldMappingTools.appendChild(mappingRows);
+ const mappingVariable=el('pmRoleT','select');mappingVariable.dataset.pmRole='temperature';
+ mappingVariable.value='T';mappingRows.appendChild(mappingVariable);nativeControls.pmRoleT=mappingVariable;
+ select(modules.phaseMomentumTools,'pmCase',[[1,'B3'],[2,'C3']],'2');
+ select(modules.phaseMomentumTools,'pmRegion',[['metal','metal'],['mold','mold']],'mold');
+ select(modules.phaseMomentumTools,'pmStatsField',[['T','T'],['alpha1','alpha1']],'T');
+ const globalCase=select(body,'globalCaseSelect',[['','All cases'],[1,'B3'],[2,'C3']],'');
+ const globalRegion=select(body,'globalRegionSelect',[['','All regions'],['metal','metal'],['mold','mold']],'');
  const language=el('language');language.value='en';body.appendChild(language);
  document={
   head,body,documentElement:html,activeElement:null,
@@ -89,9 +111,16 @@ function mock(){
   querySelectorAll:s=>s==='[id]'?nodes.filter(n=>n.id):[]
  };
  class Observer{constructor(fn){this.callback=fn;watchers.push(this)}observe(node,config){this.node=node;this.config=config}disconnect(){}}
- const window={};
+ const windowHandlers=new Map();
+ const window={
+   addEventListener(name,fn){if(!windowHandlers.has(name))windowHandlers.set(name,[]);windowHandlers.get(name).push(fn)},
+   dispatch(name,event={}){for(const fn of windowHandlers.get(name)||[])fn(event)}
+ };
+ const nativeRoutes=[];
  const sandbox={
   document,window,MutationObserver:Observer,
+  Event:class{constructor(type,options){this.type=type;this.bubbles=!!options?.bubbles}},
+  openAnalysisModule:route=>nativeRoutes.push(route),
   requestAnimationFrame:fn=>{fn();return 1},
   localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,val)=>storage.set(key,val)},
   getComputedStyle:n=>({display:n.style.display||'block'}),
@@ -101,8 +130,131 @@ function mock(){
  vm.createContext(sandbox);vm.runInContext(src,sandbox);
  const api=window.FoamLensGranadaG23;
  assert(api,'module must install against genuine Data and Analysis hosts');
- return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage}
+ return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage,workspace,plot,seriesPanel,nativeControls,nativeRoutes,globalCase,globalRegion}
 }
+test('Analysis navigator routes native Coupling/Front plots and focuses original selectors',()=>{
+ const m=mock();
+ assert.equal(m.api.focusModule('couplingDiagnostics'),true);
+ assert.equal(m.nativeRoutes.at(-1),'coupling','Coupling must activate its original log plot');
+ const caseButton=m.document.getElementById('flG23Context-case');
+ const regionButton=m.document.getElementById('flG23Context-region');
+ const fieldButton=m.document.getElementById('flG23Context-variable');
+ assert.equal(caseButton.disabled,false);
+ assert.equal(regionButton.disabled,true,'Coupling has no region selector, do not invent it');
+ assert.equal(fieldButton.disabled,false);
+ assert.equal(m.document.getElementById('flG23AnalysisContext').hidden,false);
+ fieldButton.dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.diagRoot,'variable action must focus original residual field');
+ caseButton.dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.diagCase);
+ assert.equal(m.api.focusModule('phaseFrontPanel'),true);
+ assert.equal(m.nativeRoutes.at(-1),'front','Front tracking must activate its original spatial-profile plot');
+ assert.equal(m.document.getElementById('flG23Context-case').disabled,true,
+   'Front tracking without module-owned case selector must not claim one');
+ assert.equal(m.document.getElementById('flG23AnalysisContext').hidden,false);
+});
+test('Analysis can explicitly apply real project case without silently changing module context',()=>{
+ const m=mock();
+ m.api.focusModule('couplingDiagnostics');
+ assert.equal(m.nativeControls.diagCase.value,'2');
+ assert.equal(m.document.getElementById('flG23UseGlobalCase').disabled,true);
+ assert.equal(m.api.applyGlobalCase(),false,'All cases must not select an arbitrary case');
+ assert.equal(m.nativeControls.diagCase.value,'2');
+ m.globalCase.value='1';m.api.refresh();
+ assert.equal(m.document.getElementById('flG23UseGlobalCase').disabled,false);
+ let notified=0;m.nativeControls.diagCase.addEventListener('change',()=>notified++);
+ assert.equal(m.api.applyGlobalCase(),true);
+ assert.equal(m.nativeControls.diagCase.value,'1');
+ assert.equal(notified,1,'exact original native change handler must run once');
+ assert.equal(m.document.activeElement,m.nativeControls.diagCase);
+ assert.equal(m.document.getElementById('flG23Context-case').disabled,false);
+ m.globalCase.value='not-a-native-option';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),false);
+ assert.equal(m.nativeControls.diagCase.value,'1','incompatible source cannot be silently substituted');
+});
+test('Phase Momentum uses original Case Region Variable and updates dependent native selectors',()=>{
+ const m=mock();
+ m.modules.phaseMomentumTools.classList.remove('pmHidden');m.api.refresh();
+ assert.equal(m.api.focusModule('phaseMomentumTools'),true);
+ assert.equal(m.nativeRoutes.at(-1),'phaseMomentum');
+ for(const kind of ['case','region','variable'])
+   assert.equal(m.document.getElementById('flG23Context-'+kind).disabled,false);
+ m.document.getElementById('flG23Context-region').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmRegion);
+ m.document.getElementById('flG23Context-variable').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmStatsField);
+ const notifications=[];
+ m.nativeControls.pmCase.addEventListener('change',()=>{notifications.push('case');m.nativeControls.pmRegion.value='mold'});
+ m.nativeControls.pmRegion.addEventListener('change',()=>notifications.push('region'));
+ m.globalCase.value='1';m.globalRegion.value='metal';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),true);
+ assert.equal(m.nativeControls.pmCase.value,'1');assert.equal(m.nativeControls.pmRegion.value,'metal');
+ assert.deepEqual(notifications,['case','region'],'native change handlers must run in dependency order');
+ m.globalRegion.value='unknown';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),true,'case remains valid when requested region is missing');
+ assert.equal(m.nativeControls.pmRegion.value,'metal','missing region must not be invented');
+});
+test('Field Mapping keeps original role selector and unavailable module states honest',()=>{
+ const m=mock();
+ assert.equal(m.api.focusModule('fieldMappingTools'),false);
+ m.modules.fieldMappingTools.classList.remove('pmHidden');m.api.refresh();
+ assert.equal(m.api.focusModule('fieldMappingTools'),true);
+ assert.equal(m.nativeRoutes.at(-1),'mapping');
+ m.document.getElementById('flG23Context-variable').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmRoleT,
+   'original mapping role selector must receive focus, not a duplicate');
+ assert.equal(m.document.getElementById('flG23Context-region').disabled,true);
+ assert.equal(m.host.querySelectorAll('[id]').filter(x=>x.id==='pmMappingCase').length,1);
+ assert(!src.includes('series.push('),'Analysis context cannot create synthetic scientific data');
+});
+test('Analysis resize handle remains between the ORIGINAL chart and series list',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ assert(handle,'original Analysis workspace receives one resize separator');
+ assert.equal(m.workspace.children.length,3);
+ assert.equal(m.workspace.children[0],m.plot,'original chart stays first');
+ assert.equal(m.workspace.children[1],handle);
+ assert.equal(m.workspace.children[2],m.seriesPanel,'original series DOM is not moved or duplicated');
+ assert.equal(handle.attributes.role,'separator');
+ assert.equal(handle.attributes['aria-orientation'],'vertical');
+ assert.equal(handle.attributes['aria-valuenow'],'360');
+ assert.equal(m.workspace.style['--flG23AnalysisSeriesWidth'],'360px');
+ assert.equal(m.storage.has('foamlens.granada.analysis-results-width.v1'),false,
+   'initial render must not overwrite saved defaults');
+});
+test('Analysis result splitter supports keyboard precision and remembers original side-panel width',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ let prevented=0;
+ handle.dispatch('keydown',{key:'ArrowLeft',preventDefault:()=>{prevented++}});
+ assert.equal(m.workspace.style['--flG23AnalysisSeriesWidth'],'384px');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'384');
+ handle.dispatch('keydown',{key:'ArrowRight',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'360');
+ handle.dispatch('keydown',{key:'End',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'560');
+ handle.dispatch('keydown',{key:'Home',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'260');
+ handle.dispatch('keydown',{key:'Tab',preventDefault:()=>{prevented++}});
+ assert.equal(prevented,4,'native Tab navigation must not be stolen');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'260');
+});
+test('Analysis drag resizes original plot/series without scientific mutation and saves only on release',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ handle.dispatch('pointerdown',{button:0,clientX:900,preventDefault(){}});
+ m.window.dispatch('pointermove',{clientX:830});
+ assert.equal(handle.attributes['aria-valuenow'],'430');
+ assert.equal(m.storage.has('foamlens.granada.analysis-results-width.v1'),false,
+   'live drag must not write settings at every pixel');
+ m.window.dispatch('pointerup');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'430');
+ m.window.dispatch('pointermove',{clientX:100});
+ assert.equal(handle.attributes['aria-valuenow'],'430','pointermove after release must be ignored');
+ assert.equal(m.workspace.children[0],m.plot);
+ assert.equal(m.workspace.children[2],m.seriesPanel);
+ m.language.value='es';m.events.get('foamlens-language-change')();
+ assert.match(handle.attributes['aria-label'],/Cambiar tamaño/);
+ assert(src.includes('max-width:1160px'), 'responsive stack must preserve chart above native series');
+});
+
 test('Data restores all four ORIGINAL tabs without duplicating or renaming controls',()=>{
  const m=mock();
  assert(m.api.isInstalled());
@@ -156,6 +308,56 @@ test('availability updates are reversible; language and state remain honest',()=
  general.classList.add('pmHidden');m.api.refresh();
  assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').disabled,true);
 });
+test('Analysis searchable navigator filters original modules and Enter opens the native tool',()=>{
+ const m=mock(),search=m.document.getElementById('flG23ModuleSearch');
+ assert(search&&search.type==='search','source navigator must use an accessible search input');
+ search.value='frente';search.dispatch('input');
+ const front=m.document.getElementById('flG23Go-phaseFrontPanel');
+ assert.equal(front.hidden,false,'Spanish search must match Front tracking');
+ for(const id of ['generalAnalysisTools','couplingDiagnostics','fieldMappingTools','phaseMomentumTools'])
+   assert.equal(m.document.getElementById('flG23Go-'+id).hidden,true,'nonmatching modules must be filtered');
+ let prevented=0;search.dispatch('keydown',{key:'Enter',preventDefault:()=>prevented++});
+ assert.equal(prevented,1);
+ assert.equal(m.document.activeElement,m.modules.phaseFrontPanel,'Enter must focus original module');
+ assert.equal(m.modules.phaseFrontPanel.open,true,'native front controls expand on focus');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,true);
+});
+test('Analysis filter provides honest no-results, Escape reset and available-only toggle',()=>{
+ const m=mock(),search=m.document.getElementById('flG23ModuleSearch');
+ const clear=m.document.getElementById('flG23SearchClear'),only=m.document.getElementById('flG23AvailableOnly');
+ assert.equal(clear.disabled,true,'empty query must not require clearing');
+ search.value='does-not-exist';search.dispatch('input');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,false);
+ assert.match(m.document.getElementById('flG23GuideStatus').textContent,/0 shown/);
+ let prevented=0;search.dispatch('keydown',{key:'Escape',preventDefault:()=>prevented++});
+ assert.equal(prevented,1);assert.equal(search.value,'');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,true);
+ only.dispatch('click');
+ assert.equal(only.attributes['aria-pressed'],'true');
+ assert.equal(m.document.getElementById('flG23Go-couplingDiagnostics').hidden,false);
+ assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').hidden,true,'unavailable stays native but hidden by filter');
+ only.dispatch('click');
+ assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').hidden,false,'all modules are discoverable again');
+ search.value='momentum';search.dispatch('input');assert.equal(clear.disabled,false);
+ clear.dispatch('click');
+ assert.equal(search.value,'');assert.equal(m.document.activeElement,search);
+ assert.equal(m.document.getElementById('flG23Go-couplingDiagnostics').hidden,false);
+});
+test('Analysis navigator updates locale, keeps disabled native owners and does not duplicate controls',()=>{
+ const m=mock();
+ m.language.value='es';m.events.get('foamlens-language-change')();
+ const input=m.document.getElementById('flG23ModuleSearch');
+ assert.match(input.placeholder,/Buscar herramienta/);
+ assert.equal(m.document.getElementById('flG23AvailableOnly').textContent,'Solo disponibles');
+ input.value='mapeo';input.dispatch('input');
+ const mapping=m.document.getElementById('flG23Go-fieldMappingTools');
+ assert.equal(mapping.hidden,false);
+ assert.equal(mapping.disabled,true,'search cannot enable unsupported real field mapping');
+ assert.equal(m.api.focusModule('fieldMappingTools'),false);
+ assert.equal(m.host.querySelectorAll('[id]').filter(n=>n.id==='flG23Go-fieldMappingTools').length,1);
+ assert.equal(m.modules.fieldMappingTools.parentElement,m.host,'original scientific UI must stay in its owner');
+});
+
 test('read-only audit records original parents, disabled views and lack of scientific acceptance',()=>{
  const m=mock(),r=m.api.audit();
  assert.equal(r.mode,'data');

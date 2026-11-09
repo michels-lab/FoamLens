@@ -124,6 +124,230 @@ function cgMakeAsciiStl(triangles,name='surface',scale=1){
   rows.push('endsolid '+clean);return rows.join('\n')+'\n'
 }
 function cgUnitScale(unit){return {m:1,mm:.001,cm:.01,in:.0254}[unit]||null}
+
+function cgBinaryStl(triangles,scale,name){
+  if(!Array.isArray(triangles)||!triangles.length||triangles.length>cgLimitTriangles)throw Error('Invalid triangle count for binary STL');
+  if(!Number.isFinite(scale)||scale<=0)throw Error('Confirm positive source-to-meter scale');
+  const data=new Uint8Array(84+50*triangles.length),view=new DataView(data.buffer);
+  data.set(new TextEncoder().encode('FoamLens '+cgSafeName(name)).subarray(0,80));
+  view.setUint32(80,triangles.length,true);
+  triangles.forEach((tri,i)=>{
+    if(!Array.isArray(tri.vertices)||tri.vertices.length!==3)throw Error('Invalid triangle');
+    const v=tri.vertices.map(p=>p.map(x=>cgNumber(x)*scale));
+    const n=cgCross(cgSub(v[1],v[0]),cgSub(v[2],v[0])),mag=cgNorm(n),normal=mag?n.map(x=>x/mag):[0,0,0];
+    const base=84+i*50;
+    const put=(at,x)=>{
+      if(!Number.isFinite(x)||Math.abs(x)>3.402823466e38)throw Error('STL coordinate outside float32 range');
+      view.setFloat32(base+at,x,true)
+    };
+    normal.forEach((x,k)=>put(k*4,x));
+    v.forEach((p,j)=>p.forEach((x,k)=>put(12+j*12+k*4,x)));
+    view.setUint16(base+48,0,true)
+  });
+  return data
+}
+function cgCrc32(bytes){
+  let c=0xffffffff;
+  for(const b of bytes){c^=b;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0)}
+  return (c^0xffffffff)>>>0
+}
+function cgStoreZip(entries){
+  if(!Array.isArray(entries)||!entries.length||entries.length>1001)throw Error('ZIP entry count outside 1–1001');
+  const encoder=new TextEncoder(),seen=new Set(),rows=[];let size=22;
+  for(const e of entries){
+    const name=String(e.name||''),bytes=typeof e.data==='string'?encoder.encode(e.data):e.data;
+    if(!name||name.includes('..')||name.includes('\\')||name.startsWith('/')||
+       !/^[\x20-\x7e]+$/.test(name)||seen.has(name))throw Error('Unsafe or duplicate ZIP path');
+    if(!(bytes instanceof Uint8Array))throw Error('Invalid ZIP data');
+    const label=encoder.encode(name);seen.add(name);
+    if(bytes.length>100*1024*1024)throw Error('ZIP entry exceeds 100 MiB');
+    size+=76+2*label.length+bytes.length;
+    if(size>128*1024*1024)throw Error('ZIP exceeds 128 MiB');
+    rows.push({label,bytes,crc:cgCrc32(bytes)})
+  }
+  const output=new Uint8Array(size),view=new DataView(output.buffer);let pos=0;
+  for(const row of rows){
+    row.offset=pos;
+    view.setUint32(pos,0x04034b50,true);view.setUint16(pos+4,20,true);
+    view.setUint32(pos+14,row.crc,true);
+    view.setUint32(pos+18,row.bytes.length,true);view.setUint32(pos+22,row.bytes.length,true);
+    view.setUint16(pos+26,row.label.length,true);
+    output.set(row.label,pos+30);output.set(row.bytes,pos+30+row.label.length);
+    pos+=30+row.label.length+row.bytes.length
+  }
+  const directory=pos;
+  for(const row of rows){
+    view.setUint32(pos,0x02014b50,true);view.setUint16(pos+4,20,true);view.setUint16(pos+6,20,true);
+    view.setUint32(pos+16,row.crc,true);
+    view.setUint32(pos+20,row.bytes.length,true);view.setUint32(pos+24,row.bytes.length,true);
+    view.setUint16(pos+28,row.label.length,true);view.setUint32(pos+42,row.offset,true);
+    output.set(row.label,pos+46);pos+=46+row.label.length
+  }
+  view.setUint32(pos,0x06054b50,true);view.setUint16(pos+8,rows.length,true);
+  view.setUint16(pos+10,rows.length,true);view.setUint32(pos+12,pos-directory,true);
+  view.setUint32(pos+16,directory,true);
+  if(pos+22!==size)throw Error('ZIP size mismatch');
+  return output
+}
+function cgVisibleRegionBatch(models){
+  const files=[],regions=[];let totalTriangles=0,topologyWarnings=0;
+  for(let mi=0;mi<models.length;mi++){
+    const m=models[mi];if(!m.visible)continue;
+    const selected=[...m.partsVisible].filter(([,visible])=>visible);
+    if(!selected.length)continue;
+    const scale=cgUnitScale(m.unit);
+    if(!scale)throw Error('Confirm the physical source units for EVERY visible region');
+    for(let pi=0;pi<selected.length;pi++){
+      const part=selected[pi][0],triangles=m.triangles.filter(t=>t.part===part);
+      if(!triangles.length)continue;
+      totalTriangles+=triangles.length;
+      if(totalTriangles>300000||regions.length>=1000)throw Error('Batch geometry safety limit exceeded');
+      const sum=cgSummary(triangles);
+      const hasWarnings=!!(sum.boundaryEdges||sum.nonManifoldEdges||sum.orientationConflicts||sum.degenerate);
+      if(hasWarnings)topologyWarnings++;
+      const name='surfaces/model'+String(mi+1).padStart(3,'0')+
+        '_region'+String(pi+1).padStart(3,'0')+'_'+cgSafeName(part).slice(0,40)+'.stl';
+      files.push({name,data:cgBinaryStl(triangles,scale,part)});
+      regions.push({sourceFile:m.name,sourceFormat:m.format,sourceBytes:m.bytes,part,outputFile:name,
+        sourceUnitConfirmedByUser:m.unit,sourceToMeterScale:scale,outputCoordinates:'meters',
+        boundsMeters:sum.bounds.size.map(x=>x*scale),areaSquareMeters:sum.area*scale*scale,
+        sourceTopology:sum,topologyWarningsPresent:hasWarnings})
+    }
+  }
+  if(!regions.length)throw Error('Select at least one visible named region');
+  const manifest={schema:'foamlens/cad-batch-surfaces/1',regionCount:regions.length,
+    triangleCount:totalTriangles,topologyWarnings,
+    exportType:'individual binary STL triSurfaces in meters; NOT an OpenFOAM volume mesh',
+    regions,openFoamCaseMutated:false,toolsExecuted:[],
+    limitations:['STL/OBJ coordinates require user-confirmed units.',
+      'Topology checks do not prove self-intersection-free geometry.',
+      'The ZIP does not run surfaceCheck or create an OpenFOAM polyMesh.',
+      'Destination geometry path depends on the verified OpenFOAM distribution.']};
+  files.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'});
+  return {files,manifest,topologyWarnings}
+}
+
+// Only FoamLens' own uncompressed, CRC-checked ZIP STORE format is accepted.
+// This does not silently import arbitrary compressed archives or project files.
+function cgReadStoredZip(input){
+  const bytes=input instanceof ArrayBuffer?new Uint8Array(input):
+    ArrayBuffer.isView(input)?new Uint8Array(input.buffer,input.byteOffset,input.byteLength):null;
+  if(!bytes||bytes.length<22||bytes.length>128*1024*1024)
+    throw Error('Invalid ZIP archive size (limit 128 MiB)');
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),end=bytes.length-22;
+  if(dv.getUint32(end,true)!==0x06054b50||dv.getUint16(end+20,true)!==0)
+    throw Error('Only FoamLens ZIP files without comments are supported');
+  const count=dv.getUint16(end+10,true),directoryLength=dv.getUint32(end+12,true),
+    directoryAt=dv.getUint32(end+16,true);
+  if(count<2||count>1001||dv.getUint16(end+8,true)!==count||
+     dv.getUint16(end+4,true)!==0||dv.getUint16(end+6,true)!==0||
+     directoryAt> end||directoryLength> end-directoryAt||
+     directoryAt+directoryLength!==end)
+    throw Error('ZIP central directory is invalid or unsupported');
+  const decoder=new TextDecoder('utf-8',{fatal:true}),seen=new Set(),files=[];
+  let central=directoryAt,local=0;
+  for(let i=0;i<count;i++){
+    if(central+46>end||dv.getUint32(central,true)!==0x02014b50)
+      throw Error('Missing or truncated ZIP central entry');
+    const flags=dv.getUint16(central+8,true),method=dv.getUint16(central+10,true);
+    const crc=dv.getUint32(central+16,true),size=dv.getUint32(central+20,true),
+      unpacked=dv.getUint32(central+24,true),nameLength=dv.getUint16(central+28,true),
+      extra=dv.getUint16(central+30,true),comment=dv.getUint16(central+32,true),
+      localOffset=dv.getUint32(central+42,true);
+    if(flags!==0||method!==0||size!==unpacked||size>100*1024*1024||
+       extra!==0||comment!==0||localOffset!==local||nameLength<1||
+       central+46+nameLength>end||local+30+nameLength>directoryAt)
+      throw Error('Compressed or irregular ZIP entries are not supported');
+    const name=decoder.decode(bytes.subarray(central+46,central+46+nameLength));
+    if(!/^[\x20-\x7e]+$/.test(name)||name.startsWith('/')||
+       name.includes('..')||name.includes('\\')||seen.has(name))
+      throw Error('Unsafe or duplicated ZIP entry');
+    seen.add(name);
+    if(dv.getUint32(local,true)!==0x04034b50||
+       dv.getUint16(local+6,true)!==0||dv.getUint16(local+8,true)!==0||
+       dv.getUint32(local+14,true)!==crc||
+       dv.getUint32(local+18,true)!==size||dv.getUint32(local+22,true)!==size||
+       dv.getUint16(local+26,true)!==nameLength||dv.getUint16(local+28,true)!==0)
+      throw Error('ZIP local header differs from central entry');
+    const localName=decoder.decode(bytes.subarray(local+30,local+30+nameLength));
+    if(localName!==name||size>directoryAt-(local+30+nameLength))
+      throw Error('ZIP payload is truncated or mismatched');
+    const data=bytes.subarray(local+30+nameLength,local+30+nameLength+size);
+    if(cgCrc32(data)!==crc)throw Error('ZIP CRC-32 mismatch for '+name);
+    files.push({name,data});
+    local+=30+nameLength+size;
+    central+=46+nameLength
+  }
+  if(central!==end||local!==directoryAt)
+    throw Error('Unexpected ZIP content or byte offsets');
+  return files
+}
+function cgRestoreRegionBatch(input){
+  const files=cgReadStoredZip(input),byName=new Map(files.map(x=>[x.name,x.data]));
+  if(!byName.has('manifest.json'))throw Error('FoamLens CAD package needs manifest.json');
+  const manifestBytes=byName.get('manifest.json');
+  if(manifestBytes.length>4*1024*1024)throw Error('CAD provenance manifest exceeds 4 MiB safety limit');
+  const decoder=new TextDecoder('utf-8',{fatal:true});
+  const manifest=JSON.parse(decoder.decode(manifestBytes));
+  if(manifest?.schema!=='foamlens/cad-batch-surfaces/1'||!Array.isArray(manifest.regions)||
+     manifest.regions.length<1||manifest.regions.length>1000||
+     manifest.regionCount!==manifest.regions.length||
+     manifest.openFoamCaseMutated!==false||
+     manifest.regions.length+1!==files.length)
+    throw Error('Invalid FoamLens CAD export manifest');
+  const models=[];let triangleCount=0;const paths=new Set();
+  for(const region of manifest.regions){
+    const file=region?.outputFile,part=region?.part;
+    if(typeof file!=='string'||!/^surfaces\/[a-zA-Z0-9_.-]+\.stl$/.test(file)||
+       !byName.has(file)||paths.has(file)||typeof part!=='string'||
+       !part.trim()||part.length>120||region.outputCoordinates!=='meters')
+      throw Error('Invalid or duplicate region provenance in manifest');
+    paths.add(file);
+    const scale=cgUnitScale(region.sourceUnitConfirmedByUser);
+    if(!scale||region.sourceToMeterScale!==scale)
+      throw Error('Missing or conflicting original source units');
+    const data=byName.get(file),parsed=cgParseStl(data.buffer.slice(
+      data.byteOffset,data.byteOffset+data.byteLength),file);
+    if(parsed.format!=='binary-stl')throw Error('FoamLens region must be binary STL');
+    const count=parsed.triangles.length;
+    if(region.sourceTopology?.triangles!==count)throw Error('Region triangle count differs from manifest');
+    triangleCount+=count;
+    if(triangleCount>300000)throw Error('CAD import exceeds 300000 triangle preview limit');
+    // The archive contains coordinates already in meters. Retaining the
+    // manifest's *original* source unit is provenance, never a second scaling.
+    for(const triangle of parsed.triangles)triangle.part=part;
+    const summary=cgSummary(parsed.triangles);
+    if(!Array.isArray(region.boundsMeters)||region.boundsMeters.length!==3)
+      throw Error('Region bounds missing from manifest');
+    {
+      for(let k=0;k<3;k++){
+        const expected=Number(region.boundsMeters[k]);
+        if(!Number.isFinite(expected)||Math.abs(summary.bounds.size[k]-expected)>
+           Math.max(1e-7,Math.abs(expected)*1e-5))
+          throw Error('Region dimensions differ from the manifest in meters')
+      }
+    }
+    const originalArea=Number(region.areaSquareMeters),computedArea=summary.area;
+    if(!Number.isFinite(originalArea)||originalArea<0||
+       Math.abs(originalArea-computedArea)>Math.max(1e-9,Math.abs(originalArea)*2e-5))
+      throw Error('Region surface area differs from the manifest in square meters');
+    models.push({
+      name:String(region.sourceFile||file).slice(0,180)+' / '+part,
+      bytes:data.byteLength,format:'foamlens-zip-binary-stl',
+      triangles:parsed.triangles,summary,
+      partSummaries:new Map([[part,summary]]),
+      partsVisible:new Map([[part,true]]),
+      warnings:['Reimported from FoamLens ZIP. Coordinates are meters as declared in the export manifest; original '+region.sourceUnitConfirmedByUser+' units are provenance, not independently verified.'],
+      unit:'m',visible:true,
+      sourceProvenance:{sourceFile:String(region.sourceFile||''),part,
+        originalUnit:region.sourceUnitConfirmedByUser,
+        originalToMeterScale:scale,archivePath:file}
+    })
+  }
+  if(manifest.triangleCount!==triangleCount)
+    throw Error('Total region triangles differ from manifest');
+  return {models,manifest}
+}
 /* FOAMLENS_CAD_CORE_END */
 
 function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
@@ -134,6 +358,164 @@ function cgDownload(name,data,mime){
   const u=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)
 }
 function cgShow(msg){const el=document.getElementById('cgStatus');if(el)el.textContent=msg}
+function cgDownloadZip(name,bytes){
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2500)
+}
+
+let cgNativeCheckBusy=false,cgNativeCheckCancel=null,cgLastNativeCheck=null,cgNativeSeq=0;
+function cgNativeCheckAvailable(){
+  return !!(window.chrome?.webview?.postMessage&&window.chrome?.webview?.addEventListener)
+}
+function cgBytesToBase64(bytes){
+  if(!(bytes instanceof Uint8Array)||bytes.length>4*1024*1024)
+    throw Error('Native surfaceCheck supports at most 4 MiB of binary STL.');
+  let text='';
+  for(let i=0;i<bytes.length;i+=8192)
+    text+=String.fromCharCode(...bytes.subarray(i,i+8192));
+  return btoa(text)
+}
+function cgNativeSurfaceCheckRequest(bytes){
+  if(!cgNativeCheckAvailable())throw Error(
+    cgUi('Native Windows WebView2 is required for WSL surfaceCheck.',
+      'Se requiere WebView2 nativo de Windows para surfaceCheck en WSL.'));
+  const webview=window.chrome.webview,requestId='cad_check_'+Date.now()+'_'+(++cgNativeSeq);
+  let listener=null,timer=null,settled=false;
+  const cancel=()=>{
+    if(settled)return;
+    webview.postMessage({type:'cancelOperation',requestId:requestId+'_cancel',
+      targetRequestId:requestId})
+  };
+  const promise=new Promise((resolve,reject)=>{
+    const finish=(error,result)=>{
+      if(settled)return;settled=true;
+      if(timer!==null)clearTimeout(timer);
+      if(listener)webview.removeEventListener('message',listener);
+      if(error)reject(error);else resolve(result)
+    };
+    listener=e=>{
+      const r=e?.data;
+      if(r?.type!=='nativeReply'||r.requestId!==requestId)return;
+      if(r.ok)finish(null,r.data);
+      else finish(new Error(String(r.error||'Native surfaceCheck failed')))
+    };
+    webview.addEventListener('message',listener);
+    timer=setTimeout(()=>{
+      cancel();
+      finish(new Error('Native surfaceCheck did not respond before timeout.'));
+    },110000);
+    try{
+      webview.postMessage({
+        type:'runCadSurfaceCheck',requestId,stlBase64:cgBytesToBase64(bytes)
+      })
+    }catch(error){finish(error)}
+  });
+  return {promise,cancel}
+}
+function cgNativeSelectedSurface(prepareBytes=true){
+  const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|');
+  if(sep<0)throw Error('Choose a native CAD named region first');
+  const i=Number(key.slice(0,sep)),part=key.slice(sep+1),model=cgModels[i];
+  if(!model||!model.visible||!model.partsVisible.get(part))
+    throw Error('Choose a visible region in the original CAD inventory');
+  const scale=cgUnitScale(model.unit);
+  if(!scale)throw Error('Confirm the physical source unit before running surfaceCheck');
+  const count=model.partSummaries.get(part)?.triangles||0;
+  if(!count)throw Error('Selected surface has no source triangles');
+  if(!prepareBytes)return {model,part,triangles:count,scale};
+  const tris=model.triangles.filter(t=>t.part===part);
+  return {model,part,bytes:cgBinaryStl(tris,scale,part),triangles:tris.length,scale}
+}
+function cgRefreshNativeCheck(){
+  const run=document.getElementById('cgSurfaceCheckRun'),
+    cancel=document.getElementById('cgSurfaceCheckCancel'),
+    exportBtn=document.getElementById('cgSurfaceCheckExport');
+  if(!run)return;
+  let available=false;
+  try{const s=cgNativeSelectedSurface(false);available=84+s.triangles*50<=4*1024*1024}catch{}
+  run.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()||!available;
+  run.title=!cgNativeCheckAvailable()?
+    cgUi('Requires native FoamLens for Windows, WSL and installed OpenFOAM.',
+       'Requiere FoamLens nativo en Windows, WSL y OpenFOAM instalado.'):
+    cgUi('Run the installed OpenFOAM surfaceCheck on a temporary selected STL (max 4 MiB).',
+       'Ejecutar surfaceCheck instalado en una copia STL temporal seleccionada (máx. 4 MiB).');
+  if(cancel)cancel.disabled=!cgNativeCheckBusy;
+  if(exportBtn)exportBtn.disabled=!cgLastNativeCheck
+}
+async function cgRunNativeSurfaceCheck(){
+  if(cgNativeCheckBusy)return;
+  const output=document.getElementById('cgSurfaceCheckOutput');
+  let selected;
+  try{selected=cgNativeSelectedSurface()}catch(err){
+    cgShow(String(err?.message||err));return
+  }
+  cgNativeCheckBusy=true;cgLastNativeCheck=null;
+  cgRefreshNativeCheck();
+  if(output)output.textContent=cgUi(
+    'Running installed surfaceCheck in default WSL on a temporary STL. The original OpenFOAM case is not written.',
+    'Ejecutando surfaceCheck instalado en WSL predeterminado sobre un STL temporal. No se escribe en el caso OpenFOAM.');
+  try{
+    const task=cgNativeSurfaceCheckRequest(selected.bytes);
+    cgNativeCheckCancel=task.cancel;
+    const report=await task.promise;
+    if(!report||report.utility!=='surfaceCheck -checkSelfIntersection')
+      throw Error('Unrecognized native surfaceCheck report');
+    cgLastNativeCheck={
+      schema:'foamlens/cad-native-surfacecheck/1',
+      sourceFile:selected.model.name,part:selected.part,
+      sourceUnitConfirmedByUser:selected.model.unit,
+      sourceToMeterScale:selected.scale,triangleCount:selected.triangles,
+      openFoamCaseMutated:false,checkedAt:new Date().toISOString(),
+      native:report
+    };
+    if(output)output.textContent=[
+      report.executed?
+        cgUi('OpenFOAM surfaceCheck executed; review output (not CFD certification).',
+             'Se ejecutó surfaceCheck; revisa el resultado (NO es certificación CFD).'):
+        cgUi('OpenFOAM surfaceCheck was NOT executed in the default WSL distribution.',
+             'NO se ejecutó surfaceCheck en la distribución WSL predeterminada.'),
+      'Exit code: '+report.exitCode,
+      'Surface: '+selected.model.name+' / '+selected.part+' · '+selected.triangles+' triangles',
+      'Original units: '+selected.model.unit+' → meters',
+      report.outputTruncated?'Output truncated to a safe limit.':'',
+      '--- stdout ---',String(report.stdout||''),
+      '--- stderr ---',String(report.stderr||'')
+    ].filter(Boolean).join('\n');
+    cgShow(report.executed?
+      cgUi('Native surfaceCheck completed. Review and export the real solver output.',
+           'Terminó surfaceCheck nativo. Revisa y exporta la salida real.'):
+      cgUi('surfaceCheck unavailable in default WSL. Check installation.',
+           'surfaceCheck no disponible en WSL predeterminado. Revisa la instalación.'))
+  }catch(err){
+    if(output)output.textContent=cgUi('Native surfaceCheck unavailable or cancelled: ',
+      'surfaceCheck nativo no disponible o cancelado: ')+String(err?.message||err);
+    cgShow(cgUi('No surfaceCheck result; original case unchanged.',
+      'Sin resultado de surfaceCheck; caso original sin cambios.'))
+  }finally{
+    cgNativeCheckBusy=false;cgNativeCheckCancel=null;cgRefreshNativeCheck()
+  }
+}
+function cgExportNativeCheckReport(){
+  if(!cgLastNativeCheck)return;
+  cgDownload('FoamLens-surfaceCheck-report.json',
+    JSON.stringify(cgLastNativeCheck,null,2),'application/json')
+}
+
+function cgExportVisibleBatch(){
+  try{
+    const batch=cgVisibleRegionBatch(cgModels);
+    if(batch.topologyWarnings&&!window.confirm(
+      batch.topologyWarnings+' named regions have topology warnings. Export unvalidated surfaces anyway?'))return;
+    cgDownloadZip('FoamLens-triSurfaces-visible.zip',cgStoreZip(batch.files));
+    cgShow(cgUi('Exported ','Exportadas ')+batch.manifest.regionCount+
+      cgUi(' separate STL regions and provenance in one local ZIP (NOT a volume mesh).',
+        ' regiones STL separadas y su procedencia en un ZIP local (NO una malla volumétrica).'))
+  }catch(err){
+    cgShow(cgUi('Batch export blocked: ','Exportación por lotes bloqueada: ')+String(err?.message||err))
+  }
+}
 function cgRenderInventory(){
   const el=document.getElementById('cgInventory');if(!el)return;
   if(!cgModels.length){el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');return}
@@ -150,10 +532,10 @@ function cgRenderInventory(){
       '<div class="cgParts">Visible named parts: '+sum.parts.map(p=>'<label style="margin:4px 12px 4px 0;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" data-cg-part="'+i+'|'+cgEscape(p.name)+'" '+(m.partsVisible.get(p.name)?'checked':'')+'> '+cgEscape(p.name)+' ('+p.count+')</label>').join('')+'</div>'+
       (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
   }).join('');
-  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgDraw()}));
+  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgRefreshExport();cgDraw()}));
   el.querySelectorAll('[data-cg-part]').forEach(ch=>ch.addEventListener('change',()=>{
     const key=ch.dataset.cgPart,sep=key.indexOf('|'),i=Number(key.slice(0,sep)),part=key.slice(sep+1),m=cgModels[i];
-    if(m)m.partsVisible.set(part,ch.checked);cgDraw()
+    if(m)m.partsVisible.set(part,ch.checked);cgRefreshExport();cgDraw()
   }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
@@ -162,7 +544,7 @@ function cgRenderInventory(){
   cgRefreshExport();cgDraw()
 }
 function cgRefreshExport(){
-  const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl');
+  const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
   if(!select||!exportBtn)return;
   const old=select.value,parts=[];
   cgModels.forEach((m,i)=>m.summary.parts.forEach(p=>parts.push({key:i+'|'+p.name,label:m.name+' / '+p.name+' ('+p.count+')'})));
@@ -170,37 +552,73 @@ function cgRefreshExport(){
   if(parts.some(p=>p.key===old))select.value=old;
   const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
   exportBtn.disabled=!parts.length||!scale;
+  cgRefreshNativeCheck();
+  if(batchBtn){
+    const chosen=cgModels.filter(m=>m.visible).flatMap(m=>
+      [...m.partsVisible].filter(([,shown])=>shown).map(([part])=>({model:m,part})));
+    batchBtn.disabled=!chosen.length||chosen.some(({model})=>!cgUnitScale(model.unit));
+    batchBtn.title=batchBtn.disabled?
+      cgUi('Select visible regions and confirm every source unit.',
+        'Selecciona regiones visibles y confirma todas las unidades originales.'):
+      cgUi('Separate binary STL per visible region, with manifest, in one ZIP.',
+        'STL binario independiente por región visible con manifiesto en un ZIP.')
+  }
   const note=document.getElementById('cgUnitWarning');
   if(note)note.textContent=scale?
     cgUi('Selected source coordinate unit explicitly mapped to meters. Verify dimensions before using OpenFOAM.','Unidad de origen seleccionada; conversión a metros. Comprueba las dimensiones antes de usar OpenFOAM.'):
     cgUi('Unknown STL/OBJ source units: export is disabled until you explicitly confirm units.','Unidades STL/OBJ desconocidas: exportación desactivada hasta confirmar unidades.')
+}
+function cgPrepareSurface(result,name,bytes){
+  const sum=cgSummary(result.triangles),byPart=new Map();
+  for(const tri of result.triangles){
+    if(!byPart.has(tri.part))byPart.set(tri.part,[]);
+    byPart.get(tri.part).push(tri)
+  }
+  if(byPart.size>1000)throw Error('Geometry exceeds named-part safety limit (1000)');
+  return {name,bytes,format:result.format,triangles:result.triangles,summary:sum,
+    partSummaries:new Map([...byPart].map(([key,subset])=>[key,cgSummary(subset)])),
+    partsVisible:new Map([...byPart.keys()].map(key=>[key,true])),
+    warnings:result.warnings||[],unit:'unknown',visible:true}
 }
 async function cgImport(){
   const input=document.getElementById('cgFiles'),files=[...(input?.files||[])];
   if(!files.length)return;
   if(files.length>12){cgShow('Limit: 12 geometry files per import.');return}
   let added=0,errors=[];
-  for(const f of files){
+  for(const file of files){
     try{
-      if(f.size>32*1024*1024)throw new Error('32 MiB file safety limit');
-      const ext=f.name.split('.').pop().toLowerCase();
-      if(['step','stp','iges','igs','brep'].includes(ext))throw new Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
-      const result=ext==='stl'?cgParseStl(await f.arrayBuffer(),f.name):ext==='obj'?cgParseObj(await f.text(),f.name):null;
-      if(!result)throw new Error('Supported in this preview: STL and OBJ');
-      if(cgModels.reduce((n,m)=>n+m.triangles.length,0)+result.triangles.length>300000)throw new Error('Combined imported geometry exceeds 300,000-triangle interactive preview limit');
-      const sum=cgSummary(result.triangles),byPart=new Map();
-      for(const tri of result.triangles){if(!byPart.has(tri.part))byPart.set(tri.part,[]);byPart.get(tri.part).push(tri)}
-      if(byPart.size>1000)throw new Error('Geometry exceeds named-part safety limit (1000)');
-      const partSummaries=new Map([...byPart].map(([name,subset])=>[name,cgSummary(subset)])),
-        partsVisible=new Map([...byPart.keys()].map(name=>[name,true]));
-      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,
-        partSummaries,partsVisible,warnings:result.warnings||[],unit:'unknown',visible:true});
-      added++;
-    }catch(e){errors.push(f.name+': '+String(e?.message||e))}
-    // Relinquish the UI turn during large batches.
+      const ext=file.name.split('.').pop().toLowerCase();
+      const max=ext==='zip'?128*1024*1024:32*1024*1024;
+      if(file.size>max)throw Error('Geometry input exceeds '+(max/1024/1024)+' MiB limit');
+      if(['step','stp','iges','igs','brep'].includes(ext))
+        throw Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
+      let prepared;
+      if(ext==='zip'){
+        // The package must have exactly the FoamLens native manifest, all
+        // expected region STLs, valid CRC and physically declared units.
+        // A bad entry rejects the ENTIRE archive, never partial-model imports.
+        prepared=cgRestoreRegionBatch(await file.arrayBuffer()).models
+      }else{
+        const result=ext==='stl'?cgParseStl(await file.arrayBuffer(),file.name):
+          ext==='obj'?cgParseObj(await file.text(),file.name):null;
+        if(!result)throw Error('Supported imports: STL, OBJ and FoamLens-exported ZIP (uncompressed)');
+        prepared=[cgPrepareSurface(result,file.name,file.size)]
+      }
+      const current=cgModels.reduce((n,m)=>n+m.triangles.length,0);
+      const incoming=prepared.reduce((n,m)=>n+m.triangles.length,0);
+      if(current+incoming>300000||cgModels.length+prepared.length>1000)
+        throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
+      cgModels.push(...prepared);
+      added+=prepared.length
+    }catch(e){errors.push(file.name+': '+String(e?.message||e))}
+    // Yield between files to preserve the original UI import affordance.
     await new Promise(resolve=>setTimeout(resolve,0))
   }
-  cgRenderInventory();cgShow(cgUi('Imported ','Importados ')+added+' / '+files.length+'. '+errors.join(' | '));input.value=''
+  cgRenderInventory();
+  cgShow(cgUi('Imported ','Importadas ')+added+
+    cgUi(' surfaces from ',' superficies de ')+files.length+
+    cgUi(' input files. ',' archivos de entrada. ')+errors.join(' | '));
+  input.value=''
 }
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
@@ -276,17 +694,23 @@ function cgInstall(){
     '#cgShell .cgTools{display:flex;gap:9px;flex-wrap:wrap;align-items:center}#cgShell .cgTools label{font-size:12px}#cgShell button,#cgShell select,#cgShell input{min-height:34px}' +
     '#cgShell #cgCanvas{display:block;width:100%;height:min(55vh,520px);min-height:260px;border:1px solid #3b5578;border-radius:12px;touch-action:none;cursor:grab}' +
     '#cgShell .cgItem{padding:11px;border:1px solid #37526e;border-radius:9px;margin:7px 0;font-size:12px;line-height:1.6}' +
-    '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}';
+    '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}' +
+    '#cgShell #cgSurfaceCheckOutput{white-space:pre-wrap;overflow-wrap:anywhere;max-height:270px;overflow:auto;border:1px solid #37526e;border-radius:9px;padding:11px;background:#101b2c;color:#d6e7f1;font-size:11px}';
   document.head.appendChild(css);
   sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">Local STL/OBJ surface inspection only. STEP/IGES/BREP conversion requires a verified CAD kernel. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
-    '<div class="cgTools"><label>Import local STL/OBJ <input id="cgFiles" type="file" multiple accept=".stl,.obj,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
+    '<div class="cgTools"><label>Import local STL/OBJ or FoamLens ZIP <input id="cgFiles" type="file" multiple accept=".stl,.obj,.zip,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
     '<button class="btn" data-cg-view="iso">Isometric</button><button class="btn" data-cg-view="top">Top</button><button class="btn" data-cg-view="front">Front</button><button class="btn" data-cg-view="side">Right</button><button class="btn" data-cg-view="fit">Fit</button></div>'+
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
-    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL or OBJ from your computer.</div>'+
+    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ or a FoamLens-exported ZIP from your computer. ZIP restores individual region surfaces in meters, with source-unit provenance.</div>'+
     '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
     '<div class="cgTools">'+
-    '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button></div>'+
+    '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
+    '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
+    '<div class="cgTools"><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
+    '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
+    '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
+    '<pre id="cgSurfaceCheckOutput" aria-live="polite" class="cgNotice">Requires OpenFOAM installed in the default WSL distribution. Only an explicitly selected, unit-confirmed STL is checked.</pre>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
   document.body.appendChild(sheet);
   let cgReturnFocus=launch;
@@ -297,7 +721,11 @@ function cgInstall(){
   document.addEventListener('keydown',e=>{if(cgActive&&e.key==='Escape')close()});
   document.getElementById('cgImport').onclick=()=>void cgImport();
   document.getElementById('cgExportStl').onclick=cgExport;
-  document.getElementById('cgPart').addEventListener('change',cgRefreshExport);
+  document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
+  document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
+  document.getElementById('cgSurfaceCheckCancel').onclick=()=>cgNativeCheckCancel?.();
+  document.getElementById('cgSurfaceCheckExport').onclick=cgExportNativeCheckReport;
+  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck()});
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
   });
@@ -310,4 +738,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,unitScale:cgUnitScale};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale};
