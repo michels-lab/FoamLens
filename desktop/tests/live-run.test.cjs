@@ -84,5 +84,30 @@ test('Live recovery preserves last-good data and shows permission failures',()=>
  assert.equal(resumed.readError,undefined);
 });
 
+
+test('Live recovery renders retry advice and retained measurements',()=>{
+ const nodes=new Map(),dot={classList:{add(){},remove(){}}};
+ const el=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',innerHTML:'',style:{},querySelector:()=>dot});return nodes.get(id)};
+ const renderSource=index.slice(evidenceStart,index.indexOf('async function refreshLiveCapability(){',renderStart));
+ const harness=new Function('$','diagEs','liveFmt','esc',
+   'let liveLastSnapshot=null;'+renderSource+
+   ';return {liveLogEvidence,liveReadFailure,renderLiveSnapshot}')(
+    el,()=>false,v=>String(v),v=>String(v).replaceAll('<','&lt;'));
+ const good={...base,currentTime:11,updatedAt:now,logModifiedAt:now};
+ const snap=harness.liveLogEvidence(good,null,now);
+ const denied=Object.assign(new Error('permission denied'),{name:'NotAllowedError'});
+ harness.renderLiveSnapshot(harness.liveReadFailure(snap,denied,now+10000));
+ assert.equal(el('liveRunState').textContent,'READ ERROR');
+ assert(el('liveDetail').innerHTML.includes('Choose the case folder again'));
+ assert(el('liveDetail').innerHTML.includes('Failed reads: 1'));
+ assert.equal(el('liveMetricUpdatedLabel').textContent,'Last successful read');
+ assert(el('liveLastUpdated').textContent.includes('last successful data'));
+ assert(el('liveMetricMonitor').textContent.includes('Choose folder again'));
+ assert.equal(el('liveMetricTime').textContent,'11 / NaN s');
+ harness.renderLiveSnapshot(harness.liveLogEvidence({...good,logBytes:2500},snap,now+11000));
+ assert.equal(el('liveRunState').textContent,'RECENT LOG ACTIVITY');
+ assert.equal(el('liveMetricMonitor').textContent,'5 s monitor');
+});
+
 console.log('Watch Run desktop monitoring regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
