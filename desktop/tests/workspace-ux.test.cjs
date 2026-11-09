@@ -159,6 +159,49 @@ test('views A through D keep presentation names without replacing scientific lab
   ])assert(ux.includes(token),'Missing safe view-name token: '+token);
 });
 
+test('Field comparison status never labels absent times as zero or unavailable frames as synchronized',()=>{
+  const start=ux.indexOf('function uxMeasuredTime('),stop=ux.indexOf('async function uxApplyState(',start);
+  assert(start>=0&&stop>start,'Original comparison badge controller must expose measured-time guard');
+  const bar={innerHTML:'',classList:{toggle(){}}};
+  const controls={uxComparisonStatus:bar,fcEnabled:{checked:true},fcSync:{value:'exact'},
+    fcDifference:{checked:true},fcDifferenceMode:{value:'signed'},fcLinkCameras:{checked:true},fcSyncVisuals:{checked:true}};
+  const document={getElementById:id=>controls[id]||null};
+  const primary={time:null},compare={sync:null};
+  let language='en';
+  const controller=new Function('document','uxUi','uxNames','uxEsc','fvState','fcState',
+    'fvCase','fcCase','fcSameQuantity','fcCamerasLinked','fcVisualsSynced',
+    ux.slice(start,stop)+';return {uxTimeText,uxUpdateComparisonStatus};')(
+    document,(en,es)=>language==='es'?es:en,()=>({1:'A',2:'B'}),String,
+    primary,compare,()=>({name:'Case A'}),()=>({name:'Case B'}),()=>true,()=>true,()=>true);
+  for(const missing of [null,'',false,undefined,NaN,'Infinity','0x10']){
+    assert.equal(controller.uxTimeText(missing),'—','Missing physical time must not appear as t=0');
+  }
+  assert.equal(controller.uxTimeText(0),'0 s');
+  assert.equal(controller.uxTimeText('0'),'0 s');
+  controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Case A · —'),'Primary without frame cannot claim t=0');
+  assert(bar.innerHTML.includes('Not synchronized'),'Empty compare cannot claim Nearest');
+  assert(bar.innerHTML.includes('No frame'),'Δ mode cannot claim computed data with no synchronized frame');
+  compare.sync={ok:false,time:0.25,delta:0.25,exact:false};
+  controller.uxUpdateComparisonStatus();
+  assert(!bar.innerHTML.includes('Nearest'),'Failed Exact-only sync cannot be presented as nearest');
+  compare.sync={ok:true,time:0.6,delta:-0.4,exact:false};
+  controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Nearest'),'Valid nearest synchronization must remain visible');
+  assert(!bar.innerHTML.includes('No frame'),'Valid difference mode no longer reports missing frame');
+  compare.sync={ok:true,time:0,exact:true};
+  controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Exact'),'Measured t=0 must be valid exact synchronization');
+  compare.sync={ok:true,time:0.25,interpolated:true,lowerTime:0,upperTime:1};
+  controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Interpolated')&&bar.innerHTML.includes('0 s↔1 s'));
+  compare.sync={ok:true,time:0.25,interpolated:true,lowerTime:null,upperTime:1};
+  controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Not synchronized'),'Invalid interpolation bounds may not claim frames');
+  language='es';controller.uxUpdateComparisonStatus();
+  assert(bar.innerHTML.includes('Sin sincronizar')&&bar.innerHTML.includes('Sin frame'));
+});
+
 test('comparison status remains synchronized after the workspace refactor',()=>{
   for(const token of [
     'uxComparisonStatus','fcSameQuantity','fcCamerasLinked','fcVisualsSynced',
