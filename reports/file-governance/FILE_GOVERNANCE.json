@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "9a878b7590c23e753a1b769ec6a3a4aeabb4cab54cfc1b3adb37589add5e5bb7",
+  "inventory_fingerprint": "173a7d514406e28e2063e7e38477183e1d909784a8584221acd5ae4dcc80d78a",
   "evidence_fingerprint": "ad0587a8bfe1611215813cc40321e17c5d51098ed96eba9761bd790ee226fae8",
   "files": [
     {
@@ -1056,7 +1056,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f24cf9e135b9535a7e37686c7352895c6b99f59e"
+      "blob": "e5aedd0b293062726adbef7996c46cc49547e98d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
@@ -1252,7 +1252,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "efc6732cca17a842ac11c8463de4b3363b8f53f0"
+      "blob": "45c163a36d64ff175a675e043a196435b5553f16"
     },
     {
       "path": "desktop/tests/capability-ui.test.cjs",
