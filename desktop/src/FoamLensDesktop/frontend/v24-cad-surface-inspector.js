@@ -226,6 +226,120 @@ function cgVisibleRegionBatch(models){
   files.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'});
   return {files,manifest,topologyWarnings}
 }
+
+// Only FoamLens' own uncompressed, CRC-checked ZIP STORE format is accepted.
+// This does not silently import arbitrary compressed archives or project files.
+function cgReadStoredZip(input){
+  const bytes=input instanceof ArrayBuffer?new Uint8Array(input):
+    ArrayBuffer.isView(input)?new Uint8Array(input.buffer,input.byteOffset,input.byteLength):null;
+  if(!bytes||bytes.length<22||bytes.length>128*1024*1024)
+    throw Error('Invalid ZIP archive size (limit 128 MiB)');
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),end=bytes.length-22;
+  if(dv.getUint32(end,true)!==0x06054b50||dv.getUint16(end+20,true)!==0)
+    throw Error('Only FoamLens ZIP files without comments are supported');
+  const count=dv.getUint16(end+10,true),directoryLength=dv.getUint32(end+12,true),
+    directoryAt=dv.getUint32(end+16,true);
+  if(count<2||count>1001||dv.getUint16(end+8,true)!==count||
+     dv.getUint16(end+4,true)!==0||dv.getUint16(end+6,true)!==0||
+     directoryAt> end||directoryLength> end-directoryAt||
+     directoryAt+directoryLength!==end)
+    throw Error('ZIP central directory is invalid or unsupported');
+  const decoder=new TextDecoder('utf-8',{fatal:true}),seen=new Set(),files=[];
+  let central=directoryAt,local=0;
+  for(let i=0;i<count;i++){
+    if(central+46>end||dv.getUint32(central,true)!==0x02014b50)
+      throw Error('Missing or truncated ZIP central entry');
+    const flags=dv.getUint16(central+8,true),method=dv.getUint16(central+10,true);
+    const crc=dv.getUint32(central+16,true),size=dv.getUint32(central+20,true),
+      unpacked=dv.getUint32(central+24,true),nameLength=dv.getUint16(central+28,true),
+      extra=dv.getUint16(central+30,true),comment=dv.getUint16(central+32,true),
+      localOffset=dv.getUint32(central+42,true);
+    if(flags!==0||method!==0||size!==unpacked||size>100*1024*1024||
+       extra!==0||comment!==0||localOffset!==local||nameLength<1||
+       central+46+nameLength>end||local+30+nameLength>directoryAt)
+      throw Error('Compressed or irregular ZIP entries are not supported');
+    const name=decoder.decode(bytes.subarray(central+46,central+46+nameLength));
+    if(!/^[\x20-\x7e]+$/.test(name)||name.startsWith('/')||
+       name.includes('..')||name.includes('\\')||seen.has(name))
+      throw Error('Unsafe or duplicated ZIP entry');
+    seen.add(name);
+    if(dv.getUint32(local,true)!==0x04034b50||
+       dv.getUint16(local+6,true)!==0||dv.getUint16(local+8,true)!==0||
+       dv.getUint32(local+14,true)!==crc||
+       dv.getUint32(local+18,true)!==size||dv.getUint32(local+22,true)!==size||
+       dv.getUint16(local+26,true)!==nameLength||dv.getUint16(local+28,true)!==0)
+      throw Error('ZIP local header differs from central entry');
+    const localName=decoder.decode(bytes.subarray(local+30,local+30+nameLength));
+    if(localName!==name||size>directoryAt-(local+30+nameLength))
+      throw Error('ZIP payload is truncated or mismatched');
+    const data=bytes.subarray(local+30+nameLength,local+30+nameLength+size);
+    if(cgCrc32(data)!==crc)throw Error('ZIP CRC-32 mismatch for '+name);
+    files.push({name,data});
+    local+=30+nameLength+size;
+    central+=46+nameLength
+  }
+  if(central!==end||local!==directoryAt)
+    throw Error('Unexpected ZIP content or byte offsets');
+  return files
+}
+function cgRestoreRegionBatch(input){
+  const files=cgReadStoredZip(input),byName=new Map(files.map(x=>[x.name,x.data]));
+  if(!byName.has('manifest.json'))throw Error('FoamLens CAD package needs manifest.json');
+  const decoder=new TextDecoder('utf-8',{fatal:true});
+  const manifest=JSON.parse(decoder.decode(byName.get('manifest.json')));
+  if(manifest?.schema!=='foamlens/cad-batch-surfaces/1'||!Array.isArray(manifest.regions)||
+     manifest.regions.length<1||manifest.regions.length>1000||
+     manifest.regionCount!==manifest.regions.length||
+     manifest.openFoamCaseMutated!==false||
+     manifest.regions.length+1!==files.length)
+    throw Error('Invalid FoamLens CAD export manifest');
+  const models=[];let triangleCount=0;const paths=new Set();
+  for(const region of manifest.regions){
+    const file=region?.outputFile,part=region?.part;
+    if(typeof file!=='string'||!/^surfaces\/[a-zA-Z0-9_.-]+\.stl$/.test(file)||
+       !byName.has(file)||paths.has(file)||typeof part!=='string'||
+       !part.trim()||part.length>120||region.outputCoordinates!=='meters')
+      throw Error('Invalid or duplicate region provenance in manifest');
+    paths.add(file);
+    const scale=cgUnitScale(region.sourceUnitConfirmedByUser);
+    if(!scale||region.sourceToMeterScale!==scale)
+      throw Error('Missing or conflicting original source units');
+    const data=byName.get(file),parsed=cgParseStl(data.buffer.slice(
+      data.byteOffset,data.byteOffset+data.byteLength),file);
+    if(parsed.format!=='binary-stl')throw Error('FoamLens region must be binary STL');
+    const count=parsed.triangles.length;
+    if(region.sourceTopology?.triangles!==count)throw Error('Region triangle count differs from manifest');
+    triangleCount+=count;
+    if(triangleCount>300000)throw Error('CAD import exceeds 300000 triangle preview limit');
+    // The archive contains coordinates already in meters. Retaining the
+    // manifest's *original* source unit is provenance, never a second scaling.
+    for(const triangle of parsed.triangles)triangle.part=part;
+    const summary=cgSummary(parsed.triangles);
+    if(Array.isArray(region.boundsMeters)&&region.boundsMeters.length===3){
+      for(let k=0;k<3;k++){
+        const expected=Number(region.boundsMeters[k]);
+        if(!Number.isFinite(expected)||Math.abs(summary.bounds.size[k]-expected)>
+           Math.max(1e-7,Math.abs(expected)*1e-5))
+          throw Error('Region dimensions differ from the manifest in meters')
+      }
+    }
+    models.push({
+      name:String(region.sourceFile||file).slice(0,180)+' / '+part,
+      bytes:data.byteLength,format:'foamlens-zip-binary-stl',
+      triangles:parsed.triangles,summary,
+      partSummaries:new Map([[part,summary]]),
+      partsVisible:new Map([[part,true]]),
+      warnings:['Reimported from FoamLens ZIP. Coordinates are meters as declared in the export manifest; original '+region.sourceUnitConfirmedByUser+' units are provenance, not independently verified.'],
+      unit:'m',visible:true,
+      sourceProvenance:{sourceFile:String(region.sourceFile||''),part,
+        originalUnit:region.sourceUnitConfirmedByUser,
+        originalToMeterScale:scale,archivePath:file}
+    })
+  }
+  if(manifest.triangleCount!==triangleCount)
+    throw Error('Total region triangles differ from manifest');
+  return {models,manifest}
+}
 /* FOAMLENS_CAD_CORE_END */
 
 function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
