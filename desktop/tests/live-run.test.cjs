@@ -35,7 +35,7 @@ test('Watch Run explains minimized desktop monitoring and links to Numerical Per
 const evidenceStart=index.indexOf('const LIVE_STALE_MS=');
 const renderStart=index.indexOf('function renderLiveSnapshot(snapshot){',evidenceStart);
 assert(evidenceStart>=0&&renderStart>evidenceStart);
-const sourceModel=new Function(index.slice(evidenceStart,renderStart)+';return {LIVE_STALE_MS,liveLogEvidence,liveRunState}')();
+const sourceModel=new Function(index.slice(evidenceStart,renderStart)+';return {LIVE_STALE_MS,liveLogEvidence,liveRunState,liveReadFailure}')();
 const now=1700000000000;
 const base={folderName:'B3',logName:'log.icoFoam',logBytes:2100,logModifiedAt:now-120000,failed:false,ended:false};
 
