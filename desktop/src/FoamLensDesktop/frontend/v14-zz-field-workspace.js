@@ -73,7 +73,7 @@ function fwCreateSurface(){
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
-          <button class="btn" id="fwInspectorToggle" type="button" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
+          <button class="btn" id="fwInspectorToggle" type="button" aria-controls="fwControlsDrawer" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
         </div>
       </div>
       <div class="fwWorkspaceBar">
@@ -149,7 +149,10 @@ function fwCreateSurface(){
     if(fwState.syncTime)fwSyncCompanionTime(fvState?.time);
   });
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
-  document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false));
+  document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false,true));
+  document.getElementById('fwControlsDrawer')?.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&fwState.inspector){e.preventDefault();e.stopPropagation();fwSetInspector(false,true)}
+  });
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
   document.getElementById('fwTimeNext')?.addEventListener('click',()=>fwTimeStep(1));
   document.getElementById('fwTimePlay')?.addEventListener('click',()=>fwTimeState.playing?fwTimeStop():fwTimePlay());
@@ -232,9 +235,11 @@ function fwSetLayout(layout){
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
   fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.layout!=='3d'})
 }
-function fwSetInspector(open){
+function fwSetInspector(open,returnFocus=false){
   fwMountContextSidebar();fwState.inspector=!!open;const drawer=document.getElementById('fwControlsDrawer'),toggle=document.getElementById('fwInspectorToggle');
-  drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false')
+  if(!fwState.inspector&&drawer?.contains(document.activeElement))returnFocus=true;
+  drawer?.classList.toggle('hidden',!fwState.inspector);drawer?.setAttribute('aria-hidden',fwState.inspector?'false':'true');toggle?.setAttribute('aria-expanded',fwState.inspector?'true':'false');
+  if(!fwState.inspector&&returnFocus&&fwState.active)toggle?.focus()
 }
 function fwActivateView(view){
   // Field's primary tab remains 3D. The optional companion uses its own
