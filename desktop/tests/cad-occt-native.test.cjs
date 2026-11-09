@@ -28,11 +28,13 @@ const start=js.indexOf('function cgPrepareSurface(');
 const end=js.indexOf('function cgExport(){',start);
 assert(start>0&&end>start);
 const component=js.slice(start,end);
-function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100}={}){
+function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100,deferRead=false}={}){
  const models=[],messages=[],notes=[],listeners=new Set();
  const name='assembly.'+fileExt;
+ let releaseRead=null;
  const file={name,size:fileSize,
-  async arrayBuffer(){const data=new Uint8Array(100);
+  async arrayBuffer(){if(deferRead)await new Promise(resolve=>{releaseRead=resolve});
+   const data=new Uint8Array(100);
    data.set(Buffer.from('ISO-10303-21;'));return data.buffer}
  };
  const elements=new Map([
@@ -80,7 +82,8 @@ function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100
    raw=>Buffer.from(raw,'binary').toString('base64'),
    b64=>Buffer.from(b64,'base64').toString('binary'),
    setTimeout,clearTimeout);
- return {api,models,messages,notes,listeners,elements,webview}
+ return {api,models,messages,notes,listeners,elements,webview,
+  releaseRead:()=>{if(releaseRead)releaseRead();else throw Error('read was not pending')}}
 }
 (async()=>{
  const x=makeHarness();
@@ -142,6 +145,16 @@ function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100
  assert(cancelled.messages.some(m=>m.type==='cancelOperation'));
  assert.equal(cancelled.listeners.size,0);
  assert.equal(cancelled.elements.get('cgImport').disabled,false);
+ const canceledDuringRead=makeHarness({deferRead:true});
+ const reading=canceledDuringRead.api.cgImport();
+ canceledDuringRead.api.cgCancelBrepImport();
+ canceledDuringRead.releaseRead();
+ await reading;
+ assert.equal(canceledDuringRead.models.length,0,
+  'cancel during file read must never add any geometry');
+ assert(!canceledDuringRead.messages.some(m=>m.type==='convertCadBrep'),
+  'cancel during file read must not start the native CAD process');
+ assert.equal(canceledDuringRead.elements.get('cgImport').disabled,false);
 
  assert(host.includes('case "convertCadBrep":'));
  assert(host.includes('NativeCadOcctConverter.ConvertAsync('));
