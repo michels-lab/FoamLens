@@ -682,6 +682,7 @@ function cgBrepModels(report,sourceFile,sourceBytes,format){
 async function cgConvertBrepFile(file,format){
   const deflection=Number(document.getElementById('cgCadDeflection')?.value||0.5);
   const bytes=new Uint8Array(await file.arrayBuffer());
+  if(cgBrepCancelled)throw Error('CAD import cancelled before native conversion.');
   const task=cgBrepRequest(bytes,format,deflection);
   cgBrepCancel=task.cancel;
   cgShow(cgUi('Running installed FreeCAD/OCCT on a temporary BREP copy; no case modifications.',
