@@ -5,6 +5,13 @@
 const KEY='foamlens.granada.g23.analysis-focus.v1';
 const SPLIT_KEY='foamlens.granada.analysis-results-width.v1';
 const TABS=['timeSeriesTab','profileTab','logTab','catalogTab'];
+const ANALYSIS_CONTEXT={
+ couplingDiagnostics:{case:'diagCase',region:null,variable:'diagRoot',route:'coupling'},
+ phaseFrontPanel:{case:null,region:null,variable:null,route:'front'},
+ generalAnalysisTools:{case:null,region:null,variable:null,route:'general'},
+ fieldMappingTools:{case:'pmMappingCase',region:null,variable:'pmMappingRows',route:'mapping'},
+ phaseMomentumTools:{case:'pmCase',region:'pmRegion',variable:'pmStatsField',route:'phaseMomentum'}
+};
 const MODULES=[
   ['generalAnalysisTools','General analysis','Análisis general'],
   ['couplingDiagnostics','Coupling diagnostics','Diagnóstico de acoplamiento'],
@@ -48,6 +55,14 @@ function applyStyle(){
 '.flG23GuideSearch :is(input,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
 '.flG23GuideEmpty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}',
 '.flG23GuideEmpty[hidden],.flG23Jump[hidden]{display:none!important}',
+'.flG23Context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-top:1px solid var(--line);padding-top:9px}',
+'.flG23ContextBtn{min-height:38px;min-width:0;text-align:left;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);padding:6px 8px;font-size:11px;overflow-wrap:anywhere}',
+'.flG23ContextBtn:disabled{opacity:.55;cursor:not-allowed}',
+'.flG23ContextBtn:focus-visible,.flG23UseGlobalCase:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
+'.flG23ContextValue{font-weight:700;display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}',
+'.flG23UseGlobalCase{grid-column:1/-1;min-height:34px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--accentSoft);color:var(--text);font-size:11px;font-weight:700}',
+'.flG23ContextStatus{grid-column:1/-1;font-size:11px;line-height:1.5;margin:0;color:var(--muted)}',
+'@media(max-width:400px){.flG23Context{grid-template-columns:minmax(0,1fr)}}',
 '.flG23AnalysisSplitter{display:none;min-width:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;cursor:col-resize;touch-action:none;position:relative;align-self:stretch}',
 '.flG23AnalysisSplitter::before{content:"";position:absolute;top:calc(50% - 22px);left:calc(50% - 1px);width:2px;height:44px;border-radius:2px;background:var(--muted)}',
 '.flG23AnalysisSplitter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
@@ -82,6 +97,12 @@ function restore(){try{const x=localStorage.getItem(KEY);return MODULES.some(m=>
 function selectAnalysis(id,options={}){
  const n=$(id);if(!MODULES.some(m=>m[0]===id)||!available(n))return false;
  state.selected=id;persist(id);
+ // The ORIGINAL Analysis route selects the right Data plot for diagnostics
+ // and front tracking. Previously the navigator focused controls while the
+ // old, unrelated plot remained visible. Never duplicate plot controllers.
+ const route=ANALYSIS_CONTEXT[id]?.route;
+ if(route&&typeof openAnalysisModule==='function'&&options.activatePlot!==false)
+   openAnalysisModule(route);
  if(n.tagName==='DETAILS')n.open=true;
  n.scrollIntoView?.({block:'nearest',behavior:'auto'});
  if(options.focus!==false){
@@ -149,6 +170,87 @@ function g23Match(text,query){
   const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim();
   return normalize(text).includes(normalize(query))
 }
+// Case/Region/Variable actions focus ORIGINAL input elements. A module's
+// missing source capability stays missing: no synthetic selectors or values.
+function g23NativeContextControl(moduleId,kind){
+ const module=$(moduleId),rule=ANALYSIS_CONTEXT[moduleId];
+ if(!module||!rule||!available(module))return null;
+ const targetId=rule[kind];if(!targetId)return null;
+ const control=targetId==='pmMappingRows'?
+   $('pmMappingRows')?.querySelector('select[data-pm-role]'):$(targetId);
+ return control&&module.contains(control)&&!control.disabled?control:null
+}
+function g23ControlValue(control){
+ if(!control)return tr('Not available','No disponible');
+ const selected=control.selectedOptions?.[0];
+ return String(selected?.textContent||control.value||tr('Not selected','Sin seleccionar')).trim()
+}
+function g23FocusNativeContext(kind){
+ if(!state.selected)return false;
+ const control=g23NativeContextControl(state.selected,kind);
+ if(!control)return false;
+ const module=$(state.selected);
+ if(module?.tagName==='DETAILS')module.open=true;
+ control.scrollIntoView?.({block:'nearest',behavior:'auto'});
+ control.focus?.({preventScroll:true});
+ return true
+}
+function g23GlobalCaseChoice(){
+ const global=$('globalCaseSelect');return String(global?.value||'')
+}
+function g23CanApplyGlobalCase(){
+ const target=state.selected&&g23NativeContextControl(state.selected,'case');
+ const choice=g23GlobalCaseChoice();
+ return !!target&&!!choice&&[...(target.options||[])].some(option=>String(option.value)===choice)
+}
+function g23ApplyGlobalCase(){
+ if(!g23CanApplyGlobalCase())return false;
+ const select=g23NativeContextControl(state.selected,'case');
+ const value=g23GlobalCaseChoice();
+ if(String(select.value)!==value){
+   select.value=value;
+   // Source-owned change listeners rebuild dependent fields and regions;
+   // never write the corresponding scientific model directly.
+   select.dispatchEvent(new Event('change',{bubbles:true}))
+ }
+ const region=g23NativeContextControl(state.selected,'region');
+ const selectedRegion=String($('globalRegionSelect')?.value||'');
+ if(region&&selectedRegion&&[...(region.options||[])].some(o=>String(o.value)===selectedRegion)&&region.value!==selectedRegion){
+   region.value=selectedRegion;
+   region.dispatchEvent(new Event('change',{bubbles:true}))
+ }
+ g23FocusNativeContext('case');
+ refresh();
+ return true
+}
+function g23UpdateContext(){
+ const context=$('flG23AnalysisContext');if(!context)return;
+ const selected=state.selected;
+ const active=!!selected&&available($(selected));
+ context.hidden=!active;
+ for(const [kind,en,es] of [['case','Case','Caso'],['region','Region','Región'],['variable','Variable','Variable']]){
+   const button=$('flG23Context-'+kind);if(!button)continue;
+   const control=active?g23NativeContextControl(selected,kind):null;
+   button.disabled=!control;
+   const header=tr(en,es),value=g23ControlValue(control);
+   button.textContent=header+': ';
+   if(control){
+     const span=document.createElement('span');span.className='flG23ContextValue';span.textContent=value;
+     button.appendChild(span)
+   }else button.textContent=header+': '+value;
+   button.title=control?tr('Focus original '+en.toLowerCase()+' selector','Ir al selector original de '+es.toLowerCase()):
+     tr('This module does not provide this selector','Este módulo no dispone de este selector')
+ }
+ const apply=$('flG23UseGlobalCase');if(apply){
+   apply.disabled=!g23CanApplyGlobalCase();
+   apply.textContent=tr('Use selected project case in this analysis','Usar el caso del proyecto en este análisis')
+ }
+ const status=$('flG23ContextStatus');if(status){
+   status.textContent=g23CanApplyGlobalCase()?
+     tr('Apply changes only when you choose Use selected case.','Los cambios se aplican solo cuando eliges Usar el caso.'):
+     tr('Select a compatible project case above or use the original module controls.','Selecciona arriba un caso compatible o utiliza los controles originales del módulo.')
+ }
+}
 function updateAnalysis(){
  const host=$('flAnalysisOwnedHost');if(!host)return;
  let count=0,shown=0;
@@ -175,6 +277,7 @@ function updateAnalysis(){
    empty.textContent=count?tr('No tools match. Clear search or turn off Available only.','No coinciden herramientas. Borra la búsqueda o desactiva Solo disponibles.'):
      tr('No original analysis modules are available. Import a compatible OpenFOAM case.','No hay módulos de análisis originales disponibles. Importa un caso OpenFOAM compatible.');
  }
+ g23UpdateContext();
  const status=$('flG23GuideStatus');
  if(status)status.textContent=count?tr('Available original modules: ','Módulos originales disponibles: ')+count+
    ' · '+shown+' '+tr('shown','visibles'):
@@ -192,6 +295,7 @@ function labels(){
  }
  const clear=$('flG23SearchClear');if(clear)clear.textContent=tr('Clear','Borrar');
  const only=$('flG23AvailableOnly');if(only)only.textContent=tr('Available only','Solo disponibles');
+ g23UpdateContext();
  const separator=$('flG23AnalysisSplitter');if(separator){
    separator.setAttribute('aria-label',tr('Resize chart and detected series','Cambiar tamaño de gráfica y series detectadas'));
    separator.title=tr('Drag or use arrow keys to resize the original Analysis plot and series','Arrastra o usa flechas para redimensionar la gráfica y las series originales');
@@ -250,11 +354,26 @@ function install(){
     button.appendChild(document.createElement('small'));
     button.addEventListener('click',()=>selectAnalysis(id));nav.appendChild(button)
   }
+  const context=document.createElement('div');context.id='flG23AnalysisContext';context.className='flG23Context';context.hidden=true;
+  for(const kind of ['case','region','variable']){
+    const control=document.createElement('button');control.id='flG23Context-'+kind;control.className='flG23ContextBtn';
+    control.type='button';control.disabled=true;control.addEventListener('click',()=>g23FocusNativeContext(kind));context.appendChild(control)
+  }
+  const apply=document.createElement('button');apply.id='flG23UseGlobalCase';apply.className='flG23UseGlobalCase';
+  apply.type='button';apply.disabled=true;apply.addEventListener('click',g23ApplyGlobalCase);context.appendChild(apply);
+  const ctxStatus=document.createElement('p');ctxStatus.id='flG23ContextStatus';ctxStatus.className='flG23ContextStatus';
+  ctxStatus.setAttribute('role','status');context.appendChild(ctxStatus);guide.appendChild(context);
   const empty=document.createElement('p');empty.id='flG23GuideEmpty';empty.className='flG23GuideEmpty';empty.hidden=true;
   empty.setAttribute('role','status');guide.appendChild(empty);
   const status=document.createElement('p');status.id='flG23GuideStatus';status.className='flG23GuideStatus';
   status.setAttribute('role','status');guide.appendChild(status);
   host.prepend(guide);
+  host.addEventListener('change',event=>{
+    if(event.target?.closest?.('#flG23AnalysisContext'))return;
+    refresh()
+  });
+  for(const id of ['globalCaseSelect','globalRegionSelect'])
+    $(id)?.addEventListener('change',refresh);
   search.addEventListener('input',()=>{state.query=search.value;refresh()});
   search.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&state.query){event.preventDefault();state.query='';search.value='';refresh()}
@@ -290,7 +409,7 @@ function install(){
  state.installed=true;document.body.classList.add('flG23Ready');
  // Open import tools once for discoverability; subsequent user collapse is respected.
  if(mode()==='data'){const importer=$('dataImportMore');if(importer)importer.open=true;}
- window.FoamLensGranadaG23={isInstalled:()=>state.installed,focusModule:selectAnalysis,refresh,audit};
+ window.FoamLensGranadaG23={isInstalled:()=>state.installed,focusModule:selectAnalysis,focusContext:g23FocusNativeContext,applyGlobalCase:g23ApplyGlobalCase,refresh,audit};
  labels();refresh();return true
 }
 if(!install()){
