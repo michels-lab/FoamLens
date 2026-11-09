@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findings: 1.
+Tracked: 495; classified: 491; readable documents: 105; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -20,15 +20,15 @@ Tracked: 493; classified: 489; readable documents: 105; above read cap: 1; findi
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
-| source | 149 |
-| test | 133 |
+| source | 150 |
+| test | 134 |
 | text_metadata | 1 |
 | web_ui | 2 |
 | workflow | 64 |
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 19 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 3b16395e851a034a)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 24 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/cad-surface-fast.yml, desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID a0bc49b4ef58dea5)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
