@@ -3,6 +3,7 @@
 (function(){
 'use strict';
 const KEY='foamlens.granada.g23.analysis-focus.v1';
+const SPLIT_KEY='foamlens.granada.analysis-results-width.v1';
 const TABS=['timeSeriesTab','profileTab','logTab','catalogTab'];
 const MODULES=[
   ['generalAnalysisTools','General analysis','Análisis general'],
@@ -47,6 +48,11 @@ function applyStyle(){
 '.flG23GuideSearch :is(input,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
 '.flG23GuideEmpty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}',
 '.flG23GuideEmpty[hidden],.flG23Jump[hidden]{display:none!important}',
+'.flG23AnalysisSplitter{display:none;min-width:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;cursor:col-resize;touch-action:none;position:relative;align-self:stretch}',
+'.flG23AnalysisSplitter::before{content:"";position:absolute;top:calc(50% - 22px);left:calc(50% - 1px);width:2px;height:44px;border-radius:2px;background:var(--muted)}',
+'.flG23AnalysisSplitter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
+'@media(min-width:1161px){body.flG23Ready.appMode-analysis #workspace{grid-template-columns:minmax(0,1fr) 8px minmax(260px,var(--flG23AnalysisSeriesWidth,360px));column-gap:7px}body.flG23Ready.appMode-analysis #workspace>.flG23AnalysisSplitter{display:block}}',
+'@media(min-width:1025px) and (max-width:1160px){body.flG23Ready.appMode-analysis #workspace{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(390px,1fr) minmax(130px,260px)!important;overflow-y:auto!important;overflow-x:hidden!important}body.flG23Ready.appMode-analysis #workspace>.plotcard{min-height:390px}body.flG23Ready.appMode-analysis #workspace>#seriesPanel{min-height:130px;overflow:auto}}',
 '@media(max-width:550px){.flG23GuideSearch{grid-template-columns:minmax(0,1fr) auto}.flG23GuideSearch #flG23AvailableOnly{grid-column:1 / -1}}',
 '.flG23Jump{display:flex;min-width:0;min-height:36px;align-items:center;justify-content:space-between;gap:6px;text-align:left;padding:7px 9px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px;font-size:10px;font-weight:730;overflow-wrap:anywhere}',
 '.flG23Jump small{flex:0 0 auto;font-size:9px;color:var(--muted)}',
@@ -83,6 +89,60 @@ function selectAnalysis(id,options={}){
    n.focus?.({preventScroll:true});
  }
  refresh();
+ return true
+}
+// Only presentation width is persisted; the ORIGINAL plot, list, case,
+// region, source selection and plotting handlers stay untouched.
+function g23BoundSeriesWidth(raw,containerWidth){
+ const requested=Number(raw),width=Number.isFinite(requested)&&requested>0?requested:360;
+ const outer=Number(containerWidth);
+ const maximum=Math.max(260,Math.min(560,Number.isFinite(outer)&&outer>0?outer-520:560));
+ return Math.max(260,Math.min(maximum,Math.round(width)))
+}
+function g23InstallResultSplitter(){
+ const workspace=$('workspace'),plot=workspace?.querySelector('.plotcard'),series=$('seriesPanel');
+ if(!workspace||!plot||!series||series.parentElement!==workspace)return false;
+ if($('flG23AnalysisSplitter'))return true;
+ const handle=document.createElement('div');handle.id='flG23AnalysisSplitter';
+ handle.className='flG23AnalysisSplitter';handle.tabIndex=0;
+ handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');
+ handle.setAttribute('aria-valuemin','260');handle.setAttribute('aria-valuemax','560');
+ handle.setAttribute('aria-label',tr('Resize chart and detected series','Cambiar tamaño de gráfica y series detectadas'));
+ handle.title=tr('Drag or use arrow keys to resize the original Analysis plot and series','Arrastra o usa flechas para redimensionar la gráfica y las series originales');
+ plot.insertAdjacentElement('afterend',handle);
+ let size=360,drag=null;
+ try{size=g23BoundSeriesWidth(localStorage.getItem(SPLIT_KEY),workspace.getBoundingClientRect().width)}catch{}
+ function width(next,save=false){
+   size=g23BoundSeriesWidth(next,workspace.getBoundingClientRect().width);
+   workspace.style.setProperty('--flG23AnalysisSeriesWidth',size+'px');
+   handle.setAttribute('aria-valuenow',String(size));
+   if(save)try{localStorage.setItem(SPLIT_KEY,String(size))}catch{}
+   return size
+ }
+ function refreshPlot(){if(typeof draw==='function')requestAnimationFrame(()=>{if(mode()==='analysis')draw()})}
+ width(size);
+ handle.addEventListener('keydown',event=>{
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+   event.preventDefault();
+   const next=event.key==='Home'?260:event.key==='End'?560:
+     size+(event.key==='ArrowLeft'?24:-24);
+   width(next,true);refreshPlot()
+ });
+ handle.addEventListener('pointerdown',event=>{
+   if(event.button!==undefined&&event.button!==0)return;
+   drag={x:event.clientX,width:size};
+   event.preventDefault?.()
+ });
+ window.addEventListener('pointermove',event=>{
+   if(!drag)return;
+   width(drag.width+drag.x-event.clientX)
+ });
+ const stop=()=>{
+   if(!drag)return;
+   drag=null;width(size,true);refreshPlot()
+ };
+ window.addEventListener('pointerup',stop);
+ window.addEventListener('pointercancel',stop);
  return true
 }
 function g23Match(text,query){
@@ -132,6 +192,10 @@ function labels(){
  }
  const clear=$('flG23SearchClear');if(clear)clear.textContent=tr('Clear','Borrar');
  const only=$('flG23AvailableOnly');if(only)only.textContent=tr('Available only','Solo disponibles');
+ const separator=$('flG23AnalysisSplitter');if(separator){
+   separator.setAttribute('aria-label',tr('Resize chart and detected series','Cambiar tamaño de gráfica y series detectadas'));
+   separator.title=tr('Drag or use arrow keys to resize the original Analysis plot and series','Arrastra o usa flechas para redimensionar la gráfica y las series originales');
+ }
  for(const [id,en,es] of MODULES){const label=$('flG23Label-'+id);if(label)label.textContent=tr(en,es)}
  updateData();updateAnalysis()
 }
@@ -161,6 +225,7 @@ function install(){
  const {tabs,card}=getDataElements(),host=$('flAnalysisOwnedHost');
  if(!tabs||!card||!host||!$('flAnalysisInspectorCard'))return false;
  applyStyle();
+ g23InstallResultSplitter();
  if(!$('flG23DataStatus')){
   const note=document.createElement('p');note.id='flG23DataStatus';
   note.className='flG23Status';note.setAttribute('role','status');
