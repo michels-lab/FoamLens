@@ -644,6 +644,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/cad-surface-inspector.test.cjs
 
+      - name: Test original CAD native surfaceCheck request, cancellation and permission gates
+        shell: pwsh
+        run: node desktop/tests/cad-native-surfacecheck.test.cjs
+
       - name: Test Granada 2D/3D source-backed equivalent observables
         shell: pwsh
         run: node desktop/tests/equivalent-observables.test.cjs
