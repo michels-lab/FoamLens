@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 64
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "f8235a7913afad698a6cdf1a5d49fab90199f445cd42330319ee75724d6db090",
-  "evidence_fingerprint": "2a2d486c255c865763b8644c38f71919efa395dc8f0f582892a660b2a4308001",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "7bad4569a4a4c09e15340afe03e7586a194bc07ea2d86c162138f4b34f474661",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -958,7 +956,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "aca41a4df23c441d3541e791ea98513f950c69a1"
+      "blob": "e6f4f617bf25ce923b349b5b0145a260dff18a2d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1007,7 +1005,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d76e142a4e41f0592dc085e4dc28b41f903b8801"
+      "blob": "74d89558d91eb89530cd9623729a04082425d242"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v18-context-help-resize.js",
@@ -1420,7 +1418,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f0ca9d809441fc98504cc24f4aaf764aa451c966"
+      "blob": "bac81563bb028c0123be19eb855cdd2e273785d8"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -2001,7 +1999,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c7066aaafdc571a7abd429e779803d7306d8dafb"
+      "blob": "5b0ec36de43a2f2a0e2f403aca8a5311ba72be77"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
@@ -2106,7 +2104,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "c3249d448abef9beef9d7097ceea59acb6ec466c"
+      "blob": "9f05a54d757de356e99cd5fe8d9cbc6c40f14081"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3467,17 +3465,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "a0bc49b4ef58dea5",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "24 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/cad-surface-fast.yml, desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,

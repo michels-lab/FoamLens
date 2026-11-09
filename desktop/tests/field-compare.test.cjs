@@ -288,6 +288,25 @@ test('each 3D viewport keeps its own Probe selection and statistics table',()=>{
   assert(source.includes("document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled)"),'Legacy single-view statistics are not replaced by per-view tables during comparison.');
 });
 
+test('compare badges distinguish unresolved physical frames from real exact, nearest and interpolated times',()=>{
+  const start=source.indexOf('function fcSyncText(sync){'),stop=source.indexOf('const fcState=',start);
+  assert(start>0&&stop>start,'Source-owned temporal badge handler must exist');
+  const actual=source.slice(start,stop);
+  const english=new Function('fcUi','fcFmt',core+actual+';return fcSyncText;')((en,es)=>en,String);
+  const spanish=new Function('fcUi','fcFmt',core+actual+';return fcSyncText;')((en,es)=>es,String);
+  const noExact=api.fcResolveTime([0,1],0.25,'exact');
+  const outOfRange=api.fcResolveTime([0,1],2,'interpolate');
+  assert.equal(noExact.ok,false);assert.equal(outOfRange.ok,false);
+  assert.equal(english(null),'—');
+  assert.equal(english(noExact),'Not synchronized');
+  assert.equal(spanish(outOfRange),'Sin sincronizar');
+  assert.equal(english({ok:true,time:null,exact:true}),'Not synchronized');
+  assert.equal(english({ok:true,time:0.5,interpolated:true,lowerTime:null,upperTime:1}),'Not synchronized');
+  assert.equal(english(api.fcResolveTime([0,1],0,'exact')),'Exact');
+  assert(english(api.fcResolveTime([0,1],0.6,'nearest')).startsWith('Nearest'));
+  assert(english(api.fcResolveTime([0,1],0.25,'interpolate')).startsWith('Interpolated'));
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
