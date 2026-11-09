@@ -73,7 +73,7 @@ function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100
   'cgBinaryStl','cgRestoreRegionBatch','cgUnitScale','cgRenderInventory',
   'cgShow','cgUi','btoa','atob','setTimeout','clearTimeout',
   'const cgNativeCheckAvailable=()=>!!window.chrome?.webview?.postMessage;'+
-  component+';return {cgBrepModels,cgBrepRequest,cgBrepDecoded,cgImport,cgCancelBrepImport,'+
+  component+';return {cgBrepModels,cgBrepRequest,cgBrepDecoded,cgBrepRegionTriangleCountOk,cgImport,cgCancelBrepImport,'+
     'cgImportState:()=>cgBrepImportBusy}');
  const api=injector(models,doc,win,core.summary,core.parseStl,core.parseObj,core.binary,
    ()=>{throw Error('Unrelated ZIP import');},
@@ -87,6 +87,16 @@ function makeHarness({mode='valid',report=response(),fileExt='step',fileSize=100
 }
 (async()=>{
  const x=makeHarness();
+ // Regression: native OCCT permits 300k triangles in a single region;
+ // the previous browser guard silently rejected everything above 200k.
+ for(const valid of [1,200000,200001,250000,300000])
+  assert.equal(x.api.cgBrepRegionTriangleCountOk(valid),true,
+   'Native-valid per-solid triangle count must remain previewable: '+valid);
+ for(const invalid of [-1,0,300001,300002,NaN,Infinity,1.1,'300000',null])
+  assert.equal(x.api.cgBrepRegionTriangleCountOk(invalid),false,
+   'Invalid source count must be rejected without coercion: '+invalid);
+ assert(native.includes('private const int MaxTriangles = 300000'),
+  'JavaScript per-region limit must match native C# hard cap');
  await x.api.cgImport();
  assert.equal(x.models.length,2,'real native OCCT data populates original CAD inventory');
  assert.equal(x.models[0].triangles.length,1);
