@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "8148b745f63a05edf73820249ddaea0eccf35f4d5092d77cfa1afd7bd5f85048",
+  "inventory_fingerprint": "6ba2ba2617fcb5b70bdcb0a8e74fcad0473dc1e0437d058a5b33708b23fd7670",
   "evidence_fingerprint": "14009586f7753691de2a3646b54a51171e28ae6737fc0b6de91bf22b1b235fea",
   "files": [
     {
@@ -881,7 +881,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b4f80be6bc7c59b1881d6be26faea7a31996fa3f"
+      "blob": "2f7bc33fec27821027d5a11d1523aa8f23011fc1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1364,7 +1364,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ad7cddf9d469113a5babae5f8dabdb9bed0c8c13"
+      "blob": "2f482f29a55533c3a29a384900fdb6210a1de005"
     },
     {
       "path": "desktop/tests/dynamic-mesh.test.cjs",
