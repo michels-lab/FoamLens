@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "6ba2ba2617fcb5b70bdcb0a8e74fcad0473dc1e0437d058a5b33708b23fd7670",
-  "evidence_fingerprint": "14009586f7753691de2a3646b54a51171e28ae6737fc0b6de91bf22b1b235fea",
+  "inventory_fingerprint": "72260f81c8cb237f5e49593c89e034f963ecc0a4ebd315945dff96f3e0c58192",
+  "evidence_fingerprint": "02f7d071bac85a182fa5cff3a6f0ce795dd72051018bd8bf629d4ce8ac73de86",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1084,7 +1084,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5357ee72ecff196dbb2dcb583ca54b81dc76e158"
+      "blob": "dd254d87d329add119dfc1c4bd78552017ec9dfd"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g4-review-live.js",
@@ -1518,7 +1518,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "240fd6441739a76b1daf9910ad13a93f0266984d"
+      "blob": "73c3b77ee2772469add270382ddcd9664a5a3853"
     },
     {
       "path": "desktop/tests/granada-177-g4-review-live.spec.cjs",
@@ -3455,11 +3455,11 @@
   ],
   "findings": [
     {
-      "id": "b0ca25446a056683",
+      "id": "fe313f4507e76c4f",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "11 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/tests/dual-timeseries.test.cjs, desktop/tests/field-compare.test.cjs",
+      "observation": "13 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js, desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js, desktop/tests/dual-timeseries.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
