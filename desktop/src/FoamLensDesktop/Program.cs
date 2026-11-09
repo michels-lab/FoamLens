@@ -38,6 +38,12 @@ internal static class Program
             NativeCheckMeshFileHash.RunSelfTestAsync().GetAwaiter().GetResult();
             return;
         }
+        if (args.Any(arg => string.Equals(arg, "--cad-occt-self-test",
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCadOcctConverter.SelfTest();
+            return;
+        }
         if (args.Any(arg => string.Equals(arg, "--cad-surfacecheck-self-test",
                 StringComparison.OrdinalIgnoreCase)))
         {
@@ -3805,6 +3811,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "readSlice":
                     await HandleReadSliceAsync(root, requestId);
                     break;
+                case "convertCadBrep":
+                    await HandleConvertCadBrepAsync(root, requestId);
+                    break;
                 case "runCadSurfaceCheck":
                     await HandleRunCadSurfaceCheckAsync(root, requestId);
                     break;
@@ -4012,6 +4021,50 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             // Cancellation after folderComplete may skip optional catalog persistence,
             // but must not retract the already delivered, valid file listing.
+        }
+    }
+
+    private async Task HandleConvertCadBrepAsync(JsonElement root, string requestId)
+    {
+        // Native owns the executable, script and paths. The browser supplies
+        // only a bounded BREP byte stream, an allowlisted format and deflection.
+        var format = RequiredString(root, "format");
+        var base64 = RequiredString(root, "cadBase64");
+        double deflection = root.TryGetProperty("deflectionMm", out var tolerance)
+            ? tolerance.GetDouble() : 0.5;
+        var operation = BeginOperation(requestId);
+        try
+        {
+            var converted = await NativeCadOcctConverter.ConvertAsync(
+                format, base64, deflection, operation.Token);
+            Reply(requestId, true, converted, null);
+        }
+        catch (OperationCanceledException)
+        {
+            Reply(requestId, false, null, "CAD OCCT conversion cancelled.");
+        }
+        catch (ArgumentException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (NotSupportedException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (TimeoutException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log("Native CAD OCCT conversion failed: " + ex.GetType().Name);
+            Reply(requestId, false, null,
+                "FreeCAD/OCCT could not convert the input. Verify default WSL and an installed " +
+                "FreeCADCmd. No original OpenFOAM case was modified.");
+        }
+        finally
+        {
+            EndOperation(requestId, operation);
         }
     }
 
