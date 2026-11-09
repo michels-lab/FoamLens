@@ -124,6 +124,108 @@ function cgMakeAsciiStl(triangles,name='surface',scale=1){
   rows.push('endsolid '+clean);return rows.join('\n')+'\n'
 }
 function cgUnitScale(unit){return {m:1,mm:.001,cm:.01,in:.0254}[unit]||null}
+
+function cgBinaryStl(triangles,scale,name){
+  if(!Array.isArray(triangles)||!triangles.length||triangles.length>cgLimitTriangles)throw Error('Invalid triangle count for binary STL');
+  if(!Number.isFinite(scale)||scale<=0)throw Error('Confirm positive source-to-meter scale');
+  const data=new Uint8Array(84+50*triangles.length),view=new DataView(data.buffer);
+  data.set(new TextEncoder().encode('FoamLens '+cgSafeName(name)).subarray(0,80));
+  view.setUint32(80,triangles.length,true);
+  triangles.forEach((tri,i)=>{
+    if(!Array.isArray(tri.vertices)||tri.vertices.length!==3)throw Error('Invalid triangle');
+    const v=tri.vertices.map(p=>p.map(x=>cgNumber(x)*scale));
+    const n=cgCross(cgSub(v[1],v[0]),cgSub(v[2],v[0])),mag=cgNorm(n),normal=mag?n.map(x=>x/mag):[0,0,0];
+    const base=84+i*50;
+    const put=(at,x)=>{
+      if(!Number.isFinite(x)||Math.abs(x)>3.402823466e38)throw Error('STL coordinate outside float32 range');
+      view.setFloat32(base+at,x,true)
+    };
+    normal.forEach((x,k)=>put(k*4,x));
+    v.forEach((p,j)=>p.forEach((x,k)=>put(12+j*12+k*4,x)));
+    view.setUint16(base+48,0,true)
+  });
+  return data
+}
+function cgCrc32(bytes){
+  let c=0xffffffff;
+  for(const b of bytes){c^=b;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0)}
+  return (c^0xffffffff)>>>0
+}
+function cgStoreZip(entries){
+  if(!Array.isArray(entries)||!entries.length||entries.length>1001)throw Error('ZIP entry count outside 1–1001');
+  const encoder=new TextEncoder(),seen=new Set(),rows=[];let size=22;
+  for(const e of entries){
+    const name=String(e.name||''),bytes=typeof e.data==='string'?encoder.encode(e.data):e.data;
+    if(!name||name.includes('..')||name.includes('\\')||name.startsWith('/')||
+       !/^[\x20-\x7e]+$/.test(name)||seen.has(name))throw Error('Unsafe or duplicate ZIP path');
+    if(!(bytes instanceof Uint8Array))throw Error('Invalid ZIP data');
+    const label=encoder.encode(name);seen.add(name);
+    if(bytes.length>100*1024*1024)throw Error('ZIP entry exceeds 100 MiB');
+    size+=76+2*label.length+bytes.length;
+    if(size>128*1024*1024)throw Error('ZIP exceeds 128 MiB');
+    rows.push({label,bytes,crc:cgCrc32(bytes)})
+  }
+  const output=new Uint8Array(size),view=new DataView(output.buffer);let pos=0;
+  for(const row of rows){
+    row.offset=pos;
+    view.setUint32(pos,0x04034b50,true);view.setUint16(pos+4,20,true);
+    view.setUint32(pos+14,row.crc,true);
+    view.setUint32(pos+18,row.bytes.length,true);view.setUint32(pos+22,row.bytes.length,true);
+    view.setUint16(pos+26,row.label.length,true);
+    output.set(row.label,pos+30);output.set(row.bytes,pos+30+row.label.length);
+    pos+=30+row.label.length+row.bytes.length
+  }
+  const directory=pos;
+  for(const row of rows){
+    view.setUint32(pos,0x02014b50,true);view.setUint16(pos+4,20,true);view.setUint16(pos+6,20,true);
+    view.setUint32(pos+16,row.crc,true);
+    view.setUint32(pos+20,row.bytes.length,true);view.setUint32(pos+24,row.bytes.length,true);
+    view.setUint16(pos+28,row.label.length,true);view.setUint32(pos+42,row.offset,true);
+    output.set(row.label,pos+46);pos+=46+row.label.length
+  }
+  view.setUint32(pos,0x06054b50,true);view.setUint16(pos+8,rows.length,true);
+  view.setUint16(pos+10,rows.length,true);view.setUint32(pos+12,pos-directory,true);
+  view.setUint32(pos+16,directory,true);
+  if(pos+22!==size)throw Error('ZIP size mismatch');
+  return output
+}
+function cgVisibleRegionBatch(models){
+  const files=[],regions=[];let totalTriangles=0,topologyWarnings=0;
+  for(let mi=0;mi<models.length;mi++){
+    const m=models[mi];if(!m.visible)continue;
+    const selected=[...m.partsVisible].filter(([,visible])=>visible);
+    if(!selected.length)continue;
+    const scale=cgUnitScale(m.unit);
+    if(!scale)throw Error('Confirm the physical source units for EVERY visible region');
+    for(let pi=0;pi<selected.length;pi++){
+      const part=selected[pi][0],triangles=m.triangles.filter(t=>t.part===part);
+      if(!triangles.length)continue;
+      totalTriangles+=triangles.length;
+      if(totalTriangles>300000||regions.length>=1000)throw Error('Batch geometry safety limit exceeded');
+      const sum=cgSummary(triangles);
+      const hasWarnings=!!(sum.boundaryEdges||sum.nonManifoldEdges||sum.orientationConflicts||sum.degenerate);
+      if(hasWarnings)topologyWarnings++;
+      const name='surfaces/model'+String(mi+1).padStart(3,'0')+
+        '_region'+String(pi+1).padStart(3,'0')+'_'+cgSafeName(part).slice(0,40)+'.stl';
+      files.push({name,data:cgBinaryStl(triangles,scale,part)});
+      regions.push({sourceFile:m.name,sourceFormat:m.format,sourceBytes:m.bytes,part,outputFile:name,
+        sourceUnitConfirmedByUser:m.unit,sourceToMeterScale:scale,outputCoordinates:'meters',
+        boundsMeters:sum.bounds.size.map(x=>x*scale),areaSquareMeters:sum.area*scale*scale,
+        sourceTopology:sum,topologyWarningsPresent:hasWarnings})
+    }
+  }
+  if(!regions.length)throw Error('Select at least one visible named region');
+  const manifest={schema:'foamlens/cad-batch-surfaces/1',regionCount:regions.length,
+    triangleCount:totalTriangles,topologyWarnings,
+    exportType:'individual binary STL triSurfaces in meters; NOT an OpenFOAM volume mesh',
+    regions,openFoamCaseMutated:false,toolsExecuted:[],
+    limitations:['STL/OBJ coordinates require user-confirmed units.',
+      'Topology checks do not prove self-intersection-free geometry.',
+      'The ZIP does not run surfaceCheck or create an OpenFOAM polyMesh.',
+      'Destination geometry path depends on the verified OpenFOAM distribution.']};
+  files.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'});
+  return {files,manifest,topologyWarnings}
+}
 /* FOAMLENS_CAD_CORE_END */
 
 function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
