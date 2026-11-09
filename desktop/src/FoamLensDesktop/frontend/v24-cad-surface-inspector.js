@@ -420,32 +420,57 @@ function cgRefreshExport(){
     cgUi('Selected source coordinate unit explicitly mapped to meters. Verify dimensions before using OpenFOAM.','Unidad de origen seleccionada; conversión a metros. Comprueba las dimensiones antes de usar OpenFOAM.'):
     cgUi('Unknown STL/OBJ source units: export is disabled until you explicitly confirm units.','Unidades STL/OBJ desconocidas: exportación desactivada hasta confirmar unidades.')
 }
+function cgPrepareSurface(result,name,bytes){
+  const sum=cgSummary(result.triangles),byPart=new Map();
+  for(const tri of result.triangles){
+    if(!byPart.has(tri.part))byPart.set(tri.part,[]);
+    byPart.get(tri.part).push(tri)
+  }
+  if(byPart.size>1000)throw Error('Geometry exceeds named-part safety limit (1000)');
+  return {name,bytes,format:result.format,triangles:result.triangles,summary:sum,
+    partSummaries:new Map([...byPart].map(([key,subset])=>[key,cgSummary(subset)])),
+    partsVisible:new Map([...byPart.keys()].map(key=>[key,true])),
+    warnings:result.warnings||[],unit:'unknown',visible:true}
+}
 async function cgImport(){
   const input=document.getElementById('cgFiles'),files=[...(input?.files||[])];
   if(!files.length)return;
   if(files.length>12){cgShow('Limit: 12 geometry files per import.');return}
   let added=0,errors=[];
-  for(const f of files){
+  for(const file of files){
     try{
-      if(f.size>32*1024*1024)throw new Error('32 MiB file safety limit');
-      const ext=f.name.split('.').pop().toLowerCase();
-      if(['step','stp','iges','igs','brep'].includes(ext))throw new Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
-      const result=ext==='stl'?cgParseStl(await f.arrayBuffer(),f.name):ext==='obj'?cgParseObj(await f.text(),f.name):null;
-      if(!result)throw new Error('Supported in this preview: STL and OBJ');
-      if(cgModels.reduce((n,m)=>n+m.triangles.length,0)+result.triangles.length>300000)throw new Error('Combined imported geometry exceeds 300,000-triangle interactive preview limit');
-      const sum=cgSummary(result.triangles),byPart=new Map();
-      for(const tri of result.triangles){if(!byPart.has(tri.part))byPart.set(tri.part,[]);byPart.get(tri.part).push(tri)}
-      if(byPart.size>1000)throw new Error('Geometry exceeds named-part safety limit (1000)');
-      const partSummaries=new Map([...byPart].map(([name,subset])=>[name,cgSummary(subset)])),
-        partsVisible=new Map([...byPart.keys()].map(name=>[name,true]));
-      cgModels.push({name:f.name,bytes:f.size,format:result.format,triangles:result.triangles,summary:sum,
-        partSummaries,partsVisible,warnings:result.warnings||[],unit:'unknown',visible:true});
-      added++;
-    }catch(e){errors.push(f.name+': '+String(e?.message||e))}
-    // Relinquish the UI turn during large batches.
+      const ext=file.name.split('.').pop().toLowerCase();
+      const max=ext==='zip'?128*1024*1024:32*1024*1024;
+      if(file.size>max)throw Error('Geometry input exceeds '+(max/1024/1024)+' MiB limit');
+      if(['step','stp','iges','igs','brep'].includes(ext))
+        throw Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
+      let prepared;
+      if(ext==='zip'){
+        // The package must have exactly the FoamLens native manifest, all
+        // expected region STLs, valid CRC and physically declared units.
+        // A bad entry rejects the ENTIRE archive, never partial-model imports.
+        prepared=cgRestoreRegionBatch(await file.arrayBuffer()).models
+      }else{
+        const result=ext==='stl'?cgParseStl(await file.arrayBuffer(),file.name):
+          ext==='obj'?cgParseObj(await file.text(),file.name):null;
+        if(!result)throw Error('Supported imports: STL, OBJ and FoamLens-exported ZIP (uncompressed)');
+        prepared=[cgPrepareSurface(result,file.name,file.size)]
+      }
+      const current=cgModels.reduce((n,m)=>n+m.triangles.length,0);
+      const incoming=prepared.reduce((n,m)=>n+m.triangles.length,0);
+      if(current+incoming>300000||cgModels.length+prepared.length>1000)
+        throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
+      cgModels.push(...prepared);
+      added+=prepared.length
+    }catch(e){errors.push(file.name+': '+String(e?.message||e))}
+    // Yield between files to preserve the original UI import affordance.
     await new Promise(resolve=>setTimeout(resolve,0))
   }
-  cgRenderInventory();cgShow(cgUi('Imported ','Importados ')+added+' / '+files.length+'. '+errors.join(' | '));input.value=''
+  cgRenderInventory();
+  cgShow(cgUi('Imported ','Importadas ')+added+
+    cgUi(' surfaces from ',' superficies de ')+files.length+
+    cgUi(' input files. ',' archivos de entrada. ')+errors.join(' | '));
+  input.value=''
 }
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
@@ -524,10 +549,10 @@ function cgInstall(){
     '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}';
   document.head.appendChild(css);
   sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">Local STL/OBJ surface inspection only. STEP/IGES/BREP conversion requires a verified CAD kernel. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
-    '<div class="cgTools"><label>Import local STL/OBJ <input id="cgFiles" type="file" multiple accept=".stl,.obj,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
+    '<div class="cgTools"><label>Import local STL/OBJ or FoamLens ZIP <input id="cgFiles" type="file" multiple accept=".stl,.obj,.zip,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
     '<button class="btn" data-cg-view="iso">Isometric</button><button class="btn" data-cg-view="top">Top</button><button class="btn" data-cg-view="front">Front</button><button class="btn" data-cg-view="side">Right</button><button class="btn" data-cg-view="fit">Fit</button></div>'+
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
-    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL or OBJ from your computer.</div>'+
+    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ or a FoamLens-exported ZIP from your computer. ZIP restores individual region surfaces in meters, with source-unit provenance.</div>'+
     '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
     '<div class="cgTools">'+
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
@@ -557,4 +582,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,unitScale:cgUnitScale};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale};
