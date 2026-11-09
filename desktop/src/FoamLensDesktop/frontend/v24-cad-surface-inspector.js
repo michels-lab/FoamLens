@@ -635,6 +635,11 @@ function cgBrepRequest(bytes,format,deflectionMm){
   });
   return {promise,cancel}
 }
+// The native host and the complete assembly both permit 300,000 triangles.
+// Do not silently impose a smaller per-solid limit in the browser.
+function cgBrepRegionTriangleCountOk(n){
+  return Number.isInteger(n)&&n>=1&&n<=300000
+}
 function cgBrepModels(report,sourceFile,sourceBytes,format){
   if(report?.schema!=='foamlens/native-occt-conversion/1'||
      report.engine!=='FreeCAD/OpenCascade'||report.converted!==true||
@@ -647,7 +652,7 @@ function cgBrepModels(report,sourceFile,sourceBytes,format){
   for(const region of report.regions){
     if(typeof region.name!=='string'||!/^(solid|surface)_[0-9]{3}$/.test(region.name)||
        names.has(region.name)||!Number.isInteger(region.triangles)||
-       region.triangles<1||region.triangles>200000)
+       !cgBrepRegionTriangleCountOk(region.triangles))
       throw Error('Invalid native OCCT solid identity or triangle count.');
     names.add(region.name);
     const bytes=cgBrepDecoded(region.stlBase64);
