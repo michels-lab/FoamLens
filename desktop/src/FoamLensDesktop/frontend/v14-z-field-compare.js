@@ -105,8 +105,13 @@ async function fcLoadSynchronizedData(c,g,region,target,component,mode=fcMode(),
   return{ok:true,...a,fieldValues,range,sync,sourceTimes:[sync.lowerTime,sync.upperTime],interpolated:true}
 }
 function fcSyncText(sync){
-  if(!sync)return'—';if(sync.exact)return fcUi('Exact','Exacto');if(sync.interpolated)return fcUi('Interpolated','Interpolado')+' '+fcFmt(sync.lowerTime)+'↔'+fcFmt(sync.upperTime)+' s';
-  return fcUi('Nearest','Más cercano')+(Number.isFinite(sync.delta)?' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s':'')
+  if(!sync)return'—';
+  if(sync.ok!==true||!Number.isFinite(fcPhysicalNumber(sync.time))||
+    (sync.interpolated&&(!Number.isFinite(fcPhysicalNumber(sync.lowerTime))||!Number.isFinite(fcPhysicalNumber(sync.upperTime)))))
+    return fcUi('Not synchronized','Sin sincronizar');
+  if(sync.exact)return fcUi('Exact','Exacto');
+  if(sync.interpolated)return fcUi('Interpolated','Interpolado')+' '+fcFmt(sync.lowerTime)+'↔'+fcFmt(sync.upperTime)+' s';
+  return fcUi('Nearest','Más cercano')+(Number.isFinite(fcPhysicalNumber(sync.delta))?' · Δt='+(sync.delta>=0?'+':'')+fcFmt(sync.delta)+' s':'')
 }
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
