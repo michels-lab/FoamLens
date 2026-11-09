@@ -285,8 +285,10 @@ function cgReadStoredZip(input){
 function cgRestoreRegionBatch(input){
   const files=cgReadStoredZip(input),byName=new Map(files.map(x=>[x.name,x.data]));
   if(!byName.has('manifest.json'))throw Error('FoamLens CAD package needs manifest.json');
+  const manifestBytes=byName.get('manifest.json');
+  if(manifestBytes.length>4*1024*1024)throw Error('CAD provenance manifest exceeds 4 MiB safety limit');
   const decoder=new TextDecoder('utf-8',{fatal:true});
-  const manifest=JSON.parse(decoder.decode(byName.get('manifest.json')));
+  const manifest=JSON.parse(decoder.decode(manifestBytes));
   if(manifest?.schema!=='foamlens/cad-batch-surfaces/1'||!Array.isArray(manifest.regions)||
      manifest.regions.length<1||manifest.regions.length>1000||
      manifest.regionCount!==manifest.regions.length||
@@ -315,7 +317,9 @@ function cgRestoreRegionBatch(input){
     // manifest's *original* source unit is provenance, never a second scaling.
     for(const triangle of parsed.triangles)triangle.part=part;
     const summary=cgSummary(parsed.triangles);
-    if(Array.isArray(region.boundsMeters)&&region.boundsMeters.length===3){
+    if(!Array.isArray(region.boundsMeters)||region.boundsMeters.length!==3)
+      throw Error('Region bounds missing from manifest');
+    {
       for(let k=0;k<3;k++){
         const expected=Number(region.boundsMeters[k]);
         if(!Number.isFinite(expected)||Math.abs(summary.bounds.size[k]-expected)>
@@ -323,6 +327,10 @@ function cgRestoreRegionBatch(input){
           throw Error('Region dimensions differ from the manifest in meters')
       }
     }
+    const originalArea=Number(region.areaSquareMeters),computedArea=summary.area;
+    if(!Number.isFinite(originalArea)||originalArea<0||
+       Math.abs(originalArea-computedArea)>Math.max(1e-9,Math.abs(originalArea)*2e-5))
+      throw Error('Region surface area differs from the manifest in square meters');
     models.push({
       name:String(region.sourceFile||file).slice(0,180)+' / '+part,
       bytes:data.byteLength,format:'foamlens-zip-binary-stl',
