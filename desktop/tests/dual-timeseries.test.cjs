@@ -59,6 +59,25 @@ test('different semantics stay separate even if both are dimensionless',()=>{
   assert.equal(api.tsdAxisPlan(a,flow).separate,true);
 });
 
+test('Data Time Series filter feedback identifies selected case and empty selections',()=>{
+  const start=source.indexOf('function tsdRefreshTimeSeriesControls(){');
+  const end=source.indexOf('function tsdPatchAssignments(){',start);
+  assert(start>=0&&end>start,'Original Data Time Series filter owner missing');
+  const controller=source.slice(start,end);
+  for(const token of [
+    'const selectedCase=caseOptions.find',
+    'const caseContext=selectedCase?',
+    'No curves match',
+    'No hay curvas coincidentes',
+    'Try All probes, All matching cases or Show all variables',
+    'Prueba Todas las sondas, Todos los casos coincidentes o Mostrar todas las variables',
+    "filterHint.setAttribute('role','status')",
+    "filterHint.setAttribute('aria-live','polite')"
+  ])assert(controller.includes(token),'Missing native case-aware filter feedback: '+token);
+  assert(controller.includes('matching.length?tsdUi('),'Non-empty and zero-match states must remain distinct');
+  assert(controller.includes('caseOptions.find(c=>'), 'Selected case must resolve from actual case options');
+});
+
 test('dual Time-Series UI is wired into existing filters and axes',()=>{
   for(const token of [
     'timeSeriesVariable2',
@@ -135,7 +154,7 @@ test('G Granada: dual-variable refresh cannot leak the Time Series panel into Fi
     const variable={innerHTML:'',dataset:{}};
     const second={innerHTML:'',disabled:false,dataset:{}};
     const probe={innerHTML:'',dataset:{}},family={innerHTML:'',dataset:{}};
-    const badge={textContent:''},hint={textContent:''};
+    const badge={textContent:''},hint={textContent:'',attributes:{},setAttribute(name,value){this.attributes[name]=value}};
     const nodes={timeSeriesControls:panel,timeSeriesVariable:variable,
       timeSeriesVariable2:second,timeSeriesProbe:probe,timeSeriesFamily:family,
       timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
@@ -186,7 +205,7 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
     set(value){html=value;this.options=[...value.matchAll(/<option value="([^"]*)"/g)]
       .map(match=>({value:match[1]}))}
   });
-  const badge={textContent:''},hint={textContent:''},panel={
+  const badge={textContent:''},hint={textContent:'',attributes:{},setAttribute(name,value){this.attributes[name]=value}},panel={
     classList:{toggle(){}}
   },caseLabel={textContent:''};
   const nodes={timeSeriesControls:panel,timeSeriesVariable:primary,
