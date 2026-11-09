@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "e858f9e9f60cd400d02dbe929c7bb4d8a48a841acd2a13f231309bce90257ebf",
+  "inventory_fingerprint": "812eeabd82716726e4a3871ec69c671a63dedb2690cd5ed33e7cedd7235d5c06",
   "evidence_fingerprint": "2dcb54dd8b4c1389ce8c1c9e6707e25cd7fb19a6614a8c392f26f376d5078b3e",
   "files": [
     {
@@ -776,7 +776,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "a77d16b5dcb0db09bf398327bc130c76d15803e3"
+      "blob": "353e0455427a8db25e89fffa90d130ddc807e8ab"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -1595,7 +1595,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9d8e777d03ad4738a4cac27d77f79d80f4c0cc47"
+      "blob": "1cbea998ec2a215b293d3076ed96cdd066a31b40"
     },
     {
       "path": "desktop/tests/mesh-quality-audit.test.cjs",
