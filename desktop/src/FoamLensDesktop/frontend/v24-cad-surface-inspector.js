@@ -414,7 +414,7 @@ function cgNativeSurfaceCheckRequest(bytes){
   });
   return {promise,cancel}
 }
-function cgNativeSelectedSurface(){
+function cgNativeSelectedSurface(prepareBytes=true){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|');
   if(sep<0)throw Error('Choose a native CAD named region first');
   const i=Number(key.slice(0,sep)),part=key.slice(sep+1),model=cgModels[i];
@@ -422,8 +422,10 @@ function cgNativeSelectedSurface(){
     throw Error('Choose a visible region in the original CAD inventory');
   const scale=cgUnitScale(model.unit);
   if(!scale)throw Error('Confirm the physical source unit before running surfaceCheck');
+  const count=model.partSummaries.get(part)?.triangles||0;
+  if(!count)throw Error('Selected surface has no source triangles');
+  if(!prepareBytes)return {model,part,triangles:count,scale};
   const tris=model.triangles.filter(t=>t.part===part);
-  if(!tris.length)throw Error('Selected surface has no source triangles');
   return {model,part,bytes:cgBinaryStl(tris,scale,part),triangles:tris.length,scale}
 }
 function cgRefreshNativeCheck(){
@@ -432,7 +434,7 @@ function cgRefreshNativeCheck(){
     exportBtn=document.getElementById('cgSurfaceCheckExport');
   if(!run)return;
   let available=false;
-  try{const s=cgNativeSelectedSurface();available=s.bytes.length<=4*1024*1024}catch{}
+  try{const s=cgNativeSelectedSurface(false);available=84+s.triangles*50<=4*1024*1024}catch{}
   run.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()||!available;
   run.title=!cgNativeCheckAvailable()?
     cgUi('Requires native FoamLens for Windows, WSL and installed OpenFOAM.',
