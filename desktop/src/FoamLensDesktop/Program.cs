@@ -38,6 +38,12 @@ internal static class Program
             NativeCheckMeshFileHash.RunSelfTestAsync().GetAwaiter().GetResult();
             return;
         }
+        if (args.Any(arg => string.Equals(arg, "--cad-surfacecheck-self-test",
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCadSurfaceCheck.SelfTest();
+            return;
+        }
         ApplicationConfiguration.Initialize();
         var developerSmoke = args.Any(arg =>
             string.Equals(arg, "--developer-audit-smoke-test", StringComparison.OrdinalIgnoreCase));
@@ -3799,6 +3805,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "readSlice":
                     await HandleReadSliceAsync(root, requestId);
                     break;
+                case "runCadSurfaceCheck":
+                    await HandleRunCadSurfaceCheckAsync(root, requestId);
+                    break;
                 case "hashRawMeshFile":
                     await HandleHashRawMeshFileAsync(root, requestId);
                     break;
@@ -4003,6 +4012,46 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             // Cancellation after folderComplete may skip optional catalog persistence,
             // but must not retract the already delivered, valid file listing.
+        }
+    }
+
+    private async Task HandleRunCadSurfaceCheckAsync(JsonElement root, string requestId)
+    {
+        // Only a binary STL, NOT an executable, arbitrary file path, shell
+        // statement or OpenFOAM case path can be supplied by the browser.
+        var data = RequiredString(root, "stlBase64");
+        var operation = BeginOperation(requestId);
+        try
+        {
+            var report = await NativeCadSurfaceCheck.RunAsync(data, operation.Token);
+            Reply(requestId, true, report, null);
+        }
+        catch (OperationCanceledException)
+        {
+            Reply(requestId, false, null, "CAD surfaceCheck cancelled.");
+        }
+        catch (ArgumentException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (NotSupportedException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (TimeoutException ex)
+        {
+            Reply(requestId, false, null, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log("Native CAD surfaceCheck failed: " + ex);
+            Reply(requestId, false, null,
+                "Local surfaceCheck invocation failed. Verify the default WSL distribution " +
+                "and OpenFOAM environment. The original case was not modified.");
+        }
+        finally
+        {
+            EndOperation(requestId, operation);
         }
     }
 
