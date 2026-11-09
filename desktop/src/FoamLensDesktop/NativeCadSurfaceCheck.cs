@@ -124,7 +124,7 @@ internal static class NativeCadSurfaceCheck
                 new[] { "--exec", "wslpath", "-a", file }, TimeSpan.FromSeconds(15),
                 cancellationToken);
             var linuxPath = translation.Stdout.Trim();
-            if (translation.ExitCode != 0 || !linuxPath.StartsWith('/', StringComparison.Ordinal) ||
+            if (translation.ExitCode != 0 || !linuxPath.StartsWith("/", StringComparison.Ordinal) ||
                 linuxPath.Contains('\n') || linuxPath.Contains('\r'))
                 throw new NotSupportedException(
                     "Default WSL distribution or Windows-to-WSL file mapping is unavailable.");
