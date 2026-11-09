@@ -327,6 +327,14 @@ jobs:
           dotnet restore desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -r win-x64
           dotnet build desktop/src/FoamLensDesktop/FoamLensDesktop.csproj -c Release -r win-x64 --self-contained true --no-restore
 
+      - name: Verify compiled OCCT BREP format identity and embedded real FreeCAD script
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'desktop/src/FoamLensDesktop/bin/Release/net8.0-windows/win-x64/FoamLens.exe').Path
+          $test = Start-Process -FilePath $exe -ArgumentList '--cad-occt-self-test' -PassThru -Wait
+          if ($test.ExitCode -ne 0) { throw "Native CAD OCCT input/security guard failed: exit $($test.ExitCode)" }
+          Write-Host 'Native OCCT compiled self-test PASS; actual FreeCAD installation not available in CI'
+
       - name: Verify compiled native CAD surfaceCheck allowlist and STL validation
         shell: pwsh
         run: |
@@ -647,6 +655,13 @@ jobs:
       - name: Test original CAD native surfaceCheck request, cancellation and permission gates
         shell: pwsh
         run: node desktop/tests/cad-native-surfacecheck.test.cjs
+      - name: Test native STEP IGES BREP CAD import and provenance
+        shell: pwsh
+        run: node desktop/tests/cad-occt-native.test.cjs
+
+      - name: Test bundled OCCT FreeCAD Python conversion script (mock kernel only)
+        shell: pwsh
+        run: python desktop/tests/cad-occt-freecad.test.py
 
       - name: Test Granada 2D/3D source-backed equivalent observables
         shell: pwsh
