@@ -198,7 +198,8 @@ assert.equal(count.textContent,'1 of 4 findings shown');
 const watch=observers.flatMap(observer=>observer.watches.map(w=>({...w,observer})))
   .find(w=>w.target===findings);
 assert(watch,'Original findings list must be watched');
-assert.deepEqual(watch.options.attributeFilter,['class']);
+assert.equal(watch.options.attributeFilter.length,1);
+assert.equal(watch.options.attributeFilter[0],'class');
 assert.equal(watch.options.subtree,true);
 assert.equal(watch.options.characterData,true);
 function notifyFinding(record){
