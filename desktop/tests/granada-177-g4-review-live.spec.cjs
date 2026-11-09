@@ -41,9 +41,10 @@ class N{
   this.children.splice(i<0?this.children.length:i,0,node);return node}
  setAttribute(n,v){this.attributes[n]=String(v)}
  getAttribute(n){return this.attributes[n]}
+ hasAttribute(n){return Object.prototype.hasOwnProperty.call(this.attributes,n)}
  removeAttribute(n){delete this.attributes[n]}
  addEventListener(event,fn){(this.handlers[event]??=[]).push(fn)}
- fire(event,target=this){for(const fn of this.handlers[event]||[])fn({target,key:'',preventDefault:()=>{}})}
+ fire(event,target=this,details={}){for(const fn of this.handlers[event]||[])fn({target,key:'',preventDefault:()=>{},...details})}
  getBoundingClientRect(){return mkrect(0,0,950,80)}
  focus(){this.focused=true}
  matches(selector){
@@ -111,8 +112,14 @@ for(const id of core.live){
 }
 document.body.appendChild(live);
 const window={innerWidth:1280,innerHeight:900,devicePixelRatio:1.25};
+const observers=[];
+class RecorderObserver{
+ constructor(callback){this.callback=callback;this.watches=[];observers.push(this)}
+ observe(target,options){this.watches.push({target,options})}
+ disconnect(){}
+}
 const ctx={document,window,console,Date,Number,Array,Object,String,Math,JSON,
- requestAnimationFrame:()=>1,MutationObserver:undefined,activeAppMode:'review'};
+ requestAnimationFrame:()=>1,MutationObserver:RecorderObserver,activeAppMode:'review'};
 vm.runInNewContext(src,ctx,{timeout:3000});
 const api=window.FoamLensGranadaG4;assert(api);
 const reviewDock=ids.get('g4ReviewDock'),liveDock=ids.get('g4LiveDock'),more=ids.get('g4ReviewMore');
@@ -187,6 +194,34 @@ assert(originalRows.every((row,i)=>row===noModelMutation[i]&&!row.hidden));
 assert.equal(search.focused,true,'clear returns keyboard focus to original filter input');
 severity.value='WARNING';severity.fire('change');
 assert.equal(count.textContent,'1 of 4 findings shown');
+// Regression: changing severity inside an existing Review row must trigger a re-filter.
+const watch=observers.flatMap(observer=>observer.watches.map(w=>({...w,observer})))
+  .find(w=>w.target===findings);
+assert(watch,'Original findings list must be watched');
+assert.deepEqual(watch.options.attributeFilter,['class']);
+assert.equal(watch.options.subtree,true);
+assert.equal(watch.options.characterData,true);
+function notifyFinding(record){
+ const opts=watch.options;
+ if(record.target!==findings&&(!opts.subtree||!findings.contains(record.target)))return false;
+ if(record.type==='attributes'&&(!opts.attributes||
+   (opts.attributeFilter&&!opts.attributeFilter.includes(record.attributeName))))return false;
+ if(record.type==='childList'&&!opts.childList)return false;
+ if(record.type==='characterData'&&!opts.characterData)return false;
+ watch.observer.callback([record]);return true
+}
+const warningBadge=originalRows[1].querySelector('.findingSeverity');
+warningBadge.classList.remove('WARNING');warningBadge.classList.add('FAIL');
+assert.equal(notifyFinding({type:'attributes',target:warningBadge,attributeName:'class'}),true);
+assert.equal(originalRows[1].hidden,true,'In-place severity change must hide stale match');
+assert.equal(count.textContent,'0 of 4 findings shown');
+const failBadge=originalRows[0].querySelector('.findingSeverity');
+failBadge.classList.remove('FAIL');failBadge.classList.add('WARNING');
+assert.equal(notifyFinding({type:'attributes',target:failBadge,attributeName:'class'}),true);
+assert.equal(originalRows[0].hidden,false);
+assert.equal(count.textContent,'1 of 4 findings shown');
+assert.equal(notifyFinding({type:'attributes',target:originalRows[0],attributeName:'hidden'}),false,
+ 'Filter-driven hidden updates must never trigger an observer loop');
 language.value='es';for(const listener of allListeners['foamlens-language-change']||[])listener();
 assert.equal(count.textContent,'1 de 4 hallazgos mostrados');
 assert.equal(severity.options[2].textContent,'Advertencias');
@@ -203,6 +238,23 @@ assert.equal(updated.hidden,true,'existing WARNING filter applies to newly rende
 severity.value='';severity.fire('change');
 assert.equal(updated.hidden,false);
 assert.equal(count.textContent,'1 de 1 hallazgos mostrados');
+// Keyboard navigation targets the original filtered row and never fabricates a result.
+search.value='solver';search.fire('input');search.fire('keydown',search,{key:'Enter'});
+assert.equal(updated.focused,true,'Enter must focus original visible finding');
+assert.equal(updated.getAttribute('tabindex'),'-1');
+updated.focused=false;search.value='nonexistent';search.fire('input');
+search.fire('keydown',search,{key:'ArrowDown'});
+assert.equal(updated.focused,false,'No matches must leave hidden findings unfocused');
+search.value='solver';search.fire('input');
+updated.textContent='D4 · initial condition';
+assert.equal(notifyFinding({type:'childList',target:updated}),true,'Nested content replacement must trigger re-filter');
+assert.equal(updated.hidden,true);
+updated.textContent='D4 · solver recovered';
+assert.equal(notifyFinding({type:'childList',target:updated}),true);
+assert.equal(updated.hidden,false);
+search.fire('keydown',search,{key:'ArrowDown'});
+assert.equal(updated.focused,true,'Down must focus the original visible finding');
+search.value='';search.fire('input');
 assert(!src.includes('currentFindings='),'G4 search must not rewrite the original scientific findings model');
 
 assert.equal(document.head.children.some(x=>x.id==='g4Styles'),true,'Scoped CSS should install');
