@@ -218,7 +218,12 @@ internal static class NativeCadOcctConverter
                     regionName.Length is < 1 or > 80 ||
                     !Regex.IsMatch(regionName, @"^(solid|surface)_[0-9]{3}$"))
                     throw new InvalidDataException("OCCT region identity is invalid.");
-                var bytes = await File.ReadAllBytesAsync(Path.Combine(directory, file), cancellationToken);
+                var localStl = Path.Combine(directory, file);
+                var localInfo = new FileInfo(localStl);
+                if (!localInfo.Exists || localInfo.Length is < 134 or > MaxStlBytes ||
+                    localInfo.Length != entry.GetProperty("sizeBytes").GetInt32())
+                    throw new InvalidDataException("OCCT region STL is missing or exceeds bounded output.");
+                var bytes = await File.ReadAllBytesAsync(localStl, cancellationToken);
                 int count = ValidateBinaryStl(bytes);
                 if (count != entry.GetProperty("triangles").GetInt32() ||
                     bytes.Length != entry.GetProperty("sizeBytes").GetInt32())
