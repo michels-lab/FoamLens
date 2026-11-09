@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "8cb9cdb728b7adcb6a82f5a875fcb7f312aec25ff0bb75576deceb823ef06a3c",
+  "inventory_fingerprint": "f835c3556ed24c6676719a672d57b34a7b36024c49c7b3e6a0a403c4c00ef4fa",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -900,7 +900,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5256a29d3150b6e276de0cfcc1ac472e4fc589f1"
+      "blob": "c931ec5e1316819a28d344a1c713524c59feaafe"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-field-view.js",
@@ -1404,7 +1404,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "47bc489555491a8e64769cbe98494761c18b1bd3"
+      "blob": "49a4e3470524456ceb3f6f32c9e09007e20cc23d"
     },
     {
       "path": "desktop/tests/field-3d-navigation-cache.test.cjs",
@@ -2104,7 +2104,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "f0621397eb8c7a9821ead5be63f5e468859d2453"
+      "blob": "4f99f515873595319a99d66ed1da3f7881966380"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
