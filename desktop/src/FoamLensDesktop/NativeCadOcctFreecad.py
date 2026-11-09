@@ -24,7 +24,7 @@ def require_finite(values):
 def tessellate_binary_stl(shape, target, max_remaining, tolerance):
     vertices, triangles = shape.tessellate(tolerance)
     count = len(triangles)
-    if count < 1 or count > max_remaining:
+    if count < 1 or count > min(max_remaining, 200_000):
         raise ValueError("OCCT output is empty or exceeds 300000 triangle preview limit")
     if len(vertices) < 3 or 84 + 50 * count > MAX_STL_BYTES:
         raise ValueError("OCCT output exceeds per-region binary STL limit")
