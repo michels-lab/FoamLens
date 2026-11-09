@@ -68,5 +68,21 @@ test('Unverified and terminal logs do not pretend the solver is running',()=>{
  assert.equal(other.logChanged,false);assert.equal(sourceModel.liveRunState(other),'stale');
 });
 
+
+test('Live recovery preserves last-good data and shows permission failures',()=>{
+ const good=sourceModel.liveLogEvidence({...base,updatedAt:now},null,now);
+ const permission=Object.assign(new Error('access denied'),{name:'NotAllowedError'});
+ const bad=sourceModel.liveReadFailure(good,permission,now+5000);
+ assert.equal(sourceModel.liveRunState(bad),'read-error');
+ assert.equal(bad.readError.kind,'permission');
+ assert.equal(bad.readError.count,1);
+ assert.equal(bad.updatedAt,now);
+ const badAgain=sourceModel.liveReadFailure(bad,permission,now+10000);
+ assert.equal(badAgain.readError.count,2);
+ const resumed=sourceModel.liveLogEvidence({...base,logBytes:2300,logModifiedAt:now+15000},badAgain,now+15000);
+ assert.equal(sourceModel.liveRunState(resumed),'running');
+ assert.equal(resumed.readError,undefined);
+});
+
 console.log('Watch Run desktop monitoring regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
