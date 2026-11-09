@@ -14,7 +14,7 @@ const end='/* FOAMLENS_EXPERIMENTAL_VALIDATION_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Experimental validation core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound,evNormalizeLiquidFraction};')();
+const api=new Function(core+';return {evNorm,evSplitDelimitedLine,evDetectDelimiter,evParseNumber,evParseTable,evAutoColumns,evExtractColumns,evFinitePairs,evTemperatureToKelvin,evInterpolate,evCompareCurves,evDerivative,evCurveMinimum,evThermalRebound,evCrossingTime,evPhaseMetrics,evPhaseEvidenceAtRebound,evNormalizeLiquidFraction};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -71,6 +71,40 @@ test('phase evidence distinguishes solidifying and remelting during rebound inte
   const rebound={tMin:1,tPeak:3};
   const a=api.evPhaseEvidenceAtRebound([0,1,2,3,4],[1,.9,.7,.5,.4],rebound);assert.equal(a.state,'solidifying');near(a.delta,-.4);
   const b=api.evPhaseEvidenceAtRebound([0,1,2,3,4],[.4,.5,.65,.8,.9],rebound);assert.equal(b.state,'remelting');near(b.delta,.3);
+});
+
+test('missing temperature and time samples are never silently converted into physical zero',()=>{
+  assert.deepEqual(api.evFinitePairs([null,1],[800,700]),[[1,700]]);
+  assert.deepEqual(api.evFinitePairs([0,1],[800,'']),[[0,800]]);
+  assert.deepEqual(api.evFinitePairs([0,1],[800,false]),[[0,800]]);
+  const kelvin=api.evTemperatureToKelvin(['',null,'NaN',20],'C');
+  assert(kelvin.slice(0,3).every(Number.isNaN));
+  near(kelvin[3],293.15);
+  const table={rows:[[null,900],[1,800],['',700],[2,700]],headers:['time','T']};
+  assert.deepEqual(api.evExtractColumns(table,0,1),{t:[1,2],y:[800,700]});
+});
+
+test('comparison rejects singleton overlap, repeated-only time, bad shift and conflicting duplicate temperatures',()=>{
+  const single=api.evCompareCurves([0,1,2],[100,90,80],[1,10],[91,40]);
+  assert.equal(single.valid,false,'one shared time is not a cooling curve');
+  assert.equal(single.n,0);
+  const repeated=api.evCompareCurves([0,1,2],[100,90,80],[1,1],[91,92]);
+  assert.equal(repeated.valid,false,'same instant twice is not two independent samples');
+  const contradictory=api.evCompareCurves([0,1,1,2],[100,90,91,80],[0,1,2],[100,90,80]);
+  assert.equal(contradictory.valid,false,'conflicting model temperatures at one timestamp must fail closed');
+  const shifted=api.evCompareCurves([0,1,2],[100,90,80],[0,1,2],[100,90,80],NaN);
+  assert.equal(shifted.valid,false,'invalid shift must not silently become zero');
+  const identicalRepeat=api.evCompareCurves([0,1,1,2],[100,90,90,80],[0,1,2],[100,90,80],0);
+  assert(identicalRepeat.valid);
+  assert.equal(identicalRepeat.n,3,'identical duplicate samples must not overweight RMSE');
+  near(identicalRepeat.rmse,0);
+});
+
+test('same-time conflicting phase values cannot create fabricated phase onset and duration',()=>{
+  const r=api.evPhaseMetrics([0,0,1],[1,0,0],{onsetThreshold:.95,completionThreshold:.05});
+  assert(Number.isNaN(r.onset));
+  assert(Number.isNaN(r.completion));
+  assert(Number.isNaN(r.duration));
 });
 
 test('phase role is never inferred from alpha1, and conversion is explicit',()=>{
@@ -135,6 +169,10 @@ test('phase classification is blocked in actual run path until source role and d
   phase.field.unit='1';phase.y[2]=1.5;
   assert.equal(run().phaseProvenance.reason,'invalid-phase-range');
   assert.equal(issues.length,0,'Valid thermal comparison should not be rejected by optional phase failure');
+  selectors.evTimeShift='';
+  assert.equal(run(),null,'empty time-shift input must not silently turn into zero');
+  assert.equal(issues.length,1);
+  assert.equal(issues[0][1],'invalid-experimental-time-shift');
 });
 
 test('product wiring keeps thermal rebound and phase evidence separate',()=>{
