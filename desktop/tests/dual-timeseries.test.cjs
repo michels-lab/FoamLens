@@ -154,7 +154,7 @@ test('G Granada: dual-variable refresh cannot leak the Time Series panel into Fi
     const variable={innerHTML:'',dataset:{}};
     const second={innerHTML:'',disabled:false,dataset:{}};
     const probe={innerHTML:'',dataset:{}},family={innerHTML:'',dataset:{}};
-    const badge={textContent:''},hint={textContent:''};
+    const badge={textContent:''},hint={textContent:'',attributes:{},setAttribute(name,value){this.attributes[name]=value}};
     const nodes={timeSeriesControls:panel,timeSeriesVariable:variable,
       timeSeriesVariable2:second,timeSeriesProbe:probe,timeSeriesFamily:family,
       timeSeriesFocusBadge:badge,timeSeriesFilterHint:hint};
@@ -205,7 +205,7 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
     set(value){html=value;this.options=[...value.matchAll(/<option value="([^"]*)"/g)]
       .map(match=>({value:match[1]}))}
   });
-  const badge={textContent:''},hint={textContent:''},panel={
+  const badge={textContent:''},hint={textContent:'',attributes:{},setAttribute(name,value){this.attributes[name]=value}},panel={
     classList:{toggle(){}}
   },caseLabel={textContent:''};
   const nodes={timeSeriesControls:panel,timeSeriesVariable:primary,
