@@ -7407,34 +7407,42 @@ async function refreshLiveCapability(){
   if(!supported&&$('liveDetail'))$('liveDetail').textContent=diagEs()?'Este entorno no expone acceso directo a carpetas locales.':'This environment does not expose direct local-folder access.'
 }
 async function inspectLiveDirectory(){
-  if(!liveDirectoryHandle)return;
+  const handle=liveDirectoryHandle;
+  if(!handle||liveActiveRead?.handle===handle)return;
+  const read={handle};liveActiveRead=read;
   try{
     const logs=[];let controlText='';
-    for await(const [name,entry] of liveDirectoryHandle.entries()){
+    for await(const [name,entry] of handle.entries()){
       if(entry.kind==='file'&&/^log(?:\.|$)/i.test(name)){const file=await entry.getFile();logs.push({name,file})}
     }
     logs.sort((a,b)=>(b.file.lastModified||0)-(a.file.lastModified||0));
-    try{const sys=await liveDirectoryHandle.getDirectoryHandle('system'),cd=await sys.getFileHandle('controlDict');controlText=await(await cd.getFile()).text()}catch{}
+    try{const sys=await handle.getDirectoryHandle('system'),cd=await sys.getFileHandle('controlDict');controlText=await(await cd.getFile()).text()}catch{}
     const latest=logs[0]||null,tail=latest?await latest.file.slice(Math.max(0,latest.file.size-750000)).text():'',parsed=parseLiveLogSnapshot(tail);
-    const snap={
-      ...parsed,folderName:liveDirectoryHandle.name,logName:latest?.name||'',logCount:logs.length,logBytes:latest?.file?.size||0,
+    // A pending read must not update the screen after Stop or folder switch.
+    if(handle!==liveDirectoryHandle)return;
+    const snap=liveLogEvidence({
+      ...parsed,folderName:handle.name,logName:latest?.name||'',logCount:logs.length,
+      logBytes:latest?.file?.size||0,logModifiedAt:latest?.file?.lastModified||null,
       application:controlText?configWord(controlText,'application')||'':'',
       endTime:controlText?configNumber(controlText,'endTime'):NaN,
       adjustTimeStep:controlText?configWord(controlText,'adjustTimeStep')||'':'',
       configuredDeltaT:controlText?configNumber(controlText,'deltaT'):NaN,
       maxCo:controlText?configNumber(controlText,'maxCo'):NaN,
       updatedAt:Date.now()
-    };
+    },liveLastSnapshot);
     renderLiveSnapshot(snap);
     if($('liveRefreshNow'))$('liveRefreshNow').disabled=false;if($('liveStop'))$('liveStop').disabled=false
   }catch(err){
+    if(handle!==liveDirectoryHandle)return;
     const dot=$('liveStatus')?.querySelector('.liveDot');if(dot){dot.classList.remove('on');dot.classList.add('warn')}
-    if($('liveDetail'))flSetIssue('liveDetail',String(err?.message||err),{view:'Watch Run',sourcePath:liveDirectoryHandle?.name||''})
+    if($('liveDetail'))flSetIssue('liveDetail',String(err?.message||err),{view:'Watch Run',sourcePath:handle.name||''})
+  }finally{
+    if(liveActiveRead===read)liveActiveRead=null
   }
 }
 function stopLiveWatch(){
   if(liveWatchTimer){clearInterval(liveWatchTimer);liveWatchTimer=null}
-  liveDirectoryHandle=null;liveLastSnapshot=null;
+  liveDirectoryHandle=null;liveLastSnapshot=null;liveActiveRead=null;
   if($('liveRefreshNow'))$('liveRefreshNow').disabled=true;if($('liveStop'))$('liveStop').disabled=true;
   renderLiveSnapshot(null);
   if($('liveStatus'))$('liveStatus').innerHTML='<span class="liveDot" id="liveDot"></span>'+(diagEs()?'Selecciona una carpeta de caso OpenFOAM para monitorear su log. FoamLens solo lee archivos.':'Select an OpenFOAM case folder to monitor its solver log. FoamLens only reads files.')
@@ -7442,7 +7450,9 @@ function stopLiveWatch(){
 async function chooseLiveFolder(){
   if(typeof window.showDirectoryPicker!=='function')return;
   try{
-    liveDirectoryHandle=await window.showDirectoryPicker({mode:'read'});
+    const picked=await window.showDirectoryPicker({mode:'read'});
+    if(liveWatchTimer){clearInterval(liveWatchTimer);liveWatchTimer=null}
+    liveDirectoryHandle=picked;liveLastSnapshot=null;liveActiveRead=null;
     if($('liveStatus'))$('liveStatus').innerHTML='<span class="liveDot on" id="liveDot"></span>'+(diagEs()?'Monitoreo activo. Puedes minimizar FoamLens; el caso permanece en modo solo lectura.':'Monitoring active. You can minimize FoamLens; the case remains read-only.');
     if(liveWatchTimer)clearInterval(liveWatchTimer);await inspectLiveDirectory();liveWatchTimer=setInterval(inspectLiveDirectory,5000)
   }catch(err){if(err?.name!=='AbortError'&&$('liveDetail'))flSetIssue('liveDetail',String(err?.message||err),{view:'Watch Run',sourcePath:liveDirectoryHandle?.name||''})}
