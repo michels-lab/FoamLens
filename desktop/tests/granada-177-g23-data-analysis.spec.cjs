@@ -42,12 +42,14 @@ function mock(){
   n.querySelector=function(s){
    function walk(x){for(const c of x.children){
     if(s==='.datasetTabs'&&c.classList.contains('datasetTabs')||s==='span'&&c.tagName==='SPAN'||
-       s==='small'&&c.tagName==='SMALL'||s==='.plotcard'&&c.classList.contains('plotcard'))return c;
+       s==='small'&&c.tagName==='SMALL'||s==='.plotcard'&&c.classList.contains('plotcard')||
+       s==='select[data-pm-role]'&&c.tagName==='SELECT'&&c.dataset.pmRole)return c;
     const deeper=walk(c);if(deeper)return deeper
    }return null}return walk(n);
   };
   n.addEventListener=function(k,fn){if(!n.handlers.has(k))n.handlers.set(k,[]);n.handlers.get(k).push(fn)};
   n.dispatch=function(k,ev={}){for(const fn of n.handlers.get(k)||[])fn(ev)};
+  n.dispatchEvent=function(event){n.dispatch(event.type,event);return true};
   n.setAttribute=function(k,v){n.attributes[k]=String(v)};
   n.hasAttribute=k=>Object.prototype.hasOwnProperty.call(n.attributes,k);
   n.focus=function(){document.activeElement=n;n.focusCount=(n.focusCount||0)+1};
@@ -83,6 +85,23 @@ function mock(){
   if(id==='fieldMappingTools'||id==='phaseMomentumTools')node.classList.add('pmHidden');
   host.appendChild(node);modules[id]=node
  }
+ const nativeControls={};
+ const select=(parent,id,entries,value)=>{
+   const control=el(id,'select');control.options=entries.map(([key,label])=>({value:String(key),textContent:label}));
+   control.value=String(value);parent.appendChild(control);nativeControls[id]=control;
+   return control
+ };
+ select(modules.couplingDiagnostics,'diagCase',[[1,'B3'],[2,'C3']],'2');
+ select(modules.couplingDiagnostics,'diagRoot',[['p_rgh','p_rgh'],['T','T']],'p_rgh');
+ select(modules.fieldMappingTools,'pmMappingCase',[[1,'B3'],[2,'C3']],'2');
+ const mappingRows=el('pmMappingRows');modules.fieldMappingTools.appendChild(mappingRows);
+ const mappingVariable=el('pmRoleT','select');mappingVariable.dataset.pmRole='temperature';
+ mappingVariable.value='T';mappingRows.appendChild(mappingVariable);nativeControls.pmRoleT=mappingVariable;
+ select(modules.phaseMomentumTools,'pmCase',[[1,'B3'],[2,'C3']],'2');
+ select(modules.phaseMomentumTools,'pmRegion',[['metal','metal'],['mold','mold']],'mold');
+ select(modules.phaseMomentumTools,'pmStatsField',[['T','T'],['alpha1','alpha1']],'T');
+ const globalCase=select(body,'globalCaseSelect',[['','All cases'],[1,'B3'],[2,'C3']],'');
+ const globalRegion=select(body,'globalRegionSelect',[['','All regions'],['metal','metal'],['mold','mold']],'');
  const language=el('language');language.value='en';body.appendChild(language);
  document={
   head,body,documentElement:html,activeElement:null,
@@ -97,8 +116,11 @@ function mock(){
    addEventListener(name,fn){if(!windowHandlers.has(name))windowHandlers.set(name,[]);windowHandlers.get(name).push(fn)},
    dispatch(name,event={}){for(const fn of windowHandlers.get(name)||[])fn(event)}
  };
+ const nativeRoutes=[];
  const sandbox={
   document,window,MutationObserver:Observer,
+  Event:class{constructor(type,options){this.type=type;this.bubbles=!!options?.bubbles}},
+  openAnalysisModule:route=>nativeRoutes.push(route),
   requestAnimationFrame:fn=>{fn();return 1},
   localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,val)=>storage.set(key,val)},
   getComputedStyle:n=>({display:n.style.display||'block'}),
@@ -108,8 +130,83 @@ function mock(){
  vm.createContext(sandbox);vm.runInContext(src,sandbox);
  const api=window.FoamLensGranadaG23;
  assert(api,'module must install against genuine Data and Analysis hosts');
- return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage,workspace,plot,seriesPanel}
+ return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage,workspace,plot,seriesPanel,nativeControls,nativeRoutes,globalCase,globalRegion}
 }
+test('Analysis navigator routes native Coupling/Front plots and focuses original selectors',()=>{
+ const m=mock();
+ assert.equal(m.api.focusModule('couplingDiagnostics'),true);
+ assert.equal(m.nativeRoutes.at(-1),'coupling','Coupling must activate its original log plot');
+ const caseButton=m.document.getElementById('flG23Context-case');
+ const regionButton=m.document.getElementById('flG23Context-region');
+ const fieldButton=m.document.getElementById('flG23Context-variable');
+ assert.equal(caseButton.disabled,false);
+ assert.equal(regionButton.disabled,true,'Coupling has no region selector, do not invent it');
+ assert.equal(fieldButton.disabled,false);
+ assert.equal(m.document.getElementById('flG23AnalysisContext').hidden,false);
+ fieldButton.dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.diagRoot,'variable action must focus original residual field');
+ caseButton.dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.diagCase);
+ assert.equal(m.api.focusModule('phaseFrontPanel'),true);
+ assert.equal(m.nativeRoutes.at(-1),'front','Front tracking must activate its original spatial-profile plot');
+ assert.equal(m.document.getElementById('flG23Context-case').disabled,true,
+   'Front tracking without module-owned case selector must not claim one');
+ assert.equal(m.document.getElementById('flG23AnalysisContext').hidden,false);
+});
+test('Analysis can explicitly apply real project case without silently changing module context',()=>{
+ const m=mock();
+ m.api.focusModule('couplingDiagnostics');
+ assert.equal(m.nativeControls.diagCase.value,'2');
+ assert.equal(m.document.getElementById('flG23UseGlobalCase').disabled,true);
+ assert.equal(m.api.applyGlobalCase(),false,'All cases must not select an arbitrary case');
+ assert.equal(m.nativeControls.diagCase.value,'2');
+ m.globalCase.value='1';m.api.refresh();
+ assert.equal(m.document.getElementById('flG23UseGlobalCase').disabled,false);
+ let notified=0;m.nativeControls.diagCase.addEventListener('change',()=>notified++);
+ assert.equal(m.api.applyGlobalCase(),true);
+ assert.equal(m.nativeControls.diagCase.value,'1');
+ assert.equal(notified,1,'exact original native change handler must run once');
+ assert.equal(m.document.activeElement,m.nativeControls.diagCase);
+ assert.equal(m.document.getElementById('flG23Context-case').disabled,false);
+ m.globalCase.value='not-a-native-option';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),false);
+ assert.equal(m.nativeControls.diagCase.value,'1','incompatible source cannot be silently substituted');
+});
+test('Phase Momentum uses original Case Region Variable and updates dependent native selectors',()=>{
+ const m=mock();
+ m.modules.phaseMomentumTools.classList.remove('pmHidden');m.api.refresh();
+ assert.equal(m.api.focusModule('phaseMomentumTools'),true);
+ assert.equal(m.nativeRoutes.at(-1),'phaseMomentum');
+ for(const kind of ['case','region','variable'])
+   assert.equal(m.document.getElementById('flG23Context-'+kind).disabled,false);
+ m.document.getElementById('flG23Context-region').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmRegion);
+ m.document.getElementById('flG23Context-variable').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmStatsField);
+ const notifications=[];
+ m.nativeControls.pmCase.addEventListener('change',()=>{notifications.push('case');m.nativeControls.pmRegion.value='mold'});
+ m.nativeControls.pmRegion.addEventListener('change',()=>notifications.push('region'));
+ m.globalCase.value='1';m.globalRegion.value='metal';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),true);
+ assert.equal(m.nativeControls.pmCase.value,'1');assert.equal(m.nativeControls.pmRegion.value,'metal');
+ assert.deepEqual(notifications,['case','region'],'native change handlers must run in dependency order');
+ m.globalRegion.value='unknown';m.api.refresh();
+ assert.equal(m.api.applyGlobalCase(),true,'case remains valid when requested region is missing');
+ assert.equal(m.nativeControls.pmRegion.value,'metal','missing region must not be invented');
+});
+test('Field Mapping keeps original role selector and unavailable module states honest',()=>{
+ const m=mock();
+ assert.equal(m.api.focusModule('fieldMappingTools'),false);
+ m.modules.fieldMappingTools.classList.remove('pmHidden');m.api.refresh();
+ assert.equal(m.api.focusModule('fieldMappingTools'),true);
+ assert.equal(m.nativeRoutes.at(-1),'mapping');
+ m.document.getElementById('flG23Context-variable').dispatch('click');
+ assert.equal(m.document.activeElement,m.nativeControls.pmRoleT,
+   'original mapping role selector must receive focus, not a duplicate');
+ assert.equal(m.document.getElementById('flG23Context-region').disabled,true);
+ assert.equal(m.host.querySelectorAll('[id]').filter(x=>x.id==='pmMappingCase').length,1);
+ assert(!src.includes('series.push('),'Analysis context cannot create synthetic scientific data');
+});
 test('Analysis resize handle remains between the ORIGINAL chart and series list',()=>{
  const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
  assert(handle,'original Analysis workspace receives one resize separator');
