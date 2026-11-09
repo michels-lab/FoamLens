@@ -111,3 +111,95 @@ test('Live recovery renders retry advice and retained measurements',()=>{
 
 console.log('Watch Run desktop monitoring regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+
+async function runLiveIORecoveryTests(){
+ const readerStart=index.indexOf('async function inspectLiveDirectory(){',renderStart);
+ const readerEnd=index.indexOf('function openLiveNumericalPerformance(){',readerStart);
+ assert(readerStart>renderStart&&readerEnd>readerStart,'native Watch Run reader must exist');
+ const runtimeSource=
+   'let liveDirectoryHandle=null,liveWatchTimer=null,liveLastSnapshot=null,liveActiveRead=null,liveWatchGeneration=0;'+
+   'const $=env.lookup,window={showDirectoryPicker:env.pick},setInterval=env.addTimer,clearInterval=env.removeTimer;'+
+   'const diagEs=()=>false,flSetIssue=(...args)=>env.errors.push(args);'+
+   'const parseLiveLogSnapshot=()=>({currentTime:1,failed:false,ended:false});'+
+   'const configWord=()=>\'\',configNumber=()=>NaN;'+
+   'function renderLiveSnapshot(snapshot){liveLastSnapshot=snapshot||null;env.events.push(snapshot)};'+
+   index.slice(evidenceStart,renderStart)+index.slice(readerStart,readerEnd)+
+   ';return {chooseLiveFolder,inspectLiveDirectory,stopLiveWatch,liveRunState,'+
+   'snapshot:()=>liveLastSnapshot,timer:()=>liveWatchTimer,generation:()=>liveWatchGeneration}';
+ const createRuntime=(pick)=>{
+   const nodes=new Map(),timers=new Map(),events=[],errors=[];
+   let serial=0;
+   const env={
+     lookup:id=>{if(!nodes.has(id))nodes.set(id,{disabled:true,innerHTML:'',textContent:''});return nodes.get(id)},
+     pick,events,errors,
+     addTimer:(fn,ms)=>{const id=++serial;timers.set(id,{fn,ms});return id},
+     removeTimer:id=>timers.delete(id)
+   };
+   const api=new Function('env',runtimeSource)(env);
+   return {...api,env,nodes,timers,events,errors}
+ };
+ const file={lastModified:Date.now(),size:128,
+   slice(){return{text:async()=> 'Time = 1'}}};
+ let permission='denied',ioError=null;
+ const folder={name:'QuickCup-B3',
+   async queryPermission(){return permission},
+   async *entries(){
+     if(ioError)throw ioError;
+     yield ['log.icoFoam',{kind:'file',getFile:async()=>file}]
+   },
+   async getDirectoryHandle(){throw new Error('optional controlDict missing')}
+ };
+ const run=createRuntime(async()=>folder);
+ await run.chooseLiveFolder();
+ assert.equal(run.liveRunState(run.snapshot()),'read-error');
+ assert.equal(run.snapshot().readError.kind,'permission');
+ assert.equal(run.snapshot().readError.count,1);
+ assert.equal(run.nodes.get('liveRefreshNow').disabled,false,'initial permission denial cannot disable retry');
+ assert.equal(run.nodes.get('liveStop').disabled,false,'stop remains available on initial failure');
+ assert.equal(run.timers.size,1,'automatic read-only retry continues after first read failure');
+ permission='granted';
+ await run.inspectLiveDirectory();
+ assert.equal(run.snapshot().readError,undefined,'recovered permissions clear the read error');
+ const successfulAt=run.snapshot().updatedAt;
+ ioError=new Error('temporary file read failure');
+ await run.inspectLiveDirectory();
+ await run.inspectLiveDirectory();
+ assert.equal(run.liveRunState(run.snapshot()),'read-error');
+ assert.equal(run.snapshot().readError.kind,'io');
+ assert.equal(run.snapshot().readError.count,2);
+ assert.equal(run.snapshot().updatedAt,successfulAt,'failed polls cannot update last-good timestamp');
+ assert.equal(run.timers.size,1,'transient I/O failures do not kill monitoring');
+ ioError=null;file.size=155;file.lastModified=Date.now()+1;
+ await run.inspectLiveDirectory();
+ assert.equal(run.snapshot().readError,undefined,'successful recovery clears I/O state');
+ assert.equal(run.errors.length,0,'recoverable source errors do not spam unrelated issue logs');
+ run.stopLiveWatch();
+ assert.equal(run.snapshot(),null);
+ assert.equal(run.timers.size,0);
+ assert.equal(run.nodes.get('liveStop').disabled,true);
+ passed.push('Live read-only reader auto-recovers permission and transient I/O failures');
+
+ let release,markStarted;
+ const gate=new Promise(resolve=>{release=resolve});
+ const started=new Promise(resolve=>{markStarted=resolve});
+ const slow={name:'QuickCup-C3',queryPermission:async()=> 'granted',
+   async *entries(){
+     markStarted();await gate;
+     yield ['log.icoFoam',{kind:'file',getFile:async()=>file}]
+   },
+   async getDirectoryHandle(){throw new Error('optional')}
+ };
+ const race=createRuntime(async()=>slow);
+ const pending=race.chooseLiveFolder();
+ await started;
+ race.stopLiveWatch();release();
+ await pending;
+ assert.equal(race.snapshot(),null,'late read after Stop must not revive old scientific data');
+ assert.equal(race.timers.size,0,'late folder picker cannot re-arm polling after Stop');
+ assert.equal(race.nodes.get('liveStop').disabled,true);
+ passed.push('Stop during pending async read never restores the old session');
+}
+runLiveIORecoveryTests().then(()=>{
+ console.log('Watch Run async folder recovery checks passed.');
+}).catch(error=>{console.error(error);process.exitCode=1});
