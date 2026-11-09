@@ -283,7 +283,9 @@ function tsdRefreshTimeSeriesControls(){
     v2Sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>';
     v2Sel.disabled=true;pSel.innerHTML='';fSel.innerHTML='';
     document.getElementById('timeSeriesFocusBadge').textContent=tsdUi('0 existing curves','0 curvas existentes');
-    document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
+    const emptyHint=document.getElementById('timeSeriesFilterHint');
+    emptyHint.setAttribute('role','status');emptyHint.setAttribute('aria-live','polite');
+    emptyHint.textContent=tsdUi(
       'No measured time-series has been imported or built. Select an available 3D field below and explicitly build its physical-time history.',
       'No se ha importado o calculado una serie temporal medida. Selecciona abajo un campo 3D disponible y construye explícitamente su historia en tiempo físico.');
     delete vSel.dataset.autoinit;delete pSel.dataset.autoinit;
@@ -319,17 +321,23 @@ function tsdRefreshTimeSeriesControls(){
   pSel.dataset.autoinit='1';
   const caseLabel=document.querySelector('label[for="timeSeriesFamily"]');if(caseLabel)caseLabel.textContent=tsdUi('Cases','Casos');
   const matching=timeSeriesOptionsBase().filter(tsdMatchesFilters),uniqueCases=new Set(matching.map(s=>s.caseId)).size;
+  const selectedCase=caseOptions.find(c=>`case:${c.id}`===fSel.value);
+  const caseContext=selectedCase?String(selectedCase.name||`${tsdUi('Case','Caso')} ${selectedCase.id}`):tsdUi('all matching cases','todos los casos coincidentes');
   document.getElementById('timeSeriesFocusBadge').textContent=`${matching.length} ${tsdUi('curves','curvas')}`;
   const pf=vars.find(f=>f.canonical===vSel.value),sf=vars.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
   const allButton=document.getElementById('timeSeriesShowAllVars');if(allButton){allButton.classList.toggle('primary',showAll);allButton.classList.toggle('soft',!showAll);allButton.textContent=showAll?tsdUi('Showing all variables','Mostrando todas'):tsdUi('Show all variables','Mostrar todas las variables')}
   const primaryText=showAll?tsdUi('all variables','todas las variables'):(pf?localizedFieldName(pf):''),secondaryText=!showAll&&sf?localizedFieldName(sf):'';
   const probeText=pSel.value!==''?`${tr('probe')} ${pSel.value}`:tsdUi('all probes','todas las sondas');
   const varsText=secondaryText?`${primaryText} [Y-L] + ${secondaryText} [${plan.separate?'Y-R':'Y-L'}]`:primaryText;
-  document.getElementById('timeSeriesFilterHint').textContent=tsdUi(
-    `Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${varsText} · ${probeText}.`,
-    `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${varsText} · ${probeText}.`
-  )
-;
+  const filterHint=document.getElementById('timeSeriesFilterHint');
+  filterHint.setAttribute('role','status');filterHint.setAttribute('aria-live','polite');
+  filterHint.textContent=matching.length?tsdUi(
+    `Showing ${matching.length} matching time-series curves across ${uniqueCases} case(s) · ${caseContext} · ${varsText} · ${probeText}.`,
+    `Mostrando ${matching.length} curvas temporales coincidentes en ${uniqueCases} caso(s) · ${caseContext} · ${varsText} · ${probeText}.`
+  ):tsdUi(
+    `No curves match · ${caseContext} · ${varsText} · ${probeText}. Try All probes, All matching cases or Show all variables.`,
+    `No hay curvas coincidentes · ${caseContext} · ${varsText} · ${probeText}. Prueba Todas las sondas, Todos los casos coincidentes o Mostrar todas las variables.`
+  );
   tsdUpdateSourceCatalog();tsdUpdateScientificEvidence()
 }
 function tsdPatchAssignments(){
