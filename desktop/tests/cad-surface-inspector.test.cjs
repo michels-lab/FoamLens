@@ -167,6 +167,9 @@ assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.schema='invalid'})),/mani
 assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].outputCoordinates='mm'})),/provenance|manifest/i);
 assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].sourceToMeterScale=1000})),/units/i);
 assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].boundsMeters[0]=999})),/dimensions/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].boundsMeters=null})),/bounds/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].areaSquareMeters=999})),/surface area/i);
+assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].areaSquareMeters=null})),/surface area/i);
 assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[0].sourceTopology.triangles=3})),/triangle/i);
 assert.throws(()=>restoreBatch(rewrittenManifest(m=>{m.regions[1].outputFile=m.regions[0].outputFile})),/duplicate|manifest/i);
 assert.throws(()=>restoreBatch(storeZip(batch.files.slice(0,-1))),/manifest/i);
