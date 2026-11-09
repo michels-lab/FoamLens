@@ -85,6 +85,7 @@ function g4FindingLabels(){
  if(!search||!severity||!clear)return;
  search.placeholder=es?'Buscar título, detalle, caso o campo…':'Search title, detail, case or field…';
  search.setAttribute('aria-label',es?'Buscar en hallazgos visibles':'Search visible findings');
+ search.title=es?'Enter o flecha abajo: ir al primer hallazgo visible':'Enter or Down arrow: jump to first visible finding';
  const label=g4El('g4FindingSeverityLabel');
  if(label)label.textContent=es?'Severidad':'Severity';
  const options=[
@@ -123,6 +124,16 @@ function g4FilterFindings(){
  clear.disabled=!query&&!level;
  return true
 }
+// Focus the original Review row, not a duplicate search result or scientific model.
+function g4FocusFirstVisibleFinding(){
+ const first=[...(g4El('allFindings')?.querySelectorAll('.findingRow')||[])]
+   .find(row=>!row.hidden&&row.isConnected!==false);
+ if(!first)return false;
+ if(!first.hasAttribute('tabindex'))first.setAttribute('tabindex','-1');
+ first.focus?.({preventScroll:true});
+ first.scrollIntoView?.({block:'nearest',behavior:'auto'});
+ return true
+}
 function g4ReviewFindings(){
  const list=g4El('allFindings'),pane=list?.parentElement;
  if(!list||!pane)return false;
@@ -149,8 +160,10 @@ function g4ReviewFindings(){
  search.addEventListener('input',g4FilterFindings);
  search.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&search.value){
-   event.preventDefault();search.value='';g4FilterFindings()
+   event.preventDefault();search.value='';g4FilterFindings();return
   }
+  if((event.key==='Enter'||event.key==='ArrowDown')&&!event.isComposing&&
+     !event.altKey&&!event.ctrlKey&&!event.metaKey&&g4FocusFirstVisibleFinding())event.preventDefault()
  });
  select.addEventListener('change',g4FilterFindings);
  clear.addEventListener('click',()=>{
@@ -158,7 +171,10 @@ function g4ReviewFindings(){
  });
  if(typeof MutationObserver!=='undefined'){
   g4FindingsObserver=new MutationObserver(g4FilterFindings);
-  g4FindingsObserver.observe(list,{childList:true});
+  // Watch updates to original rows, not only full-list replacement.
+  // The filter writes [hidden], which is intentionally NOT observed to prevent loops.
+  g4FindingsObserver.observe(list,{childList:true,subtree:true,characterData:true,
+    attributes:true,attributeFilter:['class']});
  }
  g4FindingLabels();g4FilterFindings();return true
 }
