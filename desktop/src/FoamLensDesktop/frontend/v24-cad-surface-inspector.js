@@ -236,6 +236,25 @@ function cgDownload(name,data,mime){
   const u=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)
 }
 function cgShow(msg){const el=document.getElementById('cgStatus');if(el)el.textContent=msg}
+function cgDownloadZip(name,bytes){
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2500)
+}
+function cgExportVisibleBatch(){
+  try{
+    const batch=cgVisibleRegionBatch(cgModels);
+    if(batch.topologyWarnings&&!window.confirm(
+      batch.topologyWarnings+' named regions have topology warnings. Export unvalidated surfaces anyway?'))return;
+    cgDownloadZip('FoamLens-triSurfaces-visible.zip',cgStoreZip(batch.files));
+    cgShow(cgUi('Exported ','Exportadas ')+batch.manifest.regionCount+
+      cgUi(' separate STL regions and provenance in one local ZIP (NOT a volume mesh).',
+        ' regiones STL separadas y su procedencia en un ZIP local (NO una malla volumétrica).'))
+  }catch(err){
+    cgShow(cgUi('Batch export blocked: ','Exportación por lotes bloqueada: ')+String(err?.message||err))
+  }
+}
 function cgRenderInventory(){
   const el=document.getElementById('cgInventory');if(!el)return;
   if(!cgModels.length){el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');return}
@@ -252,10 +271,10 @@ function cgRenderInventory(){
       '<div class="cgParts">Visible named parts: '+sum.parts.map(p=>'<label style="margin:4px 12px 4px 0;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" data-cg-part="'+i+'|'+cgEscape(p.name)+'" '+(m.partsVisible.get(p.name)?'checked':'')+'> '+cgEscape(p.name)+' ('+p.count+')</label>').join('')+'</div>'+
       (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
   }).join('');
-  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgDraw()}));
+  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgRefreshExport();cgDraw()}));
   el.querySelectorAll('[data-cg-part]').forEach(ch=>ch.addEventListener('change',()=>{
     const key=ch.dataset.cgPart,sep=key.indexOf('|'),i=Number(key.slice(0,sep)),part=key.slice(sep+1),m=cgModels[i];
-    if(m)m.partsVisible.set(part,ch.checked);cgDraw()
+    if(m)m.partsVisible.set(part,ch.checked);cgRefreshExport();cgDraw()
   }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
@@ -264,7 +283,7 @@ function cgRenderInventory(){
   cgRefreshExport();cgDraw()
 }
 function cgRefreshExport(){
-  const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl');
+  const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
   if(!select||!exportBtn)return;
   const old=select.value,parts=[];
   cgModels.forEach((m,i)=>m.summary.parts.forEach(p=>parts.push({key:i+'|'+p.name,label:m.name+' / '+p.name+' ('+p.count+')'})));
@@ -272,6 +291,16 @@ function cgRefreshExport(){
   if(parts.some(p=>p.key===old))select.value=old;
   const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
   exportBtn.disabled=!parts.length||!scale;
+  if(batchBtn){
+    const chosen=cgModels.filter(m=>m.visible).flatMap(m=>
+      [...m.partsVisible].filter(([,shown])=>shown).map(([part])=>({model:m,part})));
+    batchBtn.disabled=!chosen.length||chosen.some(({model})=>!cgUnitScale(model.unit));
+    batchBtn.title=batchBtn.disabled?
+      cgUi('Select visible regions and confirm every source unit.',
+        'Selecciona regiones visibles y confirma todas las unidades originales.'):
+      cgUi('Separate binary STL per visible region, with manifest, in one ZIP.',
+        'STL binario independiente por región visible con manifiesto en un ZIP.')
+  }
   const note=document.getElementById('cgUnitWarning');
   if(note)note.textContent=scale?
     cgUi('Selected source coordinate unit explicitly mapped to meters. Verify dimensions before using OpenFOAM.','Unidad de origen seleccionada; conversión a metros. Comprueba las dimensiones antes de usar OpenFOAM.'):
@@ -387,7 +416,8 @@ function cgInstall(){
     '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL or OBJ from your computer.</div>'+
     '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
     '<div class="cgTools">'+
-    '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button></div>'+
+    '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
+    '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
   document.body.appendChild(sheet);
@@ -399,6 +429,7 @@ function cgInstall(){
   document.addEventListener('keydown',e=>{if(cgActive&&e.key==='Escape')close()});
   document.getElementById('cgImport').onclick=()=>void cgImport();
   document.getElementById('cgExportStl').onclick=cgExport;
+  document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
   document.getElementById('cgPart').addEventListener('change',cgRefreshExport);
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
@@ -412,4 +443,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,unitScale:cgUnitScale};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,unitScale:cgUnitScale};
