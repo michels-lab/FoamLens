@@ -16,6 +16,17 @@ const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
 
+test('Field Inspector closes with Escape and returns keyboard focus',()=>{
+  for(const token of [
+    'aria-controls="fwControlsDrawer"',
+    "e.key==='Escape'&&fwState.inspector",
+    'e.preventDefault();e.stopPropagation();fwSetInspector(false,true)',
+    "fwSetInspector(false,true)",
+    "drawer?.contains(document.activeElement)",
+    "if(!fwState.inspector&&returnFocus&&fwState.active)toggle?.focus()"
+  ])assert(field.includes(token),'Missing accessible Inspector behavior: '+token);
+});
+
 test('Field workspace labels and playback readouts remain legible',()=>{
   const start=field.indexOf('style.textContent=');
   assert(start>=0,'Field workspace style sheet is missing');
