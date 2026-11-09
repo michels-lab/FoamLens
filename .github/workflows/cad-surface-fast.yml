@@ -3,6 +3,11 @@ name: CAD surface scientific fast tests
 on:
   push:
     paths:
+      - 'desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs'
+      - 'desktop/src/FoamLensDesktop/NativeCadOcctFreecad.py'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+      - 'desktop/tests/cad-occt-native.test.cjs'
+      - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -11,6 +16,11 @@ on:
       - '.github/workflows/cad-surface-fast.yml'
   pull_request:
     paths:
+      - 'desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs'
+      - 'desktop/src/FoamLensDesktop/NativeCadOcctFreecad.py'
+      - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
+      - 'desktop/tests/cad-occt-native.test.cjs'
+      - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -32,3 +42,7 @@ jobs:
         run: node desktop/tests/cad-surface-inspector.test.cjs
       - name: Native WSL surfaceCheck browser request and fail-closed tests
         run: node desktop/tests/cad-native-surfacecheck.test.cjs
+      - name: FreeCAD OCCT source-owned native frontend, cancellation and provenance
+        run: node desktop/tests/cad-occt-native.test.cjs
+      - name: Execute FreeCAD conversion script under controlled mock Part API (NOT actual OCCT)
+        run: python3 desktop/tests/cad-occt-freecad.test.py
