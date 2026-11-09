@@ -12,7 +12,7 @@ const MODULES=[
   ['phaseMomentumTools','Phase & momentum','Fase y cantidad de movimiento']
 ];
 const $=id=>document.getElementById(id);
-const state={installed:false,selected:null,pending:false,observer:null};
+const state={installed:false,selected:null,pending:false,observer:null,query:'',availableOnly:false};
 function tr(en,es){try{return typeof flUi==='function'?flUi(en,es):($('language')?.value==='es'?es:en)}catch{return en}}
 function mode(){return document.body.classList.contains('appMode-data')?'data':
   document.body.classList.contains('appMode-analysis')?'analysis':'other'}
@@ -40,6 +40,14 @@ function applyStyle(){
 '.flG23GuideTitle{font-size:12px;color:var(--text);font-weight:820;margin:0}',
 '.flG23GuideHelp,.flG23GuideStatus{font-size:10px;color:var(--muted);line-height:1.5;margin:0}',
 '.flG23GuideTabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}',
+'.flG23GuideSearch{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}',
+'.flG23GuideSearch input{min-width:0;width:100%;box-sizing:border-box;min-height:38px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--panel);color:var(--text);font-size:12px}',
+'.flG23GuideSearch button{min-height:38px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font-size:11px}',
+'.flG23GuideSearch button[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent)}',
+'.flG23GuideSearch :is(input,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
+'.flG23GuideEmpty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}',
+'.flG23GuideEmpty[hidden],.flG23Jump[hidden]{display:none!important}',
+'@media(max-width:550px){.flG23GuideSearch{grid-template-columns:minmax(0,1fr) auto}.flG23GuideSearch #flG23AvailableOnly{grid-column:1 / -1}}',
 '.flG23Jump{display:flex;min-width:0;min-height:36px;align-items:center;justify-content:space-between;gap:6px;text-align:left;padding:7px 9px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px;font-size:10px;font-weight:730;overflow-wrap:anywhere}',
 '.flG23Jump small{flex:0 0 auto;font-size:9px;color:var(--muted)}',
 '.flG23Jump:disabled{opacity:.55;cursor:not-allowed}',
@@ -77,29 +85,53 @@ function selectAnalysis(id,options={}){
  refresh();
  return true
 }
+function g23Match(text,query){
+  const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim();
+  return normalize(text).includes(normalize(query))
+}
 function updateAnalysis(){
  const host=$('flAnalysisOwnedHost');if(!host)return;
- let count=0;
- for(const [id] of MODULES){
+ let count=0,shown=0;
+ for(const [id,en,es] of MODULES){
    const button=$('flG23Go-'+id),n=$(id);if(!button)continue;
-   const ready=!!n&&host.contains(n)&&available(n);button.disabled=!ready;
+   const ready=!!n&&host.contains(n)&&available(n);
+   button.disabled=!ready;
    button.setAttribute('aria-disabled',String(!ready));
    button.setAttribute('aria-pressed',String(ready&&state.selected===id));
-   const status=button.querySelector('small');if(status)status.textContent=ready?tr('Open','Abrir'):tr('No data','Sin datos');
+   const status=button.querySelector('small');if(status)status.textContent=ready?tr('Open','Abrir'):tr('Unavailable','No disponible');
    button.title=ready?tr('Focus original controls','Enfocar controles originales'):
-     tr('No supported inputs available','No hay insumos compatibles');
+     tr('Original module is currently unavailable','El módulo original no está disponible');
+   const matches=g23Match(id+' '+en+' '+es,state.query);
+   button.hidden=!matches||(state.availableOnly&&!ready);
+   if(!button.hidden)shown++;
    if(ready)count++
  }
+ const only=$('flG23AvailableOnly');
+ if(only)only.setAttribute('aria-pressed',String(state.availableOnly));
+ const clear=$('flG23SearchClear');if(clear)clear.disabled=!state.query;
+ const empty=$('flG23GuideEmpty');
+ if(empty){
+   empty.hidden=shown!==0;
+   empty.textContent=count?tr('No tools match. Clear search or turn off Available only.','No coinciden herramientas. Borra la búsqueda o desactiva Solo disponibles.'):
+     tr('No original analysis modules are available. Import a compatible OpenFOAM case.','No hay módulos de análisis originales disponibles. Importa un caso OpenFOAM compatible.');
+ }
  const status=$('flG23GuideStatus');
- if(status)status.textContent=count?tr('Available original modules: ','Módulos originales disponibles: ')+count:
+ if(status)status.textContent=count?tr('Available original modules: ','Módulos originales disponibles: ')+count+
+   ' · '+shown+' '+tr('shown','visibles'):
   tr('Import a compatible OpenFOAM case. No data or diagnostic is inferred.',
-     'Importa un caso OpenFOAM compatible. No se infieren datos ni diagnósticos.')
+     'Importa un caso OpenFOAM compatible. No se infieren datos ni diagnósticos.');
 }
 function labels(){
  const title=$('flG23GuideTitle'),help=$('flG23GuideHelp');
  if(title)title.textContent=tr('Scientific analysis','Análisis científico');
- if(help)help.textContent=tr('Navigate to the original analysis tools. Unavailable modules remain disabled.',
-   'Navega a las herramientas originales. Los módulos no disponibles quedan deshabilitados.');
+ if(help)help.textContent=tr('Find an original analysis tool. Unavailable modules remain disabled.',
+   'Busca una herramienta original de análisis. Los módulos no disponibles quedan deshabilitados.');
+ const search=$('flG23ModuleSearch');if(search){
+   search.placeholder=tr('Find analysis tool…','Buscar herramienta de análisis…');
+   search.setAttribute('aria-label',tr('Find analysis tool','Buscar herramienta de análisis'));
+ }
+ const clear=$('flG23SearchClear');if(clear)clear.textContent=tr('Clear','Borrar');
+ const only=$('flG23AvailableOnly');if(only)only.textContent=tr('Available only','Solo disponibles');
  for(const [id,en,es] of MODULES){const label=$('flG23Label-'+id);if(label)label.textContent=tr(en,es)}
  updateData();updateAnalysis()
 }
@@ -139,6 +171,12 @@ function install(){
   guide.setAttribute('aria-label','Scientific analysis navigation');
   const title=document.createElement('h3');title.id='flG23GuideTitle';title.className='flG23GuideTitle';guide.appendChild(title);
   const help=document.createElement('p');help.id='flG23GuideHelp';help.className='flG23GuideHelp';guide.appendChild(help);
+  const searchBar=document.createElement('div');searchBar.className='flG23GuideSearch';guide.appendChild(searchBar);
+  const search=document.createElement('input');search.id='flG23ModuleSearch';search.type='search';
+  search.autocomplete='off';searchBar.appendChild(search);
+  const clear=document.createElement('button');clear.id='flG23SearchClear';clear.type='button';searchBar.appendChild(clear);
+  const only=document.createElement('button');only.id='flG23AvailableOnly';only.type='button';
+  only.setAttribute('aria-pressed','false');searchBar.appendChild(only);
   const nav=document.createElement('div');nav.className='flG23GuideTabs';nav.setAttribute('role','group');guide.appendChild(nav);
   for(const [id] of MODULES){
     const button=document.createElement('button');button.type='button';button.id='flG23Go-'+id;
@@ -147,9 +185,21 @@ function install(){
     button.appendChild(document.createElement('small'));
     button.addEventListener('click',()=>selectAnalysis(id));nav.appendChild(button)
   }
+  const empty=document.createElement('p');empty.id='flG23GuideEmpty';empty.className='flG23GuideEmpty';empty.hidden=true;
+  empty.setAttribute('role','status');guide.appendChild(empty);
   const status=document.createElement('p');status.id='flG23GuideStatus';status.className='flG23GuideStatus';
   status.setAttribute('role','status');guide.appendChild(status);
-  host.prepend(guide)
+  host.prepend(guide);
+  search.addEventListener('input',()=>{state.query=search.value;refresh()});
+  search.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&state.query){event.preventDefault();state.query='';search.value='';refresh()}
+    if(event.key==='Enter'){
+      const first=MODULES.find(([id])=>{const button=$('flG23Go-'+id);return button&&!button.hidden&&!button.disabled});
+      if(first){event.preventDefault();selectAnalysis(first[0])}
+    }
+  });
+  clear.addEventListener('click',()=>{state.query='';search.value='';refresh();search.focus()});
+  only.addEventListener('click',()=>{state.availableOnly=!state.availableOnly;refresh()})
  }
  // Keyboard focus moves between original data buttons. The existing click
  // handlers still own actual selection and do not fire during focus navigation.

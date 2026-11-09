@@ -156,6 +156,56 @@ test('availability updates are reversible; language and state remain honest',()=
  general.classList.add('pmHidden');m.api.refresh();
  assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').disabled,true);
 });
+test('Analysis searchable navigator filters original modules and Enter opens the native tool',()=>{
+ const m=mock(),search=m.document.getElementById('flG23ModuleSearch');
+ assert(search&&search.type==='search','source navigator must use an accessible search input');
+ search.value='frente';search.dispatch('input');
+ const front=m.document.getElementById('flG23Go-phaseFrontPanel');
+ assert.equal(front.hidden,false,'Spanish search must match Front tracking');
+ for(const id of ['generalAnalysisTools','couplingDiagnostics','fieldMappingTools','phaseMomentumTools'])
+   assert.equal(m.document.getElementById('flG23Go-'+id).hidden,true,'nonmatching modules must be filtered');
+ let prevented=0;search.dispatch('keydown',{key:'Enter',preventDefault:()=>prevented++});
+ assert.equal(prevented,1);
+ assert.equal(m.document.activeElement,m.modules.phaseFrontPanel,'Enter must focus original module');
+ assert.equal(m.modules.phaseFrontPanel.open,true,'native front controls expand on focus');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,true);
+});
+test('Analysis filter provides honest no-results, Escape reset and available-only toggle',()=>{
+ const m=mock(),search=m.document.getElementById('flG23ModuleSearch');
+ const clear=m.document.getElementById('flG23SearchClear'),only=m.document.getElementById('flG23AvailableOnly');
+ assert.equal(clear.disabled,true,'empty query must not require clearing');
+ search.value='does-not-exist';search.dispatch('input');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,false);
+ assert.match(m.document.getElementById('flG23GuideStatus').textContent,/0 shown/);
+ let prevented=0;search.dispatch('keydown',{key:'Escape',preventDefault:()=>prevented++});
+ assert.equal(prevented,1);assert.equal(search.value,'');
+ assert.equal(m.document.getElementById('flG23GuideEmpty').hidden,true);
+ only.dispatch('click');
+ assert.equal(only.attributes['aria-pressed'],'true');
+ assert.equal(m.document.getElementById('flG23Go-couplingDiagnostics').hidden,false);
+ assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').hidden,true,'unavailable stays native but hidden by filter');
+ only.dispatch('click');
+ assert.equal(m.document.getElementById('flG23Go-generalAnalysisTools').hidden,false,'all modules are discoverable again');
+ search.value='momentum';search.dispatch('input');assert.equal(clear.disabled,false);
+ clear.dispatch('click');
+ assert.equal(search.value,'');assert.equal(m.document.activeElement,search);
+ assert.equal(m.document.getElementById('flG23Go-couplingDiagnostics').hidden,false);
+});
+test('Analysis navigator updates locale, keeps disabled native owners and does not duplicate controls',()=>{
+ const m=mock();
+ m.language.value='es';m.events.get('foamlens-language-change')();
+ const input=m.document.getElementById('flG23ModuleSearch');
+ assert.match(input.placeholder,/Buscar herramienta/);
+ assert.equal(m.document.getElementById('flG23AvailableOnly').textContent,'Solo disponibles');
+ input.value='mapeo';input.dispatch('input');
+ const mapping=m.document.getElementById('flG23Go-fieldMappingTools');
+ assert.equal(mapping.hidden,false);
+ assert.equal(mapping.disabled,true,'search cannot enable unsupported real field mapping');
+ assert.equal(m.api.focusModule('fieldMappingTools'),false);
+ assert.equal(m.host.querySelectorAll('[id]').filter(n=>n.id==='flG23Go-fieldMappingTools').length,1);
+ assert.equal(m.modules.fieldMappingTools.parentElement,m.host,'original scientific UI must stay in its owner');
+});
+
 test('read-only audit records original parents, disabled views and lack of scientific acceptance',()=>{
  const m=mock(),r=m.api.audit();
  assert.equal(r.mode,'data');
