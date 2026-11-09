@@ -12,7 +12,7 @@ function mock(){
  const nodes=[],watchers=[],storage=new Map(),events=new Map();
  let document;
  function el(id='',tag='div',className=''){
-  const n={id,tagName:tag.toUpperCase(),className,children:[],parentElement:null,style:{display:''},
+  const n={id,tagName:tag.toUpperCase(),className,children:[],parentElement:null,style:{display:'',setProperty(name,value){this[name]=value}},
     dataset:{},attributes:{},disabled:false,open:false,textContent:'',value:'',role:'',handlers:new Map(),
     isConnected:true};
   nodes.push(n);
@@ -42,7 +42,7 @@ function mock(){
   n.querySelector=function(s){
    function walk(x){for(const c of x.children){
     if(s==='.datasetTabs'&&c.classList.contains('datasetTabs')||s==='span'&&c.tagName==='SPAN'||
-       s==='small'&&c.tagName==='SMALL')return c;
+       s==='small'&&c.tagName==='SMALL'||s==='.plotcard'&&c.classList.contains('plotcard'))return c;
     const deeper=walk(c);if(deeper)return deeper
    }return null}return walk(n);
   };
@@ -52,12 +52,15 @@ function mock(){
   n.hasAttribute=k=>Object.prototype.hasOwnProperty.call(n.attributes,k);
   n.focus=function(){document.activeElement=n;n.focusCount=(n.focusCount||0)+1};
   n.scrollIntoView=function(){n.scrolled=true};
-  n.getBoundingClientRect=()=>({width:120,height:35});
+  n.getBoundingClientRect=()=>({width:id==='workspace'?1280:id==='seriesPanel'?360:120,height:35});
   return n
  }
  const html=el('html'),head=el('head'),body=el('body','body','appMode-data');
  html.appendChild(head);html.appendChild(body);
  const sidebar=el('sidebar','aside','sidebar');body.appendChild(sidebar);
+ const workspace=el('workspace','section','workspace');body.appendChild(workspace);
+ const plot=el('originalPlot','div','plotcard'),seriesPanel=el('seriesPanel','div','listcard');
+ workspace.appendChild(plot);workspace.appendChild(seriesPanel);
  const dataCard=el('dataCard','div','card flSidebarSection flSidebarSectionCollapsed');
  sidebar.appendChild(dataCard);
  const count=el('countBadge');dataCard.appendChild(count);
@@ -89,7 +92,11 @@ function mock(){
   querySelectorAll:s=>s==='[id]'?nodes.filter(n=>n.id):[]
  };
  class Observer{constructor(fn){this.callback=fn;watchers.push(this)}observe(node,config){this.node=node;this.config=config}disconnect(){}}
- const window={};
+ const windowHandlers=new Map();
+ const window={
+   addEventListener(name,fn){if(!windowHandlers.has(name))windowHandlers.set(name,[]);windowHandlers.get(name).push(fn)},
+   dispatch(name,event={}){for(const fn of windowHandlers.get(name)||[])fn(event)}
+ };
  const sandbox={
   document,window,MutationObserver:Observer,
   requestAnimationFrame:fn=>{fn();return 1},
@@ -101,8 +108,56 @@ function mock(){
  vm.createContext(sandbox);vm.runInContext(src,sandbox);
  const api=window.FoamLensGranadaG23;
  assert(api,'module must install against genuine Data and Analysis hosts');
- return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage}
+ return{nodes,document,events,watchers,window,api,tabs,block,host,modules,native,dataCard,importer,language,storage,workspace,plot,seriesPanel}
 }
+test('Analysis resize handle remains between the ORIGINAL chart and series list',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ assert(handle,'original Analysis workspace receives one resize separator');
+ assert.equal(m.workspace.children.length,3);
+ assert.equal(m.workspace.children[0],m.plot,'original chart stays first');
+ assert.equal(m.workspace.children[1],handle);
+ assert.equal(m.workspace.children[2],m.seriesPanel,'original series DOM is not moved or duplicated');
+ assert.equal(handle.attributes.role,'separator');
+ assert.equal(handle.attributes['aria-orientation'],'vertical');
+ assert.equal(handle.attributes['aria-valuenow'],'360');
+ assert.equal(m.workspace.style['--flG23AnalysisSeriesWidth'],'360px');
+ assert.equal(m.storage.has('foamlens.granada.analysis-results-width.v1'),false,
+   'initial render must not overwrite saved defaults');
+});
+test('Analysis result splitter supports keyboard precision and remembers original side-panel width',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ let prevented=0;
+ handle.dispatch('keydown',{key:'ArrowLeft',preventDefault:()=>{prevented++}});
+ assert.equal(m.workspace.style['--flG23AnalysisSeriesWidth'],'384px');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'384');
+ handle.dispatch('keydown',{key:'ArrowRight',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'360');
+ handle.dispatch('keydown',{key:'End',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'560');
+ handle.dispatch('keydown',{key:'Home',preventDefault:()=>{prevented++}});
+ assert.equal(handle.attributes['aria-valuenow'],'260');
+ handle.dispatch('keydown',{key:'Tab',preventDefault:()=>{prevented++}});
+ assert.equal(prevented,4,'native Tab navigation must not be stolen');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'260');
+});
+test('Analysis drag resizes original plot/series without scientific mutation and saves only on release',()=>{
+ const m=mock(),handle=m.document.getElementById('flG23AnalysisSplitter');
+ handle.dispatch('pointerdown',{button:0,clientX:900,preventDefault(){}});
+ m.window.dispatch('pointermove',{clientX:830});
+ assert.equal(handle.attributes['aria-valuenow'],'430');
+ assert.equal(m.storage.has('foamlens.granada.analysis-results-width.v1'),false,
+   'live drag must not write settings at every pixel');
+ m.window.dispatch('pointerup');
+ assert.equal(m.storage.get('foamlens.granada.analysis-results-width.v1'),'430');
+ m.window.dispatch('pointermove',{clientX:100});
+ assert.equal(handle.attributes['aria-valuenow'],'430','pointermove after release must be ignored');
+ assert.equal(m.workspace.children[0],m.plot);
+ assert.equal(m.workspace.children[2],m.seriesPanel);
+ m.language.value='es';m.events.get('foamlens-language-change')();
+ assert.match(handle.attributes['aria-label'],/Cambiar tamaño/);
+ assert(src.includes('max-width:1160px'), 'responsive stack must preserve chart above native series');
+});
+
 test('Data restores all four ORIGINAL tabs without duplicating or renaming controls',()=>{
  const m=mock();
  assert(m.api.isInstalled());
