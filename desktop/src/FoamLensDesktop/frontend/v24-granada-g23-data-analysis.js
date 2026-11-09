@@ -56,6 +56,7 @@ function applyStyle(){
 '.flG23GuideEmpty{font-size:11px;color:var(--muted);line-height:1.5;margin:0}',
 '.flG23GuideEmpty[hidden],.flG23Jump[hidden]{display:none!important}',
 '.flG23Context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-top:1px solid var(--line);padding-top:9px}',
+'.flG23Context[hidden]{display:none!important}',
 '.flG23ContextBtn{min-height:38px;min-width:0;text-align:left;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);padding:6px 8px;font-size:11px;overflow-wrap:anywhere}',
 '.flG23ContextBtn:disabled{opacity:.55;cursor:not-allowed}',
 '.flG23ContextBtn:focus-visible,.flG23UseGlobalCase:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
