@@ -27,6 +27,7 @@ class N{
   }});
   this.id=id;this.className='';this.dataset={};this.children=[];this.parentElement=null;
   this.attributes={};this.hidden=false;this.open=false;this.textContent='';this.tabIndex=-1;this.handlers={};
+  Object.defineProperty(this,'options',{get:()=>this.children.filter(x=>x.tagName==='OPTION')});
   this.classes=new Set();
   this.classList={add:name=>this.classes.add(name),remove:name=>this.classes.delete(name),
     contains:name=>this.classes.has(name)||this.className.split(/\s+/).includes(name),
@@ -56,6 +57,8 @@ class N{
   if(selector==='.liveRunHead')return this.classList.contains('liveRunHead');
   if(selector==='.liveProgress')return this.classList.contains('liveProgress');
   if(selector==='.g4ReviewMore')return this.classList.contains('g4ReviewMore');
+  if(selector==='.findingRow')return this.classList.contains('findingRow');
+  if(selector==='.findingSeverity')return this.classList.contains('findingSeverity');
   if(selector==='.reviewTab.active')return this.classList.contains('reviewTab')&&this.classList.contains('active');
   return false
  }
@@ -84,9 +87,11 @@ for(const id of core.main.concat(core.secondary)){
  nav.appendChild(btn);orig.set(id,btn)
 }
 for(const name of ['auditor','findings','inspector','configuration','compare','outputs','relationships']){
- const pane=new N('div');pane.classList.add('reviewPane');pane.dataset.reviewPane=name;card.appendChild(pane)
+ const pane=new N('div');pane.classList.add('reviewPane');pane.dataset.reviewPane=name;card.appendChild(pane);
+ if(name==='findings')pane.appendChild(new N('div','allFindings'))
 }
 document.body.appendChild(review);
+const language=new N('select','language');language.value='en';document.body.appendChild(language);
 const live=new N('section','liveSurface'),grid=new N('div');grid.classList.add('surfaceGrid');
 const livecard=new N('div');livecard.classList.add('surfaceCard');
 const liveHead=new N('div');liveHead.classList.add('surfaceCardHead');
@@ -145,6 +150,61 @@ const liveAudit=api.audit();
 assert.equal(liveAudit.contexts[1].active,true);
 assert.equal(liveAudit.contexts[1].controls.find(x=>x.id==='liveChooseFolder').status,'measured-in-dock');
 liveOriginal.get('liveChooseFolder').fire('click');assert.equal(clickCount,2);
+// Review search/filter affects ONLY original findings rows; no scientific model mutation.
+const findings=ids.get('allFindings'),filterBar=ids.get('g4FindingFilters');
+const search=ids.get('g4FindingSearch'),severity=ids.get('g4FindingSeverity'),
+ clear=ids.get('g4FindingClear'),count=ids.get('g4FindingCount'),empty=ids.get('g4FindingEmpty');
+assert(findings&&filterBar&&search&&severity&&clear&&count&&empty);
+assert.equal(findings.parentElement.children[0],filterBar,'filter sits above the native findings');
+assert.equal(findings.parentElement.children[1],findings,'native rows remain in original container');
+assert.equal(severity.options.length,5,'must allow all four source severity types');
+const findingModels=[
+ ['FAIL','B3 · T field · Time step did not converge'],
+ ['WARNING','C3 · p_rgh residual increased'],
+ ['NOTICE','B3 · metal region missing metadata'],
+ ['INFO','C3 · mold boundary identified']
+];
+const originalRows=[];
+for(const [level,content] of findingModels){
+ const row=new N('div');row.classList.add('findingRow');row.textContent=content;
+ const badge=new N('span');badge.classList.add('findingSeverity');badge.classList.add(level);
+ row.appendChild(badge);findings.appendChild(row);originalRows.push(row)
+}
+assert.equal(api.filterFindings(),true);
+assert.equal(count.textContent,'4 of 4 findings shown');
+assert(originalRows.every(r=>!r.hidden));
+search.value='P_RGH';search.fire('input');
+assert.equal(count.textContent,'1 of 4 findings shown','case-insensitive search finds actual source text');
+assert.equal(originalRows[1].hidden,false);
+assert(originalRows[0].hidden&&originalRows[2].hidden&&originalRows[3].hidden);
+severity.value='FAIL';severity.fire('change');
+assert.equal(count.textContent,'0 of 4 findings shown','combined filters cannot invent findings');
+assert.equal(empty.hidden,false,'no matching rows show the honest local empty state');
+const noModelMutation=originalRows.slice();clear.fire('click');
+assert.equal(search.value,'');assert.equal(severity.value,'');assert.equal(clear.disabled,true);
+assert.equal(count.textContent,'4 of 4 findings shown');
+assert(originalRows.every((row,i)=>row===noModelMutation[i]&&!row.hidden));
+assert.equal(search.focused,true,'clear returns keyboard focus to original filter input');
+severity.value='WARNING';severity.fire('change');
+assert.equal(count.textContent,'1 of 4 findings shown');
+language.value='es';for(const listener of allListeners['foamlens-language-change']||[])listener();
+assert.equal(count.textContent,'1 de 4 hallazgos mostrados');
+assert.equal(severity.options[2].textContent,'Advertencias');
+assert.match(search.placeholder,/Buscar/);
+// A source refresh replaces the original list rows. A new filter pass must
+// operate on the fresh DOM, not retain stale references or modify source data.
+findings.children.length=0;
+const updated=new N('div');updated.classList.add('findingRow');
+updated.textContent='D4 · solver failure';
+const updatedBadge=new N('span');updatedBadge.classList.add('findingSeverity');
+updatedBadge.classList.add('FAIL');updated.appendChild(updatedBadge);findings.appendChild(updated);
+assert.equal(api.filterFindings(),true);
+assert.equal(updated.hidden,true,'existing WARNING filter applies to newly rendered findings');
+severity.value='';severity.fire('change');
+assert.equal(updated.hidden,false);
+assert.equal(count.textContent,'1 de 1 hallazgos mostrados');
+assert(!src.includes('currentFindings='),'G4 search must not rewrite the original scientific findings model');
+
 assert.equal(document.head.children.some(x=>x.id==='g4Styles'),true,'Scoped CSS should install');
 assert.equal(original.includes("liveWatchTimer=setInterval(inspectLiveDirectory,5000)"),true);
 assert.equal(original.includes("document.querySelectorAll('.reviewTab').forEach"),true);
