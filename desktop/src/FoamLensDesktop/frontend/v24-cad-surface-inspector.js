@@ -364,6 +364,143 @@ function cgDownloadZip(name,bytes){
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),2500)
 }
+
+let cgNativeCheckBusy=false,cgNativeCheckCancel=null,cgLastNativeCheck=null,cgNativeSeq=0;
+function cgNativeCheckAvailable(){
+  return !!(window.chrome?.webview?.postMessage&&window.chrome?.webview?.addEventListener)
+}
+function cgBytesToBase64(bytes){
+  if(!(bytes instanceof Uint8Array)||bytes.length>4*1024*1024)
+    throw Error('Native surfaceCheck supports at most 4 MiB of binary STL.');
+  let text='';
+  for(let i=0;i<bytes.length;i+=8192)
+    text+=String.fromCharCode(...bytes.subarray(i,i+8192));
+  return btoa(text)
+}
+function cgNativeSurfaceCheckRequest(bytes){
+  if(!cgNativeCheckAvailable())throw Error(
+    cgUi('Native Windows WebView2 is required for WSL surfaceCheck.',
+      'Se requiere WebView2 nativo de Windows para surfaceCheck en WSL.'));
+  const webview=window.chrome.webview,requestId='cad_check_'+Date.now()+'_'+(++cgNativeSeq);
+  let listener=null,timer=null,settled=false;
+  const cancel=()=>{
+    if(settled)return;
+    webview.postMessage({type:'cancelOperation',requestId:requestId+'_cancel',
+      targetRequestId:requestId})
+  };
+  const promise=new Promise((resolve,reject)=>{
+    const finish=(error,result)=>{
+      if(settled)return;settled=true;
+      if(timer!==null)clearTimeout(timer);
+      if(listener)webview.removeEventListener('message',listener);
+      if(error)reject(error);else resolve(result)
+    };
+    listener=e=>{
+      const r=e?.data;
+      if(r?.type!=='nativeReply'||r.requestId!==requestId)return;
+      if(r.ok)finish(null,r.data);
+      else finish(new Error(String(r.error||'Native surfaceCheck failed')))
+    };
+    webview.addEventListener('message',listener);
+    timer=setTimeout(()=>{
+      cancel();
+      finish(new Error('Native surfaceCheck did not respond before timeout.'));
+    },110000);
+    try{
+      webview.postMessage({
+        type:'runCadSurfaceCheck',requestId,stlBase64:cgBytesToBase64(bytes)
+      })
+    }catch(error){finish(error)}
+  });
+  return {promise,cancel}
+}
+function cgNativeSelectedSurface(){
+  const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|');
+  if(sep<0)throw Error('Choose a native CAD named region first');
+  const i=Number(key.slice(0,sep)),part=key.slice(sep+1),model=cgModels[i];
+  if(!model||!model.visible||!model.partsVisible.get(part))
+    throw Error('Choose a visible region in the original CAD inventory');
+  const scale=cgUnitScale(model.unit);
+  if(!scale)throw Error('Confirm the physical source unit before running surfaceCheck');
+  const tris=model.triangles.filter(t=>t.part===part);
+  if(!tris.length)throw Error('Selected surface has no source triangles');
+  return {model,part,bytes:cgBinaryStl(tris,scale,part),triangles:tris.length,scale}
+}
+function cgRefreshNativeCheck(){
+  const run=document.getElementById('cgSurfaceCheckRun'),
+    cancel=document.getElementById('cgSurfaceCheckCancel'),
+    exportBtn=document.getElementById('cgSurfaceCheckExport');
+  if(!run)return;
+  let available=false;
+  try{const s=cgNativeSelectedSurface();available=s.bytes.length<=4*1024*1024}catch{}
+  run.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()||!available;
+  run.title=!cgNativeCheckAvailable()?
+    cgUi('Requires native FoamLens for Windows, WSL and installed OpenFOAM.',
+       'Requiere FoamLens nativo en Windows, WSL y OpenFOAM instalado.'):
+    cgUi('Run the installed OpenFOAM surfaceCheck on a temporary selected STL (max 4 MiB).',
+       'Ejecutar surfaceCheck instalado en una copia STL temporal seleccionada (máx. 4 MiB).');
+  if(cancel)cancel.disabled=!cgNativeCheckBusy;
+  if(exportBtn)exportBtn.disabled=!cgLastNativeCheck
+}
+async function cgRunNativeSurfaceCheck(){
+  if(cgNativeCheckBusy)return;
+  const output=document.getElementById('cgSurfaceCheckOutput');
+  let selected;
+  try{selected=cgNativeSelectedSurface()}catch(err){
+    cgShow(String(err?.message||err));return
+  }
+  cgNativeCheckBusy=true;cgLastNativeCheck=null;
+  cgRefreshNativeCheck();
+  if(output)output.textContent=cgUi(
+    'Running installed surfaceCheck in default WSL on a temporary STL. The original OpenFOAM case is not written.',
+    'Ejecutando surfaceCheck instalado en WSL predeterminado sobre un STL temporal. No se escribe en el caso OpenFOAM.');
+  try{
+    const task=cgNativeSurfaceCheckRequest(selected.bytes);
+    cgNativeCheckCancel=task.cancel;
+    const report=await task.promise;
+    if(!report||report.utility!=='surfaceCheck -checkSelfIntersection')
+      throw Error('Unrecognized native surfaceCheck report');
+    cgLastNativeCheck={
+      schema:'foamlens/cad-native-surfacecheck/1',
+      sourceFile:selected.model.name,part:selected.part,
+      sourceUnitConfirmedByUser:selected.model.unit,
+      sourceToMeterScale:selected.scale,triangleCount:selected.triangles,
+      openFoamCaseMutated:false,checkedAt:new Date().toISOString(),
+      native:report
+    };
+    if(output)output.textContent=[
+      report.executed?
+        cgUi('OpenFOAM surfaceCheck executed; review output (not CFD certification).',
+             'Se ejecutó surfaceCheck; revisa el resultado (NO es certificación CFD).'):
+        cgUi('OpenFOAM surfaceCheck was NOT executed in the default WSL distribution.',
+             'NO se ejecutó surfaceCheck en la distribución WSL predeterminada.'),
+      'Exit code: '+report.exitCode,
+      'Surface: '+selected.model.name+' / '+selected.part+' · '+selected.triangles+' triangles',
+      'Original units: '+selected.model.unit+' → meters',
+      report.outputTruncated?'Output truncated to a safe limit.':'',
+      '--- stdout ---',String(report.stdout||''),
+      '--- stderr ---',String(report.stderr||'')
+    ].filter(Boolean).join('\n');
+    cgShow(report.executed?
+      cgUi('Native surfaceCheck completed. Review and export the real solver output.',
+           'Terminó surfaceCheck nativo. Revisa y exporta la salida real.'):
+      cgUi('surfaceCheck unavailable in default WSL. Check installation.',
+           'surfaceCheck no disponible en WSL predeterminado. Revisa la instalación.'))
+  }catch(err){
+    if(output)output.textContent=cgUi('Native surfaceCheck unavailable or cancelled: ',
+      'surfaceCheck nativo no disponible o cancelado: ')+String(err?.message||err);
+    cgShow(cgUi('No surfaceCheck result; original case unchanged.',
+      'Sin resultado de surfaceCheck; caso original sin cambios.'))
+  }finally{
+    cgNativeCheckBusy=false;cgNativeCheckCancel=null;cgRefreshNativeCheck()
+  }
+}
+function cgExportNativeCheckReport(){
+  if(!cgLastNativeCheck)return;
+  cgDownload('FoamLens-surfaceCheck-report.json',
+    JSON.stringify(cgLastNativeCheck,null,2),'application/json')
+}
+
 function cgExportVisibleBatch(){
   try{
     const batch=cgVisibleRegionBatch(cgModels);
@@ -413,6 +550,7 @@ function cgRefreshExport(){
   if(parts.some(p=>p.key===old))select.value=old;
   const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
   exportBtn.disabled=!parts.length||!scale;
+  cgRefreshNativeCheck();
   if(batchBtn){
     const chosen=cgModels.filter(m=>m.visible).flatMap(m=>
       [...m.partsVisible].filter(([,shown])=>shown).map(([part])=>({model:m,part})));
@@ -554,7 +692,8 @@ function cgInstall(){
     '#cgShell .cgTools{display:flex;gap:9px;flex-wrap:wrap;align-items:center}#cgShell .cgTools label{font-size:12px}#cgShell button,#cgShell select,#cgShell input{min-height:34px}' +
     '#cgShell #cgCanvas{display:block;width:100%;height:min(55vh,520px);min-height:260px;border:1px solid #3b5578;border-radius:12px;touch-action:none;cursor:grab}' +
     '#cgShell .cgItem{padding:11px;border:1px solid #37526e;border-radius:9px;margin:7px 0;font-size:12px;line-height:1.6}' +
-    '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}';
+    '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}' +
+    '#cgShell #cgSurfaceCheckOutput{white-space:pre-wrap;overflow-wrap:anywhere;max-height:270px;overflow:auto;border:1px solid #37526e;border-radius:9px;padding:11px;background:#101b2c;color:#d6e7f1;font-size:11px}';
   document.head.appendChild(css);
   sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">Local STL/OBJ surface inspection only. STEP/IGES/BREP conversion requires a verified CAD kernel. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
     '<div class="cgTools"><label>Import local STL/OBJ or FoamLens ZIP <input id="cgFiles" type="file" multiple accept=".stl,.obj,.zip,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
@@ -566,6 +705,10 @@ function cgInstall(){
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
     '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
+    '<div class="cgTools"><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
+    '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
+    '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
+    '<pre id="cgSurfaceCheckOutput" aria-live="polite" class="cgNotice">Requires OpenFOAM installed in the default WSL distribution. Only an explicitly selected, unit-confirmed STL is checked.</pre>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
   document.body.appendChild(sheet);
   let cgReturnFocus=launch;
@@ -577,7 +720,10 @@ function cgInstall(){
   document.getElementById('cgImport').onclick=()=>void cgImport();
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
-  document.getElementById('cgPart').addEventListener('change',cgRefreshExport);
+  document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
+  document.getElementById('cgSurfaceCheckCancel').onclick=()=>cgNativeCheckCancel?.();
+  document.getElementById('cgSurfaceCheckExport').onclick=cgExportNativeCheckReport;
+  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck()});
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
   });
