@@ -67,17 +67,25 @@ function sync(){
   if(!installed){install();return}
   if(eligible())move();else restore();
 }
+let stateObserver=null;
+function observeState(){
+  if(stateObserver||typeof MutationObserver!=='function')return;
+  // Late WebView2 hydration: the app and tab may not exist at boot.
+  // Observe them only after all original controls are mounted.
+  const targets=[document.body,$('appShell'),$('timeSeriesTab')];
+  if(targets.some(el=>!el))return;
+  stateObserver=new MutationObserver(sync);
+  for(const el of targets)
+    stateObserver.observe(el,{attributes:true,attributeFilter:['class']});
+}
 function boot(){
   if(!install()&&typeof MutationObserver==='function'){
-    const w=new MutationObserver(()=>{if(install())w.disconnect()});
+    const w=new MutationObserver(()=>{
+      if(install()){w.disconnect();observeState()}
+    });
     w.observe(document.documentElement,{subtree:true,childList:true});
   }
-  if(typeof MutationObserver==='function'){
-    const obs=new MutationObserver(sync);
-    for(const el of [document.body,$('appShell'),$('timeSeriesTab')]){
-      if(el)obs.observe(el,{attributes:true,attributeFilter:['class']});
-    }
-  }
+  observeState();
   window.addEventListener('resize',sync);
   document.addEventListener('foamlens-language-change',sync);
 }
