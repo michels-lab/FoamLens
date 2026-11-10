@@ -4,7 +4,7 @@
 'use strict';
 const $=id=>document.getElementById(id),MAX=1024;
 let app,side,controls,button,back,closeBtn,historyBtn,anchor,opened=false,installed=false,returnFocus,sidebarAttrs=null,error='not-installed';
-let buildDock=null,historyMoved=[];
+let buildDock=null,historyMoved=[],historyAnchor=null;
 function es(){return $('language')?.value==='es'||($('language')?.value!=='en'&&document.documentElement.lang?.startsWith('es'))}
 function tr(en,sp){return es()?sp:en}
 function active(){return window.innerWidth<=MAX&&document.body.classList.contains('appMode-data')&&!!$('timeSeriesTab')?.classList.contains('active')}
@@ -57,7 +57,15 @@ function dockHistory(compact){
     move.anchor.remove();
    }
   }
-  historyMoved=[];buildDock.remove();buildDock=null;return
+  historyMoved=[];buildDock.remove();buildDock=null;
+  // G58: Build/Cancel must remain descendants of their scientific history
+  // card, including after repeated transitions between compact and wide.
+  if(historyAnchor?.parentNode){
+   const history=$('gr176HistoryCard');
+   if(history)historyAnchor.parentNode.insertBefore(history,historyAnchor);
+   historyAnchor.remove();
+  }
+  historyAnchor=null;return
  }
  if(buildDock)return;
  const history=$('gr176HistoryCard'),actions=history?.querySelector('.gr176HistoryActions');
@@ -71,7 +79,12 @@ function dockHistory(compact){
   node.parentNode.insertBefore(marker,node);
   historyMoved.push({node,anchor:marker});host.appendChild(node);
  }
- controls.insertBefore(host,controls.firstChild);
+ // Put the ORIGINAL history card first so the sticky dock is genuinely
+ // discoverable before source selectors; keep all actions INSIDE its owner.
+ historyAnchor=document.createComment('G8: restore original history card order');
+ history.parentNode.insertBefore(historyAnchor,history);
+ controls.insertBefore(history,controls.firstChild);
+ history.insertBefore(host,history.firstChild);
  buildDock=host
 }
 function sync(){
