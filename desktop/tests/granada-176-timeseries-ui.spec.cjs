@@ -637,5 +637,42 @@ test('G58 same native source layout displays both original Time Series slots sid
     'new G58 screenshot check cannot disable G56 original numeric proof');
 });
 
+
+test('G10 preview toolbar observes class changes after a delayed native mount',()=>{
+  const source=fs.readFileSync(path.join(base,'v29-granada-plot-toolbar.js'),'utf8');
+  new vm.Script(source,{filename:'v29-granada-plot-toolbar.js'});
+  const observers=[],elements=new Map(),listeners=new Map();
+  const classList={contains:()=>false,add:()=>{},remove:()=>{}};
+  const body={classList},root={},head={appendChild:()=>{}};
+  const document={
+    readyState:'complete',body,documentElement:root,head,activeElement:null,
+    getElementById:id=>elements.get(id)||null,
+    createElement:()=>({id:'',textContent:''}),
+    addEventListener:(name,cb)=>listeners.set(name,cb)
+  };
+  class Observer {
+    constructor(cb){this.cb=cb;this.targets=[];observers.push(this)}
+    observe(target,opts){this.targets.push({target,opts})}
+    disconnect(){this.disconnected=true}
+  }
+  const window={innerWidth:720,addEventListener:(name,cb)=>listeners.set(name,cb),
+    FoamLensGranadaG8:{audit:()=>({installed:true,compact:false})}};
+  vm.runInNewContext(source,{document,window,MutationObserver:Observer},{timeout:2000});
+  assert.equal(observers.length,1,'late mount watcher must be installed');
+  const app={classList},plot={insertBefore:()=>{}},wrap={};
+  const viewport={parentNode:plot},tools={parentNode:wrap},canvas={closest:()=>wrap};
+  const workspace={querySelector:selector=>selector==='.plotcard'?plot:null};
+  for(const [id,node] of Object.entries({
+    appShell:app,workspace,chartViewport:viewport,previewTools:tools,
+    canvas,clearPins:{},previewBadge:{},timeSeriesTab:{classList}
+  }))elements.set(id,node);
+  observers[0].cb();
+  assert.equal(observers[0].disconnected,true,'discovery watcher must stop');
+  assert.equal(window.FoamLensGranadaG10.audit().installed,true);
+  assert.equal(observers.length,2,'new class observer must be registered after mount');
+  assert.deepEqual(observers[1].targets.map(entry=>entry.target),[body,app,elements.get('timeSeriesTab')]);
+  assert(observers[1].targets.every(entry=>entry.opts.attributeFilter[0]==='class'));
+});
+
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
 for(const result of checks)console.log('  ✓ '+result);
