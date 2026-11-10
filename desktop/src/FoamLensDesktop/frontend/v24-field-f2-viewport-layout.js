@@ -183,19 +183,35 @@ function pvExport(){
 function pvGrip(grip,viewport){
   let dragging=null;
   grip.addEventListener('pointerdown',e=>{
-    if(e.button!==0)return;
+    if(e.button!==0||dragging)return;
     const height=viewport.querySelector('.fcViewportScene')?.getBoundingClientRect().height;
     if(!(height>0))return;
-    e.preventDefault();dragging={y:e.clientY,height,pointerId:e.pointerId};
+    e.preventDefault();dragging={y:e.clientY,height,pointerId:e.pointerId,
+      originalHeight:viewport.style.getPropertyValue?.('--pvHeight')||''};
     grip.setPointerCapture?.(e.pointerId)
   });
   grip.addEventListener('pointermove',e=>{
     if(!dragging||dragging.pointerId!==e.pointerId)return;
-    pvSetHeight(viewport,dragging.height+e.clientY-dragging.y,false)
+    if(Number.isFinite(e.clientY))pvSetHeight(viewport,dragging.height+e.clientY-dragging.y,false)
   });
-  const finish=()=>{if(!dragging)return;dragging=null;
-    const height=viewport.querySelector('.fcViewportScene')?.getBoundingClientRect().height;
-    if(height>0)pvSetHeight(viewport,height,true)
+  const finish=e=>{
+    // Browser PointerEvents can interleave mouse, touch and pen IDs.
+    // Only the pointer that began this resize may commit or cancel it.
+    if(!dragging||e.pointerId!==dragging.pointerId)return;
+    const gesture=dragging;dragging=null;
+    if(e.type==='pointerup'){
+      // Commit the final physical movement, not a possibly stale scene
+      // bounding box measured while a CSS/layout frame is still pending.
+      const y=Number.isFinite(e.clientY)?e.clientY:gesture.y;
+      pvSetHeight(viewport,gesture.height+y-gesture.y,true);
+      return
+    }
+    // pointercancel / lostpointercapture must NOT save a transient height
+    // in the user's persisted A/B/C/D viewport layout.
+    if(gesture.originalHeight)
+      viewport.style.setProperty('--pvHeight',gesture.originalHeight);
+    else viewport.style.removeProperty('--pvHeight');
+    pvRedraw()
   };
   for(const ev of ['pointerup','pointercancel','lostpointercapture'])grip.addEventListener(ev,finish);
   grip.addEventListener('keydown',e=>{
