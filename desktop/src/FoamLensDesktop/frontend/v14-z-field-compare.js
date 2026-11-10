@@ -350,6 +350,20 @@ function fcPhysicalRelease(state,{clearChoices=false}={}){
   scene.layers.clear();scene.errors.clear();
   if(clearChoices){scene.choices.clear();scene.caseId=null}
 }
+// Physical region metadata may arrive after the view is mounted (native case
+// indexing, late region scans). Keep a real available field and a component
+// supported by that field; never manufacture an absent source option.
+function fcReconcilePhysicalChoice(choice,groups,preferred=''){
+  if(!choice||!groups?.length)return false;
+  const group=groups.find(g=>g.name===choice.field)||
+    groups.find(g=>g.name===preferred)||groups[0];
+  const allowed=fvFieldComponents(group);
+  const component=allowed.some(item=>item.v===choice.component)?choice.component:
+    (allowed[0]?.v||'value');
+  const changed=choice.field!==group.name||choice.component!==component;
+  choice.field=group.name;choice.component=component;
+  return changed
+}
 function fcPhysicalChoiceList(state,c,primary){
   const scene=fcPhysicalFor(state),key=String(c?.id??'');
   if(scene.caseId!==key){
@@ -360,10 +374,15 @@ function fcPhysicalChoiceList(state,c,primary){
   }
   const regions=c?fvRegionNames(c):[],allowed=new Set(regions);
   for(const region of [...scene.choices.keys()])if(!allowed.has(region))scene.choices.delete(region);
-  for(const region of regions)if(!scene.choices.has(region)){
+  for(const region of regions){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const preferred=state.fieldName||'';
-    scene.choices.set(region,{visible:true,field:fields.some(g=>g.name===preferred)?preferred:(fields[0]?.name||''),component:'value',opacity:region===primary?1:.48,palette:'viridis'})
+    if(!scene.choices.has(region))
+      scene.choices.set(region,{visible:true,field:'',component:'value',opacity:region===primary?1:.48,palette:'viridis'});
+    // Preserve user visibility/opacity/palette and any still-valid selection.
+    // When indexed metadata arrives later, repair ONLY invalid field/component
+    // selections using real source groups (vector defaults to magnitude).
+    fcReconcilePhysicalChoice(scene.choices.get(region),fields,preferred)
   }
   return regions
 }
@@ -382,11 +401,23 @@ function fcPhysicalMenu(view){
   const names=ctx.c?fvRegionNames(ctx.c):[];
   if(view!=='A')fcPhysicalChoiceList(ctx.state,ctx.c,ctx.primary);
   const choice=region=>view==='A'?fvRegionChoice(ctx.c,region):fcPhysicalFor(ctx.state).choices.get(region);
-  const key=JSON.stringify([ctx.c?.id,ctx.primary,...names.map(region=>{const ch=choice(region);return[region,ch?.visible,ch?.field,ch?.component,ch?.opacity,view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)]})]);
+  const catalog=names.map(region=>{
+    const groups=fvFieldGroups(ctx.c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+    const ch=choice(region);
+    if(view==='A')fcReconcilePhysicalChoice(ch,groups,document.getElementById('fvField')?.value||'');
+    return{region,ch,groups}
+  });
+  // A menu's options are source-owned. The region name/selection alone does
+  // not change when a new field is indexed, so include every REAL field and
+  // supported vector component in the refresh signature.
+  const key=JSON.stringify([ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
+    region,ch?.visible,ch?.field,ch?.component,ch?.opacity,
+    view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
+    groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
+  ])]);
   if(holder.dataset.fcMenuKey===key)return;holder.dataset.fcMenuKey=key;
   const current=holder.querySelector('details')?.open||false;
-  const rows=names.map(region=>{
-    const ch=choice(region),groups=fvFieldGroups(ctx.c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
+  const rows=catalog.map(({region,ch,groups})=>{
     const field=groups.find(g=>g.name===ch.field);
     const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
     const selection=ch.component||'value';
@@ -408,8 +439,13 @@ function fcPhysicalMenu(view){
       ch.visible=e.target.checked;if(view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}else fcPhysicalReload(ctx)
     };
     row.querySelector('[data-fc-region-field]').onchange=e=>{
-      ch.field=e.target.value;ch.component='value';
-      if(view==='A'){fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);fvRegionRefreshList()}else fcPhysicalReload(ctx)
+      ch.field=e.target.value;
+      fcReconcilePhysicalChoice(ch,groups,e.target.value);
+      if(view==='A'){
+        // Rebuild the same real row immediately: vector fields expose X/Y/Z
+        // or magnitude, never an out-of-range legacy scalar 'value' option.
+        fcPhysicalMenu('A');fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);fvRegionRefreshList()
+      }else fcPhysicalReload(ctx)
     };
     row.querySelector('[data-fc-region-comp]').onchange=e=>{
       ch.component=e.target.value;
