@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git hash-object desktop/src/FoamLensDesktop/frontend/v28-granada-compact-timeseries.js)" = 'fa3633dd9dd5bc7c260619ec909bba57f002b924'
-          test "$(git hash-object tools/granada_g8_compact_timeseries.test.cjs)" = '0f8cd81a926db043f77dcade8d182b78b75a4b9b'
+          test "$(git hash-object tools/granada_g8_compact_timeseries.test.cjs)" = '7973dd5389b60cac31da52988f37c330acda7368'
           test "$(git hash-object .github/workflows/granada-g8-compact-timeseries.yml)" = 'b0f638995e20787c980486d33799be09d6685290'
           for module in v27-granada-compact-workbench v28-granada-compact-timeseries v29-granada-plot-toolbar v30-granada-chart-focus; do
             node --check "desktop/src/FoamLensDesktop/frontend/${module}.js"
