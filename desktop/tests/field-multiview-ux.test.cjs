@@ -89,16 +89,17 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const caseMenu={id:'C3',regions:['metal'],groups:new Map([
     ['metal',[{name:'T',kind:'scalar'}]]
   ])};
-  const choice={visible:true,field:'T',component:'value',opacity:.7,palette:'turbo'};
+  const stateC={id:3,fieldName:'T'};
+  physical.fcPhysicalChoiceList(stateC,caseMenu,'metal');
+  const choice=physical.fcPhysicalFor(stateC).choices.get('metal');
+  choice.opacity=.7;choice.palette='turbo';
   const holder={dataset:{},renders:0,_html:'',querySelector:q=>q==='details'?{open:true}:null,
     querySelectorAll:()=>[],
     get innerHTML(){return this._html},
     set innerHTML(value){this.renders++;this._html=value}};
   const bar={querySelector:q=>q==='[data-fc-regions]'?holder:null};
-  const stateC={id:3};
   const ctx={view:'3',c:caseMenu,primary:'metal',state:stateC,
     viewport:{querySelector:q=>q==='[data-fc-toolbar]'?bar:null}};
-  const rawScene={choices:new Map([['metal',choice]]),errors:new Map()};
   // Minimal source-backed A/C scope. B and D call this same original function.
   const menuStart=source.indexOf('function fcPhysicalMenu(view){');
   const menuEnd=source.indexOf('function fcPhysicalReload(ctx){',menuStart);
@@ -109,7 +110,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
     'fvRender','fcRender','fcExtraRender',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
-  )(()=>ctx,list,()=>{},()=>choice,()=>rawScene,groups,fvFieldComponents,
+  )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
     physical.fcReconcilePhysicalChoice,{getElementById:()=>({value:'U'})},
     en=>en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{});
 
@@ -132,10 +133,16 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   assert(holder.innerHTML.includes('value="magnitude" selected'),'vector component UI reflects original state');
 
   ctx.view='A';ctx.c=caseMenu;ctx.state={};ctx.primary='metal';
+  const holderA={...holder,dataset:{},renders:0,_html:'',
+    get innerHTML(){return this._html},
+    set innerHTML(value){this.renders++;this._html=value}};
+  ctx.viewport={querySelector:q=>q==='[data-fc-toolbar]'?
+    {querySelector:selector=>selector==='[data-fc-regions]'?holderA:null}:null};
   choice.component='value';
-  const previous=holder.renders;menu('A');
+  menu('A');
   assert.equal(choice.component,'magnitude','A uses same valid vector component contract');
-  assert(holder.renders>previous);
+  assert.equal(holderA.renders,1);
+  assert(holderA.innerHTML.includes('value="magnitude" selected'));
   console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, persistent per-region controls and menu refresh.');
 }
 
