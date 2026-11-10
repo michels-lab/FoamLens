@@ -36,6 +36,111 @@ assert.deepStrictEqual(api.fcViewSourceMap('B'),{Case:'fcCase',Region:'fcRegion'
 assert.deepStrictEqual(api.fcViewSourceMap(3),{Case:'fcExtra3Case',Region:'fcExtra3Region',Field:'fcExtra3Field',Component:'fcExtra3Component'});
 assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not independently selectable');
 
+// GRANADA Field A–D: real field catalogs can be indexed after the physical
+// region toolbar is mounted. A source-option refresh must not require a change
+// to the selected region/case/field, and vector fields must never retain the
+// scalar-only 'value' component from a formerly empty region.
+{
+  const viewSource=fs.readFileSync(path.join(dir,'v14-field-view.js'),'utf8');
+  const cvStart=viewSource.indexOf('function fvFieldComponents(group){');
+  const cvEnd=viewSource.indexOf('// Field A/B/C/D and physical region overlays',cvStart);
+  assert(cvStart>=0&&cvEnd>cvStart,'original field component catalog required');
+  const fvFieldComponents=new Function('flUi',viewSource.slice(cvStart,cvEnd)+
+    ';return fvFieldComponents')((en,es)=>en);
+  const begin=source.indexOf('function fcPhysicalFor(state){');
+  const end=source.indexOf('function fcPhysicalViewContext(view){',begin);
+  assert(begin>=0&&end>begin,'actual region-choice owner and reconciliation missing');
+  const groups=(c,region)=>c?.groups?.get(region)||[];
+  const list=(c)=>c?.regions||[];
+  const physical=new Function('fvRegionNames','fvFieldGroups','fvFieldComponents','fvRegionReleaseLayer',
+    source.slice(begin,end)+';return {fcPhysicalFor,fcPhysicalChoiceList,fcReconcilePhysicalChoice};'
+  )(list,groups,fvFieldComponents,()=>{});
+
+  const caseB={id:'B3',regions:['metal','mold'],groups:new Map()};
+  const state={fieldName:'U'};
+  assert.deepStrictEqual(physical.fcPhysicalChoiceList(state,caseB,'metal'),['metal','mold']);
+  const scene=physical.fcPhysicalFor(state),metal=scene.choices.get('metal'),mold=scene.choices.get('mold');
+  assert.equal(metal.field,'','unindexed region cannot invent a field');
+  assert.equal(scene.choices.size,2);
+  caseB.groups.set('metal',[{name:'U',kind:'vector'},{name:'T',kind:'scalar'}]);
+  caseB.groups.set('mold',[{name:'T',kind:'scalar'}]);
+  physical.fcPhysicalChoiceList(state,caseB,'metal');
+  assert.strictEqual(scene.choices.get('metal'),metal,'late source catalog updates original choice');
+  assert.equal(metal.field,'U','preferred original field materializes after indexing');
+  assert.equal(metal.component,'magnitude','valid vector component, not the impossible scalar value');
+  assert.equal(mold.field,'T');assert.equal(mold.component,'value');
+
+  metal.visible=false;metal.opacity=.25;metal.palette='turbo';metal.component='z';
+  physical.fcPhysicalChoiceList(state,caseB,'metal');
+  assert.equal(metal.component,'z','valid original user-selected vector component persists');
+  assert.equal(metal.opacity,.25);assert.equal(metal.visible,false);assert.equal(metal.palette,'turbo');
+  caseB.groups.set('metal',[{name:'T',kind:'scalar'}]);
+  physical.fcPhysicalChoiceList(state,caseB,'metal');
+  assert.equal(metal.field,'T','a disappearing catalog field must fall back to a real available one');
+  assert.equal(metal.component,'value','scalar fallback rejects stale vector component z');
+  assert.equal(metal.visible,false);assert.equal(metal.opacity,.25);assert.equal(metal.palette,'turbo');
+  caseB.groups.set('metal',[]);
+  physical.fcPhysicalChoiceList(state,caseB,'metal');
+  assert.equal(metal.field,'T','empty source catalog must not fabricate replacement fields');
+  assert.equal(physical.fcReconcilePhysicalChoice(metal,[],''),false);
+
+  // A/B/C/D menus must refresh their real field and component OPTIONS even
+  // while the selected field remains unchanged and its region stays visible.
+  const caseMenu={id:'C3',regions:['metal'],groups:new Map([
+    ['metal',[{name:'T',kind:'scalar'}]]
+  ])};
+  const choice={visible:true,field:'T',component:'value',opacity:.7,palette:'turbo'};
+  const holder={dataset:{},renders:0,_html:'',querySelector:q=>q==='details'?{open:true}:null,
+    querySelectorAll:()=>[],
+    get innerHTML(){return this._html},
+    set innerHTML(value){this.renders++;this._html=value}};
+  const bar={querySelector:q=>q==='[data-fc-regions]'?holder:null};
+  const stateC={id:3};
+  const ctx={view:'3',c:caseMenu,primary:'metal',state:stateC,
+    viewport:{querySelector:q=>q==='[data-fc-toolbar]'?bar:null}};
+  const rawScene={choices:new Map([['metal',choice]]),errors:new Map()};
+  // Minimal source-backed A/C scope. B and D call this same original function.
+  const menuStart=source.indexOf('function fcPhysicalMenu(view){');
+  const menuEnd=source.indexOf('function fcPhysicalReload(ctx){',menuStart);
+  assert(menuStart>=0&&menuEnd>menuStart,'original physical menu renderer missing');
+  const menu=new Function('fcPhysicalViewContext','fvRegionNames','fcPhysicalChoiceList',
+    'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
+    'fcReconcilePhysicalChoice','document','fcUi','fcEsc',
+    'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
+    'fvRender','fcRender','fcExtraRender',
+    source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
+  )(()=>ctx,list,()=>{},()=>choice,()=>rawScene,groups,fvFieldComponents,
+    physical.fcReconcilePhysicalChoice,{getElementById:()=>({value:'U'})},
+    en=>en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{});
+
+  menu('3');
+  assert.equal(holder.renders,1);
+  assert(holder.innerHTML.includes('value="T"'),'only original T option is initially available');
+  assert(!holder.innerHTML.includes('value="U"'));
+  assert.equal(holder.dataset.fcMenuKey.length>0,true);
+  menu('3');assert.equal(holder.renders,1,'unchanged catalog must not duplicate DOM/lose focus');
+  // SAME C case, SAME selection T, but a newly indexed OpenFOAM U field.
+  caseMenu.groups.set('metal',[{name:'T',kind:'scalar'},{name:'U',kind:'vector'}]);
+  menu('3');
+  assert.equal(holder.renders,2,'late catalog field must invalidate original menu render key');
+  assert(holder.innerHTML.includes('value="U"'),'new genuine vector option is now selectable');
+  assert.equal(choice.field,'T','late discovery cannot replace a still-valid T selection');
+  caseMenu.groups.set('metal',[{name:'U',kind:'vector'}]);
+  menu('3');
+  assert.equal(choice.field,'U','removed field falls back to indexed vector');
+  assert.equal(choice.component,'magnitude','stale scalar component must be corrected to magnitude');
+  assert(holder.innerHTML.includes('value="magnitude" selected'),'vector component UI reflects original state');
+
+  ctx.view='A';ctx.c=caseMenu;ctx.state={};ctx.primary='metal';
+  choice.component='value';
+  const previous=holder.renders;menu('A');
+  assert.equal(choice.component,'magnitude','A uses same valid vector component contract');
+  assert(holder.renders>previous);
+  console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, persistent per-region controls and menu refresh.');
+}
+
+
+
 {
   // Reproducible pre-fix bug: Add C/D while Field DOM is not mounted
   // silently pushes two phantom views into the 4-view limit.
