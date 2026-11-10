@@ -4,6 +4,10 @@ Native Windows host embedding the **FoamLens v51 frontend**.
 
 **FoamLens Desktop v1.8.11 with frontend v51** is an unpublished source candidate. It consolidates the original 3D Field / Spatial Profiles companion workflow, analysis-layout controls, CAD surface round-trip support, and Time Series delayed-mount navigation fixes already integrated into main. It must pass real Windows signing and release gates before an official stable publication. [Official latest Setup and Portable release](https://github.com/michels-lab/FoamLens/releases/latest). Publication is gated on packaged Windows, real OpenFOAM and SHA-256 checks; the [verified v1.8.10 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10) remains the latest stable publication until the new version passes those gates. No owner-machine 3,008-file speedup has yet been measured.
 
+## Stable v1.8.11 publication attempt
+
+The official GitHub Actions `Build FoamLens Desktop for Windows` release path is triggered from the tracked Desktop source and must compile and smoke-test both Setup and Portable on Windows. It publishes **only** after the actual Windows Authenticode verification and digest-bound evidence guards pass; a source build or Actions artifact alone is not an official release. A missing signing certificate intentionally blocks publication rather than substituting an unsigned executable. The previous stable v1.8.10 remains available until a signed v1.8.11 release is verified.
+
 ## Architecture
 
 - **UI:** existing FoamLens HTML/CSS/JavaScript rendered in Microsoft WebView2.
