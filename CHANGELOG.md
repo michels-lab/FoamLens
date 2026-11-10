@@ -98,6 +98,14 @@
 - Native-only embedded audit resource, regression and real Windows Developer smoke gate; build script makes a local developer binary without uploading public assets.
 - Work in progress (#158); not included in published Desktop v1.8.10.
 
+## Desktop v1.8.11 — 2026-11-10 · Granada integrated desktop update (publication pending)
+
+- Package the current original Windows source rather than the legacy v1.8.10 shipped binary; keep Web frontend v51 and native Desktop versions aligned.
+- Include Field's original simultaneous 3D + Spatial Profile interface and updated A–D physical-region field/component selectors (integrated PRs #278 and #307).
+- Include keyboard-accessible Analysis chart/series resizing and CAD multi-region ZIP round-trip plus optional installed OpenCascade/FreeCAD STEP/IGES/BREP import (PRs #295, #301 and #303); external kernel availability is still environment-dependent.
+- Include Time Series preview/pin navigation recovery after delayed WebView2 mount, with original controls preserved (PR #309).
+- Release remains blocked until source-exact Windows Setup/Portable validation, genuine trusted Authenticode signatures, checksum match and signed updater verification succeed. No unsigned stable publication or RC.
+
 ## Desktop v1.8.10 — 2026-10-19 · Field multi-view and responsive toolbar
 
 - Reveal a permanent **+ Add view** control in 3D Field Workspace; display up to four panels from the same imported OpenFOAM case or different imported cases without introducing fake values.
