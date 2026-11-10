@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "5bafb75e5518f59236095b016abbc2f13ebb90a39cd37babfb61336dd8d190ba",
+  "inventory_fingerprint": "feadd0e284d6df267e4008d48bd6162e4ed604b6829516c2e17fd31d96a62351",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -431,7 +431,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "82b659c01fc65e7386db2a340ffa19725b6415f0"
+      "blob": "c39fd088e7996030e9ad8bc1562cb7dfa0c01086"
     },
     {
       "path": ".github/workflows/granada-g8-compact-timeseries.yml",
@@ -1194,7 +1194,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "99fc2a121861d69972ca63cb35e4dc7df107893f"
+      "blob": "fa3633dd9dd5bc7c260619ec909bba57f002b924"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js",
@@ -2132,7 +2132,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "e4ae58996d7429beb9c522695f1efe2e704834e0"
+      "blob": "87616c2419419a42d05ed0a5518964cb6b2e6d41"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3259,7 +3259,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1a22b48d4fddb469c974676d88f9f2b8f21bf85f"
+      "blob": "7973dd5389b60cac31da52988f37c330acda7368"
     },
     {
       "path": "tools/granada_visual_review.cjs",
