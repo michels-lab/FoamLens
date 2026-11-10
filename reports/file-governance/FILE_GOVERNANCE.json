@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "771f96f299248886d8a7140b6bed89346db3ea2b225cce8b5af0377fa5da8487",
+  "inventory_fingerprint": "61038e0bfdf748bf35445ad8913045887167ccb6c25344db9815cf437911c8ee",
   "evidence_fingerprint": "8b239c19f7f75bfa4715ad790acf6eb96cacca08f35342140911f0f90ced0406",
   "files": [
     {
@@ -622,7 +622,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "d8cc99cc03dee6aa6d1f40c440e60e054d3e99ab"
+      "blob": "6fc1ccdf726a1c22df1e3ff499ebff27ca7c901f"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
