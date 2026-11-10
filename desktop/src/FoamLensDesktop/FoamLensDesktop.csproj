@@ -40,6 +40,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="NativeCadOcctFreecad.py">
+      <LogicalName>FoamLens.NativeCadOcctFreecad.py</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="AppBundle.zip">
       <LogicalName>FoamLensDesktop.AppBundle.zip</LogicalName>
     </EmbeddedResource>

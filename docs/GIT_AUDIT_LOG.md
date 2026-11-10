@@ -1,3 +1,10 @@
+## 2026-11-09 — Granada CAD #303: contrato coherente de capacidad de triangulación OCCT (sin release)
+
+- **Defecto funcional en la rama CAD:** el host nativo `NativeCadOcctConverter.cs` acepta hasta **300000 triángulos** totales y `NativeCadOcctFreecad.py` limita igualmente a 300000, pero `cgBrepModels` de `v24-cad-surface-inspector.js` rechazaba cualquier sólido individual con más de **200000**. Una salida nativa correcta de un solo sólido de 250000 triángulos no aparecía en el inventario CAD pese a estar dentro de todos los límites del motor.
+- **Corrección:** `cgBrepRegionTriangleCountOk` comprueba enteros en [1, 300000], sin coerciones, y se utiliza en la ruta real de importación. Permanece el límite global de 300000, las 24 regiones, el tamaño de STL y la validación estructural/nativa. No se reescalan unidades ni se generan geometrías sintéticas.
+- **Regresiones:** `desktop/tests/cad-occt-native.test.cjs` verifica el caso negativo antiguo (200001, 250000 y 300000 deben admitirse como *conteos de una región*), rechaza negativos/fracciones/textos/>300000 y vincula explícitamente el contrato al máximo C# original. La prueba del conteo no es una validación de FreeCAD real; la conversión completa con FreeCAD/OpenCascade instalado y aceptación visual de Windows siguen PENDIENTES.
+- **Integración de rama:** #303 se reconcilió con main tras integrar Field #304, Review #305 y validación experimental #272. Se preservaron los nueve archivos originales de #303 sin sobrescribir los cambios ajenos; este arreglo se añadió al mismo propietario. No se ha creado release ni RC.
+
 ## 2026-11-04 — Granada scientific validation: blank-as-zero and false one-time curve agreement (QA candidate)
 
 - **Reproduced at original current-main core:** JavaScript `Number(null)`/`Number('')`/`Number(false)` silently yielded 0 s or 0 K (including +273.15 K for missing Celsius readings); `evCompareCurves` returned `valid:true` with RMSE from **one shared time** or two duplicate timestamps. Conflicting source readings at the same time also could be silently weighted/selected, producing misleading experimental metrics/phase events.

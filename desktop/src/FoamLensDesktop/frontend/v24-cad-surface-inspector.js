@@ -580,45 +580,183 @@ function cgPrepareSurface(result,name,bytes){
     partsVisible:new Map([...byPart.keys()].map(key=>[key,true])),
     warnings:result.warnings||[],unit:'unknown',visible:true}
 }
+let cgBrepImportBusy=false,cgBrepCancel=null,cgBrepCancelled=false,cgBrepSeq=0;
+function cgBrepEncoded(bytes){
+  if(!(bytes instanceof Uint8Array)||bytes.length<80||bytes.length>16*1024*1024)
+    throw Error('STEP/IGES/BREP input exceeds 16 MiB or is empty.');
+  let raw='';
+  for(let i=0;i<bytes.length;i+=8192)
+    raw+=String.fromCharCode(...bytes.subarray(i,i+8192));
+  return btoa(raw)
+}
+function cgBrepDecoded(text){
+  if(typeof text!=='string'||text.length<180||text.length>Math.ceil(16*1024*1024/3)*4+16)
+    throw Error('Native OCCT STL is outside the supported size.');
+  const raw=atob(text),bytes=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  return bytes
+}
+function cgBrepRequest(bytes,format,deflectionMm){
+  if(!['step','iges','brep'].includes(format)||![0.2,0.5,1].includes(deflectionMm))
+    throw Error('Unsupported CAD format or tessellation deflection.');
+  if(!cgNativeCheckAvailable())throw Error(cgUi(
+    'Native FoamLens Windows/WebView2 is required for installed FreeCADCmd in WSL.',
+    'Se requiere FoamLens nativo en Windows/WebView2 y FreeCADCmd instalado en WSL.'));
+  const webview=window.chrome.webview,requestId='cad_occt_'+Date.now()+'_'+(++cgBrepSeq);
+  let listener=null,timer=null,settled=false;
+  const cancel=()=>{
+    if(settled)return;
+    webview.postMessage({type:'cancelOperation',requestId:requestId+'_cancel',
+      targetRequestId:requestId})
+  };
+  const promise=new Promise((resolve,reject)=>{
+    const done=(error,data)=>{
+      if(settled)return;
+      settled=true;
+      if(timer!==null)clearTimeout(timer);
+      if(listener)webview.removeEventListener('message',listener);
+      if(error)reject(error);else resolve(data)
+    };
+    listener=e=>{
+      const reply=e?.data;
+      if(reply?.type!=='nativeReply'||reply.requestId!==requestId)return;
+      if(reply.ok)done(null,reply.data);
+      else done(new Error(String(reply.error||'FreeCAD OCCT conversion failed')))
+    };
+    webview.addEventListener('message',listener);
+    timer=setTimeout(()=>{
+      cancel();
+      done(new Error('FreeCAD/OCCT conversion timed out; no original CAD was changed.'));
+    },125000);
+    try{
+      webview.postMessage({type:'convertCadBrep',requestId,format,deflectionMm,
+        cadBase64:cgBrepEncoded(bytes)})
+    }catch(err){done(err)}
+  });
+  return {promise,cancel}
+}
+// The native host and the complete assembly both permit 300,000 triangles.
+// Do not silently impose a smaller per-solid limit in the browser.
+function cgBrepRegionTriangleCountOk(n){
+  return Number.isInteger(n)&&n>=1&&n<=300000
+}
+function cgBrepModels(report,sourceFile,sourceBytes,format){
+  if(report?.schema!=='foamlens/native-occt-conversion/1'||
+     report.engine!=='FreeCAD/OpenCascade'||report.converted!==true||
+     report.coordinateUnit!=='mm'||report.sourceUnitsVerified!==false||
+     report.originalObjectLabelsPreserved!==false||report.openFoamCaseMutated!==false||
+     report.format!==format||!Array.isArray(report.regions)||
+     report.regions.length<1||report.regions.length>24)
+    throw Error('Invalid FreeCAD/OCCT native conversion provenance.');
+  const models=[];let total=0;const names=new Set();
+  for(const region of report.regions){
+    if(typeof region.name!=='string'||!/^(solid|surface)_[0-9]{3}$/.test(region.name)||
+       names.has(region.name)||!Number.isInteger(region.triangles)||
+       !cgBrepRegionTriangleCountOk(region.triangles))
+      throw Error('Invalid native OCCT solid identity or triangle count.');
+    names.add(region.name);
+    const bytes=cgBrepDecoded(region.stlBase64);
+    if(bytes.length!==region.sizeBytes||bytes.length!==84+50*region.triangles)
+      throw Error('Native OCCT STL length does not match reported triangle count.');
+    const parsed=cgParseStl(bytes.buffer,region.name+'.stl');
+    if(parsed.format!=='binary-stl'||parsed.triangles.length!==region.triangles)
+      throw Error('Native OCCT STL payload is not a valid binary tessellation.');
+    for(const triangle of parsed.triangles)triangle.part=region.name;
+    total+=parsed.triangles.length;
+    if(total>300000)throw Error('Native OCCT result exceeds CAD preview capacity.');
+    const model=cgPrepareSurface(parsed,sourceFile+' / '+region.name,bytes.length);
+    model.format='freecad-occt-'+format;
+    model.unit='unknown'; // Require explicit physical confirmation before SI export/analysis.
+    model.warnings.push(cgUi(
+      'Real FreeCAD/OpenCascade tessellation. Coordinates are FreeCAD internal millimeters. Check dimensions and explicitly confirm mm before exporting. Original STEP/IGES assembly labels were not preserved.',
+      'Triangulación real de FreeCAD/OpenCascade. Coordenadas internas de FreeCAD en milímetros. Revisa dimensiones y confirma mm antes de exportar. No se conservaron los nombres originales del ensamblaje.'));
+    model.sourceProvenance={
+      engine:report.engine,sourceFile,sourceFormat:format,sourceBytes,
+      freecadInternalUnit:'mm',sourceUnitsVerified:false,
+      originalObjectLabelsPreserved:false,generatedSolidName:region.name,
+      reportedBoundsMm:region.boundsMm,reportedAreaMm2:region.surfaceAreaMm2,
+      deflectionMm:report.deflectionMm,
+      openFoamCaseMutated:false
+    };
+    models.push(model)
+  }
+  if(total!==report.totalTriangles)
+    throw Error('Native OCCT total triangle count differs from imported surfaces.');
+  return models
+}
+async function cgConvertBrepFile(file,format){
+  const deflection=Number(document.getElementById('cgCadDeflection')?.value||0.5);
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  if(cgBrepCancelled)throw Error('CAD import cancelled before native conversion.');
+  const task=cgBrepRequest(bytes,format,deflection);
+  cgBrepCancel=task.cancel;
+  cgShow(cgUi('Running installed FreeCAD/OCCT on a temporary BREP copy; no case modifications.',
+    'Ejecutando FreeCAD/OCCT instalado sobre una copia BREP temporal; sin modificar el caso.'));
+  try{
+    const report=await task.promise;
+    if(cgBrepCancelled)throw Error('CAD conversion cancelled.');
+    return cgBrepModels(report,file.name,file.size,format)
+  }finally{cgBrepCancel=null}
+}
+function cgCancelBrepImport(){
+  cgBrepCancelled=true;
+  if(cgBrepCancel)cgBrepCancel()
+}
+
 async function cgImport(){
+  if(cgBrepImportBusy)return;
   const input=document.getElementById('cgFiles'),files=[...(input?.files||[])];
   if(!files.length)return;
   if(files.length>12){cgShow('Limit: 12 geometry files per import.');return}
+  const button=document.getElementById('cgImport'),cancel=document.getElementById('cgCadCancelImport');
   let added=0,errors=[];
-  for(const file of files){
-    try{
-      const ext=file.name.split('.').pop().toLowerCase();
-      const max=ext==='zip'?128*1024*1024:32*1024*1024;
-      if(file.size>max)throw Error('Geometry input exceeds '+(max/1024/1024)+' MiB limit');
-      if(['step','stp','iges','igs','brep'].includes(ext))
-        throw Error('B-rep CAD requires a verified OCCT kernel; conversion has NOT been performed');
-      let prepared;
-      if(ext==='zip'){
-        // The package must have exactly the FoamLens native manifest, all
-        // expected region STLs, valid CRC and physically declared units.
-        // A bad entry rejects the ENTIRE archive, never partial-model imports.
-        prepared=cgRestoreRegionBatch(await file.arrayBuffer()).models
-      }else{
-        const result=ext==='stl'?cgParseStl(await file.arrayBuffer(),file.name):
-          ext==='obj'?cgParseObj(await file.text(),file.name):null;
-        if(!result)throw Error('Supported imports: STL, OBJ and FoamLens-exported ZIP (uncompressed)');
-        prepared=[cgPrepareSurface(result,file.name,file.size)]
-      }
-      const current=cgModels.reduce((n,m)=>n+m.triangles.length,0);
-      const incoming=prepared.reduce((n,m)=>n+m.triangles.length,0);
-      if(current+incoming>300000||cgModels.length+prepared.length>1000)
-        throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
-      cgModels.push(...prepared);
-      added+=prepared.length
-    }catch(e){errors.push(file.name+': '+String(e?.message||e))}
-    // Yield between files to preserve the original UI import affordance.
-    await new Promise(resolve=>setTimeout(resolve,0))
+  cgBrepImportBusy=true;cgBrepCancelled=false;
+  if(button)button.disabled=true;
+  if(cancel)cancel.disabled=false;
+  try{
+    for(const file of files){
+      if(cgBrepCancelled)break;
+      try{
+        const ext=file.name.split('.').pop().toLowerCase();
+        const brep=['step','stp','iges','igs','brep'].includes(ext),
+          format=ext==='stp'?'step':ext==='igs'?'iges':ext;
+        const max=ext==='zip'?128*1024*1024:brep?16*1024*1024:32*1024*1024;
+        if(file.size>max)throw Error('Geometry input exceeds '+(max/1024/1024)+' MiB limit');
+        let prepared;
+        if(brep){
+          prepared=await cgConvertBrepFile(file,format);
+        }else if(ext==='zip'){
+          prepared=cgRestoreRegionBatch(await file.arrayBuffer()).models
+        }else{
+          const result=ext==='stl'?cgParseStl(await file.arrayBuffer(),file.name):
+            ext==='obj'?cgParseObj(await file.text(),file.name):null;
+          if(!result)throw Error('Supported: STL, OBJ, FoamLens ZIP and STEP/IGES/BREP with installed FreeCADCmd');
+          prepared=[cgPrepareSurface(result,file.name,file.size)]
+        }
+        if(cgBrepCancelled)break;
+        const current=cgModels.reduce((n,m)=>n+m.triangles.length,0);
+        const incoming=prepared.reduce((n,m)=>n+m.triangles.length,0);
+        if(current+incoming>300000||cgModels.length+prepared.length>1000)
+          throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
+        // The COMPLETE native conversion is validated before any region is appended.
+        cgModels.push(...prepared);
+        added+=prepared.length
+      }catch(e){errors.push(file.name+': '+String(e?.message||e))}
+      if(cgBrepCancelled)break;
+      await new Promise(resolve=>setTimeout(resolve,0))
+    }
+    cgRenderInventory();
+    cgShow(cgUi('Imported ','Importadas ')+added+
+      cgUi(' surfaces from ',' superficies de ')+files.length+
+      cgUi(' input files. ',' archivos de entrada. ')+
+      (cgBrepCancelled?cgUi('Conversion cancelled. ','Conversión cancelada. '):'')+
+      errors.join(' | '))
+  }finally{
+    cgBrepImportBusy=false;cgBrepCancel=null;
+    if(button)button.disabled=false;
+    if(cancel)cancel.disabled=true;
+    input.value=''
   }
-  cgRenderInventory();
-  cgShow(cgUi('Imported ','Importadas ')+added+
-    cgUi(' surfaces from ',' superficies de ')+files.length+
-    cgUi(' input files. ',' archivos de entrada. ')+errors.join(' | '));
-  input.value=''
 }
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
@@ -684,7 +822,7 @@ function cgDraw(){
 function cgInstall(){
   if(document.getElementById('cgShell'))return;
   const anchor=document.getElementById('dataImportMore')||document.getElementById('datasetModeBlock');if(!anchor)return;
-  const launch=document.createElement('button');launch.id='cgLaunch';launch.type='button';launch.className='btn soft';launch.textContent='CAD & Geometry · STL/OBJ';launch.style.cssText='width:100%;margin:6px 0 10px';anchor.insertAdjacentElement('afterend',launch);
+  const launch=document.createElement('button');launch.id='cgLaunch';launch.type='button';launch.className='btn soft';launch.textContent='CAD & Geometry · STEP/IGES/STL';launch.style.cssText='width:100%;margin:6px 0 10px';anchor.insertAdjacentElement('afterend',launch);
   const nav=document.createElement('button');nav.id='cgNav';nav.type='button';nav.className='modeNavBtn';nav.textContent='CAD';
   document.getElementById('modeData')?.insertAdjacentElement('afterend',nav);
   const sheet=document.createElement('section');sheet.id='cgShell';sheet.hidden=true;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-modal','true');sheet.setAttribute('aria-label','CAD & Geometry');
@@ -697,11 +835,11 @@ function cgInstall(){
     '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}' +
     '#cgShell #cgSurfaceCheckOutput{white-space:pre-wrap;overflow-wrap:anywhere;max-height:270px;overflow:auto;border:1px solid #37526e;border-radius:9px;padding:11px;background:#101b2c;color:#d6e7f1;font-size:11px}';
   document.head.appendChild(css);
-  sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">Local STL/OBJ surface inspection only. STEP/IGES/BREP conversion requires a verified CAD kernel. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
-    '<div class="cgTools"><label>Import local STL/OBJ or FoamLens ZIP <input id="cgFiles" type="file" multiple accept=".stl,.obj,.zip,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Inspect surfaces</button>'+
+  sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">STL/OBJ/ZIP import is local. STEP/IGES/BREP uses real FreeCAD/OpenCascade when FreeCADCmd is installed in default WSL; verify source dimensions/units. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
+    '<div class="cgTools"><label>Import STL/OBJ/ZIP/STEP/IGES/BREP <input id="cgFiles" type="file" multiple accept=".stl,.obj,.zip,.stp,.step,.iges,.igs,.brep"></label><button class="btn primary" id="cgImport" type="button">Import and inspect</button><label>OCCT tessellation (mm) <select id="cgCadDeflection"><option value="0.2">Fine 0.2</option><option value="0.5" selected>Standard 0.5</option><option value="1">Coarse 1.0</option></select></label><button class="btn soft" id="cgCadCancelImport" disabled type="button">Cancel CAD import</button>'+
     '<button class="btn" data-cg-view="iso">Isometric</button><button class="btn" data-cg-view="top">Top</button><button class="btn" data-cg-view="front">Front</button><button class="btn" data-cg-view="side">Right</button><button class="btn" data-cg-view="fit">Fit</button></div>'+
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
-    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ or a FoamLens-exported ZIP from your computer. ZIP restores individual region surfaces in meters, with source-unit provenance.</div>'+
+    '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ, FoamLens ZIP or STEP/IGES/BREP. CAD BREP requires native Windows and installed FreeCADCmd in default WSL. Imported FreeCAD coordinates are millimeters but MUST be confirmed before SI export.</div>'+
     '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
     '<div class="cgTools">'+
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
@@ -711,7 +849,7 @@ function cgInstall(){
     '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
     '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
     '<pre id="cgSurfaceCheckOutput" aria-live="polite" class="cgNotice">Requires OpenFOAM installed in the default WSL distribution. Only an explicitly selected, unit-confirmed STL is checked.</pre>'+
-    '<p class="cgNotice">Triangulated geometry is not a volumetric mesh; the importer does not execute surfaceCheck, checkMesh, blockMesh, snappyHexMesh or a CFD solver. Edge checks do not prove self-intersection-free CAD. Keep the original file.</p></div>';
+    '<p class="cgNotice">Triangulated geometry is not a volumetric mesh. STEP/IGES conversion uses the installed OpenCascade kernel ONLY when available, and original assembly labels may be lost. surfaceCheck is an optional separate native action; no checkMesh, snappyHexMesh or CFD solver is run. Keep the original source file.</p></div>';
   document.body.appendChild(sheet);
   let cgReturnFocus=launch;
   const open=e=>{cgReturnFocus=e?.currentTarget||launch;cgActive=true;sheet.hidden=false;nav.classList.add('active');cgDraw();document.getElementById('cgClose').focus()};
@@ -720,6 +858,7 @@ function cgInstall(){
   document.getElementById('cgClose').onclick=close;
   document.addEventListener('keydown',e=>{if(cgActive&&e.key==='Escape')close()});
   document.getElementById('cgImport').onclick=()=>void cgImport();
+  document.getElementById('cgCadCancelImport').onclick=cgCancelBrepImport;
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
   document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
