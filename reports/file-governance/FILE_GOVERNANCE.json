@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "feadd0e284d6df267e4008d48bd6162e4ed604b6829516c2e17fd31d96a62351",
+  "inventory_fingerprint": "f260ff34070ed8f61517d4046e06ca7e13205c4d34ee465c380c823142fdb81b",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -970,7 +970,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e6f4f617bf25ce923b349b5b0145a260dff18a2d"
+      "blob": "7d8b13e6defc4825eaa21186e71544dfcfd7fc33"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1488,7 +1488,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "37c6ccaa11021438abbab666fb2b08168e027ff5"
+      "blob": "8ded282d384abf626e0313c037ff3312575ea008"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -2132,7 +2132,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "87616c2419419a42d05ed0a5518964cb6b2e6d41"
+      "blob": "c8435036c0d034ed2dc91b998d0f68dc6a0f33b7"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
