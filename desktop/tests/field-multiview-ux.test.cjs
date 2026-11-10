@@ -104,6 +104,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const menuStart=source.indexOf('function fcPhysicalMenu(view){');
   const menuEnd=source.indexOf('function fcPhysicalReload(ctx){',menuStart);
   assert(menuStart>=0&&menuEnd>menuStart,'original physical menu renderer missing');
+  let locale='en';
   const menu=new Function('fcPhysicalViewContext','fvRegionNames','fcPhysicalChoiceList',
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
     'fcReconcilePhysicalChoice','document','fcUi','fcEsc',
@@ -111,8 +112,8 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     'fvRender','fcRender','fcExtraRender',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
-    physical.fcReconcilePhysicalChoice,{getElementById:()=>({value:'U'})},
-    en=>en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{});
+    physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},
+    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{});
 
   menu('3');
   assert.equal(holder.renders,1);
@@ -143,7 +144,13 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   assert.equal(choice.component,'magnitude','A uses same valid vector component contract');
   assert.equal(holderA.renders,1);
   assert(holderA.innerHTML.includes('value="magnitude" selected'));
-  console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, persistent per-region controls and menu refresh.');
+  locale='es';menu('A');
+  assert.equal(holderA.renders,2,'original physical menu must re-render on Spanish language change');
+  assert(holderA.innerHTML.includes('Regiones físicas'),'Spanish labels follow the real locale');
+  menu('A');assert.equal(holderA.renders,2,'same locale does not reset focused region options');
+  assert(source.includes("fcUpdateLabels();fcScheduleToolbarSync()"),
+    'real original language-change listener must resync physical A–D toolbars');
+  console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, ES/EN and preserved physical controls.');
 }
 
 
