@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'../desktop/src/FoamLensDesktop/frontend');
 const source=fs.readFileSync(path.join(root,'v28-granada-compact-timeseries.js'),'utf8');
-function fixture({width=640,mode='data',dataView='timeseries',language='en',missing='' }={}){
+function fixture({width=640,mode='data',dataView='timeseries',language='en',missing='',withNativeHistory=false}={}){
  const ids=new Map(),docEvents={},winEvents={},observers=[];
  let document;
  class Element{
@@ -12,9 +12,10 @@ function fixture({width=640,mode='data',dataView='timeseries',language='en',miss
   set className(x){this._classes=new Set(x.split(/\s+/).filter(Boolean))}get className(){return [...this._classes].join(' ')}
   changed(){for(const o of observers)if(o.targets.has(this))o.callback()}
   setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}
-  append(...items){for(const x of items){x.parentNode=this;this.children.push(x)}}
-  prepend(...items){for(const x of items.reverse()){x.parentNode=this;this.children.unshift(x)}}
-  insertBefore(x,next){if(x.parentNode)x.remove();const i=this.children.indexOf(next);this.children.splice(i<0?this.children.length:i,0,x);x.parentNode=this}
+  append(...items){for(const x of items){if(x.parentNode)x.remove();x.parentNode=this;x.isConnected=true;this.children.push(x)}}
+  appendChild(x){this.append(x);return x}
+  prepend(...items){for(const x of items.reverse()){if(x.parentNode)x.remove();x.parentNode=this;x.isConnected=true;this.children.unshift(x)}}
+  insertBefore(x,next){if(x.parentNode)x.remove();const i=this.children.indexOf(next);this.children.splice(i<0?this.children.length:i,0,x);x.parentNode=this;x.isConnected=true}
   remove(){if(this.parentNode){this.parentNode.children.splice(this.parentNode.children.indexOf(this),1);this.parentNode=null;this.isConnected=false}}
   get firstChild(){return this.children[0]||null}
   addEventListener(k,f){(this.listeners[k]??=[]).push(f)}
@@ -24,8 +25,14 @@ function fixture({width=640,mode='data',dataView='timeseries',language='en',miss
   getBoundingClientRect(){return{bottom:180,width:640,height:90}}
   getClientRects(){return this.hidden?[]:[{width:100}]}
   closest(selector){return selector==='[hidden],[inert]'&&this.hidden?this:null}
+  contains(node){for(let x=node;x;x=x.parentNode)if(x===this)return true;return false}
   querySelector(selector){if(selector==='.plotcard')return this.children.find(x=>x.className.includes('plotcard'))||null;
-   if(selector==='.timeSeriesActions')return this.children.find(x=>x.className.includes('timeSeriesActions'))||null;return null}
+   if(selector==='.timeSeriesActions')return this.children.find(x=>x.className.includes('timeSeriesActions'))||null;
+   if(selector==='.gr176HistoryActions'){
+    const walk=n=>{for(const child of n.children){if(child.className.includes('gr176HistoryActions'))return child;
+     const nested=walk(child);if(nested)return nested}return null};return walk(this)
+   }
+   return null}
   querySelectorAll(selector){const result=[];function walk(n){for(const e of n.children){if(selector==='button,[href],input,select,textarea,[tabindex]'&&['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.tagName))result.push(e);walk(e)}}walk(this);return result}
  }
  document={readyState:'complete',createElement:t=>new Element(t),createComment:()=>new Element('comment'),getElementById:k=>ids.get(k)||null,
@@ -45,13 +52,27 @@ function fixture({width=640,mode='data',dataView='timeseries',language='en',miss
  const languageEl=new Element('select');languageEl.id='language';languageEl.value=language;document.body.append(languageEl);
  const tab=new Element('button');tab.id='timeSeriesTab';if(dataView==='timeseries')tab.classList.add('active');document.body.append(tab);
  const canvas=new Element('canvas');canvas.id='canvas';chart.append(canvas);
- const details=new Element('details');details.id='fwDataFieldHistories';side?.append(details);
+ const details=missing==='legacy'?null:new Element('details');if(details){details.id='fwDataFieldHistories';side?.append(details)}
+ let history=null,historyRoot=null,build=null,cancel=null,pending=null,status=null,field=null,originalBuildClicks=0;
+ if(controls&&withNativeHistory){
+  history=new Element('section');history.id='gr176HistoryCard';history.className='gr176Card';
+  historyRoot=new Element('section');historyRoot.id='fwFieldTsControls';
+  const actions=new Element('div');actions.className='gr176HistoryActions';
+  build=new Element('button');build.id='fwBuildFieldHistories';build.addEventListener('click',()=>{originalBuildClicks++});
+  cancel=new Element('button');cancel.id='gr176Cancel';
+  pending=new Element('div');pending.id='gr176Pending';
+  status=new Element('div');status.id='fwTsStatus';
+  field=new Element('select');field.id='fwTsField1';
+  actions.append(build,cancel);historyRoot.append(field,actions,pending,status);
+  history.append(historyRoot);controls.append(history)
+ }
  if(mode)document.body.classList.add('appMode-'+mode);
  const window={innerWidth:width,innerHeight:900,addEventListener:(k,f)=>(winEvents[k]??=[]).push(f),emit:k=>{for(const f of winEvents[k]||[])f()}};
  const Observer=function(callback){this.callback=callback;this.targets=new Set();this.observe=node=>{this.targets.add(node);if(!observers.includes(this))observers.push(this)};this.disconnect=()=>{this.targets.clear()}};
  vm.runInNewContext(source,{document,window,MutationObserver:Observer,ResizeObserver:Observer},{timeout:3000});
  const api=window.FoamLensGranadaG8;
  return {document,window,api,app,side,controls,chart,tab,utility,languageEl,details,originalParent:side,
+  history,historyRoot,build,cancel,pending,status,field,getOriginalBuildClicks:()=>originalBuildClicks,
   resize(w){window.innerWidth=w;window.emit('resize')},
   setMode(name){for(const n of ['data','analysis','field','workspace'])document.body.classList.remove('appMode-'+n);document.body.classList.add('appMode-'+name)},
   changeTab(name){tab.classList.toggle('active',name==='timeseries')},
@@ -123,6 +144,76 @@ test('G51 compact Build shortcut focuses VISIBLE original T2 generator instead o
  f.api.open();assert.equal(f.api.audit().drawerOpen,true);
  shortcut.click();assert.equal(f.api.audit().drawerOpen,false);
  assert.strictEqual(f.document.activeElement,field);
+});
+test('G8 keeps ORIGINAL Build, Cancel and measured progress sticky above the compact filters',()=>{
+ const f=fixture({withNativeHistory:true}),dock=f.document.getElementById('g8BuildDock');
+ assert(dock,'original Build/Cancel need a dedicated source-owned compact dock');
+ assert.strictEqual(dock.parentNode,f.history,'dock must remain inside original History source surface');
+ assert.strictEqual(f.controls.children[0],f.history,'source card leads the scroll, not a detached control proxy');
+ assert.strictEqual(f.history.children[0],dock,'action dock is first inside history');
+ assert.equal(f.history.contains(f.build),true,'native G58 requires Build inside its original history');
+ assert.equal(f.history.contains(f.cancel),true,'native G58 requires Cancel inside its original history');
+ const host=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/Program.cs'),'utf8');
+ assert(host.includes('history.contains(build)&&history.contains(cancel)'),
+  'match actual packaged native G58 ownership requirement');
+ assert.strictEqual(f.build.parentNode.parentNode,dock,'not a synthetic Build proxy');
+ assert.strictEqual(f.cancel.parentNode,f.build.parentNode);
+ assert.strictEqual(f.pending.parentNode,dock);
+ assert.strictEqual(f.status.parentNode,dock);
+ assert.equal(f.api.audit().sourceControlInstancesMoved,3);
+ assert.equal(f.api.audit().originalBuildControlsDocked,true);
+ f.build.click();assert.equal(f.getOriginalBuildClicks(),1,'existing bound Build listener survives move');
+ f.pending.textContent='Series 1: 5 / 10 real frames';
+ assert.strictEqual(f.document.getElementById('gr176Pending'),f.pending);
+ assert.equal(f.pending.textContent,'Series 1: 5 / 10 real frames');
+ const css=f.document.getElementById('g8Style').textContent;
+ assert(css.includes('#g8BuildDock{position:sticky;top:0'));
+ assert(!css.includes('max-height:225px'),'never trap Build beneath 225px');
+});
+test('wide, other Data tabs, and reentry restore original T2 DOM order and event handlers',()=>{
+ const f=fixture({withNativeHistory:true});
+ f.resize(1280);
+ assert.strictEqual(f.history.parentNode,f.controls,'history returns to original parent');
+ assert.strictEqual(f.controls.children[1],f.history,'history original order restored');
+ assert.strictEqual(f.build.parentNode.parentNode,f.historyRoot);
+ assert.strictEqual(f.pending.parentNode,f.historyRoot);
+ assert.strictEqual(f.status.parentNode,f.historyRoot);
+ assert.equal(f.api.audit().originalBuildControlsDocked,false);
+ assert.equal(f.api.audit().sourceControlInstancesMoved,0);
+ assert.strictEqual(f.historyRoot.children[1],f.build.parentNode);
+ assert.strictEqual(f.historyRoot.children[2],f.pending);
+ assert.strictEqual(f.historyRoot.children[3],f.status);
+ f.resize(640);assert.equal(f.api.audit().sourceControlInstancesMoved,3);
+ f.build.click();assert.equal(f.getOriginalBuildClicks(),1);
+ f.changeTab('catalog');assert.equal(f.api.audit().originalBuildControlsDocked,false);
+ assert.strictEqual(f.controls.children[1],f.history);
+ assert.strictEqual(f.build.parentNode.parentNode,f.historyRoot);
+ f.changeTab('timeseries');f.build.click();assert.equal(f.getOriginalBuildClicks(),2);
+});
+test('native G58 history ownership survives Field navigation and returns without duplicating Build',()=>{
+ const f=fixture({withNativeHistory:true}),initialBuild=f.build,initialCancel=f.cancel;
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ f.setMode('field');
+ assert.equal(f.api.audit().compact,false);
+ assert.equal(f.api.audit().originalBuildControlsDocked,false);
+ assert.strictEqual(f.controls.children[1],f.history);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.strictEqual(f.document.getElementById('fwBuildFieldHistories'),initialBuild);
+ f.setMode('data');
+ assert.equal(f.api.audit().compact,true);
+ assert.strictEqual(f.controls.children[0],f.history);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.equal(f.api.audit().sourceControlInstancesMoved,3);
+ initialBuild.click();assert.equal(f.getOriginalBuildClicks(),1);
+ f.resize(1280);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.equal(f.api.audit().sourceControlInstancesMoved,0);
+});
+test('visible T2 builder stays available even after obsolete legacy details anchor is absent',()=>{
+ const f=fixture({withNativeHistory:true,missing:'legacy'}),shortcut=f.document.getElementById('g8History');
+ assert.equal(shortcut.disabled,false,'real T2 generator must not depend on legacy refresh anchor');
+ shortcut.click();assert.strictEqual(f.document.activeElement,f.field);
+ assert.equal(f.api.audit().drawerOpen,false);
 });
 test('bilingual labels, chart width CSS and independent G7 namespace',()=>{
  const f=fixture({language:'es'});assert.equal(f.document.getElementById('g8Trigger').textContent,'Casos e importar');
