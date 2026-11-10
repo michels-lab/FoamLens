@@ -148,8 +148,14 @@ test('G51 compact Build shortcut focuses VISIBLE original T2 generator instead o
 test('G8 keeps ORIGINAL Build, Cancel and measured progress sticky above the compact filters',()=>{
  const f=fixture({withNativeHistory:true}),dock=f.document.getElementById('g8BuildDock');
  assert(dock,'original Build/Cancel need a dedicated source-owned compact dock');
- assert.strictEqual(dock.parentNode,f.controls);
- assert.strictEqual(f.controls.children[0],dock);
+ assert.strictEqual(dock.parentNode,f.history,'dock must remain inside original History source surface');
+ assert.strictEqual(f.controls.children[0],f.history,'source card leads the scroll, not a detached control proxy');
+ assert.strictEqual(f.history.children[0],dock,'action dock is first inside history');
+ assert.equal(f.history.contains(f.build),true,'native G58 requires Build inside its original history');
+ assert.equal(f.history.contains(f.cancel),true,'native G58 requires Cancel inside its original history');
+ const host=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/Program.cs'),'utf8');
+ assert(host.includes('history.contains(build)&&history.contains(cancel)'),
+  'match actual packaged native G58 ownership requirement');
  assert.strictEqual(f.build.parentNode.parentNode,dock,'not a synthetic Build proxy');
  assert.strictEqual(f.cancel.parentNode,f.build.parentNode);
  assert.strictEqual(f.pending.parentNode,dock);
@@ -167,6 +173,8 @@ test('G8 keeps ORIGINAL Build, Cancel and measured progress sticky above the com
 test('wide, other Data tabs, and reentry restore original T2 DOM order and event handlers',()=>{
  const f=fixture({withNativeHistory:true});
  f.resize(1280);
+ assert.strictEqual(f.history.parentNode,f.controls,'history returns to original parent');
+ assert.strictEqual(f.controls.children[1],f.history,'history original order restored');
  assert.strictEqual(f.build.parentNode.parentNode,f.historyRoot);
  assert.strictEqual(f.pending.parentNode,f.historyRoot);
  assert.strictEqual(f.status.parentNode,f.historyRoot);
@@ -178,6 +186,7 @@ test('wide, other Data tabs, and reentry restore original T2 DOM order and event
  f.resize(640);assert.equal(f.api.audit().sourceControlInstancesMoved,3);
  f.build.click();assert.equal(f.getOriginalBuildClicks(),1);
  f.changeTab('catalog');assert.equal(f.api.audit().originalBuildControlsDocked,false);
+ assert.strictEqual(f.controls.children[1],f.history);
  assert.strictEqual(f.build.parentNode.parentNode,f.historyRoot);
  f.changeTab('timeseries');f.build.click();assert.equal(f.getOriginalBuildClicks(),2);
 });
