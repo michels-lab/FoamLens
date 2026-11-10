@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 495,
-  "classified_files_total": 491,
+  "tracked_files_total": 499,
+  "classified_files_total": 495,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -16,15 +16,15 @@
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
-    "source": 150,
-    "test": 134,
+    "source": 152,
+    "test": 136,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 64
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "f835c3556ed24c6676719a672d57b34a7b36024c49c7b3e6a0a403c4c00ef4fa",
+  "inventory_fingerprint": "5bafb75e5518f59236095b016abbc2f13ebb90a39cd37babfb61336dd8d190ba",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -74,7 +74,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "63eaba9be7872ad23fa74abb3bf33b3cda45737e"
+      "blob": "98eee125d81ed2584544552391675c67d2eb072a"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -88,7 +88,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "6bf9b97bb455b0656b5606d93e8af684a5bb9260"
+      "blob": "b4bd18171eb45916d0ef0af655fc6a196f793c42"
     },
     {
       "path": ".github/workflows/data-loaded-cases-fast.yml",
@@ -676,7 +676,21 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "ddf6e972bf911fbb8a5f2666fe68b7914b0747e8"
+      "blob": "613afe186cd4969e3eba7368a983db2fab0bc280"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "a068d36558ea5009e28980ad2b9dec749386bd0a"
+    },
+    {
+      "path": "desktop/src/FoamLensDesktop/NativeCadOcctFreecad.py",
+      "role": "source",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "e1e04593334fa4bd7cc9e4ba67fd330a7bccf518"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs",
@@ -718,7 +732,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a100d80a20bf85da02156d0f46073fa9fccafda8"
+      "blob": "27f7936870c05d3b65921e16afd5d45bf02a992b"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1061,7 +1075,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7ab578d2bed3ec485d4bde2eeb2e58f01b75d415"
+      "blob": "38bb3ec67e9ad87880f546a2e40f8fe573419861"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
@@ -1258,6 +1272,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "2e8f80f149fe3ba464022a1295d68a15bca93968"
+    },
+    {
+      "path": "desktop/tests/cad-occt-freecad.test.py",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "f93fb94b1bad1a6700d6e97ef54cc108d350301f"
+    },
+    {
+      "path": "desktop/tests/cad-occt-native.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "c4ae812911c3a243a42ece94756b19b09c294752"
     },
     {
       "path": "desktop/tests/cad-surface-inspector.test.cjs",
@@ -2104,7 +2132,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "4f99f515873595319a99d66ed1da3f7881966380"
+      "blob": "e4ae58996d7429beb9c522695f1efe2e704834e0"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
