@@ -167,4 +167,82 @@ lateRaf.shift()();
 assert.equal(typeof lateGrid.handlers.keydown,'function',
   'Actual late-mounted Field grid must receive Escape listener on discovery');
 
+// Source-native F2 negative regression: the old handler committed on
+// pointercancel/lostpointercapture and let unrelated pointers finish a drag.
+{
+  const gripBegin=source.indexOf('function pvGrip(grip,viewport){');
+  const gripEnd=source.indexOf('function pvMountViewport(viewport){',gripBegin);
+  assert(gripBegin>=0&&gripEnd>gripBegin,'Actual F2 pointer controller required');
+  const originalGrip=source.slice(gripBegin,gripEnd);
+  const callbacks={},captures=[],commits=[],inline={'--pvHeight':'420px'};
+  let redrawCount=0,preventions=0;
+  const scene={getBoundingClientRect:()=>({height:420})};
+  const grip={
+    addEventListener:(name,handler)=>{callbacks[name]=handler},
+    setPointerCapture:id=>captures.push(id)
+  };
+  const viewport={
+    style:{
+      getPropertyValue:key=>inline[key]||'',
+      setProperty:(key,value)=>{inline[key]=value},
+      removeProperty:key=>{delete inline[key]}
+    },
+    querySelector:key=>key==='.fcViewportScene'?scene:null
+  };
+  const height=(panel,n,persist=true)=>{
+    assert.strictEqual(panel,viewport);
+    commits.push({n,persist});
+    panel.style.setProperty('--pvHeight',n+'px');
+    return n
+  };
+  const install=new Function('pvSetHeight','pvRedraw',originalGrip+';return pvGrip;');
+  install(height,()=>{redrawCount++})(grip,viewport);
+  const ev=(type,id,y,button=0)=>({type,pointerId:id,clientY:y,button,
+    preventDefault:()=>{preventions++}});
+  callbacks.pointerdown(ev('pointerdown',7,100));
+  assert.deepStrictEqual(captures,[7]);
+  callbacks.pointerdown(ev('pointerdown',8,180));
+  assert.deepStrictEqual(captures,[7],'a concurrent pointer cannot steal F2 resize');
+  callbacks.pointermove(ev('pointermove',8,250));
+  assert.equal(commits.length,0,'unrelated pointer moves do not resize A/B/C/D');
+  callbacks.pointermove(ev('pointermove',7,160));
+  assert.deepStrictEqual(commits,[{n:480,persist:false}]);
+  assert.equal(inline['--pvHeight'],'480px');
+  callbacks.pointerup(ev('pointerup',8,190));
+  callbacks.pointercancel(ev('pointercancel',8,190));
+  assert.equal(inline['--pvHeight'],'480px','foreign pointer cannot commit/cancel');
+  callbacks.pointercancel(ev('pointercancel',7,160));
+  assert.equal(inline['--pvHeight'],'420px','cancellation restores original CSS height');
+  assert.equal(commits.filter(x=>x.persist).length,0,
+    'cancelled drags never persist transient heights');
+  assert(redrawCount>0,'cancel must redraw restored original scene');
+  callbacks.lostpointercapture(ev('lostpointercapture',7,160));
+  assert.equal(commits.length,1,'lost capture after cancel cannot double-finish');
+
+  delete inline['--pvHeight']; // original viewport had default CSS, no inline height
+  callbacks.pointerdown(ev('pointerdown',9,100));
+  callbacks.pointermove(ev('pointermove',9,220));
+  assert.equal(inline['--pvHeight'],'540px');
+  callbacks.lostpointercapture(ev('lostpointercapture',9,220));
+  assert.equal(Object.hasOwn(inline,'--pvHeight'),false,
+    'lost capture restores the CSS default and does not persist the drag');
+  assert.equal(commits.filter(x=>x.persist).length,0);
+
+  callbacks.pointerdown(ev('pointerdown',10,100));
+  callbacks.pointermove(ev('pointermove',10,150));
+  callbacks.pointerup(ev('pointerup',10,185));
+  assert.deepStrictEqual(commits.at(-1),{n:505,persist:true},
+    'a completed drag commits its final pointer position, not stale layout bounds');
+  assert.equal(inline['--pvHeight'],'505px');
+  const finished=commits.length;
+  callbacks.lostpointercapture(ev('lostpointercapture',10,185));
+  assert.equal(commits.length,finished,'post-commit lostcapture cannot roll back');
+  callbacks.pointerdown(ev('pointerdown',11,100,1));
+  assert.equal(captures.length,3,'right-click cannot initiate resize');
+  callbacks.keydown({key:'ArrowDown',preventDefault:()=>{preventions++}});
+  assert.deepStrictEqual(commits.at(-1),{n:460,persist:true},
+    'keyboard resize preserves the original saved-height behavior');
+  assert(preventions>=4);
+}
+
 console.log('Granada #149 runtime PASS: independent A/B heights, focus/restore/Escape, hidden/detached view safety, ES/EN labels, stored sizes, CSS/DPR/canvas geometry, conflict evidence.');
