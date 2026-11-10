@@ -410,7 +410,8 @@ function fcPhysicalMenu(view){
   // A menu's options are source-owned. The region name/selection alone does
   // not change when a new field is indexed, so include every REAL field and
   // supported vector component in the refresh signature.
-  const key=JSON.stringify([ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
+  const locale=document.getElementById('language')?.value||document.documentElement?.lang||'en';
+  const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
     region,ch?.visible,ch?.field,ch?.component,ch?.opacity,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
     groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
@@ -1011,7 +1012,7 @@ function fcInstall(){
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true;fvRender.__fcBase=previous}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));
   for(const id of ['fvPalette','fvSurface','fvEdges','fvOpacity','fvRangeMode','fvRangeMin','fvRangeMax','fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id)?.addEventListener(id==='fvSlicePosition'||id==='fvIsoValue'||id==='fvOpacity'||id==='fvSliceOpacity'||id==='fvIsoOpacity'||id==='fvVectorScale'||id==='fvSeedPosition'?'input':'change',()=>setTimeout(fcRefreshVisuals,0));
-  document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels()});
+  document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels();fcScheduleToolbarSync()});
 }
 fcInstall();
 function fcViewStateDescriptors(){
