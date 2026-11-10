@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 64
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "2c47925fc6b28882ca38816bf4cede7321dfae1881b5e5719cc0678a7628c790",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "53310004ece245e774f71661219528f9e4b6ebb37267efd7c26d9aa146acafa6",
+  "evidence_fingerprint": "23374f183f39b8f06d7772a27572228cee9f27ccfbbbe9ad0dfa40a7a6fa2fce",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1201,7 +1203,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7bc5a1288de579739fc0656d0c0599e6948a2052"
+      "blob": "f5e54eb8c22883b853b2dbc0cedc4e576f4fedb2"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v30-granada-chart-focus.js",
@@ -1544,7 +1546,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "dccb2045463bcbb6d7732206b4bbbcbbdf209ef5"
+      "blob": "8a828b3672a7f85e4187912a41c098f90ed37a05"
     },
     {
       "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
@@ -3493,7 +3495,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "16a96721a23fda97",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js, desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
