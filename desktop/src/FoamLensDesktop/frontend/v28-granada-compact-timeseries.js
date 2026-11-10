@@ -4,6 +4,7 @@
 'use strict';
 const $=id=>document.getElementById(id),MAX=1024;
 let app,side,controls,button,back,closeBtn,historyBtn,anchor,opened=false,installed=false,returnFocus,sidebarAttrs=null,error='not-installed';
+let buildDock=null,historyMoved=[];
 function es(){return $('language')?.value==='es'||($('language')?.value!=='en'&&document.documentElement.lang?.startsWith('es'))}
 function tr(en,sp){return es()?sp:en}
 function active(){return window.innerWidth<=MAX&&document.body.classList.contains('appMode-data')&&!!$('timeSeriesTab')?.classList.contains('active')}
@@ -15,7 +16,7 @@ function label(){
  closeBtn.textContent=tr('Return to chart','Volver a la gráfica');
  historyBtn.textContent=tr('Build field history','Generar historia de campo');
  historyBtn.title=tr('Go to original OpenFOAM field-history builder','Ir al generador original de historiales OpenFOAM');
- historyBtn.disabled=!$('fwDataFieldHistories');
+ historyBtn.disabled=!$('gr176HistoryCard')&&!$('fwDataFieldHistories');
 }
 function focusables(){return [...side.querySelectorAll('button,[href],input,select,textarea,[tabindex]')].filter(e=>!e.disabled&&e.tabIndex!==-1&&!e.hidden&&!e.closest('[hidden],[inert]')&&(typeof e.getClientRects!=='function'||e.getClientRects().length>0))}
 function hide(restore=true){
@@ -43,15 +44,47 @@ function key(e){
  e.preventDefault();
  (e.shiftKey?(i<=0?nodes.at(-1):nodes[i-1]):(i<0||i===nodes.length-1?nodes[0]:nodes[i+1])).focus();
 }
+// In compact Time Series, the original Build, Cancel and progress elements
+// must stay visible without scrolling through source/filter selectors.
+// Move real DOM nodes with their existing event handlers; restore all original
+// source owners when leaving this view. No buttons or source data are cloned.
+function dockHistory(compact){
+ if(!compact){
+  if(!buildDock)return;
+  for(const move of historyMoved){
+   if(move.anchor.parentNode){
+    move.anchor.parentNode.insertBefore(move.node,move.anchor);
+    move.anchor.remove();
+   }
+  }
+  historyMoved=[];buildDock.remove();buildDock=null;return
+ }
+ if(buildDock)return;
+ const history=$('gr176HistoryCard'),actions=history?.querySelector('.gr176HistoryActions');
+ if(!history||!actions||!controls?.contains(history))return;
+ const nodes=[actions,$('gr176Pending'),$('fwTsStatus')]
+  .filter(node=>node&&history.contains(node));
+ if(!nodes.length)return;
+ const host=document.createElement('div');host.id='g8BuildDock';host.className='g8BuildDock';
+ for(const node of nodes){
+  const marker=document.createComment('G8: restore original Time Series history control');
+  node.parentNode.insertBefore(marker,node);
+  historyMoved.push({node,anchor:marker});host.appendChild(node);
+ }
+ controls.insertBefore(host,controls.firstChild);
+ buildDock=host
+}
 function sync(){
  if(!installed)return;
  const compact=active(),chart=$('workspace')?.querySelector('.plotcard');
  if(!compact&&opened)hide(false);
+ if(!compact)dockHistory(false);
  if(compact&&!anchor&&chart&&controls.parentNode){
   anchor=document.createComment('G8: original controls position');
   controls.parentNode.insertBefore(anchor,controls);
   chart.insertBefore(controls,chart.firstChild);
  }
+ if(compact)dockHistory(true);
  if(!compact&&anchor){anchor.parentNode.insertBefore(controls,anchor);anchor.remove();anchor=null;}
  app.classList.toggle('g8Compact',compact);
  position();label();
@@ -72,7 +105,12 @@ function style(){
  'body.appMode-data .app.g8Compact .g8Trigger{display:inline-flex}',
  'body.appMode-data .app.g8Compact #workspace{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(450px,1fr) minmax(135px,190px)!important;gap:9px;padding:8px;min-width:0;overflow-x:hidden!important;overflow-y:auto!important}',
  'body.appMode-data .app.g8Compact #workspace>.plotcard{display:grid!important;grid-template-rows:auto auto minmax(0,1fr)!important;min-height:450px;min-width:0;overflow:hidden}',
- 'body.appMode-data .app.g8Compact #timeSeriesControls{margin:0;min-width:0;max-height:225px;overflow-y:auto;padding:8px 9px;border-radius:9px}',
+ 'body.appMode-data .app.g8Compact #timeSeriesControls{margin:0;min-width:0;max-height:clamp(290px,40vh,460px);overflow-y:auto;padding:8px 9px;border-radius:9px}',
+  'body.appMode-data .app.g8Compact #g8BuildDock{position:sticky;top:0;z-index:8;display:grid;gap:5px;padding:8px 9px;min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--panel);box-shadow:0 3px 9px rgba(0,0,0,.13)}',
+  'body.appMode-data .app.g8Compact #g8BuildDock .gr176HistoryActions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}',
+  'body.appMode-data .app.g8Compact #g8BuildDock #fwBuildFieldHistories{flex:1 1 150px;min-height:35px}',
+  'body.appMode-data .app.g8Compact #g8BuildDock #gr176Cancel{min-height:35px}',
+  'body.appMode-data .app.g8Compact #g8BuildDock :is(#gr176Pending,#fwTsStatus){margin:0;min-width:0;overflow-wrap:anywhere;line-height:1.4;font-size:11px}',
  'body.appMode-data .app.g8Compact #timeSeriesControls .row2,body.appMode-data .app.g8Compact #timeSeriesControls .tsdGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px}',
  'body.appMode-data .app.g8Compact #timeSeriesControls .field{min-width:0;margin:0}',
  'body.appMode-data .app.g8Compact #timeSeriesControls select{width:100%;min-width:0}',
@@ -125,6 +163,6 @@ function install(){
  window.addEventListener('resize',sync);installed=true;error='none';sync();return true;
 }
 function boot(){if(install())return;if(typeof MutationObserver==='function'){const w=new MutationObserver(()=>{if(install())w.disconnect()});w.observe(document.documentElement,{subtree:true,childList:true})}}
-window.FoamLensGranadaG8={audit:()=>({schema:'foamlens/granada-g8-data-workbench/1',installed,compact:!!app?.classList.contains('g8Compact'),drawerOpen:opened,originalControlsMoved:!!anchor,originalControlsRetained:!!$('timeSeriesControls'),originalChartRetained:!!$('canvas'),width:window.innerWidth,humanVisualApproved:false,error}),open:show,close:hide};
+window.FoamLensGranadaG8={audit:()=>({schema:'foamlens/granada-g8-data-workbench/1',installed,compact:!!app?.classList.contains('g8Compact'),drawerOpen:opened,originalControlsMoved:!!anchor,originalControlsRetained:!!$('timeSeriesControls'),originalChartRetained:!!$('canvas'),originalBuildControlsDocked:!!buildDock,sourceControlInstancesMoved:historyMoved.length,width:window.innerWidth,humanVisualApproved:false,error}),open:show,close:hide};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
