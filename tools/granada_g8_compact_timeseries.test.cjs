@@ -190,6 +190,25 @@ test('wide, other Data tabs, and reentry restore original T2 DOM order and event
  assert.strictEqual(f.build.parentNode.parentNode,f.historyRoot);
  f.changeTab('timeseries');f.build.click();assert.equal(f.getOriginalBuildClicks(),2);
 });
+test('native G58 history ownership survives Field navigation and returns without duplicating Build',()=>{
+ const f=fixture({withNativeHistory:true}),initialBuild=f.build,initialCancel=f.cancel;
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ f.setMode('field');
+ assert.equal(f.api.audit().compact,false);
+ assert.equal(f.api.audit().originalBuildControlsDocked,false);
+ assert.strictEqual(f.controls.children[1],f.history);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.strictEqual(f.document.getElementById('fwBuildFieldHistories'),initialBuild);
+ f.setMode('data');
+ assert.equal(f.api.audit().compact,true);
+ assert.strictEqual(f.controls.children[0],f.history);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.equal(f.api.audit().sourceControlInstancesMoved,3);
+ initialBuild.click();assert.equal(f.getOriginalBuildClicks(),1);
+ f.resize(1280);
+ assert(f.history.contains(initialBuild)&&f.history.contains(initialCancel));
+ assert.equal(f.api.audit().sourceControlInstancesMoved,0);
+});
 test('visible T2 builder stays available even after obsolete legacy details anchor is absent',()=>{
  const f=fixture({withNativeHistory:true,missing:'legacy'}),shortcut=f.document.getElementById('g8History');
  assert.equal(shortcut.disabled,false,'real T2 generator must not depend on legacy refresh anchor');
