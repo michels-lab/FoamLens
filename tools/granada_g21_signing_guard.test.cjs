@@ -77,7 +77,7 @@ test('direct GitHub publishing accepts unsigned binaries but never skips checksu
  assert(release.includes('needs: build'),'release must require successful Windows build');
  assert(release.includes("if: ${{ env.HAS_WINDOWS_CERT == 'true' }}"),'native attestation is conditional on supplied certificate');
  assert(release.includes('G21 rebind exact signed Windows-native attestation'),'preserve original authenticated signer verification when configured');
- assert(release.includes('sidecar.read_text')&&release.includes('actual}  ${exe.name}'),'SHA-256 sidecars must match both exact shipped binaries');
+ assert(release.includes('sidecar.read_text')&&release.includes("f'{actual}  {exe.name}'"),'SHA-256 sidecars must match both exact shipped binaries');
  assert(release.includes('visual_release_gate.py')&&release.includes('artifact_sha256'),'keep screenshot/installer byte provenance');
  assert(release.includes('**Windows installer signature: unsigned.**'),'unsigned release must transparently warn users');
  assert(release.includes('gh release create')&&release.includes('verify_published_release.py'),'publish and postpublication integrity audit remain required');
