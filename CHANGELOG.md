@@ -104,7 +104,7 @@
 - Include Field's original simultaneous 3D + Spatial Profile interface and updated A–D physical-region field/component selectors (integrated PRs #278 and #307).
 - Include keyboard-accessible Analysis chart/series resizing and CAD multi-region ZIP round-trip plus optional installed OpenCascade/FreeCAD STEP/IGES/BREP import (PRs #295, #301 and #303); external kernel availability is still environment-dependent.
 - Include Time Series preview/pin navigation recovery after delayed WebView2 mount, with original controls preserved (PR #309).
-- Release remains blocked until source-exact Windows Setup/Portable validation, genuine trusted Authenticode signatures, checksum match and signed updater verification succeed. No unsigned stable publication or RC.
+- Direct GitHub distribution can publish unsigned Setup and Portable at no signing-certificate cost, with an explicit unsigned/SmartScreen warning. Exact-source Windows validation, screenshot-to-binary binding, both SHA-256 sidecars and postpublication audit remain mandatory. Authenticode publisher verification remains enforced only when a signing certificate is supplied; no RC.
 
 ## Desktop v1.8.10 — 2026-10-19 · Field multi-view and responsive toolbar
 
