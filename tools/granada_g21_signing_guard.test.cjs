@@ -64,3 +64,30 @@ test('requires real Windows PE MZ header, not a mislabeled text file',()=>withFi
  fs.writeFileSync(f+'.sha256',d+'  '+report.assets.setup.filename+'\n');
  assert.equal(verify(report,root,sha,version).ready,false);
 }));
+
+test('unsigned stable attempt retains only a short-lived Actions QA artifact; release still requires native G21',()=>{
+ const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+ const qa=workflow.indexOf('      - name: Preserve unsigned Windows candidate for internal owner QA (never a release)');
+ const verify=workflow.indexOf('      - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication');
+ const normalUpload=workflow.indexOf('      - name: Upload FoamLens Windows build');
+ const publish=workflow.indexOf('  publish:\n');
+ assert(qa>=0&&qa<verify&&verify<normalUpload&&normalUpload<publish,
+   'owner test binaries must be retained before unsigned signer refusal without moving the public release gate');
+ const candidate=workflow.slice(qa,verify);
+ assert(candidate.includes("env.HAS_WINDOWS_CERT != 'true'"),
+   'internal unsigned artifact must be limited to missing certificate');
+ assert(candidate.includes("startsWith(github.event.head_commit.message, 'release:')"),
+   'internal fallback must be tied to explicit release intent');
+ assert(candidate.includes('FoamLens-UNSIGNED-INTERNAL-QA-v'),
+   'unsigned candidate must be visibly identified, not confused with stable');
+ assert(candidate.includes('retention-days: 14')&&candidate.includes('if-no-files-found: error'),
+   'internal owner QA must retain evidence briefly, not silently upload an empty artifact');
+ for(const file of ['FoamLens-Portable-v','FoamLens-Setup-v','artifacts/visual/manifest.json']){
+  assert(candidate.includes(file),'test-only package must include original build and evidence: '+file);
+ }
+ const release=workflow.slice(publish);
+ assert(release.includes('needs: build')&&release.includes('G21 rebind exact signed Windows-native attestation'),
+   'public publishing must still need successful signed Windows build and artifact-bound attestation');
+ assert(release.includes('gh release create')&&release.includes('artifacts/g21-authenticode-report.json'),
+   'no public asset can bypass the original G21 proof');
+});
