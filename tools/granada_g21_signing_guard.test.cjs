@@ -70,7 +70,7 @@ test('unsigned stable attempt retains only a short-lived Actions QA artifact; re
  const qa=workflow.indexOf('      - name: Preserve unsigned Windows candidate for internal owner QA (never a release)');
  const verify=workflow.indexOf('      - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication');
  const normalUpload=workflow.indexOf('      - name: Upload FoamLens Windows build');
- const publish=workflow.indexOf('  publish:\n');
+ const publish=workflow.indexOf('  publish:\n',normalUpload);
  assert(qa>=0&&qa<verify&&verify<normalUpload&&normalUpload<publish,
    'owner test binaries must be retained before unsigned signer refusal without moving the public release gate');
  const candidate=workflow.slice(qa,verify);
