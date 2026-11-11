@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "61038e0bfdf748bf35445ad8913045887167ccb6c25344db9815cf437911c8ee",
-  "evidence_fingerprint": "8b239c19f7f75bfa4715ad790acf6eb96cacca08f35342140911f0f90ced0406",
+  "inventory_fingerprint": "1f5c469087e424af05c9297d1b743c700065b3e05ba611b7bfd37d529bfcb05e",
+  "evidence_fingerprint": "7f7bbf283d922cbe40ccd825e6d0805b537aa75a6ca189569c3abdefee148be4",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "98eee125d81ed2584544552391675c67d2eb072a"
+      "blob": "aae4b026a78ccea10326bff86b80e5e3fc1404b5"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "e6e0765cb7fa00f0a585ae635fb922d23895267b"
+      "blob": "988fe778fb59394d4f3646d846ee52e24b7382ab"
     },
     {
       "path": "LICENSE",
@@ -608,7 +608,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "8e127a71d10509e25bc3fa1cbe37f5eeaef89f14"
+      "blob": "468c96a918bfa97adc7667dceb8012e64288f249"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -622,7 +622,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "6fc1ccdf726a1c22df1e3ff499ebff27ca7c901f"
+      "blob": "046e365b23e104b5005cbe69bcdd12fb067ecc02"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2995,7 +2995,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1e19f1180230e85479c1811f302327305526657a"
+      "blob": "967ea7ffebcc6470fedfc6533f96bd33c3916418"
     },
     {
       "path": "tools/granada_g22_compact_media_guard.test.cjs",
@@ -3497,11 +3497,11 @@
   ],
   "findings": [
     {
-      "id": "0bbc616cd1075e2a",
+      "id": "5909838498182292",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "5 implementation/config paths changed since this log's last commit; examples: desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js, desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "observation": "7 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js, desktop/tests/granada-176-timeseries-ui.spec.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
