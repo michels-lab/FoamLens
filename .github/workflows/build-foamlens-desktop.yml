@@ -1036,26 +1036,10 @@ jobs:
           echo 'Regenerated ICO committed, revalidating new exact branch HEAD (Windows only).'
           gh workflow run build-foamlens-desktop.yml --ref "${GITHUB_REF_NAME}"
 
-      # When a release was explicitly requested without a signing certificate, preserve
-      # the already-smoke-tested binaries ONLY as a short-lived Actions QA artifact.
-      # Publishing remains fail-closed in the next G21 step; never create a GitHub Release.
-      - name: Preserve unsigned Windows candidate for internal owner QA (never a release)
-        if: ${{ env.HAS_WINDOWS_CERT != 'true' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:'))) }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: FoamLens-UNSIGNED-INTERNAL-QA-v${{ steps.ver.outputs.version }}-${{ github.run_id }}
-          path: |
-            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
-            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
-            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
-            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe.sha256
-            artifacts/FoamLens-Portable-smoke.log
-            artifacts/FoamLens-Installed-smoke.log
-            artifacts/visual/manifest.json
-          if-no-files-found: error
-          retention-days: 14
+      # Authenticode is OPTIONAL for a direct GitHub release. If a cert is configured,
+      # retain the original fail-closed native certificate and publisher checks.
       - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
+        if: ${{ env.HAS_WINDOWS_CERT == 'true' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:'))) }}
         shell: pwsh
         run: |
           $v='${{ steps.ver.outputs.version }}'
@@ -1144,9 +1128,15 @@ jobs:
           pdigest=hashlib.sha256(portable.read_bytes()).hexdigest()
           if digest!=doc['artifact_sha256']['windows']: raise SystemExit('BLOCKED: validated screenshots belong to a different Setup digest')
           if pdigest!=doc.get('portable_artifact_sha256',{}).get('windows'): raise SystemExit('BLOCKED: portable binary differs from UI-validated candidate')
-          print('Release installer and portable validated against source/screenshot manifest:',digest,pdigest)
+          # An unsigned public EXE still needs exact digest-bound published sidecars.
+          for exe,actual in [(setup,digest),(portable,pdigest)]:
+              sidecar=exe.with_name(exe.name+'.sha256')
+              if not sidecar.is_file() or sidecar.read_text(encoding='utf-8').strip()!=f'{actual}  {exe.name}':
+                  raise SystemExit(f'BLOCKED: missing or incorrect SHA-256 sidecar: {sidecar}')
+          print('Release installer, portable, screenshot evidence and both sidecars verified:',digest,pdigest)
           PY
       - name: G21 rebind exact signed Windows-native attestation to downloaded stable assets
+        if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: bash
         env:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
@@ -1164,12 +1154,17 @@ jobs:
           v="$VERSION"
           if [[ "$GITHUB_REF_NAME" == v* ]]; then tag="$GITHUB_REF_NAME"; else tag="v$v"; fi
           python - "$v" <<'PY'
-          import re,sys
+          import os,re,sys
           from pathlib import Path
           v=sys.argv[1]
           text=Path('CHANGELOG.md').read_text(encoding='utf-8')
           match=re.search(r'(?ms)^## Desktop v'+re.escape(v)+r'\b.*?(?=^## |\Z)',text)
-          Path('artifacts/release-notes.md').write_text(match.group(0).strip() if match else f'FoamLens Windows release v{v}.',encoding='utf-8')
+          notes=match.group(0).strip() if match else f'FoamLens Windows release v{v}.'
+          if os.environ.get('HAS_WINDOWS_CERT')!='true':
+              notes+='\n\n**Windows installer signature: unsigned.** These executables are distributed directly via GitHub with SHA-256 checksum files and automated Windows validation. Windows SmartScreen may warn before first launch. This is not Microsoft Store certification or publisher signing.'
+          else:
+              notes+='\n\n**Windows installer signature:** native Authenticode verification was required for this release.'
+          Path('artifacts/release-notes.md').write_text(notes,encoding='utf-8')
           PY
           assets=("artifacts/FoamLens-Portable-v$v.exe" "artifacts/FoamLens-Portable-v$v.exe.sha256" "artifacts/FoamLens-Setup-v$v.exe" "artifacts/FoamLens-Setup-v$v.exe.sha256")
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
