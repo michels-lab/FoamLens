@@ -1036,6 +1036,24 @@ jobs:
           echo 'Regenerated ICO committed, revalidating new exact branch HEAD (Windows only).'
           gh workflow run build-foamlens-desktop.yml --ref "${GITHUB_REF_NAME}"
 
+      # When a release was explicitly requested without a signing certificate, preserve
+      # the already-smoke-tested binaries ONLY as a short-lived Actions QA artifact.
+      # Publishing remains fail-closed in the next G21 step; never create a GitHub Release.
+      - name: Preserve unsigned Windows candidate for internal owner QA (never a release)
+        if: ${{ env.HAS_WINDOWS_CERT != 'true' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:'))) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoamLens-UNSIGNED-INTERNAL-QA-v${{ steps.ver.outputs.version }}-${{ github.run_id }}
+          path: |
+            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Portable-v${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe
+            artifacts/FoamLens-Setup-v${{ steps.ver.outputs.version }}.exe.sha256
+            artifacts/FoamLens-Portable-smoke.log
+            artifacts/FoamLens-Installed-smoke.log
+            artifacts/visual/manifest.json
+          if-no-files-found: error
+          retention-days: 14
       - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication
         if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.publish == true) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')) }}
         shell: pwsh
