@@ -66,7 +66,7 @@ test('requires real Windows PE MZ header, not a mislabeled text file',()=>withFi
 }));
 
 test('unsigned stable attempt retains only a short-lived Actions QA artifact; release still requires native G21',()=>{
- const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8');
+ const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-foamlens-desktop.yml'),'utf8').replace(/\r\n/g,'\n');
  const qa=workflow.indexOf('      - name: Preserve unsigned Windows candidate for internal owner QA (never a release)');
  const verify=workflow.indexOf('      - name: G21 verify native Windows Authenticode + signed checksum before a final stable publication');
  const normalUpload=workflow.indexOf('      - name: Upload FoamLens Windows build');
