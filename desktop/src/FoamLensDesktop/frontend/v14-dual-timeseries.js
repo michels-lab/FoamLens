@@ -125,20 +125,45 @@ function tsdMatchesFilters(s){
 // Existing curves and available 3D OpenFOAM fields are different catalogs.
 // Preview field identity only; parsing thousands of frames requires Build.
 function tsdSourceFieldCatalog(){
-  const fields=[];
+  // A failed region's inventory must not hide valid fields of another case.
+  // Read field metadata ONLY; Build owns the physical-frame reads.
+  const fields=[],issues=[];
+  let ready=[];
   try{
-    for(const c of (typeof fwFieldTsReadyCases==='function'?fwFieldTsReadyCases():[])){
-      const regions=typeof fvReadyRegions==='function'?fvReadyRegions(c):[];
-      for(const region of regions){
-        const groups=typeof fvFieldGroups==='function'?fvFieldGroups(c,region,null,'any'):[];
-        for(const group of groups)if(['scalar','vector'].includes(group.kind)&&group.name&&(group.times||[]).length){
-          fields.push({caseId:c.id,caseName:c.name||String(c.id),region,name:group.name,
-            kind:group.kind,components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
-            timeCount:(group.times||[]).length})
-        }
+    ready=typeof fwFieldTsReadyCases==='function'?fwFieldTsReadyCases():[];
+    if(!Array.isArray(ready))throw new Error('Invalid case inventory');
+  }catch(e){
+    console.error('Time Series cases inventory',e);
+    issues.push({caseId:'',region:'',stage:'cases'});ready=[]
+  }
+  for(const c of ready){
+    let regions=[];
+    try{
+      regions=typeof fvReadyRegions==='function'?fvReadyRegions(c):[];
+      if(!Array.isArray(regions))throw new Error('Invalid region inventory');
+    }catch(e){
+      console.error('Time Series physical-region discovery',e);
+      issues.push({caseId:String(c?.id??''),region:'',stage:'regions'});continue
+    }
+    for(const region of regions){
+      let groups=[];
+      try{
+        groups=typeof fvFieldGroups==='function'?fvFieldGroups(c,region,null,'any'):[];
+        if(!Array.isArray(groups))throw new Error('Invalid field inventory');
+      }catch(e){
+        console.error('Time Series physical field discovery',e);
+        issues.push({caseId:String(c?.id??''),region:String(region||''),stage:'fields'});continue
+      }
+      for(const group of groups)if(group&&['scalar','vector'].includes(group.kind)&&group.name&&Array.isArray(group.times)&&group.times.length){
+        fields.push({caseId:c.id,caseName:c.name||String(c.id),region,name:group.name,
+          kind:group.kind,components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
+          timeCount:group.times.length})
       }
     }
-  }catch(e){console.error('Time Series field inventory',e)}
+  }
+  // Only bounded source-identification errors are shown; no scientific
+  // values or private file paths ever enter the status.
+  tsdSourceFieldCatalog.issues=issues;
   return fields
 }
 function tsdUpdateSourceCatalog(){
@@ -153,8 +178,11 @@ function tsdUpdateSourceCatalog(){
   }
   const catalog=tsdSourceFieldCatalog(),datasets=timeSeriesOptionsBase();
   const unique=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region)+'|'+g.name)).size;
+  const issues=tsdSourceFieldCatalog.issues||[];
   info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+'.',
-    'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.');
+    'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.')+
+    (issues.length?' '+tsdUi('Partial catalog: '+issues.length+' case/region source(s) could not be inspected; available fields remain selectable. No missing fields or values were inferred.',
+      'Catálogo parcial: no se pudieron inspeccionar '+issues.length+' fuente(s) de caso/región; los campos disponibles siguen seleccionables. No se infirieron campos ni valores faltantes.'):'');
   const details=document.getElementById('fwDataFieldHistories');
   // G59: a real imported postProcessing curve does NOT make newly imported
   // OpenFOAM 3D source fields disappear. Refresh existing source selectors

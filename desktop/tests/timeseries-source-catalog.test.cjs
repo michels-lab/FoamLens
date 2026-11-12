@@ -30,4 +30,39 @@ for(const fragment of [
   "No measured time-series has been imported or built",
   "timeSeriesOptionsBase()"
 ])assert(source.includes(fragment),'Broken visible Time Series UX contract: '+fragment);
+
+const warnings=[],partialLogs={error:(...args)=>warnings.push(args)};
+const errorRegion=(c,region)=>{
+  if(c.id==='same'&&region==='mold')throw new Error('Unavailable mold field metadata');
+  return groups(c,region)
+};
+const partialCatalog=new Function('fwFieldTsReadyCases','fvReadyRegions','fvFieldGroups','document','timeSeriesOptionsBase','tsdUi','console',
+  source.slice(begin,end)+';return{tsdSourceFieldCatalog,tsdUpdateSourceCatalog};')(
+  ()=>cases,c=>c.id==='same'?['metal','mold']:[''],
+  errorRegion,{getElementById:()=>null},()=>[],en=>en,partialLogs
+);
+const partial=partialCatalog.tsdSourceFieldCatalog();
+assert.deepStrictEqual(partial.map(x=>[x.caseId,x.region,x.name]),[
+  ['same','metal','T'],['same','metal','U'],['other','','alpha']
+],'A broken mold inventory must not hide metal fields or the other case');
+assert.deepStrictEqual(partialCatalog.tsdSourceFieldCatalog.issues,[
+  {caseId:'same',region:'mold',stage:'fields'}
+]);
+assert.strictEqual(warnings.length,1,'Metadata error must be logged without guessing field names');
+const partialStatus={textContent:'',setAttribute:()=>{}};
+const nodes={tsdSourceFieldCount:partialStatus,fwDataFieldHistories:{open:true},
+  gr176HistoryCard:{},timeSeriesControls:{querySelector:()=>null}};
+let partialRefreshCount=0;
+const realStatus=new Function('fwFieldTsReadyCases','fvReadyRegions','fvFieldGroups','document','timeSeriesOptionsBase','tsdUi','fwRefreshFieldTsControls','console',
+  source.slice(begin,end)+';return{tsdSourceFieldCatalog,tsdUpdateSourceCatalog};')(
+  ()=>cases,c=>c.id==='same'?['metal','mold']:[''],errorRegion,
+  {getElementById:id=>nodes[id]||null},()=>[{field:{canonical:'T'}}],en=>en,
+  ()=>{partialRefreshCount++},partialLogs
+);
+realStatus.tsdUpdateSourceCatalog();
+assert.match(partialStatus.textContent,/Partial catalog: 1 case\/region source/);
+assert.match(partialStatus.textContent,/available fields remain selectable/);
+assert.strictEqual(partialRefreshCount,1,'Valid field sources still refresh the builder with existing imported curves');
+assert.strictEqual(costlyFrameReads,0,'Source inventory must not read original time-dependent frames');
+
 console.log('Time Series field source catalog PASS: 4 available real case/region fields, vector components, visible generation with zero existing curves.');
