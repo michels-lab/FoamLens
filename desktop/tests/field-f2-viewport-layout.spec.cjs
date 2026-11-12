@@ -63,6 +63,22 @@ for(const token of ["fcViewGrid","fcViewportScene","fcViewToolbar","id='pvAuditP
  if(token==='data:')continue;
  assert(moduleSrc.includes(token),'Missing actual Field layout contract '+token)
 }
+// A 1920px desktop can show 4 panes narrower than 570 CSS px each.
+// CSS media queries keyed to the whole window cannot protect these controls.
+const dock=existing.slice(existing.indexOf('container-name:fc-region-dock'));
+assert(dock.includes('container-type:inline-size'),'Physical regions must follow EACH pane width');
+assert(dock.includes('@container fc-region-dock (max-width:570px)')&&
+       dock.includes('grid-template-columns:repeat(2,minmax(0,1fr))'),
+       'Two-column controls are required when A/B/C/D panes narrow');
+assert(dock.includes('@container fc-region-dock (max-width:340px)')&&
+       dock.includes('grid-template-columns:minmax(0,1fr)'),
+       'One-column controls are required for extra narrow/high-DPI viewports');
+assert(dock.includes('.fcPhysicalRegionRow select,.fcPhysicalRegionRow input{min-width:0;max-width:100%}'),
+       'Native field/component selectors and opacity controls must not cause horizontal overflow');
+assert(existing.includes("holder.innerHTML='<details '")&&existing.includes('data-fc-region-field')&&
+       existing.includes('data-fc-region-comp')&&existing.includes('data-fc-region-opacity'),
+       'Preserve original physical region field, component, opacity and visibility controls');
+
 for(const name of ['fcComposedViewport','fcViewToolbar','fcViewGrid','fcScheduleLayoutRender']){
  assert(existing.includes(name),'Source Field multi-view should retain '+name)
 }
