@@ -33,7 +33,7 @@ test('single case: selecting mold displays mold only, not the unrequested metal 
  selection.value='mold';
  assert.equal(choice(c,'metal').visible,false,'implicit old primary must disappear');
  assert.equal(choice(c,'mold').visible,true);
- choice(c,'metal').visible=true;choice(c,'metal').visibilityExplicit=true;
+ const overlay=choice(c,'metal');overlay.visible=true;overlay.visibilityExplicit=true;
  assert.equal(choice(c,'metal').visible,true,'explicit overlay remains available');
  selection.value='metal';
  assert.equal(choice(c,'mold').visible,false,'unrequested mold must follow primary changes');
