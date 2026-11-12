@@ -173,3 +173,25 @@ test('native asymmetric on-disk smoke explicitly opts into mold geometry without
  assert(initial>=0&&restore>initial&&smoke.includes('originalChoice.visible=true;originalChoice.visibilityExplicit=true;'),
   'return to the original case must preserve the originally explicit metal+mold smoke selection');
 });
+
+test('native View B WebView2 regression explicitly selects secondary OpenFOAM regions via real checkboxes',()=>{
+ const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
+ const start=program.indexOf('window.__foamLensPhysicalViewBSmoke=null;');
+ const end=program.indexOf('string viewBSmoke = "null";',start);
+ assert(start>=0&&end>start,'native installed View B scientific smoke must exist');
+ const script=program.slice(start,end);
+ const first=script.indexOf('await api.fcRefreshFrame();');
+ const regionRows=script.indexOf("document.querySelectorAll('#fcViewport [data-fc-region]')");
+ const actual=script.indexOf("row.querySelector('[data-fc-visible]')");
+ const changed=script.indexOf("toggle.dispatchEvent(new Event('change',{bubbles:true}))");
+ const second=script.lastIndexOf('await api.fcRefreshFrame();');
+ const evidence=script.indexOf('const desc=api.getPhysicalRegionDescriptors()');
+ assert(first>=0&&first<regionRows&&regionRows<actual&&actual<changed&&changed<second&&second<evidence,
+  'real View B checkboxes must be selected before measuring GPU overlays and XYZ bounds');
+ assert(script.includes("if(String(row.dataset.fcRegion)===selectedB)continue;"),
+  'B must keep its selected primary region and enable only real secondary regions');
+ assert(script.includes('visible.length>=2&&secondary.some(r=>r.loaded)'),
+  'native regression must still require real loaded multiple physical regions in B');
+ assert(script.includes("['X:','Y:','Z:'].every(t=>desc.metricsText.includes(t))"),
+  'native regression must preserve measured independent XYZ axes instead of mere two-view UI state');
+});
