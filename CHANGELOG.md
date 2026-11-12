@@ -1,3 +1,9 @@
+## Unreleased — Field F2 per-viewport responsive physical-region controls (#149)
+
+- Make A/B/C/D's real Physical regions field/component/opacity controls responsive to **each individual viewport width**, not just overall Windows width. CSS container queries fold four fixed-minimum columns into two at 570 CSS px and one at 340 CSS px, preventing clipped controls in side-by-side comparisons and scaled displays.
+- Preserve exact OpenFOAM region source selection, visibility, fields, components, colors and per-region opacity; let long region names wrap and prevent selector/range intrinsic widths from causing horizontal scrolling.
+- Add regression to the existing Field F2 suite. Physical Windows scaling at 125–200% still needs visual owner acceptance; do not infer measured device validation or modify the already-published v1.8.12 binaries.
+
 ## Unreleased — Operación Granada: measured equivalent observables 2D ↔ 3D (#154)
 
 - Add an independent Analysis tool to compare two user-designated 2D/3D cases by **measured equivalent observable** rather than subtracting unrelated OpenFOAM meshes.
