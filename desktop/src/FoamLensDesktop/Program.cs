@@ -3169,7 +3169,15 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     if(expected.some(name=>!discovered.includes(name)))
       throw new Error('OpenFOAM physical-region inventory mismatch: '+JSON.stringify({expected,discovered}));
     if(!expected.includes(primary))throw new Error('The loaded primary region is not in the real physical-region fixture: '+primary);
-    for(const region of expected)fvRegionChoice(c,region).visible=true;
+    // The product defaults to the selected physical region only. In this
+    // native multiregion smoke we explicitly ask for EVERY real region,
+    // matching the owner-facing "Show all regions" action in the viewport.
+    // Visibility must be flagged explicit: fvRegionChoice otherwise restores
+    // the selected-only implicit default during the asynchronous field parse.
+    for(const region of expected){
+      const choice=fvRegionChoice(c,region);
+      choice.visible=true;choice.visibilityExplicit=true;
+    }
     await api.load(c,fvState.time);
     fvCameraFitCurrent();fvRender();
     const scene=api.state(),gl=fvState.renderer?.gl,canvas=document.getElementById('fvCanvas');

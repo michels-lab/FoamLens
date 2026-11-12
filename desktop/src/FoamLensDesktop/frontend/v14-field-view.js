@@ -542,7 +542,7 @@ const fvState={
 
 // Physical OpenFOAM regions are separate scene layers. This is NOT a processor
 // partition merge: each region retains its own mesh/field/time association.
-const fvRegionScene={caseId:null,choices:new Map(),layers:new Map(),sequence:0,fitPending:false,rangeScan:null,videoRanges:null};
+const fvRegionScene={caseId:null,choices:new Map(),savedByCase:new Map(),layers:new Map(),sequence:0,fitPending:false,rangeScan:null,videoRanges:null};
 function fvRegionRangeKey(region,choice,data){
   return JSON.stringify([region,data?.group?.name||'',choice?.component||'value',data?.storage||'',data?.parsed?.dimensions||null])
 }
@@ -637,7 +637,15 @@ function fvRegionClearLayers(){
 function fvRegionEnsureCase(c){
   const id=c?.id==null?null:String(c.id);
   if(fvRegionScene.caseId===id)return;
-  fvRegionClearLayers();fvRegionScene.caseId=id;fvRegionScene.choices.clear();fvRegionScene.fitPending=true
+  // Remember explicit region overlays PER imported case, not per field view
+  // or viewport count. Do not let case B inherit case A's mold/metal choices.
+  fvRegionScene.savedByCase??=new Map();
+  if(fvRegionScene.caseId!==null)fvRegionScene.savedByCase.set(fvRegionScene.caseId,
+    new Map([...fvRegionScene.choices].map(([region,choice])=>[region,{...choice}])));
+  fvRegionClearLayers();
+  fvRegionScene.caseId=id;
+  fvRegionScene.choices=new Map([...fvRegionScene.savedByCase.get(id)||[]].map(([region,choice])=>[region,{...choice}]));
+  fvRegionScene.fitPending=true
 }
 function fvRegionChoice(c,region){
   fvRegionEnsureCase(c);
