@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "0c35ab5ae353fe807311f5f193db84df174920d2b9de4e9cf2db3fa67c71d10b",
-  "evidence_fingerprint": "aafbb5ad3a2f382274f747dd43bb436d3022b5bd6195317f533352f20b544263",
+  "inventory_fingerprint": "89804cb78a04473142bf836cc913f932687ed1554c1338a5c1eb3ae91d9523a0",
+  "evidence_fingerprint": "0f6ebe4e5ab1662641371b4b1009aabaeba8c493e094563139d821a3e272f217",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "aec3639beb123a1a8355de996f01ffa6c6d64665"
+      "blob": "8a51e24ff6ceaf7551de5c716d105952f81c833d"
     },
     {
       "path": "LICENSE",
@@ -902,7 +902,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2f7bc33fec27821027d5a11d1523aa8f23011fc1"
+      "blob": "b4f449fade0a0ec85d28474571efd6993ea054d5"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1987,7 +1987,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8ab7b8b5f4a88560e6348159ae48b8f6e3247c84"
+      "blob": "84e4c4b76f86aeba809721262fc970b6c2d37e71"
     },
     {
       "path": "desktop/tests/v16-final-ux-audit.test.cjs",
@@ -3504,11 +3504,11 @@
   ],
   "findings": [
     {
-      "id": "4e659ad8adf331ca",
+      "id": "16779afe5e197cf2",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "17 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
+      "observation": "19 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
