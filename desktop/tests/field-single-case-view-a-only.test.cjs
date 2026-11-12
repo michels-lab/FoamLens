@@ -141,3 +141,13 @@ test('view A remembers real physical-region selections separately for each loade
  assert.equal(f.fvRegionChoice(second,'metal').visible,true,'C3 explicit metal overlay also survives B3 visit');
  assert(clears>=3,'old GPU scene must be cleared each time the case changes');
 });
+
+test('changing a physical-region field/component uses the real primary control, never a fake overlay update',()=>{
+ assert(compare.includes("const source=document.getElementById(fcViewSourceMap(view)?.[kind]);"));
+ assert(compare.includes("source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}))"));
+ assert(compare.includes("if(forwardPrimary('Field',ch.field))return;"));
+ assert(compare.includes("if(forwardPrimary('Component',ch.component))return;"));
+ assert(compare.includes('fcReconcilePhysicalChoice(ch,groups,e.target.value)'));
+ assert(compare.includes("if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)"),
+   'secondary component changes must still redraw the secondary physical overlay');
+});
