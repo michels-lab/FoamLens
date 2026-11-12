@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "751a798da3fa422687033cb6aa35ba691cf450c64a97f44a2ed4c8d9467fb440",
+  "inventory_fingerprint": "e7b09d1b8624b707a2e6d576da8a43426b34443863bbce242d28814ccfbbddd8",
   "evidence_fingerprint": "f84542d137bd6bf1f6ac6211f5a6757d896a72f662f90a80b6cef0d6aecd0af3",
   "files": [
     {
@@ -608,7 +608,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "751db670f48fa9592a8955dcd830a0d516368b67"
+      "blob": "af953c85543a5684c65d8bdcaf0ec9739f06c955"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -622,7 +622,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "f792505ba934696e487adc6832ad4b0e4d0f60b9"
+      "blob": "3081a7fb0eae152d9f091f47cdf15dd143917bf8"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
