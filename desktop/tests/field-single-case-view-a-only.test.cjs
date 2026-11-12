@@ -112,3 +112,32 @@ test('real Windows-native multi-region fixture opts in to both measured regions 
  assert(program.includes('await api.load(c,fvState.time);'),
    'native smoke must still require real OpenFOAM same-canvas GPU composition');
 });
+
+test('view A remembers real physical-region selections separately for each loaded case',()=>{
+ const source=fs.readFileSync(path.join(root,'v14-field-view.js'),'utf8');
+ const start=source.indexOf('function fvRegionEnsureCase(c){');
+ const end=source.indexOf('function fvRegionPrimaryVisible()',start);
+ assert(start>0&&end>start);
+ const scene={caseId:null,choices:new Map(),savedByCase:new Map(),layers:new Map(),fitPending:false};
+ const selection={value:'metal'};
+ let clears=0;
+ const f=new Function('fvRegionScene','fvRegionClearLayers','fvFieldGroups','document',
+   source.slice(start,end)+';return {fvRegionEnsureCase,fvRegionChoice}')(
+   scene,()=>{clears++},()=>[{name:'T',kind:'scalar'}],
+   {getElementById:id=>id==='fvRegion'?selection:{value:'T'}});
+ const first={id:'case-B3'},second={id:'case-C3'};
+ assert.equal(f.fvRegionChoice(first,'mold').visible,false);
+ const mold=f.fvRegionChoice(first,'mold');mold.visible=true;mold.visibilityExplicit=true;
+ f.fvRegionChoice(first,'metal');
+ selection.value='mold';
+ assert.equal(f.fvRegionChoice(second,'metal').visible,false,'a new case must not inherit B3 metal');
+ assert.equal(f.fvRegionChoice(second,'mold').visible,true,'C3 primary mold loads independently');
+ const metal=f.fvRegionChoice(second,'metal');metal.visible=true;metal.visibilityExplicit=true;
+ selection.value='metal';
+ assert.equal(f.fvRegionChoice(first,'mold').visible,true,'B3 explicit mold overlay survives C3 visit');
+ assert.equal(f.fvRegionChoice(first,'metal').visible,true);
+ assert.notStrictEqual(f.fvRegionChoice(first,'mold'),mold,'A region selection is restored by value, not shared mutable state');
+ selection.value='mold';
+ assert.equal(f.fvRegionChoice(second,'metal').visible,true,'C3 explicit metal overlay also survives B3 visit');
+ assert(clears>=3,'old GPU scene must be cleared each time the case changes');
+});
