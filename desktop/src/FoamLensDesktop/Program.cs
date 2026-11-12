@@ -3452,6 +3452,13 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         await fvLoadSelection();
         const metalGroup=fvFieldGroups(c2,primary,null,'any').find(g=>g.name==='T');
         const moldName=expected.find(name=>name!==primary);
+        // An asymmetric imported case correctly starts with only the selected
+        // primary region visible. This smoke explicitly requests the MISSING-
+        // frame mold geometry so the native fallback is actually exercised.
+        // Do not change the product default or manufacture any OpenFOAM data.
+        const asymmetricMoldChoice=fvRegionChoice(c2,moldName);
+        asymmetricMoldChoice.visible=true;
+        asymmetricMoldChoice.visibilityExplicit=true;
         const moldGroup=fvFieldGroups(c2,moldName,null,'any').find(g=>g.name==='T');
         const metalTimes=(metalGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
         const moldTimes=(moldGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
@@ -3487,6 +3494,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         const fieldControl=document.getElementById('fvField');
         fieldControl.value=previous.field;fvState.fieldName=previous.field;
         await fvLoadSelection();
+        // Restore the original test-selected multiregion view; switching to
+        // the asymmetric case must not leak its case-local visibility choices.
+        for(const region of expected){
+          const originalChoice=fvRegionChoice(fvCase(),region);
+          originalChoice.visible=true;originalChoice.visibilityExplicit=true;
+        }
         const restoredTimes=fvCurrentFieldGroup()?.times||[];
         const restoreIndex=restoredTimes.findIndex(t=>fvTimeEqual(api.physicalTime(t),previous.time));
         if(restoreIndex<0)throw new Error('Could not restore real selected OpenFOAM physical frame');
