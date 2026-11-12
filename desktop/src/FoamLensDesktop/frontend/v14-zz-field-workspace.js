@@ -1099,7 +1099,7 @@ function fwLeave(){
   fwState.dataViewBeforeField=null;
   // Explicit comparison belongs to the current Field session when only
   // one case exists. Re-entering Field must not resurrect an old B pane.
-  if((cases||[]).filter(c=>fvCaseViewAvailable(c)).length<=1)fwState.compareUserRequested=false
+  if(typeof cases!=='undefined'&&Array.isArray(cases)&&cases.filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c)).length<=1)fwState.compareUserRequested=false
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
