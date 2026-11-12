@@ -70,7 +70,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   assert.equal(metal.component,'magnitude','valid vector component, not the impossible scalar value');
   assert.equal(mold.field,'T');assert.equal(mold.component,'value');
 
-  metal.visible=false;metal.opacity=.25;metal.palette='turbo';metal.component='z';
+  metal.visible=false;metal.visibilityExplicit=true;metal.opacity=.25;metal.palette='turbo';metal.component='z';
   physical.fcPhysicalChoiceList(state,caseB,'metal');
   assert.equal(metal.component,'z','valid original user-selected vector component persists');
   assert.equal(metal.opacity,.25);assert.equal(metal.visible,false);assert.equal(metal.palette,'turbo');

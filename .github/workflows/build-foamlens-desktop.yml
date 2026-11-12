@@ -624,6 +624,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-multiview-ux.test.cjs
 
+      - name: Regress single-case A-only view, selected region and matching viewport controls
+        shell: pwsh
+        run: node desktop/tests/field-single-case-view-a-only.test.cjs
+
       - name: Test strict 3D difference field comparison
         shell: pwsh
         run: node desktop/tests/field-compare.test.cjs

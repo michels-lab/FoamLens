@@ -1252,7 +1252,7 @@ test('native Windows QuickCup exercises actual independent mold legend without c
     'An OpenFOAM read failure must not leave stale numerical legend values visible');
 });
 
-test('default secondary physical-region opacity exposes an encasing mold while retaining primary visibility',()=>{
+test('default field view shows only the selected physical region; secondary opacity remains available for manual overlays',()=>{
   const scene=new Function([
     'const window={};',
     'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:id==="fvField"?{value:"T"}:null};',
@@ -1263,10 +1263,10 @@ test('default secondary physical-region opacity exposes an encasing mold while r
     'return {primary:fvRegionChoice(c,"metal"),secondary:fvRegionChoice(c,"mold")};'
   ].join('\n'))();
   assert.equal(scene.primary.visible,true);
-  assert.equal(scene.secondary.visible,true);
+  assert.equal(scene.secondary.visible,false,'secondary mold must not render unless explicitly enabled');
   assert.equal(scene.primary.opacity,1);
   assert(scene.secondary.opacity>0&&scene.secondary.opacity<.65,
-    'The enclosing mold must not default to an opaque wall hiding the metal');
+    'Optional enclosing mold overlay stays translucent when manually enabled');
   assert.equal(scene.primary.field,'T');
   assert.equal(scene.secondary.field,'T');
 });
@@ -1395,8 +1395,8 @@ test('camera fit excludes hidden primary and secondary regions without inventing
   ].join('\n');
   const exercise=[
     'fvRegionScene.caseId="1";',
-    'fvRegionScene.choices.set("solid",{visible:false});',
-    'fvRegionScene.choices.set("fluid",{visible:true});',
+    'fvRegionScene.choices.set("solid",{visible:false,visibilityExplicit:true});',
+    'fvRegionScene.choices.set("fluid",{visible:true,visibilityExplicit:true});',
     'fvRegionScene.layers.set("fluid",{mesh:{boundsMin:[2,0,0],boundsMax:[4,2,2]}});',
     'const fit=fvRegionFitCamera(),target=fvState.camera.target.slice(),distance=fvState.camera.distance;',
     'fvRegionScene.choices.get("fluid").visible=false;',

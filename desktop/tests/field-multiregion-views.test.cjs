@@ -62,7 +62,7 @@ assert.notStrictEqual(api.fcPhysicalFor(stateB).choices,api.fcPhysicalFor(stateC
   'B and C may not share mutable region selections');
 const bMold=api.fcPhysicalFor(stateB).choices.get('mold');
 const cMold=api.fcPhysicalFor(stateC).choices.get('mold');
-bMold.visible=true;cMold.visible=false;bMold.opacity=.55;
+bMold.visible=true;bMold.visibilityExplicit=true;cMold.visible=false;cMold.visibilityExplicit=true;bMold.opacity=.55;
 assert.strictEqual(cMold.visible,false,'B change must not mutate C');
 assert.strictEqual(bMold.visible,true);
 api.fcPhysicalChoiceList(stateB,otherCase,'alloy');

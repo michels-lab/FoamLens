@@ -911,6 +911,20 @@ function fwAdd3DView(){
   try{
     const enabled=document.getElementById('fcEnabled');
     if(enabled&&!enabled.checked){
+      // A single imported case starts in A only. When B is explicitly
+      // requested, initialize B from A, including the selected REGION,
+      // rather than silently using the first listed region (often metal).
+      const ready=(cases||[]).filter(c=>fvCaseViewAvailable(c));
+      if(ready.length===1){
+        const primaryCase=document.getElementById('fvCase'),compareCase=document.getElementById('fcCase');
+        if(primaryCase&&compareCase)compareCase.value=primaryCase.value;
+        if(typeof fcRefreshSelectors==='function')fcRefreshSelectors(false);
+        const primaryRegion=document.getElementById('fvRegion'),compareRegion=document.getElementById('fcRegion');
+        if(primaryRegion&&compareRegion&&[...compareRegion.options].some(option=>option.value===primaryRegion.value)){
+          compareRegion.value=primaryRegion.value;
+          if(typeof fcRefreshSelectors==='function')fcRefreshSelectors(true)
+        }
+      }
       enabled.checked=true;enabled.dispatchEvent(new Event('change',{bubbles:true}));
       fwUpdateViewCount();setTimeout(()=>(document.querySelector('#fcViewport [data-fc-bind="Case"]')||document.getElementById('fcCase'))?.focus(),0);return
     }
@@ -1082,7 +1096,10 @@ function fwLeave(){
     currentDataView=previous;
     try{updateDatasetViewUI()}catch(e){console.error(e)}
   }
-  fwState.dataViewBeforeField=null
+  fwState.dataViewBeforeField=null;
+  // Explicit comparison belongs to the current Field session when only
+  // one case exists. Re-entering Field must not resurrect an old B pane.
+  if(typeof cases!=='undefined'&&Array.isArray(cases)&&cases.filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c)).length<=1)fwState.compareUserRequested=false
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
