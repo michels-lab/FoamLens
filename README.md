@@ -11,7 +11,7 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Release information
 
 - **FoamLens Web v51**.
-- **FoamLens Desktop v1.8.12 for Windows:** original-source release candidate, **not yet published**. Field A opens alone by default, shows only the selected physical region until the user enables more, and has its own height/restore/reset controls. Manual multi-region combinations in A/B/C/D remain independent. Windows binary smoke, matching SHA-256 sidecars and postpublication audit remain required.
+- **FoamLens Desktop v1.8.12** for Windows — original-source release candidate, **not yet published**. Field A opens alone by default, shows only the selected physical region until the user enables more, and has its own height/restore/reset controls. Manual multi-region combinations in A/B/C/D remain independent. Windows binary smoke, matching SHA-256 sidecars and postpublication audit remain required.
 - **FoamLens Desktop v1.8.11 for Windows:** [published stable Setup and Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11), 2026-11-11, with four public assets and SHA-256 sidecars. The binaries are unsigned by owner choice; Windows SmartScreen may warn. The user-reported Field fixes from #313/#314 are not in this older installer.
 - The [v1.8.10 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10) remains available for rollback.
 
