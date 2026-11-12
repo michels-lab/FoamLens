@@ -12,6 +12,7 @@ on:
       - 'desktop/tests/ribbon-ui.test.cjs'
       - 'desktop/tests/field-multiview-ux.test.cjs'
       - 'desktop/tests/field-multiregion-views.test.cjs'
+      - 'desktop/tests/field-single-case-view-a-only.test.cjs'
       - 'desktop/tests/field-compare.test.cjs'
       - 'desktop/tests/field-3d-navigation-cache.test.cjs'
       - '.github/workflows/field-playback-fast.yml'
@@ -27,6 +28,7 @@ on:
       - 'desktop/tests/ribbon-ui.test.cjs'
       - 'desktop/tests/field-multiview-ux.test.cjs'
       - 'desktop/tests/field-multiregion-views.test.cjs'
+      - 'desktop/tests/field-single-case-view-a-only.test.cjs'
       - 'desktop/tests/field-compare.test.cjs'
       - 'desktop/tests/field-3d-navigation-cache.test.cjs'
   workflow_dispatch:
@@ -51,6 +53,8 @@ jobs:
         run: node desktop/tests/field-compare.test.cjs
       - name: Independent real OpenFOAM regions, measured layers and XYZ axes
         run: node desktop/tests/field-multiregion-views.test.cjs
+      - name: Validate single-case A-only region visibility and viewport controls
+        run: node desktop/tests/field-single-case-view-a-only.test.cjs
       - name: Confirm seven distinct Field navigation controls
         run: node desktop/tests/field-3d-navigation-cache.test.cjs
       - name: Preserve Field workspace time accuracy and layout
