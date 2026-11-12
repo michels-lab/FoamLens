@@ -2244,6 +2244,25 @@ internal sealed class FoamLensForm : Form
                             caseSel.value=String(primaryCase);
                             caseSel.dispatchEvent(new Event('change',{bubbles:true}));
                             await api.fcRefreshFrame();
+                            // This independent B case defaults to its selected region
+                            // only, exactly like A. Opt in to the real secondary
+                            // regions through B's own owner-facing checkboxes.
+                            // The smoke must never assume mold is auto-visible.
+                            const selectedB=String(document.getElementById('fcRegion')?.value||'');
+                            const regionRows=[...document.querySelectorAll('#fcViewport [data-fc-region]')];
+                            let requestedSecondary=0;
+                            for(const row of regionRows){
+                              if(String(row.dataset.fcRegion)===selectedB)continue;
+                              const toggle=row.querySelector('[data-fc-visible]');
+                              if(!toggle)throw new Error('View B physical-region checkbox missing: '+row.dataset.fcRegion);
+                              if(!toggle.checked){
+                                toggle.checked=true;
+                                toggle.dispatchEvent(new Event('change',{bubbles:true}));
+                              }
+                              requestedSecondary++;
+                            }
+                            if(!requestedSecondary)throw new Error('View B has no genuine selectable secondary OpenFOAM region');
+                            await api.fcRefreshFrame();
                             await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
                             const desc=api.getPhysicalRegionDescriptors().find(v=>v.id==='view2');
                             const visible=desc?.regions?.filter(region=>region.visible)||[];
