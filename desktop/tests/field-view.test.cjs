@@ -1395,8 +1395,8 @@ test('camera fit excludes hidden primary and secondary regions without inventing
   ].join('\n');
   const exercise=[
     'fvRegionScene.caseId="1";',
-    'fvRegionScene.choices.set("solid",{visible:false});',
-    'fvRegionScene.choices.set("fluid",{visible:true});',
+    'fvRegionScene.choices.set("solid",{visible:false,visibilityExplicit:true});',
+    'fvRegionScene.choices.set("fluid",{visible:true,visibilityExplicit:true});',
     'fvRegionScene.layers.set("fluid",{mesh:{boundsMin:[2,0,0],boundsMax:[4,2,2]}});',
     'const fit=fvRegionFitCamera(),target=fvState.camera.target.slice(),distance=fvState.camera.distance;',
     'fvRegionScene.choices.get("fluid").visible=false;',
