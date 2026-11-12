@@ -644,12 +644,17 @@ function fvRegionChoice(c,region){
   if(!fvRegionScene.choices.has(region)){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const primaryName=document.getElementById('fvField')?.value||'';
-    // A transparent default for secondary layers keeps adjacent/encasing
-    // solid regions inspectable together (e.g. metal inside mold).
+    // A region is NOT a second viewport or an automatic extra layer.
+    // Default to the selected physical region only; users can explicitly
+    // enable the other region(s) in the Physical regions menu.
     const primaryRegion=document.getElementById('fvRegion')?.value||'';
-    fvRegionScene.choices.set(region,{visible:true,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
+    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
   }
-  return fvRegionScene.choices.get(region)
+  const choice=fvRegionScene.choices.get(region);
+  // Selecting a different primary region should NOT leave the old primary
+  // overlaid merely because its old implicit default was "visible".
+  if(!choice.visibilityExplicit)choice.visible=region===(document.getElementById('fvRegion')?.value||'');
+  return choice
 }
 function fvRegionPrimaryVisible(){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'';
@@ -764,18 +769,18 @@ function fvRegionInstallEvents(){
   document.addEventListener('foamlens-language-change',fvRegionRefreshList);
   document.getElementById('fvRegionShowAll')?.addEventListener('click',()=>{
     const c=fvCase();if(!c)return;
-    for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=true;
+    for(const region of fvRegionNames(c)){const choice=fvRegionChoice(c,region);choice.visible=true;choice.visibilityExplicit=true}
     fvRegionApplyVisibility(c)
   });
   document.getElementById('fvRegionOnlyPrimary')?.addEventListener('click',()=>{
     const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';if(!c)return;
-    for(const region of fvRegionNames(c))fvRegionChoice(c,region).visible=region===primary;
+    for(const region of fvRegionNames(c)){const choice=fvRegionChoice(c,region);choice.visible=region===primary;choice.visibilityExplicit=false}
     fvRegionApplyVisibility(c)
   });
   root.addEventListener('change',e=>{
     const row=e.target.closest('[data-fv-region-row]'),c=fvCase();if(!row||!c)return;
     const region=row.dataset.fvRegionRow,choice=fvRegionChoice(c,region);
-    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;fvRegionApplyVisibility(c);return}
+    if(e.target.matches('[data-fv-region-visible]')){choice.visible=!!e.target.checked;choice.visibilityExplicit=true;fvRegionApplyVisibility(c);return}
     if(e.target.matches('[data-fv-region-palette]')){
       choice.palette=['viridis','turbo','coolwarm'].includes(e.target.value)?e.target.value:'viridis';
       const layer=fvRegionScene.layers.get(region);
@@ -2265,7 +2270,7 @@ function fvPanelHtml(){
         </div>
         <details class="fvNavPresets"><summary data-fl-en="Camera views · X/Y/Z" data-fl-es="Vistas de cámara · X/Y/Z">Camera views · X/Y/Z</summary><div class="fvToolRow fvPresetRow" aria-label="Seven physical camera directions"><button class="btn tiny" data-fv-view="front" type="button" title="Front · view from +Z toward −Z" aria-label="Front view from positive Z toward negative Z" data-fl-en="Front · +Z" data-fl-es="Frontal · +Z">Front · +Z</button><button class="btn tiny" data-fv-view="back" type="button" title="Back · view from −Z toward +Z" aria-label="Back view from negative Z toward positive Z" data-fl-en="Back · −Z" data-fl-es="Posterior · −Z">Back · −Z</button><button class="btn tiny" data-fv-view="left" type="button" title="Left · view from −X toward +X" aria-label="Left view from negative X toward positive X" data-fl-en="Left · −X" data-fl-es="Izquierda · −X">Left · −X</button><button class="btn tiny" data-fv-view="right" type="button" title="Right · view from +X toward −X" aria-label="Right view from positive X toward negative X" data-fl-en="Right · +X" data-fl-es="Derecha · +X">Right · +X</button><button class="btn tiny" data-fv-view="top" type="button" title="Top · view from +Y toward −Y" aria-label="Top view from positive Y toward negative Y" data-fl-en="Top · +Y" data-fl-es="Superior · +Y">Top · +Y</button><button class="btn tiny" data-fv-view="bottom" type="button" title="Bottom · view from −Y toward +Y" aria-label="Bottom view from negative Y toward positive Y" data-fl-en="Bottom · −Y" data-fl-es="Inferior · −Y">Bottom · −Y</button><button class="btn tiny" data-fv-view="iso" type="button" title="Isometric · view from +X/+Y/+Z" aria-label="Isometric view from positive X Y and Z" data-fl-en="Isometric · XYZ" data-fl-es="Isométrica · XYZ">Isometric · XYZ</button></div></details>
       </div>
-    <div class="fvViewport">
+    <div class="fvViewport" id="fvViewport">
       <canvas id="fvCanvas" aria-label="3D OpenFOAM field visualization"></canvas>
       <svg id="fvPhysicalAxes" class="fvPhysicalAxes" role="img" aria-label="Metric axes and mesh bounds from OpenFOAM points"></svg>
       <div id="fvMeshDimensions" class="fvMeshDimensions" aria-live="polite"></div>
