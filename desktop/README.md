@@ -1,14 +1,14 @@
-# FoamLens Desktop v1.8.12
+# FoamLens Desktop v1.8.13
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-**FoamLens Desktop v1.8.12 with frontend v51** updates the original Windows Field workspace to default to one case and only view A, while retaining opt-in comparisons. Region selection is now explicit per viewport: one physical region by default, or manually selected metal + mold/sand + other OpenFOAM regions together in that same 3D view. The primary A viewport now receives the same height, maximize/restore and reset controls as B.
+**FoamLens Desktop v1.8.13 with frontend v51** includes the already merged Field F2 per-viewport Physical regions responsive layout (PR #318) and Time Series T1 per-case/per-region source inventory fault isolation (PR #319). Narrow A/B/C/D scenes now arrange actual region property/component/opacity controls according to each individual pane width without altering OpenFOAM data, and a missing region's 3D field metadata no longer hides existing fields from other imported cases.
 
-The latest verified public download before v1.8.12 is [v1.8.11](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11). This source version is not itself proof of a published installer. A future v1.8.12 release requires packaged Setup and Portable Windows smoke, original QuickCup scientific checks, checksums and published-asset audit; unsigned direct-GitHub publication is permitted, with an explicit SmartScreen warning. No owner-machine 3,008-file cold/warm speedup is claimed.
+This source version does not by itself mean Windows binaries are published. The official stable installer is available through [GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest). Each new release must pass real Windows Setup/Portable installed WebView2 smoke, source-backed QuickCup, SHA-256 sidecars, exact artifact provenance and post-publication verification. Authenticode signing remains optional for direct GitHub distribution, and Windows may warn about unsigned executables. No owner-machine 3,008-file speedup or physical monitor DPI acceptance is claimed.
 
 ## Windows GitHub release process
 
-The original `Build FoamLens Desktop for Windows` workflow builds and tests both Setup and Portable, including multi-region metal/mold rendering and installed WebView2 smoke. A real code-signing certificate is optional for direct GitHub releases. An unsigned package must be labeled as such; native Authenticode verification remains required only when a certificate is configured.
+Use the original `Build FoamLens Desktop for Windows` workflow. The `release:` main commit invokes release verification and publication; failures prevent a new public GitHub Release. The complete Windows installer and original scientific source-validation checks remain in place.
 
 ## Architecture
 
