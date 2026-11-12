@@ -1,15 +1,15 @@
-## Unreleased — Time Series T1: partial real OpenFOAM source inventory (#146)
+## Desktop v1.8.13 — 2026-11-12 · Field F2 and Time Series T1 source fixes
 
 - Isolate source metadata discovery errors by imported case and physical region. An unavailable mold inventory no longer silently hides valid metal fields or other imported cases, and only genuine indexed scalar/vector fields with listed physical times count as available.
 - Preserve the existing distinction between imported measured curves and unparsed 3D fields, and keep valid history-builder selectors available even when postProcessing time series already exist. Report a localized **partial catalog** warning rather than misleadingly claiming every source was inspected.
 - Never read source field frames, infer physical values or claim missing files were measured during selector refresh; original cancellable, source-time and dimension-checked history generation remains unchanged.
-- Add regression executing the actual source inventory and renderer across two cases, a deliberately unavailable mold region, existing imported curves, correct remaining fields and visible warning. Windows installed and owner visual acceptance remain independent checks; this is not a new published version.
+- Add regression executing the actual source inventory and renderer across two cases, a deliberately unavailable mold region, existing imported curves, correct remaining fields and visible warning. Actual packaged Windows/QuickCup acceptance is validated by the tagged release job; owner visual acceptance on physical 125–200% DPI displays remains separate.
 
-## Unreleased — Field F2 per-viewport responsive physical-region controls (#149)
+### Field F2 — view-scoped responsive Physical regions (#149)
 
 - Make A/B/C/D's real Physical regions field/component/opacity controls responsive to **each individual viewport width**, not just overall Windows width. CSS container queries fold four fixed-minimum columns into two at 570 CSS px and one at 340 CSS px, preventing clipped controls in side-by-side comparisons and scaled displays.
 - Preserve exact OpenFOAM region source selection, visibility, fields, components, colors and per-region opacity; let long region names wrap and prevent selector/range intrinsic widths from causing horizontal scrolling.
-- Add regression to the existing Field F2 suite. Physical Windows scaling at 125–200% still needs visual owner acceptance; do not infer measured device validation or modify the already-published v1.8.12 binaries.
+- Add regression to the existing Field F2 suite. Physical Windows scaling at 125–200% still needs visual owner acceptance; do not infer measured device validation; original v1.8.12 downloads remain unchanged.
 
 ## Unreleased — Operación Granada: measured equivalent observables 2D ↔ 3D (#154)
 

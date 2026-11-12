@@ -11,9 +11,9 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Release information
 
 - **FoamLens Web v51**.
-- **FoamLens Desktop v1.8.12** for Windows — original-source release candidate, **not yet published**. Field A opens alone by default, shows only the selected physical region until the user enables more, and has its own height/restore/reset controls. Manual multi-region combinations in A/B/C/D remain independent. Windows binary smoke, matching SHA-256 sidecars and postpublication audit remain required.
-- **FoamLens Desktop v1.8.11 for Windows:** [published stable Setup and Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11), 2026-11-11, with four public assets and SHA-256 sidecars. The binaries are unsigned by owner choice; Windows SmartScreen may warn. The user-reported Field fixes from #313/#314 are not in this older installer.
-- The [v1.8.10 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10) remains available for rollback.
+- **FoamLens Desktop v1.8.13** for Windows — current source version prepared for an official stable release. Includes Field F2 responsive region controls in individual A/B/C/D panes and fault-tolerant, original-source Time Series T1 case/region inventory. Availability is confirmed only by [official GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest), not by source changes or an Actions test artifact. Original QuickCup, installed Windows Setup/Portable and checksum release gates are retained.
+- **FoamLens Desktop v1.8.12** for Windows — [published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12), November 12, 2026, with SHA-256 sidecars. Includes Field A-only default, explicit metal/mold/sand multi-region controls and A viewport height/restore/reset, but **not** the later #318 and #319 changes.
+- The [v1.8.11 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11) remains available as an older stable download.
 
 ## Features
 
