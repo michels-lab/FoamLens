@@ -98,7 +98,16 @@
 - Native-only embedded audit resource, regression and real Windows Developer smoke gate; build script makes a local developer binary without uploading public assets.
 - Work in progress (#158); not included in published Desktop v1.8.10.
 
-## Desktop v1.8.11 — 2026-11-10 · Granada integrated desktop update (publication pending)
+## Desktop v1.8.12 — 2026-11-12 · Field single-case A / multi-region source selection
+
+- Fix the original Windows Field viewport A identifier so resize height, maximize/restore and reset controls mount in A as well as B, without cloning DOM or creating extra cases (PR #313).
+- Open a single loaded OpenFOAM case with **only A** unless the user explicitly requests a comparison. On subsequent Field entry, do not resurrect a previous same-case B automatically (PR #313).
+- For each independent 3D view A/B/C/D, default to only the currently selected physical region. Preserve user-explicit physical-region visibility across frames and case changes; **Show all regions**, **Only selected region** and per-region checkboxes can combine metal, mold/sand and other genuine physical regions in one viewport without adding B (PRs #313, #314).
+- Fix the per-region field selection handler to use the selected region's actual indexed field catalog, rather than an out-of-scope collection, and keep source-backed component/opacity settings independent per view (PR #314).
+- Restore the original installed Windows multiregion WebView2/QuickCup GPU smoke by explicitly enabling both source metal+mold regions before checking measured arrays, time stamps, distinct meshes, same canvas/WebGL, composition and GPU buffer provenance. **This is an opt-in scene test, not a return to auto-visible mold** (PR #314).
+- Preserve the original exact-source Setup and Portable Windows smoke, original science tests, screenshot/digest binding, both SHA-256 files and post-release integrity audit. Authenticode code-signing is optional for unsigned direct GitHub binaries, and Windows may warn about an unknown publisher. No RC; no claim of owner-machine end-to-end performance acceleration.
+
+## Desktop v1.8.11 — 2026-11-11 · Granada integrated Windows desktop release (published)
 
 - Package the current original Windows source rather than the legacy v1.8.10 shipped binary; keep Web frontend v51 and native Desktop versions aligned.
 - Include Field's original simultaneous 3D + Spatial Profile interface and updated A–D physical-region field/component selectors (integrated PRs #278 and #307).

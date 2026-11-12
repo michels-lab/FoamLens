@@ -1,12 +1,14 @@
-# FoamLens Desktop v1.8.11
+# FoamLens Desktop v1.8.12
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-**FoamLens Desktop v1.8.11 with frontend v51** is an unpublished source candidate. It consolidates the original 3D Field / Spatial Profiles companion workflow, analysis-layout controls, CAD surface round-trip support, and Time Series delayed-mount navigation fixes already integrated into main. It must pass real Windows installer/portable validation and SHA-256 release checks before a public GitHub release; Authenticode signing is optional. [Official latest Setup and Portable release](https://github.com/michels-lab/FoamLens/releases/latest). Publication is gated on packaged Windows, real OpenFOAM and SHA-256 checks; the [verified v1.8.10 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.10) remains the latest stable publication until the new version passes those gates. No owner-machine 3,008-file speedup has yet been measured.
+**v1.8.12** updates the original Windows Field workspace to default to one case and only view A, while retaining opt-in comparisons. Region selection is now explicit per viewport: one physical region by default, or manually selected metal + mold/sand + other OpenFOAM regions together in that same 3D view. The primary A viewport now receives the same height, maximize/restore and reset controls as B.
 
-## Stable v1.8.11 publication attempt
+The latest verified public download before v1.8.12 is [v1.8.11](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11). This source version is not itself proof of a published installer. A future v1.8.12 release requires packaged Setup and Portable Windows smoke, original QuickCup scientific checks, checksums and published-asset audit; unsigned direct-GitHub publication is permitted, with an explicit SmartScreen warning. No owner-machine 3,008-file cold/warm speedup is claimed.
 
-The official GitHub Actions `Build FoamLens Desktop for Windows` release path is triggered from the tracked Desktop source and must compile and smoke-test both Setup and Portable on Windows. It publishes after exact-artifact Windows validation, screenshot-bound evidence and SHA-256 sidecar checks. Authenticode verification remains mandatory only when a code-signing certificate is configured. Without one, the release notes explicitly warn that executables are unsigned and Windows SmartScreen may display a warning. The previous stable v1.8.10 remains available until v1.8.11 is actually published and verified.
+## Windows GitHub release process
+
+The original `Build FoamLens Desktop for Windows` workflow builds and tests both Setup and Portable, including multi-region metal/mold rendering and installed WebView2 smoke. A real code-signing certificate is optional for direct GitHub releases. An unsigned package must be labeled as such; native Authenticode verification remains required only when a certificate is configured.
 
 ## Architecture
 
