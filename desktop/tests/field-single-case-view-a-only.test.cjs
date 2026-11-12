@@ -173,7 +173,7 @@ test('native asymmetric on-disk smoke explicitly opts into mold geometry without
  assert(initial>=0&&restore>initial&&smoke.includes('originalChoice.visible=true;originalChoice.visibilityExplicit=true;'),
   'return to the original case must preserve the originally explicit metal+mold smoke selection');
 });
-\n
+
 test('native View B WebView2 regression explicitly selects secondary OpenFOAM regions via real checkboxes',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
  const start=program.indexOf('window.__foamLensPhysicalViewBSmoke=null;');
