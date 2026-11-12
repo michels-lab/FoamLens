@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 499,
-  "classified_files_total": 495,
+  "tracked_files_total": 500,
+  "classified_files_total": 496,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,7 +17,7 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 152,
-    "test": 136,
+    "test": 137,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 64
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "1f5c469087e424af05c9297d1b743c700065b3e05ba611b7bfd37d529bfcb05e",
-  "evidence_fingerprint": "7f7bbf283d922cbe40ccd825e6d0805b537aa75a6ca189569c3abdefee148be4",
+  "inventory_fingerprint": "9bff4684bb7d6c110cc8fcd0cb3345efe19233b019a1ccfd2801eacaaa16638f",
+  "evidence_fingerprint": "4aeac1083369795ba23f560ccf2f34b0203817457eb9f5b1f953f6053af4d59a",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "aae4b026a78ccea10326bff86b80e5e3fc1404b5"
+      "blob": "aa10eb26f5dc1b1a68360ded77f6e53d82eadd6d"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -125,7 +125,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "bd08f72ec856416f2dd1ea97d2367c7a252f29e1"
+      "blob": "c9ff95f85b965f4d4e5397782e5d032fea4e8db5"
     },
     {
       "path": ".github/workflows/file-governance-audit.yml",
@@ -923,7 +923,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ae5beee915193b972ec651aff840f5af47750477"
+      "blob": "80f3532274466cd10810e810ede4d904fed0bf8f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -972,7 +972,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7d8b13e6defc4825eaa21186e71544dfcfd7fc33"
+      "blob": "e39fafffca3b6975b984561248e451b752997ed1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f3dabdea2c454ba5c02560195972fb16fd144560"
+      "blob": "4b13c47569c37db738a3f7a8074504b2ee2ca6ff"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1483,14 +1483,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6dd8cd24aeb93c3b213f3193ac61436f178351d2"
+      "blob": "22e46daf0527436c167559825a0576f0b1710582"
     },
     {
       "path": "desktop/tests/field-multiview-ux.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8ded282d384abf626e0313c037ff3312575ea008"
+      "blob": "3b0473e2cbdba421e32859950c84415a4cbd6754"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -1507,11 +1507,18 @@
       "blob": "5500f25755cd59e4f0fd4d16dacadbbdaef45eaa"
     },
     {
+      "path": "desktop/tests/field-single-case-view-a-only.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "b03242d95305b9110735da87c7cfe006901b1b7d"
+    },
+    {
       "path": "desktop/tests/field-view.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a97ec70490d649589ceeb65b1cc04e085598c401"
+      "blob": "66b68d69507041ee2d6ebb632a2f40532faece3e"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -3497,11 +3504,11 @@
   ],
   "findings": [
     {
-      "id": "5909838498182292",
+      "id": "40a973a2db1e9a98",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "7 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v29-granada-plot-toolbar.js, desktop/tests/granada-176-timeseries-ui.spec.cjs",
+      "observation": "15 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-field-view.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
