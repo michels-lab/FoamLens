@@ -151,3 +151,25 @@ test('changing a physical-region field/component uses the real primary control, 
  assert(compare.includes("if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)"),
    'secondary component changes must still redraw the secondary physical overlay');
 });
+
+test('native asymmetric on-disk smoke explicitly opts into mold geometry without changing primary-only defaults',()=>{
+ const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
+ const start=program.indexOf('if(options.asymmetricCase){');
+ const end=program.indexOf('physicalScene.asymmetric=asymmetric',start);
+ assert(start>=0&&end>start,'must retain packaged asymmetric OpenFOAM regression');
+ const smoke=program.slice(start,end);
+ const chosen=smoke.indexOf('const asymmetricMoldChoice=fvRegionChoice(c2,moldName);');
+ const enable=smoke.indexOf('asymmetricMoldChoice.visible=true;');
+ const explicit=smoke.indexOf('asymmetricMoldChoice.visibilityExplicit=true;');
+ const frame=smoke.indexOf('await fvLoadFrame(targetIndex);');
+ assert(chosen>=0&&chosen<enable&&enable<explicit&&explicit<frame,
+  'asymmetric case must deliberately enable real mold before loading its measured/missing frame');
+ assert(smoke.includes('layer.geometryOnly===true&&layer.sourceTime===null'),
+  'missing source frame must still produce geometry-only without fake T');
+ assert(smoke.includes('noScale&&notice&&api.gpuPayloadStats().regionCount===1'),
+  'missing mold measurement must show an honest legend notice, not false measured color');
+ const restore=smoke.indexOf('for(const region of expected){');
+ const initial=smoke.indexOf('await selectSmokeCase(previous.caseName);');
+ assert(initial>=0&&restore>initial&&smoke.includes('originalChoice.visible=true;originalChoice.visibilityExplicit=true;'),
+  'return to the original case must preserve the originally explicit metal+mold smoke selection');
+});
