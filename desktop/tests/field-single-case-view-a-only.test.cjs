@@ -65,3 +65,50 @@ test('an imported single case cannot restore an old B without a new user compari
  assert(workspace.includes('compareRegion.value=primaryRegion.value'),'an explicitly added B must start with A selected region');
  assert(compare.includes("compare.classList.toggle('hidden',!fcState.enabled)"),'compare scene stays hidden while disabled');
 });
+
+test('explicit multi-region actions operate inside A or B; a second viewport is never created by a region checkbox',()=>{
+ const start=compare.indexOf('function fcApplyRegionVisibility(ctx,mode){');
+ const end=compare.indexOf('function fcPhysicalMenu(view){',start);
+ assert(start>0&&end>start,'the production per-viewport overlay action exists');
+ const regions=['metal','mold','sand'];
+ const c={id:'QuickCup',regions};
+ const a=new Map(regions.map(region=>[region,{visible:region==='metal',visibilityExplicit:false}]));
+ const b=new Map(regions.map(region=>[region,{visible:region==='mold',visibilityExplicit:false}]));
+ const state={};
+ let redrawA=0,redrawB=0;
+ const apply=new Function('fvRegionNames','fvRegionChoice','fcPhysicalChoiceList','fcPhysicalFor','fvRegionApplyVisibility','fcPhysicalMenu','fcPhysicalReload',
+   compare.slice(start,end)+';return fcApplyRegionVisibility')(
+   source=>source.regions,(source,region)=>a.get(region),
+   ()=>{},()=>({choices:b}),()=>{redrawA++},()=>{},()=>{redrawB++});
+ assert.equal(apply({view:'A',c,primary:'metal'},'all'),true);
+ assert.deepEqual([...a.values()].map(x=>x.visible),[true,true,true],'A shows 3 real regions on the SAME canvas');
+ assert.deepEqual([...b.values()].map(x=>x.visible),[false,true,false],'B stays independent');
+ assert([...a.values()].every(x=>x.visibilityExplicit),'checkbox selections survive asynchronous scene refresh');
+ assert.equal(apply({view:'A',c,primary:'metal'},'primary'),true);
+ assert.deepEqual([...a.values()].map(x=>x.visible),[true,false,false],'A returns to selected metal only');
+ assert.equal(apply({view:'B',c,state,primary:'mold'},'all'),true);
+ assert.deepEqual([...b.values()].map(x=>x.visible),[true,true,true],'B can independently overlay its own regions');
+ assert.deepEqual([...a.values()].map(x=>x.visible),[true,false,false],'B action must not change A');
+ assert.equal(redrawA,2);assert.equal(redrawB,1);
+ assert.equal(apply({view:'A',c,primary:'metal'},'unknown'),false,'invalid action must not change the scene');
+});
+
+test('physical-region menu exposes explicit bulk controls and correct region-specific field catalog',()=>{
+ assert(compare.includes('data-fc-region-all')&&compare.includes('data-fc-region-primary'));
+ assert(compare.includes("fcApplyRegionVisibility(ctx,'all')")&&compare.includes("fcApplyRegionVisibility(ctx,'primary')"));
+ assert(compare.includes("const region=row.dataset.fcRegion,ch=choice(region),groups=catalog.find(entry=>entry.region===region)?.groups||[];"),
+   'each row must resolve its own region groups before field changes');
+ assert(compare.includes('fcReconcilePhysicalChoice(ch,groups,e.target.value)'),
+   'changing mold field must never accidentally use the unrelated metal field catalog');
+ assert(compare.includes("if(view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}"),
+   'multi-region change in A must load overlays into A, not create B');
+});
+
+test('real Windows-native multi-region fixture opts in to both measured regions (selected-only remains the app default)',()=>{
+ const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
+ assert(program.includes('const choice=fvRegionChoice(c,region);'));
+ assert(program.includes('choice.visible=true;choice.visibilityExplicit=true;'),
+   'native WebView2 smoke must declare manual multi-region visibility explicitly');
+ assert(program.includes('await api.load(c,fvState.time);'),
+   'native smoke must still require real OpenFOAM same-canvas GPU composition');
+});

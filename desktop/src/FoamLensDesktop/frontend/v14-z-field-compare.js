@@ -396,6 +396,24 @@ function fcPhysicalViewContext(view){
   const viewport=view==='B'?document.getElementById('fcViewport'):state?fcExtraDom(state.id,'Viewport'):null;
   return state?{view,c,primary,state,viewport}:null
 }
+// Region overlays belong to ONE source case and ONE viewport. Selecting
+// multiple physical regions is not the same action as adding a 3D B view.
+// All and Only selected are explicit choices that survive catalogue refresh.
+function fcApplyRegionVisibility(ctx,mode){
+  if(!ctx?.c||!['all','primary'].includes(mode))return false;
+  const names=fvRegionNames(ctx.c);
+  if(!names.length)return false;
+  if(ctx.view!=='A')fcPhysicalChoiceList(ctx.state,ctx.c,ctx.primary);
+  for(const region of names){
+    const choice=ctx.view==='A'?fvRegionChoice(ctx.c,region):fcPhysicalFor(ctx.state).choices.get(region);
+    if(!choice)continue;
+    choice.visible=mode==='all'||region===ctx.primary;
+    choice.visibilityExplicit=true;
+  }
+  if(ctx.view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}
+  else fcPhysicalReload(ctx);
+  return true
+}
 function fcPhysicalMenu(view){
   const ctx=fcPhysicalViewContext(view),bar=ctx?.viewport?.querySelector('[data-fc-toolbar]');
   if(!ctx||!bar)return;
@@ -414,7 +432,7 @@ function fcPhysicalMenu(view){
   // supported vector component in the refresh signature.
   const locale=document.getElementById('language')?.value||document.documentElement?.lang||'en';
   const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
-    region,ch?.visible,ch?.field,ch?.component,ch?.opacity,
+    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.opacity,ch?.palette,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
     groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
   ])]);
@@ -425,7 +443,7 @@ function fcPhysicalMenu(view){
     const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
     const selection=ch.component||'value';
     return '<div class="fcPhysicalRegionRow" data-fc-region="'+fcEsc(region)+'">'+
-      '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+'> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
+      '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+' aria-label="'+fcUi('Display region','Mostrar región')+' '+fcEsc(region||fcUi('Default region','Región predeterminada'))+'"> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
       '<select data-fc-region-field aria-label="'+fcUi('Property for region','Propiedad de región')+' '+fcEsc(region)+'">'+
       groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
       '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
@@ -435,9 +453,14 @@ function fcPhysicalMenu(view){
   }).join('');
   const visible=names.filter(name=>choice(name)?.visible).length;
   holder.innerHTML='<details '+(current?'open':'')+'><summary>'+fcUi('Physical regions','Regiones físicas')+' · '+visible+'/'+names.length+'</summary>'+
+    (names.length>1?'<div class="fcPhysicalActions" role="group" aria-label="'+fcUi('Visible physical regions in this view','Regiones físicas visibles en esta vista')+'">'+
+      '<button class="btn tiny" type="button" data-fc-region-all>'+fcUi('Show all regions','Mostrar todas las regiones')+'</button>'+
+      '<button class="btn tiny" type="button" data-fc-region-primary>'+fcUi('Only selected region','Solo la región seleccionada')+'</button></div>':'')+
     '<div class="fcPhysicalRows">'+(rows||'<span class="smallnote">'+fcUi('No physical regions for this case','Sin regiones físicas para este caso')+'</span>')+'</div></details>';
+  holder.querySelector('[data-fc-region-all]')?.addEventListener('click',()=>fcApplyRegionVisibility(ctx,'all'));
+  holder.querySelector('[data-fc-region-primary]')?.addEventListener('click',()=>fcApplyRegionVisibility(ctx,'primary'));
   holder.querySelectorAll('[data-fc-region]').forEach(row=>{
-    const region=row.dataset.fcRegion,ch=choice(region);
+    const region=row.dataset.fcRegion,ch=choice(region),groups=catalog.find(entry=>entry.region===region)?.groups||[];
     row.querySelector('[data-fc-visible]').onchange=e=>{
       ch.visible=e.target.checked;ch.visibilityExplicit=true;if(view==='A'){fvRegionApplyVisibility(ctx.c);fcPhysicalMenu('A')}else fcPhysicalReload(ctx)
     };
