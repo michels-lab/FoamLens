@@ -2,7 +2,7 @@
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-**v1.8.12** updates the original Windows Field workspace to default to one case and only view A, while retaining opt-in comparisons. Region selection is now explicit per viewport: one physical region by default, or manually selected metal + mold/sand + other OpenFOAM regions together in that same 3D view. The primary A viewport now receives the same height, maximize/restore and reset controls as B.
+**FoamLens Desktop v1.8.12 with frontend v51** updates the original Windows Field workspace to default to one case and only view A, while retaining opt-in comparisons. Region selection is now explicit per viewport: one physical region by default, or manually selected metal + mold/sand + other OpenFOAM regions together in that same 3D view. The primary A viewport now receives the same height, maximize/restore and reset controls as B.
 
 The latest verified public download before v1.8.12 is [v1.8.11](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11). This source version is not itself proof of a published installer. A future v1.8.12 release requires packaged Setup and Portable Windows smoke, original QuickCup scientific checks, checksums and published-asset audit; unsigned direct-GitHub publication is permitted, with an explicit SmartScreen warning. No owner-machine 3,008-file cold/warm speedup is claimed.
 
