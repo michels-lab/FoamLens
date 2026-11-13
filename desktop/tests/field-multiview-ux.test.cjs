@@ -596,8 +596,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const start=source.indexOf('function fcFitMeshForView(view,state,mesh){');
   const end=source.indexOf('function fcVisibleViewportNeighbor(',start);
   assert(start>=0&&end>start,'source-backed visible-region Fit implementation required');
-  const input={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{distance:5,target:[0,0,0]}};
-  const second={id:3,mesh:{boundsMin:[20,20,20],boundsMax:[22,22,22]},
+  const input={_fcPhysical:{},mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{distance:5,target:[0,0,0]}};
+  const second={id:3,_fcPhysical:{},mesh:{boundsMin:[20,20,20],boundsMax:[22,22,22]},
     camera:{distance:7,target:[20,20,20]}};
   const unions=new Map([[input,{min:[-5,-6,-7],max:[3,4,5]}],
     [second,{min:[17,18,19],max:[35,40,45]}]]);
