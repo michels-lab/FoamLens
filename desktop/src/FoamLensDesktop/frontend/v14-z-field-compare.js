@@ -138,7 +138,16 @@ function fcPanCamera(camera,dx,dy,canvas){
   const b=fvCameraBasis(camera),scale=Math.max(1e-12,camera.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);for(let a=0;a<3;a++)camera.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale
 }
 function fcFitCameraState(state,mesh){
-  if(!state||!mesh)return;const min=mesh.boundsMin,max=mesh.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1,c=state.camera||fcCloneCamera(fvState.camera);c.target=center;c.distance=diag*1.65;state.camera=c
+  if(!state||!fcValidFitMesh(mesh))return false;
+  const min=mesh.boundsMin,max=mesh.boundsMax;
+  const extent=min.map((v,i)=>max[i]-v);
+  // min + half-span is safe when min+max would overflow (large same-sign
+  // world coordinates). The validator also rejects any infinite camera fit.
+  const center=min.map((v,i)=>v+extent[i]/2);
+  const diag=Math.hypot(...extent)||1;
+  const c=state.camera||fcCloneCamera(fvState.camera);
+  c.target=center;c.distance=diag*1.65;state.camera=c;
+  return true
 }
 function fcResyncCameras(){
   fcState.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh));for(const state of fcExtraViews)if(state.mesh)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh));fcRender();fcRenderDifference();fcRenderExtras()
@@ -255,10 +264,13 @@ function fcFitMeshForView(view,state,mesh){
 }
 function fcValidFitMesh(mesh){
   const lo=mesh?.boundsMin,hi=mesh?.boundsMax;
-  return Array.isArray(lo)&&Array.isArray(hi)&&lo.length===3&&hi.length===3&&
-    [...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v))&&
-    lo.every((v,i)=>hi[i]>=v)&&
-    Number.isFinite(Math.hypot(...lo.map((v,i)=>hi[i]-v)));
+  if(!Array.isArray(lo)||!Array.isArray(hi)||lo.length!==3||hi.length!==3||
+    ![...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v)))return false;
+  const extent=lo.map((v,i)=>hi[i]-v);
+  if(extent.some(v=>v<0||!Number.isFinite(v)))return false;
+  const diag=Math.hypot(...extent)||1;
+  return Number.isFinite(diag*1.65)&&
+    lo.every((v,i)=>Number.isFinite(v+extent[i]/2));
 }
 function fcFitViewport(view){
   const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
