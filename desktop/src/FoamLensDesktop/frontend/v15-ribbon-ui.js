@@ -405,6 +405,30 @@ function flRibbonField(fn,tabKey){
 function flRibbonToggleCheck(id){
   const el=document.getElementById(id);if(!el)return false;el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));return true
 }
+// A Ribbon click emits a synthetic checkbox event, so the workspace's
+// isTrusted mouse-change fallback does not see it. Route intent explicitly
+// through the SINGLE Field A/B lifecycle, including the disable transition.
+function flRibbonToggleFieldComparison(){
+  const checkbox=document.getElementById('fcEnabled');
+  const owner=window.FoamLensFieldWorkspace;
+  if(!checkbox||!owner)return false;
+  if(!checkbox.checked)owner.requestCompare?.();
+  if(!flRibbonToggleCheck('fcEnabled'))return false;
+  if(checkbox.checked){
+    owner.setInspector?.(true);
+    const panel=document.getElementById('fcPanel');
+    if(panel)panel.open=true
+  }else owner.disableCompare?.();
+  return true
+}
+// The visible +Add button, original case initialization, slot limit and
+// C/D selectors are owned by fwAdd3DView. Do not invoke fcExtraAdd directly
+// from the Ribbon: it can reserve C while comparison B is still disabled.
+function flRibbonAddFieldView(){
+  const owner=window.FoamLensFieldWorkspace;
+  if(typeof owner?.add3DView!=='function')return false;
+  owner.add3DView();return true
+}
 function flRibbonSetLayout(value){
   flRibbonField(()=>window.FoamLensFieldWorkspace?.setView?.(value),'field')
 }
@@ -666,15 +690,8 @@ function flRibbonInstall(){
   flRibbonBind('flRaAnalysisTimeResult',()=>flRibbonOpenDataView('timeseries'));
   flRibbonBind('flRaAnalysisProfileResult',()=>flRibbonOpenDataView('profile'));
 
-  flRibbonBind('flRaCompare3D',()=>flRibbonField(()=>{
-    window.FoamLensFieldWorkspace?.requestCompare?.();
-    flRibbonToggleCheck('fcEnabled');
-    if(document.getElementById('fcEnabled')?.checked){
-      window.FoamLensFieldWorkspace?.setInspector?.(true);
-      const panel=document.getElementById('fcPanel');if(panel)panel.open=true;
-    }
-  },'field'));
-  flRibbonBind('flRaCompareAddView',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.requestCompare?.();flRibbonClick('fcAddView')},'field'));
+  flRibbonBind('flRaCompare3D',()=>flRibbonField(flRibbonToggleFieldComparison,'field'));
+  flRibbonBind('flRaCompareAddView',()=>flRibbonField(flRibbonAddFieldView,'field'));
   flRibbonBind('flRaCompareConfig',()=>flRibbonField(()=>{window.FoamLensFieldWorkspace?.setInspector?.(true);const p=document.getElementById('fcPanel');if(p)p.open=true},'field'));
   flRibbonBind('flRaSwapAB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.swapPrimaryCompare?.(),'field'));
   flRibbonBind('flRaCopyAToB',()=>flRibbonField(()=>window.FoamLensFieldCompare?.copyPrimarySettingsToCompare?.(),'field'));
