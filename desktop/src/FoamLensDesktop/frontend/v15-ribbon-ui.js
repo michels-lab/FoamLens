@@ -263,6 +263,9 @@ function flRibbonCss(){
     '@media(max-width:1460px){#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonLabel{display:inline!important;font-size:10px!important}#flRibbonPanel-field .flRibbonQuickCameraGroup .flRibbonAction{width:auto!important;min-width:59px!important;max-width:none!important;padding:4px 7px!important;gap:4px!important}}',
     'body.flRibbonReady.appMode-field .fwWorkspaceBar{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader{display:none!important}',
+    // The Field 3D header already owns the only visible +Add view action. Keep
+    // its original button, but avoid presenting a second Ribbon copy.
+    'body.flRibbonReady.appMode-field:has(.fwGrid:not(.layout-plot) #fwAdd3DViewVisible) #flRaCompareAddView{display:none!important}',
     'body.flRibbonReady.appMode-field .fwHeader h2{font-size:14px}',
     'body.flRibbonReady.appMode-field .fwHeader p{display:none}',
     '.flRibbonPanel.active{display:flex}',
