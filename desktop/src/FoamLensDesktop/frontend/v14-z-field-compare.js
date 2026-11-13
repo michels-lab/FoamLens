@@ -146,7 +146,14 @@ function fcFitCameraState(state,mesh){
   const center=min.map((v,i)=>v+extent[i]/2);
   const diag=Math.hypot(...extent)||1;
   const c=state.camera||fcCloneCamera(fvState.camera);
-  c.target=center;c.distance=diag*1.65;state.camera=c;
+  // Use the existing perspective/orthographic viewport-aware fitter in
+  // narrow comparison panels; diagonal-only fit can clip wide mold geometry.
+  const canvas=typeof document==='undefined'?null:
+    document.getElementById(state===fcState?'fcCanvas':'fcExtra'+state.id+'Canvas');
+  const distance=canvas&&typeof fvFitDistance==='function'?
+    fvFitDistance({min,max,center},c,canvas):diag*1.65;
+  if(!Number.isFinite(distance)||!(distance>0))return false;
+  c.target=center;c.distance=distance;state.camera=c;
   return true
 }
 function fcResyncCameras(){
@@ -283,7 +290,7 @@ function fcFitViewport(view){
     fcFitAllCameras();return true
   }
   if(view==='A'){fvCameraFitCurrent();return true}
-  fcFitCameraState(state,mesh);
+  if(fcFitCameraState(state,mesh)===false)return false;
   if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
