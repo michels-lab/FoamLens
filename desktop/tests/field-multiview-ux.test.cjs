@@ -898,3 +898,86 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   ])assert(source.includes(fragment),'Camera state accessibility wiring missing: '+fragment);
   console.log('Granada Field A-D preset states PASS: real yaw/pitch, custom orbit, linked state, EN/ES and keyboard focus');
 }
+
+// Granada block 3: compact A/B/C/D source controls retain original selectors,
+// expose their REAL selection in the summary, and do not leak case/field
+// state between views. This runs the actual source implementation.
+{
+  const begin=source.indexOf('function fcSyncViewSourceSummary(bar){');
+  const end=source.indexOf('function fcAddViewportToolbar(',begin);
+  assert(begin>=0&&end>begin,'the real compact per-view source helper must exist');
+  const values=new Map();
+  const make=(value,text)=>({value,selectedOptions:value?[{textContent:text??value}]:[]});
+  const populate=(letter,items)=>{
+    const ids=api.fcViewSourceMap(letter);
+    for(const [key,id] of Object.entries(ids))values.set(id,make(items[key]?.[0]??'',items[key]?.[1]))
+  };
+  populate('A',{Case:['A-id','QuickCup B3'],Region:['metal','metal'],
+    Field:['T','T'],Component:['value','value']});
+  populate('B',{Case:['B-id','QuickCup C3'],Region:['mold','sand mold'],
+    Field:['alpha1','alpha1'],Component:['x','X']});
+  populate(3,{Case:['C-id','QuickCup B4'],Region:['metal','liquid metal'],
+    Field:['U','velocity U'],Component:['z','Z']});
+  populate(4,{Case:['D-id','QuickCup C4'],Region:['mold','mold'],
+    Field:['T','temperature T'],Component:['value','value']});
+  const summaries=new Map(),bars=[];
+  for(const key of ['A','B','3','4']){
+    const summary={textContent:'',title:''};
+    const details={querySelector:q=>q==='summary'?summary:null};
+    const bar={dataset:{fcToolbar:key},
+      querySelector:q=>q==='.fcViewSourceDetails'?details:null};
+    bars.push(bar);summaries.set(key,summary)
+  }
+  let lang='en';
+  const dom={getElementById:id=>values.get(id)||null};
+  const fn=new Function('document','fcViewSourceMap','fcUi',
+    source.slice(begin,end)+';return fcSyncViewSourceSummary;')(
+    dom,api.fcViewSourceMap,(en,es)=>lang==='es'?es:en);
+  assert.equal(fn(bars[0]),true);
+  assert.equal(fn(bars[1]),true);
+  assert.equal(fn(bars[2]),true);
+  assert.equal(fn(bars[3]),true);
+  assert.equal(summaries.get('A').textContent,'Source A · QuickCup B3 · metal · T',
+    'primary source should be discoverable even with its controls closed');
+  assert.equal(summaries.get('B').textContent,'Source B · QuickCup C3 · sand mold · alpha1 · X');
+  assert.equal(summaries.get('3').textContent,'Source C · QuickCup B4 · liquid metal · velocity U · Z');
+  assert.equal(summaries.get('4').textContent,'Source D · QuickCup C4 · mold · temperature T');
+  const previous=summaries.get('A').textContent;
+  values.set('fcField',make('U','flow velocity'));
+  fn(bars[1]);
+  assert(summaries.get('B').textContent.includes('flow velocity'),
+    'changing original B field immediately updates the corresponding summary');
+  assert.equal(summaries.get('A').textContent,previous,
+    'B changes cannot mutate original A source labels');
+  values.set('fcExtra4Case',make('',''));
+  values.set('fcExtra4Region',make('',''));
+  values.set('fcExtra4Field',make('',''));
+  values.set('fcExtra4Component',make('',''));
+  fn(bars[3]);assert.equal(summaries.get('4').textContent,'Source D · No case loaded',
+    'missing physical source must not be reported as measured case zero');
+  lang='es';fn(bars[0]);
+  assert(summaries.get('A').textContent.startsWith('Fuente A ·'));
+  assert.equal(summaries.get('A').title,summaries.get('A').textContent);
+
+  const toolbarStart=source.indexOf('function fcAddViewportToolbar(');
+  const toolbarEnd=source.indexOf('// Independent multi-region GPU scenes',toolbarStart);
+  assert(toolbarStart>0&&toolbarEnd>toolbarStart,'original view toolbar required');
+  const toolbar=source.slice(toolbarStart,toolbarEnd);
+  assert(toolbar.includes('class="fcViewSourceDetails"'),
+    'each A/B/C/D source must be a native collapsible details control');
+  assert(toolbar.includes("(view==='A'?'':'open')"),
+    'primary A defaults compact while newly created B/C/D are ready to configure');
+  assert(toolbar.includes('data-fc-bind="'+String('')),
+    'original source mirror binding must survive inside collapsible details');
+  assert(toolbar.includes("source.dispatchEvent(new Event('change',{bubbles:true}))"),
+    'collapsed Field toolbar must retain original scientific selector event handlers');
+  assert(toolbar.includes("if(event.key!=='Escape'||!sourceDetails.open)return"),
+    'Escape must collapse source controls without destroying options');
+  assert(toolbar.includes("sourceDetails.querySelector('summary')?.focus()"),
+    'keyboard focus must be restored to its visible summary');
+  assert(source.includes('.fcViewSourceDetails[open]{flex:1 0 100%}'),
+    'the expanded inspector should use its own row rather than widen the viewport');
+  assert(source.includes('fcSyncViewSourceSummary(bar);'),
+    'each toolbar synchronization must refresh the compact original source caption');
+  console.log('Granada compact sources PASS: original A/B/C/D case, region, field, component, missing data, EN/ES and keyboard');
+}
