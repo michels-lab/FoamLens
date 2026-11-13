@@ -655,6 +655,16 @@ function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===S
 function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
+  // Disable/invalid states must supersede any old asynchronous B load.
+  // Without this increment, a resolved old frame can repaint hidden B
+  // after the user turns comparison off.
+  ++fcState.seq;
+  if(!document.getElementById('fcEnabled')?.checked){
+    // A/B/C/D have independent requests. Cancel in-flight C/D loads too,
+    // but retain their selectors and per-case region choices for later use.
+    for(const state of fcExtraViews)
+      fcExtraInvalidateFrame(state,fcUi('Comparison disabled.','Comparación desactivada.'));
+  }
   fcPhysicalRelease(fcState);
   const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateStatsGrid()
 }
@@ -1047,7 +1057,16 @@ function fcInstallUi(){
   `;
   document.head.appendChild(style);
   try{flApplyBilingualText(box)}catch{}
-  document.getElementById('fcEnabled').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
+  document.getElementById('fcEnabled').addEventListener('change',()=>{
+    fcState.lockedRange=null;
+    const refresh=fcRefreshFrame();
+    // After reopening the comparison, previously created C/D panels must
+    // load their OWN selected case/region/field, not display stale GPU data.
+    if(document.getElementById('fcEnabled')?.checked)
+      Promise.resolve(refresh).then(()=>{
+        if(document.getElementById('fcEnabled')?.checked)return fcRefreshExtras();
+      }).catch(error=>fcSetStatus(String(error?.message||error),true));
+  });document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
   document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcState.probe=null;fcRefreshFrame()});
   document.getElementById('fcRegion').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
