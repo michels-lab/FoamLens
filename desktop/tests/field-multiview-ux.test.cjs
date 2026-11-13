@@ -703,3 +703,41 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.deepStrictEqual(viewC.camera.target,beforeC);
   console.log('Field block 3 Fit All PASS: measured A/B/C bounds, safe numerical camera, linked isolation');
 }
+
+
+// Granada block 3: actual camera fit must honor the target A/B/C/D pane
+// dimensions instead of a global browser aspect ratio.
+{
+  const a=source.indexOf('function fcFitCameraState(state,mesh){');
+  const b=source.indexOf('function fcResyncCameras(){',a);
+  const v=source.indexOf('function fcValidFitMesh(mesh){');
+  const w=source.indexOf('function fcFitViewport(view){',v);
+  assert(a>0&&b>a&&v>0&&w>v);
+  const base={camera:{target:[0,0,0],distance:4}};
+  const B={camera:{target:[0,0,0],distance:8}};
+  const C={id:3,camera:{target:[0,0,0],distance:10}};
+  const canvasB={clientWidth:300,clientHeight:700},canvasC={clientWidth:780,clientHeight:280};
+  const calls=[];
+  const fit=new Function('fvState','fcCloneCamera','fcState','document','fvFitDistance',
+    source.slice(a,b)+'\n'+source.slice(v,w)+';return fcFitCameraState;')(
+    base,x=>x,B,{getElementById:id=>id==='fcCanvas'?canvasB:id==='fcExtra3Canvas'?canvasC:null},
+    (bounds,camera,canvas)=>{calls.push({bounds,canvas});return canvas===canvasB?42:24});
+  const meshB={boundsMin:[-2,-4,-6],boundsMax:[8,10,12]};
+  const meshC={boundsMin:[1,2,3],boundsMax:[30,40,50]};
+  assert.strictEqual(fit(B,meshB),true);
+  assert.strictEqual(fit(C,meshC),true);
+  assert.deepStrictEqual(calls.map(x=>x.canvas),[canvasB,canvasC],
+    'each real 3D panel must use its own viewport width/height');
+  assert.deepStrictEqual(calls.map(x=>x.bounds.center),[[3,3,3],[15.5,21,26.5]]);
+  assert.strictEqual(B.camera.distance,42);
+  assert.strictEqual(C.camera.distance,24);
+  assert.deepStrictEqual(B.camera.target,[3,3,3]);
+  const savedDistance=B.camera.distance,savedTarget=B.camera.target.slice();
+  const invalid=new Function('fvState','fcCloneCamera','fcState','document','fvFitDistance',
+    source.slice(a,b)+'\n'+source.slice(v,w)+';return fcFitCameraState;')(
+    base,x=>x,B,{getElementById:()=>canvasB},()=>NaN);
+  assert.strictEqual(invalid(B,meshB),false,'unsafe projected camera distance must be rejected');
+  assert.strictEqual(B.camera.distance,savedDistance);
+  assert.deepStrictEqual(B.camera.target,savedTarget);
+  console.log('Field block 3 narrow B/C viewport camera Fit PASS: panel aspect, real union center, safe fallback');
+}
