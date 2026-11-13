@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "6f324cf1b6e512162550db87f60579b618e7ccd1fc3ae853731400cc7c2cb814",
+  "inventory_fingerprint": "400c487a103ed1442811fe4a245ac2affbd7b6c2fb2490d6dbfe80e4b150e53b",
   "evidence_fingerprint": "cd2e5cae9f70e0f7ec64b6370e9e14b6000fb4d0823f46d815230ab7023ba7a6",
   "files": [
     {
@@ -972,7 +972,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "039dee8881acdf1c01bb827e1d05c05e30c73e6b"
+      "blob": "150b8ecbf26def95a8aa69f977dfa65997382bb9"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4b13c47569c37db738a3f7a8074504b2ee2ca6ff"
+      "blob": "39bb1684934f53b47e4b0ff5f9e7f136a8dce605"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1490,7 +1490,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3b0473e2cbdba421e32859950c84415a4cbd6754"
+      "blob": "e581331e9389271c5ebf55a769b9e62b759a7c4f"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -1511,7 +1511,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e1af8021b4c84dd7d36158f9aa9aabb8f0a88417"
+      "blob": "a26f6b349b65ca3411b629e2aa1332743a55ceb7"
     },
     {
       "path": "desktop/tests/field-view.test.cjs",
