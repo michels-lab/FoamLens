@@ -323,7 +323,7 @@ for(const fragment of [
   'id="fwAdd3DViewVisible"','id="fwImport3DCase"','id="fwLinkCamerasVisible"',
   "document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click())",
   "document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView)",
-  "const enabled=document.getElementById('fcEnabled')","const added=fcExtraAdd();fwUpdateViewCount()",
+  "const enabled=document.getElementById('fcEnabled')","const added=fcExtraAdd();if(added)fwComparisonExplicitlyRequested();fwUpdateViewCount()",
   'document.querySelector(\'#fcViewport [data-fc-bind="Case"]\')'
 ])assert(workspace.includes(fragment),'Missing permanent Field entry point: '+fragment);
 for(const fragment of [

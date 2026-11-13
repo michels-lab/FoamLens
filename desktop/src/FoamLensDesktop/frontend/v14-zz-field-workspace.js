@@ -2,6 +2,14 @@
 
 const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
+function fwComparisonDisabled(){
+  // Disabling B is explicit too: reopening Field must not resurrect it.
+  fwState.compareUserRequested=false;
+  const toggle=document.getElementById('fcEnabled');
+  if(toggle)toggle.checked=false;
+  if(typeof fcState!=='undefined')fcState.enabled=false;
+  if(typeof fcUpdateLayout==='function')fcUpdateLayout();
+}
 const fwTimeState={playing:false,timer:null,epoch:0};
 let fwRenderFrame=0,fwRenderNeeds3D=false,fwRenderNeeds2D=false;
 function fwScheduleRender({threeD=false,twoD=false}={}){
@@ -902,11 +910,10 @@ function fwSyncCompanionTime(time){
 }
 function fwUpdateViewCount(){
   const e=document.getElementById('fw3DCount');if(!e)return;let n=1;
-  try{if(fcState.enabled)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
+  try{if(document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
   const add=document.getElementById('fwAdd3DViewVisible');if(add){add.disabled=n>=4;add.title=n>=4?fwUi('Maximum of four views','Máximo de cuatro vistas'):fwUi('Add a view: same case or another loaded case, with its own property','Añadir vista del mismo caso u otro, con variable independiente')}
 }
 function fwAdd3DView(){
-  fwComparisonExplicitlyRequested();
   const panel=document.getElementById('fcPanel');if(panel){panel.open=true;panel.classList.add('fwCompareConfig')}
   try{
     const enabled=document.getElementById('fcEnabled');
@@ -925,11 +932,12 @@ function fwAdd3DView(){
           if(typeof fcRefreshSelectors==='function')fcRefreshSelectors(true)
         }
       }
+      fwComparisonExplicitlyRequested();
       enabled.checked=true;enabled.dispatchEvent(new Event('change',{bubbles:true}));
       fwUpdateViewCount();setTimeout(()=>(document.querySelector('#fcViewport [data-fc-bind="Case"]')||document.getElementById('fcCase'))?.focus(),0);return
     }
     if(typeof fcExtraAdd==='function'&&2+fcExtraViews.length<FC_MAX_TOTAL_VIEWS){
-      const added=fcExtraAdd();fwUpdateViewCount();
+      const added=fcExtraAdd();if(added)fwComparisonExplicitlyRequested();fwUpdateViewCount();
       if(!added){
         fvSetStatus(fwUi('3D view controls are not ready yet. Open Field and try again.',
           'Los controles 3D aún no están listos. Abre Field e inténtalo de nuevo.'),true);
@@ -1061,10 +1069,8 @@ function fwEnter(){
   const trail=document.getElementById('contextTrail');if(trail)trail.textContent=fwUi('Field View','Vista 3D');
   fwMountContextSidebar();fwSetInspector(true);
   if(!fwState.compareUserRequested){
-    const toggle=document.getElementById('fcEnabled');if(toggle)toggle.checked=false;
-    if(typeof fcState!=='undefined')fcState.enabled=false;
-    if(typeof fcClearRenderer==='function')fcClearRenderer();
-    if(typeof fcUpdateLayout==='function')fcUpdateLayout()
+    fwComparisonDisabled();
+    if(typeof fcClearRenderer==='function')fcClearRenderer()
   }
   fwPromoteViewCaseSelectors();
   fwActivateView('3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
@@ -1125,7 +1131,7 @@ function fwInstall(){
     const original=fcExtraRemove;fcExtraRemove=function(...args){const result=original.apply(this,args);if(result){fwPromoteViewCaseSelectors();fwUpdateViewCount()}return result};fcExtraRemove.__fwCardsPatched=true
   }
   document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();fwRefreshViewCardSummaries();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
-  document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'){if(e.isTrusted)fwComparisonExplicitlyRequested();setTimeout(()=>{fwPromoteViewCaseSelectors();fwUpdateViewCount()},0)}else if(String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
+  document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'){if(e.isTrusted){if(e.target.checked)fwComparisonExplicitlyRequested();else fwComparisonDisabled()}setTimeout(()=>{fwPromoteViewCaseSelectors();fwUpdateViewCount()},0)}else if(String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
