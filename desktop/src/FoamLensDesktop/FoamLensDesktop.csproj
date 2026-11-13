@@ -10,9 +10,9 @@
     <RootNamespace>FoamLensDesktop</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\FoamLens.ico</ApplicationIcon>
-    <Version>1.8.13</Version>
-    <AssemblyVersion>1.8.13.0</AssemblyVersion>
-    <FileVersion>1.8.13.0</FileVersion>
+    <Version>1.8.14</Version>
+    <AssemblyVersion>1.8.14.0</AssemblyVersion>
+    <FileVersion>1.8.14.0</FileVersion>
     <Product Condition="'$(FoamLensDeveloper)' != 'true'">FoamLens Desktop</Product>
     <Product Condition="'$(FoamLensDeveloper)' == 'true'">FoamLens Developer</Product>
     <Company>Michel's Lab</Company>

@@ -11,9 +11,9 @@ FoamLens is designed for thesis and research workflows where simulation data nee
 ## Release information
 
 - **FoamLens Web v51**.
-- **FoamLens Desktop v1.8.13** for Windows — current source version prepared for an official stable release. Includes Field F2 responsive region controls in individual A/B/C/D panes and fault-tolerant, original-source Time Series T1 case/region inventory. Availability is confirmed only by [official GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest), not by source changes or an Actions test artifact. Original QuickCup, installed Windows Setup/Portable and checksum release gates are retained.
-- **FoamLens Desktop v1.8.12** for Windows — [published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12), November 12, 2026, with SHA-256 sidecars. Includes Field A-only default, explicit metal/mold/sand multi-region controls and A viewport height/restore/reset, but **not** the later #318 and #319 changes.
-- The [v1.8.11 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.11) remains available as an older stable download.
+- **FoamLens Desktop v1.8.14** for Windows — current source version awaiting real Windows installer release validation. Two Time Series history variables share Y only with verified OpenFOAM units, dimensions and physical identities; incompatible/unknown sources use separate axes. The public download is confirmed only by [GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest), not by merging source code.
+- **FoamLens Desktop v1.8.13** for Windows — [published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13), November 12, 2026, with SHA-256 sidecars. Includes Field F2 responsive region controls and the T1 resilient real multi-case source-field catalog.
+- The [v1.8.12 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12) remains available for rollback.
 
 ## Features
 
