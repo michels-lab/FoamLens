@@ -269,3 +269,69 @@ test('Granada block 1: re-enabling comparison reloads each real extra view after
   assert(compare.includes('if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;'),
     'each stale asynchronous C/D completion remains sequence-guarded');
 });
+
+test('Granada block 2: physical menus start expanded for a real multi-region case, per viewport',()=>{
+  const expanded=isolate(compare,'function fcPhysicalMenuExpanded(holder,count){','function fcApplyPhysicalPalette(',[],[]);
+  const A={dataset:{}},B={dataset:{}},C={dataset:{}};
+  assert.equal(expanded(A,1),false,'single region has no unnecessary expanded inspector');
+  assert.equal(expanded(A,2),true,'metal + mold are discoverable without opening another panel');
+  assert.equal(expanded(B,3),true,'B offers every physical region as soon as it loads');
+  A.dataset.fcRegionsExpanded='false';
+  assert.equal(expanded(A,2),false,'A respects an explicit collapse');
+  assert.equal(expanded(B,2),true,'collapsing A cannot collapse B');
+  B.dataset.fcRegionsExpanded='true';
+  assert.equal(expanded(B,1),true,'explicit per-view preference survives catalog changes');
+  assert.equal(expanded(C,2),true,'C and D inherit their own default, not A or B state');
+  assert(compare.includes('holder.dataset.fcRegionsExpanded=regionDetails.open'),
+    'the original details toggle must persist the per-viewport preference');
+  assert(compare.includes('if(regionDetails.isConnected&&holder.contains(regionDetails))'),
+    'detached old details toggles must not overwrite newer UI state');
+});
+
+test('Granada block 2: palette of a secondary region recolors only that original view',()=>{
+  const aScene={choices:new Map([['metal',{palette:'viridis'}],['mold',{palette:'viridis'}]]),
+    layers:new Map([['mold',{fieldValues:[1,2],geometryOnly:false}]])};
+  const bScene={choices:new Map([['metal',{palette:'viridis'}],['mold',{palette:'viridis'}]]),
+    layers:new Map([['mold',{fieldValues:[3,4],geometryOnly:false}]])};
+  const cScene={choices:new Map([['metal',{palette:'viridis'}],['mold',{palette:'turbo'}]]),
+    layers:new Map([['mold',{geometryOnly:true,fieldValues:null}]])};
+  const bState={scene:bScene},cState={scene:cScene};
+  const recolors=[];const renders=[];let legends=0,lists=0;
+  const palette=isolate(compare,'function fcApplyPhysicalPalette(ctx,region,palette){','function fcPhysicalMenu(view){',[
+    'fvRegionScene','fcPhysicalFor','fvRegionChoice','fvRegionRecolorLayer','fvRegionUpdateLegend',
+    'fvRegionRefreshList','fvRender','fcRender','fcExtraRender'
+  ],[
+    aScene,state=>state.scene,(_,region)=>aScene.choices.get(region),
+    (layer,choice)=>{recolors.push({layer,palette:choice.palette});return !layer.geometryOnly},
+    ()=>legends++,()=>lists++,()=>renders.push('A'),()=>renders.push('B'),state=>renders.push(state===cState?'C':'extra')
+  ]);
+  const c={id:'case'};
+  assert.equal(palette({view:'B',c,primary:'metal',state:bState},'mold','coolwarm'),true);
+  assert.equal(bScene.choices.get('mold').palette,'coolwarm');
+  assert.equal(aScene.choices.get('mold').palette,'viridis','A settings must not change');
+  assert.equal(cScene.choices.get('mold').palette,'turbo','C settings must not change');
+  assert.deepEqual(renders,['B']);
+  assert.equal(recolors.length,1,'one measured GPU overlay recolored');
+  assert.equal(palette({view:'C',c,primary:'metal',state:cState},'mold','viridis'),true);
+  assert.equal(cScene.choices.get('mold').palette,'viridis');
+  assert.deepEqual(renders,['B','C']);
+  assert.equal(recolors.length,2,'geometry-only overlay may re-render but not invent values');
+  assert.equal(palette({view:'B',c,primary:'metal',state:bState},'metal','turbo'),false,
+    'primary palette belongs to its original Field selector');
+  assert.equal(palette({view:'B',c,primary:'metal',state:bState},'mold','invalid'),false,
+    'invalid color maps must never reach the GPU');
+  assert.equal(palette({view:'A',c,primary:'metal'},'mold','turbo'),true);
+  assert.equal(aScene.choices.get('mold').palette,'turbo');
+  assert.deepEqual(renders,['B','C','A']);
+  assert.equal(legends,1);assert.equal(lists,1);
+});
+
+test('Granada block 2: the real region toolbar renders colormap controls and refreshes legends',()=>{
+  assert(compare.includes('data-fc-region-palette'),'physical per-region palette selector must exist');
+  assert(compare.includes("row.querySelector('[data-fc-region-palette]')?.addEventListener('change'"),
+    'palettes must have a real bound change event');
+  assert(compare.includes('ch.opacity,ch.palette'),'legend cache includes palette edits');
+  assert(compare.includes("fcApplyPhysicalPalette(ctx,region,e.target.value)"));
+  assert(compare.includes("fvRegionRecolorLayer(layer,choice)"),'update original source GPU colors');
+  assert(compare.includes("fcPhysicalPrimaryPalette"),'primary color control must not conflict with its source selector');
+});
