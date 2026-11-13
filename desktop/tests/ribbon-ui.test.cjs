@@ -282,3 +282,20 @@ for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDat
     'unmounted Field must not reserve C/D slots');
   console.log('Granada Ribbon/Field A-only lifecycle PASS: enable, disable, synthetic event, re-enable, Add View and absent owner');
 }
+
+
+// The Field 3D card owns the visible +Add action. The Ribbon still retains
+// its handler as a fallback where the 3D card is not rendered, but the user
+// must not see TWO Add buttons in the same Field workspace.
+{
+  const a=source.indexOf('function flRibbonCss()'),b=source.indexOf('function flRibbonSelectTab(',a);
+  assert(a>=0&&b>a,'Ribbon CSS source required');
+  const css=new Function(source.slice(a,b)+';return flRibbonCss()')();
+  assert(css.includes('body.flRibbonReady.appMode-field:has(.fwGrid:not(.layout-plot) #fwAdd3DViewVisible) #flRaCompareAddView{display:none!important}'),
+    'one visible Add View action when real 3D Field card exists');
+  assert(!css.includes('body.appMode-field #fwAdd3DViewVisible{display:none'),
+    'the canonical 3D Add View button must remain available');
+  assert(source.includes('flRibbonAddFieldView'),
+    'Ribbon fallback must still delegate to original Add View action');
+  console.log('Granada Field chrome PASS: one visible Add View, Ribbon uses same original controller');
+}
