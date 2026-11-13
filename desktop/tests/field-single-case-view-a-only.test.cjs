@@ -195,3 +195,41 @@ test('native View B WebView2 regression explicitly selects secondary OpenFOAM re
  assert(script.includes("['X:','Y:','Z:'].every(t=>desc.metricsText.includes(t))"),
   'native regression must preserve measured independent XYZ axes instead of mere two-view UI state');
 });
+
+
+test('Granada block 1: explicitly disabling B clears the request and preserves A-only layout',()=>{
+ const start=workspace.indexOf('function fwComparisonExplicitlyRequested(){');
+ const end=workspace.indexOf('const fwTimeState=',start);
+ assert(start>=0&&end>start,'compare request lifecycle must be declared');
+ const toggle={checked:true};
+ const state={compareUserRequested:false};
+ const compareState={enabled:true};
+ let layoutUpdates=0;
+ const actions=new Function('fwState','document','fcState','fcUpdateLayout',
+   workspace.slice(start,end)+';return {fwComparisonExplicitlyRequested,fwComparisonDisabled}')(
+   state,{getElementById:id=>id==='fcEnabled'?toggle:null},compareState,()=>{layoutUpdates++});
+ actions.fwComparisonExplicitlyRequested();
+ assert.equal(state.compareUserRequested,true);
+ actions.fwComparisonDisabled();
+ assert.equal(state.compareUserRequested,false);
+ assert.equal(toggle.checked,false,'B checkbox must be off');
+ assert.equal(compareState.enabled,false,'B renderer must be off');
+ assert.equal(layoutUpdates,1,'the original viewport layout must refresh');
+});
+
+test('Granada block 1: manual disable and failed Add view cannot silently re-request B',()=>{
+ assert(workspace.includes('if(e.target.checked)fwComparisonExplicitlyRequested();else fwComparisonDisabled()'),
+   'unchecking Compare must clear the saved request instead of marking it as requested');
+ const start=workspace.indexOf('function fwAdd3DView(){');
+ const end=workspace.indexOf('// Adopt the real selectors',start);
+ assert(start>=0&&end>start);
+ const add=workspace.slice(start,end);
+ assert(!add.startsWith('function fwAdd3DView(){\\n  fwComparisonExplicitlyRequested();'),
+   'a failed Add request must not leave B requested');
+ assert(add.includes('if(added)fwComparisonExplicitlyRequested()'),
+   'C/D requests only count after the view is created');
+ assert(add.includes('fwComparisonExplicitlyRequested();\\n      enabled.checked=true'),
+   'B request is recorded only as the compare checkbox is activated');
+ assert(workspace.includes("document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length"),
+   'visible count must track the actual compare toggle, not stale renderer state');
+});
