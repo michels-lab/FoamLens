@@ -519,8 +519,12 @@ function fcAddViewportToolbar(viewport,view){
   // measurements otherwise cover the mesh/time badge in narrow A–D panes.
   if(mapping&&view==='A'){
     const metrics=viewport.querySelector('.fvMeshDimensions'),
+      scaleDock=viewport.querySelector('.fvRegionScaleDock'),
       caption=viewport.querySelector('.fcViewportCaption');
-    if(metrics&&caption)caption.appendChild(metrics)
+    if(metrics&&caption)caption.appendChild(metrics);
+    // Preserve the original live Field legend and every actual material
+    // scale; only their parent moves out of the rendered mesh scene.
+    if(scaleDock&&caption)caption.appendChild(scaleDock)
   }
   if(mapping&&view!=='A'){
     const scene=viewport.querySelector('.fcViewportScene'),
@@ -534,7 +538,12 @@ function fcAddViewportToolbar(viewport,view){
       scene.append(svg);
       if(caption)caption.appendChild(dims);else scene.appendChild(dims)
     }
-    if(caption){const legends=document.createElement('div');legends.className='fcPhysicalLegends';caption.appendChild(legends)}
+    if(caption){
+      const primaryLegend=viewport.querySelector('.fcLegend');
+      if(primaryLegend)caption.appendChild(primaryLegend);
+      const legends=document.createElement('div');legends.className='fcPhysicalLegends';
+      caption.appendChild(legends)
+    }
   }
   viewport.insertBefore(bar,viewport.firstChild);
   bar.querySelectorAll('[data-fc-bind]').forEach(mirror=>mirror.addEventListener('change',()=>{
@@ -1391,6 +1400,11 @@ function fcInstallUi(){
     #fcViewGrid .fcViewportCaption .fvMeshDimensions,
     #fcViewGrid .fcViewportCaption .fcMetricBounds{position:static!important;inset:auto!important;top:auto!important;left:auto!important;max-width:100%!important;width:100%;min-width:0;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;pointer-events:none;margin:0;padding:7px 9px;font:10px/1.5 ui-monospace,monospace;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text)}
     #fcViewGrid .fcViewportCaption [hidden]{display:none!important}
+    #fcViewGrid .fcViewportCaption .fvRegionScaleDock{position:static!important;inset:auto!important;max-height:none!important;overflow:visible!important;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));align-items:start;gap:8px;width:100%!important;max-width:100%!important;min-width:0;box-sizing:border-box;pointer-events:none}
+    #fcViewGrid .fcViewportCaption #fvSecondaryScaleLegends{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+    #fcViewGrid .fcViewportCaption .fvPrimaryScale,
+    #fcViewGrid .fcViewportCaption .fvSecondaryScale{min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
+    #fcViewGrid .fcViewportCaption .fcLegend{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;min-width:0;box-sizing:border-box;margin:0}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0;max-width:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegend{min-width:min(100%,120px);max-width:100%;overflow-wrap:anywhere}
     .fcViewSourceDetails{flex:1 1 220px;min-width:145px;max-width:100%;align-self:center}
