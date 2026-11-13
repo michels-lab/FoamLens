@@ -1,14 +1,14 @@
-# FoamLens Desktop v1.8.13
+# FoamLens Desktop v1.8.14
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
-**FoamLens Desktop v1.8.13 with frontend v51** includes the already merged Field F2 per-viewport Physical regions responsive layout (PR #318) and Time Series T1 per-case/per-region source inventory fault isolation (PR #319). Narrow A/B/C/D scenes now arrange actual region property/component/opacity controls according to each individual pane width without altering OpenFOAM data, and a missing region's 3D field metadata no longer hides existing fields from other imported cases.
+**FoamLens Desktop v1.8.14 with frontend v51** adds the owner-prioritized Time Series T1 scientific Y-axis safety guard from PR #321: when plotting two independent source histories, the application shares the numeric Y scale only if both sources have compatible, verifiable original field identity, a declared physical unit and seven OpenFOAM dimension exponents. Unknown units, unverified numeric column labels, malformed dimensions and K/°C without explicit conversion get independent left/right Y axes. Actual source time samples and values remain untouched.
 
-This source version does not by itself mean Windows binaries are published. The official stable installer is available through [GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest). Each new release must pass real Windows Setup/Portable installed WebView2 smoke, source-backed QuickCup, SHA-256 sidecars, exact artifact provenance and post-publication verification. Authenticode signing remains optional for direct GitHub distribution, and Windows may warn about unsigned executables. No owner-machine 3,008-file speedup or physical monitor DPI acceptance is claimed.
+Previous [stable v1.8.13](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13) includes responsive Field Physical regions and multi-case Time Series source catalog tolerance. A source version or test artifact is not evidence of a newly published installer: this v1.8.14 release requires real original QuickCup, Windows Setup/Portable installed WebView2 smoke, checksum sidecars, screenshot-bound binary provenance and postpublication audit before its public GitHub tag is accepted. Native code signing is optional for GitHub distribution, and Windows may warn on unsigned installers. Owner visual acceptance for physical DPI displays and full Time Series #146/#176 remain separate.
 
 ## Windows GitHub release process
 
-Use the original `Build FoamLens Desktop for Windows` workflow. The `release:` main commit invokes release verification and publication; failures prevent a new public GitHub Release. The complete Windows installer and original scientific source-validation checks remain in place.
+The original `Build FoamLens Desktop for Windows` workflow validates actual physical source data and the installed native package. A `release:` main commit requests a stable version; only successful genuine Windows validation may publish it. No RC or paid certificate is required for direct GitHub distribution.
 
 ## Architecture
 
