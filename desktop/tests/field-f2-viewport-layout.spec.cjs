@@ -155,3 +155,48 @@ console.log('Granada #149 PASS: independent A–D heights/focus, 1024/1280/1920 
     'original physical drag grip must remain visible');
   console.log('Granada Field compact height menu PASS: original A/B/C/D buttons, localized menu, focus and drag grip');
 }
+
+
+// Granada Field numeric XYZ caption classification: mesh axes remain in the
+// scene while measured length readouts/legends live in a separate caption.
+// Their own clipping is checked without falsely reporting mesh-overlay
+// collisions or hiding the original OpenFOAM metric information.
+{
+  const scene=rect(0,0,320,360),canvas=rect(0,0,320,360);
+  const caption=rect(0,360,320,135);
+  const badge={name:'time-badge',rect:rect(12,12,80,28)};
+  const cotas={name:'dimension-cotas',rect:rect(10,375,300,56),
+    scrollWidth:294,clientWidth:300,scrollHeight:54,clientHeight:56};
+  const legends={name:'physical-legends',rect:rect(10,438,300,42),
+    scrollWidth:295,clientWidth:300,scrollHeight:41,clientHeight:42};
+  const measured={scene,canvas,caption,overlays:[badge],annotations:[cotas,legends],
+    buffer:f.buffer(320,360,1.5,480,540)};
+  assert.equal(f.check(measured).state,'no-observed-conflict',
+    'source-backed XYZ below canvas must not collide with the time badge');
+  assert.deepStrictEqual(f.check(measured).issues,[]);
+  const oldOverlay={name:'old-metric-floating',rect:rect(10,20,300,60)};
+  assert(f.check({...measured,overlays:[badge,oldOverlay]}).issues.some(x=>
+    x.type==='overlapping-overlays'),
+    'actual old floating XYZ readout would obscure the time badge');
+  const clipped={...measured,annotations:[{...cotas,rect:rect(10,375,410,56)}]};
+  assert(f.check(clipped).issues.some(x=>
+    x.type==='caption-annotation-clipped'&&x.a==='dimension-cotas'),
+    'long XYZ text exceeding its actual panel must be flagged');
+  const textClipped={...measured,annotations:[{...legends,scrollWidth:401,clientWidth:300}]};
+  assert(f.check(textClipped).issues.some(x=>
+    x.type==='caption-text-clipped-horizontal'&&x.a==='physical-legends'),
+    'physical scale legends cut off by the caption must be flagged');
+  const missingCaption={...measured,caption:null};
+  assert.equal(f.check(missingCaption).state,'review',
+    'a missing caption requires review, not fake source-backed proof');
+  assert(f.check(missingCaption).issues.some(x=>x.type==='caption-unmeasured'));
+  assert(moduleSrc.includes("['metric-bounds','.fcMetricBounds']"),
+    'B/C/D metrics must be included in the actual runtime layout audit');
+  assert(moduleSrc.includes("['dimension-cotas','.fvMeshDimensions']"),
+    'A metric readout remains audited from its existing original element');
+  assert(moduleSrc.includes('annotations:annotations.map(x=>({name:x.name,rect:x.rect}))'),
+    'runtime evidence must report exact observed caption annotations');
+  assert(!moduleSrc.includes("['dimension-cotas','.fvMeshDimensions'],\n      ['physical-measure'"),
+    'A readout must not be incorrectly counted as a canvas overlay');
+  console.log('Granada Field metric caption audit PASS: narrow layout, real XYZ/legend clipping and no false canvas collisions');
+}
