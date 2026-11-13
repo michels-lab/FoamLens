@@ -33,6 +33,20 @@ function pvClassify(sample){
   if(!scene||scene.width<120||scene.height<120)return{state:'unmeasured',issues:[{type:'scene-not-rendered'}]};
   if(!canvas)issues.push({type:'canvas-unmeasured',severity:'warning'});
   else if(!pvWithin(scene,canvas,4))issues.push({type:'canvas-clipped',severity:'error'});
+  // Scene overlays may obscure the actual mesh. Caption annotations are
+  // intentionally OUTSIDE that scene, but must still remain within their
+  // own measured caption (no cut-off XYZ values in 4-way layouts).
+  const caption=pvRect(sample.caption),annotations=(sample.annotations||[])
+    .filter(x=>pvRect(x.rect));
+  for(const a of annotations){
+    if(!caption)issues.push({type:'caption-unmeasured',severity:'warning',a:a.name});
+    else if(!pvWithin(caption,a.rect,4))
+      issues.push({type:'caption-annotation-clipped',severity:'error',a:a.name});
+    if(a.scrollWidth!=null&&a.clientWidth!=null&&a.scrollWidth>a.clientWidth+3)
+      issues.push({type:'caption-text-clipped-horizontal',severity:'warning',a:a.name});
+    if(a.scrollHeight!=null&&a.clientHeight!=null&&a.scrollHeight>a.clientHeight+3)
+      issues.push({type:'caption-text-clipped-vertical',severity:'warning',a:a.name});
+  }
   const overlays=(sample.overlays||[]).filter(x=>pvRect(x.rect));
   for(let i=0;i<overlays.length;i++){
     const a=overlays[i];
@@ -156,23 +170,31 @@ function pvSampleOverlay(scene,query,name){
     scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}
 }
 function pvMeasure(viewport){
-  const scene=viewport.querySelector('.fcViewportScene'),canvas=scene?.querySelector('canvas'),
+  const scene=viewport.querySelector('.fcViewportScene'),
+    caption=viewport.querySelector('.fcViewportCaption'),
+    canvas=scene?.querySelector('canvas'),
     r=canvas?.getBoundingClientRect(),dpr=Number(window.devicePixelRatio)||1,
-    pieces=[['time-badge','.fcTimeBadge'],['dimension-cotas','.fvMeshDimensions'],
-      ['physical-measure','.fvMeasureInfo'],['axis-gizmo','.fvAxisGizmo'],
-      ['field-legend','.fvLegend'],['compare-legend','.fcLegend'],
-      ['material-legend','.fvRegionScaleDock']];
-  const dock=scene?.querySelector('.fvRegionScaleDock');
-  const overlays=pieces.filter(([label])=>label!=='field-legend'||
-    !dock?.contains(scene?.querySelector('.fvLegend')))
-    .map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
+    pieces=[['time-badge','.fcTimeBadge'],
+      ['physical-measure','.fvMeasureInfo'],['axis-gizmo','.fvAxisGizmo']],
+    captionPieces=[['dimension-cotas','.fvMeshDimensions'],
+      ['metric-bounds','.fcMetricBounds'],['field-legend','.fvLegend'],
+      ['compare-legend','.fcLegend'],['material-legend','.fvRegionScaleDock'],
+      ['physical-legends','.fcPhysicalLegends']];
+  const dock=caption?.querySelector('.fvRegionScaleDock');
+  const overlays=pieces.map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
+  const annotations=captionPieces.filter(([label])=>label!=='field-legend'||
+    !dock?.contains(caption?.querySelector('.fvLegend')))
+    .map(([label,sel])=>pvSampleOverlay(caption,sel,label)).filter(Boolean);
   const snapshot={scene:pvRect(scene?.getBoundingClientRect()),canvas:pvRect(r),
-    overlays,buffer:r?pvBuffer(r.width,r.height,dpr,canvas.width,canvas.height):null};
+    caption:pvRect(caption?.getBoundingClientRect()),overlays,annotations,
+    buffer:r?pvBuffer(r.width,r.height,dpr,canvas.width,canvas.height):null};
   return{id:viewport.id,view:pvViews[viewport.id],
     sceneCssPx:snapshot.scene?{width:snapshot.scene.width,height:snapshot.scene.height}:null,
+    captionCssPx:snapshot.caption?{width:snapshot.caption.width,height:snapshot.caption.height}:null,
     canvasPhysicalPx:snapshot.buffer?.actual??null,
     canvasExpectedPhysicalPx:snapshot.buffer?.expected??null,
-    overlays:overlays.map(x=>({name:x.name,rect:x.rect})),...pvClassify(snapshot)}
+    overlays:overlays.map(x=>({name:x.name,rect:x.rect})),
+    annotations:annotations.map(x=>({name:x.name,rect:x.rect})),...pvClassify(snapshot)}
 }
 function pvAudit(){
   const grid=pvEl('fcViewGrid'),
@@ -186,7 +208,7 @@ function pvAudit(){
     counts,views,confidence:'current-rendered-dom-geometry-only',
     limitations:[
       'No other screen width, DPI scale, monitor or installed Windows Setup/Portable is measured unless independently run there.',
-      'DOM overlaps are visual geometry observations, not proof of inaccurate OpenFOAM numerical fields, axes, units or temperature data.',
+      'DOM overlays are classified inside the canvas scene and XYZ/legend annotations inside their own caption; neither classification proves OpenFOAM numerical accuracy.',
       'The existing Field renderer owns camera, source, timeline, mesh and export state; this extension changes CSS panel height/focus only.',
       'Canvas buffer differences may be transient during resizing or screenshot export.',
       'No case names, scientific values, private source paths, screenshots or file contents are saved.'

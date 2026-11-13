@@ -1060,3 +1060,50 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'original region slider handlers must reach canonical primary opacity');
   console.log('Granada Field original primary opacity PASS: A/B/C/D, linked vs independent, GPU overlay, safe drag, source truth');
 }
+
+
+// Granada 3D XYZ caption ownership: original Field viewport DOM, IDs and
+// camera/mesh axes are preserved, but long numeric metric readouts must live
+// BELOW the canvas on A/B/C/D at narrow widths.
+{
+  const start=source.indexOf('function fcAddViewportToolbar(viewport,view){'),
+    end=source.indexOf('// Independent multi-region GPU scenes',start);
+  assert(start>0&&end>start,'original A-D viewport mount contract exists');
+  const mount=source.slice(start,end);
+  assert(mount.includes("if(mapping&&view==='A'){"),
+    'original A must explicitly relocate its existing XYZ metric element');
+  assert(mount.includes("const metrics=viewport.querySelector('.fvMeshDimensions')"),
+    'A must reuse the existing source-backed fvMeshDimensions node');
+  assert(mount.includes("if(metrics&&caption)caption.appendChild(metrics)"),
+    'A numeric XYZ readout must live in the below-canvas caption');
+  assert(mount.includes("scene.append(svg);"),
+    'B/C/D original metric axes must stay superimposed on physical geometry');
+  assert(mount.includes("if(caption)caption.appendChild(dims);else scene.appendChild(dims)"),
+    'B/C/D source-backed XYZ readout must move below the canvas');
+  assert(mount.includes("dims.setAttribute('aria-live','polite')"),
+    'live source metric readout must remain accessible');
+  assert(mount.includes("if(scaleDock&&caption)caption.appendChild(scaleDock)"),
+    'primary A source and all its measured metal/mold scales must live below the canvas');
+  assert(mount.includes("if(primaryLegend)caption.appendChild(primaryLegend)"),
+    'B/C/D original primary measured color legend must live below the canvas');
+  assert(mount.includes("caption.appendChild(legends)"),
+    'secondary physical legends must remain below the mesh with their own source context');
+  assert(!mount.includes("scene.append(svg,dims)"),
+    'the old floating numeric dimensions must not cover the visualized mesh');
+  for(const css of [
+    '#fcViewGrid .fcViewportCaption{display:flex;flex-direction:column',
+    '#fcViewGrid .fcViewportCaption .fvMeshDimensions,',
+    '#fcViewGrid .fcViewportCaption .fcMetricBounds{position:static!important',
+    '#fcViewGrid .fcViewportCaption [hidden]{display:none!important}',
+    '#fcViewGrid .fcViewportCaption .fvRegionScaleDock{position:static!important',
+    '#fcViewGrid .fcViewportCaption .fcLegend{position:static!important',
+    '#fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0'
+  ])assert(source.includes(css),'original narrow-pane Field caption CSS missing: '+css);
+  assert(source.includes("const svg=viewport.querySelector('.fcMetricAxes'),readout=viewport.querySelector('.fcMetricBounds');"),
+    'renderer must continue to read original physical X/Y/Z sources by their existing classes');
+  assert(source.includes("readout.textContent=labels.join(' | ')"),
+    'metric lengths must remain original mesh values with real units');
+  assert(source.includes("svg.innerHTML=markup"),
+    'original projected axes/metric tick SVG must remain functional');
+  console.log('Granada 3D A/B/C/D metric captions PASS: original numeric sources below canvas, source axes preserved, narrow CSS and legends');
+}
