@@ -175,17 +175,16 @@ function pvMeasure(viewport){
     canvas=scene?.querySelector('canvas'),
     r=canvas?.getBoundingClientRect(),dpr=Number(window.devicePixelRatio)||1,
     pieces=[['time-badge','.fcTimeBadge'],
-      ['physical-measure','.fvMeasureInfo'],['axis-gizmo','.fvAxisGizmo'],
-      ['field-legend','.fvLegend'],['compare-legend','.fcLegend'],
-      ['material-legend','.fvRegionScaleDock']],
+      ['physical-measure','.fvMeasureInfo'],['axis-gizmo','.fvAxisGizmo']],
     captionPieces=[['dimension-cotas','.fvMeshDimensions'],
-      ['metric-bounds','.fcMetricBounds'],['physical-legends','.fcPhysicalLegends']];
-  const dock=scene?.querySelector('.fvRegionScaleDock');
-  const overlays=pieces.filter(([label])=>label!=='field-legend'||
-    !dock?.contains(scene?.querySelector('.fvLegend')))
-    .map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
-  const annotations=captionPieces.map(([label,sel])=>pvSampleOverlay(caption,sel,label))
-    .filter(Boolean);
+      ['metric-bounds','.fcMetricBounds'],['field-legend','.fvLegend'],
+      ['compare-legend','.fcLegend'],['material-legend','.fvRegionScaleDock'],
+      ['physical-legends','.fcPhysicalLegends']];
+  const dock=caption?.querySelector('.fvRegionScaleDock');
+  const overlays=pieces.map(([label,sel])=>pvSampleOverlay(scene,sel,label)).filter(Boolean);
+  const annotations=captionPieces.filter(([label])=>label!=='field-legend'||
+    !dock?.contains(caption?.querySelector('.fvLegend')))
+    .map(([label,sel])=>pvSampleOverlay(caption,sel,label)).filter(Boolean);
   const snapshot={scene:pvRect(scene?.getBoundingClientRect()),canvas:pvRect(r),
     caption:pvRect(caption?.getBoundingClientRect()),overlays,annotations,
     buffer:r?pvBuffer(r.width,r.height,dpr,canvas.width,canvas.height):null};
