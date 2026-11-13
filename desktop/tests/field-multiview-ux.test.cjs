@@ -741,3 +741,84 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.deepStrictEqual(B.camera.target,savedTarget);
   console.log('Field block 3 narrow B/C viewport camera Fit PASS: panel aspect, real union center, safe fallback');
 }
+
+
+// Granada block 3: A/B/C/D native camera presets route to the SAME original
+// Field camera when linked, but retain separate camera positions otherwise.
+// This executes original production functions rather than duplicating logic.
+{
+  const begin=source.indexOf('function fcViewCameraAngles(name){');
+  const end=source.indexOf('function fcZoomViewport(view,factor){',begin);
+  assert(begin>0&&end>begin,'original per-viewport camera source required');
+  const states={
+    A:{mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{yaw:0,pitch:0}},
+    B:{mesh:{boundsMin:[2,2,2],boundsMax:[3,3,3]},camera:{yaw:.1,pitch:.2}},
+    C:{id:3,mesh:{boundsMin:[4,4,4],boundsMax:[5,5,5]},camera:{yaw:.3,pitch:.4}},
+    D:{id:4,mesh:{boundsMin:[6,6,6],boundsMax:[7,7,7]},camera:{yaw:.5,pitch:.6}}
+  };
+  states.B.enabled=true;let linked=false,fitFails=false,lang='en';
+  const render=[],original=[],fits=[];
+  const clone=c=>({yaw:c.yaw,pitch:c.pitch,distance:c.distance||10,target:[...(c.target||[0,0,0])]});
+  const api=new Function(
+    'fvState','fcState','fcExtraViews','fcFitMeshForView','fcValidFitMesh',
+    'fcCamerasLinked','fvCameraPreset','fcCloneCamera','fcCameraFor',
+    'fcFitCameraState','fcRender','fcRenderDifference','fcExtraRender','fcUi','fcEsc',
+    source.slice(begin,end)+';return {fcViewCameraAngles,fcSetViewportCamera,fcCameraPresetMenu};'
+  )(states.A,states.B,[states.C,states.D],
+    (view,state,mesh)=>mesh,m=>!!m?.boundsMin&&!!m?.boundsMax,
+    ()=>linked,name=>original.push(name),clone,state=>state.camera,
+    (state,mesh)=>{fits.push(state===states.B?'B':state===states.C?'C':'D');if(fitFails)return false;state.camera.distance=30;return true},
+    ()=>render.push('B'),()=>render.push('difference'),state=>render.push(state===states.C?'C':'D'),
+    (en,es)=>lang==='es'?es:en,v=>String(v)
+  );
+  assert.deepStrictEqual(api.fcViewCameraAngles('iso').map(v=>Number(v.toFixed(2))),[.72,.42]);
+  assert.equal(api.fcViewCameraAngles('wrong'),null,'unknown direction cannot mutate a view');
+  assert.equal(api.fcSetViewportCamera('B','front'),true);
+  assert.deepStrictEqual([states.B.camera.yaw,states.B.camera.pitch],[0,0]);
+  assert.deepStrictEqual([states.C.camera.yaw,states.C.camera.pitch],[.3,.4]);
+  assert.deepStrictEqual([states.D.camera.yaw,states.D.camera.pitch],[.5,.6]);
+  assert.deepStrictEqual(render,['B','difference']);
+  assert.deepStrictEqual(fits,['B']);
+  assert.equal(api.fcSetViewportCamera(3,'right'),true);
+  assert.equal(states.C.camera.yaw,Math.PI/2);
+  assert.equal(states.C.camera.pitch,0);
+  assert.equal(api.fcSetViewportCamera(4,'top'),true);
+  assert.equal(states.D.camera.yaw,0);
+  assert(Math.abs(states.D.camera.pitch-Math.PI/2)<1e-3);
+  assert.deepStrictEqual(render,['B','difference','C','D']);
+  assert.deepStrictEqual(original,[],'independent B/C/D must not command original A camera');
+  assert.equal(api.fcSetViewportCamera('A','iso'),true);
+  assert.deepStrictEqual(original,['iso'],'A always uses the original scientific camera UI');
+  linked=true;
+  const beforeB=clone(states.B.camera),beforeC=clone(states.C.camera),beforeD=clone(states.D.camera);
+  assert.equal(api.fcSetViewportCamera('B','left'),true);
+  assert.deepStrictEqual(original,['iso','left'],'linked view B delegates to original A camera');
+  assert.deepStrictEqual(states.B.camera,beforeB,'linked view preserves B camera for later unlink');
+  assert.deepStrictEqual(states.C.camera,beforeC);
+  assert.deepStrictEqual(states.D.camera,beforeD);
+  linked=false;fitFails=true;
+  assert.equal(api.fcSetViewportCamera('B','bottom'),false,'failed fit must not pretend success');
+  assert.deepStrictEqual(states.B.camera,beforeB,'failed projected fit must restore B camera');
+  fitFails=false;
+  const oldC=states.C.mesh;states.C.mesh=null;
+  assert.equal(api.fcSetViewportCamera(3,'front'),false,'unloaded C never fabricates a camera');
+  states.C.mesh=oldC;
+  assert.equal(api.fcSetViewportCamera('B','unknown'),false);
+  assert.equal(api.fcSetViewportCamera(7,'iso'),false,'unknown viewport cannot steal A state');
+
+  const menu=api.fcCameraPresetMenu('B');
+  assert.deepStrictEqual([...menu.matchAll(/data-fc-camera-preset="([^"]+)"/g)].map(m=>m[1]),
+    ['iso','front','back','left','right','top','bottom'],
+    'all seven camera buttons are visible in each A/B/C/D toolbar menu');
+  assert(menu.includes('View B · Front'),'buttons must identify their individual source view');
+  lang='es';const menuEs=api.fcCameraPresetMenu('D');
+  assert(menuEs.includes('Vistas de cámara'));
+  assert(menuEs.includes('Vista D · Derecha'));
+  for(const fragment of [
+    "if(mapping)bar.querySelectorAll('[data-fc-camera-preset]')",
+    "fcSetViewportCamera(view,button.dataset.fcCameraPreset)",
+    'fcRefreshCameraPresetLabels();fcScheduleToolbarSync()',
+    '.fcViewportCameraPresets[open]{flex:1 0 100%}'
+  ])assert(source.includes(fragment),'missing original per-pane camera action or responsive UI: '+fragment);
+  console.log('Granada Field A-D camera buttons PASS: seven directions, unlinked isolation, linked original A, Spanish labels, no-data guard');
+}
