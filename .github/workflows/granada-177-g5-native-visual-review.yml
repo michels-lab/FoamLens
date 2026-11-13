@@ -10,12 +10,18 @@ on:
       - 'tools/make_visual_evidence.py'
       - 'tools/visual_release_gate.py'
       - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'tools/test_visual_evidence.py'
+      - 'desktop/tests/granada-g72-native-evidence.test.cjs'
   pull_request:
     branches: [main]
     paths:
       - 'tools/granada_visual_review.cjs'
       - 'tools/test_granada_visual_review.cjs'
       - '.github/workflows/granada-177-g5-native-visual-review.yml'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/test_visual_evidence.py'
+      - 'desktop/tests/granada-g72-native-evidence.test.cjs'
   workflow_dispatch:
     inputs:
       windows_run_id:
@@ -47,6 +53,8 @@ jobs:
           node-version: '22'
       - name: Run synthetic negative checks (NEVER native visual evidence)
         run: node tools/test_granada_visual_review.cjs
+      - name: Preserve real source-owned 20-slot G72 native screenshot guards
+        run: node --test desktop/tests/granada-g72-native-evidence.test.cjs
 
   native-review:
     name: Generate offline report from real Windows candidate

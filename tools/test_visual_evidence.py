@@ -21,7 +21,8 @@ from PIL import Image, ImageDraw
 from visual_release_gate import check_evidence
 
 SOURCE_SHA = "1234567890abcdef1234567890abcdef12345678"
-SURFACES = ("home", "about", "data", "field")
+SURFACES = ("home", "about", "data", "field", "time-series",
+            "field-compare", "analysis", "review", "live")
 SCRIPT = Path(__file__).with_name("make_visual_evidence.py")
 
 
@@ -60,7 +61,7 @@ def main() -> None:
             directory = evidence / variant
             directory.mkdir(parents=True)
             for viewport_index, (viewport, dimensions) in enumerate(
-                (("wide", (920, 540)), ("compact", (460, 400)))
+                (("wide", (1140, 820)), ("compact", (640, 900)))
             ):
                 for surface_index, surface in enumerate(SURFACES):
                     path = directory / f"{surface}-{viewport}.png"
@@ -79,12 +80,51 @@ def main() -> None:
              "--artifact", str(setup),
              "--portable-artifact", str(portable),
              "--source-sha", SOURCE_SHA, "--platform", "windows",
-             "--output", str(manifest)],
+             "--output", str(manifest), "--require-g72-native-tabs"],
             check=True, capture_output=True, text=True,
         )
+        # A missing real B13 workspace must fail closed when explicitly
+        # requested. Never complete 36 slots with copied or synthetic images.
+        missing_native = evidence / "installed" / "field-compare-wide.png"
+        withheld = evidence / "installed" / "field-compare-wide.withheld"
+        missing_native.rename(withheld)
+        try:
+            absent_native = subprocess.run(
+                [sys.executable, str(SCRIPT),
+                 "--evidence-dir", str(evidence / "installed"),
+                 "--portable-evidence-dir", str(evidence / "portable"),
+                 "--artifact", str(setup), "--portable-artifact", str(portable),
+                 "--source-sha", SOURCE_SHA, "--platform", "windows",
+                 "--output", str(evidence / "incomplete.json"),
+                 "--require-g72-native-tabs"],
+                capture_output=True, text=True,
+            )
+            assert absent_native.returncode != 0
+            assert "G72 original native screenshot missing" in absent_native.stderr
+            # Without authentic B13 imported, an existing four-workspace
+            # smoke is still legal, but must be explicitly INCOMPLETE.
+            optional_native = subprocess.run(
+                [sys.executable, str(SCRIPT),
+                 "--evidence-dir", str(evidence / "installed"),
+                 "--portable-evidence-dir", str(evidence / "portable"),
+                 "--artifact", str(setup), "--portable-artifact", str(portable),
+                 "--source-sha", SOURCE_SHA, "--platform", "windows",
+                 "--output", str(evidence / "incomplete.json")],
+                capture_output=True, text=True,
+            )
+            assert optional_native.returncode == 0, optional_native.stderr
+            partial = json.loads((evidence / "incomplete.json").read_text(encoding="utf-8"))
+            assert partial["granada_g72_native_workspaces"]["new_real_workspace_slots"] == 19
+            assert partial["granada_g72_native_workspaces"]["human_visual_approved"] is False
+        finally:
+            withheld.rename(missing_native)
+
         original = json.loads(manifest.read_text(encoding="utf-8"))
         records = original["screenshots"]
-        assert len(records) == 16, f"Expected 16 separate real-run analog captures, got {len(records)}"
+        assert len(records) == 36, f"Expected 36 distinct test-only capture records, got {len(records)}"
+        assert original["granada_g72_native_workspaces"]["new_real_workspace_slots"] == 20
+        assert original["granada_g72_native_workspaces"]["human_visual_approved"] is False
+        assert original["granada_g72_native_workspaces"]["physical_windows_os_dpi_verified"] is False
         assert {shot["runtime_variant"] for shot in records} == {"installed", "portable"}
         assert all(shot["path"].startswith(shot["runtime_variant"] + "/") for shot in records)
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
@@ -227,12 +267,18 @@ def main() -> None:
         assert_rejected(mislabeled, manifest, "invalid Windows runtime variant")
 
         reused_file = copy.deepcopy(original)
-        reused_file["screenshots"][0]["path"] = reused_file["screenshots"][8]["path"]
+        duplicate = next(shot for shot in original["screenshots"]
+                         if shot["runtime_variant"] == "installed" and
+                         shot["surface"] == "data" and shot["viewport"] == "wide")
+        reused_file["screenshots"][0]["path"] = duplicate["path"]
         assert_rejected(reused_file, manifest, "screenshot checksum mismatch")
 
         cross_runtime = copy.deepcopy(original)
-        cross_runtime["screenshots"][8]["path"] = original["screenshots"][0]["path"]
-        cross_runtime["screenshots"][8]["sha256"] = original["screenshots"][0]["sha256"]
+        portable_home_idx = next(i for i, shot in enumerate(original["screenshots"])
+                                 if shot["runtime_variant"] == "portable" and
+                                 shot["surface"] == "home" and shot["viewport"] == "wide")
+        cross_runtime["screenshots"][portable_home_idx]["path"] = original["screenshots"][0]["path"]
+        cross_runtime["screenshots"][portable_home_idx]["sha256"] = original["screenshots"][0]["sha256"]
         assert_rejected(cross_runtime, manifest, "portable screenshot path outside its runtime directory")
 
         manifest.write_text(json.dumps(original), encoding="utf-8")
