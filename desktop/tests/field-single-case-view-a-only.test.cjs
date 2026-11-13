@@ -224,11 +224,11 @@ test('Granada block 1: manual disable and failed Add view cannot silently re-req
  const end=workspace.indexOf('// Adopt the real selectors',start);
  assert(start>=0&&end>start);
  const add=workspace.slice(start,end);
- assert(!add.startsWith('function fwAdd3DView(){\\n  fwComparisonExplicitlyRequested();'),
+ assert(!add.startsWith('function fwAdd3DView(){'+String.fromCharCode(10)+'  fwComparisonExplicitlyRequested();'),
    'a failed Add request must not leave B requested');
  assert(add.includes('if(added)fwComparisonExplicitlyRequested()'),
    'C/D requests only count after the view is created');
- assert(add.includes('fwComparisonExplicitlyRequested();\\n      enabled.checked=true'),
+ assert(add.includes('fwComparisonExplicitlyRequested();'+String.fromCharCode(10)+'      enabled.checked=true'),
    'B request is recorded only as the compare checkbox is activated');
  assert(workspace.includes("document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length"),
    'visible count must track the actual compare toggle, not stale renderer state');
