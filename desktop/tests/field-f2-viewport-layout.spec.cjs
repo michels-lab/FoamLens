@@ -192,6 +192,16 @@ console.log('Granada #149 PASS: independent A–D heights/focus, 1024/1280/1920 
   assert(f.check(missingCaption).issues.some(x=>x.type==='caption-unmeasured'));
   assert(moduleSrc.includes("['metric-bounds','.fcMetricBounds']"),
     'B/C/D metrics must be included in the actual runtime layout audit');
+  assert(moduleSrc.includes("['material-legend','.fvRegionScaleDock']"),
+    'A actual primary and physical material legends must be audited within caption');
+  assert(moduleSrc.includes("['compare-legend','.fcLegend']"),
+    'B/C/D original primary measured color scales must be audited within caption');
+  assert(moduleSrc.includes("dock=caption?.querySelector('.fvRegionScaleDock')"),
+    'the Field source audit must never classify the moved A legend as a mesh overlay');
+  const compareLegend={name:'compare-legend',rect:rect(10,438,300,42),
+    scrollWidth:280,clientWidth:300,scrollHeight:41,clientHeight:42};
+  assert.equal(f.check({...measured,annotations:[cotas,compareLegend]}).state,'no-observed-conflict',
+    'B/C/D source-backed color scale below canvas must not count as mesh obscuration');
   assert(moduleSrc.includes("['dimension-cotas','.fvMeshDimensions']"),
     'A metric readout remains audited from its existing original element');
   assert(moduleSrc.includes('annotations:annotations.map(x=>({name:x.name,rect:x.rect}))'),
