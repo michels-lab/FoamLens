@@ -414,6 +414,28 @@ function fcApplyRegionVisibility(ctx,mode){
   else fcPhysicalReload(ctx);
   return true
 }
+// Multi-region controls open by default on a real multi-region case.
+// A user can collapse one viewport without changing any other viewport.
+function fcPhysicalMenuExpanded(holder,count){
+  return holder.dataset.fcRegionsExpanded===undefined ? count>1 :
+    holder.dataset.fcRegionsExpanded==='true';
+}
+function fcApplyPhysicalPalette(ctx,region,palette){
+  if(!ctx?.c||region===ctx.primary||!['viridis','turbo','coolwarm'].includes(palette))return false;
+  const scene=ctx.view==='A'?fvRegionScene:fcPhysicalFor(ctx.state);
+  const choice=ctx.view==='A'?fvRegionChoice(ctx.c,region):scene.choices.get(region);
+  if(!choice)return false;
+  choice.palette=palette;
+  // Recolor only the existing measured GPU buffer. Geometry-only layers
+  // stay neutral; no other region, viewport or scientific field is changed.
+  const layer=scene.layers.get(region);
+  if(layer)fvRegionRecolorLayer(layer,choice);
+  if(ctx.view==='A'){
+    fvRegionUpdateLegend(region);fvRegionRefreshList();fvRender();
+  }else if(ctx.view==='B')fcRender();
+  else fcExtraRender(ctx.state);
+  return true
+}
 function fcPhysicalMenu(view){
   const ctx=fcPhysicalViewContext(view),bar=ctx?.viewport?.querySelector('[data-fc-toolbar]');
   if(!ctx||!bar)return;
@@ -437,7 +459,7 @@ function fcPhysicalMenu(view){
     groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
   ])]);
   if(holder.dataset.fcMenuKey===key)return;holder.dataset.fcMenuKey=key;
-  const current=holder.querySelector('details')?.open||false;
+  const expanded=fcPhysicalMenuExpanded(holder,names.length);
   const rows=catalog.map(({region,ch,groups})=>{
     const field=groups.find(g=>g.name===ch.field);
     const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
@@ -448,15 +470,25 @@ function fcPhysicalMenu(view){
       groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
       '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
       components.map(o=>'<option value="'+fcEsc(o.v)+'" '+(o.v===selection?'selected':'')+'>'+fcEsc(o.t)+'</option>').join('')+'</select>'+
+      (region===ctx.primary
+        ? '<span class="fcPhysicalPrimaryPalette">'+fcUi('Primary view palette','Paleta de la vista principal')+'</span>'
+        : '<select data-fc-region-palette aria-label="'+fcUi('Colormap for region','Mapa de color de región')+' '+fcEsc(region)+'">'+
+          ['viridis','turbo','coolwarm'].map(p=>'<option value="'+p+'" '+(fvRegionPalette(ch)===p?'selected':'')+'>'+({viridis:'Viridis',turbo:'Turbo',coolwarm:'Cool–warm'}[p])+'</option>').join('')+'</select>')+
       '<label class="fcPhysicalOpacity">'+fcUi('Opacity','Opacidad')+' <input type="range" data-fc-region-opacity min=".1" max="1" step=".05" value="'+Number(ch.opacity||1)+'"></label>'+
       '<span class="fcPhysicalRegionStatus" data-fc-region-status>'+fcEsc(view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)||'')+'</span></div>'
   }).join('');
   const visible=names.filter(name=>choice(name)?.visible).length;
-  holder.innerHTML='<details '+(current?'open':'')+'><summary>'+fcUi('Physical regions','Regiones físicas')+' · '+visible+'/'+names.length+'</summary>'+
+  holder.innerHTML='<details '+(expanded?'open':'')+'><summary>'+fcUi('Physical regions','Regiones físicas')+' · '+visible+'/'+names.length+'</summary>'+
     (names.length>1?'<div class="fcPhysicalActions" role="group" aria-label="'+fcUi('Visible physical regions in this view','Regiones físicas visibles en esta vista')+'">'+
       '<button class="btn tiny" type="button" data-fc-region-all>'+fcUi('Show all regions','Mostrar todas las regiones')+'</button>'+
       '<button class="btn tiny" type="button" data-fc-region-primary>'+fcUi('Only selected region','Solo la región seleccionada')+'</button></div>':'')+
     '<div class="fcPhysicalRows">'+(rows||'<span class="smallnote">'+fcUi('No physical regions for this case','Sin regiones físicas para este caso')+'</span>')+'</div></details>';
+  const regionDetails=holder.querySelector('details');
+  regionDetails?.addEventListener('toggle',()=>{
+    // A removed/rebuilt details node cannot overwrite this viewport's choice.
+    if(regionDetails.isConnected&&holder.contains(regionDetails))
+      holder.dataset.fcRegionsExpanded=regionDetails.open?'true':'false';
+  });
   holder.querySelector('[data-fc-region-all]')?.addEventListener('click',()=>fcApplyRegionVisibility(ctx,'all'));
   holder.querySelector('[data-fc-region-primary]')?.addEventListener('click',()=>fcApplyRegionVisibility(ctx,'primary'));
   holder.querySelectorAll('[data-fc-region]').forEach(row=>{
@@ -488,6 +520,7 @@ function fcPhysicalMenu(view){
       if(forwardPrimary('Component',ch.component))return;
       if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)
     };
+    row.querySelector('[data-fc-region-palette]')?.addEventListener('change',e=>fcApplyPhysicalPalette(ctx,region,e.target.value));
     row.querySelector('[data-fc-region-opacity]').oninput=e=>{
       ch.opacity=Math.max(.1,Math.min(1,Number(e.target.value)||.5));
       if(view==='A')fvRender();else if(view==='B')fcRender();else fcExtraRender(ctx.state)
@@ -602,7 +635,7 @@ function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
   const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
   const scene=fcPhysicalFor(state);
-  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity])]);
+  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity,ch.palette])]);
   if(dock.dataset.fcCaptionKey===key)return;dock.dataset.fcCaptionKey=key;
   dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
     const layer=scene.layers.get(region),error=scene.errors.get(region);
@@ -1044,7 +1077,8 @@ function fcInstallUi(){
   // The original 4-column control grid overflows narrow side-by-side viewports.
   style.textContent += `
     .fcPhysicalMenu{container-name:fc-region-dock;container-type:inline-size}
-    .fcPhysicalRegionRow{min-width:0}
+    .fcPhysicalRegionRow{min-width:0;grid-template-columns:minmax(90px,1.1fr) minmax(105px,1.5fr) minmax(85px,1fr) minmax(105px,1fr) minmax(100px,1fr)}
+    .fcPhysicalPrimaryPalette{font-size:10px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
     .fcPhysicalRegionRow>*,.fcPhysicalRegionRow select,.fcPhysicalRegionRow input{min-width:0;max-width:100%}
     .fcPhysicalRegionRow .fcPhysicalToggle b{min-width:0;overflow-wrap:anywhere}
     @container fc-region-dock (max-width:570px){
