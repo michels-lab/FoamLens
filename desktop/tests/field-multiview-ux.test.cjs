@@ -93,7 +93,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   physical.fcPhysicalChoiceList(stateC,caseMenu,'metal');
   const choice=physical.fcPhysicalFor(stateC).choices.get('metal');
   choice.opacity=.7;choice.palette='turbo';
-  const holder={dataset:{},renders:0,_html:'',querySelector:q=>q==='details'?{open:true}:null,
+  const holder={dataset:{},renders:0,_html:'',querySelector:q=>q==='details'?{open:true,isConnected:true,addEventListener:()=>{}}:null,
     querySelectorAll:()=>[],
     get innerHTML(){return this._html},
     set innerHTML(value){this.renders++;this._html=value}};
@@ -101,7 +101,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const ctx={view:'3',c:caseMenu,primary:'metal',state:stateC,
     viewport:{querySelector:q=>q==='[data-fc-toolbar]'?bar:null}};
   // Minimal source-backed A/C scope. B and D call this same original function.
-  const menuStart=source.indexOf('function fcPhysicalMenu(view){');
+  const menuStart=source.indexOf('function fcPhysicalMenuExpanded(holder,count){');
   const menuEnd=source.indexOf('function fcPhysicalReload(ctx){',menuStart);
   assert(menuStart>=0&&menuEnd>menuStart,'original physical menu renderer missing');
   let locale='en';
@@ -109,11 +109,11 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
     'fcReconcilePhysicalChoice','document','fcUi','fcEsc',
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
-    'fvRender','fcRender','fcExtraRender',
+    'fvRender','fcRender','fcExtraRender','fvRegionPalette',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
     physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},
-    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{});
+    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis');
 
   menu('3');
   assert.equal(holder.renders,1);
