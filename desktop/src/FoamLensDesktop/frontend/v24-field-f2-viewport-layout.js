@@ -93,6 +93,7 @@ function pvSyncFocusButtons(){
     // A watched subtree must not self-trigger an endless MutationObserver loop.
     if(btn.textContent!==label)btn.textContent=label;
   }
+  pvSyncSizeButtons();
 }
 // Compact height commands do not duplicate source-native resize handlers:
  // each view retains its own height state and the original drag grip.
@@ -119,7 +120,6 @@ function pvSyncSizeButtons(){
       button.setAttribute('aria-label',prefix+label)
     }
   }
-  pvSyncSizeButtons();
 }
 function pvReconcileFocus(){
   if(!pvFocus)return false;
