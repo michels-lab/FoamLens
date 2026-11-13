@@ -138,13 +138,40 @@ function fcPanCamera(camera,dx,dy,canvas){
   const b=fvCameraBasis(camera),scale=Math.max(1e-12,camera.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);for(let a=0;a<3;a++)camera.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale
 }
 function fcFitCameraState(state,mesh){
-  if(!state||!mesh)return;const min=mesh.boundsMin,max=mesh.boundsMax,center=min.map((v,i)=>(Number(v)+Number(max[i]))/2),diag=Math.hypot(Number(max[0])-Number(min[0]),Number(max[1])-Number(min[1]),Number(max[2])-Number(min[2]))||1,c=state.camera||fcCloneCamera(fvState.camera);c.target=center;c.distance=diag*1.65;state.camera=c
+  if(!state||!fcValidFitMesh(mesh))return false;
+  const min=mesh.boundsMin,max=mesh.boundsMax;
+  const extent=min.map((v,i)=>max[i]-v);
+  // min + half-span is safe when min+max would overflow (large same-sign
+  // world coordinates). The validator also rejects any infinite camera fit.
+  const center=min.map((v,i)=>v+extent[i]/2);
+  const diag=Math.hypot(...extent)||1;
+  const c=state.camera||fcCloneCamera(fvState.camera);
+  // Use the existing perspective/orthographic viewport-aware fitter in
+  // narrow comparison panels; diagonal-only fit can clip wide mold geometry.
+  const canvas=typeof document==='undefined'?null:
+    document.getElementById(state===fcState?'fcCanvas':'fcExtra'+state.id+'Canvas');
+  const distance=canvas&&typeof fvFitDistance==='function'?
+    fvFitDistance({min,max,center},c,canvas):diag*1.65;
+  if(!Number.isFinite(distance)||!(distance>0))return false;
+  c.target=center;c.distance=distance;state.camera=c;
+  return true
 }
 function fcResyncCameras(){
   fcState.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh));for(const state of fcExtraViews)if(state.mesh)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh));fcRender();fcRenderDifference();fcRenderExtras()
 }
 function fcFitAllCameras(){
-  fvCameraFitCurrent();if(!fcCamerasLinked()){fcFitCameraState(fcState,fcState.mesh);for(const state of fcExtraViews)fcFitCameraState(state,state.mesh)}fcRender();fcRenderDifference();fcRenderExtras()
+  // A already fits the union of its visible physical regions. The other
+  // independent cameras must likewise include real loaded region overlays.
+  fvCameraFitCurrent();
+  if(!fcCamerasLinked()){
+    const bMesh=fcFitMeshForView('B',fcState,fcState.mesh);
+    if(fcValidFitMesh(bMesh))fcFitCameraState(fcState,bMesh);
+    for(const state of fcExtraViews){
+      const mesh=fcFitMeshForView(state.id,state,state.mesh);
+      if(fcValidFitMesh(mesh))fcFitCameraState(state,mesh);
+    }
+  }
+  fcRender();fcRenderDifference();fcRenderExtras()
 }
 function fcGlobalVisual(){
   return{palette:document.getElementById('fvPalette')?.value||'viridis',opacity:fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),surface:document.getElementById('fvSurface')?.checked!==false,edges:document.getElementById('fvEdges')?.checked!==false,slice:!!document.getElementById('fvSlice')?.checked,iso:!!document.getElementById('fvIso')?.checked,vectors:!!document.getElementById('fvVectors')?.checked,streamlines:!!document.getElementById('fvStreamlines')?.checked}
@@ -231,22 +258,39 @@ function fcZoomViewport(view,factor){
   if(view==='A'||linked)fvRender();else if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
-// Fit uses only the selected original mesh/camera. No inferred geometry or
-// forced common scale between unequal A/B/C/D OpenFOAM cases.
-function fcFitViewport(view){
-  const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
-  const mesh=view==='A'?fvState.mesh:state?.mesh;
+// Fit only measured / source-backed geometry that is VISIBLE in this pane.
+// B/C/D may show multiple physical meshes without creating extra viewports.
+function fcFitMeshForView(view,state,mesh){
+  // Legacy/simple 3D views have no physical overlay scene yet. In that case
+  // preserve the original primary-mesh camera fit (no synthetic regions).
+  if(view==='A'||!state||!state._fcPhysical)return mesh;
+  if(typeof fcPhysicalBoundsFor!=='function')return mesh;
+  const bounds=fcPhysicalBoundsFor(state);
+  // If the primary region is hidden and no overlays are visible, there is
+  // nothing to fit: never silently re-include hidden physical geometry.
+  if(!bounds)return null;
+  return{boundsMin:bounds.min,boundsMax:bounds.max}
+}
+function fcValidFitMesh(mesh){
   const lo=mesh?.boundsMin,hi=mesh?.boundsMax;
   if(!Array.isArray(lo)||!Array.isArray(hi)||lo.length!==3||hi.length!==3||
-    ![...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v))||
-    lo.some((v,i)=>hi[i]<v))return false;
+    ![...lo,...hi].every(v=>typeof v==='number'&&Number.isFinite(v)))return false;
+  const extent=lo.map((v,i)=>hi[i]-v);
+  if(extent.some(v=>v<0||!Number.isFinite(v)))return false;
+  const diag=Math.hypot(...extent)||1;
+  return Number.isFinite(diag*1.65)&&
+    lo.every((v,i)=>Number.isFinite(v+extent[i]/2));
+}
+function fcFitViewport(view){
+  const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
+  const mesh=fcFitMeshForView(view,state,view==='A'?fvState.mesh:state?.mesh);
+  if(!fcValidFitMesh(mesh))return false;
   if(fcCamerasLinked()){
-    // In linked mode all view cameras derive from A. One button must not
-    // pretend to change just B or C when its camera is actually shared.
+    // Linked cameras fit together; separate cameras retain their own target.
     fcFitAllCameras();return true
   }
   if(view==='A'){fvCameraFitCurrent();return true}
-  fcFitCameraState(state,mesh);
+  if(fcFitCameraState(state,mesh)===false)return false;
   if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
   return true
 }
@@ -671,7 +715,7 @@ function fcDriveSharedCamera(canvas,state=fcState,meshFn=()=>state.mesh,renderFn
   canvas.addEventListener('pointermove',e=>{canvas.style.cursor=fcProbeEnabled()?'crosshair':'';if(!drag)return;const cam=fcCamerasLinked()?fvState.camera:fcCameraFor(state,meshFn()),dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.mode==='orbit'){cam.yaw=drag.yaw+dx*.008;cam.pitch=fvClamp(drag.pitch+dy*.008,-Math.PI/2+1e-4,Math.PI/2-1e-4)}else if(drag.mode==='pan'){fcPanCamera(cam,e.clientX-drag.lastX,e.clientY-drag.lastY,canvas);drag.lastX=e.clientX;drag.lastY=e.clientY}else if(drag.mode==='zoom')cam.distance=Math.max(1e-10,drag.distance*Math.exp(dy*.01));if(fcCamerasLinked())fvRender();else renderFn()});
   const end=()=>{drag=null};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
   canvas.addEventListener('wheel',e=>{e.preventDefault();const cam=fcCamerasLinked()?fvState.camera:fcCameraFor(state,meshFn());cam.distance=Math.max(1e-10,cam.distance*Math.exp(e.deltaY*.001));if(fcCamerasLinked())fvRender();else renderFn()},{passive:false});
-  canvas.addEventListener('dblclick',()=>{if(fcCamerasLinked())fvCameraFitCurrent();else{fcFitCameraState(state,meshFn());renderFn()}})
+  canvas.addEventListener('dblclick',()=>{if(fcCamerasLinked())fvCameraFitCurrent();else fcFitViewport(state===fcState?'B':state.id)})
 }
 function fcInstallViewProbe(canvas,getContext){
   if(!canvas||canvas.dataset.fcProbe)return;canvas.dataset.fcProbe='1';let down=null;

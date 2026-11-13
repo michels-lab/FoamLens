@@ -587,3 +587,157 @@ for(const fragment of [
 })().catch(error=>{console.error(error);process.exitCode=1});
 
 console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/Fit, linked Fit All, no phantom slots, async removal, drag reorder, Ribbon.');
+
+
+// Granada block 3: Fit is a view-local camera command, not a selector-only
+// operation. The real source's physical union includes only loaded visible
+// OpenFOAM regions, even when a secondary overlay extends beyond the primary.
+{
+  const start=source.indexOf('function fcFitMeshForView(view,state,mesh){');
+  const end=source.indexOf('function fcVisibleViewportNeighbor(',start);
+  assert(start>=0&&end>start,'source-backed visible-region Fit implementation required');
+  const input={_fcPhysical:{},mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{distance:5,target:[0,0,0]}};
+  const second={id:3,_fcPhysical:{},mesh:{boundsMin:[20,20,20],boundsMax:[22,22,22]},
+    camera:{distance:7,target:[20,20,20]}};
+  const unions=new Map([[input,{min:[-5,-6,-7],max:[3,4,5]}],
+    [second,{min:[17,18,19],max:[35,40,45]}]]);
+  const actualFits=[],rendered=[];
+  let linked=false,fitAll=0,fitA=0;
+  const funcs=new Function('fvState','fcState','fcExtraViews','fcPhysicalBoundsFor',
+    'fcCamerasLinked','fcFitAllCameras','fvCameraFitCurrent','fcFitCameraState',
+    'fcRender','fcRenderDifference','fcExtraRender',
+    source.slice(start,end)+';return {fcFitMeshForView,fcValidFitMesh,fcFitViewport};')(
+    {mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]}},input,[second],
+    state=>unions.get(state)||null,()=>linked,()=>fitAll++,()=>fitA++,
+    (state,mesh)=>{actualFits.push({state,min:mesh.boundsMin.slice(),max:mesh.boundsMax.slice()});state.camera.target=mesh.boundsMin.slice();},
+    ()=>rendered.push('B'),()=>rendered.push('difference'),()=>rendered.push('C')
+  );
+  assert.equal(funcs.fcFitViewport('B'),true);
+  assert.deepStrictEqual(actualFits[0].min,[-5,-6,-7],
+    'B Fit must include the real mold overlay extending beyond the selected metal mesh');
+  assert.deepStrictEqual(actualFits[0].max,[3,4,5]);
+  assert.equal(input.camera.target[0],-5);
+  assert.equal(second.camera.target[0],20,'B Fit must never overwrite C camera');
+  assert.equal(funcs.fcFitViewport(3),true);
+  assert.deepStrictEqual(actualFits[1].min,[17,18,19]);
+  assert.deepStrictEqual(actualFits[1].max,[35,40,45]);
+  assert.equal(second.camera.target[0],17);
+  assert.equal(input.camera.target[0],-5,'C Fit must never overwrite B camera');
+  assert.deepStrictEqual(rendered,['B','difference','C']);
+  unions.set(input,{min:[10,11,12],max:[13,14,15]});
+  assert.equal(funcs.fcFitViewport('B'),true,'hidden primary still allows visible physical overlay fit');
+  assert.deepStrictEqual(actualFits[2].min,[10,11,12]);
+  unions.delete(input);
+  assert.equal(funcs.fcFitViewport('B'),false,'no visible real geometry means no invented camera extent');
+  assert.equal(actualFits.length,3,'hidden physical meshes must not enter camera fitting');
+  unions.set(input,{min:[-1e308,0,0],max:[1e308,1,1]});
+  assert.equal(funcs.fcFitViewport('B'),false,'overflowed diagonal must not corrupt camera with Infinity');
+  unions.set(input,{min:[-5,-6,-7],max:[3,4,5]});
+  linked=true;
+  assert.equal(funcs.fcFitViewport('B'),true);
+  assert.equal(fitAll,1,'linked camera must fit all views rather than claiming independent B fit');
+  assert.equal(actualFits.length,3,'shared Fit may not overwrite independent saved cameras');
+  assert(source.includes("else fcFitViewport(state===fcState?'B':state.id)"),
+    'double-click also uses the same visible-region Fit, not the obsolete primary-only mesh');
+  console.log('Field block 3 physical camera Fit PASS: B/C independent, visible union, hidden primary, overflow and linked mode');
+}
+
+
+// Granada block 3: exercise the source camera math and Fit All path, not
+// merely string/markup assertions. A real OpenFOAM bounding union is the
+// only input; invalid spans never mutate a working camera.
+{
+  const cameraStart=source.indexOf('function fcFitCameraState(state,mesh){');
+  const cameraEnd=source.indexOf('function fcResyncCameras(){',cameraStart);
+  const validStart=source.indexOf('function fcValidFitMesh(mesh){');
+  const validEnd=source.indexOf('function fcFitViewport(view){',validStart);
+  assert(cameraStart>=0&&cameraEnd>cameraStart&&validStart>0&&validEnd>validStart);
+  const camera=new Function('fvState','fcCloneCamera',
+    source.slice(cameraStart,cameraEnd)+'\n'+source.slice(validStart,validEnd)+
+    ';return {fcFitCameraState,fcValidFitMesh};')({camera:{distance:3,target:[0,0,0]}},x=>x);
+  const B={camera:{target:[0,0,0],distance:6}},C={camera:{target:[0,0,0],distance:7}};
+  const bBounds={boundsMin:[-2,-4,-6],boundsMax:[8,10,12]};
+  const cBounds={boundsMin:[15,18,21],boundsMax:[25,28,31]};
+  assert.equal(camera.fcValidFitMesh(bBounds),true);
+  assert.equal(camera.fcFitCameraState(B,bBounds),true);
+  assert.deepStrictEqual(B.camera.target,[3,3,3]);
+  assert(B.camera.distance>0&&Number.isFinite(B.camera.distance));
+  assert.equal(camera.fcFitCameraState(C,cBounds),true);
+  assert.deepStrictEqual(C.camera.target,[20,23,26]);
+  assert.deepStrictEqual(B.camera.target,[3,3,3],'fitting C must not shift B');
+  const oldTarget=B.camera.target.slice(),oldDistance=B.camera.distance;
+  assert.equal(camera.fcFitCameraState(B,{boundsMin:[0,0,0],boundsMax:[1.5e308,0,0]}),false,
+    'a finite bounding box with overflowing fit distance must be rejected');
+  assert.deepStrictEqual(B.camera.target,oldTarget);
+  assert.equal(B.camera.distance,oldDistance);
+  const hugeCenter={boundsMin:[1e308,0,0],boundsMax:[1e308,0,0]};
+  assert.equal(camera.fcFitCameraState(B,hugeCenter),true,
+    'a finite large world offset must be centered without min+max overflow');
+  assert.equal(B.camera.target[0],1e308);
+
+  const allStart=source.indexOf('function fcFitAllCameras(){'),allEnd=source.indexOf('function fcGlobalVisual(){',allStart);
+  assert(allStart>0&&allEnd>allStart);
+  const viewB={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{target:[0,0,0],distance:5}};
+  const viewC={id:3,mesh:{boundsMin:[3,3,3],boundsMax:[4,4,4]},camera:{target:[0,0,0],distance:6}};
+  const unionB={boundsMin:[-3,-5,-7],boundsMax:[8,10,12]};
+  const unionC={boundsMin:[1,2,3],boundsMax:[30,40,50]};
+  let linked=false,aFit=0,renderCount=0;
+  const fitAll=new Function('fvCameraFitCurrent','fcCamerasLinked','fcFitMeshForView',
+    'fcValidFitMesh','fcFitCameraState','fcState','fcExtraViews',
+    'fcRender','fcRenderDifference','fcRenderExtras',
+    source.slice(allStart,allEnd)+';return fcFitAllCameras;')(
+    ()=>aFit++,()=>linked,(view,state)=>state===viewB?unionB:state===viewC?unionC:null,
+    camera.fcValidFitMesh,camera.fcFitCameraState,viewB,[viewC],
+    ()=>renderCount++,()=>renderCount++,()=>renderCount++);
+  fitAll();
+  assert.deepStrictEqual(viewB.camera.target,[2.5,2.5,2.5],
+    'Fit All must use B metal+mold union rather than only the primary mesh');
+  assert.deepStrictEqual(viewC.camera.target,[15.5,21,26.5],
+    'Fit All must use C own visible-region bounds');
+  assert.equal(aFit,1,'A delegates to its original multiregion Fit');
+  assert.equal(renderCount,3);
+  const beforeB=viewB.camera.target.slice(),beforeC=viewC.camera.target.slice();
+  linked=true;fitAll();
+  assert.equal(aFit,2);
+  assert.deepStrictEqual(viewB.camera.target,beforeB,'linked mode must preserve the saved independent B camera');
+  assert.deepStrictEqual(viewC.camera.target,beforeC);
+  console.log('Field block 3 Fit All PASS: measured A/B/C bounds, safe numerical camera, linked isolation');
+}
+
+
+// Granada block 3: actual camera fit must honor the target A/B/C/D pane
+// dimensions instead of a global browser aspect ratio.
+{
+  const a=source.indexOf('function fcFitCameraState(state,mesh){');
+  const b=source.indexOf('function fcResyncCameras(){',a);
+  const v=source.indexOf('function fcValidFitMesh(mesh){');
+  const w=source.indexOf('function fcFitViewport(view){',v);
+  assert(a>0&&b>a&&v>0&&w>v);
+  const base={camera:{target:[0,0,0],distance:4}};
+  const B={camera:{target:[0,0,0],distance:8}};
+  const C={id:3,camera:{target:[0,0,0],distance:10}};
+  const canvasB={clientWidth:300,clientHeight:700},canvasC={clientWidth:780,clientHeight:280};
+  const calls=[];
+  const fit=new Function('fvState','fcCloneCamera','fcState','document','fvFitDistance',
+    source.slice(a,b)+'\n'+source.slice(v,w)+';return fcFitCameraState;')(
+    base,x=>x,B,{getElementById:id=>id==='fcCanvas'?canvasB:id==='fcExtra3Canvas'?canvasC:null},
+    (bounds,camera,canvas)=>{calls.push({bounds,canvas});return canvas===canvasB?42:24});
+  const meshB={boundsMin:[-2,-4,-6],boundsMax:[8,10,12]};
+  const meshC={boundsMin:[1,2,3],boundsMax:[30,40,50]};
+  assert.strictEqual(fit(B,meshB),true);
+  assert.strictEqual(fit(C,meshC),true);
+  assert.deepStrictEqual(calls.map(x=>x.canvas),[canvasB,canvasC],
+    'each real 3D panel must use its own viewport width/height');
+  assert.deepStrictEqual(calls.map(x=>x.bounds.center),[[3,3,3],[15.5,21,26.5]]);
+  assert.strictEqual(B.camera.distance,42);
+  assert.strictEqual(C.camera.distance,24);
+  assert.deepStrictEqual(B.camera.target,[3,3,3]);
+  const savedDistance=B.camera.distance,savedTarget=B.camera.target.slice();
+  const invalid=new Function('fvState','fcCloneCamera','fcState','document','fvFitDistance',
+    source.slice(a,b)+'\n'+source.slice(v,w)+';return fcFitCameraState;')(
+    base,x=>x,B,{getElementById:()=>canvasB},()=>NaN);
+  assert.strictEqual(invalid(B,meshB),false,'unsafe projected camera distance must be rejected');
+  assert.strictEqual(B.camera.distance,savedDistance);
+  assert.deepStrictEqual(B.camera.target,savedTarget);
+  console.log('Field block 3 narrow B/C viewport camera Fit PASS: panel aspect, real union center, safe fallback');
+}
