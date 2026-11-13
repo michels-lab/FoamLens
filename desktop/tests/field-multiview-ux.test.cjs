@@ -1015,15 +1015,15 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(fn.value(c,'metal',cc),.74);
   assert.equal(fn.value(d,'mold',cd),.65);
   assert.equal(fn.apply(a,'metal',ca,.35),true);
-  assert.equal(inputs.get('fvOpacity').value,'.35');
+  assert.equal(Number(inputs.get('fvOpacity').value),.35);
   assert.deepStrictEqual(events.at(-1),{id:'fvOpacity',type:'input',bubbles:true});
   assert.equal(fn.apply(b,'metal',cb,.4),true);
-  assert.equal(inputs.get('fcView2Opacity').value,'.4');
-  assert.equal(inputs.get('fvOpacity').value,'.35','B independent opacity must not change A');
+  assert.equal(Number(inputs.get('fcView2Opacity').value),.4);
+  assert.equal(Number(inputs.get('fvOpacity').value),.35,'B independent opacity must not change A');
   assert.equal(fn.apply(c,'metal',cc,.55),true);
-  assert.equal(inputs.get('fcExtra3Opacity').value,'.55');
+  assert.equal(Number(inputs.get('fcExtra3Opacity').value),.55);
   assert.equal(fn.apply(d,'mold',cd,.6),true);
-  assert.equal(inputs.get('fcExtra4Opacity').value,'.6');
+  assert.equal(Number(inputs.get('fcExtra4Opacity').value),.6);
   assert.deepStrictEqual(events.map(e=>e.id),ids,
     'A/B/C/D use four real and separate source visual handlers');
   const secondary={opacity:.48};
@@ -1034,8 +1034,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   linked=true;
   assert.equal(fn.value(c,'metal',cc),.35,'linked C slider must reflect canonical A opacity');
   assert.equal(fn.apply(c,'metal',cc,.7),true);
-  assert.equal(inputs.get('fvOpacity').value,'.7','linked C must update A/global visual alpha');
-  assert.equal(inputs.get('fcExtra3Opacity').value,'.55',
+  assert.equal(Number(inputs.get('fvOpacity').value),.7,'linked C must update A/global visual alpha');
+  assert.equal(Number(inputs.get('fcExtra3Opacity').value),.55,
     'linked change cannot corrupt the independent C setting');
   assert.equal(fn.apply(b,'metal',cb,NaN),false,
     'non-numeric alpha must not trigger the original scientific renderer');
@@ -1047,11 +1047,11 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const holder={querySelectorAll:()=>rows};
   document.activeElement=sliderOverlay;
   fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
-  assert.equal(sliderPrimary.value,'.7','primary slider tracks real linked source');
-  assert.equal(sliderOverlay.value,'.4',
+  assert.equal(Number(sliderPrimary.value),.7,'primary slider tracks real linked source');
+  assert.equal(Number(sliderOverlay.value),.4,
     'active overlay drag stays focused and is not programmatically reset');
   document.activeElement=null;fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
-  assert.equal(sliderOverlay.value,'.25','idle secondary slider reconciles actual alpha');
+  assert.equal(Number(sliderOverlay.value),.25,'idle secondary slider reconciles actual alpha');
   assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette"),
     'volatile alpha cannot invalidate the menu and destroy the active thumb');
   assert(source.includes("fcSyncPhysicalOpacitySliders(holder,ctx,catalog);"),
