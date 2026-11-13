@@ -266,6 +266,6 @@ test('Granada block 1: re-enabling comparison reloads each real extra view after
   assert(compare.includes('Promise.resolve(refresh).then(()=>{'));
   assert(compare.includes('return fcRefreshExtras()'),
     'C/D must be refreshed with their original own selectors after B is enabled');
-  assert(compare.includes('if(seq!==state.seq)return;const sync=data.sync;'),
+  assert(compare.includes('if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;'),
     'each stale asynchronous C/D completion remains sequence-guarded');
 });
