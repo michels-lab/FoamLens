@@ -23,6 +23,7 @@ function view(id,name,hasData=true){
   };
   const canvas={width:1350,height:690,getBoundingClientRect:()=>r(0,0,900,460)};
   const node=rect=>({classList:classes(),getBoundingClientRect:()=>rect,
+    contains:()=>false,
     scrollWidth:Math.round(rect.width),clientWidth:Math.round(rect.width),
     scrollHeight:Math.round(rect.height),clientHeight:Math.round(rect.height)});
   const scene={getBoundingClientRect:()=>r(0,0,900,460),querySelector(s){
