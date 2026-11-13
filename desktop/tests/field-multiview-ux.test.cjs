@@ -641,3 +641,65 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'double-click also uses the same visible-region Fit, not the obsolete primary-only mesh');
   console.log('Field block 3 physical camera Fit PASS: B/C independent, visible union, hidden primary, overflow and linked mode');
 }
+
+
+// Granada block 3: exercise the source camera math and Fit All path, not
+// merely string/markup assertions. A real OpenFOAM bounding union is the
+// only input; invalid spans never mutate a working camera.
+{
+  const cameraStart=source.indexOf('function fcFitCameraState(state,mesh){');
+  const cameraEnd=source.indexOf('function fcResyncCameras(){',cameraStart);
+  const validStart=source.indexOf('function fcValidFitMesh(mesh){');
+  const validEnd=source.indexOf('function fcFitViewport(view){',validStart);
+  assert(cameraStart>=0&&cameraEnd>cameraStart&&validStart>0&&validEnd>validStart);
+  const camera=new Function('fvState','fcCloneCamera',
+    source.slice(cameraStart,cameraEnd)+'\n'+source.slice(validStart,validEnd)+
+    ';return {fcFitCameraState,fcValidFitMesh};')({camera:{distance:3,target:[0,0,0]}},x=>x);
+  const B={camera:{target:[0,0,0],distance:6}},C={camera:{target:[0,0,0],distance:7}};
+  const bBounds={boundsMin:[-2,-4,-6],boundsMax:[8,10,12]};
+  const cBounds={boundsMin:[15,18,21],boundsMax:[25,28,31]};
+  assert.equal(camera.fcValidFitMesh(bBounds),true);
+  assert.equal(camera.fcFitCameraState(B,bBounds),true);
+  assert.deepStrictEqual(B.camera.target,[3,3,3]);
+  assert(B.camera.distance>0&&Number.isFinite(B.camera.distance));
+  assert.equal(camera.fcFitCameraState(C,cBounds),true);
+  assert.deepStrictEqual(C.camera.target,[20,23,26]);
+  assert.deepStrictEqual(B.camera.target,[3,3,3],'fitting C must not shift B');
+  const oldTarget=B.camera.target.slice(),oldDistance=B.camera.distance;
+  assert.equal(camera.fcFitCameraState(B,{boundsMin:[0,0,0],boundsMax:[1.5e308,0,0]}),false,
+    'a finite bounding box with overflowing fit distance must be rejected');
+  assert.deepStrictEqual(B.camera.target,oldTarget);
+  assert.equal(B.camera.distance,oldDistance);
+  const hugeCenter={boundsMin:[1e308,0,0],boundsMax:[1e308,0,0]};
+  assert.equal(camera.fcFitCameraState(B,hugeCenter),true,
+    'a finite large world offset must be centered without min+max overflow');
+  assert.equal(B.camera.target[0],1e308);
+
+  const allStart=source.indexOf('function fcFitAllCameras(){'),allEnd=source.indexOf('function fcGlobalVisual(){',allStart);
+  assert(allStart>0&&allEnd>allStart);
+  const viewB={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{target:[0,0,0],distance:5}};
+  const viewC={id:3,mesh:{boundsMin:[3,3,3],boundsMax:[4,4,4]},camera:{target:[0,0,0],distance:6}};
+  const unionB={boundsMin:[-3,-5,-7],boundsMax:[8,10,12]};
+  const unionC={boundsMin:[1,2,3],boundsMax:[30,40,50]};
+  let linked=false,aFit=0,renderCount=0;
+  const fitAll=new Function('fvCameraFitCurrent','fcCamerasLinked','fcFitMeshForView',
+    'fcValidFitMesh','fcFitCameraState','fcState','fcExtraViews',
+    'fcRender','fcRenderDifference','fcRenderExtras',
+    source.slice(allStart,allEnd)+';return fcFitAllCameras;')(
+    ()=>aFit++,()=>linked,(view,state)=>state===viewB?unionB:state===viewC?unionC:null,
+    camera.fcValidFitMesh,camera.fcFitCameraState,viewB,[viewC],
+    ()=>renderCount++,()=>renderCount++,()=>renderCount++);
+  fitAll();
+  assert.deepStrictEqual(viewB.camera.target,[2.5,2.5,2.5],
+    'Fit All must use B metal+mold union rather than only the primary mesh');
+  assert.deepStrictEqual(viewC.camera.target,[15.5,21,26.5],
+    'Fit All must use C own visible-region bounds');
+  assert.equal(aFit,1,'A delegates to its original multiregion Fit');
+  assert.equal(renderCount,3);
+  const beforeB=viewB.camera.target.slice(),beforeC=viewC.camera.target.slice();
+  linked=true;fitAll();
+  assert.equal(aFit,2);
+  assert.deepStrictEqual(viewB.camera.target,beforeB,'linked mode must preserve the saved independent B camera');
+  assert.deepStrictEqual(viewC.camera.target,beforeC);
+  console.log('Field block 3 Fit All PASS: measured A/B/C bounds, safe numerical camera, linked isolation');
+}
