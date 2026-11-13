@@ -1082,6 +1082,10 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'B/C/D source-backed XYZ readout must move below the canvas');
   assert(mount.includes("dims.setAttribute('aria-live','polite')"),
     'live source metric readout must remain accessible');
+  assert(mount.includes("if(scaleDock&&caption)caption.appendChild(scaleDock)"),
+    'primary A source and all its measured metal/mold scales must live below the canvas');
+  assert(mount.includes("if(primaryLegend)caption.appendChild(primaryLegend)"),
+    'B/C/D original primary measured color legend must live below the canvas');
   assert(mount.includes("caption.appendChild(legends)"),
     'secondary physical legends must remain below the mesh with their own source context');
   assert(!mount.includes("scene.append(svg,dims)"),
@@ -1091,6 +1095,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     '#fcViewGrid .fcViewportCaption .fvMeshDimensions,',
     '#fcViewGrid .fcViewportCaption .fcMetricBounds{position:static!important',
     '#fcViewGrid .fcViewportCaption [hidden]{display:none!important}',
+    '#fcViewGrid .fcViewportCaption .fvRegionScaleDock{position:static!important',
+    '#fcViewGrid .fcViewportCaption .fcLegend{position:static!important',
     '#fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0'
   ])assert(source.includes(css),'original narrow-pane Field caption CSS missing: '+css);
   assert(source.includes("const svg=viewport.querySelector('.fcMetricAxes'),readout=viewport.querySelector('.fcMetricBounds');"),
