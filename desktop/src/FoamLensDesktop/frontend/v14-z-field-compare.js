@@ -254,7 +254,9 @@ function fcZoomViewport(view,factor){
 // Fit only measured / source-backed geometry that is VISIBLE in this pane.
 // B/C/D may show multiple physical meshes without creating extra viewports.
 function fcFitMeshForView(view,state,mesh){
-  if(view==='A'||!state)return mesh;
+  // Legacy/simple 3D views have no physical overlay scene yet. In that case
+  // preserve the original primary-mesh camera fit (no synthetic regions).
+  if(view==='A'||!state||!state._fcPhysical)return mesh;
   if(typeof fcPhysicalBoundsFor!=='function')return mesh;
   const bounds=fcPhysicalBoundsFor(state);
   // If the primary region is hidden and no overlays are visible, there is
