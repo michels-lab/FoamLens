@@ -271,6 +271,7 @@ function fcSetViewportCamera(view,name){
     // The A camera is the single canonical angle in linked mode.
     // fvCameraPreset also updates the original Ribbon/camera shelf buttons.
     fvCameraPreset(name);
+    if(typeof document!=='undefined')fcScheduleCameraPresetSync();
     return true
   }
   const previous=state.camera?fcCloneCamera(state.camera):null;
@@ -281,6 +282,7 @@ function fcSetViewportCamera(view,name){
     state.camera=previous;return false
   }
   if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
+  if(typeof document!=='undefined')fcScheduleCameraPresetSync();
   return true
 }
 function fcCameraPresetMenu(letter){
@@ -295,8 +297,67 @@ function fcCameraPresetMenu(letter){
     '<div class="fcViewportCameraChoices" role="group" aria-label="'+title+' '+fcEsc(letter)+'">'+
     items.map(([key,en,es])=>
       '<button type="button" data-fc-camera-preset="'+key+'" data-fl-en="'+en+'" data-fl-es="'+es+'" '+
-      'aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
+      'aria-pressed="false" aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
       'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+'</div></details>'
+}
+// A viewport's camera may be rotated by mouse, not just preset clicks.
+// Compare actual yaw/pitch with circular yaw distance: e.g. PI and -PI
+// represent the same angle. Do not report a preset for a custom orbit.
+function fcCameraPresetFor(camera){
+  if(!camera||!Number.isFinite(camera.yaw)||!Number.isFinite(camera.pitch))return null;
+  const diff=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
+  for(const name of ['iso','front','back','left','right','top','bottom']){
+    const [yaw,pitch]=fcViewCameraAngles(name);
+    if(diff(camera.yaw,yaw)<=.012&&Math.abs(camera.pitch-pitch)<=.012)return name
+  }
+  return 'custom'
+}
+function fcViewCameraState(view){
+  const isA=view==='A';
+  const state=isA?null:view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!isA&&(!state||!fcState.enabled||!state.mesh))return null;
+  if(isA&&!fvState.mesh)return null;
+  return isA||fcCamerasLinked()?fvState.camera:state.camera
+}
+function fcCameraPresetLabel(name){
+  const names={
+    iso:['Isometric','Isométrica'],front:['Front','Frente'],
+    back:['Back','Atrás'],left:['Left','Izquierda'],right:['Right','Derecha'],
+    top:['Top','Superior'],bottom:['Bottom','Inferior'],
+    custom:['Custom','Personalizada']
+  };
+  const labels=names[name];return labels?fcUi(labels[0],labels[1]):''
+}
+function fcSyncCameraPresetButtons(){
+  if(typeof document==='undefined')return;
+  const grid=document.getElementById('fcViewGrid');if(!grid)return;
+  for(const bar of grid.querySelectorAll('[data-fc-toolbar]')){
+    const view=bar.dataset.fcToolbar;
+    if(view==='Δ')continue;
+    const menu=bar.querySelector('.fcViewportCameraPresets');
+    if(!menu)continue;
+    const active=fcCameraPresetFor(fcViewCameraState(view));
+    const title=fcUi('Camera views','Vistas de cámara');
+    const label=fcCameraPresetLabel(active);
+    const summary=menu.querySelector('summary');
+    const summaryText=label?title+' · '+label:title;
+    if(summary&&summary.textContent!==summaryText)summary.textContent=summaryText;
+    if(menu.dataset.fcCameraActive!==String(active)){
+      menu.dataset.fcCameraActive=String(active);
+      for(const button of menu.querySelectorAll('[data-fc-camera-preset]')){
+        const selected=button.dataset.fcCameraPreset===active;
+        button.classList.toggle('active',selected);
+        button.setAttribute('aria-pressed',selected?'true':'false')
+      }
+    }
+  }
+}
+let fcPresetSyncFrame=0;
+function fcScheduleCameraPresetSync(){
+  if(fcPresetSyncFrame||typeof requestAnimationFrame!=='function')return;
+  fcPresetSyncFrame=requestAnimationFrame(()=>{
+    fcPresetSyncFrame=0;fcSyncCameraPresetButtons()
+  })
 }
 function fcRefreshCameraPresetLabels(){
   const grid=document.getElementById('fcViewGrid');if(!grid)return;
@@ -314,6 +375,7 @@ function fcRefreshCameraPresetLabels(){
     menu.querySelector('[role="group"]')?.setAttribute('aria-label',
       fcUi('Camera views','Vistas de cámara')+' '+letter);
   }
+  fcSyncCameraPresetButtons();
 }
 function fcZoomViewport(view,factor){
   const state=view==='A'?null:view==='B'?fcState:fcExtraViews.find(x=>x.id===Number(view));
@@ -439,11 +501,38 @@ function fcAddViewportToolbar(viewport,view){
   }));
   for(const [name,factor] of [['in',.8],['out',1.25]])bar.querySelector('[data-fc-zoom="'+name+'"]').addEventListener('click',()=>fcZoomViewport(mapping?view:'B',factor));
   bar.querySelector('[data-fc-fit]')?.addEventListener('click',()=>fcFitViewport(mapping?view:'B'));
-  if(mapping)bar.querySelectorAll('[data-fc-camera-preset]').forEach(button=>
-    button.addEventListener('click',()=>{
-      if(fcSetViewportCamera(view,button.dataset.fcCameraPreset))
-        button.closest('details').open=false
-    }));
+  if(mapping){
+    const cameraMenu=bar.querySelector('.fcViewportCameraPresets');
+    cameraMenu?.querySelectorAll('[data-fc-camera-preset]').forEach(button=>
+      button.addEventListener('click',()=>{
+        if(!fcSetViewportCamera(view,button.dataset.fcCameraPreset))return;
+        // Do not strand keyboard focus on a button inside a closed details.
+        const details=button.closest('details');if(details){
+          details.open=false;details.querySelector('summary')?.focus()
+        }
+      }));
+    cameraMenu?.addEventListener('keydown',event=>{
+      const buttons=[...cameraMenu.querySelectorAll('[data-fc-camera-preset]')];
+      const index=buttons.indexOf(document.activeElement);
+      if(event.key==='Escape'&&cameraMenu.open){
+        event.preventDefault();cameraMenu.open=false;
+        cameraMenu.querySelector('summary')?.focus();return
+      }
+      if(index<0||!['ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
+        (index+(['ArrowRight','ArrowDown'].includes(event.key)?1:-1)+buttons.length)%buttons.length;
+      buttons[next]?.focus()
+    });
+    const canvas=viewport.querySelector('canvas');
+    // Camera motion on original A or compare canvases changes active preset.
+    canvas?.addEventListener('pointermove',event=>{
+      if(event.buttons)fcScheduleCameraPresetSync()
+    });
+    canvas?.addEventListener('wheel',fcScheduleCameraPresetSync,{passive:true});
+    canvas?.addEventListener('dblclick',fcScheduleCameraPresetSync);
+    fcScheduleCameraPresetSync()
+  }
   const handle=bar.querySelector('.fcMoveHandle');
   handle.addEventListener('dragstart',e=>{fcDraggedView=viewport;viewport.classList.add('fcDraggingView');e.dataTransfer?.setData('text/plain',viewport.id);if(e.dataTransfer)e.dataTransfer.effectAllowed='move'});
   handle.addEventListener('dragend',()=>{viewport.classList.remove('fcDraggingView');fcDraggedView=null});
@@ -1198,6 +1287,7 @@ function fcInstallUi(){
     .fcViewportCameraChoices{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;padding:7px 0}
     .fcViewportCameraChoices button{cursor:pointer;min-height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);font-size:10px;padding:5px 7px}
     .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
+    .fcViewportCameraChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
     .fcViewportCameraPresets[open]{flex:1 0 100%}
     .fcPhysicalMenu{container-name:fc-region-dock;container-type:inline-size}
     .fcPhysicalRegionRow{min-width:0;grid-template-columns:minmax(90px,1.1fr) minmax(105px,1.5fr) minmax(85px,1fr) minmax(105px,1fr) minmax(100px,1fr)}
@@ -1229,7 +1319,7 @@ function fcInstallUi(){
   document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcComponent').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcSync').addEventListener('change',()=>fcRefreshFrame());document.getElementById('fcDifferenceMode').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcPercentEpsilon').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcSwapCases').addEventListener('click',()=>fcSwapPrimaryCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));document.getElementById('fcCopyAToB').addEventListener('click',()=>fcCopyPrimarySettingsToCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));
-  document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
+  document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras();fcScheduleCameraPresetSync()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>fcRender()).observe(second);new ResizeObserver(()=>fcRenderDifference()).observe(diff);}
   fcRefreshSelectors(false);fcUpdateLayout();fcScheduleToolbarSync();return true
 }
@@ -1239,6 +1329,10 @@ function fcInstall(){
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true;fvRender.__fcBase=previous}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));
   for(const id of ['fvPalette','fvSurface','fvEdges','fvOpacity','fvRangeMode','fvRangeMin','fvRangeMax','fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id)?.addEventListener(id==='fvSlicePosition'||id==='fvIsoValue'||id==='fvOpacity'||id==='fvSliceOpacity'||id==='fvIsoOpacity'||id==='fvVectorScale'||id==='fvSeedPosition'?'input':'change',()=>setTimeout(fcRefreshVisuals,0));
+  document.addEventListener('click',event=>{
+    if(event.target?.closest?.('[data-fv-view], [id^="flRaCamera"], [id^="flRaQuick"], #fvResetCamera'))
+      fcScheduleCameraPresetSync()
+  });
   document.addEventListener('foamlens-language-change',()=>{const p=document.getElementById('fcPanel');if(p)try{flApplyBilingualText(p)}catch{};fcRefreshSelectors(true);fcUpdateLabels();fcRefreshCameraPresetLabels();fcScheduleToolbarSync()});
 }
 fcInstall();
