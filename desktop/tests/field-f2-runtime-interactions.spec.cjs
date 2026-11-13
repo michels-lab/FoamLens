@@ -11,10 +11,15 @@ function view(id,name,hasData=true){
   const panel={id,classList:classes(hasData?[]:['hidden']),dataset:{},style:{
      rules:{},setProperty(key,value){this.rules[key]=value},removeProperty(key){delete this.rules[key]}
    },buttons:{},getBoundingClientRect:()=>r(0,0,900,460)};
-  const overlays={
-    '.fcTimeBadge':{rect:r(12,12,92,25)},
-    '.fvMeshDimensions':{rect:r(12,50,180,64)},
-    '.fcLegend':{rect:r(685,270,170,120)}
+  // Metrics/legends moved out of the mesh scene and into each real caption.
+  // The time badge remains an actual canvas overlay, not a caption item.
+  const overlays={'.fcTimeBadge':{rect:r(12,12,92,25)}};
+  const annotations=id==='fvViewport'?{
+    '.fvMeshDimensions':{rect:r(12,474,700,42)},
+    '.fvRegionScaleDock':{rect:r(12,528,320,105)}
+  }:{
+    '.fcMetricBounds':{rect:r(12,474,700,42)},
+    '.fcLegend':{rect:r(12,528,320,105)}
   };
   const canvas={width:1350,height:690,getBoundingClientRect:()=>r(0,0,900,460)};
   const node=rect=>({classList:classes(),getBoundingClientRect:()=>rect,
@@ -25,8 +30,13 @@ function view(id,name,hasData=true){
     if(s==='.fvRegionScaleDock')return null;
     return overlays[s]?node(overlays[s].rect):null
   }};
-  panel.querySelector=s=>s==='.fcViewportScene'?scene:s==='[data-pv-control="focus"]'?panel.buttons.focus:null;
-  return{panel,scene,overlays,canvas}
+  const caption={getBoundingClientRect:()=>r(0,460,900,195),querySelector(s){
+    return annotations[s]?node(annotations[s].rect):null
+  }};
+  panel.querySelector=s=>s==='.fcViewportScene'?scene:
+    s==='.fcViewportCaption'?caption:
+    s==='[data-pv-control="focus"]'?panel.buttons.focus:null;
+  return{panel,scene,caption,overlays,annotations,canvas}
 }
 const a=view('fvViewport','A'),b=view('fcViewport','B'),c=view('fcExtra3Viewport','C',false);
 for(const v of [a,b,c])v.panel.buttons.focus={
@@ -132,10 +142,15 @@ assert.equal(exp.disabled,false);
 assert(!JSON.stringify(report).includes('QuickCup'));
 assert(!JSON.stringify(report).includes('D:\\private\\experiment'));
 assert(status.textContent.includes('2 measured viewport'));
-const old=b.overlays['.fvMeshDimensions'];b.overlays['.fvMeshDimensions']={rect:r(12,15,180,64)};
+// A long B physical metric readout can now overflow its caption, but must
+// never be misreported as covering the original mesh or Time badge.
+const old=b.annotations['.fcMetricBounds'];
+b.annotations['.fcMetricBounds']={rect:r(12,474,1100,64)};
 const changed=api.measure();
 assert.equal(changed.views[1].state,'layout-conflict');
-assert(changed.views[1].issues.some(x=>x.type==='overlapping-overlays'));
+assert(changed.views[1].issues.some(x=>x.type==='caption-annotation-clipped'));
+assert(!changed.views[1].issues.some(x=>x.type==='overlapping-overlays'));
+b.annotations['.fcMetricBounds']=old;
 assert.equal(api.focus(b.panel),true,'Focus B to verify restore state');
 api.resetFocus();assert(!grid.classList.contains('pvFocus'));
 assert.equal(b.panel.buttons.focus.attributes['aria-pressed'],'false',
