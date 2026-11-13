@@ -822,3 +822,79 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   ])assert(source.includes(fragment),'missing original per-pane camera action or responsive UI: '+fragment);
   console.log('Granada Field A-D camera buttons PASS: seven directions, unlinked isolation, linked original A, Spanish labels, no-data guard');
 }
+
+// Granada block 3: preset indicators follow real yaw/pitch per viewport.
+// A user rotating B must not leave a false "Front" button selected in B,
+// or change the original A and independently selected C/D.
+{
+  const start=source.indexOf('function fcViewCameraAngles(name){');
+  const end=source.indexOf('function fcZoomViewport(view,factor){',start);
+  assert(start>=0&&end>start,'original camera presets and state display must exist');
+  const names=['iso','front','back','left','right','top','bottom'];
+  const flags=()=>({selected:false,toggle(_,yes){this.selected=!!yes}});
+  function bar(view){
+    const buttons=names.map(name=>({
+      dataset:{fcCameraPreset:name,flEn:name.toUpperCase(),flEs:name.toLowerCase()},
+      classList:flags(),attributes:{},setAttribute(key,value){this.attributes[key]=value},
+      textContent:'',title:''
+    }));
+    const summary={textContent:''},group={attributes:{},setAttribute(k,v){this.attributes[k]=v}};
+    const menu={dataset:{},querySelector(key){return key==='summary'?summary:key==='[role="group"]'?group:null},
+      querySelectorAll(key){return key==='[data-fc-camera-preset]'?buttons:[]}};
+    return{dataset:{fcToolbar:view},summary,buttons,group,menu,
+      querySelector:key=>key==='.fcViewportCameraPresets'?menu:null}
+  }
+  const bars=['A','B','3','4'].map(bar);
+  let language='en',linked=false;
+  const A={mesh:{},camera:{yaw:0,pitch:0}},B={enabled:true,mesh:{},camera:{yaw:Math.PI,pitch:0}};
+  const C={id:3,mesh:{},camera:{yaw:Math.PI/2,pitch:0}},D={id:4,mesh:{},camera:{yaw:0,pitch:-Math.PI/2+1e-4}};
+  const root={querySelectorAll:selector=>selector==='[data-fc-toolbar]'?bars:[]};
+  const document={getElementById:key=>key==='fcViewGrid'?root:null};
+  const factory=new Function('fvState','fcState','fcExtraViews','fcCamerasLinked','fcUi','document',
+    source.slice(start,end)+';return {fcViewCameraAngles,fcCameraPresetFor,fcViewCameraState,fcCameraPresetLabel,fcSyncCameraPresetButtons,fcRefreshCameraPresetLabels};');
+  const api=factory(A,B,[C,D],()=>linked,(en,es)=>language==='es'?es:en,document);
+  assert.equal(api.fcCameraPresetFor(null),null);
+  assert.equal(api.fcCameraPresetFor({yaw:NaN,pitch:0}),null);
+  assert.equal(api.fcCameraPresetFor({yaw:-Math.PI,pitch:0}),'back',
+    'wrapped yaw is the same physical Back direction');
+  assert.equal(api.fcCameraPresetFor({yaw:.3,pitch:.4}),'custom',
+    'arbitrary pointer orbit must not claim a preset');
+  for(const name of names){
+    const angles=api.fcViewCameraAngles(name);
+    assert.equal(api.fcCameraPresetFor({yaw:angles[0],pitch:angles[1]}),name,
+      'physical preset must match '+name);
+  }
+  api.fcSyncCameraPresetButtons();
+  assert.deepStrictEqual(bars.map(b=>b.buttons.find(x=>x.classList.selected)?.dataset.fcCameraPreset),
+    ['front','back','right','bottom']);
+  assert.equal(bars[1].buttons.find(x=>x.dataset.fcCameraPreset==='back').attributes['aria-pressed'],'true');
+  assert(bars[1].summary.textContent.includes('Back'));
+  const preservedA=bars[0].summary.textContent,preservedC=bars[2].summary.textContent;
+  B.camera.yaw=.39;
+  api.fcSyncCameraPresetButtons();
+  assert(bars[1].summary.textContent.includes('Custom'),'B must report an actual custom orbit');
+  assert.equal(bars[1].buttons.filter(x=>x.classList.selected).length,0);
+  assert.equal(bars[0].summary.textContent,preservedA,'B orbit cannot change A status');
+  assert.equal(bars[2].summary.textContent,preservedC,'B orbit cannot change C status');
+  linked=true;api.fcSyncCameraPresetButtons();
+  assert(bars.every(b=>b.buttons.find(x=>x.classList.selected)?.dataset.fcCameraPreset==='front'),
+    'linked B/C/D must show the authoritative A orientation');
+  linked=false;B.enabled=false;api.fcSyncCameraPresetButtons();
+  assert.equal(bars[1].summary.textContent,'Camera views','unloaded/hidden B cannot report a real camera');
+  assert.equal(bars[1].buttons.filter(x=>x.classList.selected).length,0);
+  B.enabled=true;language='es';api.fcRefreshCameraPresetLabels();
+  assert.equal(bars[1].summary.textContent,'Vistas de cámara · Personalizada');
+  assert.equal(bars[2].summary.textContent,'Vistas de cámara · Derecha');
+  assert.equal(bars[0].buttons[0].attributes['aria-label'],'Vista A · iso');
+  for(const fragment of [
+    'const details=button.closest(\'details\');if(details){',
+    "details.querySelector('summary')?.focus()",
+    "event.key==='Escape'&&cameraMenu.open",
+    "'ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'",
+    "canvas?.addEventListener('pointermove',event=>",
+    "canvas?.addEventListener('wheel',fcScheduleCameraPresetSync",
+    "fcScheduleCameraPresetSync()});",
+    '.fcViewportCameraChoices button[aria-pressed="true"]'
+  ])assert(source.includes(fragment),'Camera state accessibility wiring missing: '+fragment);
+  console.log('Granada Field A-D preset states PASS: real yaw/pitch, custom orbit, linked state, EN/ES and keyboard focus');
+}
