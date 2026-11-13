@@ -233,3 +233,39 @@ test('Granada block 1: manual disable and failed Add view cannot silently re-req
  assert(workspace.includes("document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length"),
    'visible count must track the actual compare toggle, not stale renderer state');
 });
+
+test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loads',()=>{
+  const state={seq:14,enabled:true,renderer:{surfaceCount:2},differenceRenderer:null};
+  const extra=[{id:3,seq:4},{id:4,seq:9}];
+  const toggle={checked:false};
+  const cancelled=[];
+  const clear=isolate(compare,'function fcClearRenderer(){','function fcSetStatus(',[
+    'fcState','fcExtraViews','document','fcExtraInvalidateFrame','fcUi',
+    'fcPhysicalRelease','fcRender','fcUpdateStatsGrid'
+  ],[
+    state,extra,{getElementById:id=>id==='fcEnabled'?toggle:null},
+    (view,message)=>{view.seq++;cancelled.push({id:view.id,message})},
+    en=>en,()=>{},()=>{},()=>{}
+  ]);
+  clear();
+  assert.equal(state.seq,15,'old pending B request must become stale');
+  assert.equal(state.mesh,null,'old B geometry must not remain');
+  assert.equal(state.renderer.surfaceCount,0,'B renderer must no longer expose triangles');
+  assert.deepEqual(cancelled.map(x=>x.id),[3,4],'C and D pending requests are invalidated');
+  assert.deepEqual(extra.map(x=>x.seq),[5,10]);
+  assert(cancelled.every(x=>x.message==='Comparison disabled.'));
+
+  toggle.checked=true;
+  clear();
+  assert.equal(state.seq,16,'an invalid B frame also invalidates its own stale request');
+  assert.equal(cancelled.length,2,'clearing an enabled B must not alter independent C/D');
+});
+
+test('Granada block 1: re-enabling comparison reloads each real extra view after B',()=>{
+  assert(compare.includes('const refresh=fcRefreshFrame()'));
+  assert(compare.includes('Promise.resolve(refresh).then(()=>{'));
+  assert(compare.includes('return fcRefreshExtras()'),
+    'C/D must be refreshed with their original own selectors after B is enabled');
+  assert(compare.includes('if(seq!==state.seq)return;const sync=data.sync;'),
+    'each stale asynchronous C/D completion remains sequence-guarded');
+});
