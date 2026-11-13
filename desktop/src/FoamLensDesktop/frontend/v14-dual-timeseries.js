@@ -18,10 +18,28 @@ function tsdMatchesVariable(canonical,primary,secondary){
   canonical=String(canonical||'');const selected=tsdVariableSet(primary,secondary);
   return !selected.length||selected.includes(canonical)
 }
+// Two series may share a numeric axis only if BOTH carry trustworthy,
+// complete source dimensions and declared units. An empty or guessed unit is
+// not evidence that values from separate cases/regions are comparable.
+function tsdAxisMetadataVerified(field){
+  const f=field||{},unit=String(f.unit??'').trim(),quantity=String(f.quantity||f.canonical||f.name||'').trim();
+  const dimensions=String(f.dimensions??'').trim().replace(/\s+/g,' ');
+  const match=/^\[\s*([^\]]+?)\s*\]$/.exec(dimensions);
+  if(!match||!unit||unit==='?'||unit.toLowerCase()==='unknown'||!quantity||
+     quantity.toLowerCase()==='unknown'||quantity==='?'||/^\d+(?:\.\d+)?$/.test(quantity))return false;
+  const powers=match[1].trim().split(/\s+/).map(Number);
+  if(powers.length!==7||powers.some(p=>!Number.isFinite(p)))return false;
+  // '-' is a legitimate label for dimensionless values only, not a
+  // verified temperature/pressure/velocity unit.
+  if(unit==='-'&&powers.some(p=>p!==0))return false;
+  return true
+}
 function tsdAxisPlan(primaryField,secondaryField){
   if(!primaryField)return{primary:'left',secondary:'left',separate:false};
   if(!secondaryField)return{primary:'left',secondary:'left',separate:false};
-  const separate=tsdFieldAxisKey(primaryField)!==tsdFieldAxisKey(secondaryField);
+  const separate=!tsdAxisMetadataVerified(primaryField)||
+    !tsdAxisMetadataVerified(secondaryField)||
+    tsdFieldAxisKey(primaryField)!==tsdFieldAxisKey(secondaryField);
   return{primary:'left',secondary:separate?'right':'left',separate}
 }
 

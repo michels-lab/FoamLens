@@ -1,3 +1,9 @@
+## Unreleased — Time Series T1: scientifically verified axes for two source histories (#146)
+
+- Compare two independent cases or regions on one numeric Y axis only when both original field identities, unit labels and seven OpenFOAM dimension exponents are present and compatible. Previously two missing units and dimensions could accidentally yield the same empty comparison key, implying equality without physical evidence.
+- Keep verified compatible K/K source histories and verified dimensionless phase fractions on the same scale. Separate K/Celsius (no implicit conversion), empty or unknown units, malformed dimension arrays, missing field identity and unit '-' on dimensional physical fields onto independent Y axes. Never infer physical measurements.
+- Extend the original dual-timeseries regression across distinct case histories, known velocity fields, incomplete postProcessing metadata and dimensionless alpha values. Windows installed Time Series UX and scientific case acceptance remain separate; this is source code, not a published release.
+
 ## Desktop v1.8.13 — 2026-11-12 · Field F2 and Time Series T1 source fixes
 
 - Isolate source metadata discovery errors by imported case and physical region. An unavailable mold inventory no longer silently hides valid metal fields or other imported cases, and only genuine indexed scalar/vector fields with listed physical times count as available.

@@ -14,7 +14,7 @@ const end='/* FOAMLENS_DUAL_TIMESERIES_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Dual Time-Series core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan};')();
+const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisMetadataVerified,tsdAxisPlan};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -57,6 +57,42 @@ test('different semantics stay separate even if both are dimensionless',()=>{
   const a={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
   const flow={canonical:'flowType',quantity:'flow_type',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
   assert.equal(api.tsdAxisPlan(a,flow).separate,true);
+});
+
+test('two different imported cases share Y only with verified identical source metadata',()=>{
+  const a={canonical:'T_case1',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const b={canonical:'T_case2',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  assert.equal(api.tsdAxisMetadataVerified(a),true);
+  assert.deepEqual(api.tsdAxisPlan(a,b),{primary:'left',secondary:'left',separate:false});
+  assert.deepEqual(api.tsdAxisPlan(a,{...b,unit:'°C'}),{primary:'left',secondary:'right',separate:true},
+    'Kelvin and Celsius may not share unconverted numeric coordinates');
+});
+
+test('missing dimensions or units cannot silently merge two source histories on Y',()=>{
+  const original={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  for(const invalid of [
+    {...original,unit:''},
+    {...original,unit:'?'},
+    {...original,unit:'-'},
+    {...original,dimensions:''},
+    {...original,dimensions:'[0 0 0 1 0 0]'},
+    {...original,dimensions:'[0 0 0 bogus 0 0 0]'},
+    {...original,quantity:'unknown',canonical:'0'}
+  ]){
+    assert.equal(api.tsdAxisMetadataVerified(invalid),false,
+      'partial or unidentified source must not be treated as verified');
+    assert.deepEqual(api.tsdAxisPlan(original,invalid),{primary:'left',secondary:'right',separate:true});
+    assert.deepEqual(api.tsdAxisPlan(invalid,invalid),{primary:'left',secondary:'right',separate:true},
+      'two identical unknown metadata labels do not certify compatible physical values');
+  }
+});
+
+test('verified dimensionless phase fractions may share a scale, unlike unknown source columns',()=>{
+  const a={canonical:'alpha1',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const b={canonical:'alpha2',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  assert.equal(api.tsdAxisMetadataVerified(a),true);
+  assert.deepEqual(api.tsdAxisPlan(a,b),{primary:'left',secondary:'left',separate:false});
+  assert.equal(api.tsdAxisMetadataVerified({...b,quantity:'unknown',canonical:'0'}),false);
 });
 
 test('Data Time Series filter feedback identifies selected case and empty selections',()=>{
