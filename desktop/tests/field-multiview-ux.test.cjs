@@ -107,12 +107,12 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   let locale='en';
   const menu=new Function('fcPhysicalViewContext','fvRegionNames','fcPhysicalChoiceList',
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
-    'fcReconcilePhysicalChoice','document','fcUi','fcEsc',
+    'fcReconcilePhysicalChoice','document','fcVisualsSynced','fcUi','fcEsc',
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
     'fvRender','fcRender','fcExtraRender','fvRegionPalette',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
-    physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},
+    physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},()=>true,
     (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis');
 
   menu('3');
