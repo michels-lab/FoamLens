@@ -93,6 +93,33 @@ function pvSyncFocusButtons(){
     // A watched subtree must not self-trigger an endless MutationObserver loop.
     if(btn.textContent!==label)btn.textContent=label;
   }
+  pvSyncSizeButtons();
+}
+// Compact height commands do not duplicate source-native resize handlers:
+ // each view retains its own height state and the original drag grip.
+function pvSyncSizeButtons(){
+  const grid=pvEl('fcViewGrid');if(!grid)return;
+  for(const view of grid.children){
+    const menu=view.querySelector?.('.pvSizeMenu');
+    if(!menu||!pvViews[view.id])continue;
+    const prefix=pvFocusLabel('View','Vista')+' '+pvViews[view.id]+' · ';
+    const summary=menu.querySelector('summary');
+    const title=pvFocusLabel('Size','Tamaño');
+    if(summary){
+      if(summary.textContent!==title)summary.textContent=title;
+      summary.setAttribute('aria-label',prefix+pvFocusLabel('Panel height','Altura del panel'))
+    }
+    for(const [action,en,es] of [
+      ['less','− Height','− Altura'],['more','+ Height','+ Altura'],
+      ['reset','Reset','Restablecer']]){
+      const button=menu.querySelector('[data-pv-control="'+action+'"]');
+      if(!button)continue;
+      const label=pvFocusLabel(en,es);
+      if(button.textContent!==label)button.textContent=label;
+      button.title=prefix+label;
+      button.setAttribute('aria-label',prefix+label)
+    }
+  }
 }
 function pvReconcileFocus(){
   if(!pvFocus)return false;
@@ -230,6 +257,10 @@ function pvMountViewport(viewport){
   viewport.dataset.pvReady='yes';viewport.classList.add('pvViewport');
   if(pvHeights[viewport.id]!=null)pvSetHeight(viewport,pvHeights[viewport.id],false);
   const div=document.createElement('div');div.className='pvActions';
+  const size=document.createElement('details');size.className='pvSizeMenu';
+  const summary=document.createElement('summary');
+  summary.textContent=pvFocusLabel('Size','Tamaño');
+  const sizeButtons=document.createElement('div');sizeButtons.className='pvSizeControls';
   for(const [action,label] of [['less','− Height'],['more','+ Height'],['focus','Maximize'],['reset','Reset']]){
     const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.pvControl=action;
     b.title='View '+pvViews[viewport.id]+' · '+label;
@@ -240,8 +271,16 @@ function pvMountViewport(viewport){
       if(action==='reset'){delete pvHeights[viewport.id];pvSave();
         viewport.style.removeProperty('--pvHeight');pvRedraw();return}
       pvSetHeight(viewport,scene.getBoundingClientRect().height+(action==='more'?80:-80))
-    };div.append(b)
+    };
+    if(action==='focus')div.append(b);else sizeButtons.append(b)
   }
+  size.append(summary,sizeButtons);
+  size.addEventListener('keydown',event=>{
+    if(event.key!=='Escape'||!size.open)return;
+    event.preventDefault();event.stopPropagation?.();
+    size.open=false;summary.focus()
+  });
+  div.append(size);
   toolbar.appendChild(div);
   pvSyncFocusButtons();
   const grip=document.createElement('div');grip.className='pvGrip';grip.tabIndex=0;
@@ -260,6 +299,11 @@ function pvStyles(){
     '#fcViewGrid.pvFocus>.pvViewport:not(.pvFocusTarget){display:none!important}',
     '#fcViewGrid.pvFocus>.pvFocusTarget{grid-column:1/-1!important}',
     '#fcViewGrid .pvActions{display:flex;flex-wrap:wrap;gap:4px;align-items:center}',
+    '#fcViewGrid .pvSizeMenu{min-width:0;max-width:100%}',
+    '#fcViewGrid .pvSizeMenu>summary{cursor:pointer;box-sizing:border-box;display:flex;align-items:center;min-height:30px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--panel);font-size:10px;font-weight:750;white-space:nowrap}',
+    '#fcViewGrid .pvSizeMenu>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
+    '#fcViewGrid .pvSizeMenu[open]{flex:1 0 100%}',
+    '#fcViewGrid .pvSizeControls{display:flex;flex-wrap:wrap;gap:4px;padding:6px 0}',
     '#fcViewGrid .pvActions button{padding:6px 7px;min-height:30px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:10px}',
     '#fcViewGrid .pvActions button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}',
     '#fcViewGrid .pvGrip{height:10px;flex:0 0 10px;cursor:ns-resize;touch-action:none;border-top:1px solid var(--line);background:var(--panel2);position:relative}',

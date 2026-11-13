@@ -94,3 +94,64 @@ assert(!moduleSrc.includes('cases.push(')&&!moduleSrc.includes('series.push('),'
 assert(!moduleSrc.includes('fcState.camera=')&&!moduleSrc.includes('fvState.camera='),
  'The camera must remain owned by existing Field controls');
 console.log('Granada #149 PASS: independent A–D heights/focus, 1024/1280/1920 CSS/DPR math, overlap/clipping, existing renderers and native packaging contracts.');
+
+
+// Granada Field compact height menu: original Maximize + physical resize grip
+// remain immediately accessible, while per-view +/-/Reset move to their own
+// native <details> group. Exercise the real bilingual labeling function.
+{
+  const begin=moduleSrc.indexOf('function pvSyncSizeButtons(){');
+  const end=moduleSrc.indexOf('function pvReconcileFocus(){',begin);
+  assert(begin>0&&end>begin,'original size control synchronization required');
+  const buttons=action=>({
+    dataset:{pvControl:action},textContent:'',title:'',attributes:{},
+    setAttribute(k,v){this.attributes[k]=v}
+  });
+  function view(id){
+    const summary={textContent:'',attributes:{},setAttribute(k,v){this.attributes[k]=v}};
+    const menuButtons=new Map(['less','more','reset'].map(name=>[name,buttons(name)]));
+    const menu={querySelector:key=>key==='summary'?summary:
+      menuButtons.get(key.match?.(/data-pv-control="([^"]+)"/)?.[1])||null};
+    return{id,summary,menuButtons,querySelector:key=>key==='.pvSizeMenu'?menu:null}
+  }
+  const children=['fvViewport','fcViewport','fcExtra3Viewport','fcExtra4Viewport'].map(view);
+  let lang='en';
+  const update=new Function('pvEl','pvViews','pvFocusLabel',moduleSrc.slice(begin,end)+
+    ';return pvSyncSizeButtons;')(
+    id=>id==='fcViewGrid'?{children}:null,
+    f.views,(en,es)=>lang==='es'?es:en);
+  update();
+  for(const v of children){
+    const letter=f.views[v.id];
+    assert.equal(v.summary.textContent,'Size');
+    assert.equal(v.summary.attributes['aria-label'],'View '+letter+' · Panel height');
+    assert.equal(v.menuButtons.get('more').textContent,'+ Height');
+    assert.equal(v.menuButtons.get('less').attributes['aria-label'],'View '+letter+' · − Height');
+    assert.equal(v.menuButtons.get('reset').textContent,'Reset');
+  }
+  lang='es';update();
+  for(const v of children){
+    assert.equal(v.summary.textContent,'Tamaño');
+    assert.equal(v.summary.attributes['aria-label'],'Vista '+f.views[v.id]+' · Altura del panel');
+    assert.equal(v.menuButtons.get('less').textContent,'− Altura');
+    assert.equal(v.menuButtons.get('more').textContent,'+ Altura');
+    assert.equal(v.menuButtons.get('reset').textContent,'Restablecer');
+  }
+  const mountStart=moduleSrc.indexOf('function pvMountViewport(viewport){');
+  const mountEnd=moduleSrc.indexOf('function pvStyles(){',mountStart);
+  assert(mountStart>0&&mountEnd>mountStart);
+  const mount=moduleSrc.slice(mountStart,mountEnd);
+  assert(mount.includes("if(action==='focus')div.append(b);else sizeButtons.append(b)"),
+    'Maximize stays visible while only height controls move to menu');
+  assert(mount.includes("b.dataset.pvControl=action"),
+    'native source action handlers must remain untouched');
+  assert(mount.includes("size.addEventListener('keydown'"),
+    'source menu must support Escape and focus restoration');
+  assert(mount.includes("summary.focus()"),
+    'dismissed height menu must restore focus to its visible summary');
+  assert(moduleSrc.includes('#fcViewGrid .pvSizeMenu[open]{flex:1 0 100%}'),
+    'expanded height controls must wrap without covering mesh');
+  assert(moduleSrc.includes('scene.insertAdjacentElement(\'afterend\',grip)'),
+    'original physical drag grip must remain visible');
+  console.log('Granada Field compact height menu PASS: original A/B/C/D buttons, localized menu, focus and drag grip');
+}
