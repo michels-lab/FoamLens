@@ -587,3 +587,57 @@ for(const fragment of [
 })().catch(error=>{console.error(error);process.exitCode=1});
 
 console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/Fit, linked Fit All, no phantom slots, async removal, drag reorder, Ribbon.');
+
+
+// Granada block 3: Fit is a view-local camera command, not a selector-only
+// operation. The real source's physical union includes only loaded visible
+// OpenFOAM regions, even when a secondary overlay extends beyond the primary.
+{
+  const start=source.indexOf('function fcFitMeshForView(view,state,mesh){');
+  const end=source.indexOf('function fcVisibleViewportNeighbor(',start);
+  assert(start>=0&&end>start,'source-backed visible-region Fit implementation required');
+  const input={mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]},camera:{distance:5,target:[0,0,0]}};
+  const second={id:3,mesh:{boundsMin:[20,20,20],boundsMax:[22,22,22]},
+    camera:{distance:7,target:[20,20,20]}};
+  const unions=new Map([[input,{min:[-5,-6,-7],max:[3,4,5]}],
+    [second,{min:[17,18,19],max:[35,40,45]}]]);
+  const actualFits=[],rendered=[];
+  let linked=false,fitAll=0,fitA=0;
+  const funcs=new Function('fvState','fcState','fcExtraViews','fcPhysicalBoundsFor',
+    'fcCamerasLinked','fcFitAllCameras','fvCameraFitCurrent','fcFitCameraState',
+    'fcRender','fcRenderDifference','fcExtraRender',
+    source.slice(start,end)+';return {fcFitMeshForView,fcValidFitMesh,fcFitViewport};')(
+    {mesh:{boundsMin:[0,0,0],boundsMax:[1,1,1]}},input,[second],
+    state=>unions.get(state)||null,()=>linked,()=>fitAll++,()=>fitA++,
+    (state,mesh)=>{actualFits.push({state,min:mesh.boundsMin.slice(),max:mesh.boundsMax.slice()});state.camera.target=mesh.boundsMin.slice();},
+    ()=>rendered.push('B'),()=>rendered.push('difference'),()=>rendered.push('C')
+  );
+  assert.equal(funcs.fcFitViewport('B'),true);
+  assert.deepStrictEqual(actualFits[0].min,[-5,-6,-7],
+    'B Fit must include the real mold overlay extending beyond the selected metal mesh');
+  assert.deepStrictEqual(actualFits[0].max,[3,4,5]);
+  assert.equal(input.camera.target[0],-5);
+  assert.equal(second.camera.target[0],20,'B Fit must never overwrite C camera');
+  assert.equal(funcs.fcFitViewport(3),true);
+  assert.deepStrictEqual(actualFits[1].min,[17,18,19]);
+  assert.deepStrictEqual(actualFits[1].max,[35,40,45]);
+  assert.equal(second.camera.target[0],17);
+  assert.equal(input.camera.target[0],-5,'C Fit must never overwrite B camera');
+  assert.deepStrictEqual(rendered,['B','difference','C']);
+  unions.set(input,{min:[10,11,12],max:[13,14,15]});
+  assert.equal(funcs.fcFitViewport('B'),true,'hidden primary still allows visible physical overlay fit');
+  assert.deepStrictEqual(actualFits[2].min,[10,11,12]);
+  unions.delete(input);
+  assert.equal(funcs.fcFitViewport('B'),false,'no visible real geometry means no invented camera extent');
+  assert.equal(actualFits.length,3,'hidden physical meshes must not enter camera fitting');
+  unions.set(input,{min:[-1e308,0,0],max:[1e308,1,1]});
+  assert.equal(funcs.fcFitViewport('B'),false,'overflowed diagonal must not corrupt camera with Infinity');
+  unions.set(input,{min:[-5,-6,-7],max:[3,4,5]});
+  linked=true;
+  assert.equal(funcs.fcFitViewport('B'),true);
+  assert.equal(fitAll,1,'linked camera must fit all views rather than claiming independent B fit');
+  assert.equal(actualFits.length,3,'shared Fit may not overwrite independent saved cameras');
+  assert(source.includes("else fcFitViewport(state===fcState?'B':state.id)"),
+    'double-click also uses the same visible-region Fit, not the obsolete primary-only mesh');
+  console.log('Field block 3 physical camera Fit PASS: B/C independent, visible union, hidden primary, overflow and linked mode');
+}
