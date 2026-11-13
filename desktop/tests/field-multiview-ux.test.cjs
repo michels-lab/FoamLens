@@ -815,7 +815,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(menuEs.includes('Vistas de cámara'));
   assert(menuEs.includes('Vista D · Derecha'));
   for(const fragment of [
-    "if(mapping)bar.querySelectorAll('[data-fc-camera-preset]')",
+    "cameraMenu?.querySelectorAll('[data-fc-camera-preset]')",
     "fcSetViewportCamera(view,button.dataset.fcCameraPreset)",
     'fcRefreshCameraPresetLabels();fcScheduleToolbarSync()',
     '.fcViewportCameraPresets[open]{flex:1 0 100%}'
