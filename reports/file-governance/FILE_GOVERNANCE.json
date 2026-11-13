@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "7c6c7c44bf29e8d0051c5e2f10e05f85e6fea0a47721a8b18292b404ea3cedc1",
-  "evidence_fingerprint": "6ab8c25302486775b5859052355b02ea208a9582e74489a13edd11b9ab1a96e7",
+  "inventory_fingerprint": "85aced32d9c4059cf874ab55aecc46635fb107fae8108b950fa05d3674626049",
+  "evidence_fingerprint": "d24c7fbe138fdd6d2b22ec65e65abc4492f9e9076210bfa6a1b5ee84ed60f5e0",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -972,7 +972,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "df4bf48ae8562f95f2b6111708da382e6708d7dc"
+      "blob": "8dad2c5c18741ade4192b3edcf63d721f05cb4c7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1098,7 +1098,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c6b93ad0b438415835fafa2d187317480e7b1a1f"
+      "blob": "47e8fd00c040a53ffed27ddab7b3f67dd8543514"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1462,7 +1462,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "feb4738e3f1007b38ba8bce1bf28571c944025bd"
+      "blob": "1accd20d845e26354a1ba87040b1b7e5eeeb0111"
     },
     {
       "path": "desktop/tests/field-loop-playback.test.cjs",
@@ -1490,7 +1490,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4e1ccbf8b47fef25c809033b15413df4f0834034"
+      "blob": "9d1f330f035c066fd5df63fddf26c0ce207ea367"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -3504,11 +3504,11 @@
   ],
   "findings": [
     {
-      "id": "531396c326f31cf1",
+      "id": "1e19a62a089eb637",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "22 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
+      "observation": "23 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
