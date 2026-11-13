@@ -107,12 +107,12 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   let locale='en';
   const menu=new Function('fcPhysicalViewContext','fvRegionNames','fcPhysicalChoiceList',
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
-    'fcReconcilePhysicalChoice','document','fcUi','fcEsc',
+    'fcReconcilePhysicalChoice','document','fcVisualsSynced','fcUi','fcEsc',
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
     'fvRender','fcRender','fcExtraRender','fvRegionPalette',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
-    physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},
+    physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},()=>true,
     (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis');
 
   menu('3');
@@ -980,4 +980,83 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(source.includes('fcSyncViewSourceSummary(bar);'),
     'each toolbar synchronization must refresh the compact original source caption');
   console.log('Granada compact sources PASS: original A/B/C/D case, region, field, component, missing data, EN/ES and keyboard');
+}
+
+
+// Granada Field physical opacity: measured primary uses its ORIGINAL visual
+// controls. Secondary mold layers use independent per-region alpha. The
+// same visible slider must not be a misleading no-op in A/B/C/D.
+{
+  const begin=source.indexOf('function fcPhysicalPrimaryOpacityInput(ctx){');
+  const end=source.indexOf('function fcPhysicalMenu(view){',begin);
+  assert(begin>0&&end>begin,'original measured physical alpha routing required');
+  const events=[],renders=[],ids=['fvOpacity','fcView2Opacity','fcExtra3Opacity','fcExtra4Opacity'];
+  const inputs=new Map(ids.map((id,i)=>[id,{value:String([.92,.83,.74,.65][i]),
+    dispatchEvent(e){events.push({id,type:e.type,bubbles:e.bubbles})}}]));
+  let linked=false;
+  const document={
+    activeElement:null,
+    getElementById:id=>inputs.get(id)||null
+  };
+  class MockEvent{constructor(type,o){this.type=type;this.bubbles=!!o?.bubbles}}
+  const fn=new Function('document','fcVisualsSynced','Event',
+    'fvRender','fcRender','fcExtraRender',
+    source.slice(begin,end)+
+    ';return {target:fcPhysicalPrimaryOpacityInput,value:fcPhysicalOpacityValue,apply:fcSetPhysicalOpacity,sync:fcSyncPhysicalOpacitySliders};')(
+    document,()=>linked,MockEvent,
+    ()=>renders.push('A'),()=>renders.push('B'),state=>renders.push(state.id===3?'C':'D'));
+  const a={view:'A',primary:'metal',state:{}};
+  const b={view:'B',primary:'metal',state:{}};
+  const c={view:'3',primary:'metal',state:{id:3}};
+  const d={view:'4',primary:'mold',state:{id:4}};
+  const ca={opacity:1},cb={opacity:1},cc={opacity:1},cd={opacity:1};
+  assert.equal(fn.value(a,'metal',ca),.92);
+  assert.equal(fn.value(b,'metal',cb),.83);
+  assert.equal(fn.value(c,'metal',cc),.74);
+  assert.equal(fn.value(d,'mold',cd),.65);
+  assert.equal(fn.apply(a,'metal',ca,.35),true);
+  assert.equal(Number(inputs.get('fvOpacity').value),.35);
+  assert.deepStrictEqual(events.at(-1),{id:'fvOpacity',type:'input',bubbles:true});
+  assert.equal(fn.apply(b,'metal',cb,.4),true);
+  assert.equal(Number(inputs.get('fcView2Opacity').value),.4);
+  assert.equal(Number(inputs.get('fvOpacity').value),.35,'B independent opacity must not change A');
+  assert.equal(fn.apply(c,'metal',cc,.55),true);
+  assert.equal(Number(inputs.get('fcExtra3Opacity').value),.55);
+  assert.equal(fn.apply(d,'mold',cd,.6),true);
+  assert.equal(Number(inputs.get('fcExtra4Opacity').value),.6);
+  assert.deepStrictEqual(events.map(e=>e.id),ids,
+    'A/B/C/D use four real and separate source visual handlers');
+  const secondary={opacity:.48};
+  assert.equal(fn.apply(b,'mold',secondary,.25),true);
+  assert.equal(secondary.opacity,.25,'overlay region retains its own alpha');
+  assert.equal(renders.at(-1),'B','secondary B overlay uses native B GPU renderer');
+  assert.equal(events.length,4,'secondary alpha does not modify the primary visual control');
+  linked=true;
+  assert.equal(fn.value(c,'metal',cc),.35,'linked C slider must reflect canonical A opacity');
+  assert.equal(fn.apply(c,'metal',cc,.7),true);
+  assert.equal(Number(inputs.get('fvOpacity').value),.7,'linked C must update A/global visual alpha');
+  assert.equal(Number(inputs.get('fcExtra3Opacity').value),.55,
+    'linked change cannot corrupt the independent C setting');
+  assert.equal(fn.apply(b,'metal',cb,NaN),false,
+    'non-numeric alpha must not trigger the original scientific renderer');
+  const sliderPrimary={value:'.7'},sliderOverlay={value:'.4'};
+  const rows=[
+    {dataset:{fcRegion:'metal'},querySelector:()=>sliderPrimary},
+    {dataset:{fcRegion:'mold'},querySelector:()=>sliderOverlay}
+  ];
+  const holder={querySelectorAll:()=>rows};
+  document.activeElement=sliderOverlay;
+  fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
+  assert.equal(Number(sliderPrimary.value),.7,'primary slider tracks real linked source');
+  assert.equal(Number(sliderOverlay.value),.4,
+    'active overlay drag stays focused and is not programmatically reset');
+  document.activeElement=null;fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
+  assert.equal(Number(sliderOverlay.value),.25,'idle secondary slider reconciles actual alpha');
+  assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette"),
+    'volatile alpha cannot invalidate the menu and destroy the active thumb');
+  assert(source.includes("fcSyncPhysicalOpacitySliders(holder,ctx,catalog);"),
+    'unchanged real catalog must update slider value without rebuilding all controls');
+  assert(source.includes("fcSetPhysicalOpacity(ctx,region,ch,e.target.value)"),
+    'original region slider handlers must reach canonical primary opacity');
+  console.log('Granada Field original primary opacity PASS: A/B/C/D, linked vs independent, GPU overlay, safe drag, source truth');
 }

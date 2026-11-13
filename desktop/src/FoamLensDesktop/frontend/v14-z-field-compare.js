@@ -682,6 +682,56 @@ function fcApplyPhysicalPalette(ctx,region,palette){
   else fcExtraRender(ctx.state);
   return true
 }
+// Primary opacity is controlled by the ORIGINAL 3D visual input, not by
+// the secondary-overlay scene. Respect the existing linked/independent
+// visual setting for B/C/D rather than making a fake per-region primary alpha.
+function fcPhysicalPrimaryOpacityInput(ctx){
+  if(!ctx)return null;
+  const linked=ctx.view!=='A'&&fcVisualsSynced();
+  const id=ctx.view==='A'||linked?'fvOpacity':
+    ctx.view==='B'?'fcView2Opacity':'fcExtra'+Number(ctx.state?.id)+'Opacity';
+  return document.getElementById(id)
+}
+function fcPhysicalOpacityValue(ctx,region,choice){
+  if(region===ctx.primary){
+    const control=fcPhysicalPrimaryOpacityInput(ctx);
+    if(control&&Number.isFinite(Number(control.value)))
+      return Math.max(.05,Math.min(1,Number(control.value)))
+  }
+  return Math.max(.05,Math.min(1,Number(choice?.opacity??1)))
+}
+function fcSetPhysicalOpacity(ctx,region,choice,raw){
+  if(!ctx||!choice||!Number.isFinite(Number(raw)))return false;
+  const opacity=Math.max(.05,Math.min(1,Number(raw)));
+  if(region===ctx.primary){
+    const original=fcPhysicalPrimaryOpacityInput(ctx);
+    if(!original)return false;
+    choice.opacity=opacity;
+    original.value=String(opacity);
+    // Existing visual listeners update the measured primary renderer, and
+    // linked camera/visual policy remains exactly as the user configured it.
+    original.dispatchEvent(new Event('input',{bubbles:true}));
+    return true
+  }
+  choice.opacity=opacity;
+  if(ctx.view==='A')fvRender();
+  else if(ctx.view==='B')fcRender();
+  else fcExtraRender(ctx.state);
+  return true
+}
+function fcSyncPhysicalOpacitySliders(holder,ctx,catalog){
+  // Native input-range nodes must survive live drags and toolbar re-renders.
+  // Changing values programmatically only affects non-focused sliders.
+  const choices=new Map(catalog.map(({region,ch})=>[region,ch]));
+  for(const row of holder.querySelectorAll('[data-fc-region]')){
+    const slider=row.querySelector('[data-fc-region-opacity]');
+    if(!slider||slider===document.activeElement)continue;
+    const ch=choices.get(row.dataset.fcRegion);
+    if(!ch)continue;
+    const opacity=fcPhysicalOpacityValue(ctx,row.dataset.fcRegion,ch);
+    if(Number(slider.value)!==opacity)slider.value=String(opacity)
+  }
+}
 function fcPhysicalMenu(view){
   const ctx=fcPhysicalViewContext(view),bar=ctx?.viewport?.querySelector('[data-fc-toolbar]');
   if(!ctx||!bar)return;
@@ -700,11 +750,15 @@ function fcPhysicalMenu(view){
   // supported vector component in the refresh signature.
   const locale=document.getElementById('language')?.value||document.documentElement?.lang||'en';
   const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
-    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.opacity,ch?.palette,
+    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
     groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
   ])]);
-  if(holder.dataset.fcMenuKey===key)return;holder.dataset.fcMenuKey=key;
+  if(holder.dataset.fcMenuKey===key){
+    fcSyncPhysicalOpacitySliders(holder,ctx,catalog);
+    return
+  }
+  holder.dataset.fcMenuKey=key;
   const expanded=fcPhysicalMenuExpanded(holder,names.length);
   const rows=catalog.map(({region,ch,groups})=>{
     const field=groups.find(g=>g.name===ch.field);
@@ -720,7 +774,7 @@ function fcPhysicalMenu(view){
         ? '<span class="fcPhysicalPrimaryPalette">'+fcUi('Primary view palette','Paleta de la vista principal')+'</span>'
         : '<select data-fc-region-palette aria-label="'+fcUi('Colormap for region','Mapa de color de región')+' '+fcEsc(region)+'">'+
           ['viridis','turbo','coolwarm'].map(p=>'<option value="'+p+'" '+(fvRegionPalette(ch)===p?'selected':'')+'>'+({viridis:'Viridis',turbo:'Turbo',coolwarm:'Cool–warm'}[p])+'</option>').join('')+'</select>')+
-      '<label class="fcPhysicalOpacity">'+fcUi('Opacity','Opacidad')+' <input type="range" data-fc-region-opacity min=".1" max="1" step=".05" value="'+Number(ch.opacity||1)+'"></label>'+
+      '<label class="fcPhysicalOpacity">'+fcUi('Opacity','Opacidad')+' <input type="range" data-fc-region-opacity min=".05" max="1" step=".05" value="'+fcPhysicalOpacityValue(ctx,region,ch)+'"></label>'+
       '<span class="fcPhysicalRegionStatus" data-fc-region-status>'+fcEsc(view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region)||'')+'</span></div>'
   }).join('');
   const visible=names.filter(name=>choice(name)?.visible).length;
@@ -729,6 +783,7 @@ function fcPhysicalMenu(view){
       '<button class="btn tiny" type="button" data-fc-region-all>'+fcUi('Show all regions','Mostrar todas las regiones')+'</button>'+
       '<button class="btn tiny" type="button" data-fc-region-primary>'+fcUi('Only selected region','Solo la región seleccionada')+'</button></div>':'')+
     '<div class="fcPhysicalRows">'+(rows||'<span class="smallnote">'+fcUi('No physical regions for this case','Sin regiones físicas para este caso')+'</span>')+'</div></details>';
+  fcSyncPhysicalOpacitySliders(holder,ctx,catalog);
   const regionDetails=holder.querySelector('details');
   regionDetails?.addEventListener('toggle',()=>{
     // A removed/rebuilt details node cannot overwrite this viewport's choice.
@@ -767,10 +822,8 @@ function fcPhysicalMenu(view){
       if(view==='A')fvRegionLoadFrame(ctx.c,fvState.time).catch(console.error);else fcPhysicalReload(ctx)
     };
     row.querySelector('[data-fc-region-palette]')?.addEventListener('change',e=>fcApplyPhysicalPalette(ctx,region,e.target.value));
-    row.querySelector('[data-fc-region-opacity]').oninput=e=>{
-      ch.opacity=Math.max(.1,Math.min(1,Number(e.target.value)||.5));
-      if(view==='A')fvRender();else if(view==='B')fcRender();else fcExtraRender(ctx.state)
-    }
+    row.querySelector('[data-fc-region-opacity]').oninput=e=>
+      fcSetPhysicalOpacity(ctx,region,ch,e.target.value)
   })
 }
 function fcPhysicalReload(ctx){
