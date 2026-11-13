@@ -209,3 +209,76 @@ assert(source.includes('#flFieldContextShelf .flRibbonCameraTools .fvNavPresets{
 
 for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDataCompare'])
   assert(source.includes(id),'Data must expose its own plotting and compare actions: '+id);
+
+
+// Granada: Ribbon and workspace share ONE A/B/C/D lifecycle. A Ribbon event
+// is synthetic even when initiated by the user's real mouse click; therefore
+// the workspace's isTrusted-only DOM fallback cannot clear a stale B request.
+{
+  const wsStart=workspace.indexOf('function fwComparisonExplicitlyRequested(){');
+  const wsEnd=workspace.indexOf('const fwTimeState=',wsStart);
+  const riStart=source.indexOf('function flRibbonToggleCheck(id){');
+  const riEnd=source.indexOf('function flRibbonSetLayout(',riStart);
+  assert(wsStart>=0&&wsEnd>wsStart&&riStart>0&&riEnd>riStart,
+    'source-owned Field comparison and Ribbon command contracts must exist');
+  const checkbox={checked:false,events:[],dispatchEvent(event){this.events.push(event)}};
+  const panel={open:false},elements={fcEnabled:checkbox,fcPanel:panel};
+  const document={getElementById:id=>elements[id]||null};
+  const fwState={compareUserRequested:false},fcState={enabled:false};
+  let layouts=0,inspectorOpens=0,adds=0;
+  const originals=new Function('fwState','document','fcState','fcUpdateLayout',
+    workspace.slice(wsStart,wsEnd)+
+    ';return {fwComparisonExplicitlyRequested,fwComparisonDisabled};')(
+    fwState,document,fcState,()=>layouts++);
+  const owner={
+    requestCompare:originals.fwComparisonExplicitlyRequested,
+    disableCompare:originals.fwComparisonDisabled,
+    setInspector:on=>{if(on)inspectorOpens++},
+    add3DView:()=>{adds++;return true}
+  };
+  class MockEvent{
+    constructor(type,options){this.type=type;this.bubbles=options?.bubbles;this.isTrusted=false}
+  }
+  const handlers=new Function('document','window','Event',
+    source.slice(riStart,riEnd)+
+    ';return {flRibbonToggleFieldComparison,flRibbonAddFieldView};')(
+    document,{FoamLensFieldWorkspace:owner},MockEvent);
+  assert.equal(handlers.flRibbonToggleFieldComparison(),true);
+  assert.equal(checkbox.checked,true);
+  assert.equal(fwState.compareUserRequested,true);
+  assert.equal(inspectorOpens,1);
+  assert.equal(panel.open,true);
+  assert.equal(checkbox.events.length,1);
+  assert.equal(checkbox.events[0].isTrusted,false,'Ribbon events remain synthetic');
+  assert.equal(handlers.flRibbonToggleFieldComparison(),true);
+  assert.equal(checkbox.checked,false);
+  assert.equal(fwState.compareUserRequested,false,
+    'disabling comparison from Ribbon must clear explicit compare intent');
+  assert.equal(fcState.enabled,false);
+  assert.equal(layouts,1,'actual original A-only layout must be restored');
+  assert.equal(checkbox.events.length,2);
+  assert.equal(handlers.flRibbonToggleFieldComparison(),true);
+  assert.equal(checkbox.checked,true);
+  assert.equal(fwState.compareUserRequested,true,'B may return ONLY after a new explicit action');
+  assert.equal(handlers.flRibbonAddFieldView(),true);
+  assert.equal(adds,1,'Ribbon Add View must invoke canonical workspace Add View once');
+  assert.equal(checkbox.events.length,3,'Add View must not toggle the checkbox itself');
+  assert(source.includes("flRibbonBind('flRaCompare3D',()=>flRibbonField(flRibbonToggleFieldComparison,'field'))"));
+  assert(source.includes("flRibbonBind('flRaCompareAddView',()=>flRibbonField(flRibbonAddFieldView,'field'))"));
+  assert(!source.includes("flRibbonClick('fcAddView')"),
+    'Ribbon must not directly allocate C while B is still disabled');
+  assert(workspace.includes('disableCompare:fwComparisonDisabled'),
+    'the Ribbon must be able to clear the exact original workspace state');
+  assert(workspace.includes("const enabled=document.getElementById('fcEnabled')"),
+    'canonical Add View still starts B before adding C/D');
+  assert(workspace.includes('const added=fcExtraAdd();if(added)fwComparisonExplicitlyRequested()'),
+    'only successful C/D view adds may mark comparison as requested');
+  const empty=new Function('document','window','Event',source.slice(riStart,riEnd)+
+    ';return {flRibbonToggleFieldComparison,flRibbonAddFieldView};')(
+    {getElementById:()=>null},{},MockEvent);
+  assert.equal(empty.flRibbonToggleFieldComparison(),false,
+    'unmounted comparison controls must never create phantom views');
+  assert.equal(empty.flRibbonAddFieldView(),false,
+    'unmounted Field must not reserve C/D slots');
+  console.log('Granada Ribbon/Field A-only lifecycle PASS: enable, disable, synthetic event, re-enable, Add View and absent owner');
+}
