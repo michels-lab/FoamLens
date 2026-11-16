@@ -1474,3 +1474,147 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'independent B vectors must use B time, not primary A time');
   console.log('Granada independent time safety PASS: no misleading OpenFOAM A-B difference or wrong-time B vectors');
 }
+
+
+// Granada Field per-view native playback and A clock isolation. These are
+// original production time controllers, not a simulated UI-only player.
+(async()=>{
+  const start=source.indexOf('function fcTimesLinked(){');
+  const end=source.indexOf('// A linked camera is not a copy',start);
+  assert(start>=0&&end>start,'source-backed Field time playback controller required');
+  const B={enabled:true,time:0,timeTarget:0},C={id:3,time:0,timeTarget:0},D={id:4,time:0,timeTarget:0};
+  let linked=false,primaryTime=0,redraws=0,errors=[];
+  const catalog={
+    B:{id:'B3',region:'metal',field:'T',times:[0,1,2]},
+    C:{id:'C3',region:'mold',field:'U',times:[0,.5,1]},
+    D:{id:'D3',region:'metal',field:'alpha1',times:[0,2,4]}
+  };
+  const name=state=>state===B?'B':state===C?'C':'D';
+  const timers=new Map(),cleared=[];
+  let timerId=0;
+  const loads=[];
+  const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
+    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField',
+    'fcFieldFor','fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt',
+    'fcUi','fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras',
+    'fcScheduleToolbarSync','fcSetStatus','setTimeout','clearTimeout',
+    source.slice(start,end)+
+    ';return{fcSetIndependentTime,fcIndependentTimeTarget,fcIndependentTimeStep,'+
+    'fcToggleIndependentPlayback,fcStopIndependentPlayback,'+
+    'fcStopAllIndependentPlayback,fcSyncIndependentPlaybackControls,'+
+    'fcRefreshTimeLink,fcIndependentPlayers};')(
+    {getElementById:id=>id==='fcLinkTimes'?{get checked(){return linked}}:null},
+    B,[C,D],()=>catalog.B,state=>catalog[name(state)],
+    ()=>catalog.B.region,state=>catalog[name(state)].region,
+    ()=>catalog.B.field,state=>catalog[name(state)].field,
+    (c,r,f)=>r===c.region&&f===c.field?{times:c.times}:null,
+    x=>Number(x),()=>primaryTime,String,String,(en,es)=>en,
+    ()=>{loads.push({view:'B',target:B.timeTarget});return Promise.resolve()},
+    state=>{loads.push({view:name(state),target:state.timeTarget});return Promise.resolve()},
+    ()=>{},()=>{redraws++},message=>errors.push(message),
+    (fn,ms)=>{const id=++timerId;timers.set(id,{fn,ms});return id},
+    id=>{cleared.push(id);timers.delete(id)}
+  );
+  const control=(view,state)=>{
+    const prev={dataset:{fcTimeStep:'-1'},disabled:null};
+    const next={dataset:{fcTimeStep:'1'},disabled:null};
+    const play={disabled:null,textContent:'',attrs:{},
+      setAttribute(k,v){this.attrs[k]=v}};
+    const bar={dataset:{fcToolbar:String(view)},
+      querySelector:key=>key==='[data-fc-independent-time]'?{}:
+        key==='[data-fc-time-play]'?play:null,
+      querySelectorAll:key=>key==='[data-fc-time-step]'?[prev,next]:[]};
+    return{prev,next,play,bar,state}
+  };
+  const btnB=control('B',B),btnC=control(3,C);
+  apiTime.fcSyncIndependentPlaybackControls(btnB.bar);
+  assert.equal(btnB.prev.disabled,true,'first B timestamp cannot step backward');
+  assert.equal(btnB.next.disabled,false);
+  assert.equal(btnB.play.disabled,false);
+  assert.equal(btnB.play.attrs['aria-pressed'],'false');
+  assert.equal(apiTime.fcIndependentTimeStep('B',-1),false);
+  assert.equal(apiTime.fcIndependentTimeStep('B',1),true);
+  assert.equal(B.timeTarget,1);
+  assert.deepStrictEqual(loads.at(-1),{view:'B',target:1});
+  assert.equal(C.timeTarget,0,'B stepping must never change independent C');
+  assert.equal(apiTime.fcIndependentTimeStep('B',1),true);
+  assert.equal(B.timeTarget,2);
+  assert.equal(apiTime.fcIndependentTimeStep('B',1),false);
+  apiTime.fcSyncIndependentPlaybackControls(btnB.bar);
+  assert.equal(btnB.next.disabled,true,'last catalog frame has disabled Next');
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),true,
+    'Play at the end restarts at the first measured timestamp');
+  assert.equal(B.timeTarget,0);
+  assert.equal(apiTime.fcIndependentPlayers.has('B'),true);
+  apiTime.fcSyncIndependentPlaybackControls(btnB.bar);
+  assert.equal(btnB.play.attrs['aria-pressed'],'true');
+  assert.equal(btnB.play.textContent,'❚❚');
+  // One independent C player never advances B until B's own timer fires.
+  assert.equal(apiTime.fcToggleIndependentPlayback(3),true);
+  assert.equal(C.timeTarget,.5);
+  assert.equal(B.timeTarget,0);
+  assert.equal(apiTime.fcIndependentPlayers.size,2);
+  // Pause only B: C's native playback stays alive.
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),true);
+  assert.equal(apiTime.fcIndependentPlayers.has('B'),false);
+  assert.equal(apiTime.fcIndependentPlayers.has('3'),true);
+  await Promise.resolve();await Promise.resolve();
+  assert(timers.size>=1,'independent C uses an owned timer');
+  const tick=timers.entries().next().value;
+  timers.delete(tick[0]);tick[1].fn();
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(C.timeTarget,1,'C advances to its next real .s OpenFOAM timestamp');
+  assert.equal(B.timeTarget,0,'C playback never drags B to the same time');
+  const last=timers.entries().next().value;
+  if(last){timers.delete(last[0]);last[1].fn()}
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(apiTime.fcIndependentPlayers.has('3'),false,
+    'at the end of the real C catalog playback stops instead of inventing a frame');
+  // Removing a view and restoring time sync stop the corresponding timer.
+  assert.equal(apiTime.fcToggleIndependentPlayback(4),true);
+  assert.equal(apiTime.fcIndependentPlayers.has('4'),true);
+  apiTime.fcStopIndependentPlayback(4);
+  assert.equal(apiTime.fcIndependentPlayers.has('4'),false);
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),true);
+  linked=true;apiTime.fcRefreshTimeLink();
+  assert.equal(apiTime.fcIndependentPlayers.size,0,
+    're-linking original physical time must cancel every independent player');
+  apiTime.fcSyncIndependentPlaybackControls(btnB.bar);
+  assert.equal(btnB.play.disabled,true);
+  assert.equal(btnB.prev.disabled,true);
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),false);
+  assert.equal(errors.length,0);
+  assert(source.includes('fcStopIndependentPlayback(id);'),
+    'removing C/D must cancel its owned playback timer');
+  assert(source.includes('if(!fcState.enabled)fcStopAllIndependentPlayback()'),
+    'closing compare must cancel all independent timers');
+  assert(source.includes('data-fc-time-play aria-pressed="false"'),
+    'each B/C/D toolbar needs an accessible Play/Pause action');
+  assert(source.includes("fcIndependentTimeStep(view,Number(button.dataset.fcTimeStep))"),
+    'each B/C/D toolbar needs original source-backed Previous and Next');
+  console.log('Granada Field per-view physical playback PASS: real step times, B/C independence, restart/pause, end and cleanup');
+
+  // Wrap the *original* fvLoadFrame method to verify A global playback no
+  // longer makes expensive B/C/D field+mesh reads when times are unlinked.
+  const wrapperBegin=source.indexOf("if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){");
+  const wrapperEnd=source.indexOf("if(typeof fvRender==='function'",wrapperBegin);
+  assert(wrapperBegin>0&&wrapperEnd>wrapperBegin);
+  const events=[],compare={enabled:true,mesh:{name:'B'},fieldValues:[100]};
+  const wrapped=new Function('fvLoadFrame','fcTimesLinked','fcState','fvState',
+    'fcRefreshFrame','fcRefreshExtras','fcUpdateDifference',
+    'fcUpdateLabels','fcScheduleToolbarSync',
+    source.slice(wrapperBegin,wrapperEnd)+';return fvLoadFrame;')(
+    async()=>{events.push('A');return 'loaded A'},
+    ()=>linked,compare,{mesh:{name:'A'},fieldValues:[200]},
+    async()=>{events.push('B')},async()=>{events.push('C/D')},
+    ()=>events.push('Δ'),()=>events.push('labels'),()=>events.push('toolbar')
+  );
+  linked=false;
+  assert.equal(await wrapped(),'loaded A');
+  assert.deepStrictEqual(events,['A','Δ','labels','toolbar'],
+    'moving A alone must not re-read B/C/D independent OpenFOAM data');
+  events.length=0;linked=true;await wrapped();
+  assert.deepStrictEqual(events,['A','B','C/D'],
+    're-linking must restore genuine B/C/D following A physical time');
+  console.log('Granada Field A time isolation PASS: real load wrapper keeps unsynced B/C/D data untouched');
+})().catch(error=>{console.error(error);process.exitCode=1});
