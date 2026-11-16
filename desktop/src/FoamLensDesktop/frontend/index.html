@@ -8048,8 +8048,7 @@ function assignments(vis){
       const dims=String(s.field?.dimensions||'').trim(),unit=String(s.field?.unit||'-'),
         key=dims?'measured:'+dims+'|'+unit:
           'unknown:'+String(s.caseId)+'|'+String(seriesRegion(s)||'')+'|'+
-            String(s.field?.original||s.field?.canonical||'')+'|'+
-            String(s.profileOriginalStorage||'')+'|'+String(s.profileSourceView||'');
+            String(s.field?.canonical||'');
       if(!quantities.includes(key))quantities.push(key);
       out.set(s.id,quantities.indexOf(key)===0?'left':'right')
     }
