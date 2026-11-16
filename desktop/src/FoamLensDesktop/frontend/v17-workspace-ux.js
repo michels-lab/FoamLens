@@ -34,6 +34,14 @@ function uxSnapshot(){
         .map(state=>[String.fromCharCode(64+state.id),
           {key:state.timeSource||'',value:Number.isFinite(state.timeTarget)?state.timeTarget:null}]))
     },
+    playbackSettings:Object.fromEntries([
+      ...(typeof fcState!=='undefined'?[['B',fcState]]:[]),
+      ...(typeof fcExtraViews!=='undefined'?fcExtraViews:[])
+        .map(state=>[String.fromCharCode(64+state.id),state])
+    ].map(([letter,state])=>[letter,{
+      rate:[.5,1,2].includes(Number(state.timePlaybackRate))?Number(state.timePlaybackRate):1,
+      loop:state.timePlaybackLoop===true
+    }])),
     panelSizes:window.FoamLensWorkspaceResize?.getSizes?.()||uxLoad().panelSizes||null,
     names
   }
@@ -48,6 +56,11 @@ function uxReset(){
     const set=(id,value,event='change')=>{const e=document.getElementById(id);if(!e)return;e.value=String(value);e.dispatchEvent(new Event(event,{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
     set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcEnabled',false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcLinkTimes',true);check('fcDifference',false);
+    if(typeof fcState!=='undefined')for(const state of [fcState,...(typeof fcExtraViews!=='undefined'?fcExtraViews:[])]){
+      state.timePlaybackRate=1;state.timePlaybackLoop=false;
+      state.timeTarget=NaN;state.timeSource=''
+    }
+    if(typeof fcScheduleToolbarSync==='function')fcScheduleToolbarSync();
     for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}window.FoamLensWorkspaceResize?.resetSizes?.()
   }finally{uxRestoring=false}
   uxDecorateLabels();uxUpdateComparisonStatus();uxSave()
@@ -135,6 +148,18 @@ async function uxApplyState(saved){
       }
       if(typeof fcScheduleToolbarSync==='function')fcScheduleToolbarSync()
     }
+    if(saved.playbackSettings&&typeof fcState!=='undefined'){
+      for(const [state,letter] of [[fcState,'B'],
+        ...(typeof fcExtraViews!=='undefined'?fcExtraViews:[])
+          .map(x=>[x,String.fromCharCode(64+x.id)])]){
+        const options=saved.playbackSettings[letter];
+        if(!options)continue;
+        state.timePlaybackRate=[.5,1,2].includes(Number(options.rate))?
+          Number(options.rate):1;
+        state.timePlaybackLoop=options.loop===true
+      }
+      if(typeof fcScheduleToolbarSync==='function')fcScheduleToolbarSync()
+    }
     if(saved.names)for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=String(saved.names[i]||uxDefaultNames[i]).slice(0,28)}
     if(saved.panelSizes)window.FoamLensWorkspaceResize?.applySizes?.(saved.panelSizes)
   }finally{uxRestoring=false}
@@ -168,7 +193,7 @@ function uxPatchRuntime(){
 }
 function uxInstall(){
   if(uxInstalled)return true;if(!document.getElementById('fwViewTabs')||!document.getElementById('fcPanel'))return false;uxInstalled=true;uxInstallStyles();uxInstallUi();uxPatchRuntime();
-  document.addEventListener('change',e=>{const id=String(e.target?.id||'');if(id==='fwCompanion'||id==='fwSyncViewsVisible'||id==='fcLinkTimes'||e.target?.matches?.('[data-fc-independent-time]')||/^fc(?:Enabled|Difference|Sync|LinkCameras|SyncVisuals|DifferenceMode)$/.test(id)){uxUpdateComparisonStatus();uxSave()}});
+  document.addEventListener('change',e=>{const id=String(e.target?.id||'');if(id==='fwCompanion'||id==='fwSyncViewsVisible'||id==='fcLinkTimes'||e.target?.matches?.('[data-fc-independent-time], [data-fc-time-rate], [data-fc-time-loop]')||/^fc(?:Enabled|Difference|Sync|LinkCameras|SyncVisuals|DifferenceMode)$/.test(id)){uxUpdateComparisonStatus();uxSave()}});
   document.addEventListener('click',e=>{if(e.target?.closest?.('#fwViewTabs [data-fw-view]'))setTimeout(uxSave,0)});
   document.addEventListener('foamlens-language-change',()=>{uxUpdateComparisonStatus();uxDecorateLabels()});
   uxRestore();window.FoamLensWorkspaceUx={save:uxSave,restore:uxRestore,applyState:uxApplyState,reset:uxReset,getState:uxSnapshot,setViewName:uxSetViewName,getViewName:uxViewName,refresh:()=>{uxDecorateLabels();uxUpdateComparisonStatus()}};return true
