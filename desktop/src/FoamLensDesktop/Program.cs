@@ -607,8 +607,20 @@ internal sealed class FoamLensForm : Form
                       const visibleSources=!!first&&!!region&&!!variable&&!!component&&
                         !!secondary&&!!enable2&&
                         [first,region,variable,component,secondary,enable2].every(visible);
+                      // The real Field T option is a structured original
+                      // OpenFOAM name/storage/kind token after Granada #341.
+                      // A bare display label cannot certify physical source
+                      // identity (e.g. the same T on cells vs faces).
                       const realOriginalField=!!variable&&
-                        Array.from(variable.options||[]).some(option=>option.value==='T');
+                        Array.from(variable.options||[]).some(option=>{
+                          try{
+                            const identity=JSON.parse(option.value);
+                            return Array.isArray(identity)&&identity.length===3&&
+                              identity[0]==='T'&&
+                              ['volume','surface','point'].includes(identity[1])&&
+                              identity[2]==='scalar';
+                          }catch{return false}
+                        });
                       const originalCatalog=!!catalog&&/OpenFOAM/.test(catalog.textContent||'');
                       const noHorizontalOverflow=!!history&&
                         history.scrollWidth<=history.clientWidth+3&&
