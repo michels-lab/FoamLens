@@ -50,7 +50,12 @@ function fcMeshDiag(mesh){
 }
 function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){
   const lo=compareMesh?.boundsMin||[0,0,0],hi=compareMesh?.boundsMax||[1,1,1],target=lo.map((v,i)=>(Number(v)+Number(hi[i]))/2),pdiag=fcMeshDiag(primaryMesh),cdiag=fcMeshDiag(compareMesh),ratio=Math.max(.05,Number(primaryCamera?.distance)||pdiag)/pdiag;
-  return{yaw:Number(primaryCamera?.yaw)||0,pitch:Number(primaryCamera?.pitch)||0,distance:cdiag*ratio,target}
+  // Preserve A's physical projection in the linked B/C/D cameras. Losing this
+  // property used to force perspective on the compare panes even when A was
+  // set to orthographic and the numeric XYZ label claimed otherwise.
+  return{yaw:Number(primaryCamera?.yaw)||0,pitch:Number(primaryCamera?.pitch)||0,
+    distance:cdiag*ratio,target,
+    projection:primaryCamera?.projection==='perspective'?'perspective':'orthographic'}
 }
 
 function fcArrayEqualNumeric(a,b,tol=0){
@@ -122,7 +127,11 @@ function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
 function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
 function fcFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fcCloneCamera(camera){
-  const c=camera||fvState.camera||{};return{yaw:Number(c.yaw)||0,pitch:Number(c.pitch)||0,distance:Math.max(1e-10,Number(c.distance)||1),target:Array.isArray(c.target)?c.target.map(Number):[0,0,0]}
+  const c=camera||fvState.camera||{};
+  return{yaw:Number(c.yaw)||0,pitch:Number(c.pitch)||0,
+    distance:Math.max(1e-10,Number(c.distance)||1),
+    target:Array.isArray(c.target)?c.target.map(Number):[0,0,0],
+    projection:c.projection==='perspective'?'perspective':'orthographic'}
 }
 function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
@@ -132,7 +141,22 @@ function fcCameraFor(state,mesh){
   return state.camera
 }
 function fcMvpForCamera(camera,canvas){
-  const c=camera||fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],basis=fvCameraBasis(c),near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,basis.upRef||[0,1,0]);return fvMat4Mul(proj,view)
+  // Match the original A projection matrix. Both matrices preserve original
+  // mesh coordinates; only their display projection differs.
+  const c=camera||fvState.camera,d=Math.max(1e-12,c.distance),
+    cp=Math.cos(c.pitch),
+    eye=[c.target[0]+d*cp*Math.sin(c.yaw),
+      c.target[1]+d*Math.sin(c.pitch),
+      c.target[2]+d*cp*Math.cos(c.yaw)],
+    basis=fvCameraBasis(c),near=Math.max(d/10000,1e-10),
+    far=Math.max(d*20,near*100),
+    aspect=Math.max(1,canvas.width)/Math.max(1,canvas.height),
+    halfHeight=d*Math.tan(Math.PI/8),
+    proj=c.projection==='perspective'?
+      fvPerspective(Math.PI/4,aspect,near,far):
+      fvOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,near,far),
+    view=fvLookAt(eye,c.target,basis.upRef||[0,1,0]);
+  return fvMat4Mul(proj,view)
 }
 function fcPanCamera(camera,dx,dy,canvas){
   const b=fvCameraBasis(camera),scale=Math.max(1e-12,camera.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);for(let a=0;a<3;a++)camera.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale
