@@ -64,6 +64,11 @@ function fwUpdateNavText(){
   const sync=document.getElementById('fwSyncLabel');if(sync)sync.textContent=fwUi('Follow 3D physical time','Seguir tiempo físico 3D');
   const syncLabel=document.getElementById('fwProfileTimeSyncLabel');
   if(syncLabel)syncLabel.textContent=fwUi('Sync physical time','Sincronizar tiempo físico');
+  const pauseAll=document.getElementById('fwPauseAllViews');
+  if(pauseAll){
+    pauseAll.textContent='⏸ '+fwUi('Pause all','Pausar todas');
+    pauseAll.setAttribute('aria-label',fwUi('Pause playback in all 3D views','Pausar reproducción de todas las vistas 3D'))
+  }
   fwSyncProfileCompanionButton();
 }
 // The visible switch delegates to original camera, visual and time owners.
@@ -134,7 +139,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwSyncAllViews" title="Uncheck to control the cameras, appearance and physical time of each 3D view independently"><input type="checkbox" id="fwSyncViewsVisible" checked> <span data-fl-en="Synchronize views" data-fl-es="Sincronizar vistas">Synchronize views</span></label><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><button class="btn tiny fwPauseAllViews" id="fwPauseAllViews" type="button" data-fl-en="Pause all" data-fl-es="Pausar todas" aria-label="Pause playback in all 3D views" title="Pause all 3D views without resetting their selected physical times">⏸ Pause all</button><label class="fwSyncAllViews" title="Uncheck to control the cameras, appearance and physical time of each 3D view independently"><input type="checkbox" id="fwSyncViewsVisible" checked> <span data-fl-en="Synchronize views" data-fl-es="Sincronizar vistas">Synchronize views</span></label><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -172,7 +177,7 @@ function fwCreateSurface(){
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras,.fwSyncAllViews{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0;cursor:pointer}.fwLinkViewCameras input,.fwSyncAllViews input{accent-color:var(--accent)}.fwSyncAllViews{padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}.fwSyncAllViews:has(input:checked){border-color:var(--accent)}.fwSyncAllViews input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
+    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras,.fwSyncAllViews{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0;cursor:pointer}.fwLinkViewCameras input,.fwSyncAllViews input{accent-color:var(--accent)}.fwSyncAllViews{padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}.fwSyncAllViews:has(input:checked){border-color:var(--accent)}.fwSyncAllViews input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}.fw3DHeadActions .fwPauseAllViews{min-height:32px;white-space:nowrap}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
@@ -198,6 +203,7 @@ function fwCreateSurface(){
   document.getElementById('fwTimePrev')?.addEventListener('click',()=>fwTimeStep(-1));
   document.getElementById('fwTimeNext')?.addEventListener('click',()=>fwTimeStep(1));
   document.getElementById('fwTimePlay')?.addEventListener('click',()=>fwTimeState.playing?fwTimeStop():fwTimePlay());
+  document.getElementById('fwPauseAllViews')?.addEventListener('click',fwTimePauseAllViews);
   document.getElementById('fwTimeSlider')?.addEventListener('input',e=>{fwTimeStop();fwTimeLoadIndex(Number(e.target.value))});
   document.getElementById('fwTimeSpeed')?.addEventListener('change',()=>{if(fwTimeState.playing){fwTimeStop();fwTimePlay()}});
   document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
@@ -370,6 +376,14 @@ function fwTimeStop(){
   fwTimeState.playing=false;fwTimeState.epoch=(fwTimeState.epoch||0)+1;
   if(fwTimeState.timer){clearTimeout(fwTimeState.timer);fwTimeState.timer=null}
   fwTimeSetPlayLabel(false)
+}
+// Explicit user action: pause the A transport AND independent B/C/D players.
+ // This never re-links views, resets source choices, or rewrites measured times.
+function fwTimePauseAllViews(){
+  fwTimeStop();
+  try{fvStopPlayback()}catch{}
+  if(typeof fcStopAllIndependentPlayback==='function')fcStopAllIndependentPlayback();
+  fwRefreshGlobalTime()
 }
 function fwTimePlay(){
   if(fwTimeTimes().length<2)return;
@@ -1175,4 +1189,4 @@ function fwInstall(){
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
+window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
