@@ -1496,6 +1496,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const timers=new Map(),cleared=[];
   let timerId=0;
   const loads=[];
+  let failBFrame=false;
   const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
     'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField',
     'fcFieldFor','fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt',
@@ -1512,8 +1513,12 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     ()=>catalog.B.field,state=>catalog[name(state)].field,
     (c,r,f)=>r===c.region&&f===c.field?{times:c.times}:null,
     x=>Number(x),()=>primaryTime,String,String,(en,es)=>en,
-    ()=>{loads.push({view:'B',target:B.timeTarget});return Promise.resolve()},
-    state=>{loads.push({view:name(state),target:state.timeTarget});return Promise.resolve()},
+    ()=>{loads.push({view:'B',target:B.timeTarget});
+      B.time=B.timeTarget;B.mesh=failBFrame?null:{id:'mesh-B'};
+      B.fieldValues=failBFrame?null:[1];return Promise.resolve()},
+    state=>{loads.push({view:name(state),target:state.timeTarget});
+      state.time=state.timeTarget;state.mesh={id:'mesh-'+name(state)};
+      state.fieldValues=[1];return Promise.resolve()},
     ()=>{},()=>{redraws++},message=>errors.push(message),
     (fn,ms)=>{const id=++timerId;timers.set(id,{fn,ms});return id},
     id=>{cleared.push(id);timers.delete(id)}
