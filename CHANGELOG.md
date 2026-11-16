@@ -1,3 +1,12 @@
+## Unreleased — Operación Granada T1: exact OpenFOAM field association and independent source-case selection (#341)
+
+- Fixed the original Time Series field selector choosing the first same-name group. Cell/volume `T`, face/surface `T`, and point `T` now have **distinct structured selector tokens** (original `name`, `storage`, `kind`) and are resolved only on exact source identity, not a display label. Ambiguous duplicates fail closed rather than reading the first group.
+- Generated 3D global and Probe histories have unique **fieldHistoryKeys, canonical series identifiers and quantity/source provenance** for different OpenFOAM storage associations. Plot labels indicate Cells/Faces/Points, and evidence records the original source `storage` and `fieldKind`; original dimensions and real physical-time samples remain unchanged.
+- Fixed manual history **Case** switching: selecting a different case in Data → Time Series no longer snaps back to the case shown in Field 3D, while the dependent region/field/component choices refresh for the actual selected case.
+- The existing source catalog now counts distinct fields per case, region, name, storage and kind, not just field name. It does not read frame contents during inventory.
+- New original-controller regression `desktop/tests/field-timeseries-association.test.cjs` exercises B3/metal and C3/mold, volume/surface/point `T`, component choices, invalid times, original keys, scientific source evidence, manual cross-case switching, and data-safe unusual field names. Expanded catalog regression verifies the visible count of three independent `T` associations. Tests are wired into Windows desktop CI and Windows+Ubuntu T1/T2 suites.
+- Merged in [PR #341](https://github.com/michels-lab/FoamLens/pull/341), commit `a21f21dc`. Source/catalog/T2/runtime/CI ownership tests passed on the PR; expanded Windows WebView2/QuickCup checks have independent completion status. No new stable release, RC or Developer Edition; installed Windows visual/DPI and real imported-case acceptance remain outstanding.
+
 ## Unreleased — Operación Granada T1: atomic dual-source histories and provenance (#340)
 
 - Requesting two independent 3D OpenFOAM time histories is now **transactional**: if either slot fails to yield a real curve (global field, pinned Probe or spatial profile), the chart retains its previous curves; the original generation epoch, cancellation and unit/dimension gates remain in place.
