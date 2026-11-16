@@ -1670,7 +1670,11 @@ function fcInstallUi(){
   document.getElementById('fcLinkTimes').addEventListener('change',fcRefreshTimeLink);
   document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras();fcScheduleCameraPresetSync()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>fcRender()).observe(second);new ResizeObserver(()=>fcRenderDifference()).observe(diff);}
-  fcRefreshSelectors(false);fcUpdateLayout();fcScheduleToolbarSync();return true
+  fcRefreshSelectors(false);fcUpdateLayout();fcScheduleToolbarSync();
+  // The workspace shell may have appeared before this original 3D panel:
+  // bind the visible sync switch at the moment all native owners exist.
+  if(typeof fwBindSyncViewControls==='function')fwBindSyncViewControls();
+  return true
 }
 function fcInstall(){
   const mount=()=>fcInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
