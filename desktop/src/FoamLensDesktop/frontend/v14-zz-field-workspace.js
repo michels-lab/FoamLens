@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.6.1 — Field-owned command surface with contextual sidebar and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false,compareProfiles:false};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
 function fwComparisonDisabled(){
   // Disabling B is explicit too: reopening Field must not resurrect it.
@@ -71,6 +71,7 @@ function fwUpdateNavText(){
     pauseAll.setAttribute('aria-label',fwUi('Pause playback in all 3D views','Pausar reproducción de todas las vistas 3D'))
   }
   fwSyncProfileCompanionButton();
+  fwSync3DProfileCompareButton();
 }
 // The visible switch delegates to original camera, visual and time owners.
 // Partially linked settings stay visibly mixed, not silently synchronized.
@@ -120,6 +121,7 @@ function fwCreateSurface(){
           <div class="fwCompact"><label data-fl-en="Profile from view" data-fl-es="Perfil desde vista">Profile from view</label><select id="fw3DProfileView" aria-label="Original 3D viewport for A to B spatial sampling"><option value="A">View A</option></select></div>
           <div class="fwCompact"><label data-fl-en="Line samples" data-fl-es="Muestras de línea">Line samples</label><input id="fw3DProfileSamples" type="number" min="20" max="500" step="10" value="160"></div>
           <button class="btn tiny" id="fwResample3DProfile" type="button" data-fl-en="Update profile" data-fl-es="Actualizar perfil">Update profile</button>
+          <button class="btn primary" id="fwCompare3DProfiles" type="button" aria-pressed="false" data-fl-en="Compare A–D profiles" data-fl-es="Comparar perfiles A–D" title="Plot the measured XYZ profiles from all available 3D views together; preserve each view's own physical time">Compare A–D profiles</button>
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
@@ -216,9 +218,26 @@ function fwCreateSurface(){
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
-  document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
-  document.getElementById('fw3DProfileView')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
-  document.getElementById('fwResample3DProfile')?.addEventListener('click',()=>fwBuild3DLineProfile());
+  document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{
+    fwLeave3DProfileCompare();
+    if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()
+  });
+  document.getElementById('fw3DProfileView')?.addEventListener('change',()=>{
+    fwLeave3DProfileCompare();
+    if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()
+  });
+  document.getElementById('fwResample3DProfile')?.addEventListener('click',()=>{
+    fwLeave3DProfileCompare();fwBuild3DLineProfile()
+  });
+  document.getElementById('fwCompare3DProfiles')?.addEventListener('click',()=>{
+    if(fwState.compareProfiles)fwLeave3DProfileCompare();
+    else fwCompareAll3DProfiles()
+  });
+  // Editing the original Data Profile filters leaves the explicit Field
+  // comparison; no sticky hidden override survives a user's manual choice.
+  for(const id of ['profileSet','profileVariable','profileVariable2','profileLine',
+    'profileTime','compareHeights'])
+    document.getElementById(id)?.addEventListener('change',fwLeave3DProfileCompare);
   document.getElementById('fw3DViewCases')?.addEventListener('change',()=>{
     // Native selectors update each other on change. Refresh the collapsed
     // card labels *after* those original scientific option updates finish.
@@ -250,6 +269,7 @@ function fwOwnProfileCompanionControls(){
 function fwToggleProfileCompanion(force){
   const enable=typeof force==='boolean'?force:fwState.layout!=='split';
   if(!enable){
+    fwLeave3DProfileCompare();
     if(fwState.layout!=='split'){fwSyncProfileCompanionButton();return true}
     fwSetLayout('3d');
     fwReturnCompanionControlsToData();
@@ -969,6 +989,7 @@ function fwToggle3DProfilePick(){
   fwUpdateNavText();fwUpdate3DProfileOverlay()
 }
 function fwClear3DProfile(removeSeries=false){
+  fwLeave3DProfileCompare();
   fwLineProfileState.enabled=false;fwLineProfileState.a=null;fwLineProfileState.b=null;
   if(removeSeries){
     const ids=new Set([...(fwLineProfileState.seriesIds?.values()||[]),fwLineProfileState.seriesId]
@@ -981,10 +1002,98 @@ function fwClear3DProfile(removeSeries=false){
   fw3DProfileStatus(fwUi('Pick two points on the 3D geometry.','Elige dos puntos sobre la geometría 3D.'));
   fwUpdateNavText()
 }
-function fwBuild3DLineProfile({select=true}={}){
+// Granada Field G8 — plot the REAL independently loaded sources together.
+// Never modify the canonical Data Profile filters or align disjoint physical
+// timestamps. The native chart renders original derived series by ID.
+function fwSync3DProfileCompareButton(){
+  const btn=document.getElementById('fwCompare3DProfiles');if(!btn)return;
+  const active=fwState.compareProfiles&&fwState.active&&fwState.layout==='split';
+  btn.setAttribute('aria-pressed',active?'true':'false');
+  btn.textContent=active?fwUi('Exit comparison','Salir de comparación'):
+    fwUi('Compare A–D profiles','Comparar perfiles A–D')
+}
+function fwLeave3DProfileCompare({render=true}={}){
+  if(typeof fwState==='undefined'||!fwState.compareProfiles)return false;
+  fwState.compareProfiles=false;
+  fwSync3DProfileCompareButton();
+  if(render&&fwState.active&&fwState.layout==='split'){
+    try{refreshProfileTimes(document.getElementById('profileTime')?.value||'')}catch{}
+    try{renderList();updateMeta();draw()}catch(e){console.warn('Restore Data profile filters',e)}
+  }
+  return true
+}
+// Same association/units used by the original chart's two Y axes.
+// Missing dimensions must NEVER be inferred equivalent between cases.
+function fw3DProfileDimensionKey(info){
+  const dims=String(info?.field?.dimensions||'').trim();
+  const unit=String(info?.field?.unit||'-');
+  return dims? 'measured:'+dims+'|'+unit:
+    'unknown:'+String(info?.caseObj?.id)+'|'+info?.region+'|'+
+    info?.name+'|'+info?.storage+'|'+info?.component
+}
+function fwCompareAll3DProfiles(){
+  const a=fwLineProfileState.a,b=fwLineProfileState.b,
+    source=document.getElementById('fw3DProfileView');
+  if(!a||!b||!a.every(Number.isFinite)||!b.every(Number.isFinite)||
+    !(Math.hypot(...b.map((v,i)=>v-a[i]))>0)){
+    fw3DProfileStatus(fwUi('Draw a valid A→B XYZ line before comparing views.',
+      'Dibuja una línea XYZ A→B válida antes de comparar vistas.'),true);return false
+  }
+  fwRefresh3DProfileSourceViews();
+  const views=[...(source?.options||[])].map(option=>String(option.value));
+  if(views.length<2){
+    fw3DProfileStatus(fwUi('Add at least two 3D views before comparing their profiles.',
+      'Añade al menos dos vistas 3D antes de comparar sus perfiles.'),true);return false
+  }
+  const count=Math.max(20,Math.min(500,Math.round(Number(document.getElementById('fw3DProfileSamples')?.value)||160))),
+    dims=new Set(),infoByView=new Map();
+  // PREPARE EVERY source without changing or replacing any curve. An unloaded
+  // frame, a missing mesh overlap, or a third unit cannot partially commit.
+  for(const view of views){
+    const info=fwCurrent3DProfileField(view);
+    if(!info){
+      fw3DProfileStatus(fwUi('Load the real case/field/physical time in view ',
+        'Carga caso, campo y tiempo físico reales en la vista ')+view+'.',true);return false
+    }
+    const key=fw3DProfileDimensionKey(info);
+    dims.add(key);
+    if(dims.size>2){
+      fw3DProfileStatus(fwUi('Comparison supports at most two verified dimensions (left/right Y). Select compatible sources.',
+        'La comparación admite máximo dos dimensiones verificadas (Y izquierda/derecha). Elige fuentes compatibles.'),true);
+      return false
+    }
+    const data={mesh:info.mesh,fieldValues:info.values,storage:info.storage};
+    let usable=0;
+    for(let i=0;i<count;i++){
+      const fraction=i/(count-1),point=a.map((v,k)=>v+(b[k]-v)*fraction);
+      if(Number.isFinite(fwSampleFieldAtPoint(data,point).value))usable++;
+    }
+    if(usable<2){
+      fw3DProfileStatus(fwUi('The shared XYZ line has insufficient original field samples in view ',
+        'La línea XYZ no tiene suficientes muestras originales en la vista ')+view+'.',true);
+      return false
+    }
+    infoByView.set(view,info)
+  }
+  // Keep the Field and Data graph owners: the original chart is moved into
+  // 3D + Profile; the Data workspace never inherits a permanent filter.
+  if(!fwState.active||!fwToggleProfileCompanion(true))return false;
+  for(const view of views){
+    const curve=fwBuild3DLineProfile({select:false,viewOverride:view});
+    if(!curve){fw3DProfileStatus(fwUi('A source changed during comparison. Retry with loaded frames.',
+      'Una fuente cambió durante la comparación. Reintenta con frames cargados.'),true);return false}
+  }
+  fwState.compareProfiles=true;fwSync3DProfileCompareButton();
+  const stamp=views.map(view=>view+' t='+fvFmt(infoByView.get(view).time)+' s').join(' · ');
+  fw3DProfileStatus(fwUi('Comparing original XYZ profiles: ','Comparando perfiles XYZ originales: ')+stamp+
+    ' · '+fwUi('Each source keeps its own time.','Cada fuente conserva su tiempo.'));
+  try{renderList();updateMeta();draw()}catch(e){console.warn('Field compare chart redraw:',e)}
+  return true
+}
+function fwBuild3DLineProfile({select=true,viewOverride=null}={}){
   const a=fwLineProfileState.a,b=fwLineProfileState.b;
   if(!a||!b)return null;
-  const view=document.getElementById('fw3DProfileView')?.value||'A',
+  const view=viewOverride||document.getElementById('fw3DProfileView')?.value||'A',
     info=fwCurrent3DProfileField(view);
   if(!info){
     fw3DProfileStatus(fwUi('Load a real 3D frame in the selected view before sampling its profile.',
@@ -1339,7 +1448,7 @@ function fwEnter(){
   fwActivateView('3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
 }
 function fwLeave(){
-  if(!fwState.active)return;fwState.active=false;
+  if(!fwState.active)return;fwLeave3DProfileCompare({render:false});fwState.active=false;
   // G59: Field exit must not hide the ORIGINAL 3D history generator once
   // the G3/T2 Data workspace has adopted that same DOM node. Data already
   // owns visibility by app mode; no new builder, duplicate handlers or CSS
@@ -1387,7 +1496,7 @@ function fwInstall(){
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
-  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(fwLineProfileState.a&&fwLineProfileState.b&&
+  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(!fwState.compareProfiles&&fwLineProfileState.a&&fwLineProfileState.b&&
     (document.getElementById('fw3DProfileView')?.value||'A')==='A')
     fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
@@ -1400,8 +1509,15 @@ function fwInstall(){
     const original=fcExtraRemove;fcExtraRemove=function(...args){const result=original.apply(this,args);if(result){fwPromoteViewCaseSelectors();fwUpdateViewCount()}return result};fcExtraRemove.__fwCardsPatched=true
   }
   document.addEventListener('foamlens-language-change',()=>{fwUpdateNavText();fwRefreshViewCardSummaries();if(fwState.active){const top=document.querySelector('.top h2');if(top)top.textContent=fwUi('Field Workspace','Workspace de campos');fwSetCompanion(fwState.companion)}});
-  document.addEventListener('change',e=>{if(e.target?.id==='fcEnabled'){if(e.isTrusted){if(e.target.checked)fwComparisonExplicitlyRequested();else fwComparisonDisabled()}setTimeout(()=>{fwPromoteViewCaseSelectors();fwUpdateViewCount()},0)}else if(String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
+  document.addEventListener('change',e=>{
+    // A chosen 3D source can be refreshed asynchronously after selection.
+    // Never continue showing a stale source-owned comparison after edits.
+    const id=String(e.target?.id||'');
+    if(fwState.compareProfiles&&/^(fv|fc)(Case|Region|Field|Component)$/.test(id)||
+      fwState.compareProfiles&&/^fcExtra[34](Case|Region|Field|Component)$/.test(id))
+      fwLeave3DProfileCompare();
+    if(e.target?.id==='fcEnabled'){if(e.isTrusted){if(e.target.checked)fwComparisonExplicitlyRequested();else fwComparisonDisabled()}setTimeout(()=>{fwPromoteViewCaseSelectors();fwUpdateViewCount()},0)}else if(String(e.target?.id||'').startsWith('fcExtra'))setTimeout(fwUpdateViewCount,0)});
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId})};
+window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId}),profileCompareActive:()=>fwState.active&&fwState.layout==='split'&&fwState.compareProfiles,profileCompareIncludes:s=>s?.derivedKind==='field3d_line_profile'&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,compare3DProfiles:fwCompareAll3DProfiles,exitProfileComparison:fwLeave3DProfileCompare};
