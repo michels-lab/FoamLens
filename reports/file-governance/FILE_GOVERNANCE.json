@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 502,
-  "classified_files_total": 498,
+  "tracked_files_total": 503,
+  "classified_files_total": 499,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,7 +17,7 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 152,
-    "test": 139,
+    "test": 140,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 64
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "ae860ea0c66530f754c013d581578ea24b9b046a278db489b125621466088f5b",
-  "evidence_fingerprint": "b565f0f63b1f6d4db67e749827292bd3eeba3310ea57d10c6c5e85115c5de52c",
+  "inventory_fingerprint": "0e1c94a9800428d0b20ae0c86dd33e80272190ac443b71456a2b7c41f73b499a",
+  "evidence_fingerprint": "858c1e245a846aba2101a0d5afb1831683a57ae97f91796d5eb29bd972921051",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "9293404d891ea1d7f0c773d1184cd2b36a69c72c"
+      "blob": "9a12f97ff3c0c932bb867ed1bca75a2670d576c9"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -244,7 +244,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "47fa01bb57eb50a68d257b89c3bea74feab36371"
+      "blob": "9a9d4e22099757bd4b9534d8852f488d4543d3ac"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b47a777e76ef90fdb48cbdd7b775326b0fcd1e11"
+      "blob": "d0a97c88f592690a0e68c3592cf92f1879d94096"
     },
     {
       "path": "LICENSE",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f9d3476174d9afc071ccb87ecf59bc874f30813d"
+      "blob": "ab5f6cb16bfd39f810eb93796938a63131b49caf"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1486,6 +1486,13 @@
       "blob": "22e46daf0527436c167559825a0576f0b1710582"
     },
     {
+      "path": "desktop/tests/field-multiview-profile-source.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "4546344e694578e787abedaa0d0f2af611e19484"
+    },
+    {
       "path": "desktop/tests/field-multiview-ux.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
@@ -1875,7 +1882,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4e9037e051ac6d0668093c707edc34c3085f021e"
+      "blob": "721085b1179833cfc5c79cd1c19ea6ec126bb2c1"
     },
     {
       "path": "desktop/tests/session-persistence.test.cjs",
@@ -3518,11 +3525,11 @@
   ],
   "findings": [
     {
-      "id": "a6f61093948f27d4",
+      "id": "8b94bf800648125b",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "33 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/timeseries-source-fast.yml, desktop/installer/FoamLens.iss",
+      "observation": "36 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/timeseries-source-fast.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
