@@ -971,8 +971,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const toolbar=source.slice(toolbarStart,toolbarEnd);
   assert(toolbar.includes('class="fcViewSourceDetails"'),
     'each A/B/C/D source must be a native collapsible details control');
-  assert(toolbar.includes("(view==='A'?'':'open')"),
-    'primary A defaults compact while newly created B/C/D are ready to configure');
+  assert(toolbar.includes('class="fcViewSourceDetails" open'),
+    'A/B/C/D source controls must be immediately editable, yet remain individually collapsible');
   assert(toolbar.includes('data-fc-bind="'),
     'original source mirror binding must survive inside collapsible details');
   assert(toolbar.includes("source.dispatchEvent(new Event('change',{bubbles:true}))"),
