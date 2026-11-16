@@ -65,4 +65,42 @@ assert.match(partialStatus.textContent,/available fields remain selectable/);
 assert.strictEqual(partialRefreshCount,1,'Valid field sources still refresh the builder with existing imported curves');
 assert.strictEqual(costlyFrameReads,0,'Source inventory must not read original time-dependent frames');
 
+
+// GRANADA T1: source-index timestamps, multi-case metal/mold and partial rows.
+// Execute the original catalog controller, not a copied time-count algorithm.
+const realCases=[{id:'B3',name:'Metal'},{id:'C3',name:'Mold'},{id:'ghost',name:'Invalid'}];
+const realGroups=c=>c.id==='B3'?[
+  {name:'T',kind:'scalar',times:['0','0.0',.2,.2,.5,'bad',null,'',false]},
+  {name:'U',kind:'vector',times:[0,'1e-2',.02]}
+]:c.id==='C3'?[
+  {name:'T',kind:'scalar',times:['0.1','0.2','Infinity',NaN]},
+  {name:'alphaL',kind:'scalar',times:[0,'bad']},
+  {name:'unphysical',kind:'scalar',times:[null,'',false,'-Infinity']}
+]:[{name:'ghostT',kind:'scalar',times:['',null,false,'NaN']}];
+const realApi=new Function('fwFieldTsReadyCases','fvReadyRegions','fvFieldGroups',
+  'document','timeSeriesOptionsBase','tsdUi','console',
+  source.slice(begin,end)+';return {times:tsdIndexedPhysicalTimes,catalog:tsdSourceFieldCatalog};')(
+  ()=>realCases,c=>[c.id==='B3'?'metal':c.id==='C3'?'mold':''],
+  realGroups,{getElementById:()=>null},()=>[],en=>en,{error(){}});
+assert.deepStrictEqual(realApi.times(['0',0,'0.0',null,false,'',NaN,Infinity,'1e-2',.01]),
+  {times:[0,.01],invalid:5},'Only explicit finite source time labels count');
+const physical=realApi.catalog();
+assert.deepStrictEqual(physical.map(x=>[
+  x.caseId,x.region,x.name,x.timeCount,x.firstTime,x.lastTime
+]),[
+  ['B3','metal','T',3,0,.5],
+  ['B3','metal','U',3,0,.02],
+  ['C3','mold','T',2,.1,.2],
+  ['C3','mold','alphaL',1,0,0]
+], 'Time-series source catalog cannot fabricate t=0, retain duplicates or omit valid cases');
+assert.equal(realApi.catalog.issues.filter(x=>x.stage==='times').length,5,
+  'Malformed source timestamp metadata must be reported, not silently hidden');
+assert(!physical.some(x=>x.caseId==='ghost'||x.name==='unphysical'),
+  'A source field without finite physical times is not available for history generation');
+assert.strictEqual(costlyFrameReads,0,'Pure catalog scan must not read OpenFOAM frames');
+assert(partialStatus.textContent.includes('2 case(s)'),
+  'Visible Time Series status must show distinct original cases');
+assert(partialStatus.textContent.includes('2 case-region source(s)'),
+  'Status must disclose real multiregion availability');
+
 console.log('Time Series field source catalog PASS: 4 available real case/region fields, vector components, visible generation with zero existing curves.');
