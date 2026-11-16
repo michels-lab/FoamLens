@@ -1147,7 +1147,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(mvp(c,{width:320,height:700}).mode,'orthographic');
   assert.equal(rendered[0].mode,'orthographic');
   assert(rendered[0].right>0&&rendered[0].left<0);
-  assert.equal(Number((-rendered[0].right/rendered[0].top).toFixed(6)),
+  assert.equal(Number((rendered[0].right/rendered[0].top).toFixed(6)),
     Number((320/700).toFixed(6)),'orthographic X/Y physical aspect must match pane');
   c.projection='perspective';
   assert.equal(mvp(c,{width:320,height:700}).mode,'perspective');
