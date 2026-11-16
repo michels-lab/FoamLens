@@ -69,6 +69,11 @@ function fwUpdateNavText(){
 // The visible switch delegates to original camera, visual and time owners.
 // Partially linked settings stay visibly mixed, not silently synchronized.
 function fwBindSyncViewControls(){
+   const syncView=document.getElementById('fwSyncViewsVisible');
+   const required=['fcLinkTimes','fcLinkCameras','fcSyncVisuals'];
+   if(!syncView||required.some(id=>!document.getElementById(id)))return false;
+   if(syncView.dataset?.fwSyncBound==='1')return true;
+   if(syncView.dataset)syncView.dataset.fwSyncBound='1';
    const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
    if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
    const syncViews=document.getElementById('fwSyncViewsVisible');
@@ -93,7 +98,7 @@ function fwBindSyncViewControls(){
      syncMaster()
    });
    syncMaster();
-
+   return true
 }
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
@@ -1083,6 +1088,9 @@ function fwMount3D(){
   fwAdoptFieldNode('fieldViewPanel','fw3DHost');fwAdoptFieldNode('fieldViewControls','fw3DControlsHost');fwAdoptFieldNode('fcPanel','fw3DControlsHost');panel.classList.add('active');controls.classList.remove('hidden');
   const compare=document.getElementById('fcPanel');if(compare){compare.open=false;compare.classList.add('fwCompareConfig')}
   fwPromoteViewCaseSelectors();
+  // The 3D controls may mount after the Field shell: bind only when every
+  // original sync switch exists and keep the handler idempotent on re-entry.
+  fwBindSyncViewControls();
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
   try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
