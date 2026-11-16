@@ -197,7 +197,10 @@ function fcSetIndependentTime(view,value){
     // A fulfilled Promise is not proof that OpenFOAM yielded a measured
     // frame: loaders may resolve after invalidating a missing/failed field.
     // Playback must not skip through unavailable physics with a stale badge.
-    const measured=Number(state.time);
+    // null / false / empty strings are NOT physical t=0: only the real
+    // finite numeric timestamp committed by the original loader qualifies.
+    const measured=typeof state.time==='number'&&Number.isFinite(state.time)?
+      state.time:NaN;
     return !!state.mesh&&!!state.fieldValues&&
       Number.isFinite(measured)&&
       Math.abs(measured-target)<=1e-9*Math.max(1,Math.abs(target))&&
