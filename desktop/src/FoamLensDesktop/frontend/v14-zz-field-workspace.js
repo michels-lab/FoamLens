@@ -100,7 +100,7 @@ function fwCreateSurface(){
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
         <main class="fw3DCard">
-          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
+          <div class="fwCardHead fw3DCardHead"><div class="fw3DPrimaryActions"><strong>3D</strong><button type="button" class="btn primary" id="fwAdd3DViewVisible" data-fl-en="+ Add view" data-fl-es="+ Añadir vista" title="Add a view of the same OpenFOAM case or another loaded case">+ Add view</button><button type="button" class="btn soft" id="fwImport3DCase" data-fl-en="Import case" data-fl-es="Importar caso" title="Choose another OpenFOAM case folder">Import case</button><button type="button" class="btn soft fwProfileSplitAction" id="fwToggle3DProfile" aria-pressed="false" data-fl-en="3D + Profile" data-fl-es="3D + Perfil" aria-label="Show real spatial profiles alongside 3D">3D + Profile</button><label class="fwProfileTimeSync" id="fwProfileTimeSyncControl"><input type="checkbox" id="fwProfileTimeSync" checked><span id="fwProfileTimeSyncLabel">Sync physical time</span></label></div><div class="fw3DHeadActions"><span class="badge" id="fw3DCount">1 view</span><label class="fwSyncAllViews" title="Uncheck to control the cameras, appearance and physical time of each 3D view independently"><input type="checkbox" id="fwSyncViewsVisible" checked> <span data-fl-en="Synchronize views" data-fl-es="Sincronizar vistas">Synchronize views</span></label><label class="fwLinkViewCameras"><input type="checkbox" id="fwLinkCamerasVisible"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label></div></div>
           <div id="fw3DHost"></div>
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
@@ -138,7 +138,7 @@ function fwCreateSurface(){
     .fwGrid.layout-3d .fwPlotCard{display:none}
     .fwGrid.layout-plot .fw3DCard{display:none}
     .fw3DCard,.fwPlotCard,.fwControlsCard{min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0}.fwLinkViewCameras input{accent-color:var(--accent)}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
+    .fwCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.fw3DCardHead{flex-wrap:wrap;justify-content:flex-start}.fw3DPrimaryActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fw3DHeadActions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}.fwProfileSplitAction[aria-pressed="true"]{background:var(--accentSoft);border-color:var(--accent);color:var(--text)}.fw3DHeadActions #fwAdd3DViewVisible{font-size:11px;padding:7px 10px}.fwLinkViewCameras,.fwSyncAllViews{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap;margin:0;cursor:pointer}.fwLinkViewCameras input,.fwSyncAllViews input{accent-color:var(--accent)}.fwSyncAllViews{padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}.fwSyncAllViews:has(input:checked){border-color:var(--accent)}.fwSyncAllViews input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.fw3DHeadActions .btn:disabled{opacity:.5;cursor:not-allowed}
     #fw3DHost{padding:0;min-width:0}.fw3DCard .fieldViewPanel{display:block!important;padding:10px;min-height:0}.fw3DCard .fvViewport{min-height:460px}.fw3DCard #fvCanvas{height:460px}
     .fwCompanionHost{min-height:460px;position:relative;overflow:auto;padding:8px}.fwCompanionHost .chartwrap{display:block!important;position:relative!important;min-height:440px;height:440px;width:100%}.fwCompanionHost #canvas{display:block}
     .fwControlsCard{padding:9px;display:grid;gap:8px}.fwControlsDrawer{position:fixed;right:16px;top:142px;bottom:16px;width:min(390px,calc(100vw - 32px));z-index:760;overflow:auto;box-shadow:0 18px 48px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.fwControlsDrawer.hidden{display:none!important}.sidebar>.fwControlsDrawer.fwSidebarContext{position:static;inset:auto;width:auto;max-width:none;z-index:auto;overflow:visible;box-shadow:none;backdrop-filter:none;margin:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}body:not(.appMode-field) .sidebar>.fwControlsDrawer.fwSidebarContext{display:none!important}.fwInspectorHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px;border-bottom:1px solid var(--line)}
@@ -171,6 +171,28 @@ function fwCreateSurface(){
    document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click());
    const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
    if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
+   const syncViews=document.getElementById('fwSyncViewsVisible');
+   const underlying=['fcLinkTimes','fcLinkCameras','fcSyncVisuals']
+     .map(id=>document.getElementById(id)).filter(Boolean);
+   const syncMaster=()=>{
+     if(!syncViews||underlying.length!==3)return;
+     const count=underlying.filter(input=>input.checked).length;
+     syncViews.checked=count===3;
+     syncViews.indeterminate=count>0&&count<3;
+     syncViews.title=count===3?fwUi('All 3D views synchronized','Todas las vistas 3D sincronizadas'):
+       count===0?fwUi('Each view has an independent camera, appearance and physical time','Cada vista tiene cámara, apariencia y tiempo físico independientes'):
+       fwUi('Mixed synchronization settings; use this switch to link or unlink all','Sincronización parcial; usa este interruptor para enlazar o separar todas')
+   };
+   for(const input of underlying)input.addEventListener('change',syncMaster);
+   syncViews?.addEventListener('change',()=>{
+     // Change the ORIGINAL switches, never create a second sync state.
+     const enabled=syncViews.checked;syncViews.indeterminate=false;
+     for(const input of underlying)if(input.checked!==enabled){
+       input.checked=enabled;input.dispatchEvent(new Event('change',{bubbles:true}))
+     }
+     syncMaster()
+   });
+   syncMaster();
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
