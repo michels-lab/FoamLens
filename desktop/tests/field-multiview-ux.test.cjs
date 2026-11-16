@@ -1664,3 +1664,89 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     're-linking must restore genuine B/C/D following A physical time');
   console.log('Granada Field A time isolation PASS: real load wrapper keeps unsynced B/C/D data untouched');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+
+// Granada individual native playback rate and looping. Execute the actual
+// production cadence and cycle boundary, not a copied timing algorithm.
+(async()=>{
+  const ratesStart=source.indexOf('const FC_INDEPENDENT_RATES=[.5,1,2];');
+  const ratesEnd=source.indexOf('function fcIndependentTimeStep(',ratesStart);
+  const runnerStart=source.indexOf('async function fcRunIndependentPlayback(view,play){');
+  const runnerEnd=source.indexOf('function fcToggleIndependentPlayback(',runnerStart);
+  assert(ratesStart>0&&ratesEnd>ratesStart&&runnerStart>0&&runnerEnd>runnerStart);
+  const B={timeTarget:2,timePlaybackRate:2,timePlaybackLoop:true},
+    C={id:3,timeTarget:0,timePlaybackRate:.5,timePlaybackLoop:false},
+    D={id:4,timeTarget:0};
+  const extras=[C,D],player=new Map(),timerDelays=[],stopped=[],changes=[];
+  let linked=false,refreshes=0;
+  const options=new Function('fcState','fcExtraViews','fcTimesLinked','fcScheduleToolbarSync',
+    source.slice(ratesStart,ratesEnd)+
+    ';return {rate:fcIndependentPlaybackRate,delay:fcIndependentPlaybackDelay,'+
+    'set:fcSetIndependentPlaybackOptions};')(
+      B,extras,()=>linked,()=>refreshes++);
+  assert.equal(options.delay(B),225,'2× advances measured frames at 225 ms');
+  assert.equal(options.delay(C),900,'0.5× advances at 900 ms');
+  assert.equal(options.delay(D),450,'1× is the legacy measured-frame cadence');
+  assert.equal(options.set('B',{rate:3}),false,'unrecognized speed cannot corrupt state');
+  assert.equal(options.delay(B),225);
+  assert.equal(options.set(3,{rate:2,loop:true}),true);
+  assert.equal(options.delay(C),225,'C can change speed without changing B');
+  assert.equal(C.timePlaybackLoop,true);
+  assert.equal(B.timePlaybackLoop,true);
+  assert.equal(options.set(4,{rate:.5,loop:false}),true);
+  assert.equal(options.delay(D),900);
+  assert.equal(options.set(9,{rate:1}),false,'no phantom view can receive time controls');
+  assert(refreshes>=2,'source UI reflects changed per-view pacing');
+
+  const sourceFor=state=>({key:state===B?'B3|metal|T':
+    state===C?'C3|mold|U':'D3|metal|alpha1',times:[0,1,2]});
+  const run=new Function('fcIndependentPlayers','fcState','fcExtraViews',
+    'fcTimesLinked','fcIndependentTimeSource','fcIndependentTimeTarget',
+    'fcIndependentTimeStep','fcSetIndependentTime','fcStopIndependentPlayback',
+    'fcIndependentPlaybackDelay','setTimeout',
+    source.slice(runnerStart,runnerEnd)+';return fcRunIndependentPlayback;')(
+      player,B,extras,()=>linked,sourceFor,state=>state.timeTarget,
+      (view,direction)=>{
+        const state=view==='B'?B:extras.find(x=>x.id===Number(view));
+        if(state.timeTarget>=2)return false;
+        state.timeTarget+=1;changes.push(view+':'+state.timeTarget);return true
+      },
+      (view,time)=>{
+        const state=view==='B'?B:extras.find(x=>x.id===Number(view));
+        state.timeTarget=time;changes.push(view+':'+time);return true
+      },
+      view=>{stopped.push(String(view));player.delete(String(view))},
+      options.delay,(fn,ms)=>{timerDelays.push(ms);return timerDelays.length}
+    );
+  const pB={sourceKey:sourceFor(B).key,cancelled:false,timer:null};
+  player.set('B',pB);await run('B',pB);
+  assert.equal(B.timeTarget,0,'B loops from last to first REAL catalog time');
+  assert.equal(timerDelays.at(-1),225);
+  assert.equal(player.has('B'),true);
+  const pC={sourceKey:sourceFor(C).key,cancelled:false,timer:null};
+  player.set('3',pC);await run(3,pC);
+  assert.equal(C.timeTarget,1,'C advances in its own source time catalog');
+  assert.equal(timerDelays.at(-1),225);
+  assert.equal(B.timeTarget,0,'C cannot advance or re-time B');
+  const pD={sourceKey:sourceFor(D).key,cancelled:false,timer:null};
+  player.set('4',pD);await run(4,pD);
+  assert.equal(D.timeTarget,1);assert.equal(timerDelays.at(-1),900);
+  // Turning loop off stops at the last real measured frame; never generate
+  // or silently wrap a missing OpenFOAM frame.
+  B.timeTarget=2;B.timePlaybackLoop=false;
+  pB.timer=null;await run('B',pB);
+  assert.equal(B.timeTarget,2);
+  assert.equal(player.has('B'),false);
+  assert.deepStrictEqual(stopped,['B']);
+  linked=true;
+  assert.equal(options.set(3,{rate:.5}),false,
+    'linked physical time disables independent playback changes');
+  assert.equal(C.timePlaybackRate,2);
+  assert(source.includes("data-fc-time-rate aria-label="),
+    'actual source toolbar must expose per-view speed selector');
+  assert(source.includes("data-fc-time-loop"),
+    'actual source toolbar must expose per-view real-frame repeat control');
+  assert(source.includes("fcSetIndependentPlaybackOptions(view,{rate:event.target.value})"));
+  assert(source.includes("fcSetIndependentPlaybackOptions(view,{loop:event.target.checked})"));
+  console.log('Granada individual native playback rate and looping PASS: B/C/D 0.5×/1×/2×, independent timers, real-frame wrap, linked safety');
+})().catch(error=>{console.error(error);process.exitCode=1});
