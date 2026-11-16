@@ -2740,7 +2740,7 @@ function profileMatchesSelection(s){
   if(datasetTypeOf(s)!=='profile')return false;
   // Bypass only this temporary Field-origin comparison's original series:
   // never mutate Data's variable, line, case or clock selectors.
-  if(flFieldProfileCompareActive())
+  if(typeof flFieldProfileCompareActive==='function'&&flFieldProfileCompareActive())
     return window.FoamLensFieldWorkspace?.profileCompareIncludes?.(s)===true;
   const set=$('profileSet')?.value||'';
   const variable=$('profileVariable')?.value||'',second=$('profileVariable2')?.value||'';
