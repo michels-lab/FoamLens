@@ -658,7 +658,7 @@ test('Granada unsynchronized physical times survive native workspace save/restor
     "saved.independentTimes[letter]",
     "state.timeSource=entry.key;state.timeTarget=entry.value",
     "check('fcLinkTimes',true)",
-    "e.target?.matches?.('[data-fc-independent-time]')"
+    "e.target?.matches?.('[data-fc-independent-time], [data-fc-time-rate], [data-fc-time-loop]')"
   ])assert(ux.includes(token),'real measured time preference must survive: '+token);
   assert(field.includes('id="fwSyncViewsVisible"'),
     'the option must be reachable without opening the Field inspector');
