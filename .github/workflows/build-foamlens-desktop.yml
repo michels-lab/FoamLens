@@ -652,6 +652,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-timeseries-association.test.cjs
 
+      - name: Sample original A–D 3D spatial profiles with independent cases and real physical times
+        shell: pwsh
+        run: node desktop/tests/field-multiview-profile-source.test.cjs
+
       - name: Test T1 source provenance, unknown field labels, metadata compatibility, filters and DOM safety
         shell: pwsh
         run: node desktop/tests/timeseries-provenance.test.cjs
