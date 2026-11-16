@@ -21,7 +21,8 @@ function fwScheduleRender({threeD=false,twoD=false}={}){
     if(do2D&&fwState.layout!=='3d')try{draw()}catch{}
   })
 }
-const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,down:null};
+const fwLineProfileState={enabled:false,a:null,b:null,seriesId:null,
+  seriesIds:new Map(),down:null};
 function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
 // Data/Field histories must use real OpenFOAM physical-time metadata.
 // JS Number(null), Number('') and Number(false) are 0 but not measurements.
@@ -116,7 +117,9 @@ function fwCreateSurface(){
           <button class="btn primary" id="fwAdd3DView" type="button">+ Add 3D View</button>
           <button class="btn" id="fwConfigureViews" type="button">Configure 3D views</button>
           <button class="btn" id="fwDraw3DProfile" type="button" data-fl-en="Draw profile" data-fl-es="Dibujar perfil">Draw profile</button>
+          <div class="fwCompact"><label data-fl-en="Profile from view" data-fl-es="Perfil desde vista">Profile from view</label><select id="fw3DProfileView" aria-label="Original 3D viewport for A to B spatial sampling"><option value="A">View A</option></select></div>
           <div class="fwCompact"><label data-fl-en="Line samples" data-fl-es="Muestras de línea">Line samples</label><input id="fw3DProfileSamples" type="number" min="20" max="500" step="10" value="160"></div>
+          <button class="btn tiny" id="fwResample3DProfile" type="button" data-fl-en="Update profile" data-fl-es="Actualizar perfil">Update profile</button>
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
@@ -214,6 +217,8 @@ function fwCreateSurface(){
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
   document.getElementById('fw3DProfileSamples')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  document.getElementById('fw3DProfileView')?.addEventListener('change',()=>{if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile()});
+  document.getElementById('fwResample3DProfile')?.addEventListener('click',()=>fwBuild3DLineProfile());
   document.getElementById('fw3DViewCases')?.addEventListener('change',()=>{
     // Native selectors update each other on change. Refresh the collapsed
     // card labels *after* those original scientific option updates finish.
@@ -892,41 +897,181 @@ function fwUpdate3DProfileOverlay(){
   if(!b){line?.setAttribute('visibility','hidden');cb?.setAttribute('visibility','hidden');tb?.setAttribute('visibility','hidden');return}
   line?.setAttribute('visibility','visible');line?.setAttribute('x1',String(a.x));line?.setAttribute('y1',String(a.y));line?.setAttribute('x2',String(b.x));line?.setAttribute('y2',String(b.y));cb?.setAttribute('visibility','visible');cb?.setAttribute('cx',String(b.x));cb?.setAttribute('cy',String(b.y));tb?.setAttribute('visibility','visible');tb?.setAttribute('x',String(b.x+8));tb?.setAttribute('y',String(b.y-8))
 }
+function fwRefresh3DProfileSourceViews(){
+  const select=document.getElementById('fw3DProfileView');if(!select)return;
+  const old=select.value||'A',enabled=document.getElementById('fcEnabled')?.checked===true;
+  const views=['A',...(enabled?['B',...(typeof fcExtraViews!=='undefined'?
+    fcExtraViews.filter(v=>[3,4].includes(Number(v.id))).map(v=>String.fromCharCode(64+Number(v.id))):[])]:[])];
+  const options=views.map(view=>'<option value="'+view+'">'+fwUi('View','Vista')+' '+view+'</option>').join('');
+  if(select.innerHTML!==options)select.innerHTML=options;
+  select.value=views.includes(old)?old:'A'
+}
+// 3D A→B line geometry is picked on viewport A in shared world XYZ; its
+// actual sampled field may belong to any loaded independent A/B/C/D viewport.
+// Do not infer frames, interpolate timestamps or mix values from another case.
+function fwCurrent3DProfileField(view='A'){
+  const letter=String(view||'A'),extraId=letter.length===1?letter.charCodeAt(0)-64:NaN;
+  let state=null,c=null,region='',storage='',name='',component='value';
+  if(letter==='A'){
+    state=fvState;c=fvCase();region=String(fvState.region||document.getElementById('fvRegion')?.value||'');
+    name=String(fvState.fieldName||'');component=String(fvState.component||'value');
+    storage=String(fvState.fieldStorage||'');
+  }else if(letter==='B'&&document.getElementById('fcEnabled')?.checked){
+    state=fcState;c=fcCase();region=String(state.region||'');
+    name=String(state.fieldName||'');component=String(state.component||'value');
+    storage=String(state.fieldStorage||'');
+  }else if([3,4].includes(extraId)&&document.getElementById('fcEnabled')?.checked){
+    state=fcExtraViews.find(v=>v.id===extraId);
+    if(state){c=fcExtraCase(state);region=String(state.region||'');
+      name=String(state.fieldName||'');component=String(state.component||'value');
+      storage=String(state.storage||'')}
+  }
+  // State fields are the LAST LOADED original frame, not optimistic selector
+  // values. Require the true selected case/region/field to still match them.
+  const ids=letter==='A'?['fvCase','fvRegion','fvField','fvComponent']:
+    letter==='B'?['fcCase','fcRegion','fcField','fcComponent']:
+    [`fcExtra${extraId}Case`,`fcExtra${extraId}Region`,
+      `fcExtra${extraId}Field`,`fcExtra${extraId}Component`];
+  if(!state||!c||!state.mesh||!state.fieldValues||!name||
+    // A pending case reload must not make the PREVIOUS case's GPU field look
+    // like a measurement of the newly selected OpenFOAM case.
+    (state.caseId!=null&&String(state.caseId)!==String(c.id))||
+    String(document.getElementById(ids[0])?.value||'')!==String(c.id)||
+    String(document.getElementById(ids[1])?.value||'')!==region||
+    String(document.getElementById(ids[2])?.value||'')!==name||
+    String(document.getElementById(ids[3])?.value||'value')!==component)return null;
+  const time=fwPhysicalTime(state.time);
+  if(!Number.isFinite(time))return null;
+  const parsed=letter==='A'?state.fieldParsed:state.fieldParsed,dimensions=parsed?.dimensions,
+    unit=dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dimensions):'-',
+    field={canonical:'field3d:'+JSON.stringify([name,storage,component]),
+      display:name+(component!=='value'?' · '+component:''),
+      unit:unit||'-',dimensions:typeof dimensions==='string'?dimensions:'',
+      quantity:'field3d_line_profile_'+storage,
+      original:'OpenFOAM 3D field '+name+' · '+letter};
+  return{view:letter,caseObj:c,region,storage,name,component,field,
+    mesh:state.mesh,values:state.fieldValues,time}
+}
 function fwToggle3DProfilePick(){
-  fwLineProfileState.enabled=!fwLineProfileState.enabled;if(fwLineProfileState.enabled){fwLineProfileState.a=null;fwLineProfileState.b=null;fw3DProfileStatus(fwUi('Click point A on the rendered 3D geometry.','Haz clic en el punto A sobre la geometría 3D.'))}else fw3DProfileStatus(fwLineProfileState.a&&fwLineProfileState.b?fwUi('3D profile line ready.','Línea de perfil 3D lista.'):fwUi('3D profile picking off.','Selección de perfil 3D desactivada.'));fwUpdateNavText();fwUpdate3DProfileOverlay()
+  const enabling=!fwLineProfileState.enabled;
+  if(enabling){
+    // A different A→B line is a different physical comparison. Remove this
+    // tool's previous line curves rather than mixing old/new geometries.
+    fwClear3DProfile(true);
+    fwLineProfileState.enabled=true;
+    fw3DProfileStatus(fwUi('Click point A on the rendered 3D geometry.','Haz clic en el punto A sobre la geometría 3D.'))
+  }else{
+    fwLineProfileState.enabled=false;
+    fw3DProfileStatus(fwLineProfileState.a&&fwLineProfileState.b?
+      fwUi('3D profile line ready.','Línea de perfil 3D lista.'):
+      fwUi('3D profile picking off.','Selección de perfil 3D desactivada.'))
+  }
+  fwUpdateNavText();fwUpdate3DProfileOverlay()
 }
 function fwClear3DProfile(removeSeries=false){
   fwLineProfileState.enabled=false;fwLineProfileState.a=null;fwLineProfileState.b=null;
-  if(removeSeries&&fwLineProfileState.seriesId!=null){const i=(series||[]).findIndex(q=>q.id===fwLineProfileState.seriesId);if(i>=0)series.splice(i,1);fwLineProfileState.seriesId=null;try{refreshDatasetControls()}catch{};try{renderList();updateMeta();draw()}catch{}}
-  document.getElementById('fw3DProfileOverlay')?.remove();fw3DProfileStatus(fwUi('Pick two points on the 3D geometry.','Elige dos puntos sobre la geometría 3D.'));fwUpdateNavText()
-}
-function fwCurrent3DProfileField(){
-  const c=fvCase(),name=fvState.fieldName||document.getElementById('fvField')?.value||'',component=fvState.component||document.getElementById('fvComponent')?.value||'value',parsed=fvState.fieldParsed,unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'-';
-  return{caseObj:c,name,component,unit:unit||'-',field:{canonical:'field3d:'+name+':'+component,display:name+(component&&component!=='value'?' · '+component:''),unit:unit||'-',quantity:'field3d_line_profile',original:name+(component&&component!=='value'?' '+component:'')}}
+  if(removeSeries){
+    const ids=new Set([...(fwLineProfileState.seriesIds?.values()||[]),fwLineProfileState.seriesId]
+      .filter(id=>id!=null));
+    for(let i=(series||[]).length-1;i>=0;i--)if(ids.has(series[i]?.id))series.splice(i,1);
+    fwLineProfileState.seriesId=null;fwLineProfileState.seriesIds?.clear();
+    if(ids.size){try{refreshDatasetControls()}catch{};try{renderList();updateMeta();draw()}catch{}}
+  }
+  document.getElementById('fw3DProfileOverlay')?.remove();
+  fw3DProfileStatus(fwUi('Pick two points on the 3D geometry.','Elige dos puntos sobre la geometría 3D.'));
+  fwUpdateNavText()
 }
 function fwBuild3DLineProfile({select=true}={}){
-  const a=fwLineProfileState.a,b=fwLineProfileState.b,mesh=fvState.mesh,values=fvState.fieldValues;if(!a||!b||!mesh||!values)return null;const info=fwCurrent3DProfileField();if(!info.caseObj||!info.name)return null;
-  const count=Math.max(20,Math.min(500,Math.round(Number(document.getElementById('fw3DProfileSamples')?.value)||160))),length=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);if(!(length>0)){fw3DProfileStatus(fwUi('A and B must be different points.','A y B deben ser puntos diferentes.'),true);return null}
-  const x=[],y=[],data={mesh,fieldValues:values,storage:fvState.fieldStorage};let maxNearest=0;
-  for(let i=0;i<count;i++){const f=count===1?0:i/(count-1),p=[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f],sample=fwSampleFieldAtPoint(data,p);if(Number.isFinite(sample.value)){x.push(length*f);y.push(Number(sample.value));maxNearest=Math.max(maxNearest,Number(sample.distance)||0)}}
-  if(x.length<2){fw3DProfileStatus(fwUi('The A→B line did not intersect enough usable field data.','La línea A→B no intersectó suficientes datos utilizables del campo.'),true);return null}
-  const time=fwPhysicalTime(fvState.time);
-  if(!Number.isFinite(time)){
-    fw3DProfileStatus(fwUi('Select a valid OpenFOAM physical frame before sampling A→B.','Selecciona un instante físico OpenFOAM válido antes de muestrear A→B.'),true);
+  const a=fwLineProfileState.a,b=fwLineProfileState.b;
+  if(!a||!b)return null;
+  const view=document.getElementById('fw3DProfileView')?.value||'A',
+    info=fwCurrent3DProfileField(view);
+  if(!info){
+    fw3DProfileStatus(fwUi('Load a real 3D frame in the selected view before sampling its profile.',
+      'Carga un frame 3D real en la vista seleccionada antes de muestrear su perfil.'),true);
     return null
   }
-  const outputPath='Field Workspace / 3D line',lineKey='field-workspace-3d-line',caseObj=info.caseObj,source='derived:field-workspace-3d-line:'+caseObj.id,existing=(series||[]).find(q=>q.id===fwLineProfileState.seriesId)||null;
-  const payload={datasetType:'profile',caseId:caseObj.id,caseName:caseObj.name,region:fvState.region||'',fileName:'3D A→B field profile',sourcePath:source,field:info.field,probe:null,location:'3D A→B',profileAxis:'s',profileOrientation:'spatial',profileLine:'3D A→B',profileLineKey:lineKey,profileLineSort:0,profileTime:time,profileTimeLabel:Number.isFinite(time)?String(time):'—',profileCoordUnit:'m',profileOutputPath:outputPath,t:x,y,visible:true,width:2.2,dash:caseObj.dash||'solid',opacity:1,axis:'Auto',customLabel:'',derivedKind:'field3d_line_profile',profilePointA:[...a],profilePointB:[...b],profileSampleCount:count,profileNearestDistance:maxNearest};
-  let item=existing;if(item)Object.assign(item,payload);else{item={id:nextId++,...payload,color:null};item.color=automaticSeriesColor(item);series.push(item);fwLineProfileState.seriesId=item.id}
-  fw3DProfileStatus(fwUi('A→B profile','Perfil A→B')+': '+x.length+'/'+count+' '+fwUi('samples','muestras')+' · L='+fvFmt(length)+' m · '+info.name+(info.component!=='value'?' · '+info.component:'')+' · t='+fvFmt(time)+' s');
+  const time=fwPhysicalTime(info.time);
+  if(!Number.isFinite(time)){
+    fw3DProfileStatus(fwUi('A valid original OpenFOAM physical timestamp is required.',
+      'Se requiere un tiempo físico OpenFOAM original válido.'),true);
+    return null
+  }
+  const mesh=info.mesh,values=info.values,
+    count=Math.max(20,Math.min(500,Math.round(Number(document.getElementById('fw3DProfileSamples')?.value)||160))),
+    length=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
+  if(!(length>0)){
+    fw3DProfileStatus(fwUi('A and B must be different points.','A y B deben ser puntos diferentes.'),true);
+    return null
+  }
+  const x=[],y=[],data={mesh,fieldValues:values,storage:info.storage};let maxNearest=0;
+  for(let i=0;i<count;i++){
+    const f=i/(count-1),p=[a[0]+(b[0]-a[0])*f,
+      a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f],
+      sample=fwSampleFieldAtPoint(data,p);
+    if(Number.isFinite(sample.value)){
+      x.push(length*f);y.push(Number(sample.value));
+      maxNearest=Math.max(maxNearest,Number(sample.distance)||0)
+    }
+  }
+  if(x.length<2){
+    fw3DProfileStatus(fwUi('The shared A→B XYZ line does not intersect usable data in the selected view.',
+      'La línea XYZ A→B no intersecta datos utilizables de la vista elegida.'),true);
+    return null
+  }
+  const outputPath='Field Workspace / 3D line',lineKey='field-workspace-3d-line',
+    caseObj=info.caseObj,source='derived:field-workspace-3d-line:'+caseObj.id+':'+info.region+':'+view,
+    existingId=fwLineProfileState.seriesIds?.get(view)??(view==='A'?fwLineProfileState.seriesId:null),
+    existing=(series||[]).find(q=>q.id===existingId)||null;
+  const payload={datasetType:'profile',caseId:caseObj.id,caseName:caseObj.name,
+    region:info.region,fileName:'3D A→B field profile',sourcePath:source,field:info.field,
+    probe:null,location:'View '+view+' · 3D A→B',profileAxis:'s',
+    profileOrientation:'spatial',profileLine:'3D A→B',
+    profileLineKey:lineKey,profileLineSort:0,profileTime:time,
+    profileTimeLabel:String(time),profileCoordUnit:'m',
+    profileOutputPath:outputPath,t:x,y,visible:true,width:2.2,
+    dash:caseObj.dash||'solid',opacity:1,axis:'Auto',customLabel:'',
+    derivedKind:'field3d_line_profile',profileSourceView:view,
+    profileOriginalStorage:info.storage,
+    profilePointA:[...a],profilePointB:[...b],
+    profileSampleCount:count,profileNearestDistance:maxNearest};
+  let item=existing;
+  if(item)Object.assign(item,payload);
+  else{item={id:nextId++,...payload,color:null};item.color=automaticSeriesColor(item);series.push(item)}
+  if(!fwLineProfileState.seriesIds)fwLineProfileState.seriesIds=new Map();
+  fwLineProfileState.seriesIds.set(view,item.id);
+  if(view==='A')fwLineProfileState.seriesId=item.id;
+  fw3DProfileStatus(fwUi('3D profile from view','Perfil 3D desde vista')+' '+view+
+    ': '+x.length+'/'+count+' '+fwUi('samples','muestras')+
+    ' · '+caseObj.name+' / '+(info.region||'—')+
+    ' · L='+fvFmt(length)+' m · '+info.name+
+    (info.component!=='value'?' · '+info.component:'')+' · t='+fvFmt(time)+' s');
   try{
-    refreshDatasetControls();if(select){fwSetCompanion('profile');const set=document.getElementById('profileSet'),variable=document.getElementById('profileVariable'),line=document.getElementById('profileLine');if(set){set.value=outputPath;refreshDatasetControls()}if(variable){variable.value=info.field.canonical;refreshProfileSelectorsFromVariable()}if(line)line.value=lineKey;refreshProfileTimes(time);renderList();updateMeta();draw()}
+    refreshDatasetControls();
+    if(select){
+      fwSetCompanion('profile');const set=document.getElementById('profileSet'),
+        variable=document.getElementById('profileVariable'),line=document.getElementById('profileLine');
+      if(set){set.value=outputPath;refreshDatasetControls()}
+      if(variable){variable.value=info.field.canonical;refreshProfileSelectorsFromVariable()}
+      if(line)line.value=lineKey;
+      refreshProfileTimes(info.time);renderList();updateMeta();draw()
+    }
   }catch(e){console.warn('3D line profile UI refresh:',e)}
   return item
 }
 function fwSet3DProfileLine(a,b,{select=true}={}){
-  const clean=p=>Array.isArray(p)&&p.length===3?p.map(Number):null,aa=clean(a),bb=clean(b);if(!aa||!bb||!aa.every(Number.isFinite)||!bb.every(Number.isFinite))throw new Error(fwUi('A and B must be finite XYZ points.','A y B deben ser puntos XYZ finitos.'));
-  fwLineProfileState.enabled=false;fwLineProfileState.a=aa;fwLineProfileState.b=bb;fwUpdateNavText();fwUpdate3DProfileOverlay();return fwBuild3DLineProfile({select})
+  const clean=p=>Array.isArray(p)&&p.length===3?p.map(Number):null,aa=clean(a),bb=clean(b);
+  if(!aa||!bb||!aa.every(Number.isFinite)||!bb.every(Number.isFinite))
+    throw new Error(fwUi('A and B must be finite XYZ points.','A y B deben ser puntos XYZ finitos.'));
+  // Replacing world-XYZ endpoints invalidates all previously derived lines.
+  // They must not remain plotted alongside the new geometry as comparables.
+  const changed=!fwLineProfileState.a||!fwLineProfileState.b||
+    aa.some((v,i)=>v!==fwLineProfileState.a[i])||
+    bb.some((v,i)=>v!==fwLineProfileState.b[i]);
+  if(changed)fwClear3DProfile(true);
+  fwLineProfileState.enabled=false;fwLineProfileState.a=aa;fwLineProfileState.b=bb;
+  fwUpdateNavText();fwUpdate3DProfileOverlay();
+  return fwBuild3DLineProfile({select})
 }
 function fwHandle3DProfileClick(event){
   if(!fwLineProfileState.enabled)return;event.preventDefault();event.stopImmediatePropagation();const pick=window.FoamLensFieldProbe?.fpPickAtEvent?.(event);if(!pick?.point){fw3DProfileStatus(fwUi('Click visible rendered geometry for point ','Haz clic en geometría renderizada visible para el punto ')+(fwLineProfileState.a?'B.':'A.'),true);return}
@@ -1023,6 +1168,7 @@ function fwSyncCompanionTime(time){
   fwUpdateTimeBadge()
 }
 function fwUpdateViewCount(){
+  fwRefresh3DProfileSourceViews();
   const e=document.getElementById('fw3DCount');if(!e)return;let n=1;
   try{if(document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
   const add=document.getElementById('fwAdd3DViewVisible');if(add){add.disabled=n>=4;add.title=n>=4?fwUi('Maximum of four views','Máximo de cuatro vistas'):fwUi('Add a view: same case or another loaded case, with its own property','Añadir vista del mismo caso u otro, con variable independiente')}
@@ -1174,7 +1320,7 @@ function fwMount3D(){
   fwBindSyncViewControls();
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
-  try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
+  try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();fwRefresh3DProfileSourceViews();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
 }
 function fwEnter(){
   if(!fwState.active)fwState.dataViewBeforeField=typeof currentDataView==='string'?currentDataView:'timeseries';
@@ -1241,7 +1387,9 @@ function fwInstall(){
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
-  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(fwLineProfileState.a&&fwLineProfileState.b)fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
+  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(fwLineProfileState.a&&fwLineProfileState.b&&
+    (document.getElementById('fw3DProfileView')?.value||'A')==='A')
+    fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
   // Keep adopted C/D selectors and view count coherent immediately after
   // Add/Remove, including clicks on the viewport's own remove button.
