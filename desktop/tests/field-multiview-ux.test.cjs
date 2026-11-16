@@ -305,9 +305,11 @@ fcExtraViews[0].mesh=savedMesh;
   const start=source.indexOf('function fcExtraRemove('),end=source.indexOf('function fcExtraAdd(){',start);
   assert(start>=0&&end>start);
   const live=[{id:3,seq:17}],removed=live[0],released=[];
-  const remove=new Function('fcExtraViews','fcPhysicalRelease','fcExtraDom','fcUpdateLayout','fcScheduleToolbarSync',
+  const remove=new Function('fcExtraViews','fcPhysicalRelease','fcExtraDom','fcUpdateLayout',
+    'fcScheduleToolbarSync','fcStopIndependentPlayback',
     source.slice(start,end)+';return fcExtraRemove;')(
-    live,(state)=>released.push(state.id),()=>null,()=>{},()=>{});
+    live,(state)=>released.push(state.id),()=>null,()=>{},()=>{},
+    id=>released.push('timer-'+id));
   assert.strictEqual(remove(3),true);
   assert.strictEqual(live.length,0);
   assert.strictEqual(removed.seq,18,'Pending asynchronous read must be invalidated on removal');
