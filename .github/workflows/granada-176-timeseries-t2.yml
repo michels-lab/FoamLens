@@ -9,6 +9,7 @@ on:
       - 'desktop/tests/section-ownership.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
       - '.github/workflows/granada-176-timeseries-t2.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'desktop/tests/section-ownership.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
       - '.github/workflows/granada-176-timeseries-t2.yml'
   workflow_dispatch:
 
