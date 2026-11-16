@@ -54,10 +54,10 @@ async function main(){
     'C offers A/B/D and excludes self; physical views remain independent');
   const picker={innerHTML:'',disabled:false};
   api.refresh({dataset:{fcToolbar:'B'},querySelector:q=>q==='[data-fc-copy-source]'?picker:null});
-  assert(picker.innerHTML.includes('View A')&&picker.innerHTML.includes('View C')===false,
-    'Initial visible source select must be bilingual and use physical view letters');
-  assert(picker.innerHTML.includes('View C')===false||picker.innerHTML.includes('View D')===false,
-    'Copies use source tokens, not an invented case label');
+  assert(picker.innerHTML.includes('View A')&&picker.innerHTML.includes('View C')&&picker.innerHTML.includes('View D'),
+    'Available original sources must appear using correct A/C/D physical viewport letters');
+  assert(!picker.innerHTML.includes('<option value="B">'),
+    'Destination B must never offer itself as a copy source');
   // Original A→B action MUST copy the case, not only the field/region.
   await api.legacy();
   assert.deepEqual([nodes.fcCase.value,nodes.fcRegion.value,nodes.fcField.value,nodes.fcComponent.value],
@@ -65,7 +65,8 @@ async function main(){
   assert.equal(fcState.probe,null,'Copying source invalidates only destination B probe');
   assert(runs.includes('loadB')&&runs.includes('stopB'));
   assert.equal(styling,1,'Legacy A→B still reuses the original visual settings refresh');
-  assert.equal(nodes.fcStatus.textContent,undefined,'status mock stores only value property');
+  assert(nodes.fcStatus.textContent.includes('A → B'),
+    'Legacy copy status must show the actual donor and destination');
   // Source B's new field is now used by the C target, with no change to A.
   const donorBefore=[nodes.fcCase.value,nodes.fcRegion.value,nodes.fcField.value,nodes.fcComponent.value];
   await api.copy('B',3);
