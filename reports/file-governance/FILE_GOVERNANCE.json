@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "e72936a165e38275eaf8455c4bf5d53297c7fe7dc2a53b1538e315d90887572f",
+  "inventory_fingerprint": "5ce544fb25874781904fed89c049267deacacc312b464eeed866d9d599606cd4",
   "evidence_fingerprint": "d7779d0367cffe52855cc2058eecbcaf431f7ab48f1774e65bfcc15a5f31fc4c",
   "files": [
     {
@@ -972,7 +972,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "518bd5a8d8bd60e79574e9472946126d56dabcfa"
+      "blob": "86e8cba0f5c8832a05890244a1f87698982466e3"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1490,7 +1490,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c3bc4b554de501e0608d001b81f90b08e404cb35"
+      "blob": "51d70a5f7f51e4383fc4e913533aba8680f326cc"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
