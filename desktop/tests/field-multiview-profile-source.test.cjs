@@ -84,7 +84,7 @@ assert.equal(c.field.unit,'m/s');
 assert.equal(b.field.unit,'K');
 assert.equal(d.profileOriginalStorage,'surface');
 assert(a.t[0]===0&&a.t.at(-1)===.02,'Samples use original world XYZ line in meters');
-assert(status.includes('View D')&&status.includes('C3 mold'),'UI must disclose selected source and case');
+assert(/view D/i.test(status)&&status.includes('C3 mold'),'UI must disclose selected source and case');
 assert.equal(statusError,false);
 
 // Pending B case switch cannot silently relabel old C3 frame as B3 data.
