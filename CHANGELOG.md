@@ -1,3 +1,12 @@
+## Unreleased — Operación Granada T1: atomic dual-source histories and provenance (#340)
+
+- Requesting two independent 3D OpenFOAM time histories is now **transactional**: if either slot fails to yield a real curve (global field, pinned Probe or spatial profile), the chart retains its previous curves; the original generation epoch, cancellation and unit/dimension gates remain in place.
+- Selecting the **same case/region/field/Probe/profile source twice** or a draft without a trustworthy source identity now raises a bilingual actionable error, instead of deduplicating two requested histories into one misleadingly reported curve.
+- The 3D history selector now respects the earlier T1 physical-time inventory gate and does not offer fields whose original time labels have no valid finite timestamp.
+- The success/status line identifies each source's original **case, region, field/component, finite samples, total original times, and measured first/last sample time**. No interpolation, synthetic values or source-file changes.
+- Added original-code two-slot B3 metal/C3 mold regression: 2 compatible T sources, T vs U with Y axes separated by verified units/dimensions, missing source 1/2, identical keys, unknown key, incompatible K/°C, disabled Source 2 and physical time normalization. T2 source-owned DOM and cancel tests passed Ubuntu/Windows on PR #340; Windows runtime and original fixture checks have independent outcomes.
+- Integrated in main via [PR #340](https://github.com/michels-lab/FoamLens/pull/340), commit `a61a8b1d`. No published release, RC or Developer Edition. Installed Setup/Portable, user visual/DPI review and general scientific validation remain independent gates.
+
 ## Unreleased — Operación Granada T1: indexed physical time inventory across cases/regions (#339)
 
 - The existing Time Series 3D field-source catalog now validates **explicit finite OpenFOAM timestamps**, rejects null/empty/boolean/NaN/Infinity instead of fabricating t=0, deduplicates equivalent numeric labels (0, 0.0 and zero strings), and records valid first/last source time per case/region/field.
