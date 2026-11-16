@@ -674,5 +674,113 @@ test('G10 preview toolbar observes class changes after a delayed native mount',(
   assert(observers[1].targets.every(entry=>entry.opts.attributeFilter[0]==='class'));
 });
 
+
+require('node:test')('G60 original two-source history is atomic for missing, duplicated and different case-region sources',async()=>{
+  const start=core.indexOf('async function fwBuildFieldTimeSeries(){');
+  const end=core.indexOf('function fw3DProfileStatus(',start);
+  const validationStart=core.indexOf('function fwFieldTsValidateComparableDrafts(');
+  const validationEnd=core.indexOf('function fwCommitFieldHistoryDrafts(',validationStart);
+  assert(start>0&&end>start&&validationStart>0&&validationEnd>validationStart,
+    'Must exercise original production validator and atomic builder');
+  const original=core.slice(validationStart,validationEnd)+core.slice(start,end);
+  const common={canonical:'field3d:T:value:mean',dimensions:'[0 0 0 1 0 0 0]',
+    quantity:'field3d_T_value_mean',unit:'K'};
+  const draft=(slot,overrides={})=>({
+    datasetType:'timeseries',fieldHistoryKey:slot===1?'B3|metal|T':'C3|mold|T',
+    caseId:slot===1?'B3':'C3',
+    field:{...common},t:slot===1?[0,.2,.5]:[0,.3,.6],
+    y:slot===1?[700,695,680]:[300,310,320],
+    fieldHistoryEvidence:{
+      caseId:slot===1?'B3':'C3',caseName:slot===1?'B3 iron':'C3 iron',
+      region:slot===1?'metal':'mold',field:'T',component:'value',
+      originalTimeCount:3,finiteSampleCount:3,
+      sampleFirstTime:0,sampleLastTime:slot===1?.5:.6
+    },...overrides
+  });
+  const create=(fetchOne,enabled=true)=>{
+    const state={fieldTsSeq:0,fieldTsActiveSeq:null},statuses=[],current=['previous curve'];
+    let commits=0;
+    const dom={getElementById:id=>id==='fwTsEnable2'?{checked:enabled}:null};
+    const build=new Function(
+      'fwState','fwFieldTsSetStatus','fwUi','fwBuildOneFieldHistory',
+      'activeAppMode','currentDataView','fwCommitFieldHistoryDrafts',
+      'refreshDatasetControls','refreshTimeSeriesControls','document',
+      'renderList','updateMeta','draw','console',original+';return fwBuildFieldTimeSeries')(
+      state,msg=>statuses.push(msg),(en,es)=>en,fetchOne,
+      'data','timeseries',drafts=>{
+        commits++;current.splice(0,current.length,...drafts.map(d=>d.fieldHistoryKey));return drafts
+      },()=>{},()=>{},dom,()=>{},()=>{},()=>{},console);
+    return {build,state,statuses,current,get commits(){return commits}}
+  };
+  const valid=create(async slot=>draft(slot));
+  await valid.build();
+  assert.equal(valid.commits,1,'two genuine cases must be committed together exactly once');
+  assert.deepEqual(valid.current,['B3|metal|T','C3|mold|T']);
+  assert(valid.statuses.at(-1).includes('B3 iron / metal'),
+    'Source 1 status must include exact case and region');
+  assert(valid.statuses.at(-1).includes('C3 iron / mold'),
+    'Source 2 status must include exact case and region');
+  assert(valid.statuses.at(-1).includes('t=0–0.6 s'),
+    'Source status must use physical timestamps rather than frame indexes');
+  assert.equal(valid.state.fieldTsActiveSeq,null);
+
+  const absentSecond=create(async slot=>slot===1?draft(1):null);
+  await assert.rejects(absentSecond.build(),/Source 2 did not produce a real time history/);
+  assert.equal(absentSecond.commits,0,'no half-committed chart if enabled slot 2 is absent');
+  assert.deepEqual(absentSecond.current,['previous curve']);
+  assert.equal(absentSecond.state.fieldTsActiveSeq,null);
+
+  const absentFirst=create(async slot=>slot===1?null:draft(2));
+  await assert.rejects(absentFirst.build(),/Source 1 did not produce a real time history/);
+  assert.equal(absentFirst.commits,0,'valid slot 2 cannot conceal missing first history');
+  assert.deepEqual(absentFirst.current,['previous curve']);
+
+  const duplicate=create(async slot=>draft(slot,{fieldHistoryKey:'B3|metal|T'}));
+  await assert.rejects(duplicate.build(),/same history/);
+  assert.equal(duplicate.commits,0,'two identical sources cannot claim two separate curves');
+  assert.deepEqual(duplicate.current,['previous curve']);
+
+  const missingIdentity=create(async slot=>draft(slot,{fieldHistoryKey:slot===1?'B3|metal|T':''}));
+  await assert.rejects(missingIdentity.build(),/no original source identity/);
+  assert.equal(missingIdentity.commits,0,'missing real key cannot be hidden by deduplication');
+
+  const mismatchedUnit=create(async slot=>draft(slot,{
+    field:slot===1?{...common}:{...common,unit:'°C'}
+  }));
+  await assert.rejects(mismatchedUnit.build(),/incompatible or unverified units/);
+  assert.equal(mismatchedUnit.commits,0,'same canonical with different units cannot share a Y axis');
+
+  const differentVariables=create(async slot=>slot===1?draft(1):draft(2,{
+    field:{canonical:'field3d:U:x:mean',quantity:'velocity_component',
+      unit:'m/s',dimensions:'[0 1 -1 0 0 0 0]'},
+    fieldHistoryKey:'C3|mold|Ux'
+  }));
+  await differentVariables.build();
+  assert.equal(differentVariables.commits,1,'different verified quantities must retain two source curves');
+  assert.deepEqual(differentVariables.current,['B3|metal|T','C3|mold|Ux']);
+  const dual=fs.readFileSync(path.join(base,'v14-dual-timeseries.js'),'utf8');
+  const axisCode=dual.slice(dual.indexOf('/* FOAMLENS_DUAL_TIMESERIES_CORE_START */'),
+    dual.indexOf('/* FOAMLENS_DUAL_TIMESERIES_CORE_END */'))+
+    ';return tsdAxisPlan';
+  const axisPlan=new Function(axisCode)();
+  assert.equal(axisPlan(common,{unit:'m/s',dimensions:'[0 1 -1 0 0 0 0]',
+    quantity:'velocity_component',canonical:'field3d:U:x:mean'}).secondary,'right',
+    'Original plot must use separate right Y axis for incompatible dimensions');
+
+  const single=create(async slot=>slot===1?draft(1):null,false);
+  await single.build();
+  assert.deepEqual(single.current,['B3|metal|T'],
+    'Source 2 disabled must still allow a single original physical history');
+
+  const timeStart=core.indexOf('function fwPhysicalTime(');
+  const timeEnd=core.indexOf('function fwAdoptFieldNode(',timeStart);
+  const times=new Function('window',core.slice(timeStart,timeEnd)+';return fwPhysicalTimes')({FoamLensRegionScene:null});
+  assert.deepEqual(times([null,false,'',NaN,'bad','0','0.0',0,.2,.2]),[0,.2]);
+  const selector=core.slice(core.indexOf('function fwRefreshFieldTsSlot('),
+    core.indexOf('function fwRefreshFieldTsControls('));
+  assert(selector.includes('fwPhysicalTimes(g.times).length>0'),
+    'Two-source selectors must exclude fields with only invalid physical time labels');
+});
+
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
 for(const result of checks)console.log('  ✓ '+result);

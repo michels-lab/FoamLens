@@ -619,7 +619,11 @@ function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
   rSel.innerHTML=regions.map(r=>'<option value="'+fvEsc(r)+'">'+fvEsc(r||fwUi('Default','Predeterminada'))+'</option>').join('')||'<option value="">—</option>';
   const preferredRegion=slot===1?(fvState.region||document.getElementById('fvRegion')?.value||''):(typeof fcState!=='undefined'&&fcState.enabled?fcState.region:(fvState.region||''));
   if(regions.includes(oldRegion))rSel.value=oldRegion;else if(regions.includes(preferredRegion))rSel.value=preferredRegion;
-  const groups=selected?fvFieldGroups(selected,rSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)&&(g.times||[]).length):[],oldField=preserve?fSel.value:'';
+  // Match Time Series inventory: only fields with an explicit finite indexed
+  // OpenFOAM physical time can be selected for actual history generation.
+  // Do not parse any field frame while rebuilding the source selector.
+  const groups=selected?fvFieldGroups(selected,rSel.value||'',null,'any')
+    .filter(g=>['scalar','vector'].includes(g.kind)&&fwPhysicalTimes(g.times).length>0):[],oldField=preserve?fSel.value:'';
   fSel.innerHTML=groups.map(g=>'<option value="'+fvEsc(g.name)+'">'+fvEsc(g.name)+' · '+fvEsc(g.kind)+' · '+fvEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>';
   const preferredField=slot===1?(fvState.fieldName||document.getElementById('fvField')?.value||''):(typeof fcState!=='undefined'&&fcState.enabled?fcState.fieldName:(fvState.fieldName||''));
   if(groups.some(g=>g.name===oldField))fSel.value=oldField;else if(groups.some(g=>g.name===preferredField))fSel.value=preferredField;
@@ -770,16 +774,33 @@ async function fwBuildFieldTimeSeries(){
   // One source epoch owns each build. Repeated Build clicks must not parse twice.
   if(fwState.fieldTsActiveSeq===fwState.fieldTsSeq)return;
   const seq=++fwState.fieldTsSeq;fwState.fieldTsActiveSeq=seq;
+  // Snapshot the number of requested sources at the start of the generation.
+  // Selection changes advance fieldTsSeq and cancel this entire transaction.
+  const twoSourcesRequested=!!document.getElementById('fwTsEnable2')?.checked;
   fwFieldTsSetStatus(fwUi('Building 3D field histories…','Construyendo historias temporales 3D…'));
   try{
   const drafts=[];
   for(const slot of [1,2]){
     const draft=await fwBuildOneFieldHistory(slot,seq);
     if(seq!==fwState.fieldTsSeq)return;
+    // Never silently commit just one history when the user requested TWO.
+    // This applies to field, pinned-Probe and profile-based histories alike.
+    if(twoSourcesRequested&&!draft)throw new Error(fwUi(
+      'Source '+slot+' did not produce a real time history. Both requested sources must succeed; the previous curves were kept.',
+      'La fuente '+slot+' no produjo una historia temporal real. Ambas fuentes deben generarse; se conservaron las curvas anteriores.'));
     if(draft)drafts.push(draft)
   }
   if(seq!==fwState.fieldTsSeq)return;
   if(!drafts.length){fwFieldTsSetStatus(fwUi('Choose at least one 3D-ready field.','Elige al menos un campo 3D disponible.'),true);return}
+  // The commit layer deduplicates by source key. If slots point at the
+  // same case/region/field/probe/profile it would report two but plot one.
+  if(drafts.some(d=>!d.fieldHistoryKey))throw new Error(fwUi(
+    'A selected history has no original source identity; nothing was committed.',
+    'Una historia seleccionada no tiene identidad de fuente original; no se guardó nada.'));
+  if(twoSourcesRequested&&(drafts.length!==2||drafts[0].fieldHistoryKey===drafts[1].fieldHistoryKey))
+    throw new Error(fwUi(
+      'Both source slots resolve to the same history. Choose a different case, region, field, Probe or profile for Source 2; previous curves were kept.',
+      'Ambas fuentes corresponden a la misma historia. Elige otro caso, región, campo, Probe o perfil para la Fuente 2; se conservaron las curvas anteriores.'));
   // Scientific integrity gate precedes original atomic chart commit.
   fwFieldTsValidateComparableDrafts(drafts);
   const built=fwCommitFieldHistoryDrafts(drafts);
@@ -791,7 +812,16 @@ async function fwBuildFieldTimeSeries(){
   // Keep both curves visible instead of reselecting the first probe.
   if(probe){probe.value='';probe.dataset.autoinit='1'}if(family)family.value='';
   try{refreshTimeSeriesControls()}catch{};try{renderList();updateMeta();draw()}catch(e){console.error(e)}
-  const coverage=built.map((item,i)=>{const ev=item.fieldHistoryEvidence;return ev?(i+1)+': '+ev.finiteSampleCount+'/'+ev.originalTimeCount:''}).filter(Boolean).join(' · ');
+  // Show provenance for BOTH successful sources, not just an anonymous "1/2".
+  // All timestamps and counts originate in the parsed physical source data.
+  const coverage=built.map((item,i)=>{
+    const ev=item.fieldHistoryEvidence;if(!ev)return'';
+    const identity=[ev.caseName||ev.caseId,ev.region||fwUi('default region','región predeterminada'),
+      ev.field+(ev.component&&ev.component!=='value'?'/'+ev.component:'')].filter(Boolean).join(' / ');
+    const span=Number.isFinite(ev.sampleFirstTime)&&Number.isFinite(ev.sampleLastTime)?
+      ' · t='+ev.sampleFirstTime+'–'+ev.sampleLastTime+' s':'';
+    return(i+1)+': '+identity+' · '+ev.finiteSampleCount+'/'+ev.originalTimeCount+span
+  }).filter(Boolean).join(' | ');
   fwFieldTsSetStatus(built.length+' '+fwUi(built.length===1?'3D field curve':'3D field curves',built.length===1?'curva de campo 3D':'curvas de campo 3D')+(coverage?' · '+fwUi('valid samples','muestras válidas')+' '+coverage:''));
   const empty=document.getElementById('fwPlotEmpty');empty?.classList.add('hidden')
   }catch(error){
