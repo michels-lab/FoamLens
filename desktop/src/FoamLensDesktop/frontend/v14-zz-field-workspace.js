@@ -1448,7 +1448,7 @@ function fwEnter(){
   fwActivateView('3d');fwUpdateViewCount();fwRefreshGlobalTime();fwScheduleRender({threeD:true,twoD:fwState.layout!=='3d'});setTimeout(()=>{fwUpdateTimeBadge();fwRefreshGlobalTime()},0)
 }
 function fwLeave(){
-  if(!fwState.active)return;fwLeave3DProfileCompare({render:false});fwState.active=false;
+  if(!fwState.active)return;if(typeof fwLeave3DProfileCompare==='function')fwLeave3DProfileCompare({render:false});fwState.active=false;
   // G59: Field exit must not hide the ORIGINAL 3D history generator once
   // the G3/T2 Data workspace has adopted that same DOM node. Data already
   // owns visibility by app mode; no new builder, duplicate handlers or CSS
