@@ -500,17 +500,18 @@ test('A–B OpenFOAM line profile never fabricates a physical timestamp',()=>{
   const fnCode=field.slice(start,end);
   const build=env=>new Function('env',
     'const fwLineProfileState=env.lineState,fvState=env.fvState,series=env.series;let nextId=env.nextId;'+
-    "const document={getElementById:id=>id==='fw3DProfileSamples'?{value:'20'}:null};"+
+    "const document={getElementById:id=>id==='fw3DProfileSamples'?{value:'20'}:id==='fw3DProfileView'?{value:'A'}:null};"+
     "const fwCurrent3DProfileField=()=>env.info,fwSampleFieldAtPoint=()=>({value:303.063,distance:0});"+
     'const fw3DProfileStatus=(text,error)=>env.status.push({text,error}),fwUi=en=>en,fwPhysicalTime=env.physicalTime;'+
     'const fvFmt=String,automaticSeriesColor=()=>"#0077aa";'+
     'const refreshDatasetControls=()=>{},console={warn:()=>{}};'+
     fnCode+';return {build:fwBuild3DLineProfile,next:()=>nextId};')(env);
   const make=time=>{
-    const env={lineState:{a:[0,0,0],b:[1,0,0],seriesId:null},
+    const env={lineState:{a:[0,0,0],b:[1,0,0],seriesId:null,seriesIds:new Map()},
       fvState:{mesh:{cellCount:1},fieldValues:[303.063],fieldStorage:'volume',time,region:'metal'},
       series:[],nextId:12,status:[],
-      info:{caseObj:{id:1,name:'QuickCup',dash:'solid'},name:'T',component:'value',
+      info:{view:'A',caseObj:{id:1,name:'QuickCup',dash:'solid'},name:'T',component:'value',
+        region:'metal',storage:'volume',mesh:{cellCount:1},values:[303.063],time,
         field:{canonical:'field3d:T',display:'T',unit:'K',quantity:'temperature'}},
       physicalTime:raw=>(typeof raw==='number'||typeof raw==='string')&&String(raw).trim()!==''&&
         Number.isFinite(Number(raw))?Number(raw):NaN};
