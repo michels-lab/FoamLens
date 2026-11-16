@@ -597,8 +597,9 @@ test('Granada Field visible synchronize switch connects original A-D settings',(
   assert(a>=0&&b>a,'real synchronized view header binder must exist');
   function control(checked=false){
     return{checked,indeterminate:false,handlers:{},events:[],
-      addEventListener(k,fn){this.handlers[k]=fn},
-      dispatchEvent(e){this.events.push(e.type);this.handlers[e.type]?.(e)}}
+      addEventListener(k,fn){(this.handlers[k]??=[]).push(fn)},
+      dispatchEvent(e){this.events.push(e.type);
+        for(const fn of this.handlers[e.type]||[])fn(e)}}
   }
   const names=['fcLinkTimes','fcLinkCameras','fcSyncVisuals'],
     controls=Object.fromEntries(names.map(id=>[id,control(true)]));
