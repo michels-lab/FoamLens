@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "9b008b7f713368f519b49ecd9f1c0df8401e654905a5e86f1e185c2285b653df",
+  "inventory_fingerprint": "94f927179b33be126b3de388d587d8d9f93e6f9bcd2f059720c18c5d5c6fca16",
   "evidence_fingerprint": "0930613b76bf6617ebabb93cdb0b5b96a8f16e9fb29df978ff96a1ea52ac7ce4",
   "files": [
     {
@@ -902,7 +902,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5e6626844e96808bca724a2ea50f656063ed8549"
+      "blob": "c6d71bc8438194c3d6651a0da9782cc4238d0e5f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1987,7 +1987,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "84e4c4b76f86aeba809721262fc970b6c2d37e71"
+      "blob": "9250a804b4a686d35383ffa6503420fc6cfe8f85"
     },
     {
       "path": "desktop/tests/v16-final-ux-audit.test.cjs",
