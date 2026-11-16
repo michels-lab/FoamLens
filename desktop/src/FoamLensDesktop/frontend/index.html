@@ -2523,6 +2523,10 @@ function projectDisplayName(){
 }
 function seriesRegion(s){const c=caseById(s.caseId),regions=c?.discovery?.regions||[];if(!regions.length)return'';const parts=String(s.sourcePath||s.fileName||'').replace(/\\\\/g,'/').split('/');return regions.find(r=>parts.includes(r))||(regions.length===1?regions[0]:'')}
 function seriesMatchesGlobalContext(s){
+  // Field G8's explicit compare of original loaded A–D sources is a FIELD
+  // scope, not a persisted change to the Data global case/region filters.
+  if(currentDataView==='profile'&&flFieldProfileCompareActive()&&
+    window.FoamLensFieldWorkspace?.profileCompareIncludes?.(s))return true;
   if(dataCompareState.active&&['profile','timeseries'].includes(currentDataView)){
     if(!dataCompareCaseAllowed(s.caseId,currentDataView))return false;
   }else if(activeContextCaseId!=null&&Number(s.caseId)!==Number(activeContextCaseId))return false;
@@ -2728,8 +2732,16 @@ function profileAxisPlan(a,b){
 }
 /* FOAMLENS_DUAL_PROFILE_CORE_END */
 function profileSelectedVariables(){return profileVariableSet($('profileVariable')?.value,$('profileVariable2')?.value)}
+function flFieldProfileCompareActive(){
+  return activeAppMode==='field'&&
+    window.FoamLensFieldWorkspace?.profileCompareActive?.()===true
+}
 function profileMatchesSelection(s){
   if(datasetTypeOf(s)!=='profile')return false;
+  // Bypass only this temporary Field-origin comparison's original series:
+  // never mutate Data's variable, line, case or clock selectors.
+  if(flFieldProfileCompareActive())
+    return window.FoamLensFieldWorkspace?.profileCompareIncludes?.(s)===true;
   const set=$('profileSet')?.value||'';
   const variable=$('profileVariable')?.value||'',second=$('profileVariable2')?.value||'';
   const line=$('profileLine')?.value||'';
@@ -3470,6 +3482,9 @@ function profilePlaybackGroups(){
 }
 function profilePlaybackCaseCount(){return new Set(profilePlaybackSeries().map(s=>(s.caseId??s.caseName)).filter(v=>v!=null)).size}
 function profilePlaybackUsesGlobalClock(){
+  // Source-owned Field XYZ comparisons do NOT have a common physical time;
+  // drawing them is not permission to interpolate multi-case time histories.
+  if(currentDataView==='profile'&&flFieldProfileCompareActive())return false;
   // A single case can have unequal physical-time grids for two fields.
   // Align through their measured common time interval.
   return profilePlaybackCaseCount()>1||(profileSelectedVariables().length===2&&profilePlaybackGroups().length>1)
@@ -7863,6 +7878,12 @@ function xAxisLabelText(){
 }
 function profileTitle(vis){
   const s=vis[0];if(!s)return tr('profileGeneric');
+  if(flFieldProfileCompareActive()){
+    const names=[...new Set(vis.map(v=>localizedFieldName(v.field)))];
+    return flUi('3D spatial comparison · original source times',
+      'Comparación espacial 3D · tiempos originales')+
+      ' · '+names.join(' + ')+' · A→B XYZ'
+  }
   const t=Number.isFinite(s.profileTime)?`${trimZeros(String(s.profileTime))} s`:'—';
   const selected=profileSelectedVariables();
   const shown=selected.map(k=>vis.find(q=>q.field?.canonical===k)?.field).filter(Boolean);
@@ -8020,6 +8041,20 @@ function yPlot(s,v){return displayValue(v,s.field)}
 
 function assignments(vis){
   const out=new Map(),quantities=[];
+  if(currentDataView==='profile'&&flFieldProfileCompareActive()){
+    // At most two real physical dimensions are admitted by Field's
+    // preflight. Use original dimensions, not storage or guessed labels.
+    for(const s of vis){
+      const dims=String(s.field?.dimensions||'').trim(),unit=String(s.field?.unit||'-'),
+        key=dims?'measured:'+dims+'|'+unit:
+          'unknown:'+String(s.caseId)+'|'+String(seriesRegion(s)||'')+'|'+
+            String(s.field?.original||s.field?.canonical||'')+'|'+
+            String(s.profileOriginalStorage||'')+'|'+String(s.profileSourceView||'');
+      if(!quantities.includes(key))quantities.push(key);
+      out.set(s.id,quantities.indexOf(key)===0?'left':'right')
+    }
+    return out
+  }
   const dual=currentDataView==='profile'&&profileSelectedVariables().length===2;
   const primary=dual?vis.find(s=>s.field?.canonical===$('profileVariable')?.value)?.field:null;
   const secondary=dual?vis.find(s=>s.field?.canonical===$('profileVariable2')?.value)?.field:null;
