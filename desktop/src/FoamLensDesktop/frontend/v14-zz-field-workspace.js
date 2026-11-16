@@ -66,6 +66,35 @@ function fwUpdateNavText(){
   if(syncLabel)syncLabel.textContent=fwUi('Sync physical time','Sincronizar tiempo físico');
   fwSyncProfileCompanionButton();
 }
+// The visible switch delegates to original camera, visual and time owners.
+// Partially linked settings stay visibly mixed, not silently synchronized.
+function fwBindSyncViewControls(){
+   const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
+   if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
+   const syncViews=document.getElementById('fwSyncViewsVisible');
+   const underlying=['fcLinkTimes','fcLinkCameras','fcSyncVisuals']
+     .map(id=>document.getElementById(id)).filter(Boolean);
+   const syncMaster=()=>{
+     if(!syncViews||underlying.length!==3)return;
+     const count=underlying.filter(input=>input.checked).length;
+     syncViews.checked=count===3;
+     syncViews.indeterminate=count>0&&count<3;
+     syncViews.title=count===3?fwUi('All 3D views synchronized','Todas las vistas 3D sincronizadas'):
+       count===0?fwUi('Each view has an independent camera, appearance and physical time','Cada vista tiene cámara, apariencia y tiempo físico independientes'):
+       fwUi('Mixed synchronization settings; use this switch to link or unlink all','Sincronización parcial; usa este interruptor para enlazar o separar todas')
+   };
+   for(const input of underlying)input.addEventListener('change',syncMaster);
+   syncViews?.addEventListener('change',()=>{
+     // Change the ORIGINAL switches, never create a second sync state.
+     const enabled=syncViews.checked;syncViews.indeterminate=false;
+     for(const input of underlying)if(input.checked!==enabled){
+       input.checked=enabled;input.dispatchEvent(new Event('change',{bubbles:true}))
+     }
+     syncMaster()
+   });
+   syncMaster();
+
+}
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
   const surface=document.createElement('section');surface.className='modeSurface fieldWorkspaceSurface';surface.id='fieldSurface';
@@ -169,30 +198,7 @@ function fwCreateSurface(){
   document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
    document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView);
    document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click());
-   const linked=document.getElementById('fwLinkCamerasVisible'),originalLink=document.getElementById('fcLinkCameras');
-   if(linked&&originalLink){linked.checked=originalLink.checked;linked.addEventListener('change',()=>{originalLink.checked=linked.checked;originalLink.dispatchEvent(new Event('change',{bubbles:true}))});originalLink.addEventListener('change',()=>{linked.checked=originalLink.checked})}
-   const syncViews=document.getElementById('fwSyncViewsVisible');
-   const underlying=['fcLinkTimes','fcLinkCameras','fcSyncVisuals']
-     .map(id=>document.getElementById(id)).filter(Boolean);
-   const syncMaster=()=>{
-     if(!syncViews||underlying.length!==3)return;
-     const count=underlying.filter(input=>input.checked).length;
-     syncViews.checked=count===3;
-     syncViews.indeterminate=count>0&&count<3;
-     syncViews.title=count===3?fwUi('All 3D views synchronized','Todas las vistas 3D sincronizadas'):
-       count===0?fwUi('Each view has an independent camera, appearance and physical time','Cada vista tiene cámara, apariencia y tiempo físico independientes'):
-       fwUi('Mixed synchronization settings; use this switch to link or unlink all','Sincronización parcial; usa este interruptor para enlazar o separar todas')
-   };
-   for(const input of underlying)input.addEventListener('change',syncMaster);
-   syncViews?.addEventListener('change',()=>{
-     // Change the ORIGINAL switches, never create a second sync state.
-     const enabled=syncViews.checked;syncViews.indeterminate=false;
-     for(const input of underlying)if(input.checked!==enabled){
-       input.checked=enabled;input.dispatchEvent(new Event('change',{bubbles:true}))
-     }
-     syncMaster()
-   });
-   syncMaster();
+   fwBindSyncViewControls();
   document.getElementById('fwConfigureViews')?.addEventListener('click',()=>{const p=document.getElementById('fcPanel');if(p){p.open=true;p.classList.add('fwCompareConfig');p.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   document.getElementById('fwDraw3DProfile')?.addEventListener('click',fwToggle3DProfilePick);
   document.getElementById('fwClear3DProfile')?.addEventListener('click',()=>fwClear3DProfile(true));
