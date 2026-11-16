@@ -933,6 +933,9 @@ function fwCurrent3DProfileField(view='A'){
     [`fcExtra${extraId}Case`,`fcExtra${extraId}Region`,
       `fcExtra${extraId}Field`,`fcExtra${extraId}Component`];
   if(!state||!c||!state.mesh||!state.fieldValues||!name||
+    // A pending case reload must not make the PREVIOUS case's GPU field look
+    // like a measurement of the newly selected OpenFOAM case.
+    (state.caseId!=null&&String(state.caseId)!==String(c.id))||
     String(document.getElementById(ids[0])?.value||'')!==String(c.id)||
     String(document.getElementById(ids[1])?.value||'')!==region||
     String(document.getElementById(ids[2])?.value||'')!==name||
@@ -1050,8 +1053,18 @@ function fwBuild3DLineProfile({select=true}={}){
   return item
 }
 function fwSet3DProfileLine(a,b,{select=true}={}){
-  const clean=p=>Array.isArray(p)&&p.length===3?p.map(Number):null,aa=clean(a),bb=clean(b);if(!aa||!bb||!aa.every(Number.isFinite)||!bb.every(Number.isFinite))throw new Error(fwUi('A and B must be finite XYZ points.','A y B deben ser puntos XYZ finitos.'));
-  fwLineProfileState.enabled=false;fwLineProfileState.a=aa;fwLineProfileState.b=bb;fwUpdateNavText();fwUpdate3DProfileOverlay();return fwBuild3DLineProfile({select})
+  const clean=p=>Array.isArray(p)&&p.length===3?p.map(Number):null,aa=clean(a),bb=clean(b);
+  if(!aa||!bb||!aa.every(Number.isFinite)||!bb.every(Number.isFinite))
+    throw new Error(fwUi('A and B must be finite XYZ points.','A y B deben ser puntos XYZ finitos.'));
+  // Replacing world-XYZ endpoints invalidates all previously derived lines.
+  // They must not remain plotted alongside the new geometry as comparables.
+  const changed=!fwLineProfileState.a||!fwLineProfileState.b||
+    aa.some((v,i)=>v!==fwLineProfileState.a[i])||
+    bb.some((v,i)=>v!==fwLineProfileState.b[i]);
+  if(changed)fwClear3DProfile(true);
+  fwLineProfileState.enabled=false;fwLineProfileState.a=aa;fwLineProfileState.b=bb;
+  fwUpdateNavText();fwUpdate3DProfileOverlay();
+  return fwBuild3DLineProfile({select})
 }
 function fwHandle3DProfileClick(event){
   if(!fwLineProfileState.enabled)return;event.preventDefault();event.stopImmediatePropagation();const pick=window.FoamLensFieldProbe?.fpPickAtEvent?.(event);if(!pick?.point){fw3DProfileStatus(fwUi('Click visible rendered geometry for point ','Haz clic en geometría renderizada visible para el punto ')+(fwLineProfileState.a?'B.':'A.'),true);return}
