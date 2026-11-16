@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "758f682965566ea29861086c20ef680095cecf05ae79cbfbea17875b6ddde7c9",
-  "evidence_fingerprint": "d7779d0367cffe52855cc2058eecbcaf431f7ab48f1774e65bfcc15a5f31fc4c",
+  "inventory_fingerprint": "4d77f6d9df220f8e2ca6ac5c7451142239433a9903fb498f31ec2e8fb916da52",
+  "evidence_fingerprint": "ddf5becc57ca199ce9e26591754fc71d35311affd65300f928f9759b9136e26b",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -972,7 +972,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ded32e51ce3acd1f33d0a7b4082a9cd9047dcb5d"
+      "blob": "c7ec2ec69fc52e162739a0ce5878d71da87ea695"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "dd42cc26751d03d9af6df2b36b7e7c48917a998b"
+      "blob": "d89d2eb87620db1be73b5e8ff0399f3b184f1398"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1021,7 +1021,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "74d89558d91eb89530cd9623729a04082425d242"
+      "blob": "28b9c6742a1fd3a97a7dbf7ad06a935bbf1a023c"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v18-context-help-resize.js",
@@ -1448,7 +1448,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "bac81563bb028c0123be19eb855cdd2e273785d8"
+      "blob": "5f9ff972c4205ab67168fde15f3c9100d71bdf56"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -1490,7 +1490,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "182c416b5050095e93a514d83658b7134dd2d6c5"
+      "blob": "3500951af504b439efb957c83dfc27a878ea60a0"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -2036,7 +2036,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5b0ec36de43a2f2a0e2f403aca8a5311ba72be77"
+      "blob": "0c0f358901a443e3429775d19ff3f32f8db513b1"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
@@ -3504,11 +3504,11 @@
   ],
   "findings": [
     {
-      "id": "c7b395491b61847c",
+      "id": "8b5bebf068c288e9",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "24 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
+      "observation": "27 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
