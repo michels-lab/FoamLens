@@ -656,6 +656,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-multiview-profile-source.test.cjs
 
+      - name: Compare native Field 3D profile sources across independently timed A–D cases
+        shell: pwsh
+        run: node desktop/tests/field-multiview-profile-comparison.test.cjs
+
       - name: Test T1 source provenance, unknown field labels, metadata compatibility, filters and DOM safety
         shell: pwsh
         run: node desktop/tests/timeseries-provenance.test.cjs

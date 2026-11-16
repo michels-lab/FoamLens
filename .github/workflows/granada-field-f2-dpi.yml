@@ -7,6 +7,8 @@ on:
       - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
       - 'desktop/tests/field-multiview-profile-source.test.cjs'
+      - 'desktop/tests/field-multiview-profile-comparison.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - '.github/workflows/granada-field-f2-dpi.yml'
   pull_request:
     paths:
@@ -15,6 +17,8 @@ on:
       - 'desktop/tests/field-f2-runtime-interactions.spec.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js'
       - 'desktop/tests/field-multiview-profile-source.test.cjs'
+      - 'desktop/tests/field-multiview-profile-comparison.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/index.html'
       - '.github/workflows/granada-field-f2-dpi.yml'
   workflow_dispatch:
 jobs:
@@ -35,6 +39,8 @@ jobs:
         run: node desktop/tests/field-multiview-ux.test.cjs
       - name: Sample original shared XYZ line from independent A/B/C/D OpenFOAM frames
         run: node desktop/tests/field-multiview-profile-source.test.cjs
+      - name: Compare all A-D measured profiles on the original chart without rewriting Data filters
+        run: node desktop/tests/field-multiview-profile-comparison.test.cjs
       - name: Existing Split divider and contextual help regression
         run: node desktop/tests/context-help-resize.test.cjs
       - name: Existing 3D viewpoint physics display contract
