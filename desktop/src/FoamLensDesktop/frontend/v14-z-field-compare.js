@@ -135,9 +135,54 @@ function fcCloneCamera(camera){
 }
 function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
+// A linked camera is not a copy of the primary-mesh diagonal. Its physical
+// scene may contain a second visible region (e.g. sand mold around metal) and
+// each compare canvas may have a very different aspect ratio from A.
+// Measure the *visible source* union and fit it with the original Field fitter.
+// Preserve A's relative zoom AND pan without overwriting saved independent
+// camera state. Empty/hidden geometry cannot create an invented fit.
+function fcLinkedPhysicalCamera(state,mesh){
+  const source=fvState.camera;
+  const fallback=()=>state?.camera?fcCloneCamera(state.camera):fcCloneCamera(source);
+  if(!state||!mesh)return fallback();
+  const primary=fvPhysicalBoundsForScene();
+  const target=state._fcPhysical?fcPhysicalBoundsFor(state):
+    fcValidFitMesh(mesh)?{min:mesh.boundsMin,max:mesh.boundsMax}:null;
+  const valid=b=>b&&fcValidFitMesh({boundsMin:b.min,boundsMax:b.max});
+  if(!valid(primary)||!valid(target))return fallback();
+  const center=b=>b.min.map((v,i)=>v+(b.max[i]-v)/2);
+  const primaryCenter=center(primary),targetCenter=center(target),
+    primaryMesh={boundsMin:primary.min,boundsMax:primary.max},
+    targetMesh={boundsMin:target.min,boundsMax:target.max};
+  const linked=fcSyncedCamera(source,primaryMesh,targetMesh);
+  linked.target=targetCenter;
+  const canvasA=typeof document==='undefined'?null:document.getElementById('fvCanvas');
+  const canvasB=typeof document==='undefined'?null:
+    document.getElementById(state===fcState?'fcCanvas':'fcExtra'+state.id+'Canvas');
+  if(!canvasA||!canvasB)return linked;
+  const sourceBounds={...primary,center:primaryCenter},
+    targetBounds={...target,center:targetCenter};
+  const idealA=fvFitDistance(sourceBounds,source,canvasA),
+    idealB=fvFitDistance(targetBounds,linked,canvasB),
+    actualDistance=Number(source.distance),
+    ratio=actualDistance/idealA,
+    distance=idealB*ratio;
+  if(!Number.isFinite(idealA)||idealA<=0||
+    !Number.isFinite(idealB)||idealB<=0||
+    !Number.isFinite(ratio)||ratio<=0||
+    !Number.isFinite(distance)||distance<=0)return linked;
+  const primarySize=fcMeshDiag(primaryMesh),
+    targetSize=fcMeshDiag(targetMesh);
+  if(!Number.isFinite(primarySize)||!Number.isFinite(targetSize)||primarySize<=0)return linked;
+  const mapped=primaryCenter.map((v,i)=>
+    targetCenter[i]+((Number(source.target?.[i])-v)/primarySize)*targetSize);
+  if(mapped.every(Number.isFinite))linked.target=mapped;
+  linked.distance=distance;
+  return linked
+}
 function fcCameraFor(state,mesh){
-  if(fcCamerasLinked())return fcSyncedCamera(fvState.camera,fvState.mesh,mesh);
-  if(!state.camera)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,mesh));
+  if(fcCamerasLinked())return fcLinkedPhysicalCamera(state,mesh);
+  if(!state.camera)state.camera=fcCloneCamera(fcLinkedPhysicalCamera(state,mesh));
   return state.camera
 }
 function fcMvpForCamera(camera,canvas){
@@ -181,7 +226,12 @@ function fcFitCameraState(state,mesh){
   return true
 }
 function fcResyncCameras(){
-  fcState.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,fcState.mesh));for(const state of fcExtraViews)if(state.mesh)state.camera=fcCloneCamera(fcSyncedCamera(fvState.camera,fvState.mesh,state.mesh));fcRender();fcRenderDifference();fcRenderExtras()
+  // On unlink, carry forward the physically fitted linked view rather than
+  // jumping back to a primary-only camera that clips the visible mold.
+  if(fcState.mesh)fcState.camera=fcCloneCamera(fcLinkedPhysicalCamera(fcState,fcState.mesh));
+  for(const state of fcExtraViews)
+    if(state.mesh)state.camera=fcCloneCamera(fcLinkedPhysicalCamera(state,state.mesh));
+  fcRender();fcRenderDifference();fcRenderExtras()
 }
 function fcFitAllCameras(){
   // A already fits the union of its visible physical regions. The other
