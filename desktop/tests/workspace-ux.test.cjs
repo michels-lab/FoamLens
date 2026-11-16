@@ -708,7 +708,7 @@ test('Granada native B/C/D playback speed and loop survive Workspace save, resto
       timePlaybackRate:99,timePlaybackLoop:'yes'};
   const snapshot=new Function('document','fwState','fcState','fcExtraViews',
     'uxNames','uxDefaultNames','uxLoad','window',
-    ux.slice(begin,end)+';return uxSnapshot;')(
+    ux.slice(begin,end)+';return uxSnapshot();')(
     {getElementById:id=>id==='fcLinkTimes'?{checked:false}:null},
     {layout:'3d',view:'3d',syncTime:false,companion:'profile'},
     B,[C,D],()=>({1:'A',2:'B',3:'C',4:'D'}),
