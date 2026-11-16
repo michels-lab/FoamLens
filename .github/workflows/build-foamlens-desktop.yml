@@ -632,6 +632,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-compare.test.cjs
 
+      - name: Test original A–D Field copy source functionality and isolation
+        shell: pwsh
+        run: node desktop/tests/field-source-copy.test.cjs
+
       - name: Test collapsible sidebar sections
         shell: pwsh
         run: node desktop/tests/sidebar-sections.test.cjs
