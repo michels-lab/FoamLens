@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 504,
-  "classified_files_total": 500,
+  "tracked_files_total": 505,
+  "classified_files_total": 501,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,7 +17,7 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 152,
-    "test": 141,
+    "test": 142,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 64
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "ce4c049f4388e2114752bed92fc006bcc72d41b735a2b9f2f778ced5e29879b9",
-  "evidence_fingerprint": "a112688ba69fafbcf7937924fc3f2b33f1ec31a17e785b18eeac1fb2cd11eeb5",
+  "inventory_fingerprint": "ad78079131426b7b881a3afc223b0b8bdad4cd4d975e307a0e8f37dbc79a57a8",
+  "evidence_fingerprint": "d81cb0260f8686121357acaa2d58067f39079851ec4d071463783b628115c38d",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "b85424341b2e576b0cd7342de77c258b6fe4da17"
+      "blob": "5604403bc7a5612e0226c2d153741a532dff83c8"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -244,7 +244,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "f8947747097e3cab449589f0ebe0d38e4e1d62ec"
+      "blob": "feb090c3b5f53647c0e53a363c91bfc852e5b870"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "05b79f598ca57d0a17d8c0dc4a51103be858ff73"
+      "blob": "54036b8ae55a02c0fb3c24e18575b8a6ab94ac06"
     },
     {
       "path": "LICENSE",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0b382ed55bb7e81a18f35a7fa7aae78c17f61af3"
+      "blob": "13e44ccdde18f24a5e7348ba35790e93374d0e0f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1491,6 +1491,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "cfe0efe301d8215b8f2e2e501abd2405e3e0341d"
+    },
+    {
+      "path": "desktop/tests/field-multiview-profile-csv.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "2e7f629ebe866fc5379d37c7acf7db5d90c87718"
     },
     {
       "path": "desktop/tests/field-multiview-profile-source.test.cjs",
@@ -3532,11 +3539,11 @@
   ],
   "findings": [
     {
-      "id": "0a06f40e5a146301",
+      "id": "8e65b47ada4b599a",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "37 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/timeseries-source-fast.yml",
+      "observation": "38 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/timeseries-source-fast.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
