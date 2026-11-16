@@ -229,6 +229,28 @@ function fcStopIndependentPlayback(view){
 function fcStopAllIndependentPlayback(){
   for(const key of [...fcIndependentPlayers.keys()])fcStopIndependentPlayback(key)
 }
+// Native playback cadence is independently owned by each real B/C/D view.
+// Wall-clock pacing never interpolates or creates OpenFOAM data.
+const FC_INDEPENDENT_RATES=[.5,1,2];
+function fcIndependentPlaybackRate(state){
+  return FC_INDEPENDENT_RATES.includes(Number(state?.timePlaybackRate))?
+    Number(state.timePlaybackRate):1
+}
+function fcIndependentPlaybackDelay(state){
+  return Math.round(450/fcIndependentPlaybackRate(state))
+}
+function fcSetIndependentPlaybackOptions(view,options){
+  const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!state||fcTimesLinked()||!fcState.enabled)return false;
+  if(options?.rate!=null){
+    const rate=Number(options.rate);
+    if(!FC_INDEPENDENT_RATES.includes(rate))return false;
+    state.timePlaybackRate=rate
+  }
+  if(typeof options?.loop==='boolean')state.timePlaybackLoop=options.loop;
+  fcScheduleToolbarSync();
+  return true
+}
 function fcIndependentTimeStep(view,direction){
   if(fcTimesLinked()||!fcState.enabled)return false;
   const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
@@ -252,9 +274,19 @@ async function fcRunIndependentPlayback(view,play){
     if(!ready){fcStopIndependentPlayback(view);return}
   }
   if(fcIndependentPlayers.get(String(view))!==play||play.cancelled)return;
-  if(!fcIndependentTimeStep(view,1)){fcStopIndependentPlayback(view);return}
-  // Only one pending tick per view and never before its prior load finishes.
-  play.timer=setTimeout(()=>{play.timer=null;fcRunIndependentPlayback(view,play)},450)
+  const source=fcIndependentTimeSource(state),current=fcIndependentTimeTarget(state);
+  if(!fcIndependentTimeStep(view,1)){
+    // Loop only through measured catalog timestamps of the SAME source.
+    // Never repeat an invalid or missing OpenFOAM frame.
+    if(!state.timePlaybackLoop||current!==source.times.at(-1)||
+      !fcSetIndependentTime(view,source.times[0])){
+      fcStopIndependentPlayback(view);return
+    }
+  }
+  // Per-pane cadence applies on the next real frame, never to A's player.
+  play.timer=setTimeout(()=>{
+    play.timer=null;fcRunIndependentPlayback(view,play)
+  },fcIndependentPlaybackDelay(state))
 }
 function fcToggleIndependentPlayback(view){
   const key=String(view);
@@ -292,6 +324,23 @@ function fcSyncIndependentPlaybackControls(bar){
     button.setAttribute('aria-label',label);button.title=label
   }
   const play=bar.querySelector('[data-fc-time-play]');
+  const rate=bar.querySelector('[data-fc-time-rate]');
+  if(rate){
+    const value=String(fcIndependentPlaybackRate(state));
+    if(rate.value!==value)rate.value=value;
+    rate.disabled=fcTimesLinked()||!state||source.times.length<2;
+    rate.setAttribute('aria-label',fcUi('Playback speed for view','Velocidad de reproducción de vista')+' '+letter);
+    const caption=rate.closest('label')?.querySelector('span');
+    if(caption)caption.textContent=fcUi('Speed','Velocidad')
+  }
+  const loop=bar.querySelector('[data-fc-time-loop]');
+  if(loop){
+    loop.checked=!!state?.timePlaybackLoop;
+    loop.disabled=fcTimesLinked()||!state||source.times.length<2;
+    loop.setAttribute('aria-label',fcUi('Repeat measured times for view','Repetir tiempos medidos de vista')+' '+letter);
+    const caption=loop.closest('label')?.querySelector('span');
+    if(caption)caption.textContent=fcUi('Loop','Bucle')
+  }
   if(play){
     play.disabled=fcTimesLinked()||!state||source.times.length<2;
     play.textContent=playing?'❚❚':'▶';
@@ -801,7 +850,10 @@ function fcAddViewportToolbar(viewport,view){
       '<div class="fcViewTimeControls"><button type="button" data-fc-time-step="-1" title="'+fcUi('Previous measured time','Tiempo medido anterior')+'" aria-label="'+fcUi('Previous measured time','Tiempo medido anterior')+' '+letter+'">‹</button>'+
       '<select data-fc-independent-time aria-label="'+fcUi('Physical time for view','Tiempo físico de vista')+' '+letter+'"></select>'+
       '<button type="button" data-fc-time-step="1" title="'+fcUi('Next measured time','Siguiente tiempo medido')+'" aria-label="'+fcUi('Next measured time','Siguiente tiempo medido')+' '+letter+'">›</button>'+
-      '<button type="button" data-fc-time-play aria-pressed="false" aria-label="'+fcUi('Play physical time','Reproducir tiempo físico')+' '+letter+'">▶</button></div></div>':'')+
+      '<button type="button" data-fc-time-play aria-pressed="false" aria-label="'+fcUi('Play physical time','Reproducir tiempo físico')+' '+letter+'">▶</button></div>'+
+      '<div class="fcViewPlaybackOptions"><label class="fcViewPlaybackRate"><span>'+fcUi('Speed','Velocidad')+'</span><select data-fc-time-rate aria-label="'+fcUi('Playback speed for view','Velocidad de reproducción de vista')+' '+letter+'">'+
+      FC_INDEPENDENT_RATES.map(rate=>'<option value="'+rate+'" '+(rate===1?'selected':'')+'>'+rate+'×</option>').join('')+'</select></label>'+
+      '<label class="fcViewPlaybackLoop"><input type="checkbox" data-fc-time-loop><span>'+fcUi('Loop','Bucle')+'</span></label></div></div>':'')+
     (mapping?fcCameraPresetMenu(letter):'')+
     '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
@@ -866,6 +918,10 @@ function fcAddViewportToolbar(viewport,view){
     }));
   bar.querySelector('[data-fc-time-play]')?.addEventListener('click',()=>
     fcToggleIndependentPlayback(view));
+  bar.querySelector('[data-fc-time-rate]')?.addEventListener('change',event=>
+    fcSetIndependentPlaybackOptions(view,{rate:event.target.value}));
+  bar.querySelector('[data-fc-time-loop]')?.addEventListener('change',event=>
+    fcSetIndependentPlaybackOptions(view,{loop:event.target.checked}));
   // Collapse and focus restoration are native details behavior; leaving this
   // menu never drops or re-creates the live original Case/Field controls.
   const sourceDetails=bar.querySelector('.fcViewSourceDetails');
@@ -1759,6 +1815,11 @@ function fcInstallUi(){
     .fcViewTimeControls button[data-fc-time-play]{flex-basis:32px}
     .fcViewTimeControls button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accentSoft)}
     .fcViewTimeControls button:disabled{opacity:.35;cursor:default}
+    .fcViewPlaybackOptions{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;min-width:0;max-width:100%}
+    .fcViewPlaybackRate,.fcViewPlaybackLoop{display:inline-flex;align-items:center;gap:5px;min-width:0;cursor:pointer;font-size:11px}
+    .fcViewPlaybackRate select{width:62px!important;height:27px;min-height:27px;font-size:11px}
+    .fcViewPlaybackLoop input{accent-color:var(--accent)}
+    .fcViewPlaybackOptions [disabled]{opacity:.45}
     .fcViewSourceDetails{flex:1 1 220px;min-width:145px;max-width:100%;align-self:center}
     .fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px;max-width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:11px;font-weight:750;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .fcViewSourceDetails>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
