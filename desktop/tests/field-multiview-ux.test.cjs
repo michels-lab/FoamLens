@@ -313,7 +313,8 @@ fcExtraViews[0].mesh=savedMesh;
   assert.strictEqual(remove(3),true);
   assert.strictEqual(live.length,0);
   assert.strictEqual(removed.seq,18,'Pending asynchronous read must be invalidated on removal');
-  assert.strictEqual(released[0],3);
+  assert.deepStrictEqual(released,['timer-3',3],
+    'C playback must stop before the original OpenFOAM mesh releases');
   assert.strictEqual(remove(3),false,'Repeated click cannot reuse already deleted view');
 }
 for(const fragment of [
