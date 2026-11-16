@@ -98,9 +98,9 @@ assert.equal(realApi.catalog.issues.filter(x=>x.stage==='times').length,5,
 assert(!physical.some(x=>x.caseId==='ghost'||x.name==='unphysical'),
   'A source field without finite physical times is not available for history generation');
 assert.strictEqual(costlyFrameReads,0,'Pure catalog scan must not read OpenFOAM frames');
-assert(source.includes("casesWithFields+' case(s)'"),
+assert(source.includes("casesWithFields+' case(s),'"),
   'Visible Time Series status must show distinct original cases');
-assert(source.includes("caseRegionsWithFields+' case-region source(s)'"),
+assert(source.includes("caseRegionsWithFields+' case-region source(s).'"),
   'Status must disclose real multiregion availability');
 
 console.log('Time Series field source catalog PASS: 4 available real case/region fields, vector components, visible generation with zero existing curves.');
