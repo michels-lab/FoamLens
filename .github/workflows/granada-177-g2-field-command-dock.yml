@@ -3,12 +3,16 @@ on:
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js'
+      - 'desktop/tests/field-source-copy.test.cjs'
       - 'desktop/tests/granada-177-g2-field-source-dock.test.cjs'
       - '.github/workflows/granada-177-g2-field-command-dock.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js'
+      - 'desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js'
+      - 'desktop/tests/field-source-copy.test.cjs'
       - 'desktop/tests/granada-177-g2-field-source-dock.test.cjs'
       - '.github/workflows/granada-177-g2-field-command-dock.yml'
   workflow_dispatch:
@@ -36,5 +40,7 @@ jobs:
         run: node desktop/tests/field-3d-navigation-cache.test.cjs
       - name: Original multi-view and Ribbon regression
         run: node desktop/tests/field-multiview-ux.test.cjs
+      - name: Copy original case/region/field/component between A–D viewports
+        run: node desktop/tests/field-source-copy.test.cjs
       - name: Field workspace ownership/layout regression
         run: node desktop/tests/workspace-ux.test.cjs
