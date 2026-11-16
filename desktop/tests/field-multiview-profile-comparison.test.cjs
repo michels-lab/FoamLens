@@ -71,7 +71,7 @@ const fn=new Function(...Object.keys(ctx),
   take(ws,'function fwRefresh3DProfileSourceViews(){','function fwHandle3DProfileClick(')+
   ';return {refresh:fwRefresh3DProfileSourceViews,compare:fwCompareAll3DProfiles,'+
   'exit:fwLeave3DProfileCompare,active:()=>fwState.compareProfiles,'+
-  'includes:s=>s?.derivedKind==="field3d_line_profile"&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,'+
+  'includes:s=>s?.derivedKind==="field3d_line_profile"&&fwState.compareProfileViews?.includes(s.profileSourceView)&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,'+
   'key:fw3DProfileDimensionKey,build:fwBuild3DLineProfile}')(...Object.values(ctx));
 
 fn.refresh();
@@ -80,6 +80,7 @@ const untouched={set:nodes.profileSet.value,variable:nodes.profileVariable.value
 assert(fn.compare(),'One action should build the complete four-view comparison');
 assert.equal(state.layout,'split');
 assert.equal(fn.active(),true);
+assert.deepEqual(state.compareProfileViews,['A','B','C','D']);
 assert.equal(nodes.fwCompare3DProfiles['aria-pressed'],'true');
 assert.deepEqual(series.map(s=>s.profileSourceView),['A','B','C','D']);
 assert.deepEqual(series.map(s=>s.profileTime),[.2,.3,.4,.5]);
@@ -153,7 +154,7 @@ const graphApi=new Function('window','datasetTypeOf','profileTimeEqual','profile
 assert.equal(graphApi.active(),false);
 assert.equal(graphApi.clock(),true,'Normal Data multiple-case playback clock still uses the original rule');
 assert.equal(graphApi.context(series[0]),false,'Ordinary global case filter still excludes unrelated source');
-state.compareProfiles=true;
+state.compareProfileViews=['A','B','C','D'];state.compareProfiles=true;
 assert.equal(graphApi.active(),true);
 assert.equal(graphApi.clock(),false,'Field snapshot chart must never fabricate shared physical times');
 assert(series.every(s=>graphApi.matches(s)&&graphApi.context(s)),
@@ -161,7 +162,7 @@ assert(series.every(s=>graphApi.matches(s)&&graphApi.context(s)),
 assert.deepEqual(graphApi.series().map(s=>s.id),ids);
 assert.equal(graphApi.matches({datasetType:'profile',id:1000,derivedKind:'unrelated'}),false,
   'Field compare must not leak unrelated imported or derived Profile data');
-state.compareProfiles=false;
+state.compareProfiles=false;state.compareProfileViews=[];
 assert(!graphApi.matches(series[0]),'Exit must instantly restore the original Data filters');
 const axis=new Function('currentDataView','flFieldProfileCompareActive','seriesRegion',
   'profileSelectedVariables','document','$','profileAxisPlan',
@@ -172,7 +173,12 @@ state.compareProfiles=true;
 const assigned=axis(series);
 assert.deepEqual(series.map(s=>assigned.get(s.id)),['left','left','right','left'],
   'Original chart keeps measured T on the left and verified Ux on the right, including face T');
-state.compareProfiles=false;
+state.compareProfiles=true;state.compareProfileViews=['A','B','C','D'];
+nodes.fcEnabled.checked=false;fn.refresh();
+assert.equal(state.compareProfiles,false,'Removing B/C/D automatically leaves an obsolete comparison');
+assert.deepEqual(state.compareProfileViews,[],'No hidden view remains marked as compared');
+nodes.fcEnabled.checked=true;fn.refresh();
+assert.deepEqual(profileSelect.options.map(o=>o.value),['A','B','C','D']);
 assert(ws.includes('id="fwCompare3DProfiles"')&&ws.includes('fwCompareAll3DProfiles()'),
   'The visible compare button must invoke the real original A–D source sampler');
 assert(chart.includes("flFieldProfileCompareActive()")&&chart.includes("profileCompareIncludes?.(s)"),
