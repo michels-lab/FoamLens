@@ -525,7 +525,7 @@ for(const fragment of [
     fcUpdateLayout:()=>{},fcClearRenderer:()=>{bClears++;bState.mesh=null},
     fcCase:()=>({id:'B3',name:'B3'}),fcRegion:()=> 'metal',
     fcCurrentFieldName:()=> 'T',fcCurrentComponent:()=> 'value',
-    fcPrimaryPhysicalTime:()=>bTarget,fcFieldFor:()=>({times:[9.8,10,11]}),
+    fcPrimaryPhysicalTime:()=>bTarget,fcIndependentTimeTarget:()=>bTarget,fcFieldFor:()=>({times:[9.8,10,11]}),
     fcResolveTime:(times,target)=>({ok:true,time:target,delta:0}),
     fcMode:()=> 'nearest',fcSetStatus:()=>{},fcUi:en=>en,
     fcLoadSynchronizedData:(c,g,region,target)=>bPending.get(target).promise,
@@ -560,7 +560,7 @@ for(const fragment of [
     fcState:{enabled:true},fcExtraRefreshSelectors:()=>{},
     fcExtraCase:()=>({id:'C3',name:'C3'}),fcExtraRegion:()=> 'metal',
     fcExtraField:()=> 'T',fcExtraComponent:()=> 'value',
-    fcPrimaryPhysicalTime:()=>cTarget,
+    fcPrimaryPhysicalTime:()=>cTarget,fcIndependentTimeTarget:()=>cTarget,
     fcExtraDom:()=>({textContent:''}),fcExtraInvalidateFrame:state=>{
       cClears++;state.seq++;state.mesh=null;state.time=NaN
     },
