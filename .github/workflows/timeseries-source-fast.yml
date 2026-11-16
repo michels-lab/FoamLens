@@ -5,6 +5,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - 'desktop/tests/field-timeseries-association.test.cjs'
       - 'desktop/tests/timeseries-provenance.test.cjs'
       - '.github/workflows/timeseries-source-fast.yml'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js'
       - 'desktop/tests/timeseries-source-catalog.test.cjs'
+      - 'desktop/tests/field-timeseries-association.test.cjs'
       - 'desktop/tests/timeseries-provenance.test.cjs'
       - '.github/workflows/timeseries-source-fast.yml'
   workflow_dispatch:
@@ -35,5 +37,6 @@ jobs:
       - name: Existing Time Series and available OpenFOAM field inventory
         run: |
           node desktop/tests/timeseries-source-catalog.test.cjs
+          node desktop/tests/field-timeseries-association.test.cjs
           node desktop/tests/dual-timeseries.test.cjs
           node desktop/tests/timeseries-provenance.test.cjs
