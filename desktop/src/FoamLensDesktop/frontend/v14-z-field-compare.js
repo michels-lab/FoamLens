@@ -135,6 +135,74 @@ function fcCloneCamera(camera){
 }
 function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
+function fcTimesLinked(){return document.getElementById('fcLinkTimes')?.checked!==false}
+// Independent time targets are always actual timestamps in the selected
+// OpenFOAM case/region/field catalog, never synthetic frame indices.
+function fcIndependentTimeSource(state){
+  if(!state)return{key:'',times:[]};
+  const b=state===fcState,c=b?fcCase():fcExtraCase(state),
+    region=b?fcRegion():fcExtraRegion(state),
+    field=b?fcCurrentFieldName():fcExtraField(state),
+    group=c&&field?fcFieldFor(c,region,field):null,
+    times=[...new Set((group?.times||[]).map(fcPhysicalNumber)
+      .filter(Number.isFinite))].sort((a,b)=>a-b);
+  return{key:c?String(c.id)+'|'+region+'|'+field:'',times}
+}
+function fcIndependentTimeTarget(state){
+  if(fcTimesLinked())return fcPrimaryPhysicalTime();
+  const source=fcIndependentTimeSource(state),times=source.times;
+  if(!times.length)return NaN;
+  if(state.timeSource!==source.key||!times.includes(state.timeTarget)){
+    const prior=state.timeSource===source.key&&Number.isFinite(state.timeTarget)?
+      state.timeTarget:Number.isFinite(state.time)?state.time:fcPrimaryPhysicalTime(),
+      target=Number.isFinite(prior)?prior:times[0];
+    state.timeTarget=times.reduce((best,t)=>
+      Math.abs(t-target)<Math.abs(best-target)?t:best,times[0]);
+    state.timeSource=source.key
+  }
+  return state.timeTarget
+}
+function fcSyncIndependentTimePicker(bar){
+  const picker=bar?.querySelector?.('[data-fc-independent-time]');
+  if(!picker)return;
+  const view=bar.dataset.fcToolbar,
+    state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  const holder=picker.closest('.fcViewTimePicker');
+  if(holder)holder.hidden=fcTimesLinked();
+  if(!state||fcTimesLinked())return;
+  const source=fcIndependentTimeSource(state),target=fcIndependentTimeTarget(state),
+    signature=source.key+'|'+source.times.join(',');
+  if(picker.dataset.fcTimeOptions!==signature){
+    picker.innerHTML=source.times.map(t=>
+      '<option value="'+fcEsc(String(t))+'">'+fcEsc(fcFmt(t))+' s</option>').join('')||
+      '<option value="">—</option>';
+    picker.dataset.fcTimeOptions=signature
+  }
+  if(Number.isFinite(target))picker.value=String(target);
+  picker.disabled=!source.times.length;
+  picker.setAttribute('aria-label',fcUi('Physical time for view','Tiempo físico de vista')+' '+
+    (view==='B'?'B':String.fromCharCode(64+Number(view))))
+}
+function fcSetIndependentTime(view,value){
+  if(fcTimesLinked()||!Number.isFinite(Number(value)))return false;
+  const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!state||!fcState.enabled)return false;
+  const source=fcIndependentTimeSource(state),target=Number(value);
+  if(!source.times.includes(target))return false;
+  state.timeTarget=target;state.timeSource=source.key;
+  if(view==='B')fcRefreshFrame();
+  else fcExtraRefreshFrame(state);
+  return true
+}
+function fcRefreshTimeLink(){
+  if(!fcTimesLinked()){
+    for(const state of [fcState,...fcExtraViews])
+      if(!Number.isFinite(state.timeTarget))
+        state.timeTarget=Number.isFinite(state.time)?state.time:NaN
+  }
+  fcScheduleToolbarSync();
+  if(fcState.enabled){fcRefreshFrame();fcRefreshExtras()}
+}
 // A linked camera is not a copy of the primary-mesh diagonal. Its physical
 // scene may contain a second visible region (e.g. sand mold around metal) and
 // each compare canvas may have a very different aspect ratio from A.
@@ -577,6 +645,7 @@ function fcSyncToolbars(){
     // Source label reflects the REAL originating selects even when their
     // compact inspector is closed. Source field/region data stay authoritative.
     fcSyncViewSourceSummary(bar);
+    fcSyncIndependentTimePicker(bar);
     // bar is the actual viewport toolbar from this loop; an undefined
     // toolbar name used to abort all A–D selector/physical-region refreshes.
     fcPhysicalMenu(bar.dataset.fcToolbar)
@@ -618,6 +687,7 @@ function fcAddViewportToolbar(viewport,view){
   const en=fcUi('View','Vista');
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
     (mapping?'<details class="fcViewSourceDetails" '+(view==='A'?'':'open')+'><summary>'+fcUi('Source','Fuente')+' '+letter+'</summary><div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div></details>':'<span class="fcViewDiffLabel">Δ</span>')+
+    (mapping&&view!=='A'?'<label class="fcViewTimePicker" hidden><span>'+fcUi('Physical time','Tiempo físico')+' (s)</span><select data-fc-independent-time aria-label="'+fcUi('Physical time for view','Tiempo físico de vista')+' '+letter+'"></select></label>':'')+
     (mapping?fcCameraPresetMenu(letter):'')+
     '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
@@ -671,6 +741,8 @@ function fcAddViewportToolbar(viewport,view){
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
     source.value=mirror.value;source.dispatchEvent(new Event('change',{bubbles:true}));fcScheduleToolbarSync()
   }));
+  bar.querySelector('[data-fc-independent-time]')?.addEventListener('change',event=>
+    fcSetIndependentTime(view,event.target.value));
   // Collapse and focus restoration are native details behavior; leaving this
   // menu never drops or re-creates the live original Case/Field controls.
   const sourceDetails=bar.querySelector('.fcViewSourceDetails');
@@ -1155,7 +1227,8 @@ function fcUpdateLabels(){
   if(primary)primary.textContent=(pc?.name||fcUi('Primary case','Caso principal'))+' · '+(fvState.fieldName||document.getElementById('fvField')?.value||'—')+(Number.isFinite(fvState.time)?' · t='+fcFmt(fvState.time)+' s':'');
   if(compare)compare.textContent=(cc?.name||fcUi('Comparison case','Caso comparado'))+' · '+(fcState.fieldName||fcCurrentFieldName()||'—')+(Number.isFinite(fcState.time)?' · t='+fcFmt(fcState.time)+' s':'');
   if(pb)pb.textContent=Number.isFinite(fvState.time)?'A · t='+fcFmt(fvState.time)+' s':'A · —';
-  if(cb)cb.textContent='B · '+fcSyncText(fcState.sync);
+  if(cb)cb.textContent=fcTimesLinked()?'B · '+fcSyncText(fcState.sync):
+    'B · '+(Number.isFinite(fcState.time)?'t='+fcFmt(fcState.time)+' s': '—')+' · '+fcUi('Independent','Independiente');
   if(primary)primary.title=primary.textContent;
   if(compare)compare.title=compare.textContent
 }
@@ -1226,6 +1299,13 @@ function fcRenderDifference(exportSize=null){
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
   viewport?.classList.toggle('hidden',!enabled);if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
+  // Independent timestamps must never produce a misleading scientific A-B.
+  if(!fcTimesLinked()&&(!Number.isFinite(fvState.time)||!Number.isFinite(fcState.time)||
+    Math.abs(fvState.time-fcState.time)>1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time)))){
+    fcState.differenceValues=null;fcState.differenceRange=null;
+    flSetIssue(status,'Independent physical times differ; 3D difference requires matching t (s)',{analysis:'3D Difference'});
+    fcUpdateLayout();return
+  }
   if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
   if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
   const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
@@ -1275,7 +1355,7 @@ function fcApplySharedRange(compareRange){
 }
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
-  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcPrimaryPhysicalTime();if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a synchronized 3D view after loading the primary frame.','Elige una vista 3D sincronizada después de cargar el frame principal.'),true);return}
+  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;try{
@@ -1294,7 +1374,7 @@ async function fcRefreshFrame(){
   }
 }
 function fcRefreshVisuals(){
-  if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fvState.time,fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
+  if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fcTimesLinked()?fvState.time:fcIndependentTimeTarget(fcState),fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
 }
 
 const fcExtraViews=[];
@@ -1367,7 +1447,9 @@ function fcExtraUpload(state,data){
   state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range,palette);fcExtraRender(state);fcUpdateStatsGrid()
 }
 function fcExtraUpdateLabel(state){
-  const e=fcExtraDom(state.id,'Label'),badge=fcExtraDom(state.id,'TimeBadge'),c=fcExtraCase(state);if(e)e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'');if(badge)badge.textContent=String.fromCharCode(64+Number(state.id))+' · '+fcSyncText(state.sync)
+  const e=fcExtraDom(state.id,'Label'),badge=fcExtraDom(state.id,'TimeBadge'),c=fcExtraCase(state);if(e)e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'');if(badge)badge.textContent=String.fromCharCode(64+Number(state.id))+' · '+
+    (fcTimesLinked()?fcSyncText(state.sync):
+      (Number.isFinite(state.time)?'t='+fcFmt(state.time)+' s':'—')+' · '+fcUi('Independent','Independiente'))
 }
 // Changing a <select>.innerHTML destroys all of its option nodes and
 // forces browser style/layout work. C/D field catalogs may contain hundreds
@@ -1400,8 +1482,8 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   if(!fcState.enabled)return;
   // Direct playback/sync calls still refresh from the real OpenFOAM catalog;
   // handlers that just refreshed selectors must not do the same work twice.
-  if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcPrimaryPhysicalTime(),status=fcExtraDom(state.id,'Status');
-  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
+  if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
+  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
@@ -1497,7 +1579,10 @@ function fcScheduleLayoutRender(){
 function fcUpdateLayout(){
   // The enabled state is owned by the actual Compare checkbox, never stale frames.
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
-  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
+  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
+    samePhysicalTime=fcTimesLinked()||(Number.isFinite(fvState.time)&&Number.isFinite(fcState.time)&&
+      Math.abs(fvState.time-fcState.time)<=1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time))),
+    showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked&&samePhysicalTime;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
@@ -1508,9 +1593,9 @@ function fcInstallUi(){
     '<div class="field"><label data-fl-en="Physical-time synchronization" data-fl-es="Sincronización por tiempo físico">Physical-time synchronization</label><select id="fcSync"><option value="nearest" data-fl-en="Nearest available (show Δt)" data-fl-es="Más cercano disponible (mostrar Δt)">Nearest available (show Δt)</option><option value="exact" data-fl-en="Exact time only" data-fl-es="Solo tiempo exacto">Exact time only</option><option value="interpolate" data-fl-en="Interpolated between frames" data-fl-es="Interpolado entre frames">Interpolated between frames</option></select></div>'+
     '<div class="row2"><div class="field"><label data-fl-en="3D difference" data-fl-es="Diferencia 3D">3D difference</label><select id="fcDifferenceMode"><option value="signed">Signed A − B</option><option value="absolute">Absolute |A − B|</option><option value="percent">Percent of A</option></select></div><div class="field"><label data-fl-en="Percent ε" data-fl-es="ε porcentual">Percent ε</label><input id="fcPercentEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>'+
     '<div class="fcExtraActions"><button class="btn soft" id="fcSwapCases" type="button" data-fl-en="⇄ Swap A / B" data-fl-es="⇄ Intercambiar A / B">⇄ Swap A / B</button><button class="btn" id="fcCopyAToB" type="button" data-fl-en="Copy A → B settings" data-fl-es="Copiar ajustes A → B">Copy A → B settings</button></div>'+
-    '<div class="fvChecks fcLinkRow"><label class="inlineCheck"><input id="fcLinkCameras" type="checkbox"> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label><button class="btn tiny" id="fcResyncCameras" type="button" data-fl-en="Re-sync" data-fl-es="Re-sincronizar">Re-sync</button><button class="btn tiny" id="fcFitAll" type="button" data-fl-en="Fit all" data-fl-es="Ajustar todas">Fit all</button><label class="inlineCheck"><input id="fcSyncVisuals" type="checkbox" checked> <span data-fl-en="Sync visual settings" data-fl-es="Sincronizar ajustes visuales">Sync visual settings</span></label></div>'+
+    '<div class="fvChecks fcLinkRow"><label class="inlineCheck"><input id="fcLinkTimes" type="checkbox" checked> <span data-fl-en="Sync physical time across views" data-fl-es="Sincronizar tiempo físico de las vistas">Sync physical time across views</span></label><label class="inlineCheck"><input id="fcLinkCameras" type="checkbox" checked> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label><button class="btn tiny" id="fcResyncCameras" type="button" data-fl-en="Re-sync" data-fl-es="Re-sincronizar">Re-sync</button><button class="btn tiny" id="fcFitAll" type="button" data-fl-en="Fit all" data-fl-es="Ajustar todas">Fit all</button><label class="inlineCheck"><input id="fcSyncVisuals" type="checkbox" checked> <span data-fl-en="Sync visual settings" data-fl-es="Sincronizar ajustes visuales">Sync visual settings</span></label></div>'+
     '<div class="fcExtraCard hidden" id="fcView2Visuals"><div class="row2"><div class="field"><label data-fl-en="View 2 colormap" data-fl-es="Mapa de color Vista 2">View 2 colormap</label><select id="fcView2Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label data-fl-en="View 2 opacity" data-fl-es="Opacidad Vista 2">View 2 opacity</label><input id="fcView2Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcView2Surface" type="checkbox" checked> Surface</label><label class="inlineCheck"><input id="fcView2Edges" type="checkbox" checked> Edges</label><label class="inlineCheck"><input id="fcView2Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcView2Iso" type="checkbox"> Iso</label><label class="inlineCheck"><input id="fcView2Vectors" type="checkbox"> Vectors</label><label class="inlineCheck"><input id="fcView2Streamlines" type="checkbox"> Streamlines</label></div></div>'+
-    '<div class="smallnote" data-fl-en="Each viewport may use its own case, field and component. Time follows Exact / Nearest / Interpolated synchronization; cameras and visual settings may be linked or independent. A shared color scale and 3D difference are used only when both views represent the same physical quantity." data-fl-es="Cada viewport puede usar su propio caso, variable y componente. El tiempo y la cámara permanecen sincronizados. La escala compartida y la diferencia 3D solo se usan cuando ambas vistas representan la misma cantidad física.">Each viewport may use its own case, field and component. Time and camera remain synchronized. A shared color scale and 3D difference are used only when both views represent the same physical quantity.</div>'+
+    '<div class="smallnote" data-fl-en="Each viewport may use its own case, region, field and component. Disable Synchronize views for independent cameras, appearance and physical timestamps. A 3D difference requires compatible physical times and the same quantity." data-fl-es="Cada vista puede usar su propio caso, región, variable y componente. Desactiva Sincronizar vistas para mover sus cámaras, ajustar su apariencia y elegir tiempos físicos independientes. La diferencia 3D requiere tiempos compatibles y la misma cantidad física.">Each viewport can use independent cameras, visual settings and physical timestamps; 3D difference requires matching physical times and quantities.</div>'+
     '<div class="fcExtraActions"><button class="btn soft" id="fcAddView" type="button" data-fl-en="+ Add 3D view" data-fl-es="+ Añadir vista 3D">+ Add 3D view</button><span class="smallnote" data-fl-en="Up to 4 synchronized viewports" data-fl-es="Hasta 4 viewports sincronizados">Up to 4 synchronized viewports</span></div><div id="fcExtraControls"></div>'+
     '<div class="extStatus" id="fcStatus"></div></div>';status.insertAdjacentElement('beforebegin',box);
   const grid=document.createElement('div');grid.id='fcViewGrid';grid.className='fcViewGrid';primary.parentElement.insertBefore(grid,primary);grid.appendChild(primary);
@@ -1535,6 +1620,10 @@ function fcInstallUi(){
     #fcViewGrid .fcViewportCaption .fcLegend{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;min-width:0;box-sizing:border-box;margin:0}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0;max-width:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegend{min-width:min(100%,120px);max-width:100%;overflow-wrap:anywhere}
+    .fcViewTimePicker{display:grid;gap:3px;flex:0 1 165px;min-width:110px;max-width:100%;font-size:10px;color:var(--text)}
+    .fcViewTimePicker[hidden]{display:none!important}
+    .fcViewTimePicker span{font-weight:750;color:var(--muted)}
+    .fcViewTimePicker select{box-sizing:border-box;min-width:0;width:100%;height:32px;border-radius:7px;font-size:11px}
     .fcViewSourceDetails{flex:1 1 220px;min-width:145px;max-width:100%;align-self:center}
     .fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px;max-width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:11px;font-weight:750;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .fcViewSourceDetails>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -1578,9 +1667,14 @@ function fcInstallUi(){
   document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcComponent').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcSync').addEventListener('change',()=>fcRefreshFrame());document.getElementById('fcDifferenceMode').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcPercentEpsilon').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcSwapCases').addEventListener('click',()=>fcSwapPrimaryCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));document.getElementById('fcCopyAToB').addEventListener('click',()=>fcCopyPrimarySettingsToCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));
+  document.getElementById('fcLinkTimes').addEventListener('change',fcRefreshTimeLink);
   document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras();fcScheduleCameraPresetSync()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>fcRender()).observe(second);new ResizeObserver(()=>fcRenderDifference()).observe(diff);}
-  fcRefreshSelectors(false);fcUpdateLayout();fcScheduleToolbarSync();return true
+  fcRefreshSelectors(false);fcUpdateLayout();fcScheduleToolbarSync();
+  // The workspace shell may have appeared before this original 3D panel:
+  // bind the visible sync switch at the moment all native owners exist.
+  if(typeof fwBindSyncViewControls==='function')fwBindSyncViewControls();
+  return true
 }
 function fcInstall(){
   const mount=()=>fcInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
