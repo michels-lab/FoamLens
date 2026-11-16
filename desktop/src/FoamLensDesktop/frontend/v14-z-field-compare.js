@@ -329,7 +329,9 @@ function fcSyncIndependentPlaybackControls(bar){
     const value=String(fcIndependentPlaybackRate(state));
     if(rate.value!==value)rate.value=value;
     rate.disabled=fcTimesLinked()||!state||source.times.length<2;
-    rate.setAttribute('aria-label',fcUi('Playback speed for view','Velocidad de reproducción de vista')+' '+letter)
+    rate.setAttribute('aria-label',fcUi('Playback speed for view','Velocidad de reproducción de vista')+' '+letter);
+    const caption=rate.closest('label')?.querySelector('span');
+    if(caption)caption.textContent=fcUi('Speed','Velocidad')
   }
   const loop=bar.querySelector('[data-fc-time-loop]');
   if(loop){
