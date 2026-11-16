@@ -840,7 +840,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     }));
     const summary={textContent:''},group={attributes:{},setAttribute(k,v){this.attributes[k]=v}};
     const menu={dataset:{},querySelector(key){return key==='summary'?summary:key==='[role="group"]'?group:null},
-      querySelectorAll(key){return key==='[data-fc-camera-preset]'?buttons:[]}};
+      querySelectorAll(key){return key==='[data-fc-camera-preset]'||
+        key==='[data-fc-camera-preset], [data-fc-projection]'?buttons:[]}};
     return{dataset:{fcToolbar:view},summary,buttons,group,menu,
       querySelector:key=>key==='.fcViewportCameraPresets'?menu:null}
   }
@@ -1106,4 +1107,125 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(source.includes("svg.innerHTML=markup"),
     'original projected axes/metric tick SVG must remain functional');
   console.log('Granada 3D A/B/C/D metric captions PASS: original numeric sources below canvas, source axes preserved, narrow CSS and legends');
+}
+
+
+// Granada projection fidelity: A/B/C/D share the actual physical matrix
+// contract. Previously B/C/D always used perspective, while their source XYZ
+// readout incorrectly claimed Orthographic. Tests execute production logic.
+{
+  const synchA=source.indexOf('function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){');
+  const synchB=source.indexOf('function fcArrayEqualNumeric(',synchA);
+  const cloneA=source.indexOf('function fcCloneCamera(camera){');
+  const cloneB=source.indexOf('function fcCamerasLinked(){',cloneA);
+  const matrixA=source.indexOf('function fcMvpForCamera(camera,canvas){');
+  const matrixB=source.indexOf('function fcPanCamera(',matrixA);
+  assert(synchA>0&&synchB>synchA&&cloneA>0&&cloneB>cloneA&&matrixA>0&&matrixB>matrixA);
+  const mesh={boundsMin:[0,0,0],boundsMax:[2,4,6]};
+  const diag=m=>Math.hypot(...m.boundsMin.map((v,i)=>m.boundsMax[i]-v));
+  const linkedCamera=new Function('fcMeshDiag',
+    source.slice(synchA,synchB)+';return fcSyncedCamera;')(diag);
+  const A={yaw:.7,pitch:.4,target:[0,0,0],distance:14,projection:'orthographic'};
+  const synced=linkedCamera(A,mesh,mesh);
+  assert.equal(synced.projection,'orthographic','linked B must inherit A physical projection');
+  A.projection='perspective';
+  assert.equal(linkedCamera(A,mesh,mesh).projection,'perspective',
+    'linked C/D must immediately inherit A perspective without changing source data');
+  const cloned=new Function('fvState',source.slice(cloneA,cloneB)+';return fcCloneCamera;')(
+    {camera:{projection:'orthographic'}});
+  assert.equal(cloned(synced).projection,'orthographic');
+  assert.equal(cloned({...synced,projection:'perspective'}).projection,'perspective',
+    'independent camera snapshots must preserve actual projection');
+  const rendered=[];
+  const mvp=new Function('fvState','fvCameraBasis','fvPerspective','fvOrtho','fvLookAt','fvMat4Mul',
+    source.slice(matrixA,matrixB)+';return fcMvpForCamera;')(
+      {camera:A},()=>({upRef:[0,1,0]}),
+      (fovy,aspect,near,far)=>{rendered.push({mode:'perspective',aspect,near,far});return{mode:'perspective'}},
+      (left,right,bottom,top,near,far)=>{rendered.push({mode:'orthographic',left,right,bottom,top,near,far});return{mode:'orthographic'}},
+      ()=>({}),projection=>projection);
+  const c={yaw:0,pitch:0,distance:10,target:[0,0,0],projection:'orthographic'};
+  assert.equal(mvp(c,{width:320,height:700}).mode,'orthographic');
+  assert.equal(rendered[0].mode,'orthographic');
+  assert(rendered[0].right>0&&rendered[0].left<0);
+  assert.equal(Number((rendered[0].right/rendered[0].top).toFixed(6)),
+    Number((320/700).toFixed(6)),'orthographic X/Y physical aspect must match pane');
+  c.projection='perspective';
+  assert.equal(mvp(c,{width:320,height:700}).mode,'perspective');
+  assert.equal(rendered[1].mode,'perspective');
+  assert.equal(rendered[1].aspect,320/700);
+  assert(rendered[1].near>0&&rendered[1].far>rendered[1].near);
+  assert(source.includes("camera?.projection==='perspective'?fcUi('Perspective','Perspectiva')"),
+    'numeric XYZ projection label must describe the actual rendered camera');
+  console.log('Granada Field physical projection matrix PASS: linked inheritance, independent snapshots, aspect-correct ortho/perspective');
+}
+
+// A/B/C/D projection buttons reuse the native A camera in linked mode.
+// Independent B and C retain their own projection and real source meshes.
+{
+  const begin=source.indexOf('function fcSetViewportProjection(view,mode){');
+  const end=source.indexOf('function fcCameraPresetMenu(letter){',begin);
+  assert(begin>0&&end>begin,'original projection controls must exist');
+  const mesh={boundsMin:[0,0,0],boundsMax:[2,2,2]};
+  const A={camera:{projection:'orthographic'},mesh};
+  const B={enabled:true,camera:{projection:'orthographic',yaw:.2,pitch:.3,distance:8,target:[1,1,1]},mesh};
+  const C={id:3,camera:{projection:'perspective',yaw:.4,pitch:.5,distance:9,target:[1,1,1]},mesh};
+  const D={id:4,camera:{projection:'orthographic',yaw:.6,pitch:.7,distance:10,target:[1,1,1]},mesh};
+  const clones=c=>({...c,target:c.target?.slice(),projection:c.projection||'orthographic'});
+  let linked=false,failFit=false,requested=null;
+  const renders=[],fits=[];
+  const funcs=new Function('fvState','fcState','fcExtraViews','fcFitMeshForView',
+    'fcValidFitMesh','fcCamerasLinked','fvSetPhysicalProjection','fcRender',
+    'fcRenderDifference','fcRenderExtras','fcCloneCamera','fcCameraFor',
+    'fcFitCameraState','fcExtraRender','fcScheduleCameraPresetSync','fcUi',
+    source.slice(begin,end)+';return {fcSetViewportProjection,fcCameraProjectionLabel};')(
+    A,B,[C,D],(view,state,original)=>original,
+    m=>!!m?.boundsMin,()=>linked,
+    mode=>{A.camera.projection=mode;requested=mode},
+    ()=>renders.push('B'),()=>renders.push('Δ'),()=>renders.push('extras'),
+    clones,state=>state.camera,
+    (state,m)=>{fits.push(state);return failFit?false:true},
+    state=>renders.push(state.id),()=>{},(en,es)=>en);
+  assert.equal(funcs.fcSetViewportProjection('B','perspective'),true);
+  assert.equal(B.camera.projection,'perspective');
+  assert.equal(C.camera.projection,'perspective');
+  assert.equal(D.camera.projection,'orthographic','B must not alter D projection');
+  assert.equal(A.camera.projection,'orthographic','unlinked B cannot change original A');
+  assert.deepStrictEqual(renders,['B','Δ']);
+  assert.equal(funcs.fcSetViewportProjection(3,'orthographic'),true);
+  assert.equal(C.camera.projection,'orthographic');
+  assert.deepStrictEqual(fits,[B,C]);
+  assert.deepStrictEqual(renders,['B','Δ',3]);
+  linked=true;
+  const savedB=clones(B.camera),savedC=clones(C.camera),savedD=clones(D.camera);
+  assert.equal(funcs.fcSetViewportProjection('B','perspective'),true);
+  assert.equal(requested,'perspective','linked B delegates to native A projection UI');
+  assert.equal(A.camera.projection,'perspective');
+  assert.deepStrictEqual(B.camera,savedB,'linked adjustment must preserve independent B');
+  assert.deepStrictEqual(C.camera,savedC);
+  assert.deepStrictEqual(D.camera,savedD);
+  assert.deepStrictEqual(renders.slice(-3),['B','Δ','extras']);
+  linked=false;
+  failFit=true;
+  assert.equal(funcs.fcSetViewportProjection(4,'perspective'),false);
+  assert.deepStrictEqual(D.camera,savedD,'failed source-mesh Fit restores original D projection');
+  assert.equal(funcs.fcSetViewportProjection('B','foobar'),false);
+  assert.equal(funcs.fcSetViewportProjection(7,'perspective'),false);
+  B.enabled=false;
+  assert.equal(funcs.fcSetViewportProjection('B','orthographic'),false,
+    'no phantom compare B camera may be created when only A exists');
+  assert.equal(funcs.fcCameraProjectionLabel('orthographic'),'Orthographic');
+  assert.equal(funcs.fcCameraProjectionLabel('perspective'),'Perspective');
+  const localMenu=new Function('fcUi','fcEsc',
+    source.slice(end,source.indexOf('// A viewport\'s camera may be rotated',end))+
+    ';return fcCameraPresetMenu;')((en,es)=>es,String);
+  const markup=localMenu('C');
+  assert(markup.includes('data-fc-projection="orthographic"'));
+  assert(markup.includes('data-fc-projection="perspective"'));
+  assert(markup.includes('aria-pressed="false"'));
+  assert(markup.includes('Proyección de vista C'));
+  assert(source.includes("fcSetViewportProjection(view,button.dataset.fcProjection)"),
+    'each original viewport menu must bind its own projection controls');
+  assert(source.includes("[data-fc-camera-preset], [data-fc-projection]"),
+    'camera keyboard navigation includes projection buttons');
+  console.log('Granada Field projection controls PASS: source-backed A/B/C/D, linked/independent, rollback, Spanish aria and no phantom views');
 }

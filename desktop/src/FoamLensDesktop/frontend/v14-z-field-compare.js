@@ -50,7 +50,12 @@ function fcMeshDiag(mesh){
 }
 function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){
   const lo=compareMesh?.boundsMin||[0,0,0],hi=compareMesh?.boundsMax||[1,1,1],target=lo.map((v,i)=>(Number(v)+Number(hi[i]))/2),pdiag=fcMeshDiag(primaryMesh),cdiag=fcMeshDiag(compareMesh),ratio=Math.max(.05,Number(primaryCamera?.distance)||pdiag)/pdiag;
-  return{yaw:Number(primaryCamera?.yaw)||0,pitch:Number(primaryCamera?.pitch)||0,distance:cdiag*ratio,target}
+  // Preserve A's physical projection in the linked B/C/D cameras. Losing this
+  // property used to force perspective on the compare panes even when A was
+  // set to orthographic and the numeric XYZ label claimed otherwise.
+  return{yaw:Number(primaryCamera?.yaw)||0,pitch:Number(primaryCamera?.pitch)||0,
+    distance:cdiag*ratio,target,
+    projection:primaryCamera?.projection==='perspective'?'perspective':'orthographic'}
 }
 
 function fcArrayEqualNumeric(a,b,tol=0){
@@ -122,7 +127,11 @@ function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
 function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
 function fcFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fcCloneCamera(camera){
-  const c=camera||fvState.camera||{};return{yaw:Number(c.yaw)||0,pitch:Number(c.pitch)||0,distance:Math.max(1e-10,Number(c.distance)||1),target:Array.isArray(c.target)?c.target.map(Number):[0,0,0]}
+  const c=camera||fvState.camera||{};
+  return{yaw:Number(c.yaw)||0,pitch:Number(c.pitch)||0,
+    distance:Math.max(1e-10,Number(c.distance)||1),
+    target:Array.isArray(c.target)?c.target.map(Number):[0,0,0],
+    projection:c.projection==='perspective'?'perspective':'orthographic'}
 }
 function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
@@ -132,7 +141,22 @@ function fcCameraFor(state,mesh){
   return state.camera
 }
 function fcMvpForCamera(camera,canvas){
-  const c=camera||fvState.camera,d=Math.max(1e-12,c.distance),cp=Math.cos(c.pitch),eye=[c.target[0]+d*cp*Math.sin(c.yaw),c.target[1]+d*Math.sin(c.pitch),c.target[2]+d*cp*Math.cos(c.yaw)],basis=fvCameraBasis(c),near=Math.max(d/1000,1e-8),far=Math.max(d*20,near*100),proj=fvPerspective(Math.PI/4,Math.max(1,canvas.width)/Math.max(1,canvas.height),near,far),view=fvLookAt(eye,c.target,basis.upRef||[0,1,0]);return fvMat4Mul(proj,view)
+  // Match the original A projection matrix. Both matrices preserve original
+  // mesh coordinates; only their display projection differs.
+  const c=camera||fvState.camera,d=Math.max(1e-12,c.distance),
+    cp=Math.cos(c.pitch),
+    eye=[c.target[0]+d*cp*Math.sin(c.yaw),
+      c.target[1]+d*Math.sin(c.pitch),
+      c.target[2]+d*cp*Math.cos(c.yaw)],
+    basis=fvCameraBasis(c),near=Math.max(d/10000,1e-10),
+    far=Math.max(d*20,near*100),
+    aspect=Math.max(1,canvas.width)/Math.max(1,canvas.height),
+    halfHeight=d*Math.tan(Math.PI/8),
+    proj=c.projection==='perspective'?
+      fvPerspective(Math.PI/4,aspect,near,far):
+      fvOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,near,far),
+    view=fvLookAt(eye,c.target,basis.upRef||[0,1,0]);
+  return fvMat4Mul(proj,view)
 }
 function fcPanCamera(camera,dx,dy,canvas){
   const b=fvCameraBasis(camera),scale=Math.max(1e-12,camera.distance)*2*Math.tan(Math.PI/8)/Math.max(80,Number(canvas?.clientHeight)||500);for(let a=0;a<3;a++)camera.target[a]+=(-Number(dx)*b.right[a]+Number(dy)*b.up[a])*scale
@@ -285,6 +309,34 @@ function fcSetViewportCamera(view,name){
   if(typeof document!=='undefined')fcScheduleCameraPresetSync();
   return true
 }
+// Projection affects rendered geometry only, never OpenFOAM source values.
+// A and linked views use A's canonical projection; unlinked B/C/D preserve
+// their own camera and refit the actual visible physical meshes.
+function fcSetViewportProjection(view,mode){
+  if(mode!=='orthographic'&&mode!=='perspective')return false;
+  const isA=view==='A';
+  const state=isA?null:view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!isA&&(!state||!fcState.enabled))return false;
+  const mesh=fcFitMeshForView(view,state,isA?fvState.mesh:state.mesh);
+  if(!fcValidFitMesh(mesh))return false;
+  if(isA||fcCamerasLinked()){
+    fvSetPhysicalProjection(mode);
+    if(fcState.enabled){fcRender();fcRenderDifference();fcRenderExtras()}
+    fcScheduleCameraPresetSync();
+    return true
+  }
+  const previous=state.camera?fcCloneCamera(state.camera):null;
+  const current=fcCloneCamera(fcCameraFor(state,state.mesh));
+  current.projection=mode;state.camera=current;
+  if(fcFitCameraState(state,mesh)===false){state.camera=previous;return false}
+  if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
+  fcScheduleCameraPresetSync();
+  return true
+}
+function fcCameraProjectionLabel(mode){
+  return mode==='orthographic'?fcUi('Orthographic','Ortográfica'):
+    mode==='perspective'?fcUi('Perspective','Perspectiva'):''
+}
 function fcCameraPresetMenu(letter){
   const items=[
     ['iso','Isometric','Isométrica'],['front','Front','Frente'],
@@ -298,7 +350,13 @@ function fcCameraPresetMenu(letter){
     items.map(([key,en,es])=>
       '<button type="button" data-fc-camera-preset="'+key+'" data-fl-en="'+en+'" data-fl-es="'+es+'" '+
       'aria-pressed="false" aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
-      'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+'</div></details>'
+      'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+'</div>'+
+    '<div class="fcViewportProjectionChoices" role="group" aria-label="'+fcUi('Projection for view','Proyección de vista')+' '+fcEsc(letter)+'">'+
+    [['orthographic','Orthographic','Ortográfica'],['perspective','Perspective','Perspectiva']]
+      .map(([key,en,es])=>'<button type="button" data-fc-projection="'+key+'" data-fl-en="'+en+'" data-fl-es="'+es+'" '+
+        'aria-pressed="false" aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
+        'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+
+    '</div></details>'
 }
 // A viewport's camera may be rotated by mouse, not just preset clicks.
 // Compare actual yaw/pitch with circular yaw distance: e.g. PI and -PI
@@ -336,16 +394,27 @@ function fcSyncCameraPresetButtons(){
     if(view==='Δ')continue;
     const menu=bar.querySelector('.fcViewportCameraPresets');
     if(!menu)continue;
-    const active=fcCameraPresetFor(fcViewCameraState(view));
+    const camera=fcViewCameraState(view),
+      active=fcCameraPresetFor(camera),
+      projection=camera?.projection==='perspective'?'perspective':
+        camera?.projection==='orthographic'?'orthographic':null;
     const title=fcUi('Camera views','Vistas de cámara');
-    const label=fcCameraPresetLabel(active);
+    const label=fcCameraPresetLabel(active),projectionLabel=fcCameraProjectionLabel(projection);
     const summary=menu.querySelector('summary');
-    const summaryText=label?title+' · '+label:title;
+    const summaryText=label?title+' · '+label+(projectionLabel?' · '+projectionLabel:''):title;
     if(summary&&summary.textContent!==summaryText)summary.textContent=summaryText;
     if(menu.dataset.fcCameraActive!==String(active)){
       menu.dataset.fcCameraActive=String(active);
       for(const button of menu.querySelectorAll('[data-fc-camera-preset]')){
         const selected=button.dataset.fcCameraPreset===active;
+        button.classList.toggle('active',selected);
+        button.setAttribute('aria-pressed',selected?'true':'false')
+      }
+    }
+    if(menu.dataset.fcProjectionActive!==String(projection)){
+      menu.dataset.fcProjectionActive=String(projection);
+      for(const button of menu.querySelectorAll('[data-fc-projection]')){
+        const selected=button.dataset.fcProjection===projection;
         button.classList.toggle('active',selected);
         button.setAttribute('aria-pressed',selected?'true':'false')
       }
@@ -367,13 +436,15 @@ function fcRefreshCameraPresetLabels(){
     const menu=bar.querySelector('.fcViewportCameraPresets');
     if(!menu)continue;
     const summary=menu.querySelector('summary');if(summary)summary.textContent=fcUi('Camera views','Vistas de cámara');
-    for(const button of menu.querySelectorAll('[data-fc-camera-preset]')){
+    for(const button of menu.querySelectorAll('[data-fc-camera-preset], [data-fc-projection]')){
       const label=fcUi(button.dataset.flEn,button.dataset.flEs);
       button.textContent=label;button.title=label;
       button.setAttribute('aria-label',fcUi('View','Vista')+' '+letter+' · '+label);
     }
-    menu.querySelector('[role="group"]')?.setAttribute('aria-label',
+    menu.querySelector('[data-fc-camera-preset]')?.closest('[role="group"]')?.setAttribute('aria-label',
       fcUi('Camera views','Vistas de cámara')+' '+letter);
+    menu.querySelector('[data-fc-projection]')?.closest('[role="group"]')?.setAttribute('aria-label',
+      fcUi('Projection for view','Proyección de vista')+' '+letter);
   }
   fcSyncCameraPresetButtons();
 }
@@ -570,8 +641,15 @@ function fcAddViewportToolbar(viewport,view){
           details.open=false;details.querySelector('summary')?.focus()
         }
       }));
+    cameraMenu?.querySelectorAll('[data-fc-projection]').forEach(button=>
+      button.addEventListener('click',()=>{
+        if(!fcSetViewportProjection(view,button.dataset.fcProjection))return;
+        const details=button.closest('details');if(details){
+          details.open=false;details.querySelector('summary')?.focus()
+        }
+      }));
     cameraMenu?.addEventListener('keydown',event=>{
-      const buttons=[...cameraMenu.querySelectorAll('[data-fc-camera-preset]')];
+      const buttons=[...cameraMenu.querySelectorAll('[data-fc-camera-preset], [data-fc-projection]')];
       const index=buttons.indexOf(document.activeElement);
       if(event.key==='Escape'&&cameraMenu.open){
         event.preventDefault();cameraMenu.open=false;
@@ -1414,10 +1492,11 @@ function fcInstallUi(){
     .fcViewSourceDetails .fcViewFieldRow{padding:8px 0 3px;max-width:100%}
     .fcViewportCameraPresets{flex:0 1 auto;position:relative;min-width:0}
     .fcViewportCameraPresets summary{cursor:pointer;list-style:revert;font-size:11px;min-height:31px;display:flex;align-items:center;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);white-space:nowrap}
-    .fcViewportCameraChoices{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;padding:7px 0}
-    .fcViewportCameraChoices button{cursor:pointer;min-height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);font-size:10px;padding:5px 7px}
-    .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
-    .fcViewportCameraChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
+    .fcViewportCameraChoices,.fcViewportProjectionChoices{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;padding:7px 0}
+    .fcViewportProjectionChoices{border-top:1px solid var(--line);margin-top:5px}
+    .fcViewportCameraChoices button,.fcViewportProjectionChoices button{cursor:pointer;min-height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);font-size:10px;padding:5px 7px}
+    .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible,.fcViewportProjectionChoices button:hover,.fcViewportProjectionChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
+    .fcViewportCameraChoices button[aria-pressed="true"],.fcViewportProjectionChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
     .fcViewportCameraPresets[open]{flex:1 0 100%}
     .fcPhysicalMenu{container-name:fc-region-dock;container-type:inline-size}
     .fcPhysicalRegionRow{min-width:0;grid-template-columns:minmax(90px,1.1fr) minmax(105px,1.5fr) minmax(85px,1fr) minmax(105px,1fr) minmax(100px,1fr)}
