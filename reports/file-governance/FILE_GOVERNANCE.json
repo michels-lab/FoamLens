@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "0e1c94a9800428d0b20ae0c86dd33e80272190ac443b71456a2b7c41f73b499a",
+  "inventory_fingerprint": "470efd4906f72cdb09333b5507c1fbaa3d895130c41609d460345dd843ec52e8",
   "evidence_fingerprint": "858c1e245a846aba2101a0d5afb1831683a57ae97f91796d5eb29bd972921051",
   "files": [
     {
@@ -167,7 +167,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "d8e77544cfb1380be816996c07734109b82228c8"
+      "blob": "5ba7b4b58ab528af38809f32cb46de9b2c5b30c2"
     },
     {
       "path": ".github/workflows/granada-177-g2-field-command-dock.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "d0a97c88f592690a0e68c3592cf92f1879d94096"
+      "blob": "1478a9d3a9b011b7161534f073b1588f6bb598d3"
     },
     {
       "path": "LICENSE",
@@ -734,7 +734,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "61d328f8600184a9dd59f983f2a8040e23c33694"
+      "blob": "ae66d1e72aff9bed90831a8a7db40d41ed7d7dba"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -1574,7 +1574,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "04892fac5ba5b5df183e9b9c500731de3a05ac8d"
+      "blob": "b7cf4aa642d3b427b50c8ff42e32954e0a3a6401"
     },
     {
       "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
