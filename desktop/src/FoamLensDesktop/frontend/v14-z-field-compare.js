@@ -259,22 +259,29 @@ function fcSyncIndependentPlaybackControls(bar){
   const picker=bar?.querySelector?.('[data-fc-independent-time]');
   if(!picker)return;
   const view=bar.dataset.fcToolbar,
+    letter=view==='B'?'B':String.fromCharCode(64+Number(view)),
     state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view)),
     source=state&&!fcTimesLinked()?fcIndependentTimeSource(state):{times:[]},
     current=state&&!fcTimesLinked()?fcIndependentTimeTarget(state):NaN,
     index=source.times.indexOf(current),playing=fcIndependentPlayers.has(String(view));
+  const title=bar.querySelector('.fcViewTimePicker > span');
+  if(title)title.textContent=fcUi('Physical time','Tiempo físico')+' (s) · '+letter;
   for(const button of bar.querySelectorAll('[data-fc-time-step]')){
     button.disabled=fcTimesLinked()||!state||index<0||
-      (button.dataset.fcTimeStep==='-1'?index===0:index===source.times.length-1)
+      (button.dataset.fcTimeStep==='-1'?index===0:index===source.times.length-1);
+    const label=fcUi(button.dataset.fcTimeStep==='-1'?'Previous measured time':'Next measured time',
+      button.dataset.fcTimeStep==='-1'?'Tiempo medido anterior':'Siguiente tiempo medido')+' · '+letter;
+    button.setAttribute('aria-label',label);button.title=label
   }
   const play=bar.querySelector('[data-fc-time-play]');
   if(play){
     play.disabled=fcTimesLinked()||!state||source.times.length<2;
     play.textContent=playing?'❚❚':'▶';
     play.setAttribute('aria-pressed',playing?'true':'false');
-    play.setAttribute('aria-label',playing?
+    const label=(playing?
       fcUi('Pause physical time','Pausar tiempo físico'):
-      fcUi('Play physical time','Reproducir tiempo físico'))
+      fcUi('Play physical time','Reproducir tiempo físico'))+' · '+letter;
+    play.setAttribute('aria-label',label);play.title=label
   }
 }
 function fcRefreshTimeLink(){
@@ -1720,7 +1727,7 @@ function fcInstallUi(){
     #fcViewGrid .fcViewportCaption .fcLegend{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;min-width:0;box-sizing:border-box;margin:0}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0;max-width:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegend{min-width:min(100%,120px);max-width:100%;overflow-wrap:anywhere}
-    .fcViewTimePicker{display:grid;gap:3px;flex:0 1 165px;min-width:110px;max-width:100%;font-size:10px;color:var(--text)}
+    .fcViewTimePicker{display:grid;gap:3px;flex:0 1 195px;min-width:min(100%,180px);max-width:100%;font-size:10px;color:var(--text)}
     .fcViewTimePicker[hidden]{display:none!important}
     .fcViewTimePicker span{font-weight:750;color:var(--muted)}
     .fcViewTimePicker select{box-sizing:border-box;min-width:0;width:100%;height:32px;border-radius:7px;font-size:11px}
