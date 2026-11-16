@@ -1227,7 +1227,8 @@ function fcUpdateLabels(){
   if(primary)primary.textContent=(pc?.name||fcUi('Primary case','Caso principal'))+' · '+(fvState.fieldName||document.getElementById('fvField')?.value||'—')+(Number.isFinite(fvState.time)?' · t='+fcFmt(fvState.time)+' s':'');
   if(compare)compare.textContent=(cc?.name||fcUi('Comparison case','Caso comparado'))+' · '+(fcState.fieldName||fcCurrentFieldName()||'—')+(Number.isFinite(fcState.time)?' · t='+fcFmt(fcState.time)+' s':'');
   if(pb)pb.textContent=Number.isFinite(fvState.time)?'A · t='+fcFmt(fvState.time)+' s':'A · —';
-  if(cb)cb.textContent='B · '+fcSyncText(fcState.sync);
+  if(cb)cb.textContent=fcTimesLinked()?'B · '+fcSyncText(fcState.sync):
+    'B · '+(Number.isFinite(fcState.time)?'t='+fcFmt(fcState.time)+' s': '—')+' · '+fcUi('Independent','Independiente');
   if(primary)primary.title=primary.textContent;
   if(compare)compare.title=compare.textContent
 }
@@ -1354,7 +1355,7 @@ function fcApplySharedRange(compareRange){
 }
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
-  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a synchronized 3D view after loading the primary frame.','Elige una vista 3D sincronizada después de cargar el frame principal.'),true);return}
+  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;try{
@@ -1446,7 +1447,9 @@ function fcExtraUpload(state,data){
   state.mesh=mesh;state.range=data.range;state.fieldValues=data.fieldValues;state.fieldParsed=data.parsed;fcUpdateViewportLegend('fcExtra'+state.id+'Legend',state.fieldName,state.component,data.parsed,range,palette);fcExtraRender(state);fcUpdateStatsGrid()
 }
 function fcExtraUpdateLabel(state){
-  const e=fcExtraDom(state.id,'Label'),badge=fcExtraDom(state.id,'TimeBadge'),c=fcExtraCase(state);if(e)e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'');if(badge)badge.textContent=String.fromCharCode(64+Number(state.id))+' · '+fcSyncText(state.sync)
+  const e=fcExtraDom(state.id,'Label'),badge=fcExtraDom(state.id,'TimeBadge'),c=fcExtraCase(state);if(e)e.textContent=(c?.name||fcUi('View','Vista')+' '+state.id)+' · '+(state.fieldName||fcExtraField(state)||'—')+(Number.isFinite(state.time)?' · t='+fcFmt(state.time)+' s':'');if(badge)badge.textContent=String.fromCharCode(64+Number(state.id))+' · '+
+    (fcTimesLinked()?fcSyncText(state.sync):
+      (Number.isFinite(state.time)?'t='+fcFmt(state.time)+' s':'—')+' · '+fcUi('Independent','Independiente'))
 }
 // Changing a <select>.innerHTML destroys all of its option nodes and
 // forces browser style/layout work. C/D field catalogs may contain hundreds
@@ -1480,7 +1483,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   // Direct playback/sync calls still refresh from the real OpenFOAM catalog;
   // handlers that just refreshed selectors must not do the same work twice.
   if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
-  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured primary physical time and compatible field are required.','Se requiere un tiempo físico principal medido y un campo compatible.'));return}
+  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
@@ -1576,7 +1579,10 @@ function fcScheduleLayoutRender(){
 function fcUpdateLayout(){
   // The enabled state is owned by the actual Compare checkbox, never stale frames.
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
-  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
+  const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
+    samePhysicalTime=fcTimesLinked()||(Number.isFinite(fvState.time)&&Number.isFinite(fcState.time)&&
+      Math.abs(fvState.time-fcState.time)<=1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time))),
+    showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked&&samePhysicalTime;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
