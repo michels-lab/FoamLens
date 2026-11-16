@@ -60,7 +60,7 @@ const f=new Function(
       if(p[0]<0||p[0]>.1)return{value:NaN,distance:NaN};
       return{value:Number(data.fieldValues[0]),distance:0}
     },series,()=> '#abcdef',(str,error=false)=>{status=str;statusError=error},
-    v=>String(v),()=>{refreshes++},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},console,nextId
+    v=>String(v),()=>{refreshes++},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},console,nextId
   );
 f.refresh();
 assert.deepEqual(nodes.fw3DProfileView.options,['A','B','C','D'],
