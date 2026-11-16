@@ -632,7 +632,9 @@ function fwRefreshFieldTsSlot(slot,preserve=true,reason=''){
   document.getElementById('fwTsProfileWrap'+slot)?.classList.toggle('hidden',source!=='profile');
   if(source==='probe')fwRefreshProbeTsSlot(slot,preserve);
   if(source==='profile')fwRefreshProfileTsSlot(slot,preserve);
-  const ready=fwFieldTsReadyCases(),oldCase=preserve?cSel.value:'';
+  // A manual Case change must keep the user's chosen case, even if Field 3D
+  // currently shows another case. Reset only dependent region/field selectors.
+  const ready=fwFieldTsReadyCases(),oldCase=(preserve||reason==='case')?cSel.value:'';
   cSel.innerHTML=ready.map(c=>'<option value="'+fvEsc(c.id)+'">'+fvEsc(c.name)+'</option>').join('')||'<option value="">—</option>';
   const preferredId=slot===1?(fvState.caseId??document.getElementById('fvCase')?.value):(typeof fcState!=='undefined'&&fcState.enabled?fcState.caseId:(fvState.caseId??document.getElementById('fvCase')?.value));
   if(oldCase&&ready.some(c=>String(c.id)===String(oldCase)))cSel.value=oldCase;else if(ready.some(c=>String(c.id)===String(preferredId)))cSel.value=String(preferredId);
