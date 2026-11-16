@@ -803,6 +803,9 @@ function fcSyncToolbars(){
     // Source label reflects the REAL originating selects even when their
     // compact inspector is closed. Source field/region data stay authoritative.
     fcSyncViewSourceSummary(bar);
+    // Reuse the original A–D source owners; copying is an explicit action,
+    // not a new mirrored set of stale case/region/field selections.
+    if(typeof fcSyncCopySources==='function')fcSyncCopySources(bar);
     fcSyncIndependentTimePicker(bar);
     fcSyncIndependentPlaybackControls(bar);
     // bar is the actual viewport toolbar from this loop; an undefined
@@ -845,7 +848,7 @@ function fcAddViewportToolbar(viewport,view){
   const bar=document.createElement('div');bar.className='fcViewToolbar';bar.dataset.fcToolbar=String(view);
   const en=fcUi('View','Vista');
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
-    (mapping?'<details class="fcViewSourceDetails" '+(view==='A'?'':'open')+'><summary>'+fcUi('Source','Fuente')+' '+letter+'</summary><div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div></details>':'<span class="fcViewDiffLabel">Δ</span>')+
+    (mapping?'<details class="fcViewSourceDetails" open><summary>'+fcUi('Source','Fuente')+' '+letter+'</summary><div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div></details>':'<span class="fcViewDiffLabel">Δ</span>')+
     (mapping&&view!=='A'?'<div class="fcViewTimePicker" hidden><span>'+fcUi('Physical time','Tiempo físico')+' (s) · '+letter+'</span>'+
       '<div class="fcViewTimeControls"><button type="button" data-fc-time-step="-1" title="'+fcUi('Previous measured time','Tiempo medido anterior')+'" aria-label="'+fcUi('Previous measured time','Tiempo medido anterior')+' '+letter+'">‹</button>'+
       '<select data-fc-independent-time aria-label="'+fcUi('Physical time for view','Tiempo físico de vista')+' '+letter+'"></select>'+
@@ -854,6 +857,9 @@ function fcAddViewportToolbar(viewport,view){
       '<div class="fcViewPlaybackOptions"><label class="fcViewPlaybackRate"><span>'+fcUi('Speed','Velocidad')+'</span><select data-fc-time-rate aria-label="'+fcUi('Playback speed for view','Velocidad de reproducción de vista')+' '+letter+'">'+
       FC_INDEPENDENT_RATES.map(rate=>'<option value="'+rate+'" '+(rate===1?'selected':'')+'>'+rate+'×</option>').join('')+'</select></label>'+
       '<label class="fcViewPlaybackLoop"><input type="checkbox" data-fc-time-loop><span>'+fcUi('Loop','Bucle')+'</span></label></div></div>':'')+
+    (mapping&&view!=='A'?'<label class="fcViewCopyFrom"><span>'+fcUi('Copy source','Copiar fuente')+'</span>'+
+      '<select data-fc-copy-source aria-label="'+fcUi('Copy original field source from another view into view','Copiar fuente original de otra vista a la vista')+' '+letter+'">'+
+      '<option value="">'+fcUi('From view…','Desde vista…')+'</option></select></label>':'')+
     (mapping?fcCameraPresetMenu(letter):'')+
     '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
@@ -907,6 +913,13 @@ function fcAddViewportToolbar(viewport,view){
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
     source.value=mirror.value;source.dispatchEvent(new Event('change',{bubbles:true}));fcScheduleToolbarSync()
   }));
+  bar.querySelector('[data-fc-copy-source]')?.addEventListener('change',async event=>{
+    const from=event.target.value;event.target.value='';
+    if(!from)return;
+    try{await fcCopyFieldSourceToView(from,view)}
+    catch(error){fcCopySourceStatus(view,String(error?.message||error),true)}
+    finally{fcScheduleToolbarSync()}
+  });
   bar.querySelector('[data-fc-independent-time]')?.addEventListener('change',event=>{
     fcStopIndependentPlayback(view);
     fcSetIndependentTime(view,event.target.value)
@@ -1703,13 +1716,93 @@ function fcExtraAdd(){
   for(const suffix of ['Palette','Opacity','Surface','Edges','Slice','Iso'])fcExtraDom(id,suffix)?.addEventListener(suffix==='Opacity'?'input':'change',()=>{state.visual=null;if(state.mesh&&state.fieldValues&&state.range)fcExtraUpload(state,{mesh:state.mesh,storage:state.storage,fieldValues:state.fieldValues,parsed:state.fieldParsed,range:state.range});else fcExtraRender(state)});fcSyncVisualUi();const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas,state,()=>state.mesh,()=>fcExtraRender(state));fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state,true);fcUpdateLayout();fcScheduleToolbarSync();return true
 }
+// Granada Field G6: one explicit action copies ONLY the authoritative case,
+// region, field and component to another ACTIVE viewport. 3D time, cameras,
+// physical overlay visibility, palette and the donor's selections stay independent.
+function fcCopyableSourceViews(target){
+  const enabled=document.getElementById('fcEnabled')?.checked===true;
+  const live=['A',...(enabled?['B',...fcExtraViews.map(state=>String(state.id))]:[])];
+  return live.filter(view=>String(view)!==String(target)&&!!fcViewSourceMap(view))
+}
+function fcSyncCopySources(bar){
+  const picker=bar?.querySelector?.('[data-fc-copy-source]');
+  if(!picker)return;
+  const target=bar.dataset.fcToolbar,options=fcCopyableSourceViews(target);
+  const markup='<option value="">'+fcUi('From view…','Desde vista…')+'</option>'+
+    options.map(view=>'<option value="'+fcEsc(view)+'">'+fcUi('View','Vista')+' '+
+      (view==='A'||view==='B'?view:String.fromCharCode(64+Number(view)))+'</option>').join('');
+  if(picker._fcCopyOptions!==markup){picker.innerHTML=markup;picker._fcCopyOptions=markup}
+  picker.disabled=!options.length
+}
+function fcCopySourceStatus(view,message,error=false){
+  const id=String(view)==='B'?'fcStatus':'fcExtra'+Number(view)+'Status',
+    target=document.getElementById(id);
+  if(target){target.textContent=String(message||'');target.classList?.toggle('error',!!error)}
+}
+// Do not auto-convert physical quantities; selectors on both views are the
+// ORIGINAL OpenFOAM controls. Fail before mutating a target if its source
+// identity cannot be proved using real original case/region/field metadata.
+function fcCopySourceSnapshot(from,target){
+  const source=fcViewSourceMap(from),destination=fcViewSourceMap(target);
+  if(!source||!destination||String(from)===String(target)||String(target)==='A')return null;
+  if(!fcCopyableSourceViews(target).includes(String(from)))return null;
+  const fromValues={};
+  for(const [kind,id] of Object.entries(source)){
+    const el=document.getElementById(id);
+    if(!el)return null;
+    fromValues[kind]=String(el.value??'')
+  }
+  const c=(cases||[]).find(item=>String(item.id)===fromValues.Case&&fvCaseViewAvailable(item));
+  if(!c||!fromValues.Field)return null;
+  const regions=typeof fvReadyRegions==='function'?fvReadyRegions(c):[];
+  if(!regions.includes(fromValues.Region))return null;
+  const sourceGroups=fvFieldGroups(c,fromValues.Region,null,'any')
+    .filter(group=>['scalar','vector'].includes(group.kind)&&group.name===fromValues.Field);
+  // Same-name groups with different cell/face/point associations are
+  // ambiguous in the original Field picker; reject, never silently change
+  // the physical association when copying to another viewport.
+  if(sourceGroups.length!==1)return null;
+  const components=fvFieldComponents(sourceGroups[0]);
+  if(!components.some(item=>String(item.v)===fromValues.Component))return null;
+  for(const id of Object.values(destination))if(!document.getElementById(id))return null;
+  return {source:fromValues,target:destination}
+}
+async function fcCopyFieldSourceToView(from,target){
+  const snapshot=fcCopySourceSnapshot(String(from),String(target));
+  if(!snapshot)throw new Error(fcUi(
+    'Cannot copy that source: choose a loaded view with an unambiguous original OpenFOAM case, region, field and component.',
+    'No se puede copiar: elige una vista cargada con caso, región, campo y componente OpenFOAM originales inequívocos.'));
+  const targetView=String(target),
+    state=targetView==='B'?fcState:fcExtraViews.find(view=>String(view.id)===targetView);
+  if(!state)throw new Error(fcUi('Target 3D view does not exist.','La vista 3D de destino no existe.'));
+  const controls=Object.fromEntries(Object.entries(snapshot.target)
+    .map(([kind,id])=>[kind,document.getElementById(id)])),
+    refresh=targetView==='B'?()=>fcRefreshSelectors(true):()=>fcExtraRefreshSelectors(state,true);
+  // The target's original selectors enforce real available values after each
+  // dependent step (case → region → field → vector component). Preflight above
+  // guards all scientific values before the first mutation.
+  fcStopIndependentPlayback(target);
+  controls.Case.value=snapshot.source.Case;refresh();
+  controls.Region.value=snapshot.source.Region;refresh();
+  controls.Field.value=snapshot.source.Field;refresh();
+  controls.Component.value=snapshot.source.Component;
+  state.probe=null;
+  if(targetView==='B')await fcRefreshFrame();
+  else await fcExtraRefreshFrame(state,true);
+  fcScheduleToolbarSync();
+  const letter=view=>view==='A'||view==='B'?view:String.fromCharCode(64+Number(view));
+  fcCopySourceStatus(target,
+    fcUi('Source copied','Fuente copiada')+' '+letter(from)+' → '+letter(target)+
+    ' · '+snapshot.source.Case+' / '+(snapshot.source.Region||'—')+
+    ' / '+snapshot.source.Field+' / '+snapshot.source.Component);
+  return true
+}
 async function fcCopyPrimarySettingsToCompare(){
-  const region=document.getElementById('fvRegion')?.value||'',field=document.getElementById('fvField')?.value||'',component=document.getElementById('fvComponent')?.value||'value';
-  const regionSel=document.getElementById('fcRegion');if(regionSel&&[...regionSel.options].some(o=>o.value===region))regionSel.value=region;fcRefreshSelectors(true);
-  const fieldSel=document.getElementById('fcField');if(fieldSel&&[...fieldSel.options].some(o=>o.value===field))fieldSel.value=field;fcRefreshSelectors(true);
-  const compSel=document.getElementById('fcComponent');if(compSel&&[...compSel.options].some(o=>o.value===component))compSel.value=component;
+  // The legacy Copy A→B button now copies the CASE as well as the original
+  // region, field and component. It keeps the established visual-copy option.
+  await fcCopyFieldSourceToView('A','B');
   if(!fcVisualsSynced()){const g=fcGlobalVisual(),palette=document.getElementById('fcView2Palette'),opacity=document.getElementById('fcView2Opacity');if(palette)palette.value=g.palette;if(opacity)opacity.value=String(g.opacity);for(const [suffix,key] of [['Surface','surface'],['Edges','edges'],['Slice','slice'],['Iso','iso'],['Vectors','vectors'],['Streamlines','streamlines']]){const e=document.getElementById('fcView2'+suffix);if(e)e.checked=!!g[key]}fcState.visual=null}
-  await fcRefreshFrame();return true
+  fcRefreshVisuals();return true
 }
 async function fcSwapPrimaryCompare(){
   const targetTime=fcPrimaryPhysicalTime();
@@ -1820,6 +1913,10 @@ function fcInstallUi(){
     .fcViewPlaybackRate select{width:62px!important;height:27px;min-height:27px;font-size:11px}
     .fcViewPlaybackLoop input{accent-color:var(--accent)}
     .fcViewPlaybackOptions [disabled]{opacity:.45}
+    .fcViewCopyFrom{display:grid;gap:3px;flex:0 1 152px;min-width:min(100%,130px);max-width:100%;font-size:9px;font-weight:750;color:var(--muted)}
+    .fcViewCopyFrom select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;height:32px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:11px}
+    .fcViewCopyFrom select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .fcViewCopyFrom select:disabled{opacity:.5;cursor:not-allowed}
     .fcViewSourceDetails{flex:1 1 220px;min-width:145px;max-width:100%;align-self:center}
     .fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px;max-width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:11px;font-weight:750;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .fcViewSourceDetails>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
