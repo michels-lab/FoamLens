@@ -2525,7 +2525,7 @@ function seriesRegion(s){const c=caseById(s.caseId),regions=c?.discovery?.region
 function seriesMatchesGlobalContext(s){
   // Field G8's explicit compare of original loaded A–D sources is a FIELD
   // scope, not a persisted change to the Data global case/region filters.
-  if(currentDataView==='profile'&&flFieldProfileCompareActive()&&
+  if(currentDataView==='profile'&&typeof flFieldProfileCompareActive==='function'&&flFieldProfileCompareActive()&&
     window.FoamLensFieldWorkspace?.profileCompareIncludes?.(s))return true;
   if(dataCompareState.active&&['profile','timeseries'].includes(currentDataView)){
     if(!dataCompareCaseAllowed(s.caseId,currentDataView))return false;
@@ -3484,7 +3484,7 @@ function profilePlaybackCaseCount(){return new Set(profilePlaybackSeries().map(s
 function profilePlaybackUsesGlobalClock(){
   // Source-owned Field XYZ comparisons do NOT have a common physical time;
   // drawing them is not permission to interpolate multi-case time histories.
-  if(currentDataView==='profile'&&flFieldProfileCompareActive())return false;
+  if(currentDataView==='profile'&&typeof flFieldProfileCompareActive==='function'&&flFieldProfileCompareActive())return false;
   // A single case can have unequal physical-time grids for two fields.
   // Align through their measured common time interval.
   return profilePlaybackCaseCount()>1||(profileSelectedVariables().length===2&&profilePlaybackGroups().length>1)
@@ -7878,7 +7878,7 @@ function xAxisLabelText(){
 }
 function profileTitle(vis){
   const s=vis[0];if(!s)return tr('profileGeneric');
-  if(flFieldProfileCompareActive()){
+  if(typeof flFieldProfileCompareActive==='function'&&flFieldProfileCompareActive()){
     const names=[...new Set(vis.map(v=>localizedFieldName(v.field)))];
     return flUi('3D spatial comparison · original source times',
       'Comparación espacial 3D · tiempos originales')+
@@ -8041,7 +8041,7 @@ function yPlot(s,v){return displayValue(v,s.field)}
 
 function assignments(vis){
   const out=new Map(),quantities=[];
-  if(currentDataView==='profile'&&flFieldProfileCompareActive()){
+  if(currentDataView==='profile'&&typeof flFieldProfileCompareActive==='function'&&flFieldProfileCompareActive()){
     // At most two real physical dimensions are admitted by Field's
     // preflight. Use original dimensions, not storage or guessed labels.
     for(const s of vis){
