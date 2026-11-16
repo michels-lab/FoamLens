@@ -1,3 +1,10 @@
+## Unreleased — Operación Granada T1: indexed physical time inventory across cases/regions (#339)
+
+- The existing Time Series 3D field-source catalog now validates **explicit finite OpenFOAM timestamps**, rejects null/empty/boolean/NaN/Infinity instead of fabricating t=0, deduplicates equivalent numeric labels (0, 0.0 and zero strings), and records valid first/last source time per case/region/field.
+- Fields with zero valid indexed physical times no longer appear buildable; malformed source time metadata is reported as a partial catalog warning without hiding other valid metal/mold fields. The bilingual summary discloses distinct source-case and case-region counts.
+- Existing postProcessing time series are still separate from potential source-backed 3D field histories; only an explicit Build reads frames or constructs curves. Scientific original values, history generator, cancellation and file paths are unchanged.
+- Original source-derived B3 metal/C3 mold regression and T1/T2 catalog CI on Ubuntu/Windows were **SUCCESS** on PR #339; installed Windows Setup/Portable UX, owner visual/DPI acceptance and other release gates are distinct. Integrated in main as `c1b64e9a` without a new stable release.
+
 ## Unreleased — Operación Granada Field A–D · pause-all control (#338)
 
 - Add a visible, bilingual **Pause all / Pausar todas** action to the 3D Field header. One deliberate click pauses A's original transport and cancels the independent B/C/D measured-time players.
