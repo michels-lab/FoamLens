@@ -1350,3 +1350,125 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'original compare and extra render paths use the physical camera union');
   console.log('Granada linked Field camera PASS: A/B/C visible unions, per-pane aspect, orthographic, pan, zoom, hidden regions, unlink');
 }
+
+
+// Granada independently timed A/B/C/D view controllers. Execute the actual
+// OpenFOAM catalog time resolver and native per-pane selector synchronization.
+{
+  const a=source.indexOf('function fcTimesLinked(){');
+  const b=source.indexOf('function fcLinkedPhysicalCamera(',a);
+  assert(a>=0&&b>a,'source-owned time unlink controller must exist');
+  const B={enabled:true,time:.25,mesh:{},timeTarget:NaN},C={id:3,time:.3,mesh:{}},D={id:4,time:.4,mesh:{}};
+  let linked=false,primaryTime=0,language='en';
+  const catalogs={
+    B:{id:'B3',region:'metal',field:'T',times:[0,.25,.5]},
+    C:{id:'C3',region:'mold',field:'U',times:[0,.3,.6]},
+    D:{id:'D3',region:'metal',field:'alpha1',times:[0,.4,.8]}
+  };
+  const input={checked:linked};
+  const document={getElementById:id=>id==='fcLinkTimes'?input:null};
+  const counts={B:0,C:0,D:0,extra:0,sync:0};
+  const current=state=>state===B?'B':state===C?'C':'D';
+  const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
+    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcFieldFor',
+    'fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt','fcUi',
+    'fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras','fcScheduleToolbarSync',
+    source.slice(a,b)+
+    ';return{fcTimesLinked,fcIndependentTimeSource,fcIndependentTimeTarget,fcSyncIndependentTimePicker,fcSetIndependentTime,fcRefreshTimeLink};')(
+    document,B,[C,D],()=>catalogs.B,state=>catalogs[current(state)],
+    ()=>catalogs.B.region,state=>catalogs[current(state)].region,
+    ()=>catalogs.B.field,state=>catalogs[current(state)].field,
+    (c,region,field)=>c.region===region&&c.field===field?{times:c.times}:null,
+    value=>Number(value),()=>primaryTime,String,String,(en,es)=>language==='es'?es:en,
+    ()=>counts.B++,state=>counts[current(state)]++,()=>counts.extra++,()=>counts.sync++
+  );
+  assert.equal(apiTime.fcTimesLinked(),false);
+  assert.deepStrictEqual(apiTime.fcIndependentTimeSource(B).times,[0,.25,.5]);
+  assert.equal(apiTime.fcIndependentTimeTarget(B),.25,'B starts at its last loaded REAL frame');
+  assert.equal(apiTime.fcIndependentTimeTarget(C),.3,'C retains its own physical timestamp');
+  assert.equal(apiTime.fcIndependentTimeTarget(D),.4);
+  primaryTime=.5;
+  assert.equal(apiTime.fcIndependentTimeTarget(B),.25,
+    'moving A must not advance an unsynchronized B');
+  assert.equal(apiTime.fcIndependentTimeTarget(C),.3,
+    'moving A must not advance unsynchronized C');
+  assert.equal(apiTime.fcSetIndependentTime('B',.5),true);
+  assert.equal(B.timeTarget,.5);assert.equal(counts.B,1);
+  assert.equal(apiTime.fcSetIndependentTime(3,.6),true);
+  assert.equal(C.timeTarget,.6);assert.equal(counts.C,1);
+  assert.equal(apiTime.fcSetIndependentTime(4,.8),true);
+  assert.equal(D.timeTarget,.8);assert.equal(counts.D,1);
+  assert.equal(apiTime.fcSetIndependentTime(3,8),false,
+    'unknown OpenFOAM timestamp must not be accepted');
+  const controls={};
+  for(const [letter,state] of [['B',B],['3',C],['4',D]]){
+    const wrapper={hidden:true},picker={dataset:{},value:'',disabled:false,attributes:{},
+      closest:()=>wrapper,setAttribute(k,v){this.attributes[k]=v}};
+    const bar={dataset:{fcToolbar:letter},
+      querySelector:key=>key==='[data-fc-independent-time]'?picker:null};
+    controls[letter]={bar,picker,wrapper};
+    apiTime.fcSyncIndependentTimePicker(bar);
+    assert.equal(wrapper.hidden,false);
+    assert.equal(Number(picker.value),state.timeTarget);
+    assert(picker.innerHTML.includes(' s</option>'),
+      'each independent time picker lists real source physical seconds');
+    assert.equal(picker.attributes['aria-label'],'Physical time for view '+
+      (letter==='3'?'C':letter==='4'?'D':letter));
+  }
+  const savedB=B.timeTarget;
+  primaryTime=.1;
+  apiTime.fcSyncIndependentTimePicker(controls.B.bar);
+  assert.equal(B.timeTarget,savedB,'time selector redraw cannot follow A');
+  // Switching the actual B case/field invalidates its old frame catalog.
+  catalogs.B.id='B4';catalogs.B.times=[2,3];
+  assert.equal(apiTime.fcIndependentTimeTarget(B),2,
+    'changing B source selects nearest available REAL B4 time, not stale B3');
+  apiTime.fcSyncIndependentTimePicker(controls.B.bar);
+  assert.equal(Number(controls.B.picker.value),2);
+  language='es';apiTime.fcSyncIndependentTimePicker(controls.B.bar);
+  assert.equal(controls.B.picker.attributes['aria-label'],'Tiempo físico de vista B');
+  input.checked=true;primaryTime=.75;
+  assert.equal(apiTime.fcIndependentTimeTarget(B),.75);
+  assert.equal(apiTime.fcIndependentTimeTarget(C),.75);
+  apiTime.fcSyncIndependentTimePicker(controls.B.bar);
+  assert.equal(controls.B.wrapper.hidden,true,
+    'linked B physical-time picker must not masquerade as an independent control');
+  assert.equal(apiTime.fcSetIndependentTime('B',2),false);
+  input.checked=false;apiTime.fcRefreshTimeLink();
+  assert.equal(counts.extra,1);
+  assert(counts.B>=2);
+  assert.equal(apiTime.fcIndependentTimeTarget(B),2,
+    'unlinking again restores valid independent B physical time');
+  assert(source.includes("fcSetIndependentTime(view,event.target.value)"),
+    'real per-viewport source picker must reload its original view');
+  assert(source.includes("target=fcIndependentTimeTarget(fcState)"),
+    'B frame loader must no longer force A time');
+  assert(source.includes("target=fcIndependentTimeTarget(state)"),
+    'C/D frame loader must no longer force A time');
+  console.log('Granada independent Field A-D physical time PASS: real catalog, independent B/C/D, source changes, re-link, ES controls');
+}
+
+// Unsynchronized A and B may only produce a scientific difference when their
+// actual measured physical timestamps match. An unrelated A-B field is hidden.
+{
+  const start=source.indexOf('function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){');
+  const end=source.indexOf('async function fcLoadVectorAtTime(',start);
+  assert(start>0&&end>start,'real 3D difference guard must exist');
+  const primary={time:2},secondary={time:3,differenceValues:[99],differenceRange:{min:0,max:100}};
+  const viewport={classList:{toggle(){}}};
+  let issue=null,layouts=0;
+  const document={getElementById:id=>id==='fcDifference'?{checked:true}:
+    id==='fcDifferenceViewport'?viewport:id==='fcDifferenceStatus'?{}:null};
+  const fn=new Function('document','fcState','fvState','fcTimesLinked','flSetIssue',
+    'fcUpdateLayout',source.slice(start,end)+';return fcUpdateDifference;')(
+    document,secondary,primary,()=>false,(node,message)=>{issue=message},()=>layouts++);
+  fn(null,null,null,null);
+  assert.equal(secondary.differenceValues,null);
+  assert.equal(secondary.differenceRange,null);
+  assert(issue?.includes('different')||issue?.includes('differ'),
+    'the UI must explain why an independent-time difference is invalid');
+  assert.equal(layouts,1);
+  assert(source.includes("fcTimesLinked()?fvState.time:fcIndependentTimeTarget(fcState)"),
+    'independent B vectors must use B time, not primary A time');
+  console.log('Granada independent time safety PASS: no misleading OpenFOAM A-B difference or wrong-time B vectors');
+}
