@@ -644,6 +644,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/timeseries-source-catalog.test.cjs
 
+      - name: Test real field association and independent multicaso Time Series selection
+        shell: pwsh
+        run: node desktop/tests/field-timeseries-association.test.cjs
+
       - name: Test T1 source provenance, unknown field labels, metadata compatibility, filters and DOM safety
         shell: pwsh
         run: node desktop/tests/timeseries-provenance.test.cjs
