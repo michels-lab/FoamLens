@@ -180,7 +180,7 @@ test('difference wiring exposes optional third 3D viewport and strict compatibil
 
 test('3D comparison supports same or different cases with independent fields and components',()=>{
   for(const token of [
-    'fcField','fcComponent','View 2 field','Each viewport may use its own case, field and component',
+    'fcField','fcComponent','View 2 field','Each viewport may use its own case, region, field and component',
     'fcSameQuantity','different field/component/association/dimensions; difference unavailable',
     "const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c))"
   ])assert(source.includes(token),'Missing independent-view token: '+token);
