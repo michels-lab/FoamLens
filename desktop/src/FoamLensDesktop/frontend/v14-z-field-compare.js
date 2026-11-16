@@ -309,6 +309,34 @@ function fcSetViewportCamera(view,name){
   if(typeof document!=='undefined')fcScheduleCameraPresetSync();
   return true
 }
+// Projection affects rendered geometry only, never OpenFOAM source values.
+// A and linked views use A's canonical projection; unlinked B/C/D preserve
+// their own camera and refit the actual visible physical meshes.
+function fcSetViewportProjection(view,mode){
+  if(mode!=='orthographic'&&mode!=='perspective')return false;
+  const isA=view==='A';
+  const state=isA?null:view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!isA&&(!state||!fcState.enabled))return false;
+  const mesh=fcFitMeshForView(view,state,isA?fvState.mesh:state.mesh);
+  if(!fcValidFitMesh(mesh))return false;
+  if(isA||fcCamerasLinked()){
+    fvSetPhysicalProjection(mode);
+    if(fcState.enabled){fcRender();fcRenderDifference();fcRenderExtras()}
+    fcScheduleCameraPresetSync();
+    return true
+  }
+  const previous=state.camera?fcCloneCamera(state.camera):null;
+  const current=fcCloneCamera(fcCameraFor(state,state.mesh));
+  current.projection=mode;state.camera=current;
+  if(fcFitCameraState(state,mesh)===false){state.camera=previous;return false}
+  if(view==='B'){fcRender();fcRenderDifference()}else fcExtraRender(state);
+  fcScheduleCameraPresetSync();
+  return true
+}
+function fcCameraProjectionLabel(mode){
+  return mode==='orthographic'?fcUi('Orthographic','Ortográfica'):
+    mode==='perspective'?fcUi('Perspective','Perspectiva'):''
+}
 function fcCameraPresetMenu(letter){
   const items=[
     ['iso','Isometric','Isométrica'],['front','Front','Frente'],
@@ -322,7 +350,13 @@ function fcCameraPresetMenu(letter){
     items.map(([key,en,es])=>
       '<button type="button" data-fc-camera-preset="'+key+'" data-fl-en="'+en+'" data-fl-es="'+es+'" '+
       'aria-pressed="false" aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
-      'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+'</div></details>'
+      'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+'</div>'+
+    '<div class="fcViewportProjectionChoices" role="group" aria-label="'+fcUi('Projection for view','Proyección de vista')+' '+fcEsc(letter)+'">'+
+    [['orthographic','Orthographic','Ortográfica'],['perspective','Perspective','Perspectiva']]
+      .map(([key,en,es])=>'<button type="button" data-fc-projection="'+key+'" data-fl-en="'+en+'" data-fl-es="'+es+'" '+
+        'aria-pressed="false" aria-label="'+fcUi('View','Vista')+' '+fcEsc(letter)+' · '+fcUi(en,es)+'" '+
+        'title="'+fcUi(en,es)+'">'+fcUi(en,es)+'</button>').join('')+
+    '</div></details>'
 }
 // A viewport's camera may be rotated by mouse, not just preset clicks.
 // Compare actual yaw/pitch with circular yaw distance: e.g. PI and -PI
@@ -360,16 +394,27 @@ function fcSyncCameraPresetButtons(){
     if(view==='Δ')continue;
     const menu=bar.querySelector('.fcViewportCameraPresets');
     if(!menu)continue;
-    const active=fcCameraPresetFor(fcViewCameraState(view));
+    const camera=fcViewCameraState(view),
+      active=fcCameraPresetFor(camera),
+      projection=camera?.projection==='perspective'?'perspective':
+        camera?.projection==='orthographic'?'orthographic':null;
     const title=fcUi('Camera views','Vistas de cámara');
-    const label=fcCameraPresetLabel(active);
+    const label=fcCameraPresetLabel(active),projectionLabel=fcCameraProjectionLabel(projection);
     const summary=menu.querySelector('summary');
-    const summaryText=label?title+' · '+label:title;
+    const summaryText=label?title+' · '+label+(projectionLabel?' · '+projectionLabel:''):title;
     if(summary&&summary.textContent!==summaryText)summary.textContent=summaryText;
     if(menu.dataset.fcCameraActive!==String(active)){
       menu.dataset.fcCameraActive=String(active);
       for(const button of menu.querySelectorAll('[data-fc-camera-preset]')){
         const selected=button.dataset.fcCameraPreset===active;
+        button.classList.toggle('active',selected);
+        button.setAttribute('aria-pressed',selected?'true':'false')
+      }
+    }
+    if(menu.dataset.fcProjectionActive!==String(projection)){
+      menu.dataset.fcProjectionActive=String(projection);
+      for(const button of menu.querySelectorAll('[data-fc-projection]')){
+        const selected=button.dataset.fcProjection===projection;
         button.classList.toggle('active',selected);
         button.setAttribute('aria-pressed',selected?'true':'false')
       }
