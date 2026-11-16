@@ -202,8 +202,9 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const dom={getElementById:id=>id==='fcViewGrid'?
     {querySelectorAll:()=>bars}:sources.get(id)||null};
   const factory=new Function('document','fcViewSourceMap','fcPhysicalMenu',
-    source.slice(start,stop)+';return fcSyncToolbars;');
-  const refresh=factory(dom,api.fcViewSourceMap,view=>menus.push(view));
+    'fcSyncIndependentTimePicker',source.slice(start,stop)+';return fcSyncToolbars;');
+  const refresh=factory(dom,api.fcViewSourceMap,view=>menus.push(view),
+    ()=>{/* B/C/D picker is tested with the actual source catalog below */});
   assert.doesNotThrow(refresh,
     'A/B/C/D selector synchronization must never throw ReferenceError toolbar');
   assert.deepStrictEqual(menus,['A','B','3','4'],
