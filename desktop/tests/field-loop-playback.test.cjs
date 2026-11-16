@@ -67,5 +67,35 @@ function harness({initial=2,events=[],deferred=null}={}){
   for(const label of ['Front · +Z','Back · −Z','Left · −X','Right · +X','Top · +Y','Bottom · −Y','Isometric · XYZ'])
     assert(field.includes(label),'Missing a physical camera view label: '+label);
   assert(field.includes("b.classList.toggle('active',selected)"),'Active camera must remain highlighted');
-  console.log('Field playback: repeated wrap, speeds, pause and asynchronous cancellation; readable transport and named camera buttons PASS');
+  // Pause all is an explicit user action, separate from the Sync Views switch:
+  // original A transport and each independent B/C/D timer must stop together
+  // without changing the selected source-time state.
+  {
+    const pauseBegin=source.indexOf('function fwTimePauseAllViews(){');
+    const pauseEnd=source.indexOf('function fwTimePlay(){',pauseBegin);
+    assert(pauseBegin>0&&pauseEnd>pauseBegin,'Pause all must use actual Field code');
+    assert(source.includes('id="fwPauseAllViews"'),'Pause all must be visible by the 3D view header');
+    assert(source.includes("getElementById('fwPauseAllViews')?.addEventListener('click',fwTimePauseAllViews)"),
+      'Pause all must have a real click handler, not a decorative button');
+    assert(source.includes('pauseAll:fwTimePauseAllViews'),'Host controller should expose the same action');
+    const playing=harness({initial:0});playing.fwTimePlay();await microtasks();
+    assert.equal(playing.state.playing,true);
+    const selectedTimes={A:2.6,B:0,C:10,D:2.6},events=[];
+    const pause=new Function('fwTimeStop','fvStopPlayback',
+      'fcStopAllIndependentPlayback','fwRefreshGlobalTime',
+      source.slice(pauseBegin,pauseEnd)+';return fwTimePauseAllViews;')(
+        playing.fwTimeStop,
+        ()=>events.push('A native player'),
+        ()=>events.push('B/C/D independent players'),
+        ()=>events.push('refresh physical time'));
+    pause();
+    assert.deepStrictEqual(events,['A native player','B/C/D independent players','refresh physical time']);
+    assert.equal(playing.state.playing,false,'A must stop');
+    assert(playing.queue.every(timer=>timer.cancelled),'A must not schedule another frame');
+    assert.deepStrictEqual(selectedTimes,{A:2.6,B:0,C:10,D:2.6},
+      'Pausing must preserve each view\'s originally selected OpenFOAM time');
+    assert(source.includes("fwUi('Pause all','Pausar todas')"),
+      'Visible action must be bilingual');
+  }
+  console.log('Field playback: loop, independent pause-all control, async cancellation, visible transport and cameras PASS');
 })().catch(e=>{console.error(e);process.exitCode=1});
