@@ -183,7 +183,8 @@ function tsdSourceFieldCatalog(){
         // Never parse source frames, interpolate, or invent t=0 during inventory.
         if(!indexed.times.length)continue;
         fields.push({caseId:c.id,caseName:c.name||String(c.id),region,name:group.name,
-          kind:group.kind,components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
+          storage:String(group.storage||''),kind:group.kind,
+          components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
           timeCount:indexed.times.length,firstTime:indexed.times[0],lastTime:indexed.times.at(-1)})
       }
     }
@@ -204,7 +205,10 @@ function tsdUpdateSourceCatalog(){
     (actions||panel).insertAdjacentElement('afterend',info)
   }
   const catalog=tsdSourceFieldCatalog(),datasets=timeSeriesOptionsBase();
-  const unique=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region)+'|'+g.name)).size;
+  // Different OpenFOAM associations are distinct sources, even with one
+  // physical field name: T on cells, faces and points is not one history.
+  const unique=new Set(catalog.map(g=>JSON.stringify([
+    String(g.caseId),String(g.region),String(g.name),String(g.storage),String(g.kind)]))).size;
   const casesWithFields=new Set(catalog.map(g=>String(g.caseId))).size;
   const caseRegionsWithFields=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region))).size;
   const issues=tsdSourceFieldCatalog.issues||[];

@@ -103,4 +103,31 @@ assert(partialStatus.textContent.includes('2 case(s)'),
 assert(partialStatus.textContent.includes('2 case-region source(s)'),
   'Status must disclose real multiregion availability');
 
+
+// GRANADA: association is part of the original field's identity, not
+// merely a cosmetic label next to three identical select-option values.
+const sameName=[{id:'B3',name:'B3 sample'}],mixedStorage=[
+  {name:'T',kind:'scalar',storage:'volume',times:[0,.2]},
+  {name:'T',kind:'scalar',storage:'surface',times:[0,.3]},
+  {name:'T',kind:'scalar',storage:'point',times:[0,.5]},
+  {name:'invalid',kind:'scalar',storage:'volume',times:[null,false,'']}
+];
+const associationStatus={textContent:'',setAttribute(){}},associationNodes={
+  tsdSourceFieldCount:associationStatus,timeSeriesControls:{querySelector:()=>null},
+  fwDataFieldHistories:{open:false},gr176HistoryCard:{}
+};
+const associationApi=new Function('fwFieldTsReadyCases','fvReadyRegions','fvFieldGroups',
+  'document','timeSeriesOptionsBase','tsdUi','fwRefreshFieldTsControls','console',
+  source.slice(begin,end)+';return{tsdSourceFieldCatalog,tsdUpdateSourceCatalog}')(
+  ()=>sameName,()=>['metal'],()=>mixedStorage,
+  {getElementById:id=>associationNodes[id]||null},()=>[],en=>en,()=>{},{error(){}});
+const associated=associationApi.tsdSourceFieldCatalog();
+assert.deepStrictEqual(associated.map(x=>[x.name,x.storage,x.kind]),[
+  ['T','volume','scalar'],['T','surface','scalar'],['T','point','scalar']
+], 'Field T on cells/faces/points must remain three independently identifiable source arrays');
+associationApi.tsdUpdateSourceCatalog();
+assert.match(associationStatus.textContent,/history generation: 3 across 1 case\(s\)/,
+  'Actual Time Series source catalog counts three genuine associations, not one field name');
+assert.equal(costlyFrameReads,0,'Association inventory still must never parse physical frames');
+
 console.log('Time Series field source catalog PASS: 4 available real case/region fields, vector components, visible generation with zero existing curves.');
