@@ -205,11 +205,13 @@ function tsdUpdateSourceCatalog(){
   }
   const catalog=tsdSourceFieldCatalog(),datasets=timeSeriesOptionsBase();
   const unique=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region)+'|'+g.name)).size;
+  const casesWithFields=new Set(catalog.map(g=>String(g.caseId))).size;
+  const caseRegionsWithFields=new Set(catalog.map(g=>String(g.caseId)+'|'+String(g.region))).size;
   const issues=tsdSourceFieldCatalog.issues||[];
-  info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+'.',
-    'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+'.')+
-    (issues.length?' '+tsdUi('Partial catalog: '+issues.length+' case/region source(s) could not be inspected; available fields remain selectable. No missing fields or values were inferred.',
-      'Catálogo parcial: no se pudieron inspeccionar '+issues.length+' fuente(s) de caso/región; los campos disponibles siguen seleccionables. No se infirieron campos ni valores faltantes.'):'');
+  info.textContent=tsdUi('Existing measured time-series: '+datasets.length+' · OpenFOAM 3D fields available for explicit history generation: '+unique+' across '+casesWithFields+' case(s), '+caseRegionsWithFields+' case-region source(s).',
+    'Series temporales existentes: '+datasets.length+' · Campos OpenFOAM 3D disponibles para generar historias explícitamente: '+unique+' en '+casesWithFields+' caso(s), '+caseRegionsWithFields+' fuente(s) de caso-región.')+
+    (issues.length?' '+tsdUi('Partial catalog: '+issues.length+' case/region source warning(s): incomplete metadata or invalid indexed physical times; valid fields remain selectable. No missing frames or values were inferred.',
+      'Catálogo parcial: '+issues.length+' advertencia(s) de inventario caso/región: metadatos incompletos o tiempos físicos inválidos; los campos válidos siguen seleccionables. No se infirieron fotogramas ni valores faltantes.'):'');
   const details=document.getElementById('fwDataFieldHistories');
   // G59: a real imported postProcessing curve does NOT make newly imported
   // OpenFOAM 3D source fields disappear. Refresh existing source selectors
