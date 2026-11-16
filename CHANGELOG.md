@@ -1,3 +1,10 @@
+## Unreleased — Native Windows packaged G58 regression correction (#344)
+
+- Fixed the real native Windows WebView2 packaging smoke test, which had continued to require the old bare-string `option.value==='T'` for an original B13 field even after the scientific source selector in [PR #341](https://github.com/michels-lab/FoamLens/pull/341) correctly migrated to structured `[name,storage,kind]`. This stale check was the **sole reported failed G58 gate** in the previous full Windows builds; all other G58 layout/visibility checks passed.
+- The existing `Program.cs` witness now requires a **scalar original T field with explicitly recognized OpenFOAM volume, surface, or point association**. It still fails on unknown storage, malformed IDs or an unverified display-only `T`. Real source identifiers, chart visibility, Build/Cancel accessibility, 2 independent source slots, overflow checks, physical-time data and screenshots are unchanged.
+- Added exact embedded native expression tests to `granada-176-timeseries-ui.spec.cjs` on Windows and Ubuntu, with the actual native Program.cs change triggering T2 CI. Original WebView2 packaged runner results remain a separate build gate; this entry does not claim full packaged success until the workflow finishes.
+- Merged in [PR #344](https://github.com/michels-lab/FoamLens/pull/344), SHA `38a71d728978c992658b314b016192d298b096de`. No new release, RC, Developer Edition or OpenFOAM data modification.
+
 ## Unreleased — Operación Granada Field G7: spatial profiles from any A–D original 3D view (#343)
 
 - **Functional extension of Field 3D + Spatial Profile**: added a visible `Profile from view / Perfil desde vista` selector for original loaded view A, B, C or D, and an `Update profile / Actualizar perfil` command. The existing shared 3D A→B world-XYZ line can now sample **the actual selected viewport's loaded mesh, OpenFOAM field values, region, field component, storage association and physical timestamp**, rather than always reading Field A.
