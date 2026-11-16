@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "94f927179b33be126b3de388d587d8d9f93e6f9bcd2f059720c18c5d5c6fca16",
+  "inventory_fingerprint": "6b69d3519dc7aa6d88c8bd8472a633a088d45864c6fbddd686a5f8664aafb198",
   "evidence_fingerprint": "0930613b76bf6617ebabb93cdb0b5b96a8f16e9fb29df978ff96a1ea52ac7ce4",
   "files": [
     {
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "e007f6a73a482f72c387827fe98248e8fcc47be7"
+      "blob": "02bb5026624e1364dafe9387f5c164332e9af2e0"
     },
     {
       "path": "LICENSE",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "32d400b8713bff1455b6e7d4c3a527a46ca96c51"
+      "blob": "7258cae1aa0a2a7914c49e01e28528437db75224"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1553,7 +1553,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8a828b3672a7f85e4187912a41c098f90ed37a05"
+      "blob": "04892fac5ba5b5df183e9b9c500731de3a05ac8d"
     },
     {
       "path": "desktop/tests/granada-177-g2-field-source-dock.test.cjs",
