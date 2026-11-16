@@ -1,6 +1,6 @@
 /* FoamLens Desktop v1.6.1 — Field-owned command surface with contextual sidebar and explicit Split. */
 
-const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false,compareProfiles:false};
+const fwState={active:false,companion:'profile',layout:'3d',view:'3d',syncTime:true,inspector:false,installed:false,fieldTsSeq:0,fieldTsActiveSeq:null,fieldTsTimer:null,fieldTsKeys:new Set(),compareUserRequested:false,compareProfiles:false,compareProfileViews:[]};
 function fwComparisonExplicitlyRequested(){fwState.compareUserRequested=true}
 function fwComparisonDisabled(){
   // Disabling B is explicit too: reopening Field must not resurrect it.
@@ -924,7 +924,13 @@ function fwRefresh3DProfileSourceViews(){
     fcExtraViews.filter(v=>[3,4].includes(Number(v.id))).map(v=>String.fromCharCode(64+Number(v.id))):[])]:[])];
   const options=views.map(view=>'<option value="'+view+'">'+fwUi('View','Vista')+' '+view+'</option>').join('');
   if(select.innerHTML!==options)select.innerHTML=options;
-  select.value=views.includes(old)?old:'A'
+  select.value=views.includes(old)?old:'A';
+  // A removed/hidden 3D viewport cannot keep an apparently live curve in
+  // a previously generated comparison. This does not delete saved series.
+  if(typeof fwState!=='undefined'&&fwState.compareProfiles&&
+    (views.length!==fwState.compareProfileViews?.length||
+      views.some((view,i)=>view!==fwState.compareProfileViews[i])))
+    fwLeave3DProfileCompare()
 }
 // 3D A→B line geometry is picked on viewport A in shared world XYZ; its
 // actual sampled field may belong to any loaded independent A/B/C/D viewport.
@@ -1014,7 +1020,7 @@ function fwSync3DProfileCompareButton(){
 }
 function fwLeave3DProfileCompare({render=true}={}){
   if(typeof fwState==='undefined'||!fwState.compareProfiles)return false;
-  fwState.compareProfiles=false;
+  fwState.compareProfiles=false;fwState.compareProfileViews=[];
   fwSync3DProfileCompareButton();
   if(render&&fwState.active&&fwState.layout==='split'){
     try{refreshProfileTimes(document.getElementById('profileTime')?.value||'')}catch{}
@@ -1083,7 +1089,7 @@ function fwCompareAll3DProfiles(){
     if(!curve){fw3DProfileStatus(fwUi('A source changed during comparison. Retry with loaded frames.',
       'Una fuente cambió durante la comparación. Reintenta con frames cargados.'),true);return false}
   }
-  fwState.compareProfiles=true;fwSync3DProfileCompareButton();
+  fwState.compareProfileViews=views.slice();fwState.compareProfiles=true;fwSync3DProfileCompareButton();
   const stamp=views.map(view=>view+' t='+fvFmt(infoByView.get(view).time)+' s').join(' · ');
   fw3DProfileStatus(fwUi('Comparing original XYZ profiles: ','Comparando perfiles XYZ originales: ')+stamp+
     ' · '+fwUi('Each source keeps its own time.','Cada fuente conserva su tiempo.'));
@@ -1520,4 +1526,4 @@ function fwInstall(){
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId}),profileCompareActive:()=>fwState.active&&fwState.layout==='split'&&fwState.compareProfiles,profileCompareIncludes:s=>s?.derivedKind==='field3d_line_profile'&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,compare3DProfiles:fwCompareAll3DProfiles,exitProfileComparison:fwLeave3DProfileCompare};
+window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId}),profileCompareActive:()=>fwState.active&&fwState.layout==='split'&&fwState.compareProfiles,profileCompareIncludes:s=>s?.derivedKind==='field3d_line_profile'&&fwState.compareProfileViews?.includes(s.profileSourceView)&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,compare3DProfiles:fwCompareAll3DProfiles,exitProfileComparison:fwLeave3DProfileCompare};
