@@ -1,3 +1,9 @@
+## Unreleased — Operación Granada Field A–D · pause-all control (#338)
+
+- Add a visible, bilingual **Pause all / Pausar todas** action to the 3D Field header. One deliberate click pauses A's original transport and cancels the independent B/C/D measured-time players.
+- The command does **not** relink cameras, visual settings or physical time, change case/region/field/component, or reset a viewport's chosen OpenFOAM timestamp. The existing **Synchronize views** switch remains separate and fully optional.
+- Extend the original Field loop/playback test to exercise production stop sequencing, timer cancellation, real click binding, bilingual labeling and per-view time preservation. Full Windows installed-app visual acceptance remains outstanding. No RC, stable tag, version bump or release.
+
 ## Desktop v1.8.14 — 2026-11-12 · verified multi-case Time Series Y-axis dimensions
 
 - Compare two independent cases or regions on one numeric Y axis only when both original field identities, unit labels and seven OpenFOAM dimension exponents are present and compatible. Previously two missing units and dimensions could accidentally yield the same empty comparison key, implying equality without physical evidence.
