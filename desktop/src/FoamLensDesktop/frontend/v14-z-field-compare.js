@@ -436,13 +436,15 @@ function fcRefreshCameraPresetLabels(){
     const menu=bar.querySelector('.fcViewportCameraPresets');
     if(!menu)continue;
     const summary=menu.querySelector('summary');if(summary)summary.textContent=fcUi('Camera views','Vistas de cámara');
-    for(const button of menu.querySelectorAll('[data-fc-camera-preset]')){
+    for(const button of menu.querySelectorAll('[data-fc-camera-preset], [data-fc-projection]')){
       const label=fcUi(button.dataset.flEn,button.dataset.flEs);
       button.textContent=label;button.title=label;
       button.setAttribute('aria-label',fcUi('View','Vista')+' '+letter+' · '+label);
     }
-    menu.querySelector('[role="group"]')?.setAttribute('aria-label',
+    menu.querySelector('[data-fc-camera-preset]')?.closest('[role="group"]')?.setAttribute('aria-label',
       fcUi('Camera views','Vistas de cámara')+' '+letter);
+    menu.querySelector('[data-fc-projection]')?.closest('[role="group"]')?.setAttribute('aria-label',
+      fcUi('Projection for view','Proyección de vista')+' '+letter);
   }
   fcSyncCameraPresetButtons();
 }
@@ -639,8 +641,15 @@ function fcAddViewportToolbar(viewport,view){
           details.open=false;details.querySelector('summary')?.focus()
         }
       }));
+    cameraMenu?.querySelectorAll('[data-fc-projection]').forEach(button=>
+      button.addEventListener('click',()=>{
+        if(!fcSetViewportProjection(view,button.dataset.fcProjection))return;
+        const details=button.closest('details');if(details){
+          details.open=false;details.querySelector('summary')?.focus()
+        }
+      }));
     cameraMenu?.addEventListener('keydown',event=>{
-      const buttons=[...cameraMenu.querySelectorAll('[data-fc-camera-preset]')];
+      const buttons=[...cameraMenu.querySelectorAll('[data-fc-camera-preset], [data-fc-projection]')];
       const index=buttons.indexOf(document.activeElement);
       if(event.key==='Escape'&&cameraMenu.open){
         event.preventDefault();cameraMenu.open=false;
@@ -1483,10 +1492,11 @@ function fcInstallUi(){
     .fcViewSourceDetails .fcViewFieldRow{padding:8px 0 3px;max-width:100%}
     .fcViewportCameraPresets{flex:0 1 auto;position:relative;min-width:0}
     .fcViewportCameraPresets summary{cursor:pointer;list-style:revert;font-size:11px;min-height:31px;display:flex;align-items:center;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);white-space:nowrap}
-    .fcViewportCameraChoices{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;padding:7px 0}
-    .fcViewportCameraChoices button{cursor:pointer;min-height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);font-size:10px;padding:5px 7px}
-    .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
-    .fcViewportCameraChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
+    .fcViewportCameraChoices,.fcViewportProjectionChoices{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;padding:7px 0}
+    .fcViewportProjectionChoices{border-top:1px solid var(--line);margin-top:5px}
+    .fcViewportCameraChoices button,.fcViewportProjectionChoices button{cursor:pointer;min-height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);font-size:10px;padding:5px 7px}
+    .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible,.fcViewportProjectionChoices button:hover,.fcViewportProjectionChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
+    .fcViewportCameraChoices button[aria-pressed="true"],.fcViewportProjectionChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
     .fcViewportCameraPresets[open]{flex:1 0 100%}
     .fcPhysicalMenu{container-name:fc-region-dock;container-type:inline-size}
     .fcPhysicalRegionRow{min-width:0;grid-template-columns:minmax(90px,1.1fr) minmax(105px,1.5fr) minmax(85px,1fr) minmax(105px,1fr) minmax(100px,1fr)}
