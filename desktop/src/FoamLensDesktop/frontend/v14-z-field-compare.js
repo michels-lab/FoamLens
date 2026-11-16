@@ -193,8 +193,22 @@ function fcSetIndependentTime(view,value){
   // The per-pane player waits for the real async frame and its physical
   // layers to finish before it advances; no burst of stale GPU frame loads.
   const load=view==='B'?fcRefreshFrame():fcExtraRefreshFrame(state);
-  state._fcIndependentLoad=Promise.resolve(load).catch(error=>{
-    fcSetStatus(String(error?.message||error),true)
+  state._fcIndependentLoad=Promise.resolve(load).then(()=>{
+    // A fulfilled Promise is not proof that OpenFOAM yielded a measured
+    // frame: loaders may resolve after invalidating a missing/failed field.
+    // Playback must not skip through unavailable physics with a stale badge.
+    // null / false / empty strings are NOT physical t=0: only the real
+    // finite numeric timestamp committed by the original loader qualifies.
+    const measured=typeof state.time==='number'&&Number.isFinite(state.time)?
+      state.time:NaN;
+    return !!state.mesh&&!!state.fieldValues&&
+      Number.isFinite(measured)&&
+      Math.abs(measured-target)<=1e-9*Math.max(1,Math.abs(target))&&
+      fcIndependentTimeSource(state).key===source.key&&
+      fcState.enabled&&!fcTimesLinked()
+  }).catch(error=>{
+    fcSetStatus(String(error?.message||error),true);
+    return false
   });
   fcScheduleToolbarSync();
   return true
@@ -232,7 +246,11 @@ async function fcRunIndependentPlayback(view,play){
     fcIndependentTimeSource(state).key!==play.sourceKey){
     fcStopIndependentPlayback(view);return
   }
-  if(state._fcIndependentLoad)await state._fcIndependentLoad;
+  if(state._fcIndependentLoad){
+    const ready=await state._fcIndependentLoad;
+    if(fcIndependentPlayers.get(String(view))!==play||play.cancelled)return;
+    if(!ready){fcStopIndependentPlayback(view);return}
+  }
   if(fcIndependentPlayers.get(String(view))!==play||play.cancelled)return;
   if(!fcIndependentTimeStep(view,1)){fcStopIndependentPlayback(view);return}
   // Only one pending tick per view and never before its prior load finishes.
@@ -1621,7 +1639,11 @@ function fcExtraAdd(){
   let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,geometryUpload:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
   const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcExtra'+id+'Surface" type="checkbox" checked> '+fcUi('Surface','Superficie')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Edges','Aristas')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcExtra'+id+'Iso" type="checkbox"> Iso</label></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
   const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcTimeBadge" id="fcExtra'+id+'TimeBadge">View '+id+' · —</div><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);fcComposeViewport(viewport);fcAddViewportToolbar(viewport,id);
-  fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{state.probe=null;fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)});
+  fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{
+    fcStopIndependentPlayback(id);
+    state.probe=null;
+    fcExtraRefreshSelectors(state,true);fcExtraRefreshFrame(state,true)
+  });
   for(const suffix of ['Palette','Opacity','Surface','Edges','Slice','Iso'])fcExtraDom(id,suffix)?.addEventListener(suffix==='Opacity'?'input':'change',()=>{state.visual=null;if(state.mesh&&state.fieldValues&&state.range)fcExtraUpload(state,{mesh:state.mesh,storage:state.storage,fieldValues:state.fieldValues,parsed:state.fieldParsed,range:state.range});else fcExtraRender(state)});fcSyncVisualUi();const extraCanvas=fcExtraDom(id,'Canvas');fcDriveSharedCamera(extraCanvas,state,()=>state.mesh,()=>fcExtraRender(state));fcInstallViewProbe(extraCanvas,()=>({mesh:state.mesh,values:state.fieldValues,storage:state.storage,mvp:()=>fcExtraMvp(state,extraCanvas),setProbe:hit=>{state.probe=hit},render:()=>fcExtraRender(state)}));
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>fcExtraRender(state)).observe(viewport);fcExtraRefreshSelectors(state,false);fcExtraRefreshFrame(state,true);fcUpdateLayout();fcScheduleToolbarSync();return true
 }
@@ -1775,10 +1797,10 @@ function fcInstallUi(){
         if(document.getElementById('fcEnabled')?.checked)return fcRefreshExtras();
       }).catch(error=>fcSetStatus(String(error?.message||error),true));
   });document.getElementById('fcDifference').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});document.getElementById('fcAddView').addEventListener('click',fcExtraAdd);
-  document.getElementById('fcCase').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcState.probe=null;fcRefreshFrame()});
-  document.getElementById('fcRegion').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
-  document.getElementById('fcField').addEventListener('change',()=>{fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
-  document.getElementById('fcComponent').addEventListener('change',()=>{fcState.lockedRange=null;fcRefreshFrame()});
+  document.getElementById('fcCase').addEventListener('change',()=>{fcStopIndependentPlayback('B');fcRefreshSelectors(true);fcState.lockedRange=null;fcState.probe=null;fcRefreshFrame()});
+  document.getElementById('fcRegion').addEventListener('change',()=>{fcStopIndependentPlayback('B');fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
+  document.getElementById('fcField').addEventListener('change',()=>{fcStopIndependentPlayback('B');fcRefreshSelectors(true);fcState.lockedRange=null;fcRefreshFrame()});
+  document.getElementById('fcComponent').addEventListener('change',()=>{fcStopIndependentPlayback('B');fcState.lockedRange=null;fcRefreshFrame()});
   document.getElementById('fcSync').addEventListener('change',()=>fcRefreshFrame());document.getElementById('fcDifferenceMode').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcPercentEpsilon').addEventListener('change',()=>fcRefreshVisuals());document.getElementById('fcSwapCases').addEventListener('click',()=>fcSwapPrimaryCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));document.getElementById('fcCopyAToB').addEventListener('click',()=>fcCopyPrimarySettingsToCompare().catch(e=>fcSetStatus(String(e?.message||e),true)));
   document.getElementById('fcLinkTimes').addEventListener('change',fcRefreshTimeLink);
   document.getElementById('fcLinkCameras').addEventListener('change',()=>{if(!fcCamerasLinked())fcResyncCameras();fcRender();fcRenderDifference();fcRenderExtras();fcScheduleCameraPresetSync()});document.getElementById('fcResyncCameras').addEventListener('click',fcResyncCameras);document.getElementById('fcFitAll').addEventListener('click',fcFitAllCameras);document.getElementById('fcSyncVisuals').addEventListener('change',()=>{fcSyncVisualUi();fcRefreshVisuals();fcRefreshExtras()});for(const id of ['fcView2Palette','fcView2Opacity','fcView2Surface','fcView2Edges','fcView2Slice','fcView2Iso','fcView2Vectors','fcView2Streamlines'])document.getElementById(id)?.addEventListener(id==='fcView2Opacity'?'input':'change',()=>{fcState.visual=null;fcRefreshVisuals()});fcSyncVisualUi();const compareCanvas=document.getElementById('fcCanvas');fcDriveSharedCamera(compareCanvas,fcState,()=>fcState.mesh,()=>fcRender());fcInstallViewProbe(compareCanvas,()=>({mesh:fcState.mesh,values:fcState.fieldValues,storage:fcState.fieldStorage,mvp:()=>fcMvp(compareCanvas),setProbe:hit=>{fcState.probe=hit},render:()=>fcRender()}));

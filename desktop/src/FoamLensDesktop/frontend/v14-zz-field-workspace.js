@@ -1123,6 +1123,10 @@ function fwLeave(){
     else historyControls.classList.add('hidden');
   }
   ++fwState.fieldTsSeq;
+  // Field's independent B/C/D players are source-owned timers. Leaving the
+  // workspace must stop them without resetting the real chosen timestamps,
+  // even when a slow OpenFOAM frame load is still pending.
+  if(typeof fcStopAllIndependentPlayback==='function')fcStopAllIndependentPlayback();
   try{fvStopPlayback()}catch{};fwTimeStop();fwSetInspector(false);
   fwReturnCompanionControlsToData();
   // Leaving Field must not leave a stale split flag, but the plot manager

@@ -1496,6 +1496,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const timers=new Map(),cleared=[];
   let timerId=0;
   const loads=[];
+  let failBFrame=false,missingBTime=false;
   const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
     'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField',
     'fcFieldFor','fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt',
@@ -1512,8 +1513,13 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     ()=>catalog.B.field,state=>catalog[name(state)].field,
     (c,r,f)=>r===c.region&&f===c.field?{times:c.times}:null,
     x=>Number(x),()=>primaryTime,String,String,(en,es)=>en,
-    ()=>{loads.push({view:'B',target:B.timeTarget});return Promise.resolve()},
-    state=>{loads.push({view:name(state),target:state.timeTarget});return Promise.resolve()},
+    ()=>{loads.push({view:'B',target:B.timeTarget});
+      B.time=missingBTime?null:B.timeTarget;
+      B.mesh=failBFrame?null:{id:'mesh-B'};
+      B.fieldValues=failBFrame?null:[1];return Promise.resolve()},
+    state=>{loads.push({view:name(state),target:state.timeTarget});
+      state.time=state.timeTarget;state.mesh={id:'mesh-'+name(state)};
+      state.fieldValues=[1];return Promise.resolve()},
     ()=>{},()=>{redraws++},message=>errors.push(message),
     (fn,ms)=>{const id=++timerId;timers.set(id,{fn,ms});return id},
     id=>{cleared.push(id);timers.delete(id)}
@@ -1591,6 +1597,39 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(btnB.prev.disabled,true);
   assert.equal(apiTime.fcToggleIndependentPlayback('B'),false);
   assert.equal(errors.length,0);
+  // An asynchronous loader may finish without a valid physical mesh/frame.
+  // Playback must stop at that time instead of fabricating further data.
+  linked=false;failBFrame=true;
+  B.timeTarget=0;B.time=0;B.mesh={id:'prior-real-mesh'};B.fieldValues=[1];
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),true);
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(B.timeTarget,1,'only the first real next time may be requested');
+  assert.equal(B.mesh,null,'simulated invalid loader has no measurable mesh');
+  const failedTick=timers.entries().next().value;
+  assert(failedTick,'invalid frame is checked by next playback timer');
+  timers.delete(failedTick[0]);failedTick[1].fn();
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(apiTime.fcIndependentPlayers.has('B'),false,
+    'fulfilled-but-invalid OpenFOAM frame must stop original B playback');
+  assert.equal(B.timeTarget,1,
+    'failed measured B time cannot be skipped to the following catalog frame');
+  failBFrame=false;missingBTime=true;
+  B.timeTarget=2;B.time=2;B.mesh={id:'last-valid'};B.fieldValues=[1];
+  assert.equal(apiTime.fcToggleIndependentPlayback('B'),true);
+  await Promise.resolve();await Promise.resolve();await Promise.resolve();
+  assert.equal(B.timeTarget,0,'restart chooses real first source timestamp t=0');
+  assert.strictEqual(B.time,null,'missing measured time is not numeric physical zero');
+  assert.equal(apiTime.fcIndependentPlayers.has('B'),false,
+    'a missing/null physical time must never be promoted to measured t=0');
+  assert(source.includes("fcIndependentTimeSource(state).key===source.key"),
+    'a late source change cannot be accepted as a successful old frame');
+  for(const id of ['fcCase','fcRegion','fcField','fcComponent']){
+    assert(source.includes("document.getElementById('"+id+"').addEventListener('change',()=>{fcStopIndependentPlayback('B');"),
+      'changing original B '+id+' immediately stops outdated playback');
+  }
+  assert(source.includes("fcExtraDom(id,suffix).addEventListener('change',()=>{\\n    fcStopIndependentPlayback(id);".replace('\\n','\\n'))||
+    /fcExtraDom\(id,suffix\)\.addEventListener\('change',\(\)=>\{\s*fcStopIndependentPlayback\(id\)/.test(source),
+    'C/D case, region, field and component changes stop their owned player');
   assert(source.includes('fcStopIndependentPlayback(id);'),
     'removing C/D must cancel its owned playback timer');
   assert(source.includes('if(!fcState.enabled)fcStopAllIndependentPlayback()'),

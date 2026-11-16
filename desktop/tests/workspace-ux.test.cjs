@@ -663,3 +663,35 @@ test('Granada unsynchronized physical times survive native workspace save/restor
   assert(field.includes('id="fwSyncViewsVisible"'),
     'the option must be reachable without opening the Field inspector');
 });
+
+
+test('Granada Field exit stops original independent players before UI ownership moves',()=>{
+  const start=field.indexOf('function fwLeave(){'),
+    end=field.indexOf('function fwInstall(){',start);
+  assert(start>=0&&end>start,'original Field exit lifecycle required');
+  const events=[],state={active:true,layout:'3d',dataViewBeforeField:null,
+    fieldTsSeq:5,compareUserRequested:true};
+  const leave=new Function('fwState','document','fcStopAllIndependentPlayback',
+    'fvStopPlayback','fwTimeStop','fwSetInspector',
+    'fwReturnCompanionControlsToData','cases','fvCaseViewAvailable','window',
+    field.slice(start,end)+';return fwLeave;')(
+    state,{getElementById:()=>null},
+    ()=>events.push('stop B/C/D'),
+    ()=>events.push('stop A'),
+    ()=>events.push('stop global Field'),
+    ()=>events.push('close inspector'),
+    ()=>events.push('return companion'),
+    [{id:'A'},{id:'B'}],()=>true,{FoamLensPlotSurfaces:{active:()=>null}});
+  leave();
+  assert.equal(state.active,false);
+  assert.equal(state.fieldTsSeq,6);
+  assert.deepStrictEqual(events.slice(0,3),
+    ['stop B/C/D','stop A','stop global Field'],
+    'independent B/C/D playback must stop before Data takes Field controls');
+  assert.deepStrictEqual(events.slice(3),['close inspector','return companion'],
+    'original Field exit must still restore the usual Inspector and plot ownership');
+  assert.equal(state.compareUserRequested,true,
+    'exiting Field should not discard multi-case source configuration');
+  leave();
+  assert.equal(events.length,5,'repeated Field exit must not duplicate source playback stops');
+});
