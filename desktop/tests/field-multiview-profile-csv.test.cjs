@@ -154,12 +154,16 @@ assert.throws(()=>exporter.cell(Infinity),/nonfinite/);
 function fails(reason,change,restore){
   const previous=captured,before=copy();
   change();
+  const invalidSnapshot=copy();
   assert.throws(()=>exporter.build(),reason);
   assert.equal(exporter.export(),null,'Failed preflight must never download an incomplete CSV');
   assert.equal(captured,previous,'Rejected export must not mutate last successful download');
-  assert.equal(copy().join('\n'),before.join('\n'));
+  assert.equal(copy().join('\n'),invalidSnapshot.join('\n'),
+    'The exporter must not change even the intentionally invalid test fixture');
   assert(badStatus&&okStatus.includes('CSV export blocked'));
-  restore()
+  restore();
+  assert.equal(copy().join('\n'),before.join('\n'),
+    'After fixture restoration no source curve can be changed by a rejected export')
 }
 fails(/Run Compare/,()=>{state.compareProfiles=false},()=>{state.compareProfiles=true});
 fails(/inventory changed/,()=>{selectors.fw3DProfileView.options=[{value:'A'},{value:'B'}]},
