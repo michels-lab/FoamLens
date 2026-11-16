@@ -87,8 +87,12 @@ test('3D compare uses measured primary physical time and refuses false t=0',()=>
   const compare=source.slice(source.indexOf('async function fcRefreshFrame(){'),source.indexOf('function fcRefreshVisuals()',source.indexOf('async function fcRefreshFrame(){')));
   const extras=source.slice(source.indexOf('function fcExtraInvalidateFrame('),source.indexOf('async function fcRefreshExtras('));
   const swap=source.slice(source.indexOf('async function fcSwapPrimaryCompare(){'),source.indexOf('function fcVideoDescriptors()',source.indexOf('async function fcSwapPrimaryCompare(){')));
-  assert(compare.includes('target=fcPrimaryPhysicalTime()'),'Compare view must reject missing t');
-  assert(extras.includes('target=fcPrimaryPhysicalTime()'),'Extra views must reject missing t');
+  assert(compare.includes('target=fcIndependentTimeTarget(fcState)'),
+    'Compare B must use measured A time when linked or its own real catalog time when independent');
+  assert(extras.includes('target=fcIndependentTimeTarget(state)'),
+    'C/D must use measured A time when linked or their own real catalog time when independent');
+  assert(source.includes("if(fcTimesLinked())return fcPrimaryPhysicalTime()"),
+    'Linked mode must still reject missing A time; no false measured t=0');
   assert(swap.includes('if(!Number.isFinite(targetTime))return false'),'Case swapping must not load invented t=0');
   assert(swap.includes('.map(fcPhysicalNumber).filter(Number.isFinite)'),'Swapped time lists must discard missing samples');
 });
@@ -97,7 +101,7 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   const start=source.indexOf('function fcExtraInvalidateFrame('),end=source.indexOf('async function fcRefreshExtras(',start);
   assert(start>=0&&end>start,'Missing production stale-frame invalidation path');
   const make=new Function('fcState','fcExtraRefreshSelectors','fcExtraCase','fcExtraRegion',
-    'fcExtraField','fcExtraComponent','fcPrimaryPhysicalTime','fcExtraDom','fcUi','fcExtraUpdateLabel','fcPhysicalRelease',
+    'fcExtraField','fcExtraComponent','fcIndependentTimeTarget','fcExtraDom','fcUi','fcExtraUpdateLabel','fcPhysicalRelease',
     source.slice(start,end)+';return fcExtraRefreshFrame;');
   const status={textContent:''},state={id:3,seq:5,renderer:{surfaceCount:4,edgeCount:8,probeCount:1},
     mesh:{id:12},fieldValues:[1000],range:{valid:true},fieldParsed:{},time:0,sync:{exact:true},
@@ -115,7 +119,7 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert(Number.isNaN(state.time));
   assert.equal(state.renderer.surfaceCount,0);
   assert.equal(state.renderer.probeCount,0);
-  assert(status.textContent.includes('measured primary'));
+  assert(status.textContent.includes('measured physical time'));
 });
 
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
