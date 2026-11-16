@@ -269,7 +269,7 @@ function fwOwnProfileCompanionControls(){
 function fwToggleProfileCompanion(force){
   const enable=typeof force==='boolean'?force:fwState.layout!=='split';
   if(!enable){
-    fwLeave3DProfileCompare();
+    if(typeof fwLeave3DProfileCompare==='function')fwLeave3DProfileCompare();
     if(fwState.layout!=='split'){fwSyncProfileCompanionButton();return true}
     fwSetLayout('3d');
     fwReturnCompanionControlsToData();
