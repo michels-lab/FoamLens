@@ -85,7 +85,7 @@ assert.equal(captured[1],result.csv);
 assert.equal(captured[2],'text/csv;charset=utf-8');
 assert(!badStatus);
 assert.equal(copy().join('\n'),before.join('\n'),'Export does not mutate imported or derived scientific curves');
-assert(result.csv.startsWith('\uFEFFsource_view,case_id,case_name'));
+assert(result.csv.startsWith('\uFEFF"source_view","case_id","case_name"'));
 assert(result.csv.endsWith('\r\n'));
 assert(result.csv.includes('"\'=HYPERLINK('),
   'Excel CSV formula injection must be neutralized without losing the original case name');
@@ -170,7 +170,7 @@ fails(/field\/time\/line changed/,()=>{series[0].profilePointB=[.03,0,.01]},
   ()=>{series[0].profilePointB=[...line.b]});
 fails(/field\/time\/line changed/,()=>{series[2].profileOriginalStorage='point'},
   ()=>{series[2].profileOriginalStorage='volume'});
-fails(/profile samples/,()=>{series[3].y=[NaN,2,3]},()=>{series[3].y=[4,5,6]});
+fails(/coordinates or values/,()=>{series[3].y=[NaN,2,3]},()=>{series[3].y=[4,5,6]});
 fails(/coordinates or values/,()=>{series[1].t[1]=Infinity},
   ()=>{series[1].t[1]=dist/2});
 fails(/coordinates or values/,()=>{series[1].t[2]=series[1].t[1]},
