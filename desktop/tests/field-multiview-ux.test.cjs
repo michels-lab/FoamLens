@@ -1519,8 +1519,9 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     id=>{cleared.push(id);timers.delete(id)}
   );
   const control=(view,state)=>{
-    const prev={dataset:{fcTimeStep:'-1'},disabled:null};
-    const next={dataset:{fcTimeStep:'1'},disabled:null};
+    const arrow=(direction)=>({dataset:{fcTimeStep:String(direction)},disabled:null,
+      attrs:{},setAttribute(k,v){this.attrs[k]=v}});
+    const prev=arrow(-1),next=arrow(1);
     const play={disabled:null,textContent:'',attrs:{},
       setAttribute(k,v){this.attrs[k]=v}};
     const bar={dataset:{fcToolbar:String(view)},
@@ -1535,6 +1536,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(btnB.next.disabled,false);
   assert.equal(btnB.play.disabled,false);
   assert.equal(btnB.play.attrs['aria-pressed'],'false');
+  assert.equal(btnB.prev.attrs['aria-label'],'Previous measured time · B');
+  assert.equal(btnC.next.attrs['aria-label'],undefined,'unmounted C must not inherit B labels');
   assert.equal(apiTime.fcIndependentTimeStep('B',-1),false);
   assert.equal(apiTime.fcIndependentTimeStep('B',1),true);
   assert.equal(B.timeTarget,1);
@@ -1551,6 +1554,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(apiTime.fcIndependentPlayers.has('B'),true);
   apiTime.fcSyncIndependentPlaybackControls(btnB.bar);
   assert.equal(btnB.play.attrs['aria-pressed'],'true');
+  assert.equal(btnB.play.attrs['aria-label'],'Pause physical time · B');
   assert.equal(btnB.play.textContent,'❚❚');
   // One independent C player never advances B until B's own timer fires.
   assert.equal(apiTime.fcToggleIndependentPlayback(3),true);
