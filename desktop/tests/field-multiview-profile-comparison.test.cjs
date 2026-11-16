@@ -115,10 +115,10 @@ nodes.fcField.value='T';
 
 // A third independent dimension cannot be drawn on the native TWO-Y-axis
 // renderer without hiding a quantity or merging incompatible units.
-c.fieldParsed={dimensions:P};assert.equal(fn.compare(),false);
+b.fieldParsed={dimensions:P};assert.equal(fn.compare(),false);
 assert(/two verified dimensions/.test(status));
 assert.deepEqual(series.map(s=>s.profileTime),before.map(s=>s.time));
-c.fieldParsed={dimensions:U};
+b.fieldParsed={dimensions:T};
 
 // A failed split activation must not change measured source curves either.
 fn.exit();const snapshot=series.map(s=>s.profileTime);
