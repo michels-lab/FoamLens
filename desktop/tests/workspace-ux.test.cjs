@@ -587,3 +587,78 @@ test('Field 3D + Profile reuses original plot surface and restores Data without 
   assert.equal(api.toggle(true),false,'Missing profile control host must abort before surface ownership');
   assert.equal(api.active(),'data','Failed preflight must not steal the Data surface');
 });
+
+
+// Granada visible Synchronize views: original three-way time/camera/visual
+// checkboxes stay the ONLY owners, including mixed mode and manual linking.
+test('Granada Field visible synchronize switch connects original A-D settings',()=>{
+  const a=field.indexOf('function fwBindSyncViewControls(){'),
+    b=field.indexOf('function fwCreateSurface(){',a);
+  assert(a>=0&&b>a,'real synchronized view header binder must exist');
+  function control(checked=false){
+    return{checked,indeterminate:false,handlers:{},events:[],
+      addEventListener(k,fn){this.handlers[k]=fn},
+      dispatchEvent(e){this.events.push(e.type);this.handlers[e.type]?.(e)}}
+  }
+  const names=['fcLinkTimes','fcLinkCameras','fcSyncVisuals'],
+    controls=Object.fromEntries(names.map(id=>[id,control(true)]));
+  controls.fwSyncViewsVisible=control(true);
+  controls.fwLinkCamerasVisible=control(true);
+  const document={getElementById:id=>controls[id]||null};
+  class TestEvent{
+    constructor(type,options){this.type=type;this.bubbles=options?.bubbles}
+  }
+  const connect=new Function('document','Event','fwUi',
+    field.slice(a,b)+';return fwBindSyncViewControls;')(
+      document,TestEvent,(en,es)=>es);
+  connect();
+  assert.equal(controls.fwSyncViewsVisible.checked,true);
+  assert.equal(controls.fwSyncViewsVisible.indeterminate,false);
+  controls.fwSyncViewsVisible.checked=false;
+  controls.fwSyncViewsVisible.dispatchEvent(new TestEvent('change',{bubbles:true}));
+  assert(names.every(id=>!controls[id].checked),
+    'one visible switch must unlink camera, physical times and visual settings');
+  assert(names.every(id=>controls[id].events.includes('change')),
+    'all three original handlers must be notified, not replaced');
+  assert.equal(controls.fwLinkCamerasVisible.checked,false);
+  assert.equal(controls.fwSyncViewsVisible.indeterminate,false);
+  controls.fwSyncViewsVisible.checked=true;
+  controls.fwSyncViewsVisible.dispatchEvent(new TestEvent('change',{bubbles:true}));
+  assert(names.every(id=>controls[id].checked));
+  controls.fcLinkTimes.checked=false;
+  controls.fcLinkTimes.dispatchEvent(new TestEvent('change',{bubbles:true}));
+  assert.equal(controls.fwSyncViewsVisible.checked,false);
+  assert.equal(controls.fwSyncViewsVisible.indeterminate,true,
+    'custom granular mixed settings must not be falsely presented as fully synchronized');
+  controls.fwLinkCamerasVisible.checked=false;
+  controls.fwLinkCamerasVisible.dispatchEvent(new TestEvent('change',{bubbles:true}));
+  assert.equal(controls.fcLinkCameras.checked,false);
+  assert.equal(controls.fwSyncViewsVisible.indeterminate,true);
+  controls.fwSyncViewsVisible.checked=false;
+  controls.fwSyncViewsVisible.dispatchEvent(new TestEvent('change',{bubbles:true}));
+  assert(names.every(id=>!controls[id].checked));
+  assert.equal(controls.fwSyncViewsVisible.indeterminate,false);
+  assert(field.includes('id="fwSyncViewsVisible" checked'),
+    'the switch must be visible immediately in Field 3D header');
+  assert(field.includes('data-fl-es="Sincronizar vistas"'),
+    '3D global synchronization must be translated');
+  assert(field.includes('fwBindSyncViewControls();'),
+    'live Field workspace must bind the actual switch');
+});
+
+test('Granada unsynchronized physical times survive native workspace save/restore',()=>{
+  const ux=fs.readFileSync(path.join(root,'v17-workspace-ux.js'),'utf8');
+  for(const token of [
+    "timesLinked:document.getElementById('fcLinkTimes')?.checked!==false",
+    "independentTimes:{",
+    "key:fcState.timeSource||''",
+    "value:Number.isFinite(fcState.timeTarget)?fcState.timeTarget:null",
+    "check('fcLinkTimes',saved.timesLinked)",
+    "saved.independentTimes[letter]",
+    "state.timeSource=entry.key;state.timeTarget=entry.value",
+    "check('fcLinkTimes',true)",
+    "e.target?.matches?.('[data-fc-independent-time]')"
+  ])assert(ux.includes(token),'real measured time preference must survive: '+token);
+  assert(field.includes('id="fwSyncViewsVisible"'),
+    'the option must be reachable without opening the Field inspector');
+});
