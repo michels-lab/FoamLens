@@ -27,6 +27,13 @@ function uxSnapshot(){
     syncMode:document.getElementById('fcSync')?.value||'nearest',
     camerasLinked:document.getElementById('fcLinkCameras')?.checked!==false,
     visualsSynced:document.getElementById('fcSyncVisuals')?.checked!==false,
+    timesLinked:document.getElementById('fcLinkTimes')?.checked!==false,
+    independentTimes:{
+      B:typeof fcState!=='undefined'?{key:fcState.timeSource||'',value:Number.isFinite(fcState.timeTarget)?fcState.timeTarget:null}:null,
+      ...Object.fromEntries((typeof fcExtraViews!=='undefined'?fcExtraViews:[])
+        .map(state=>[String.fromCharCode(64+state.id),
+          {key:state.timeSource||'',value:Number.isFinite(state.timeTarget)?state.timeTarget:null}]))
+    },
     panelSizes:window.FoamLensWorkspaceResize?.getSizes?.()||uxLoad().panelSizes||null,
     names
   }
@@ -40,7 +47,7 @@ function uxReset(){
   try{
     const set=(id,value,event='change')=>{const e=document.getElementById(id);if(!e)return;e.value=String(value);e.dispatchEvent(new Event(event,{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
-    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcEnabled',false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcDifference',false);
+    set('fwCompanion','profile');if(typeof fwState!=='undefined')fwState.syncTime=true;window.FoamLensFieldWorkspace?.setView?.('3d');window.FoamLensFieldWorkspace?.setInspector?.(false);check('fcEnabled',false);check('fcLinkCameras',true);check('fcSyncVisuals',true);check('fcLinkTimes',true);check('fcDifference',false);
     for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=uxDefaultNames[i]}window.FoamLensWorkspaceResize?.resetSizes?.()
   }finally{uxRestoring=false}
   uxDecorateLabels();uxUpdateComparisonStatus();uxSave()
@@ -103,9 +110,22 @@ async function uxApplyState(saved){
     const set=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.value=String(value);e.dispatchEvent(new Event('change',{bubbles:true}))};
     const check=(id,value)=>{const e=document.getElementById(id);if(!e||value==null)return;e.checked=!!value;e.dispatchEvent(new Event('change',{bubbles:true}))};
     set('fwCompanion',saved.companion);if(typeof fwState!=='undefined'&&saved.syncTime!=null)fwState.syncTime=saved.syncTime!==false;window.FoamLensFieldWorkspace?.setView?.('3d');if(saved.inspector!=null)window.FoamLensFieldWorkspace?.setInspector?.(!!saved.inspector);
-    check('fcLinkCameras',saved.camerasLinked);check('fcSyncVisuals',saved.visualsSynced);set('fcSync',saved.syncMode);check('fcDifference',saved.differenceEnabled);
+    check('fcLinkCameras',saved.camerasLinked);check('fcSyncVisuals',saved.visualsSynced);check('fcLinkTimes',saved.timesLinked);set('fcSync',saved.syncMode);check('fcDifference',saved.differenceEnabled);
     if(saved.compareEnabled){window.FoamLensFieldWorkspace?.requestCompare?.();check('fcEnabled',true)}else if(saved.compareEnabled===false)check('fcEnabled',false);
     const target=Math.max(2,Math.min(4,Number(saved.viewCount)||2));if(saved.compareEnabled&&typeof fcExtraAdd==='function'&&typeof fcExtraViews!=='undefined'){while(2+fcExtraViews.length<target)fcExtraAdd();while(2+fcExtraViews.length>target&&typeof fcExtraRemove==='function')fcExtraRemove(fcExtraViews.at(-1)?.id)}
+    // Restore independently chosen timestamps only with their source key.
+    // If cases/fields changed, the original catalog resolver picks the nearest
+    // actual time instead of reusing a timestamp for a different OpenFOAM field.
+    if(saved.independentTimes&&typeof fcState!=='undefined'){
+      for(const [state,letter] of [[fcState,'B'],
+        ...(typeof fcExtraViews!=='undefined'?fcExtraViews:[]).map(x=>[x,String.fromCharCode(64+x.id)])]){
+        const entry=saved.independentTimes[letter];
+        if(entry&&typeof entry.key==='string'&&Number.isFinite(entry.value)){
+          state.timeSource=entry.key;state.timeTarget=entry.value
+        }
+      }
+      if(typeof fcScheduleToolbarSync==='function')fcScheduleToolbarSync()
+    }
     if(saved.names)for(let i=1;i<=4;i++){const e=document.getElementById('uxViewName'+i);if(e)e.value=String(saved.names[i]||uxDefaultNames[i]).slice(0,28)}
     if(saved.panelSizes)window.FoamLensWorkspaceResize?.applySizes?.(saved.panelSizes)
   }finally{uxRestoring=false}
@@ -122,7 +142,7 @@ async function uxRestore(){
 function uxInstallUi(){
   if(document.getElementById('uxViewNamesPanel'))return;
   const fcPanel=document.getElementById('fcPanel');if(fcPanel){
-    const names=document.createElement('details');names.id='uxViewNamesPanel';names.className='analysisExt uxViewNamesPanel';names.innerHTML='<summary class="analysisExtHead"><strong>'+uxUi('View names','Nombres de vistas')+'</strong><span class="badge">'+uxUi('Persistent','Persistentes')+'</span></summary><div class="extSectionBody"><div class="uxNameGrid">'+[1,2,3,4].map(i=>'<label id="uxViewNameRow'+i+'"><span>'+uxUi('View','Vista')+' '+i+'</span><input id="uxViewName'+i+'" maxlength="28" value="'+uxDefaultNames[i]+'" aria-label="'+uxUi('Name for view ','Nombre para vista ')+i+'"></label>').join('')+'</div><div class="uxNameActions"><button class="btn tiny" id="uxResetWorkspaceLayout" type="button">'+uxUi('Reset saved layout','Restablecer diseño guardado')+'</button></div><div class="smallnote">'+uxUi('Field tab, split companion, comparison count, camera/visual sync and view names are restored on the next app session.','La pestaña de campos, el segundo panel de Split, el número de vistas, la sincronización de cámara/visual y los nombres se restauran en la siguiente sesión.')+'</div></div>';
+    const names=document.createElement('details');names.id='uxViewNamesPanel';names.className='analysisExt uxViewNamesPanel';names.innerHTML='<summary class="analysisExtHead"><strong>'+uxUi('View names','Nombres de vistas')+'</strong><span class="badge">'+uxUi('Persistent','Persistentes')+'</span></summary><div class="extSectionBody"><div class="uxNameGrid">'+[1,2,3,4].map(i=>'<label id="uxViewNameRow'+i+'"><span>'+uxUi('View','Vista')+' '+i+'</span><input id="uxViewName'+i+'" maxlength="28" value="'+uxDefaultNames[i]+'" aria-label="'+uxUi('Name for view ','Nombre para vista ')+i+'"></label>').join('')+'</div><div class="uxNameActions"><button class="btn tiny" id="uxResetWorkspaceLayout" type="button">'+uxUi('Reset saved layout','Restablecer diseño guardado')+'</button></div><div class="smallnote">'+uxUi('Field tab, split companion, comparison count, camera/visual/time sync, independent physical times and view names are restored on the next app session.','La pestaña de campos, el segundo panel de Split, el número de vistas, la sincronización de cámara/visual/tiempo, los tiempos independientes y los nombres se restauran en la siguiente sesión.')+'</div></div>';
     fcPanel.appendChild(names);for(let i=1;i<=4;i++)document.getElementById('uxViewName'+i)?.addEventListener('input',e=>uxSetViewName(i,e.target.value));document.getElementById('uxResetWorkspaceLayout')?.addEventListener('click',uxReset)
   }
   const grid=document.getElementById('fcViewGrid');if(grid&&!document.getElementById('uxComparisonStatus')){const bar=document.createElement('div');bar.id='uxComparisonStatus';bar.className='uxComparisonStatus hidden';grid.insertAdjacentElement('beforebegin',bar)}
@@ -139,7 +159,7 @@ function uxPatchRuntime(){
 }
 function uxInstall(){
   if(uxInstalled)return true;if(!document.getElementById('fwViewTabs')||!document.getElementById('fcPanel'))return false;uxInstalled=true;uxInstallStyles();uxInstallUi();uxPatchRuntime();
-  document.addEventListener('change',e=>{const id=String(e.target?.id||'');if(id==='fwCompanion'||/^fc(?:Enabled|Difference|Sync|LinkCameras|SyncVisuals|DifferenceMode)$/.test(id)){uxUpdateComparisonStatus();uxSave()}});
+  document.addEventListener('change',e=>{const id=String(e.target?.id||'');if(id==='fwCompanion'||id==='fwSyncViewsVisible'||id==='fcLinkTimes'||e.target?.matches?.('[data-fc-independent-time]')||/^fc(?:Enabled|Difference|Sync|LinkCameras|SyncVisuals|DifferenceMode)$/.test(id)){uxUpdateComparisonStatus();uxSave()}});
   document.addEventListener('click',e=>{if(e.target?.closest?.('#fwViewTabs [data-fw-view]'))setTimeout(uxSave,0)});
   document.addEventListener('foamlens-language-change',()=>{uxUpdateComparisonStatus();uxDecorateLabels()});
   uxRestore();window.FoamLensWorkspaceUx={save:uxSave,restore:uxRestore,applyState:uxApplyState,reset:uxReset,getState:uxSnapshot,setViewName:uxSetViewName,getViewName:uxViewName,refresh:()=>{uxDecorateLabels();uxUpdateComparisonStatus()}};return true
