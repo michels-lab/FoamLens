@@ -971,10 +971,10 @@ function fwToggle3DProfilePick(){
 function fwClear3DProfile(removeSeries=false){
   fwLineProfileState.enabled=false;fwLineProfileState.a=null;fwLineProfileState.b=null;
   if(removeSeries){
-    const ids=new Set([...fwLineProfileState.seriesIds.values(),fwLineProfileState.seriesId]
+    const ids=new Set([...(fwLineProfileState.seriesIds?.values()||[]),fwLineProfileState.seriesId]
       .filter(id=>id!=null));
     for(let i=(series||[]).length-1;i>=0;i--)if(ids.has(series[i]?.id))series.splice(i,1);
-    fwLineProfileState.seriesId=null;fwLineProfileState.seriesIds.clear();
+    fwLineProfileState.seriesId=null;fwLineProfileState.seriesIds?.clear();
     if(ids.size){try{refreshDatasetControls()}catch{};try{renderList();updateMeta();draw()}catch{}}
   }
   document.getElementById('fw3DProfileOverlay')?.remove();
@@ -989,6 +989,12 @@ function fwBuild3DLineProfile({select=true}={}){
   if(!info){
     fw3DProfileStatus(fwUi('Load a real 3D frame in the selected view before sampling its profile.',
       'Carga un frame 3D real en la vista seleccionada antes de muestrear su perfil.'),true);
+    return null
+  }
+  const time=fwPhysicalTime(info.time);
+  if(!Number.isFinite(time)){
+    fw3DProfileStatus(fwUi('A valid original OpenFOAM physical timestamp is required.',
+      'Se requiere un tiempo físico OpenFOAM original válido.'),true);
     return null
   }
   const mesh=info.mesh,values=info.values,
@@ -1015,14 +1021,14 @@ function fwBuild3DLineProfile({select=true}={}){
   }
   const outputPath='Field Workspace / 3D line',lineKey='field-workspace-3d-line',
     caseObj=info.caseObj,source='derived:field-workspace-3d-line:'+caseObj.id+':'+info.region+':'+view,
-    existingId=fwLineProfileState.seriesIds.get(view)??(view==='A'?fwLineProfileState.seriesId:null),
+    existingId=fwLineProfileState.seriesIds?.get(view)??(view==='A'?fwLineProfileState.seriesId:null),
     existing=(series||[]).find(q=>q.id===existingId)||null;
   const payload={datasetType:'profile',caseId:caseObj.id,caseName:caseObj.name,
     region:info.region,fileName:'3D A→B field profile',sourcePath:source,field:info.field,
     probe:null,location:'View '+view+' · 3D A→B',profileAxis:'s',
     profileOrientation:'spatial',profileLine:'3D A→B',
-    profileLineKey:lineKey,profileLineSort:0,profileTime:info.time,
-    profileTimeLabel:String(info.time),profileCoordUnit:'m',
+    profileLineKey:lineKey,profileLineSort:0,profileTime:time,
+    profileTimeLabel:String(time),profileCoordUnit:'m',
     profileOutputPath:outputPath,t:x,y,visible:true,width:2.2,
     dash:caseObj.dash||'solid',opacity:1,axis:'Auto',customLabel:'',
     derivedKind:'field3d_line_profile',profileSourceView:view,
@@ -1032,13 +1038,14 @@ function fwBuild3DLineProfile({select=true}={}){
   let item=existing;
   if(item)Object.assign(item,payload);
   else{item={id:nextId++,...payload,color:null};item.color=automaticSeriesColor(item);series.push(item)}
+  if(!fwLineProfileState.seriesIds)fwLineProfileState.seriesIds=new Map();
   fwLineProfileState.seriesIds.set(view,item.id);
   if(view==='A')fwLineProfileState.seriesId=item.id;
   fw3DProfileStatus(fwUi('3D profile from view','Perfil 3D desde vista')+' '+view+
     ': '+x.length+'/'+count+' '+fwUi('samples','muestras')+
     ' · '+caseObj.name+' / '+(info.region||'—')+
     ' · L='+fvFmt(length)+' m · '+info.name+
-    (info.component!=='value'?' · '+info.component:'')+' · t='+fvFmt(info.time)+' s');
+    (info.component!=='value'?' · '+info.component:'')+' · t='+fvFmt(time)+' s');
   try{
     refreshDatasetControls();
     if(select){
