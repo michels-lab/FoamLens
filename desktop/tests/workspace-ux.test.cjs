@@ -695,3 +695,42 @@ test('Granada Field exit stops original independent players before UI ownership 
   leave();
   assert.equal(events.length,5,'repeated Field exit must not duplicate source playback stops');
 });
+
+
+test('Granada native B/C/D playback speed and loop survive Workspace save, restore and reset',()=>{
+  const begin=ux.indexOf('function uxSnapshot(){'),
+    end=ux.indexOf('function uxSave(){',begin);
+  assert(begin>=0&&end>begin,'original workspace snapshot must be accessible');
+  const B={timeSource:'B3|metal|T',timeTarget:2,timePlaybackRate:2,timePlaybackLoop:true},
+    C={id:3,timeSource:'C3|mold|T',timeTarget:.5,
+      timePlaybackRate:.5,timePlaybackLoop:false},
+    D={id:4,timeSource:'D3|metal|alpha1',timeTarget:1,
+      timePlaybackRate:99,timePlaybackLoop:'yes'};
+  const snapshot=new Function('document','fwState','fcState','fcExtraViews',
+    'uxNames','uxDefaultNames','uxLoad','window',
+    ux.slice(begin,end)+';return uxSnapshot;')(
+    {getElementById:id=>id==='fcLinkTimes'?{checked:false}:null},
+    {layout:'3d',view:'3d',syncTime:false,companion:'profile'},
+    B,[C,D],()=>({1:'A',2:'B',3:'C',4:'D'}),
+    {1:'A',2:'B',3:'C',4:'D'},()=>({}),
+    {FoamLensWorkspaceResize:{getSizes:()=>null}}
+  );
+  assert.deepStrictEqual(snapshot.playbackSettings,{
+    B:{rate:2,loop:true},
+    C:{rate:.5,loop:false},
+    D:{rate:1,loop:false}
+  },'actual workspace save must preserve independent rates and valid loop flags');
+  assert.equal(snapshot.timesLinked,false);
+  assert.deepStrictEqual(snapshot.independentTimes.C,{key:'C3|mold|T',value:.5});
+  for(const token of [
+    'playbackSettings:Object.fromEntries([',
+    'state.timePlaybackRate=[.5,1,2].includes(Number(options.rate))?',
+    'state.timePlaybackLoop=options.loop===true',
+    'state.timePlaybackRate=1;state.timePlaybackLoop=false',
+    'state.timeTarget=NaN;state.timeSource=',
+    "e.target?.matches?.('[data-fc-independent-time], [data-fc-time-rate], [data-fc-time-loop]')"
+  ])assert(ux.includes(token),'real save/restore/reset binding missing: '+token);
+  assert.equal(snapshot.schema,2,'existing workspace state schema must be preserved');
+  assert(field.includes('id="fwSyncViewsVisible"'),
+    'original visible Synchronize views switch must remain available');
+});
