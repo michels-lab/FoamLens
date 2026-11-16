@@ -840,7 +840,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     }));
     const summary={textContent:''},group={attributes:{},setAttribute(k,v){this.attributes[k]=v}};
     const menu={dataset:{},querySelector(key){return key==='summary'?summary:key==='[role="group"]'?group:null},
-      querySelectorAll(key){return key==='[data-fc-camera-preset]'?buttons:[]}};
+      querySelectorAll(key){return key==='[data-fc-camera-preset]'||
+        key==='[data-fc-camera-preset], [data-fc-projection]'?buttons:[]}};
     return{dataset:{fcToolbar:view},summary,buttons,group,menu,
       querySelector:key=>key==='.fcViewportCameraPresets'?menu:null}
   }
