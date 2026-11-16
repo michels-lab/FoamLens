@@ -154,7 +154,7 @@ assert.throws(()=>exporter.cell(Infinity),/nonfinite/);
 function fails(reason,change,restore){
   const previous=captured,before=copy();
   change();
-  assert.throws(exporter.build(),reason);
+  assert.throws(()=>exporter.build(),reason);
   assert.equal(exporter.export(),null,'Failed preflight must never download an incomplete CSV');
   assert.equal(captured,previous,'Rejected export must not mutate last successful download');
   assert.equal(copy().join('\n'),before.join('\n'));
