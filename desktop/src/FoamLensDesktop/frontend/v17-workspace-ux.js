@@ -86,10 +86,18 @@ function uxUpdateComparisonStatus(){
   const enabled=!!document.getElementById('fcEnabled')?.checked;bar.classList.toggle('hidden',!enabled);if(!enabled)return;
   const names=uxNames(),aCase=typeof fvCase==='function'?fvCase():null,bCase=typeof fcCase==='function'?fcCase():null,sync=typeof fcState!=='undefined'?fcState.sync:null;
   const same=typeof fcSameQuantity==='function'?!!fcSameQuantity():false,linked=typeof fcCamerasLinked==='function'?!!fcCamerasLinked():document.getElementById('fcLinkCameras')?.checked!==false,visual=typeof fcVisualsSynced==='function'?!!fcVisualsSynced():document.getElementById('fcSyncVisuals')?.checked!==false;
-  const syncMode=document.getElementById('fcSync')?.value||'nearest';
+  const syncMode=document.getElementById('fcSync')?.value||'nearest',
+    timeLinked=typeof fcTimesLinked==='function'?fcTimesLinked():
+      document.getElementById('fcLinkTimes')?.checked!==false,
+    measuredA=uxMeasuredTime(typeof fvState!=='undefined'?fvState.time:NaN),
+    measuredB=uxMeasuredTime(typeof fcState!=='undefined'?fcState.time:NaN),
+    samePhysicalTime=timeLinked||(Number.isFinite(measuredA)&&Number.isFinite(measuredB)&&
+      Math.abs(measuredA-measuredB)<=1e-9*Math.max(1,Math.abs(measuredA),Math.abs(measuredB)));
   const validSync=!!sync&&sync.ok===true&&Number.isFinite(uxMeasuredTime(sync.time))&&
     (!sync.interpolated||(Number.isFinite(uxMeasuredTime(sync.lowerTime))&&Number.isFinite(uxMeasuredTime(sync.upperTime))));
-  const syncText=!validSync?uxUi('Not synchronized','Sin sincronizar'):
+  const syncText=!timeLinked?
+    uxUi('Independent','Independiente')+' · t='+uxTimeText(measuredB):
+    !validSync?uxUi('Not synchronized','Sin sincronizar'):
     sync?.interpolated?uxUi('Interpolated','Interpolado')+' '+uxTimeText(sync.lowerTime)+'↔'+uxTimeText(sync.upperTime):
     sync.exact?uxUi('Exact','Exacto'):
     uxUi('Nearest','Más cercano')+(Number.isFinite(uxMeasuredTime(sync.delta))?' · Δt '+(sync.delta>=0?'+':'')+uxTimeText(sync.delta):'');
@@ -100,7 +108,8 @@ function uxUpdateComparisonStatus(){
     uxStatusPill(uxUi('Quantity','Magnitud'),same?uxUi('Matched','Coincide'):uxUi('Different','Diferente'),same?'good':'warn')+
     uxStatusPill(uxUi('Cameras','Cámaras'),linked?uxUi('Linked','Enlazadas'):uxUi('Independent','Independientes'))+
     uxStatusPill(uxUi('Visuals','Visuales'),visual?uxUi('Synced','Sincronizados'):uxUi('Independent','Independientes'))+
-    uxStatusPill('Δ',diffEnabled?(validSync?diffMode:uxUi('No frame','Sin frame')):uxUi('Off','Apagada'),diffEnabled&&!validSync?'warn':'')+
+    uxStatusPill(uxUi('Physical time','Tiempo físico'),timeLinked?uxUi('Linked','Enlazado'):uxUi('Independent','Independiente'))+
+    uxStatusPill('Δ',diffEnabled?(validSync&&samePhysicalTime?diffMode:uxUi('No frame','Sin frame')):uxUi('Off','Apagada'),diffEnabled&&(!validSync||!samePhysicalTime)?'warn':'')+
     uxStatusPill(uxUi('Sync','Sync'),syncMode);
 }
 async function uxApplyState(saved){
