@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 503,
-  "classified_files_total": 499,
+  "tracked_files_total": 504,
+  "classified_files_total": 500,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,7 +17,7 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 152,
-    "test": 140,
+    "test": 141,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 64
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "470efd4906f72cdb09333b5507c1fbaa3d895130c41609d460345dd843ec52e8",
-  "evidence_fingerprint": "858c1e245a846aba2101a0d5afb1831683a57ae97f91796d5eb29bd972921051",
+  "inventory_fingerprint": "ce4c049f4388e2114752bed92fc006bcc72d41b735a2b9f2f778ced5e29879b9",
+  "evidence_fingerprint": "a112688ba69fafbcf7937924fc3f2b33f1ec31a17e785b18eeac1fb2cd11eeb5",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "9a12f97ff3c0c932bb867ed1bca75a2670d576c9"
+      "blob": "b85424341b2e576b0cd7342de77c258b6fe4da17"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -244,7 +244,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "9a9d4e22099757bd4b9534d8852f488d4543d3ac"
+      "blob": "f8947747097e3cab449589f0ebe0d38e4e1d62ec"
     },
     {
       "path": ".github/workflows/granada-g10-preview-toolbar.yml",
@@ -587,7 +587,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "1478a9d3a9b011b7161534f073b1588f6bb598d3"
+      "blob": "05b79f598ca57d0a17d8c0dc4a51103be858ff73"
     },
     {
       "path": "LICENSE",
@@ -797,7 +797,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "462410e0ce6e326a2f8cfbf523b640690ee0db28"
+      "blob": "e450b962731e54eb2b61d528eac70cafc79bde62"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -986,7 +986,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ab5f6cb16bfd39f810eb93796938a63131b49caf"
+      "blob": "0b382ed55bb7e81a18f35a7fa7aae78c17f61af3"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1484,6 +1484,13 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "22e46daf0527436c167559825a0576f0b1710582"
+    },
+    {
+      "path": "desktop/tests/field-multiview-profile-comparison.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "cfe0efe301d8215b8f2e2e501abd2405e3e0341d"
     },
     {
       "path": "desktop/tests/field-multiview-profile-source.test.cjs",
@@ -3525,11 +3532,11 @@
   ],
   "findings": [
     {
-      "id": "8b94bf800648125b",
+      "id": "0a06f40e5a146301",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "36 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/timeseries-source-fast.yml",
+      "observation": "37 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-field-f2-dpi.yml, .github/workflows/timeseries-source-fast.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
