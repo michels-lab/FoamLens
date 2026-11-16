@@ -1229,3 +1229,124 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'camera keyboard navigation includes projection buttons');
   console.log('Granada Field projection controls PASS: source-backed A/B/C/D, linked/independent, rollback, Spanish aria and no phantom views');
 }
+
+
+// Granada linked physical camera unions: source-backed metal+mold geometry
+// must fit the ACTUAL B/C/D canvas, not the selected primary metal diagonal.
+// Linked camera remains purely derived: independent source views are unchanged.
+{
+  const begin=source.indexOf('function fcLinkedPhysicalCamera(state,mesh){');
+  const end=source.indexOf('function fcMvpForCamera(camera,canvas){',begin);
+  const syncedStart=source.indexOf('function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){');
+  const syncedEnd=source.indexOf('function fcArrayEqualNumeric(',syncedStart);
+  const cloneStart=source.indexOf('function fcCloneCamera(camera){');
+  const cloneEnd=source.indexOf('function fcCamerasLinked(){',cloneStart);
+  const validStart=source.indexOf('function fcValidFitMesh(mesh){');
+  const validEnd=source.indexOf('function fcFitViewport(view){',validStart);
+  assert(begin>0&&end>begin&&syncedStart>0&&syncedEnd>syncedStart&&
+    cloneStart>0&&cloneEnd>cloneStart&&validStart>0&&validEnd>validStart);
+  const m=(min,max)=>({boundsMin:min,boundsMax:max});
+  const primaryA=m([-2,-2,-2],[12,12,12]);
+  const rawB=m([0,0,0],[1,1,1]);
+  const rawC=m([4,4,4],[5,5,5]);
+  const metalMoldB={min:[-24,-5,-16],max:[28,15,20]};
+  const metalMoldC={min:[-24,-5,-16],max:[28,15,20]};
+  const B={id:2,mesh:rawB,_fcPhysical:{},camera:{yaw:.2,pitch:.3,distance:8,target:[0,0,0],projection:'perspective'}};
+  const C={id:3,mesh:rawC,_fcPhysical:{},camera:{yaw:.5,pitch:.6,distance:9,target:[4,4,4],projection:'perspective'}};
+  const D={id:4,mesh:rawC,_fcPhysical:{},camera:{yaw:.5,pitch:.6,distance:7,target:[4,4,4],projection:'perspective'}};
+  const A={mesh:primaryA,camera:{yaw:.72,pitch:.42,distance:30,
+    target:[5,5,5],projection:'orthographic'}};
+  const canvases={
+    fvCanvas:{clientWidth:900,clientHeight:500},
+    fcCanvas:{clientWidth:260,clientHeight:680},
+    fcExtra3Canvas:{clientWidth:720,clientHeight:260},
+    fcExtra4Canvas:{clientWidth:420,clientHeight:420}
+  };
+  let primary={min:[-2,-2,-2],max:[12,12,12]},linked=true;
+  const physical=new Map([[B,metalMoldB],[C,metalMoldC],[D,null]]);
+  const docs={getElementById:id=>canvases[id]||null};
+  const diag=mesh=>Math.hypot(...mesh.boundsMin.map((v,i)=>mesh.boundsMax[i]-v));
+  const sync=new Function('fcMeshDiag',source.slice(syncedStart,syncedEnd)+';return fcSyncedCamera;')(diag);
+  const clone=new Function('fvState',source.slice(cloneStart,cloneEnd)+';return fcCloneCamera;')(A);
+  const val=new Function(source.slice(validStart,validEnd)+';return fcValidFitMesh;')();
+  const fits=[];
+  const fit=(bounds,camera,canvas)=>{
+    fits.push({bounds,camera,canvas});
+    const span=bounds.max.map((v,i)=>v-bounds.min[i]);
+    const aspect=canvas.clientWidth/canvas.clientHeight;
+    return Math.max(span[0]/aspect,span[1],span[2])*.9+10
+  };
+  const handlers=new Function('fvState','fcState','fcCamerasLinked',
+    'fcCloneCamera','fvPhysicalBoundsForScene','fcPhysicalBoundsFor',
+    'fcValidFitMesh','fcSyncedCamera','fcMeshDiag','fvFitDistance','document',
+    source.slice(begin,end)+';return {fcLinkedPhysicalCamera,fcCameraFor};')(
+    A,B,()=>linked,clone,()=>primary,state=>physical.get(state)||null,
+    val,sync,diag,fit,docs);
+  const initialB=JSON.stringify(B.camera),initialC=JSON.stringify(C.camera);
+  const cameraB=handlers.fcCameraFor(B,rawB);
+  const cameraC=handlers.fcCameraFor(C,rawC);
+  assert.equal(cameraB.projection,'orthographic',
+    'linked B must inherit the actual A physical projection');
+  assert.equal(cameraC.projection,'orthographic');
+  assert.deepStrictEqual(cameraB.target,[2,5,2],'linked B centers measured metal+mold union');
+  assert.deepStrictEqual(cameraC.target,[2,5,2],'linked C independently uses its measured metal+mold union');
+  assert.deepStrictEqual(fits.map(x=>x.canvas),[
+    canvases.fvCanvas,canvases.fcCanvas,
+    canvases.fvCanvas,canvases.fcExtra3Canvas
+  ],'the actual A and B/C physical canvas widths set each measured fit');
+  assert(cameraB.distance>cameraC.distance,
+    'a narrow B canvas must fit the wider mold with more camera distance than C');
+  assert.notEqual(cameraB.distance,diag(rawB)/diag(primaryA)*A.camera.distance,
+    'never infer linked mold fit from just the selected metal diagonal');
+  assert.equal(JSON.stringify(B.camera),initialB,
+    'rendering the linked B scene must not overwrite saved independent camera');
+  assert.equal(JSON.stringify(C.camera),initialC);
+  // Pan the canonical A camera; linked B/C should move relative to their
+  // physical union, not snap back to the raw primary mesh center.
+  A.camera.target=[7,5,5];
+  const movedB=handlers.fcCameraFor(B,rawB);
+  assert(movedB.target[0]>cameraB.target[0]);
+  assert.equal(movedB.target[1],cameraB.target[1]);
+  assert.equal(movedB.distance,cameraB.distance,
+    'panning must not change actual linked camera zoom');
+  // Zoom A relative to *its own* measured union and verify B preserves that
+  // zoom fraction instead of blindly copying A absolute distance.
+  A.camera.distance=15;
+  const zoomedB=handlers.fcCameraFor(B,rawB);
+  assert(Math.abs(zoomedB.distance-cameraB.distance/2)<1e-10,
+    'half zoom distance in A produces same relative zoom in B');
+  // No visible B geometry (hidden primary, no loaded overlays) must not
+  // silently fit the old hidden metal mesh.
+  physical.set(B,null);
+  const noGeometry=handlers.fcCameraFor(B,rawB);
+  assert.deepStrictEqual(noGeometry.target,B.camera.target);
+  assert.equal(noGeometry.distance,B.camera.distance);
+  assert.equal(noGeometry.projection,B.camera.projection);
+  // Invalid source bounds must preserve the last valid independent view.
+  physical.set(B,metalMoldB);primary=null;
+  assert.equal(handlers.fcCameraFor(B,rawB).distance,B.camera.distance);
+  primary={min:[-2,-2,-2],max:[12,12,12]};
+  linked=false;
+  assert.strictEqual(handlers.fcCameraFor(B,rawB),B.camera,
+    'unlinked B must retain the exact original independent camera');
+  assert.strictEqual(handlers.fcCameraFor(C,rawC),C.camera);
+  // Unlinking while the physical scene is visible starts at the exact
+  // physically fitted camera instead of jumping back to the tiny metal box.
+  const resyncStart=source.indexOf('function fcResyncCameras(){');
+  const resyncEnd=source.indexOf('function fcFitAllCameras(){',resyncStart);
+  assert(resyncStart>=0&&resyncEnd>resyncStart);
+  primary={min:[-2,-2,-2],max:[12,12,12]};
+  const beforeB=handlers.fcLinkedPhysicalCamera(B,rawB);
+  const syncScene=new Function('fcState','fcExtraViews','fcCloneCamera',
+    'fcLinkedPhysicalCamera','fcRender','fcRenderDifference','fcRenderExtras',
+    source.slice(resyncStart,resyncEnd)+';return fcResyncCameras;')(
+    B,[C,D],clone,handlers.fcLinkedPhysicalCamera,()=>{},()=>{},()=>{});
+  syncScene();
+  assert.equal(B.camera.distance,beforeB.distance);
+  assert.deepStrictEqual(B.camera.target,beforeB.target);
+  assert.deepStrictEqual(D.camera.target,[4,4,4],
+    'empty/hidden D must preserve its prior independent camera');
+  assert(source.includes("if(fcCamerasLinked())return fcLinkedPhysicalCamera(state,mesh)"),
+    'original compare and extra render paths use the physical camera union');
+  console.log('Granada linked Field camera PASS: A/B/C visible unions, per-pane aspect, orthographic, pan, zoom, hidden regions, unlink');
+}
