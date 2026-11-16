@@ -782,5 +782,30 @@ require('node:test')('G60 original two-source history is atomic for missing, dup
     'Two-source selectors must exclude fields with only invalid physical time labels');
 });
 
+test('G58 native original field witness accepts structured OpenFOAM source identity, not name-only labels',()=>{
+  const start=host.indexOf('const realOriginalField='),end=host.indexOf('const originalCatalog=',start);
+  assert(start>=0&&end>start,'The original Program.cs G58 native source check must exist');
+  const evidence=new Function('variable',host.slice(start,end)+';return realOriginalField;');
+  const option=(name,storage,kind)=>({value:JSON.stringify([name,storage,kind])});
+  const has=(...options)=>evidence({options});
+  assert.equal(has(option('T','volume','scalar')),true,
+    'Native B13 T on original volume/cell association must be recognized');
+  assert.equal(has(option('T','surface','scalar')),true,
+    'Surface/face original T is a valid independent physical source');
+  assert.equal(has(option('T','point','scalar')),true,
+    'Point original T is a valid independent physical source');
+  for(const invalid of [
+    {value:'T'},
+    {value:'[broken json'},
+    option('U','volume','vector'),
+    option('T','other','scalar'),
+    option('T','volume','vector'),
+    {value:JSON.stringify(['T','volume'])}
+  ])assert.equal(has(invalid),false,
+    'A mere same-name label or unverifiable physical source must NOT pass the packaged witness');
+  assert.equal(evidence({options:[]}),false);
+  assert.equal(evidence(null),false);
+});
+
 console.log('Granada #176 G3 real Time Series UX: '+checks.length+' checks passed.');
 for(const result of checks)console.log('  ✓ '+result);
