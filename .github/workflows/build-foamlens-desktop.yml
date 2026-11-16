@@ -660,6 +660,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/field-multiview-profile-comparison.test.cjs
 
+      - name: Export original A–D spatial Field profile CSV with measured sources and Excel safety
+        shell: pwsh
+        run: node desktop/tests/field-multiview-profile-csv.test.cjs
+
       - name: Test T1 source provenance, unknown field labels, metadata compatibility, filters and DOM safety
         shell: pwsh
         run: node desktop/tests/timeseries-provenance.test.cjs

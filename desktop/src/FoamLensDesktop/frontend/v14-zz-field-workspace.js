@@ -122,6 +122,7 @@ function fwCreateSurface(){
           <div class="fwCompact"><label data-fl-en="Line samples" data-fl-es="Muestras de línea">Line samples</label><input id="fw3DProfileSamples" type="number" min="20" max="500" step="10" value="160"></div>
           <button class="btn tiny" id="fwResample3DProfile" type="button" data-fl-en="Update profile" data-fl-es="Actualizar perfil">Update profile</button>
           <button class="btn primary" id="fwCompare3DProfiles" type="button" aria-pressed="false" data-fl-en="Compare A–D profiles" data-fl-es="Comparar perfiles A–D" title="Plot the measured XYZ profiles from all available 3D views together; preserve each view's own physical time">Compare A–D profiles</button>
+          <button class="btn soft" id="fwExport3DProfileCsv" type="button" disabled data-fl-en="Export A–D CSV" data-fl-es="Exportar CSV A–D" title="Export the original sampled field values, independent physical times, source provenance and XYZ query positions from this active comparison">Export A–D CSV</button>
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
           <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
@@ -233,6 +234,7 @@ function fwCreateSurface(){
     if(fwState.compareProfiles)fwLeave3DProfileCompare();
     else fwCompareAll3DProfiles()
   });
+  document.getElementById('fwExport3DProfileCsv')?.addEventListener('click',fwExport3DProfileCsv);
   // Editing the original Data Profile filters leaves the explicit Field
   // comparison; no sticky hidden override survives a user's manual choice.
   for(const id of ['profileSet','profileVariable','profileVariable2','profileLine',
@@ -1016,7 +1018,12 @@ function fwSync3DProfileCompareButton(){
   const active=fwState.compareProfiles&&fwState.active&&fwState.layout==='split';
   btn.setAttribute('aria-pressed',active?'true':'false');
   btn.textContent=active?fwUi('Exit comparison','Salir de comparación'):
-    fwUi('Compare A–D profiles','Comparar perfiles A–D')
+    fwUi('Compare A–D profiles','Comparar perfiles A–D');
+  const exportBtn=document.getElementById('fwExport3DProfileCsv');
+  if(exportBtn){
+    exportBtn.disabled=!active;
+    exportBtn.textContent=fwUi('Export A–D CSV','Exportar CSV A–D')
+  }
 }
 function fwLeave3DProfileCompare({render=true}={}){
   if(typeof fwState==='undefined'||!fwState.compareProfiles)return false;
@@ -1096,6 +1103,115 @@ function fwCompareAll3DProfiles(){
   try{renderList();updateMeta();draw()}catch(e){console.warn('Field compare chart redraw:',e)}
   return true
 }
+// Granada Field G9 — direct export of ACTUAL spatial samples in a tidy CSV.
+// Export the saved original source snapshots without re-running a solver,
+// interpolating frames or silently converting temperature/velocity units.
+function fw3DProfileCsvCell(value){
+  if(typeof value==='number'){
+    if(!Number.isFinite(value))throw Error('CSV contains a nonfinite numeric sample');
+    return String(value)
+  }
+  const raw=String(value??'');
+  // A case/region/field name originates in imported OpenFOAM data. Protect
+  // spreadsheet users against formula injection without losing its text.
+  const safe=/^\s*[=+\-@]/u.test(raw)?"'"+raw:raw;
+  return '"'+safe.replaceAll('"','""')+'"'
+}
+function fw3DProfileCsvBuild(){
+  if(!fwState.active||fwState.layout!=='split'||!fwState.compareProfiles)
+    throw Error(fwUi('Run Compare A–D profiles first.',
+      'Primero ejecuta Comparar perfiles A–D.'));
+  const views=fwState.compareProfileViews;
+  if(!Array.isArray(views)||views.length<2||views.length>4||
+    views.some((v,i)=>!['A','B','C','D'].includes(v)||views.indexOf(v)!==i))
+    throw Error('Invalid original A–D view inventory for CSV export');
+  const available=[...(document.getElementById('fw3DProfileView')?.options||[])]
+    .map(o=>String(o.value));
+  if(views.length!==available.length||views.some((v,i)=>v!==available[i]))
+    throw Error('3D view inventory changed since comparison. Rebuild the comparison.');
+  const a=fwLineProfileState.a,b=fwLineProfileState.b;
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==3||b.length!==3||
+    !a.every(v=>typeof v==='number'&&Number.isFinite(v))||
+    !b.every(v=>typeof v==='number'&&Number.isFinite(v)))
+    throw Error('A valid original 3D A–B line is required');
+  const length=Math.hypot(...a.map((v,i)=>b[i]-v));
+  if(!(length>0))throw Error('Original 3D A–B line length is zero');
+  const header=['source_view','case_id','case_name','region','field','component',
+    'field_storage','openfoam_dimensions','value_unit','physical_time_s',
+    'sample_index','distance_along_line_m','query_x_m','query_y_m','query_z_m',
+    'raw_field_value','line_a_x_m','line_a_y_m','line_a_z_m',
+    'line_b_x_m','line_b_y_m','line_b_z_m','requested_line_samples',
+    'valid_line_samples'];
+  const rows=[header];
+  let total=0;
+  // Validate every curve and loaded provenance BEFORE emitting any download.
+  // A stale or corrupted third view cannot create a partial CSV.
+  for(const view of views){
+    const id=fwLineProfileState.seriesIds?.get(view),
+      curve=(series||[]).find(s=>s.id===id&&s.derivedKind==='field3d_line_profile'&&
+        s.profileSourceView===view),
+      info=fwCurrent3DProfileField(view);
+    if(!curve||!info)throw Error('Missing or stale original Field source in view '+view);
+    const samePoints=points=>Array.isArray(points)&&points.length===3;
+    if(String(curve.caseId)!==String(info.caseObj.id)||
+      String(curve.caseName)!==String(info.caseObj.name)||
+      curve.region!==info.region||curve.profileOriginalField!==info.name||
+      curve.profileOriginalComponent!==info.component||
+      curve.profileOriginalStorage!==info.storage||
+      curve.field?.canonical!==info.field.canonical||
+      String(curve.field?.dimensions||'')!==String(info.field.dimensions||'')||
+      String(curve.field?.unit||'-')!==String(info.field.unit||'-')||
+      curve.profileCoordUnit!=='m'||curve.profileAxis!=='s'||
+      !samePoints(curve.profilePointA)||!samePoints(curve.profilePointB)||
+      curve.profilePointA.some((v,i)=>v!==a[i])||
+      curve.profilePointB.some((v,i)=>v!==b[i])||
+      fwPhysicalTime(curve.profileTime)!==fwPhysicalTime(info.time))
+      throw Error('Original field/time/line changed in view '+view+'; compare again before export');
+    const xs=curve.t,ys=curve.y,requested=curve.profileSampleCount;
+    if(!Array.isArray(xs)||!Array.isArray(ys)||xs.length!==ys.length||
+      xs.length<2||!Number.isInteger(requested)||requested<20||requested>500||
+      xs.length>requested)
+      throw Error('Invalid native spatial profile samples in view '+view);
+    let previous=-Infinity;
+    const pairs=[];
+    for(let i=0;i<xs.length;i++){
+      const dist=xs[i],value=ys[i],epsilon=1e-10*Math.max(1,length);
+      if(typeof dist!=='number'||!Number.isFinite(dist)||
+        typeof value!=='number'||!Number.isFinite(value)||
+        dist<=previous||dist<0||dist>length+epsilon)
+        throw Error('Invalid original spatial coordinates or values in view '+view);
+      previous=dist;
+      const fraction=Math.max(0,Math.min(1,dist/length)),
+        xyz=a.map((v,k)=>v+(b[k]-v)*fraction);
+      if(!xyz.every(Number.isFinite))throw Error('Invalid sampled XYZ query coordinates');
+      pairs.push([view,String(curve.caseId),curve.caseName,curve.region,
+        info.name,info.component,info.storage,
+        info.field.dimensions||'',info.field.unit||'-',
+        fwPhysicalTime(info.time),i,dist,...xyz,value,
+        ...a,...b,requested,xs.length])
+    }
+    rows.push(...pairs);total+=pairs.length
+  }
+  const csv='\uFEFF'+rows.map(row=>row.map(fw3DProfileCsvCell).join(',')).join('\r\n')+'\r\n';
+  return{csv,rows:total,views:views.length,
+    name:'FoamLens_Field_original_profiles_'+views.join('-')+'.csv'}
+}
+function fwExport3DProfileCsv(){
+  try{
+    const result=fw3DProfileCsvBuild();
+    if(typeof downloadText!=='function')throw Error('Native CSV download is unavailable');
+    downloadText(result.name,result.csv,'text/csv;charset=utf-8');
+    fw3DProfileStatus(fwUi('Exported original A–D profiles: ',
+      'Perfiles originales A–D exportados: ')+result.rows+
+      fwUi(' samples from ',' muestras de ')+result.views+
+      fwUi(' views, independent physical times.',' vistas, tiempos físicos independientes.'));
+    return result
+  }catch(error){
+    fw3DProfileStatus(fwUi('CSV export blocked: ','Exportación CSV bloqueada: ')+
+      String(error?.message||error),true);
+    return null
+  }
+}
 function fwBuild3DLineProfile({select=true,viewOverride=null}={}){
   const a=fwLineProfileState.a,b=fwLineProfileState.b;
   if(!a||!b)return null;
@@ -1147,6 +1263,7 @@ function fwBuild3DLineProfile({select=true,viewOverride=null}={}){
     profileOutputPath:outputPath,t:x,y,visible:true,width:2.2,
     dash:caseObj.dash||'solid',opacity:1,axis:'Auto',customLabel:'',
     derivedKind:'field3d_line_profile',profileSourceView:view,
+    profileOriginalField:info.name,profileOriginalComponent:info.component,
     profileOriginalStorage:info.storage,
     profilePointA:[...a],profilePointB:[...b],
     profileSampleCount:count,profileNearestDistance:maxNearest};
@@ -1526,4 +1643,4 @@ function fwInstall(){
 }
 let fwPrevSetDataView=setDataView;
 fwInstall();
-window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId}),profileCompareActive:()=>fwState.active&&fwState.layout==='split'&&fwState.compareProfiles,profileCompareIncludes:s=>s?.derivedKind==='field3d_line_profile'&&fwState.compareProfileViews?.includes(s.profileSourceView)&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,compare3DProfiles:fwCompareAll3DProfiles,exitProfileComparison:fwLeave3DProfileCompare};
+window.FoamLensFieldWorkspace={enter:fwEnter,requestCompare:fwComparisonExplicitlyRequested,disableCompare:fwComparisonDisabled,promoteCaseSelectors:fwPromoteViewCaseSelectors,setCompanion:fwSetCompanion,add3DView:fwAdd3DView,setLayout:fwSetLayout,setView:fwActivateView,setInspector:fwSetInspector,getState:()=>({view:fwState.view,layout:fwState.layout,companion:fwState.companion,inspector:fwState.inspector,syncTime:fwState.syncTime,compareUserRequested:fwState.compareUserRequested}),syncTime:fwSyncCompanionTime,timeController:{play:fwTimePlay,stop:fwTimeStop,step:fwTimeStep,loadIndex:fwTimeLoadIndex,refresh:fwRefreshGlobalTime,current:fwTimeCurrent,pauseAll:fwTimePauseAllViews},toggle3DProfile:fwToggle3DProfilePick,clear3DProfile:fwClear3DProfile,build3DProfile:fwBuild3DLineProfile,set3DProfileLine:fwSet3DProfileLine,get3DProfile:()=>({enabled:fwLineProfileState.enabled,a:fwLineProfileState.a?fwLineProfileState.a.slice():null,b:fwLineProfileState.b?fwLineProfileState.b.slice():null,seriesId:fwLineProfileState.seriesId}),export3DProfileCsv:fwExport3DProfileCsv,profileCompareActive:()=>fwState.active&&fwState.layout==='split'&&fwState.compareProfiles,profileCompareIncludes:s=>s?.derivedKind==='field3d_line_profile'&&fwState.compareProfileViews?.includes(s.profileSourceView)&&fwLineProfileState.seriesIds?.get(s.profileSourceView)===s.id,compare3DProfiles:fwCompareAll3DProfiles,exitProfileComparison:fwLeave3DProfileCompare};
