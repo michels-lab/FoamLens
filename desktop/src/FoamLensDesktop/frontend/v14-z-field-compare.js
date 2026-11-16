@@ -190,11 +190,102 @@ function fcSetIndependentTime(view,value){
   const source=fcIndependentTimeSource(state),target=Number(value);
   if(!source.times.includes(target))return false;
   state.timeTarget=target;state.timeSource=source.key;
-  if(view==='B')fcRefreshFrame();
-  else fcExtraRefreshFrame(state);
+  // The per-pane player waits for the real async frame and its physical
+  // layers to finish before it advances; no burst of stale GPU frame loads.
+  const load=view==='B'?fcRefreshFrame():fcExtraRefreshFrame(state);
+  state._fcIndependentLoad=Promise.resolve(load).catch(error=>{
+    fcSetStatus(String(error?.message||error),true)
+  });
+  fcScheduleToolbarSync();
   return true
 }
+// Independent playback is one timer per view, never a global playback that
+// silently drags other OpenFOAM regions forward. No timer survives linking,
+// closing comparison, or removing a C/D view.
+const fcIndependentPlayers=new Map();
+function fcStopIndependentPlayback(view){
+  const key=String(view),play=fcIndependentPlayers.get(key);
+  if(!play)return false;
+  play.cancelled=true;
+  if(play.timer!=null)clearTimeout(play.timer);
+  fcIndependentPlayers.delete(key);
+  fcScheduleToolbarSync();
+  return true
+}
+function fcStopAllIndependentPlayback(){
+  for(const key of [...fcIndependentPlayers.keys()])fcStopIndependentPlayback(key)
+}
+function fcIndependentTimeStep(view,direction){
+  if(fcTimesLinked()||!fcState.enabled)return false;
+  const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!state)return false;
+  const source=fcIndependentTimeSource(state),current=fcIndependentTimeTarget(state),
+    index=source.times.indexOf(current),next=index+(direction<0?-1:1);
+  if(!Number.isFinite(current)||!source.times.length||index<0||
+    next<0||next>=source.times.length)return false;
+  return fcSetIndependentTime(view,source.times[next])
+}
+async function fcRunIndependentPlayback(view,play){
+  if(fcIndependentPlayers.get(String(view))!==play||play.cancelled)return;
+  const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!state||fcTimesLinked()||!fcState.enabled||
+    fcIndependentTimeSource(state).key!==play.sourceKey){
+    fcStopIndependentPlayback(view);return
+  }
+  if(state._fcIndependentLoad)await state._fcIndependentLoad;
+  if(fcIndependentPlayers.get(String(view))!==play||play.cancelled)return;
+  if(!fcIndependentTimeStep(view,1)){fcStopIndependentPlayback(view);return}
+  // Only one pending tick per view and never before its prior load finishes.
+  play.timer=setTimeout(()=>{play.timer=null;fcRunIndependentPlayback(view,play)},450)
+}
+function fcToggleIndependentPlayback(view){
+  const key=String(view);
+  if(fcIndependentPlayers.has(key))return fcStopIndependentPlayback(key);
+  if(fcTimesLinked()||!fcState.enabled)return false;
+  const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
+  if(!state)return false;
+  const source=fcIndependentTimeSource(state),current=fcIndependentTimeTarget(state);
+  if(source.times.length<2||!Number.isFinite(current))return false;
+  // Pressing Play at the end starts the real catalog again from its first
+  // measured frame. No interpolation/zero-time synthesis is introduced.
+  if(current===source.times.at(-1))fcSetIndependentTime(view,source.times[0]);
+  const play={sourceKey:source.key,timer:null,cancelled:false};
+  fcIndependentPlayers.set(key,play);
+  fcScheduleToolbarSync();
+  fcRunIndependentPlayback(view,play);
+  return true
+}
+function fcSyncIndependentPlaybackControls(bar){
+  const picker=bar?.querySelector?.('[data-fc-independent-time]');
+  if(!picker)return;
+  const view=bar.dataset.fcToolbar,
+    letter=view==='B'?'B':String.fromCharCode(64+Number(view)),
+    state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view)),
+    source=state&&!fcTimesLinked()?fcIndependentTimeSource(state):{times:[]},
+    current=state&&!fcTimesLinked()?fcIndependentTimeTarget(state):NaN,
+    index=source.times.indexOf(current),playing=fcIndependentPlayers.has(String(view));
+  const title=bar.querySelector('.fcViewTimePicker > span');
+  if(title)title.textContent=fcUi('Physical time','Tiempo físico')+' (s) · '+letter;
+  for(const button of bar.querySelectorAll('[data-fc-time-step]')){
+    button.disabled=fcTimesLinked()||!state||index<0||
+      (button.dataset.fcTimeStep==='-1'?index===0:index===source.times.length-1);
+    const label=fcUi(button.dataset.fcTimeStep==='-1'?'Previous measured time':'Next measured time',
+      button.dataset.fcTimeStep==='-1'?'Tiempo medido anterior':'Siguiente tiempo medido')+' · '+letter;
+    button.setAttribute('aria-label',label);button.title=label
+  }
+  const play=bar.querySelector('[data-fc-time-play]');
+  if(play){
+    play.disabled=fcTimesLinked()||!state||source.times.length<2;
+    play.textContent=playing?'❚❚':'▶';
+    play.setAttribute('aria-pressed',playing?'true':'false');
+    const label=(playing?
+      fcUi('Pause physical time','Pausar tiempo físico'):
+      fcUi('Play physical time','Reproducir tiempo físico'))+' · '+letter;
+    play.setAttribute('aria-label',label);play.title=label
+  }
+}
 function fcRefreshTimeLink(){
+  if(fcTimesLinked())fcStopAllIndependentPlayback();
   if(!fcTimesLinked()){
     for(const state of [fcState,...fcExtraViews])
       if(!Number.isFinite(state.timeTarget))
@@ -646,6 +737,7 @@ function fcSyncToolbars(){
     // compact inspector is closed. Source field/region data stay authoritative.
     fcSyncViewSourceSummary(bar);
     fcSyncIndependentTimePicker(bar);
+    fcSyncIndependentPlaybackControls(bar);
     // bar is the actual viewport toolbar from this loop; an undefined
     // toolbar name used to abort all A–D selector/physical-region refreshes.
     fcPhysicalMenu(bar.dataset.fcToolbar)
@@ -687,7 +779,11 @@ function fcAddViewportToolbar(viewport,view){
   const en=fcUi('View','Vista');
   bar.innerHTML='<button type="button" class="fcMoveHandle" draggable="true" aria-label="'+fcUi('Drag to move view','Arrastra para mover vista')+' '+letter+'" title="'+fcUi('Drag to rearrange panels','Arrastrar para reordenar paneles')+'">⠿ '+en+' '+letter+'</button>'+
     (mapping?'<details class="fcViewSourceDetails" '+(view==='A'?'':'open')+'><summary>'+fcUi('Source','Fuente')+' '+letter+'</summary><div class="fcViewFieldRow">'+[['Case',fcUi('Case','Caso')],['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]].map(([key,label])=>'<label class="fcViewPicker fcPicker'+key+'"><span>'+label+'</span><select data-fc-bind="'+key+'" aria-label="'+en+' '+letter+' · '+label+'"></select></label>').join('')+'</div></details>':'<span class="fcViewDiffLabel">Δ</span>')+
-    (mapping&&view!=='A'?'<label class="fcViewTimePicker" hidden><span>'+fcUi('Physical time','Tiempo físico')+' (s)</span><select data-fc-independent-time aria-label="'+fcUi('Physical time for view','Tiempo físico de vista')+' '+letter+'"></select></label>':'')+
+    (mapping&&view!=='A'?'<div class="fcViewTimePicker" hidden><span>'+fcUi('Physical time','Tiempo físico')+' (s) · '+letter+'</span>'+
+      '<div class="fcViewTimeControls"><button type="button" data-fc-time-step="-1" title="'+fcUi('Previous measured time','Tiempo medido anterior')+'" aria-label="'+fcUi('Previous measured time','Tiempo medido anterior')+' '+letter+'">‹</button>'+
+      '<select data-fc-independent-time aria-label="'+fcUi('Physical time for view','Tiempo físico de vista')+' '+letter+'"></select>'+
+      '<button type="button" data-fc-time-step="1" title="'+fcUi('Next measured time','Siguiente tiempo medido')+'" aria-label="'+fcUi('Next measured time','Siguiente tiempo medido')+' '+letter+'">›</button>'+
+      '<button type="button" data-fc-time-play aria-pressed="false" aria-label="'+fcUi('Play physical time','Reproducir tiempo físico')+' '+letter+'">▶</button></div></div>':'')+
     (mapping?fcCameraPresetMenu(letter):'')+
     '<div class="fcViewZoom"><button type="button" data-fc-zoom="in" aria-label="'+fcUi('Zoom in','Acercar')+' '+letter+'" title="'+fcUi('Zoom in','Acercar')+'">+</button><button type="button" data-fc-zoom="out" aria-label="'+fcUi('Zoom out','Alejar')+' '+letter+'" title="'+fcUi('Zoom out','Alejar')+'">−</button><button type="button" data-fc-fit="1" aria-label="'+fcUi('Fit view','Ajustar vista')+' '+letter+'" title="'+fcUi('Fit visible mesh; linked cameras fit all','Ajustar malla visible; cámaras enlazadas ajustan todas')+'">'+fcUi('Fit','Ajustar')+'</button></div>';
   if(mapping){
@@ -741,8 +837,17 @@ function fcAddViewportToolbar(viewport,view){
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
     source.value=mirror.value;source.dispatchEvent(new Event('change',{bubbles:true}));fcScheduleToolbarSync()
   }));
-  bar.querySelector('[data-fc-independent-time]')?.addEventListener('change',event=>
-    fcSetIndependentTime(view,event.target.value));
+  bar.querySelector('[data-fc-independent-time]')?.addEventListener('change',event=>{
+    fcStopIndependentPlayback(view);
+    fcSetIndependentTime(view,event.target.value)
+  });
+  bar.querySelectorAll('[data-fc-time-step]').forEach(button=>
+    button.addEventListener('click',()=>{
+      fcStopIndependentPlayback(view);
+      fcIndependentTimeStep(view,Number(button.dataset.fcTimeStep))
+    }));
+  bar.querySelector('[data-fc-time-play]')?.addEventListener('click',()=>
+    fcToggleIndependentPlayback(view));
   // Collapse and focus restoration are native details behavior; leaving this
   // menu never drops or re-creates the live original Case/Field controls.
   const sourceDetails=bar.querySelector('.fcViewSourceDetails');
@@ -1503,6 +1608,7 @@ function fcExtraRemove(id){
   // Invalidate any pending await fcLoadSynchronizedData/physical layer load.
   // A removed view cannot later commit stale data or GPU resources.
   ++fcExtraViews[i].seq;
+  fcStopIndependentPlayback(id);
   fcExtraViews[i].geometryUpload=null;
   fcPhysicalRelease(fcExtraViews[i],{clearChoices:true});fcExtraViews.splice(i,1);fcExtraDom(id,'Controls')?.remove();fcExtraDom(id,'Viewport')?.remove();fcUpdateLayout();fcScheduleToolbarSync();return true
 }
@@ -1579,6 +1685,7 @@ function fcScheduleLayoutRender(){
 function fcUpdateLayout(){
   // The enabled state is owned by the actual Compare checkbox, never stale frames.
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
+  if(!fcState.enabled)fcStopAllIndependentPlayback();
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
     samePhysicalTime=fcTimesLinked()||(Number.isFinite(fvState.time)&&Number.isFinite(fcState.time)&&
       Math.abs(fvState.time-fcState.time)<=1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time))),
@@ -1620,10 +1727,16 @@ function fcInstallUi(){
     #fcViewGrid .fcViewportCaption .fcLegend{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;min-width:0;box-sizing:border-box;margin:0}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegends{min-width:0;max-width:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px}
     #fcViewGrid .fcViewportCaption .fcPhysicalLegend{min-width:min(100%,120px);max-width:100%;overflow-wrap:anywhere}
-    .fcViewTimePicker{display:grid;gap:3px;flex:0 1 165px;min-width:110px;max-width:100%;font-size:10px;color:var(--text)}
+    .fcViewTimePicker{display:grid;gap:3px;flex:0 1 195px;min-width:min(100%,180px);max-width:100%;font-size:10px;color:var(--text)}
     .fcViewTimePicker[hidden]{display:none!important}
     .fcViewTimePicker span{font-weight:750;color:var(--muted)}
     .fcViewTimePicker select{box-sizing:border-box;min-width:0;width:100%;height:32px;border-radius:7px;font-size:11px}
+    .fcViewTimeControls{display:flex;align-items:center;gap:4px;min-width:0}
+    .fcViewTimeControls select{flex:1 1 70px;min-width:62px}
+    .fcViewTimeControls button{flex:0 0 28px;min-height:32px;min-width:28px;cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:7px;color:var(--text);font-size:14px}
+    .fcViewTimeControls button[data-fc-time-play]{flex-basis:32px}
+    .fcViewTimeControls button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accentSoft)}
+    .fcViewTimeControls button:disabled{opacity:.35;cursor:default}
     .fcViewSourceDetails{flex:1 1 220px;min-width:145px;max-width:100%;align-self:center}
     .fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px;max-width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:11px;font-weight:750;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .fcViewSourceDetails>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -1678,7 +1791,18 @@ function fcInstallUi(){
 }
 function fcInstall(){
   const mount=()=>fcInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
-  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){const previous=fvLoadFrame;fvLoadFrame=async function(...args){const x=await previous.apply(this,args);await fcRefreshFrame();await fcRefreshExtras();return x};fvLoadFrame.__fcPatched=true}
+  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){const previous=fvLoadFrame;fvLoadFrame=async function(...args){
+    const x=await previous.apply(this,args);
+    if(fcTimesLinked()){
+      await fcRefreshFrame();await fcRefreshExtras()
+    }else if(fcState.enabled){
+      // A playback changes only A: do not re-read B/C/D OpenFOAM frames or
+      // destroy their independent time choices on every A animation tick.
+      fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);
+      fcUpdateLabels();fcScheduleToolbarSync()
+    }
+    return x
+  };fvLoadFrame.__fcPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true;fvRender.__fcBase=previous}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));
   for(const id of ['fvPalette','fvSurface','fvEdges','fvOpacity','fvRangeMode','fvRangeMin','fvRangeMax','fvSlice','fvSliceAxis','fvSlicePosition','fvSliceOpacity','fvIso','fvIsoValue','fvIsoOpacity','fvVectors','fvStreamlines','fvVector','fvVectorResolution','fvVectorScale','fvSeedMode','fvSeedAxis','fvSeedCount','fvSeedPosition','fvSeedPatch','fvStreamDirection','fvStreamStepPct','fvStreamMaxSteps','fvStreamMaxLengthPct'])document.getElementById(id)?.addEventListener(id==='fvSlicePosition'||id==='fvIsoValue'||id==='fvOpacity'||id==='fvSliceOpacity'||id==='fvIsoOpacity'||id==='fvVectorScale'||id==='fvSeedPosition'?'input':'change',()=>setTimeout(fcRefreshVisuals,0));
