@@ -142,6 +142,9 @@ function tsdMatchesFilters(s){
 }
 // Existing curves and available 3D OpenFOAM fields are different catalogs.
 // Preview field identity only; parsing thousands of frames requires Build.
+// Count only explicit, finite and distinct OpenFOAM physical time labels.
+function tsdIndexedPhysicalTimes(raw){const times=new Set();let invalid=0;if(!Array.isArray(raw))return{times:[],invalid:0};for(const label of raw){if(typeof label!=='number'&&typeof label!=='string'){invalid++;continue}if(String(label).trim()===''){invalid++;continue}const time=Number(label);if(!Number.isFinite(time)){invalid++;continue}times.add(time)}return{times:[...times].sort((a,b)=>a-b),invalid}}
+
 function tsdSourceFieldCatalog(){
   // A failed region's inventory must not hide valid fields of another case.
   // Read field metadata ONLY; Build owns the physical-frame reads.
@@ -172,10 +175,16 @@ function tsdSourceFieldCatalog(){
         console.error('Time Series physical field discovery',e);
         issues.push({caseId:String(c?.id??''),region:String(region||''),stage:'fields'});continue
       }
-      for(const group of groups)if(group&&['scalar','vector'].includes(group.kind)&&group.name&&Array.isArray(group.times)&&group.times.length){
+      for(const group of groups){
+        if(!group||!['scalar','vector'].includes(group.kind)||!group.name||
+           !Array.isArray(group.times)||!group.times.length)continue;
+        const indexed=tsdIndexedPhysicalTimes(group.times);
+        if(indexed.invalid)issues.push({caseId:String(c?.id??''),region:String(region||''),stage:'times'});
+        // Never parse source frames, interpolate, or invent t=0 during inventory.
+        if(!indexed.times.length)continue;
         fields.push({caseId:c.id,caseName:c.name||String(c.id),region,name:group.name,
           kind:group.kind,components:group.kind==='vector'?['x','y','z','magnitude']:['value'],
-          timeCount:group.times.length})
+          timeCount:indexed.times.length,firstTime:indexed.times[0],lastTime:indexed.times.at(-1)})
       }
     }
   }
