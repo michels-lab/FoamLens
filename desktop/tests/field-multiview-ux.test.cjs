@@ -1674,7 +1674,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const runnerStart=source.indexOf('async function fcRunIndependentPlayback(view,play){');
   const runnerEnd=source.indexOf('function fcToggleIndependentPlayback(',runnerStart);
   assert(ratesStart>0&&ratesEnd>ratesStart&&runnerStart>0&&runnerEnd>runnerStart);
-  const B={timeTarget:2,timePlaybackRate:2,timePlaybackLoop:true},
+  const B={enabled:true,timeTarget:2,timePlaybackRate:2,timePlaybackLoop:true},
     C={id:3,timeTarget:0,timePlaybackRate:.5,timePlaybackLoop:false},
     D={id:4,timeTarget:0};
   const extras=[C,D],player=new Map(),timerDelays=[],stopped=[],changes=[];
