@@ -21,18 +21,29 @@ function tsdMatchesVariable(canonical,primary,secondary){
 // Two series may share a numeric axis only if BOTH carry trustworthy,
 // complete source dimensions and declared units. An empty or guessed unit is
 // not evidence that values from separate cases/regions are comparable.
+// OpenFOAM dimensions require exactly seven finite exponents. Missing or
+// malformed dimensions are not evidence that different curves share units.
+function tsdDimensionPowers(dimensions){
+  const match=/^\[\s*([^\]]+?)\s*\]$/.exec(String(dimensions??'').trim().replace(/\s+/g,' '));
+  if(!match)return null;
+  const words=match[1].trim().split(/\s+/),powers=words.map(Number);
+  return words.length===7&&powers.every(Number.isFinite)?powers:null
+}
 function tsdAxisMetadataVerified(field){
   const f=field||{},unit=String(f.unit??'').trim(),quantity=String(f.quantity||f.canonical||f.name||'').trim();
-  const dimensions=String(f.dimensions??'').trim().replace(/\s+/g,' ');
-  const match=/^\[\s*([^\]]+?)\s*\]$/.exec(dimensions);
-  if(!match||!unit||unit==='?'||unit.toLowerCase()==='unknown'||!quantity||
+  const powers=tsdDimensionPowers(f.dimensions);
+  if(!powers||!unit||unit==='?'||unit.toLowerCase()==='unknown'||!quantity||
      quantity.toLowerCase()==='unknown'||quantity==='?'||/^\d+(?:\.\d+)?$/.test(quantity))return false;
-  const powers=match[1].trim().split(/\s+/).map(Number);
-  if(powers.length!==7||powers.some(p=>!Number.isFinite(p)))return false;
-  // '-' is a legitimate label for dimensionless values only, not a
-  // verified temperature/pressure/velocity unit.
+  // '-' represents a VERIFIED dimensionless field only when every power is zero.
   if(unit==='-'&&powers.some(p=>p!==0))return false;
   return true
+}
+// A dash is a real dimensionless unit label when source dimensions support it;
+// a dash without such evidence is a missing unit, not a verified property.
+function tsdVerifiedEvidenceUnit(field){
+  const f=field||{},unit=String(f.unit??'').trim();
+  if(!unit||unit==='?'||unit.toLowerCase()==='unknown')return'';
+  return unit!=='-'||tsdAxisMetadataVerified(f)?unit:''
 }
 function tsdAxisPlan(primaryField,secondaryField){
   if(!primaryField)return{primary:'left',secondary:'left',separate:false};
@@ -65,21 +76,32 @@ function tsdSourceEvidence(allSeries,canonical){
   const rows=(allSeries||[]).filter(s=>String(s?.field?.canonical??'')===key);
   const distinct=a=>[...new Set(a.filter(Boolean))];
   const fields=rows.map(s=>s.field||{});
-  const units=distinct(fields.map(f=>String(f.unit??'').trim()).filter(v=>v&&v!=='-'&&v!=='?'));
+  const units=distinct(fields.map(tsdVerifiedEvidenceUnit));
   const dimensions=distinct(fields.map(f=>String(f.dimensions??'').trim()).filter(v=>v&&v!=='?'));
   const quantities=distinct(fields.map(f=>String(f.quantity??'').trim()).filter(v=>v&&v!=='unknown'));
   // A derived: key is NOT a real OpenFOAM file path; keep case/region evidence
   // but mark exact original per-frame file reference as unavailable.
   const sources=distinct(rows.map(s=>String(s.sourcePath||s.fileName||'').trim()).filter(p=>!p.startsWith('derived:')));
   const sourceFields=distinct(rows.map(s=>String(s.postProcessing?.fieldName||'').trim()));
+  // Preserve exact original case/region identity even for existing probe
+  // histories that have no fieldHistoryEvidence object.
+  const origins=distinct(rows.map(s=>{
+    const h=s.fieldHistoryEvidence||{};
+    const caseId=String(s.caseId??h.caseId??'').trim();
+    const name=String(s.caseName??h.caseName??'').trim();
+    const region=String(s.region??h.region??'').trim();
+    const label=name&&caseId&&name!==caseId?name+' ['+caseId+']':(name||caseId);
+    return[label,region].filter(Boolean).join(' · ')
+  }));
   const unknownColumns=rows.some(s=>tsdUnverifiedColumn(s.field)!==null);
   return {
-    canonical:key,curves:rows.length,sources,sourceFields,units,dimensions,quantities,
+    canonical:key,curves:rows.length,sources,sourceFields,origins,units,dimensions,quantities,
     unknownColumns,
     inconsistentUnits:units.length>1,
     inconsistentDimensions:dimensions.length>1,
     inconsistentQuantities:quantities.length>1,
-    incompleteUnits:fields.some(f=>!f.unit||f.unit==='-'||f.unit==='?'),
+    incompleteUnits:fields.some(f=>!tsdVerifiedEvidenceUnit(f)),
+    incompleteDimensions:fields.some(f=>!tsdDimensionPowers(f.dimensions)),
     missingSource:rows.some(s=>!(s.sourcePath||s.fileName)||String(s.sourcePath||'').startsWith('derived:')),
     histories:rows.filter(s=>s.fieldHistoryEvidence?.schema==='foamlens/field-history-evidence/1').map(s=>s.fieldHistoryEvidence),
     incompleteHistories:rows.some(s=>s.fieldHistoryEvidence?.omittedTimeCount>0),
@@ -285,8 +307,9 @@ function tsdUpdateScientificEvidence(){
   if(!selected.length){if(panel)panel.remove();return}
   const evidence=selected.map(id=>tsdSourceEvidence(rows,id));
   const warnings=evidence.filter(e=>e.unknownColumns||e.inconsistentUnits||
-    e.inconsistentDimensions||e.inconsistentQuantities||e.missingSource||
-    e.incompleteHistories||e.unverifiedHistoryDimensions);
+    e.inconsistentDimensions||e.inconsistentQuantities||e.incompleteUnits||
+    e.incompleteDimensions||e.missingSource||e.incompleteHistories||
+    e.unverifiedHistoryDimensions);
   if(!panel){
     panel=document.createElement('details');panel.id='tsdScientificEvidence';
     panel.className='timeSeriesHint tsdScientificEvidence';
@@ -317,6 +340,8 @@ function tsdUpdateScientificEvidence(){
         (h.aggregation==='arithmetic-unweighted'?' · '+tsdUi('unweighted arithmetic mean','media aritmética sin ponderación'):'');
       group.appendChild(detail)
     }
+    entry(tsdUi('Original case/region sources','Casos/regiones originales'),e.origins.slice(0,6));
+    if(e.origins.length>6)entry(tsdUi('Additional case/region sources','Casos/regiones adicionales'),[String(e.origins.length-6)]);
     entry(tsdUi('Original source fields','Campos originales'),e.sourceFields);
     entry(tsdUi('Units','Unidades'),e.units);
     entry(tsdUi('Dimensions','Dimensiones'),e.dimensions);
@@ -333,6 +358,9 @@ function tsdUpdateScientificEvidence(){
     if(e.incompleteUnits)notices.push(tsdUi(
       'At least one source has no verified unit; no unit is inferred.',
       'Al menos una fuente no tiene unidades verificadas; no se infieren.'));
+    if(e.incompleteDimensions)notices.push(tsdUi(
+      'At least one source has missing or malformed physical dimensions; no dimensions are inferred.',
+      'Al menos una fuente carece de dimensiones físicas válidas; no se infieren dimensiones.'));
     if(e.missingSource)notices.push(tsdUi(
       'At least one curve lacks a source file reference.',
       'Al menos una curva carece de referencia al archivo de origen.'));

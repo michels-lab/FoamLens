@@ -54,6 +54,34 @@ const s=(c,source,unit,dimensions,quantity,extra={})=>({
   field:{canonical:c,display:c,unit,dimensions,quantity},sourcePath:source,
   fileName:source.split('/').pop(),...extra
 });
+check('Dimensionless phase fraction preserves original dash unit without a false warning',()=>{
+ const e=api.tsdSourceEvidence([s('alphaL','B3/metal/alpha','-','[0 0 0 0 0 0 0]','liquid_fraction',
+   {caseId:'B3',caseName:'QuickCup B3',region:'metal'})],'alphaL');
+ assert.deepEqual(e.units,['-']);assert.equal(e.incompleteUnits,false);
+ assert.equal(e.incompleteDimensions,false);
+ assert.deepEqual(e.origins,['QuickCup B3 [B3] · metal']);
+});
+check('Missing, invalid or physically incompatible dash remains unverified',()=>{
+ for(const dimensions of ['', '[0 0 0 0 0 0]','[0 bogus 0 0 0 0 0]','[0 0 0 1 0 0 0]']){
+   const e=api.tsdSourceEvidence([s('alphaL','C3/alpha','-',dimensions,'liquid_fraction',{caseId:'C3',region:'mold'})],'alphaL');
+   assert.deepEqual(e.units,[]);assert.equal(e.incompleteUnits,true);
+   assert.equal(e.incompleteDimensions,dimensions!=='[0 0 0 1 0 0 0]');
+ }
+ const e=api.tsdSourceEvidence([s('T','B3/T','K','','temperature',{caseId:0,region:'metal'})],'T');
+ assert.equal(e.incompleteDimensions,true);
+ assert.deepEqual(e.origins,['0 · metal']);
+});
+check('Original multi-case metal and mold sources stay independent without inferred units',()=>{
+ const rows=[
+  s('T','B3/T','K','[0 0 0 1 0 0 0]','temperature',{caseId:'B3',caseName:'B3 cast',region:'metal'}),
+  s('T','C3/T','K','[0 0 0 1 0 0 0]','temperature',{caseId:'C3',caseName:'C3 mold',region:'mold'}),
+  s('T','missing/T','?','','temperature',{caseId:'missing'})
+ ];
+ const e=api.tsdSourceEvidence(rows,'T');
+ assert.deepEqual(e.origins,['B3 cast [B3] · metal','C3 mold [C3] · mold','missing']);
+ assert.equal(e.incompleteUnits,true);assert.equal(e.incompleteDimensions,true);
+ assert.deepEqual(e.units,['K']);
+});
 check('Known equal units/quantities/dimensions remain compatible',()=>{
   const e=api.tsdSourceEvidence([
     s('T','A/postProcessing/probes/0/T','K','[0 0 0 1 0 0 0]','temperature',{postProcessing:{fieldName:'T'}}),
@@ -166,6 +194,8 @@ check('Actual provenance DOM refresh follows case and field filters and removes 
   run();
   let panel=nodes.tsdScientificEvidence;
   assert(panel&&panel.open,'Incompatible selected cases must expand the evidence panel');
+  assert(panel.children[1].children.some(child=>String(child.textContent||'').includes('Original case/region sources:')),
+    'Scientific provenance panel must disclose original case/region identities');
   assert(panel.children[1].children.some(child=>child.tag==='p'),
     'Mixed known units must produce a warning');
   selectedCase=1;run();
@@ -178,6 +208,8 @@ check('Actual provenance DOM refresh follows case and field filters and removes 
   assert(panel.children[1].children.some(child=>child.tag==='p'),
     'An unverified numeric field must warn the user');
   const sourceText=panel.children[1].children.map(child=>child.textContent||'').join('\n');
+  assert(sourceText.includes('missing or malformed physical dimensions'),
+    'Missing physical dimensions must be disclosed as a scientific warning');
   assert(sourceText.includes('<img src=x onerror=alert(1)>'),
     'Literal untrusted source metadata must remain text');
   nodes.timeSeriesVariable.dataset.showAll='1';run();

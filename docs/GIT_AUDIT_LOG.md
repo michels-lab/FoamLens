@@ -1,3 +1,11 @@
+## 2026-11-17 — Operación Granada T1.2: fracciones adimensionales y procedencia científica (sin release)
+
+- **Fallo original reproducido después de #349:** una curva `alphaL` con unidad real `-` y dimensiones OpenFOAM `[0 0 0 0 0 0 0]` mostraba unidades vacías y `incompleteUnits=true`. El inspector no enseñaba el caso/región de las curvas ordinarias y no advertía por separado dimensiones malformadas o ausentes.
+- **Corrección fuente:** `tsdDimensionPowers` reconoce siete exponentes finitos originales; `-` solo se clasifica como adimensional válido con dimensiones y cantidad verificadas, nunca con `[0 0 0 1 0 0 0]` ni metadatos incompletos. El inspector enseña caso/nombre/región originales, usa `fieldHistoryEvidence` cuando está disponible, informa `incompleteDimensions` e `incompleteUnits`, y avisa en español/inglés sin inferir resultados ni mezclar unidades físicas.
+- **Regresión ampliada** en `desktop/tests/timeseries-provenance.test.cjs`: adimensional válido, cuatro metadatos dash inválidos, caso numérico 0, B3 metal/C3 molde, unidad ausente, dimensiones ausentes y aviso en panel DOM. Se reutiliza el test ya listado en CI.
+- **Comprobación local de producción:** seis aserciones directas PASS; CI Windows/Ubuntu exact-head y paquete Windows deberán verificarse después de la PR. Ningún cambio en CFD, Field A–D, CAD, archivos experimentales, release pública o datos privados.
+- **Release:** GitHub latest sigue siendo **v1.8.14** (2026-11-13 UTC); esta mejora aún no está publicada. #146, #176 y #238 permanecen abiertos y la aceptación física/visual no se infiere de tests.
+
 ## 2026-11-17 — Operación Granada T1: identidad de tiempos físicos y seguridad de opciones (sin release)
 
 - **Código propietario:** `desktop/src/FoamLensDesktop/frontend/v14-dual-timeseries.js`, rama `fix/granada-t1-source-identities-20261117`. No se modificaron los modelos de temperatura/CFD, datos, solver, exportación, CAD ni las vistas A–D de Field. Las PR históricas G5/G8 sobre capturas nativas siguen independientes.
