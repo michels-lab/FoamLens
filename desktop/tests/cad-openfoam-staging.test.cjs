@@ -136,7 +136,6 @@ metal.unit='mm';
 ignored.visible=true;
 assert.throws(()=>api.prepare(models,'foundation13',roles),/Confirm the physical source units/);
 ignored.visible=false;
-const old=cgCopyVisible=()=>models.map(m=>[m.visible,[...m.partsVisible]]);
 api.setPart(models,0,'wall',false);
 const partial=api.prepare(models,'foundation13',roles);
 assert.equal(partial.manifest.regionCount,3);
