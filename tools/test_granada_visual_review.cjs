@@ -4,6 +4,8 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
 const {audit,render,main,MODES,VARIANTS,SIZES,png}=require('./granada_visual_review.cjs');
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/granada-177-g5-native-visual-review.yml'),'utf8');
 const shippingWorkflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/build-foamlens-desktop.yml'),'utf8');
+const originalHost=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/Program.cs'),'utf8');
+const nativeProducer=fs.readFileSync(path.join(__dirname,'make_visual_evidence.py'),'utf8');
 const commit='1234567890abcdef1234567890abcdef12345678';
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 
@@ -92,6 +94,23 @@ try{
       'Strict gate must be tied to exact source SHA and both shipped native binaries');
     assert(publish.indexOf('G5 block stable release')<publish.indexOf('G21 rebind exact signed Windows-native attestation'),
       'No later publish integrity step may substitute for missing native screenshots');
+  });
+  test('G5 captures nine distinct real native workspace files per CSS viewport without mock views',()=>{
+    assert(originalHost.includes('CaptureGranadaSecondaryWorkspacesAsync(root, size.Name)'),
+      'QuickCup native source capture must call the additional four workspace action runner');
+    for(const mode of ['field-compare','analysis','review','live']){
+      assert(originalHost.includes('"'+mode+'"')||originalHost.includes("'"+mode+"'"));
+      assert(nativeProducer.includes('f"'+mode+'-{viewport}.png"'));
+    }
+    assert(nativeProducer.includes('f"time-series-{viewport}.png"'));
+    assert(originalHost.includes('CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"))'),
+      'Each missing workspace must be captured from actual running WebView2 pixels');
+    for(const id of ['flRaCompare3D','flRaAnalysisGeneral','flRaReview','flRaLive']){
+      assert(originalHost.includes("'"+id+"'"),'Capture must use product toolbar '+id);
+    }
+    assert(nativeProducer.includes('if direct_windows:'),
+      'Separate MSIX capture requirements must remain unchanged');
+    assert(!originalHost.includes('FAKE_GRANADA_G5_NATIVE_CAPTURE'));
   });
   test('only authentic schema, source SHA, distinct installed/portable artifact bindings qualify',()=>{
     const data=audit(doc,opts);
