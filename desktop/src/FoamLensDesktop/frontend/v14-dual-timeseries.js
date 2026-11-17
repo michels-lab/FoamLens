@@ -89,7 +89,19 @@ function tsdSourceEvidence(allSeries,canonical){
 /* FOAMLENS_DUAL_TIMESERIES_CORE_END */
 
 function tsdUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(document.getElementById('language')?.value==='es'?es:en)}catch{return en}}
-function tsdEsc(v){try{return typeof esc==='function'?esc(String(v??'')):String(v??'')}catch{return String(v??'')}}
+// OpenFOAM case/field labels are external input. Escape in both HTML text and
+// option-value attributes, including during early startup before index helpers load.
+function tsdEsc(v){
+  return String(v??'').replace(/[&<>"']/g,ch=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[ch])
+}
+// Blank, placeholder and dimensionless units are not literal "[undefined]"
+// or "[]" units and must never be presented as physically verified metadata.
+function tsdUnitHint(field){
+  const u=String(field?.unit??'').trim();
+  return !u||u==='-'||u==='?'||u.toLowerCase()==='unknown'?'':' ['+tsdEsc(u)+']'
+}
 function tsdInjectCss(){
   if(document.getElementById('tsdStyle'))return;
   const style=document.createElement('style');style.id='tsdStyle';style.textContent=`
@@ -127,7 +139,7 @@ function tsdPopulateSecondary(vars,primary,preferred=''){
   const sel=document.getElementById('timeSeriesVariable2');if(!sel)return'';
   if(!primary){sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>';sel.value='';sel.disabled=true;return''}
   sel.disabled=false;const choices=vars.filter(f=>f.canonical!==primary);
-  sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>'+choices.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
+  sel.innerHTML='<option value="">'+tsdEsc(tsdUi('None','Ninguna'))+'</option>'+choices.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${tsdUnitHint(f)}</option>`).join('');
   if(choices.some(f=>f.canonical===preferred))sel.value=preferred;else sel.value='';
   return sel.value
 }
@@ -143,7 +155,23 @@ function tsdMatchesFilters(s){
 // Existing curves and available 3D OpenFOAM fields are different catalogs.
 // Preview field identity only; parsing thousands of frames requires Build.
 // Count only explicit, finite and distinct OpenFOAM physical time labels.
-function tsdIndexedPhysicalTimes(raw){const times=new Set();let invalid=0;if(!Array.isArray(raw))return{times:[],invalid:0};for(const label of raw){if(typeof label!=='number'&&typeof label!=='string'){invalid++;continue}if(String(label).trim()===''){invalid++;continue}const time=Number(label);if(!Number.isFinite(time)){invalid++;continue}times.add(time)}return{times:[...times].sort((a,b)=>a-b),invalid}}
+function tsdIndexedPhysicalTimes(raw){
+  const times=new Set();let invalid=0;
+  if(!Array.isArray(raw))return{times:[],invalid:0};
+  // Physical OpenFOAM time directory labels use decimal/scientific notation.
+  // Number("0x10"), Number("0b10") and Number("0o10") also succeed in JS;
+  // they are not decimal physical-time labels and must not invent snapshots.
+  const physical=/^[+-]?(?:(?:\d+\.?\d*)|(?:\.\d+))(?:[eE][+-]?\d+)?$/;
+  for(const label of raw){
+    if(typeof label!=='number'&&typeof label!=='string'){invalid++;continue}
+    const literal=String(label).trim();
+    if(!physical.test(literal)){invalid++;continue}
+    const time=Number(literal);
+    if(!Number.isFinite(time)){invalid++;continue}
+    times.add(time)
+  }
+  return{times:[...times].sort((a,b)=>a-b),invalid}
+}
 
 function tsdSourceFieldCatalog(){
   // A failed region's inventory must not hide valid fields of another case.
@@ -354,7 +382,7 @@ function tsdRefreshTimeSeriesControls(){
   }
   panel.classList.toggle('hidden',!tsdShouldShowPanel(true));
   const oldV=vSel.value||'',oldV2=v2Sel.value||'',oldP=pSel.value||'',oldF=fSel.value||'',vars=tsdFields(ts),showAll=vSel.dataset.showAll==='1';
-  vSel.innerHTML=vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${f.unit==='-'?'':` [${tsdEsc(f.unit)}]`}</option>`).join('');
+  vSel.innerHTML=vars.map(f=>`<option value="${tsdEsc(f.canonical)}">${tsdEsc(localizedFieldName(f))}${tsdUnitHint(f)}</option>`).join('');
   vSel.value=tsdPrimaryChoice(vars,oldV);
   vSel.dataset.autoinit='1';
   let secondary=tsdPopulateSecondary(vars,vSel.value,showAll?'':oldV2);
@@ -369,7 +397,7 @@ function tsdRefreshTimeSeriesControls(){
   for(const item of byVars)if(item.caseId!=null&&!caseMap.has(item.caseId))
     caseMap.set(item.caseId,caseById(item.caseId)||{id:item.caseId,name:item.caseName||`Case ${item.caseId}`});
   const caseOptions=[...caseMap.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{numeric:true}));
-  fSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All matching cases','Todos los casos coincidentes'))+'</option>'+caseOptions.map(c=>`<option value="case:${c.id}">${tsdEsc(c.name||`${tsdUi('Case','Caso')} ${c.id}`)}</option>`).join('');
+  fSel.innerHTML='<option value="">'+tsdEsc(tsdUi('All matching cases','Todos los casos coincidentes'))+'</option>'+caseOptions.map(c=>`<option value="case:${tsdEsc(String(c.id))}">${tsdEsc(c.name||`${tsdUi('Case','Caso')} ${c.id}`)}</option>`).join('');
   if([...fSel.options].some(o=>o.value===oldF)&&!String(oldF).startsWith('family:'))fSel.value=oldF;else fSel.value='';
   // Selecting another case must immediately offer *that case's* real probes.
   // Keep a valid explicit probe; otherwise show All probes instead of a

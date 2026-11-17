@@ -8,11 +8,13 @@ Scientific analysis and post-processing workspace for OpenFOAM simulation data, 
 
 FoamLens is designed for thesis and research workflows where simulation data need to be discovered, compared, inspected, styled, animated, and exported without building a separate plotting script for every case.
 
+The [product development audit](docs/GIT_AUDIT_LOG.md) separates current source fixes, CI, published binaries and owner acceptance. A merged change is not proof that a previously published installer contains it.
+
 ## Release information
 
 - **FoamLens Web v51**.
-- **FoamLens Desktop v1.8.14** for Windows — current source version awaiting real Windows installer release validation. Two Time Series history variables share Y only with verified OpenFOAM units, dimensions and physical identities; incompatible/unknown sources use separate axes. The public download is confirmed only by [GitHub Releases](https://github.com/michels-lab/FoamLens/releases/latest), not by merging source code.
-- **FoamLens Desktop v1.8.13** for Windows — [published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13), November 12, 2026, with SHA-256 sidecars. Includes Field F2 responsive region controls and the T1 resilient real multi-case source-field catalog.
+- **FoamLens Desktop v1.8.14** for Windows — [latest published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.14), published November 13, 2026 (UTC), with separate SHA-256 sidecars for both executables. This is the latest **published** version, not a future candidate. Source improvements committed after this release are not automatically included in these binaries.
+- **FoamLens Desktop v1.8.13** for Windows — [previous stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13), November 12, 2026. Includes Field F2 responsive region controls and the T1 resilient real multi-case source-field catalog.
 - The [v1.8.12 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12) remains available for rollback.
 
 ## Features

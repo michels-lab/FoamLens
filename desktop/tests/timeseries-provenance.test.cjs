@@ -9,6 +9,31 @@ const core=src.slice(start,end+'/* FOAMLENS_DUAL_TIMESERIES_CORE_END */'.length)
 const api=new Function(core+';return {tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence}')();
 let count=0;
 const check=(name,fn)=>{fn();count++;console.log('  ✓ '+name)};
+check('External case/field names are escaped in native HTML option values and text',()=>{
+  const start=src.indexOf('function tsdEsc(v){'),end=src.indexOf('function tsdInjectCss(){',start);
+  assert(start>0&&end>start,'Source-owned HTML escape and unit metadata helpers must exist');
+  const helpers=new Function(src.slice(start,end)+';return {tsdEsc,tsdUnitHint};')();
+  assert.equal(helpers.tsdEsc('T\"><img src=x onerror=alert(1)>'),
+    'T&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(helpers.tsdEsc('metal&\'mold'),'metal&amp;&#39;mold');
+  assert.equal(helpers.tsdUnitHint({unit:'m/s'}),' [m/s]');
+  assert.equal(helpers.tsdUnitHint({unit:'°C'}),' [°C]');
+  for(const unit of [undefined,null,'',' ','-','?','UNKNOWN','unknown']){
+    assert.equal(helpers.tsdUnitHint({unit}),'',
+      'Unknown units must never become a scientific claim or [undefined] label');
+  }
+  const selector=src.slice(src.indexOf('function tsdPopulateSecondary('),
+    src.indexOf('// Existing curves and available 3D OpenFOAM fields'));
+  const refresh=src.slice(src.indexOf('function tsdRefreshTimeSeriesControls(){'),
+    src.indexOf('function tsdPatchAssignments(){'));
+  assert(selector.includes('${tsdUnitHint(f)}'),
+    'Second variable selector must use truthful unit suffixes');
+  assert(refresh.includes('${tsdUnitHint(f)}'),
+    'First variable selector must use truthful unit suffixes');
+  assert(refresh.includes('case:${tsdEsc(String(c.id))}'),
+    'Dynamic case identifiers must be escaped before HTML option-value interpolation');
+});
+
 check('Raw numeric-only imported variable is explicitly unverified',()=>{
   assert.equal(api.tsdUnverifiedColumn({canonical:'0',display:'0',original:'0',quantity:'unknown'}),'0');
   assert.equal(api.tsdEvidenceFieldLabel({canonical:'0',display:'0'},'en'),'Column 0 (unidentified)');

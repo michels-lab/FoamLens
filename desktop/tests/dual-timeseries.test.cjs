@@ -221,9 +221,15 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
   const begin=source.indexOf('function tsdShouldShowPanel(');
   const end=source.indexOf('function tsdPatchAssignments(',begin);
   assert(begin>0&&end>begin,'Original dual-variable refresh source is required');
+  // Compile the actual source-owned helper alongside the isolated original
+  // controller. A bare stub missed the new scientific-unit label branch.
+  const helperStart=source.indexOf('function tsdEsc(v){');
+  const helperEnd=source.indexOf('function tsdInjectCss(){',helperStart);
+  assert(helperStart>0&&helperEnd>helperStart);
+  const actualUnitHint=new Function(source.slice(helperStart,helperEnd)+';return tsdUnitHint;')();
   const maker=new Function(
     'document','timeSeriesOptionsBase','tsdFields','tsdPrimaryChoice','tsdPopulateSecondary',
-    'tsdVariableSet','tsdEsc','tsdUi','localizedFieldName','tr','caseById',
+    'tsdVariableSet','tsdEsc','tsdUnitHint','tsdUi','localizedFieldName','tr','caseById',
     'tsdMatchesFilters','tsdAxisPlan','tsdUpdateSourceCatalog','tsdUpdateScientificEvidence',
     'currentDataView','activeAppMode',
     source.slice(begin,end)+';return tsdRefreshTimeSeriesControls;'
@@ -252,7 +258,7 @@ test('Granada multi-case: Time Series defaults to all probes and retains explici
   let catalogRefreshes=0;
   const refresh=maker(document,()=>rows,()=>[{canonical:'T',unit:'K'}],
     (vars,wanted)=>vars.some(v=>v.canonical===wanted)?wanted:vars[0].canonical,
-    ()=>'',primary=>primary?[primary]:[],String,en=>en,f=>f.canonical,
+    ()=>'',primary=>primary?[primary]:[],String,actualUnitHint,en=>en,f=>f.canonical,
     ()=> 'probe',id=>({id,name:id}),
     row=>(!probe.value||String(row.probe)===probe.value)&&
       (!family.value||family.value==='case:'+row.caseId),
