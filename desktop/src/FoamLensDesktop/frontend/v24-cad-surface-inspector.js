@@ -246,6 +246,10 @@ function cgOpenFoamPrepare(models,target,roles=new Map()){
   if(!(roles instanceof Map))throw Error('Invalid explicit CAD role mapping');
   const edition=cgOpenFoamTarget(target),batch=cgVisibleRegionBatch(models);
   const payloadFiles=batch.files.filter(f=>f.name!=='manifest.json');
+  // The original, uncompressed FoamLens ZIP has 1001-entry capacity.
+  // Four non-STL guide entries leave room for at most 997 named regions.
+  if(batch.manifest.regionCount>997)
+    throw Error('OpenFOAM staging supports at most 997 visible named regions per ZIP');
   if(payloadFiles.length!==batch.manifest.regionCount)
     throw Error('Original named region STL count differs from its manifest');
   const files=[],regions=[],geometry=[],boundsMin=[Infinity,Infinity,Infinity],
