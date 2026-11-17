@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 65
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "bc63bced031693dd5f572419e7f586dce0807835de8f4e751c9b162035820022",
-  "evidence_fingerprint": "366d6ab79d71a5d6c6ff45b4922b5f2148374dae7219f5ccbddc5bd2982cbe7a",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "3c29a50964ee2024c6d9d576dd52ebe4c69b70ce1fb33d62abdb0f06271900bc",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -594,7 +592,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "84fa01263ba1931764a8dfaaf5fa01d07a279bab"
+      "blob": "97d1a4043ccdcae400c37cd2658af2b276868900"
     },
     {
       "path": "LICENSE",
@@ -615,7 +613,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "987147200b9f1fcf395ede5d682c6875d9e5fae9"
+      "blob": "9f9f71f2e7606672d887d179d81164a74067fe21"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -909,7 +907,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e9709348277051b4f93e9aca89b1faae812e6b51"
+      "blob": "8662cbe5d9ba8bde7ab1c892a9d08572ff0370f7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js",
@@ -1434,7 +1432,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "25244c644c778c3b0972a39310f78f8fe901b558"
+      "blob": "d589a574b303edfb50da5e6d0a8dffd5e296b7b2"
     },
     {
       "path": "desktop/tests/dynamic-mesh.test.cjs",
@@ -2043,14 +2041,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "44ad0e56ae7464f117f833e5d27f715f0b1eb53c"
+      "blob": "fba234b8c4eabc4bc3fb4cdbe74dc8134afe72eb"
     },
     {
       "path": "desktop/tests/timeseries-source-catalog.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "94909524df48b0870c4f917e1094da12bb4761ce"
+      "blob": "ed8450da0c1123b7c913d53a1cd9602def48e3e8"
     },
     {
       "path": "desktop/tests/v16-final-ux-audit.test.cjs",
@@ -2204,7 +2202,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "85c844fbb5323d00ed1b9f08ad909dc169a0fdd9"
+      "blob": "3c341961c260f0c18fb2df7d1e0b53340bbf3079"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3565,17 +3563,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "62e5c8a794574a23",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "44 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/cad-surface-fast.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-cad-assembly-ui.yml",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
