@@ -124,7 +124,14 @@ function audit(manifest,options={}){
     // even when their tab name is identical (installed vs portable or
     // compact vs wide). The previous check only caught different tab names.
     if(earlier){
-      issue('error','same-image-different-slots',earlier+' and '+key);
+      // Two actual Windows launches can render *byte-identical* screens
+      // for the same workspace. That is not proof of cheating/corruption,
+      // but one PNG digest cannot independently prove two capture slots.
+      // Cross-workspace reuse is stronger evidence of a mistaken source.
+      const sameWorkspace=earlier.split('|')[2]===s;
+      issue(sameWorkspace?'warning':'error',
+        sameWorkspace?'indistinguishable-same-workspace':'same-image-different-tabs',
+        earlier+' and '+key);
       continue;
     }
     seen.set(hash,key);captured.set(key,true);
