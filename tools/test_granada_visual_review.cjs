@@ -75,6 +75,10 @@ try{
     assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Matrix.json'));
     assert(shippingWorkflow.includes("if ($review.human_approved -ne $false)"),
       'Automated capture must never confer aesthetic acceptance');
+    const captureStep=shippingWorkflow.slice(shippingWorkflow.indexOf('G5 generate offline full-workspace visual review'),
+      shippingWorkflow.indexOf('Sync canonical Windows ICO'));
+    assert(captureStep.includes('exit 0')&&captureStep.includes('Write-Warning'),
+      'Partial native visual evidence must remain a publication failure, not a product build failure');
     // Git for Windows may check out workflow YAML with CRLF. Normalize only
     // the test's text search; do not alter or weaken the publishing gate.
     const normalized=shippingWorkflow.replace(/\r\n/g,'\n');
