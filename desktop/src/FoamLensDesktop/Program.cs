@@ -728,7 +728,7 @@ internal sealed class FoamLensForm : Form
                   const mode=__MODE__, expectedMode=mode==='field-compare'?'field':mode;
                   const id={
                     'field-compare':'fcViewport',
-                    analysis:'analysisSurface',
+                    analysis:'workspace',
                     review:'reviewSurface',
                     live:'liveSurface'
                   }[mode];
@@ -739,12 +739,13 @@ internal sealed class FoamLensForm : Form
                     document.getElementById('fcEnabled')?.checked===true&&
                     !target?.classList.contains('hidden')&&
                     !!document.getElementById('fcCase'));
+                  const analysisControls=mode!=='analysis'||!!document.getElementById('generalAnalysisNav');
                   const inViewport=!!rect&&rect.right>0&&rect.left<innerWidth&&
                     rect.bottom>0&&rect.top<innerHeight;
                   const rendered=!!rect&&rect.width>=150&&rect.height>=110&&
                     style?.display!=='none'&&style?.visibility!=='hidden'&&
                     inViewport;
-                  return {ok:active===expectedMode&&rendered&&comparison,
+                  return {ok:active===expectedMode&&rendered&&comparison&&analysisControls,
                     activeModeMatches:active===expectedMode,
                     rendered,comparison,viewportWidth:innerWidth};
                 })()
