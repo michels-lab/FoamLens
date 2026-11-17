@@ -120,8 +120,21 @@ function audit(manifest,options={}){
     const key=[v,size,s].join('|');
     if(captured.has(key)){issue('error','duplicate-slot',key);continue}
     const hash=digest(bytes),earlier=seen.get(hash);
-    if(earlier&&earlier!==s)issue('error','same-image-different-tabs',earlier+' and '+s);
-    seen.set(hash,s);captured.set(key,true);
+    // A single PNG may not prove two different source/view/viewport slots,
+    // even when their tab name is identical (installed vs portable or
+    // compact vs wide). The previous check only caught different tab names.
+    if(earlier){
+      // Two actual Windows launches can render *byte-identical* screens
+      // for the same workspace. That is not proof of cheating/corruption,
+      // but one PNG digest cannot independently prove two capture slots.
+      // Cross-workspace reuse is stronger evidence of a mistaken source.
+      const sameWorkspace=earlier.split('|')[2]===s;
+      issue(sameWorkspace?'warning':'error',
+        sameWorkspace?'indistinguishable-same-workspace':'same-image-different-tabs',
+        earlier+' and '+key);
+      continue;
+    }
+    seen.set(hash,key);captured.set(key,true);
     pictures.push({variant:v,surface:s,viewport:size,sha256:hash,width:measured.width,height:measured.height,bytes});
   }
   const coverage=MODES.map(surface=>{

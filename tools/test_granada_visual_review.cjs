@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib');
 const {audit,render,main,MODES,VARIANTS,SIZES,png}=require('./granada_visual_review.cjs');
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/granada-177-g5-native-visual-review.yml'),'utf8');
+const shippingWorkflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/build-foamlens-desktop.yml'),'utf8');
 const commit='1234567890abcdef1234567890abcdef12345678';
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 
@@ -67,6 +68,31 @@ try{
       'Windows candidate artifact download and offline report remain manual');
     assert(!workflow.includes('gh release create'));
   });
+  test('original Windows build publishes an honest 36-slot offline report but never grants visual approval',()=>{
+    assert(shippingWorkflow.includes('G5 generate offline full-workspace visual review'),
+      'Every native build must preserve the full-workspace review matrix');
+    assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Review.html'));
+    assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Matrix.json'));
+    assert(shippingWorkflow.includes("if ($review.human_approved -ne $false)"),
+      'Automated capture must never confer aesthetic acceptance');
+    const captureStep=shippingWorkflow.slice(shippingWorkflow.indexOf('G5 generate offline full-workspace visual review'),
+      shippingWorkflow.indexOf('Sync canonical Windows ICO'));
+    assert(captureStep.includes('exit 0')&&captureStep.includes('Write-Warning'),
+      'Partial native visual evidence must remain a publication failure, not a product build failure');
+    // Git for Windows may check out workflow YAML with CRLF. Normalize only
+    // the test's text search; do not alter or weaken the publishing gate.
+    const normalized=shippingWorkflow.replace(/\r\n/g,'\n');
+    const publishStart=normalized.indexOf('\n  publish:\n');
+    assert(publishStart>=0,'Native shipping workflow must retain its publish job');
+    const publish=normalized.slice(publishStart);
+    assert(publish.includes('G5 block stable release without original 36-slot Windows workspace evidence'),
+      'Stable publication must separately enforce all 36 native UI slots');
+    assert(publish.includes('node tools/granada_visual_review.cjs'));
+    assert(publish.includes('--sha "$GITHUB_SHA" --setup "$setup" --portable "$portable" --strict'),
+      'Strict gate must be tied to exact source SHA and both shipped native binaries');
+    assert(publish.indexOf('G5 block stable release')<publish.indexOf('G21 rebind exact signed Windows-native attestation'),
+      'No later publish integrity step may substitute for missing native screenshots');
+  });
   test('only authentic schema, source SHA, distinct installed/portable artifact bindings qualify',()=>{
     const data=audit(doc,opts);
     assert.equal(data.status,'REQUIRES_HUMAN_REVIEW');
@@ -114,6 +140,44 @@ try{
     const data=audit(bad,opts);
     assert.equal(data.status,'INVALID');
     assert(data.issues.some(i=>i.code==='same-image-different-tabs'));
+  });
+  test('same tab cannot reuse an installed screenshot as portable evidence',()=>{
+    const bad=structuredClone(doc);
+    const original=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const copied=bad.screenshots.find(x=>x.runtime_variant==='portable'&&x.viewport==='wide'&&x.surface==='home');
+    copied.path=original.path;
+    copied.sha256=original.sha256;
+    copied.width=original.width;
+    copied.height=original.height;
+    const report=audit(bad,opts);
+    assert.equal(report.status,'INCOMPLETE','Same-workspace equal pixels are ambiguous, not proof of corruption');
+    assert(report.issues.some(x=>x.level==='warning'&&x.code==='indistinguishable-same-workspace'&&
+      x.detail.includes('installed|wide|home')&&x.detail.includes('portable|wide|home')));
+    assert.equal(report.captured_slots,35,'Equal pixels may not count as independently verified native captures');
+  });
+  test('same tab cannot reuse a wide screenshot as compact evidence',()=>{
+    const bad=structuredClone(doc);
+    const original=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const copied=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='compact'&&x.surface==='home');
+    copied.path=original.path;
+    copied.sha256=original.sha256;
+    copied.width=original.width;
+    copied.height=original.height;
+    const report=audit(bad,opts);
+    assert.equal(report.status,'INCOMPLETE');
+    assert(report.issues.some(x=>x.level==='warning'&&x.code==='indistinguishable-same-workspace'&&
+      x.detail.includes('installed|compact|home')));
+    assert.equal(report.captured_slots,35);
+  });
+  test('current 4-workspace source coverage cannot be called a complete 36-slot visual review',()=>{
+    const partial=structuredClone(doc);
+    partial.screenshots=partial.screenshots.filter(x=>['home','about','data','field'].includes(x.surface));
+    const report=audit(partial,opts);
+    assert.equal(report.status,'INCOMPLETE');
+    assert.equal(report.captured_slots,16);
+    assert.equal(report.required_slots,36);
+    assert.deepEqual(report.missing_surfaces.sort(),
+      ['time-series','field-compare','analysis','review','live'].sort());
   });
 
   test('G71 rejects synthetic markers, tiny PNGs, IHDR spoofs, appended bytes and corrupt image payloads',()=>{

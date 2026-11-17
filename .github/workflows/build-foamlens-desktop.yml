@@ -1051,6 +1051,42 @@ jobs:
           python tools/visual_release_gate.py --manifest artifacts/visual/manifest.json --source-sha $env:GITHUB_SHA --platforms windows --surfaces home,about,data,field --capture-only --require-portable --artifact "artifacts/FoamLens-Setup-v$v.exe" --portable-artifact "artifacts/FoamLens-Portable-v$v.exe" @realMultiregion
           if ($LASTEXITCODE -ne 0) { throw 'Rendered UI evidence failed: missing, blank, stale, or incorrect screenshots.' }
 
+      # The shipping smoke covers only Home/About/Data/Field. Preserve the
+      # exact Setup/Portable-bound 36-slot matrix (including missing workspaces)
+      # for owner inspection instead of equating 16 captured images to approval.
+      - name: G5 generate offline full-workspace visual review (no artificial approval)
+        shell: pwsh
+        run: |
+          node tools/test_granada_visual_review.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'G5 visual-review regression failed.' }
+          $v='${{ steps.ver.outputs.version }}'
+          node tools/granada_visual_review.cjs --manifest artifacts/visual/manifest.json --output artifacts/visual/FoamLens-G5-Review.html --json artifacts/visual/FoamLens-G5-Matrix.json --sha $env:GITHUB_SHA --setup "artifacts/FoamLens-Setup-v$v.exe" --portable "artifacts/FoamLens-Portable-v$v.exe"
+          $reviewExit=$LASTEXITCODE
+          $review=Get-Content artifacts/visual/FoamLens-G5-Matrix.json -Raw | ConvertFrom-Json
+          $missing=($review.missing_surfaces -join ', ')
+          $ambiguous=@($review.issues | Where-Object { $_.code -eq 'indistinguishable-same-workspace' }).Count
+          Write-Host "G5 original native review: $($review.status); $($review.captured_slots)/$($review.required_slots) independently proven UI capture slots; ambiguous identical pixels: $ambiguous; missing: $missing"
+          if ($review.human_approved -ne $false) { throw 'Automated G5 review must never claim owner approval.' }
+          @(
+            "### FoamLens G5 original Windows UI review",
+            "- Exact SHA: $env:GITHUB_SHA",
+            "- Setup/Portable: $($review.captured_slots)/$($review.required_slots) native screenshots",
+            "- Result: **$($review.status)** (not owner approval)",
+            "- Identical-looking same-workspace captures without independent pixel evidence: $ambiguous",
+            "- Missing workspaces: $missing",
+            "- Download the FoamLens-Windows build artifact to inspect visual/FoamLens-G5-Review.html"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          if ($reviewExit -ne 0 -or $review.status -ne 'REQUIRES_HUMAN_REVIEW') {
+            # Retain the original bytes and explanation for triage; any
+            # missing workspace continues to BLOCK stable release below.
+            Write-Warning 'G5 native matrix is incomplete/invalid; stable publication must remain blocked.'
+          }
+          # The native build tests legitimate original product + QA independently.
+          # A partial G5 gallery must block publish, NOT erase a passing Setup /
+          # Portable smoke. An invalid report and its raw images stay in the
+          # artifact for diagnosis; --strict in publish still exits non-zero.
+          exit 0
+
       - name: Sync canonical Windows ICO for future design builds
         if: ${{ startsWith(github.ref, 'refs/heads/design/') }}
         shell: bash
@@ -1141,6 +1177,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Verify automated screenshot and exact-artifact integrity
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1171,6 +1210,22 @@ jobs:
                   raise SystemExit(f'BLOCKED: missing or incorrect SHA-256 sidecar: {sidecar}')
           print('Release installer, portable, screenshot evidence and both sidecars verified:',digest,pdigest)
           PY
+      # Fail closed at the FINAL publishing boundary, not the developer build:
+      # a valid Home/About/Data/Field-only manifest is 16/36, not an owner
+      # approved 36-workspace review. The reviewed image source must be the
+      # same exact installed/portable binary bytes used by this publish job.
+      - name: G5 block stable release without original 36-slot Windows workspace evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup="$(find artifacts -maxdepth 1 -name 'FoamLens-Setup-v*.exe' -print -quit)"
+          portable="$(find artifacts -maxdepth 1 -name 'FoamLens-Portable-v*.exe' -print -quit)"
+          test -n "$setup" && test -n "$portable"
+          node tools/granada_visual_review.cjs \
+            --manifest artifacts/visual/manifest.json \
+            --output artifacts/visual/FoamLens-G5-Review.html \
+            --json artifacts/visual/FoamLens-G5-Matrix.json \
+            --sha "$GITHUB_SHA" --setup "$setup" --portable "$portable" --strict
       - name: G21 rebind exact signed Windows-native attestation to downloaded stable assets
         if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: bash
