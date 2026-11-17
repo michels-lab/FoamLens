@@ -130,4 +130,17 @@ assert.match(associationStatus.textContent,/history generation: 3 across 1 case\
   'Actual Time Series source catalog counts three genuine associations, not one field name');
 assert.equal(costlyFrameReads,0,'Association inventory still must never parse physical frames');
 
+// Negative regression: JS Number() silently accepted binary/octal/hex strings
+// as OpenFOAM physical timestamps. No history may be made from those labels.
+const strictTimes=realApi.times(['0x10','0b11','0o7','2e1','-.5','+1.2','1e309','1_2','3.']);
+assert.deepStrictEqual(strictTimes,
+  {times:[-.5,1.2,3,20],invalid:5},
+  'Only signed decimal/scientific original OpenFOAM timestamps are physical');
+assert.deepStrictEqual(realApi.times(['0.0',0,'-0.0','0e0','1E-2','1e-2']),
+  {times:[0,.01],invalid:0},
+  'Numeric aliases of the same original physical time must not fabricate extra frames');
+assert.deepStrictEqual(realApi.times(['nan','Infinity','NaN','','   ',null,false]),
+  {times:[],invalid:7},
+  'Invalid metadata must not silently synthesize physical timestamps');
+
 console.log('Time Series field source catalog PASS: 4 available real case/region fields, vector components, visible generation with zero existing curves.');
