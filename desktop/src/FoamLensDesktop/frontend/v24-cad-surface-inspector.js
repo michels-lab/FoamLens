@@ -732,7 +732,8 @@ function cgRefreshExport(){
   select.innerHTML=parts.map(p=>'<option value="'+cgEscape(p.key)+'">'+cgEscape(p.label)+'</option>').join('');
   if(parts.some(p=>p.key===old))select.value=old;
   const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
-  exportBtn.disabled=!parts.length||!scale;
+  exportBtn.disabled=!parts.length||!scale||!model?.visible||
+    !model?.partsVisible?.get(key.slice(key.indexOf('|')+1));
   cgRefreshNativeCheck();
   if(batchBtn){
     const chosen=cgModels.filter(m=>m.visible).flatMap(m=>
@@ -921,6 +922,7 @@ async function cgImport(){
           throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
         // The COMPLETE native conversion is validated before any region is appended.
         cgModels.push(...prepared);
+        cgPreIsolationVisibility=null;
         added+=prepared.length
       }catch(e){errors.push(file.name+': '+String(e?.message||e))}
       if(cgBrepCancelled)break;
@@ -942,7 +944,11 @@ async function cgImport(){
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
   const unit=cgModels[index]?.unit,scale=cgUnitScale(unit);
-  if(sep<0||!scale||!cgModels[index]){cgShow('Confirm source units and choose a named part.');return}
+  if(sep<0||!scale||!cgModels[index]||!cgModels[index].visible||
+    !cgModels[index].partsVisible.get(part)){
+    cgShow(cgUi('Confirm units and select a visible named part.',
+      'Confirma unidades y selecciona una pieza visible.'));return
+  }
   const model=cgModels[index],subset=model.triangles.filter(t=>t.part===part),sum=cgSummary(subset),name=cgSafeName(part);
   if(sum.degenerate||sum.nonManifoldEdges||sum.boundaryEdges||sum.orientationConflicts){
     if(!window.confirm('This surface has topology warnings. Export as an unvalidated triSurface anyway?'))return
@@ -985,17 +991,26 @@ function cgDraw(){
     const a=cy*x+sy*z,b=-sy*x+cy*z;
     return [w/2+scale*a,h/2-scale*(cp*y-sp*b),sp*y+cp*b]
   };
-  const step=Math.max(1,Math.ceil(total/2800)),polys=[];
+  const step=Math.max(1,Math.ceil(total/2800)),polys=[],
+    selected=String(document.getElementById('cgPart')?.value||'');
   let ordinal=0;
   for(const model of active)for(const tri of model.triangles){
     if(!model.partsVisible.get(tri.part))continue;
     if((ordinal++%step)!==0)continue;
     const factor=physical?cgUnitScale(model.unit):1;
     const p=tri.vertices.map(v=>rotate(v,factor));
-    polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3})
+    const modelIndex=cgModels.indexOf(model);
+    polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3,
+      selected:selected===modelIndex+'|'+tri.part})
   }
   polys.sort((a,b)=>a.z-b.z);
-  for(const {p} of polys){ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();ctx.fillStyle='rgba(65,170,205,.27)';ctx.fill();ctx.strokeStyle='rgba(121,209,243,.44)';ctx.lineWidth=.6;ctx.stroke()}
+  for(const {p,selected:chosen} of polys){
+    ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);
+    ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();
+    ctx.fillStyle=chosen?'rgba(252,180,65,.48)':'rgba(65,170,205,.27)';
+    ctx.fill();ctx.strokeStyle=chosen?'rgba(255,220,139,.95)':'rgba(121,209,243,.44)';
+    ctx.lineWidth=chosen?1.25:.6;ctx.stroke()
+  }
   ctx.font='12px sans-serif';ctx.fillStyle='#d6e7f1';
   const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  ('+(physical?'meters':'unverified source coordinates')+')',16,24);
   ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · selected visible parts only · not an OpenFOAM volume mesh',16,h-15)
@@ -1014,6 +1029,9 @@ function cgInstall(){
     '#cgShell #cgCanvas{display:block;width:100%;height:min(55vh,520px);min-height:260px;border:1px solid #3b5578;border-radius:12px;touch-action:none;cursor:grab}' +
     '#cgShell .cgItem{padding:11px;border:1px solid #37526e;border-radius:9px;margin:7px 0;font-size:12px;line-height:1.6}' +
     '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}' +
+    '#cgShell .cgModelTree>summary{cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}#cgShell .cgModelBody{display:grid;gap:8px;padding:9px 1px 2px}' +
+    '#cgShell .cgParts{display:grid;gap:7px}#cgShell .cgPartRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 8px;border:1px solid #29465d;border-radius:8px}' +
+    '#cgShell .cgPartRow label{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}#cgShell .cgPartRow [aria-current=true]{border-color:#fcc15a;color:#ffe1a0}' +
     '#cgShell #cgSurfaceCheckOutput{white-space:pre-wrap;overflow-wrap:anywhere;max-height:270px;overflow:auto;border:1px solid #37526e;border-radius:9px;padding:11px;background:#101b2c;color:#d6e7f1;font-size:11px}';
   document.head.appendChild(css);
   sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">STL/OBJ/ZIP import is local. STEP/IGES/BREP uses real FreeCAD/OpenCascade when FreeCADCmd is installed in default WSL; verify source dimensions/units. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
@@ -1021,7 +1039,12 @@ function cgInstall(){
     '<button class="btn" data-cg-view="iso">Isometric</button><button class="btn" data-cg-view="top">Top</button><button class="btn" data-cg-view="front">Front</button><button class="btn" data-cg-view="side">Right</button><button class="btn" data-cg-view="fit">Fit</button></div>'+
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
     '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ, FoamLens ZIP or STEP/IGES/BREP. CAD BREP requires native Windows and installed FreeCADCmd in default WSL. Imported FreeCAD coordinates are millimeters but MUST be confirmed before SI export.</div>'+
-    '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
+    '<div class="cgTools" role="group" aria-label="CAD model and named part visibility">'+
+    '<button class="btn soft" id="cgPartsShowAll" type="button">Show all parts</button>'+
+    '<button class="btn soft" id="cgPartsHideAll" type="button">Hide all parts</button>'+
+    '<button class="btn" id="cgRestoreVisibility" type="button" disabled>Restore previous visibility</button>'+
+    '<span class="cgNotice" id="cgVisibleCount" aria-live="polite"></span></div>'+
+    '<div id="cgInventory" aria-label="Imported CAD model and named-part tree"></div>'+
     '<div class="cgTools">'+
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
     '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
@@ -1042,10 +1065,13 @@ function cgInstall(){
   document.getElementById('cgCadCancelImport').onclick=cgCancelBrepImport;
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
+  document.getElementById('cgPartsShowAll').onclick=()=>cgChangePartSelection('show');
+  document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
+  document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
   document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
   document.getElementById('cgSurfaceCheckCancel').onclick=()=>cgNativeCheckCancel?.();
   document.getElementById('cgSurfaceCheckExport').onclick=cgExportNativeCheckReport;
-  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck()});
+  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck();cgDraw()});
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
   });
