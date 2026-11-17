@@ -188,6 +188,37 @@ try{
       x.detail.includes('installed|compact|home')));
     assert.equal(report.captured_slots,35);
   });
+  test('identical pixels only count twice with real-process receipt binding and separate sessions',()=>{
+    const altered=structuredClone(doc);
+    const installed=altered.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const portable=altered.screenshots.find(x=>x.runtime_variant==='portable'&&x.viewport==='wide'&&x.surface==='home');
+    const bytes=fs.readFileSync(path.join(root,installed.path));
+    const sha=digest(bytes);
+    for(const [shot,variant,session,processId] of [
+      [installed,'installed','a'.repeat(32),1024],[portable,'portable','b'.repeat(32),2048]]){
+      shot.path='receipted-'+variant+'-home.png';
+      fs.writeFileSync(path.join(root,shot.path),bytes);
+      shot.sha256=sha;shot.width=1140;shot.height=720;
+      const receipt={schema:'foamlens/native-cdp-capture-receipt/1',session,processId,
+        method:'Page.captureScreenshot',file:shot.path,sha256:sha,
+        capturedAtUtc:'2026-11-17T21:00:00+00:00',version:'1.8.15'};
+      const receiptBytes=Buffer.from(JSON.stringify(receipt));
+      fs.writeFileSync(path.join(root,shot.path+'.receipt.json'),receiptBytes);
+      shot.native_capture={...receipt,receiptSha256:digest(receiptBytes)};
+    }
+    const accepted=audit(altered,opts);
+    assert.equal(accepted.status,'REQUIRES_HUMAN_REVIEW');
+    assert.equal(accepted.captured_slots,36);
+    assert(accepted.issues.some(x=>x.code==='independent-identical-native-pixels'&&x.level==='info'));
+    const sameProcess=structuredClone(altered);
+    const p=sameProcess.screenshots.find(x=>x.path==='receipted-portable-home.png');
+    p.native_capture.session='a'.repeat(32);
+    assert.equal(audit(sameProcess,opts).status,'INVALID',
+      'A manifest cannot forge the native process receipt on disk');
+    const fakeDigest=structuredClone(altered);
+    fakeDigest.screenshots.find(x=>x.path==='receipted-portable-home.png').native_capture.receiptSha256='0'.repeat(64);
+    assert(audit(fakeDigest,opts).issues.some(x=>x.code==='invalid-native-receipt'));
+  });
   test('current 4-workspace source coverage cannot be called a complete 36-slot visual review',()=>{
     const partial=structuredClone(doc);
     partial.screenshots=partial.screenshots.filter(x=>['home','about','data','field'].includes(x.surface));
