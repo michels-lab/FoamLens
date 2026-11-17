@@ -227,6 +227,153 @@ function cgVisibleRegionBatch(models){
   return {files,manifest,topologyWarnings}
 }
 
+// Granada CAD F4 — selection- and distribution-specific staging ONLY.
+// The original batch exporter remains the sole owner of physical STL values.
+// A staging ZIP has no executable mesh dictionary or automatic case writes.
+const cgOpenFoamRoleNames=['unassigned','metal','mold','interface','wall','inlet','outlet','other'];
+function cgOpenFoamTarget(target){
+  if(target==='foundation13')
+    return{code:target,label:'OpenFOAM Foundation v13-style',
+      caseGeometryDir:'constant/geometry',geometryType:'triSurface',
+      guide:'https://openfoam.org/download/13-source/'};
+  if(target==='openfoamcom')
+    return{code:target,label:'OpenFOAM.com snappyHexMesh',
+      caseGeometryDir:'constant/'+'tri'+'Surface',geometryType:'triSurfaceMesh',
+      guide:'https://doc.openfoam.com/2606/tools/pre-processing/mesh/generation/snappyhexmesh/geometry/'};
+  throw Error('Select and verify your OpenFOAM distribution before geometry staging')
+}
+function cgOpenFoamPrepare(models,target,roles=new Map()){
+  if(!(roles instanceof Map))throw Error('Invalid explicit CAD role mapping');
+  const edition=cgOpenFoamTarget(target),batch=cgVisibleRegionBatch(models);
+  const payloadFiles=batch.files.filter(f=>f.name!=='manifest.json');
+  // The original, uncompressed FoamLens ZIP has 1001-entry capacity.
+  // Four non-STL guide entries leave room for at most 997 named regions.
+  if(batch.manifest.regionCount>997)
+    throw Error('OpenFOAM staging supports at most 997 visible named regions per ZIP');
+  if(payloadFiles.length!==batch.manifest.regionCount)
+    throw Error('Original named region STL count differs from its manifest');
+  const files=[],regions=[],geometry=[],boundsMin=[Infinity,Infinity,Infinity],
+    boundsMax=[-Infinity,-Infinity,-Infinity],keys=new Set();
+  for(let k=0;k<batch.manifest.regions.length;k++){
+    const original=batch.manifest.regions[k],file=payloadFiles[k];
+    if(!file||original.outputFile!==file.name)
+      throw Error('Original region output and binary STL source ordering differ');
+    const basename=file.name.split('/').at(-1);
+    if(!/^[a-zA-Z0-9_.-]+\.stl$/.test(basename)||!basename)
+      throw Error('Unsafe STL basename for OpenFOAM geometry');
+    const numeric=/^surfaces\/model([0-9]+)_region([0-9]+)_/.exec(file.name);
+    if(!numeric)throw Error('Unknown original CAD model/region source identity');
+    const modelIndex=Number(numeric[1])-1;
+    if(!Number.isInteger(modelIndex)||modelIndex<0||modelIndex>=models.length||
+      models[modelIndex].name!==original.sourceFile||
+      !models[modelIndex].partsVisible.has(original.part))
+      throw Error('Source CAD model/part identity is not verifiable');
+    const roleKey=modelIndex+'|'+original.part,role=roles.get(roleKey)||'unassigned';
+    if(!cgOpenFoamRoleNames.includes(role))
+      throw Error('Unknown explicit OpenFOAM region role; no role may be guessed');
+    const base=basename.slice(0,-4),geometryName=target==='foundation13'?
+      'geom_'+base:basename;
+    if(keys.has(geometryName))throw Error('Duplicate OpenFOAM geometry dictionary key');
+    keys.add(geometryName);
+    const path='staging/'+edition.caseGeometryDir+'/'+basename;
+    // Never rerun meshing or rescale STL. Binary bytes and source topology
+    // originate from cgVisibleRegionBatch and remain unchanged.
+    files.push({name:path,data:file.data});
+    const sourceBounds=original.sourceTopology?.bounds,scale=original.sourceToMeterScale;
+    if(!sourceBounds||!Array.isArray(sourceBounds.min)||
+      !Array.isArray(sourceBounds.max)||sourceBounds.min.length!==3||
+      sourceBounds.max.length!==3||!(scale>0&&Number.isFinite(scale)))
+      throw Error('Original CAD physical bounds and source unit cannot be verified');
+    const min=sourceBounds.min.map(v=>v*scale),
+      max=sourceBounds.max.map(v=>v*scale);
+    if(!min.every(Number.isFinite)||!max.every(Number.isFinite)||
+      min.some((v,i)=>v>max[i]))
+      throw Error('Invalid finite physical CAD bounds');
+    for(let i=0;i<3;i++){
+      boundsMin[i]=Math.min(boundsMin[i],min[i]);
+      boundsMax[i]=Math.max(boundsMax[i],max[i])
+    }
+    const prepared={...original,outputFile:path,
+      originalBatchOutputFile:file.name,originalModelIndex:modelIndex,
+      geometryName,regionRoleSelectedByUser:role,
+      sourceRoleInferred:false,distributionGeometryDirectory:edition.caseGeometryDir,
+      boundsMinMeters:min,boundsMaxMeters:max};
+    regions.push(prepared);
+    geometry.push(target==='foundation13'?
+      '    '+geometryName+'\n    {\n        type triSurface;\n        file "'+basename+'";\n    }':
+      '    '+basename+'\n    {\n        type triSurfaceMesh;\n    }')
+  }
+  if(!regions.length)throw Error('No source CAD regions selected for OpenFOAM');
+  const size=boundsMax.map((v,i)=>v-boundsMin[i]);
+  const domain={boundsMinMeters:boundsMin,boundsMaxMeters:boundsMax,
+    boundsSizeMeters:size,thinAxes:size.flatMap((v,i)=>v<=0?['XYZ'[i]]:[]),
+    status:'surface bounds only; NOT a blockMeshDict or automatically chosen fluid domain'};
+  const geometryText='// FoamLens original triSurface input for '+edition.label+
+    '\n// Copy the geometry block into an existing, verified system/snappyHexMeshDict.\n'+
+    '// NOT a complete runnable snappyHexMeshDict. Inspect every physical patch and interface.\n'+
+    '// Original named part roles and units are recorded in preparation.json.\n'+
+    'geometry\n{\n'+geometry.join('\n\n')+'\n};\n';
+  const manifest={schema:'foamlens/openfoam-geometry-staging/1',
+    sourceSchema:batch.manifest.schema,target:edition.code,
+    targetLabel:edition.label,targetSelectedByUser:true,
+    installedOpenFoamVerified:false,geometryType:edition.geometryType,
+    geometryDirectoryRelativeToCase:edition.caseGeometryDir,
+    geometrySnippet:'staging/system/snappyHexMesh.geometry.foamlens',
+    blockMeshBounds:'staging/system/blockMesh.bounds.foamlens.json',
+    regionCount:regions.length,triangleCount:batch.manifest.triangleCount,
+    topologyWarnings:batch.topologyWarnings,rolesAssigned:regions.filter(r=>
+      r.regionRoleSelectedByUser!=='unassigned').length,regions,
+    surfaceDomainMeters:domain,openFoamCaseMutated:false,
+    toolsExecuted:[],volumeMeshCreated:false,
+    limitations:['This archive is staging only and does not modify an OpenFOAM case.',
+      'The selected OpenFOAM distribution and installed version have NOT been detected.',
+      'An STL is a triangulated surface, not a fluid or solid polyMesh.',
+      'blockMesh domain, background cell sizes, refinement levels, insidePoint/locationInMesh and boundary patches require physical design.',
+      'Named CAD parts/roles do not prove shared metal-mold interfaces or region quality.',
+      'Boundary/winding tests do not certify self-intersection-free watertight surfaces.']};
+  const readme=[
+    'FOAMLENS — OPENFOAM GEOMETRY STAGING (NO MESH GENERATED)',
+    'Target selected by user: '+edition.label,
+    'Expected installed case directory: '+edition.caseGeometryDir,
+    'Geometry declaration type: '+edition.geometryType,
+    'Original surfaces: '+regions.length+' | topology warnings: '+batch.topologyWarnings,
+    'Assigned roles (by user): '+manifest.rolesAssigned+' / '+regions.length,
+    '',
+    '1. VERIFY your installed distribution and version (foamVersion, which snappyHexMesh).',
+    '   The chosen distribution has NOT been detected or validated automatically.',
+    '2. Review preparation.json (original model, part, units, role and bounds per STL).',
+    '   All exported STL coordinates are meters; original STL/OBJ unit was confirmed by user.',
+    '3. Copy STLs from staging/'+edition.caseGeometryDir+' to YOUR verified case/'+edition.caseGeometryDir+'.',
+    '   Do not unpack this ZIP directly over a working case or overwrite existing STL/dictionaries.',
+    '4. Review staging/system/snappyHexMesh.geometry.foamlens and carefully merge its',
+    '   geometry block into YOUR version-compatible system/snappyHexMeshDict.',
+    '   The geometry fragment is NOT a complete snappyHexMeshDict.',
+    '5. Define the real physical domain and cell density for system/blockMeshDict.',
+    '   blockMesh.bounds.foamlens.json is a bounds REPORT, not a runnable dictionary.',
+    '6. Choose refinementSurfaces, region/cellZones/faceZones, internal point',
+    '   (insidePoint or locationInMesh depending on version), patch/BC naming and',
+    '   metal-mold interfaces. The selected role labels do NOT generate interfaces.',
+    '7. Run surfaceCheck on EACH relevant staged STL in your installed OpenFOAM',
+    '   environment, review open/non-manifold edges and self-intersection outcomes.',
+    '   Do not assume the FoamLens topology preview certifies a closed solid.',
+    '8. When independently reviewed, run blockMesh, snappyHexMesh, checkMesh',
+    '   and region/interface validation manually in a COPY of your CFD case.',
+    '   This ZIP ran none of these tools and did not write any OpenFOAM case.',
+    '',
+    'Geometry keys (same order as exported STLs):',
+    ...regions.map(r=>'  '+r.geometryName+' -> '+r.outputFile+
+      ' | role='+r.regionRoleSelectedByUser+' | original='+r.sourceFile+' / '+r.part),
+    '',
+    'Reference documentation: '+edition.guide,
+    ''
+  ].join('\n');
+  files.push({name:manifest.geometrySnippet,data:geometryText});
+  files.push({name:manifest.blockMeshBounds,data:JSON.stringify(domain,null,2)+'\n'});
+  files.push({name:'preparation.json',data:JSON.stringify(manifest,null,2)+'\n'});
+  files.push({name:'README-OPENFOAM-STAGING.txt',data:readme});
+  return {files,manifest,geometryText,readme,target:edition,domain}
+}
+
 // CAD original model/part visibility ownership. These functions never
 // modify triangles, confirmed source units, imported files or the CFD case.
 function cgVisibilitySnapshot(models){
@@ -424,6 +571,79 @@ function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{re
 function cgEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cgModels=[],cgYaw=.55,cgPitch=-.4,cgZoom=1,cgActive=false;
 let cgPreIsolationVisibility=null;
+// Region roles are explicit annotations of imported CAD model+named part.
+// They never rename the STL, assert an interface, or change source geometry.
+const cgOpenFoamRoleByModel=new WeakMap();
+const cgUiOpenFoamRoles=[
+  ['unassigned','Unassigned / Sin asignar'],['metal','Metal'],
+  ['mold','Mold / Molde'],['interface','Interface / Interfaz'],
+  ['wall','Wall / Pared'],['inlet','Inlet / Entrada'],
+  ['outlet','Outlet / Salida'],['other','Other / Otro']
+];
+function cgOpenFoamGetRole(model,part){
+  return cgOpenFoamRoleByModel.get(model)?.get(part)||'unassigned'
+}
+function cgOpenFoamSetRole(index,part,role){
+  const model=cgModels[index];
+  if(!Number.isInteger(index)||!model?.partsVisible?.has(part)||
+    !cgUiOpenFoamRoles.some(([v])=>v===role))
+    throw Error('Invalid original model/part or user-selected role');
+  let roles=cgOpenFoamRoleByModel.get(model);
+  if(!roles){roles=new Map();cgOpenFoamRoleByModel.set(model,roles)}
+  roles.set(part,role);cgRefreshOpenFoamPrep()
+}
+function cgOpenFoamRoleMap(){
+  const selected=new Map();
+  cgModels.forEach((m,i)=>{
+    for(const part of m.partsVisible.keys())
+      selected.set(i+'|'+part,cgOpenFoamGetRole(m,part))
+  });
+  return selected
+}
+function cgRefreshOpenFoamPrep(){
+  const btn=document.getElementById('cgExportOpenFoamPrep'),
+    target=document.getElementById('cgOpenFoamTarget'),
+    status=document.getElementById('cgOpenFoamPrepPreview');
+  if(!btn)return; // Standalone original CAD tests/older embedded layout.
+  const active=cgModels.filter(m=>m.visible).flatMap(m=>
+    [...m.partsVisible].filter(([,visible])=>visible).map(([part])=>({m,part}))),
+    validUnits=active.every(({m})=>cgUnitScale(m.unit)),
+    chosen=String(target?.value||'');
+  btn.disabled=!active.length||!validUnits||!['foundation13','openfoamcom'].includes(chosen);
+  if(status){
+    const path=chosen==='foundation13'?'constant/geometry':
+      chosen==='openfoamcom'?'constant/'+'tri'+'Surface':'—',
+      assigned=active.filter(({m,part})=>cgOpenFoamGetRole(m,part)!=='unassigned').length;
+    status.textContent=active.length+
+      cgUi(' selected visible CAD regions; ',' regiones CAD visibles seleccionadas; ')+
+      assigned+cgUi(' explicitly annotated. Target: ',' anotadas explícitamente. Destino: ')+
+      path+'. '+(!validUnits?cgUi('Confirm all visible source units.',
+        'Confirma las unidades de todas las fuentes visibles.'):
+        !chosen?cgUi('Choose your OpenFOAM edition.',
+          'Selecciona tu edición OpenFOAM.'):
+          cgUi('Staging ZIP only; no blockMesh/polyMesh or CFD case modification.',
+            'Solo ZIP de preparación, sin blockMesh/polyMesh ni cambios al caso CFD.'))
+  }
+}
+function cgExportOpenFoamPrep(){
+  try{
+    const chosen=String(document.getElementById('cgOpenFoamTarget')?.value||''),
+      prepared=cgOpenFoamPrepare(cgModels,chosen,cgOpenFoamRoleMap());
+    if(prepared.manifest.topologyWarnings&&!window.confirm(
+      prepared.manifest.topologyWarnings+' original CAD regions have topology warnings. '+
+      'Prepare unvalidated surface STL anyway? No mesh will be generated.'))return;
+    const bytes=cgStoreZip(prepared.files);
+    cgDownloadZip('FoamLens-OpenFOAM-'+chosen+'-geometry-staging.zip',bytes);
+    cgShow(cgUi('Prepared ','Preparadas ')+prepared.manifest.regionCount+
+      cgUi(' original regions for ',' regiones originales para ')+prepared.target.label+
+      cgUi('. Inspect the ZIP: geometry snippet, original SI STL, bounds and README. NO mesh or case changes.',
+        '. Revisa el ZIP: declaración, STL en SI, dimensiones y guía. SIN malla ni cambios al caso.'))
+  }catch(err){
+    cgShow(cgUi('OpenFOAM preparation blocked: ','Preparación OpenFOAM bloqueada: ')+
+      String(err?.message||err))
+  }
+}
+
 const cgTreeOpen=new Set(),cgTreeKnown=new Set();
 function cgUpdatePartControls(){
   const c=cgVisiblePartTotals(cgModels),
@@ -655,7 +875,12 @@ function cgRenderInventory(){
           (selectedPart===key?'aria-current="true"':'')+'>'+
           cgUi('Select','Seleccionar')+'</button>'+
         '<button type="button" class="btn tiny" data-cg-isolate="'+cgEscape(key)+'">'+
-          cgUi('Isolate','Aislar')+'</button></div>'
+          cgUi('Isolate','Aislar')+'</button>'+
+        '<label>'+cgUi('Region role','Función de región')+' <select data-cg-role="'+cgEscape(key)+'" aria-label="'+
+          cgUi('OpenFOAM region role for ','Función OpenFOAM de ')+cgEscape(p.name)+'">'+
+          cgUiOpenFoamRoles.map(([value,label])=>'<option value="'+value+'" '+
+            (cgOpenFoamGetRole(m,p.name)===value?'selected':'')+'>'+cgEscape(label)+'</option>').join('')+
+          '</select></label></div>'
     }).join('');
     return '<details class="cgItem cgModelTree" data-cg-tree="'+i+'"'+open+'>'+
       '<summary><strong>'+cgEscape(m.name)+'</strong> · '+sum.triangles+
@@ -718,11 +943,16 @@ function cgRenderInventory(){
     const {i,part}=decode(button.dataset.cgIsolate);
     cgIsolateNamedPart(i,part)
   }));
+  el.querySelectorAll('[data-cg-role]').forEach(sel=>sel.addEventListener('change',()=>{
+    const {i,part}=decode(sel.dataset.cgRole);
+    try{cgOpenFoamSetRole(i,part,sel.value)}
+    catch(err){cgShow(String(err?.message||err))}
+  }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
     m.unit=sel.value;cgRenderInventory()
   }));
-  cgRefreshExport();cgUpdatePartControls();cgDraw()
+  cgRefreshExport();cgUpdatePartControls();cgRefreshOpenFoamPrep();cgDraw()
 }
 function cgRefreshExport(){
   const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
@@ -745,6 +975,7 @@ function cgRefreshExport(){
       cgUi('Separate binary STL per visible region, with manifest, in one ZIP.',
         'STL binario independiente por región visible con manifiesto en un ZIP.')
   }
+  cgRefreshOpenFoamPrep();
   const note=document.getElementById('cgUnitWarning');
   if(note)note.textContent=scale?
     cgUi('Selected source coordinate unit explicitly mapped to meters. Verify dimensions before using OpenFOAM.','Unidad de origen seleccionada; conversión a metros. Comprueba las dimensiones antes de usar OpenFOAM.'):
@@ -1049,6 +1280,16 @@ function cgInstall(){
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
     '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
+    '<div class="cgTools" role="group" aria-label="OpenFOAM mesh preparation staging">'+
+    '<label>'+cgUi('OpenFOAM target','Edición OpenFOAM')+
+      ' <select id="cgOpenFoamTarget" aria-label="Select installed OpenFOAM edition before staging">'+
+      '<option value="">'+cgUi('Choose edition','Elegir edición')+'</option>'+
+      '<option value="foundation13">Foundation v13/v14 (review installed version)</option>'+
+      '<option value="openfoamcom">OpenFOAM.com (review installed version)</option>'+
+      '</select></label>'+
+    '<button class="btn primary" id="cgExportOpenFoamPrep" type="button" disabled>'+
+      cgUi('Prepare OpenFOAM geometry ZIP','Preparar ZIP de geometría OpenFOAM')+'</button></div>'+
+    '<p id="cgOpenFoamPrepPreview" class="cgNotice" aria-live="polite"></p>'+
     '<div class="cgTools"><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
     '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
     '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
@@ -1065,6 +1306,8 @@ function cgInstall(){
   document.getElementById('cgCadCancelImport').onclick=cgCancelBrepImport;
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
+  document.getElementById('cgExportOpenFoamPrep').onclick=cgExportOpenFoamPrep;
+  document.getElementById('cgOpenFoamTarget').addEventListener('change',cgRefreshOpenFoamPrep);
   document.getElementById('cgPartsShowAll').onclick=()=>cgChangePartSelection('show');
   document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
   document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
@@ -1084,4 +1327,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,openFoamTarget:cgOpenFoamTarget,prepareOpenFoamGeometry:cgOpenFoamPrepare,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};

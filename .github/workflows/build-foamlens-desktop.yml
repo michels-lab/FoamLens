@@ -680,6 +680,14 @@ jobs:
         shell: pwsh
         run: node desktop/tests/cad-assembly-visibility.test.cjs
 
+      - name: Test OpenFOAM Foundation and .com geometry staging with SI source provenance
+        shell: pwsh
+        run: node desktop/tests/cad-openfoam-staging.test.cjs
+
+      - name: Test OpenFOAM source-role edition selector and staged ZIP UI
+        shell: pwsh
+        run: node desktop/tests/cad-openfoam-staging-ui.test.cjs
+
       - name: Test original CAD native surfaceCheck request, cancellation and permission gates
         shell: pwsh
         run: node desktop/tests/cad-native-surfacecheck.test.cjs

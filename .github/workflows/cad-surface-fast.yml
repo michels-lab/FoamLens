@@ -14,6 +14,8 @@ on:
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   pull_request:
     paths:
@@ -28,6 +30,8 @@ on:
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   workflow_dispatch:
 
@@ -44,6 +48,10 @@ jobs:
         run: node desktop/tests/cad-surface-inspector.test.cjs
       - name: Original CAD model to part tree selection, isolation, restoration and visible export
         run: node desktop/tests/cad-assembly-visibility.test.cjs
+      - name: OpenFOAM Foundation vs .com staging of original physical STL surfaces and geometry references
+        run: node desktop/tests/cad-openfoam-staging.test.cjs
+      - name: CAD OpenFOAM staging UI with edition gate and explicit per-part role mapping
+        run: node desktop/tests/cad-openfoam-staging-ui.test.cjs
       - name: Native WSL surfaceCheck browser request and fail-closed tests
         run: node desktop/tests/cad-native-surfacecheck.test.cjs
       - name: FreeCAD OCCT source-owned native frontend, cancellation and provenance
