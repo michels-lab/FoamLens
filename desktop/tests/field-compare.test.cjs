@@ -14,7 +14,7 @@ const end='/* FOAMLENS_FIELD_COMPARE_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field compare core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fcCloseTime,fcNearestTime,fcTimeBracket,fcResolveTime,fcInterpolateValues,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcArrayEqualNumeric,fcMeshesEquivalent,fcDifferenceValues,fcDifferenceRange,fcSymmetricDifferenceRange};')();
+const api=new Function(core+';return {fcPhysicalNumber,fcCloseTime,fcNearestTime,fcTimeBracket,fcResolveTime,fcInterpolateValues,fcSharedRange,fcMeshDiag,fcSyncedCamera,fcArrayEqualNumeric,fcMeshesEquivalent,fcDifferenceValues,fcDifferenceRange,fcSymmetricDifferenceRange};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -38,6 +38,56 @@ test('missing physical time is never coerced to measured t=0 in 3D synchronizati
   assert.equal(api.fcTimeBracket([null,'',false,9.8],0).ok,false);
   assert.equal(api.fcResolveTime(['0','9.8'],'0','exact').ok,true);
   near(api.fcNearestTime(['0','9.8'],9.7),9.8);
+});
+
+test('independent B/C/D controls reject blank and nonphysical timestamps instead of inventing t=0',()=>{
+  const start=source.indexOf('function fcSetIndependentTime(view,value){'),
+    end=source.indexOf('// Independent playback is one timer',start);
+  assert(start>=0&&end>start,'Must test original independent time setter');
+  const active={enabled:true,timeTarget:9.8,timeSource:'B3|metal|T',
+    mesh:{},fieldValues:[1000],time:9.8},
+    other={id:3,timeTarget:9.8,timeSource:'C3|mold|T',
+      mesh:{},fieldValues:[273],time:9.8};
+  const calls=[];
+  let linked=false;
+  const choose=new Function('fcPhysicalNumber','fcTimesLinked','fcState',
+    'fcExtraViews','fcIndependentTimeSource','fcRefreshFrame','fcExtraRefreshFrame',
+    'fcScheduleToolbarSync','fcSetStatus',
+    source.slice(start,end)+';return fcSetIndependentTime;')(
+      api.fcPhysicalNumber,()=>linked,active,[other],
+      state=>({key:state===active?'B3|metal|T':'C3|mold|T',times:[0,9.8]}),
+      ()=>{calls.push('B');return Promise.resolve()},
+      state=>{calls.push('C');return Promise.resolve()},
+      ()=>{},()=>{});
+  for(const invalid of ['', ' ', null, undefined, false, true, '0x0',
+    '0b0','0o0','Infinity','NaN','0s','0,0',[],{}]){
+    assert.equal(choose('B',invalid),false,'Invalid input rejected: '+String(invalid));
+  }
+  assert.deepEqual(calls,[],'No frame load may be started for invalid time');
+  assert.equal(active.timeTarget,9.8,'B retains its last real physical timestamp');
+  assert.equal(choose('B','0'),true,'Explicit OpenFOAM decimal zero is physical');
+  assert.equal(active.timeTarget,0);
+  assert.equal(other.timeTarget,9.8,'Selecting B may not modify C');
+  assert.equal(choose(3,'0.0e0'),true,'C supports real scientific notation');
+  assert.equal(other.timeTarget,0);
+  assert.deepEqual(calls,['B','C'],'Only the selected view loads its own measured frame');
+  linked=true;
+  assert.equal(choose('B','9.8'),false,'Linked time mode blocks independent edits');
+  assert.deepEqual(calls,['B','C']);
+});
+
+test('3D comparison labels are HTML-escaped if the host helper is unavailable or throws',()=>{
+  const start=source.indexOf('function fcEsc(v){'),
+    end=source.indexOf('function fcFmt(v)',start);
+  assert(start>0&&end>start,'Production OpenFOAM label escaper missing');
+  const make=host=>new Function('fvEsc',source.slice(start,end)+';return fcEsc;')(host);
+  const hostile='<img src="x" onerror=\'alert(1)\'>&';
+  const escaped='&lt;img src=&quot;x&quot; onerror=&#39;alert(1)&#39;&gt;&amp;';
+  assert.equal(make(undefined)(hostile),escaped);
+  assert.equal(make(()=>{throw new Error('no escaper')})(hostile),escaped);
+  assert.equal(make(undefined)(null),'');
+  assert.equal(make(v=>'SAFE:'+v)('<region>'),'SAFE:<region>',
+    'An existing original host escaper remains authoritative');
 });
 
 test('3D compare ignores missing samples, malformed interpolation and invalid geometry',()=>{
