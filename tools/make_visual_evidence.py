@@ -112,8 +112,8 @@ def main():
                             or not isinstance(receipt.get("processId"), int)
                             or receipt["processId"] <= 0
                             or not isinstance(receipt.get("capturedAtUtc"), str)
-                            or not receipt["capturedAtUtc"].endswith("Z")
-                            or not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", str(receipt.get("version", "")))):
+                            or not receipt["capturedAtUtc"].endswith(("Z", "+00:00"))
+                            or not re.fullmatch(r"\d+\.\d+\.\d+", str(receipt.get("version", "")))):
                         raise SystemExit(f"Invalid source/process CDP capture receipt: {receipt_file}")
                     previous = native_sessions.setdefault(variant, receipt["session"])
                     if previous != receipt["session"]:
