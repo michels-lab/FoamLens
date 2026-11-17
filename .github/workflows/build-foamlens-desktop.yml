@@ -1064,13 +1064,15 @@ jobs:
           $reviewExit=$LASTEXITCODE
           $review=Get-Content artifacts/visual/FoamLens-G5-Matrix.json -Raw | ConvertFrom-Json
           $missing=($review.missing_surfaces -join ', ')
-          Write-Host "G5 original native review: $($review.status); $($review.captured_slots)/$($review.required_slots) native UI capture slots; missing: $missing"
+          $ambiguous=@($review.issues | Where-Object { $_.code -eq 'indistinguishable-same-workspace' }).Count
+          Write-Host "G5 original native review: $($review.status); $($review.captured_slots)/$($review.required_slots) independently proven UI capture slots; ambiguous identical pixels: $ambiguous; missing: $missing"
           if ($review.human_approved -ne $false) { throw 'Automated G5 review must never claim owner approval.' }
           @(
             "### FoamLens G5 original Windows UI review",
             "- Exact SHA: $env:GITHUB_SHA",
             "- Setup/Portable: $($review.captured_slots)/$($review.required_slots) native screenshots",
             "- Result: **$($review.status)** (not owner approval)",
+            "- Identical-looking same-workspace captures without independent pixel evidence: $ambiguous",
             "- Missing workspaces: $missing",
             "- Download the FoamLens-Windows build artifact to inspect visual/FoamLens-G5-Review.html"
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
@@ -1079,6 +1081,11 @@ jobs:
             # missing workspace continues to BLOCK stable release below.
             Write-Warning 'G5 native matrix is incomplete/invalid; stable publication must remain blocked.'
           }
+          # The native build tests legitimate original product + QA independently.
+          # A partial G5 gallery must block publish, NOT erase a passing Setup /
+          # Portable smoke. An invalid report and its raw images stay in the
+          # artifact for diagnosis; --strict in publish still exits non-zero.
+          exit 0
 
       - name: Sync canonical Windows ICO for future design builds
         if: ${{ startsWith(github.ref, 'refs/heads/design/') }}
