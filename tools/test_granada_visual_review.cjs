@@ -75,7 +75,12 @@ try{
     assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Matrix.json'));
     assert(shippingWorkflow.includes("if ($review.human_approved -ne $false)"),
       'Automated capture must never confer aesthetic acceptance');
-    const publish=shippingWorkflow.slice(shippingWorkflow.indexOf('\n  publish:\n'));
+    // Git for Windows may check out workflow YAML with CRLF. Normalize only
+    // the test's text search; do not alter or weaken the publishing gate.
+    const normalized=shippingWorkflow.replace(/\r\n/g,'\n');
+    const publishStart=normalized.indexOf('\n  publish:\n');
+    assert(publishStart>=0,'Native shipping workflow must retain its publish job');
+    const publish=normalized.slice(publishStart);
     assert(publish.includes('G5 block stable release without original 36-slot Windows workspace evidence'),
       'Stable publication must separately enforce all 36 native UI slots');
     assert(publish.includes('node tools/granada_visual_review.cjs'));
