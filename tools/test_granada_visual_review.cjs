@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),zlib=require('node:zlib');
 const {audit,render,main,MODES,VARIANTS,SIZES,png}=require('./granada_visual_review.cjs');
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/granada-177-g5-native-visual-review.yml'),'utf8');
+const shippingWorkflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/build-foamlens-desktop.yml'),'utf8');
 const commit='1234567890abcdef1234567890abcdef12345678';
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 
@@ -66,6 +67,22 @@ try{
     assert(workflow.includes("github.event_name == 'workflow_dispatch'"),
       'Windows candidate artifact download and offline report remain manual');
     assert(!workflow.includes('gh release create'));
+  });
+  test('original Windows build publishes an honest 36-slot offline report but never grants visual approval',()=>{
+    assert(shippingWorkflow.includes('G5 generate offline full-workspace visual review'),
+      'Every native build must preserve the full-workspace review matrix');
+    assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Review.html'));
+    assert(shippingWorkflow.includes('artifacts/visual/FoamLens-G5-Matrix.json'));
+    assert(shippingWorkflow.includes("if ($review.human_approved -ne $false)"),
+      'Automated capture must never confer aesthetic acceptance');
+    const publish=shippingWorkflow.slice(shippingWorkflow.indexOf('\n  publish:\n'));
+    assert(publish.includes('G5 block stable release without original 36-slot Windows workspace evidence'),
+      'Stable publication must separately enforce all 36 native UI slots');
+    assert(publish.includes('node tools/granada_visual_review.cjs'));
+    assert(publish.includes('--sha "$GITHUB_SHA" --setup "$setup" --portable "$portable" --strict'),
+      'Strict gate must be tied to exact source SHA and both shipped native binaries');
+    assert(publish.indexOf('G5 block stable release')<publish.indexOf('G21 rebind exact signed Windows-native attestation'),
+      'No later publish integrity step may substitute for missing native screenshots');
   });
   test('only authentic schema, source SHA, distinct installed/portable artifact bindings qualify',()=>{
     const data=audit(doc,opts);
