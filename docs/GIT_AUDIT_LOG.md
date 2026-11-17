@@ -1,3 +1,11 @@
+## 2026-11-17 — Operación Granada Field A–D: entrada de tiempo físico independiente y etiquetas seguras
+
+- **Reproducción en fuente original `main`:** `fcSetIndependentTime('B','')` aceptaba el selector vacío como `t=0` porque `Number('')===0`; llegó a pedir un nuevo frame, aunque el usuario no seleccionó ningún tiempo físico. El fallback `fcEsc` devolvía texto externo OpenFOAM sin codificar cuando `fvEsc` no estaba disponible o lanzaba excepción; los selectores de tiempos y contextos de Field reutilizan ese escaper.
+- **Corrección funcional:** reutilizar el parser físico `fcPhysicalNumber` ya usado por el motor original de comparación, rechazando `null`, blancos, booleanos, literales hex/bin/oct, infinidades y timestamps con texto, pero **aceptando `0`/ `0.0e0` reales** de OpenFOAM; mantener estado y frames de B/C/D independientes. Codificar `& < > " '` en el fallback de `fcEsc`; conservar el helper original `fvEsc` cuando existe.
+- **Pruebas añadidas** en `desktop/tests/field-compare.test.cjs`: 15 entradas negativas + 2 positivas de tiempo real, rechazo sin lectura de frame, B/C sin interferencia, bloqueo al enlazar tiempos y etiquetas hostiles literales, también bajo error de `fvEsc`.
+- **Verificación directa actual:** funciones originales parcheadas ejecutadas con catálogo físico de B/C; todas las entradas inválidas rechazadas, timestamps válidos cargaron únicamente sus propias vistas y el fallback escapó la entrada hostil. Compilación sintáctica del módulo y test PASS. CI exact-head Windows/Ubuntu, instalador/Portable, QuickCup y WebView2 **pendientes**.
+- **Límites:** no interpolar, no crear campos medidos ni modificar solver, física, geometría CAD o perfiles. Sin release automático; gate #238 y aceptación real DPI siguen separados.
+
 ## 2026-11-17 — Operación Granada T1.2: fracciones adimensionales y procedencia científica (sin release)
 
 - **Fallo original reproducido después de #349:** una curva `alphaL` con unidad real `-` y dimensiones OpenFOAM `[0 0 0 0 0 0 0]` mostraba unidades vacías y `incompleteUnits=true`. El inspector no enseñaba el caso/región de las curvas ordinarias y no advertía por separado dimensiones malformadas o ausentes.
