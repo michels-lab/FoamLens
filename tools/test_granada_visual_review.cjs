@@ -108,6 +108,13 @@ try{
     for(const id of ['flRaCompare3D','flRaAnalysisGeneral','flRaReview','flRaLive']){
       assert(originalHost.includes("'"+id+"'"),'Capture must use product toolbar '+id);
     }
+    const originalCapture=originalHost.slice(
+      originalHost.indexOf('private async Task CaptureGranadaSecondaryWorkspacesAsync'),
+      originalHost.indexOf('private async Task CaptureCdpPngAsync'));
+    assert(originalCapture.includes("document.body.classList.contains('appMode-'+expectedMode)"),
+      'Native external WebView2 world must check actual product DOM body mode');
+    assert(!originalCapture.includes("typeof activeAppMode"),
+      'private frontend IIFE variable is not exposed to WebView2.ExecuteScriptAsync');
     assert(nativeProducer.includes('if direct_windows:'),
       'Separate MSIX capture requirements must remain unchanged');
     assert(!originalHost.includes('FAKE_GRANADA_G5_NATIVE_CAPTURE'));
