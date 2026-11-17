@@ -423,6 +423,51 @@ function cgRestoreRegionBatch(input){
 function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function cgEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cgModels=[],cgYaw=.55,cgPitch=-.4,cgZoom=1,cgActive=false;
+let cgPreIsolationVisibility=null;
+const cgTreeOpen=new Set(),cgTreeKnown=new Set();
+function cgUpdatePartControls(){
+  const c=cgVisiblePartTotals(cgModels),
+    indicator=document.getElementById('cgVisibleCount'),
+    restore=document.getElementById('cgRestoreVisibility');
+  if(indicator)indicator.textContent=c.visibleParts+' / '+c.parts+' '+
+    cgUi('visible parts in ','piezas visibles en ')+c.models+
+    cgUi(' models',' modelos');
+  if(restore)restore.disabled=!cgPreIsolationVisibility;
+  for(const id of ['cgPartsShowAll','cgPartsHideAll']){
+    const button=document.getElementById(id);
+    if(button)button.disabled=!c.parts
+  }
+}
+function cgChangePartSelection(action,modelIndex=null){
+  try{
+    if(action==='restore'){
+      if(!cgPreIsolationVisibility)return;
+      cgVisibilityRestore(cgModels,cgPreIsolationVisibility);
+      cgPreIsolationVisibility=null
+    }else if(action==='show'||action==='hide'){
+      cgSetPartsVisibility(cgModels,action==='show',modelIndex);
+      cgPreIsolationVisibility=null
+    }else throw Error('Unknown CAD part selection');
+    cgRenderInventory()
+  }catch(err){cgShow(cgUi('Visibility blocked: ','Visibilidad bloqueada: ')+String(err?.message||err))}
+}
+function cgFocusNamedPart(modelIndex,part){
+  const m=cgModels[modelIndex],select=document.getElementById('cgPart');
+  if(!m?.partsVisible?.has(part)||!select)return false;
+  const key=modelIndex+'|'+part;
+  if(![...select.options].some(o=>o.value===key))return false;
+  select.value=key;cgRefreshExport();cgDraw();return true
+}
+function cgIsolateNamedPart(modelIndex,part){
+  try{
+    const previous=cgIsolatePart(cgModels,modelIndex,part);
+    if(!cgPreIsolationVisibility)cgPreIsolationVisibility=previous;
+    cgFocusNamedPart(modelIndex,part);cgRenderInventory();
+    cgShow(cgUi('Isolated part: ','Pieza aislada: ')+cgModels[modelIndex].name+
+      ' / '+part+cgUi('. Restore visibility to recover your earlier selection.',
+        '. Restaura visibilidad para recuperar la selección previa.'))
+  }catch(err){cgShow(cgUi('Isolation blocked: ','Aislamiento bloqueado: ')+String(err?.message||err))}
+}
 function cgDownload(name,data,mime){
   if(typeof downloadText==='function'){downloadText(name,data,mime);return}
   const u=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)
@@ -588,30 +633,96 @@ function cgExportVisibleBatch(){
 }
 function cgRenderInventory(){
   const el=document.getElementById('cgInventory');if(!el)return;
-  if(!cgModels.length){el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');return}
+  if(!cgModels.length){
+    el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');
+    cgUpdatePartControls();return
+  }
+  for(let i=0;i<cgModels.length;i++)if(!cgTreeKnown.has(i)){
+    cgTreeKnown.add(i);cgTreeOpen.add(i)
+  }
   el.innerHTML=cgModels.map((m,i)=>{
-    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=m.unit||'unknown';
-    return '<div class="cgItem"><label><input type="checkbox" data-cg-show="'+i+'" '+(m.visible?'checked':'')+'> <strong>'+cgEscape(m.name)+'</strong></label>'+
+    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=m.unit||'unknown',
+      count=[...m.partsVisible.values()].filter(Boolean).length,
+      open=cgTreeOpen.has(i)?' open':'',
+      selectedPart=String(document.getElementById('cgPart')?.value||'');
+    const children=sum.parts.map(p=>{
+      const key=i+'|'+p.name;
+      return '<div class="cgPartRow" role="group" aria-label="'+cgEscape(p.name)+'">'+
+        '<label><input type="checkbox" data-cg-part="'+cgEscape(key)+'" '+
+          (m.partsVisible.get(p.name)?'checked':'')+'> <strong>'+cgEscape(p.name)+
+          '</strong> ('+p.count+' '+cgUi('triangles','triángulos')+')</label>'+
+        '<button type="button" class="btn tiny" data-cg-focus="'+cgEscape(key)+'" '+
+          (selectedPart===key?'aria-current="true"':'')+'>'+
+          cgUi('Select','Seleccionar')+'</button>'+
+        '<button type="button" class="btn tiny" data-cg-isolate="'+cgEscape(key)+'">'+
+          cgUi('Isolate','Aislar')+'</button></div>'
+    }).join('');
+    return '<details class="cgItem cgModelTree" data-cg-tree="'+i+'"'+open+'>'+
+      '<summary><strong>'+cgEscape(m.name)+'</strong> · '+sum.triangles+
+        ' '+cgUi('triangles','triángulos')+' · '+sum.parts.length+
+        ' '+cgUi('parts','piezas')+' · '+count+' '+cgUi('checked','marcadas')+'</summary>'+
+      '<div class="cgModelBody">'+
+      '<div class="cgTools"><label><input type="checkbox" data-cg-show="'+i+'" '+
+        (m.visible?'checked':'')+'> '+cgUi('Show model','Mostrar modelo')+'</label>'+
+      '<button type="button" class="btn tiny" data-cg-model-show="'+i+'">'+
+        cgUi('Show all its parts','Mostrar todas sus piezas')+'</button>'+
+      '<button type="button" class="btn tiny" data-cg-model-hide="'+i+'">'+
+        cgUi('Hide all its parts','Ocultar todas sus piezas')+'</button></div>'+
       '<div>'+cgEscape(m.format)+' · '+sum.triangles+' triangles · '+sum.parts.length+' named parts</div>'+
       '<label>Source coordinate unit (this file): <select data-cg-unit="'+i+'">'+
-      [['unknown','Unknown / not confirmed'],['m','Meters'],['mm','Millimeters'],['cm','Centimeters'],['in','Inches']].map(x=>'<option value="'+x[0]+'" '+(x[0]===unit?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></label>'+
-      '<div>X '+fmt(sum.bounds.size[0])+' · Y '+fmt(sum.bounds.size[1])+' · Z '+fmt(sum.bounds.size[2])+' ['+cgEscape(unit)+'] · area '+fmt(sum.area)+' ['+cgEscape(unit)+'²]</div>'+
-      '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':'Open, inconsistent or degenerate surface')+
-      ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
-      '<div>Volume estimate: '+(sum.enclosedVolumeEstimate===null?'unavailable':fmt(sum.enclosedVolumeEstimate)+' ['+cgEscape(unit)+'³]')+'</div>'+
-      '<div class="cgParts">Visible named parts: '+sum.parts.map(p=>'<label style="margin:4px 12px 4px 0;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" data-cg-part="'+i+'|'+cgEscape(p.name)+'" '+(m.partsVisible.get(p.name)?'checked':'')+'> '+cgEscape(p.name)+' ('+p.count+')</label>').join('')+'</div>'+
-      (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
+      [['unknown','Unknown / not confirmed'],['m','Meters'],['mm','Millimeters'],
+        ['cm','Centimeters'],['in','Inches']].map(v=>'<option value="'+v[0]+'" '+
+        (v[0]===unit?'selected':'')+'>'+v[1]+'</option>').join('')+'</select></label>'+
+      '<div>X '+fmt(sum.bounds.size[0])+' · Y '+fmt(sum.bounds.size[1])+
+        ' · Z '+fmt(sum.bounds.size[2])+' ['+cgEscape(unit)+'] · area '+fmt(sum.area)+
+        ' ['+cgEscape(unit)+'²]</div>'+
+      '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':
+        'Open, inconsistent or degenerate surface')+
+        ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+
+        ' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
+      '<div>Volume estimate: '+(sum.enclosedVolumeEstimate===null?'unavailable':
+        fmt(sum.enclosedVolumeEstimate)+' ['+cgEscape(unit)+'³]')+'</div>'+
+      '<div class="cgParts" role="group" aria-label="'+
+        cgUi('Original CAD parts of ','Piezas CAD originales de ')+cgEscape(m.name)+'">'+children+'</div>'+
+      (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+
+      '</div></details>'
   }).join('');
-  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgRefreshExport();cgDraw()}));
-  el.querySelectorAll('[data-cg-part]').forEach(ch=>ch.addEventListener('change',()=>{
-    const key=ch.dataset.cgPart,sep=key.indexOf('|'),i=Number(key.slice(0,sep)),part=key.slice(sep+1),m=cgModels[i];
-    if(m)m.partsVisible.set(part,ch.checked);cgRefreshExport();cgDraw()
+  const decode=key=>{
+    const separator=String(key).indexOf('|');
+    return {i:Number(String(key).slice(0,separator)),part:String(key).slice(separator+1)}
+  };
+  el.querySelectorAll('[data-cg-tree]').forEach(details=>details.addEventListener('toggle',()=>{
+    const i=Number(details.dataset.cgTree);
+    if(details.open)cgTreeOpen.add(i);else cgTreeOpen.delete(i)
+  }));
+  el.querySelectorAll('[data-cg-show]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const m=cgModels[Number(checkbox.dataset.cgShow)];if(!m)return;
+    m.visible=checkbox.checked;cgPreIsolationVisibility=null;cgRenderInventory()
+  }));
+  el.querySelectorAll('[data-cg-part]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const {i,part}=decode(checkbox.dataset.cgPart);
+    try{
+      cgSetPartVisibility(cgModels,i,part,checkbox.checked);
+      cgPreIsolationVisibility=null;cgRenderInventory()
+    }catch(err){cgShow(String(err?.message||err))}
+  }));
+  el.querySelectorAll('[data-cg-model-show]').forEach(button=>button.addEventListener('click',()=>
+    cgChangePartSelection('show',Number(button.dataset.cgModelShow))));
+  el.querySelectorAll('[data-cg-model-hide]').forEach(button=>button.addEventListener('click',()=>
+    cgChangePartSelection('hide',Number(button.dataset.cgModelHide))));
+  el.querySelectorAll('[data-cg-focus]').forEach(button=>button.addEventListener('click',()=>{
+    const {i,part}=decode(button.dataset.cgFocus);
+    cgFocusNamedPart(i,part);cgRenderInventory()
+  }));
+  el.querySelectorAll('[data-cg-isolate]').forEach(button=>button.addEventListener('click',()=>{
+    const {i,part}=decode(button.dataset.cgIsolate);
+    cgIsolateNamedPart(i,part)
   }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
     m.unit=sel.value;cgRenderInventory()
   }));
-  cgRefreshExport();cgDraw()
+  cgRefreshExport();cgUpdatePartControls();cgDraw()
 }
 function cgRefreshExport(){
   const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
