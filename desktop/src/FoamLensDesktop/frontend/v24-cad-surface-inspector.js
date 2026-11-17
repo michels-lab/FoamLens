@@ -227,6 +227,149 @@ function cgVisibleRegionBatch(models){
   return {files,manifest,topologyWarnings}
 }
 
+// Granada CAD F4 — selection- and distribution-specific staging ONLY.
+// The original batch exporter remains the sole owner of physical STL values.
+// A staging ZIP has no executable mesh dictionary or automatic case writes.
+const cgOpenFoamRoleNames=['unassigned','metal','mold','interface','wall','inlet','outlet','other'];
+function cgOpenFoamTarget(target){
+  if(target==='foundation13')
+    return{code:target,label:'OpenFOAM Foundation v13-style',
+      caseGeometryDir:'constant/geometry',geometryType:'triSurface',
+      guide:'https://openfoam.org/download/13-source/'};
+  if(target==='openfoamcom')
+    return{code:target,label:'OpenFOAM.com snappyHexMesh',
+      caseGeometryDir:'constant/'+'tri'+'Surface',geometryType:'triSurfaceMesh',
+      guide:'https://doc.openfoam.com/2606/tools/pre-processing/mesh/generation/snappyhexmesh/geometry/'};
+  throw Error('Select and verify your OpenFOAM distribution before geometry staging')
+}
+function cgOpenFoamPrepare(models,target,roles=new Map()){
+  if(!(roles instanceof Map))throw Error('Invalid explicit CAD role mapping');
+  const edition=cgOpenFoamTarget(target),batch=cgVisibleRegionBatch(models);
+  const payloadFiles=batch.files.filter(f=>f.name!=='manifest.json');
+  if(payloadFiles.length!==batch.manifest.regionCount)
+    throw Error('Original named region STL count differs from its manifest');
+  const files=[],regions=[],geometry=[],boundsMin=[Infinity,Infinity,Infinity],
+    boundsMax=[-Infinity,-Infinity,-Infinity],keys=new Set();
+  for(let k=0;k<batch.manifest.regions.length;k++){
+    const original=batch.manifest.regions[k],file=payloadFiles[k];
+    if(!file||original.outputFile!==file.name)
+      throw Error('Original region output and binary STL source ordering differ');
+    const basename=file.name.split('/').at(-1);
+    if(!/^[a-zA-Z0-9_.-]+\.stl$/.test(basename)||!basename)
+      throw Error('Unsafe STL basename for OpenFOAM geometry');
+    const numeric=/^surfaces\/model([0-9]+)_region([0-9]+)_/.exec(file.name);
+    if(!numeric)throw Error('Unknown original CAD model/region source identity');
+    const modelIndex=Number(numeric[1])-1;
+    if(!Number.isInteger(modelIndex)||modelIndex<0||modelIndex>=models.length||
+      models[modelIndex].name!==original.sourceFile||
+      !models[modelIndex].partsVisible.has(original.part))
+      throw Error('Source CAD model/part identity is not verifiable');
+    const roleKey=modelIndex+'|'+original.part,role=roles.get(roleKey)||'unassigned';
+    if(!cgOpenFoamRoleNames.includes(role))
+      throw Error('Unknown explicit OpenFOAM region role; no role may be guessed');
+    const base=basename.slice(0,-4),geometryName=target==='foundation13'?
+      'geom_'+base:basename;
+    if(keys.has(geometryName))throw Error('Duplicate OpenFOAM geometry dictionary key');
+    keys.add(geometryName);
+    const path='staging/'+edition.caseGeometryDir+'/'+basename;
+    // Never rerun meshing or rescale STL. Binary bytes and source topology
+    // originate from cgVisibleRegionBatch and remain unchanged.
+    files.push({name:path,data:file.data});
+    const sourceBounds=original.sourceTopology?.bounds,scale=original.sourceToMeterScale;
+    if(!sourceBounds||!Array.isArray(sourceBounds.min)||
+      !Array.isArray(sourceBounds.max)||sourceBounds.min.length!==3||
+      sourceBounds.max.length!==3||!(scale>0&&Number.isFinite(scale)))
+      throw Error('Original CAD physical bounds and source unit cannot be verified');
+    const min=sourceBounds.min.map(v=>v*scale),
+      max=sourceBounds.max.map(v=>v*scale);
+    if(!min.every(Number.isFinite)||!max.every(Number.isFinite)||
+      min.some((v,i)=>v>max[i]))
+      throw Error('Invalid finite physical CAD bounds');
+    for(let i=0;i<3;i++){
+      boundsMin[i]=Math.min(boundsMin[i],min[i]);
+      boundsMax[i]=Math.max(boundsMax[i],max[i])
+    }
+    const prepared={...original,outputFile:path,
+      originalBatchOutputFile:file.name,originalModelIndex:modelIndex,
+      geometryName,regionRoleSelectedByUser:role,
+      sourceRoleInferred:false,distributionGeometryDirectory:edition.caseGeometryDir,
+      boundsMinMeters:min,boundsMaxMeters:max};
+    regions.push(prepared);
+    geometry.push(target==='foundation13'?
+      '    '+geometryName+'\n    {\n        type triSurface;\n        file "'+basename+'";\n    }':
+      '    '+basename+'\n    {\n        type triSurfaceMesh;\n    }')
+  }
+  if(!regions.length)throw Error('No source CAD regions selected for OpenFOAM');
+  const size=boundsMax.map((v,i)=>v-boundsMin[i]);
+  const domain={boundsMinMeters:boundsMin,boundsMaxMeters:boundsMax,
+    boundsSizeMeters:size,thinAxes:size.flatMap((v,i)=>v<=0?['XYZ'[i]]:[]),
+    status:'surface bounds only; NOT a blockMeshDict or automatically chosen fluid domain'};
+  const geometryText='// FoamLens original triSurface input for '+edition.label+
+    '\n// Copy the geometry block into an existing, verified system/snappyHexMeshDict.\n'+
+    '// NOT a complete runnable snappyHexMeshDict. Inspect every physical patch and interface.\n'+
+    '// Original named part roles and units are recorded in preparation.json.\n'+
+    'geometry\n{\n'+geometry.join('\n\n')+'\n}\n';
+  const manifest={schema:'foamlens/openfoam-geometry-staging/1',
+    sourceSchema:batch.manifest.schema,target:edition.code,
+    targetLabel:edition.label,targetSelectedByUser:true,
+    installedOpenFoamVerified:false,geometryType:edition.geometryType,
+    geometryDirectoryRelativeToCase:edition.caseGeometryDir,
+    geometrySnippet:'staging/system/snappyHexMesh.geometry.foamlens',
+    blockMeshBounds:'staging/system/blockMesh.bounds.foamlens.json',
+    regionCount:regions.length,triangleCount:batch.manifest.triangleCount,
+    topologyWarnings:batch.topologyWarnings,rolesAssigned:regions.filter(r=>
+      r.regionRoleSelectedByUser!=='unassigned').length,regions,
+    surfaceDomainMeters:domain,openFoamCaseMutated:false,
+    toolsExecuted:[],volumeMeshCreated:false,
+    limitations:['This archive is staging only and does not modify an OpenFOAM case.',
+      'The selected OpenFOAM distribution and installed version have NOT been detected.',
+      'An STL is a triangulated surface, not a fluid or solid polyMesh.',
+      'blockMesh domain, background cell sizes, refinement levels, insidePoint/locationInMesh and boundary patches require physical design.',
+      'Named CAD parts/roles do not prove shared metal-mold interfaces or region quality.',
+      'Boundary/winding tests do not certify self-intersection-free watertight surfaces.']};
+  const readme=[
+    'FOAMLENS — OPENFOAM GEOMETRY STAGING (NO MESH GENERATED)',
+    'Target selected by user: '+edition.label,
+    'Expected installed case directory: '+edition.caseGeometryDir,
+    'Geometry declaration type: '+edition.geometryType,
+    'Original surfaces: '+regions.length+' | topology warnings: '+batch.topologyWarnings,
+    'Assigned roles (by user): '+manifest.rolesAssigned+' / '+regions.length,
+    '',
+    '1. VERIFY your installed distribution and version (foamVersion, which snappyHexMesh).',
+    '   The chosen distribution has NOT been detected or validated automatically.',
+    '2. Review preparation.json (original model, part, units, role and bounds per STL).',
+    '   All exported STL coordinates are meters; original STL/OBJ unit was confirmed by user.',
+    '3. Copy STLs from staging/'+edition.caseGeometryDir+' to YOUR verified case/'+edition.caseGeometryDir+'.',
+    '   Do not unpack this ZIP directly over a working case or overwrite existing STL/dictionaries.',
+    '4. Review staging/system/snappyHexMesh.geometry.foamlens and carefully merge its',
+    '   geometry block into YOUR version-compatible system/snappyHexMeshDict.',
+    '   The geometry fragment is NOT a complete snappyHexMeshDict.',
+    '5. Define the real physical domain and cell density for system/blockMeshDict.',
+    '   blockMesh.bounds.foamlens.json is a bounds REPORT, not a runnable dictionary.',
+    '6. Choose refinementSurfaces, region/cellZones/faceZones, internal point',
+    '   (insidePoint or locationInMesh depending on version), patch/BC naming and',
+    '   metal-mold interfaces. The selected role labels do NOT generate interfaces.',
+    '7. Run surfaceCheck on EACH relevant staged STL in your installed OpenFOAM',
+    '   environment, review open/non-manifold edges and self-intersection outcomes.',
+    '   Do not assume the FoamLens topology preview certifies a closed solid.',
+    '8. When independently reviewed, run blockMesh, snappyHexMesh, checkMesh',
+    '   and region/interface validation manually in a COPY of your CFD case.',
+    '   This ZIP ran none of these tools and did not write any OpenFOAM case.',
+    '',
+    'Geometry keys (same order as exported STLs):',
+    ...regions.map(r=>'  '+r.geometryName+' -> '+r.outputFile+
+      ' | role='+r.regionRoleSelectedByUser+' | original='+r.sourceFile+' / '+r.part),
+    '',
+    'Reference documentation: '+edition.guide,
+    ''
+  ].join('\n');
+  files.push({name:manifest.geometrySnippet,data:geometryText});
+  files.push({name:manifest.blockMeshBounds,data:JSON.stringify(domain,null,2)+'\n'});
+  files.push({name:'preparation.json',data:JSON.stringify(manifest,null,2)+'\n'});
+  files.push({name:'README-OPENFOAM-STAGING.txt',data:readme});
+  return {files,manifest,geometryText,readme,target:edition,domain}
+}
+
 // CAD original model/part visibility ownership. These functions never
 // modify triangles, confirmed source units, imported files or the CFD case.
 function cgVisibilitySnapshot(models){
