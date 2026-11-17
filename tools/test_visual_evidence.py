@@ -23,6 +23,7 @@ from visual_release_gate import check_evidence
 SOURCE_SHA = "1234567890abcdef1234567890abcdef12345678"
 SURFACES = ("home", "about", "data", "field", "time-series", "field-compare",
             "analysis", "review", "live")
+STORE_SURFACES = ("home", "about", "data", "field")
 SCRIPT = Path(__file__).with_name("make_visual_evidence.py")
 
 
@@ -86,6 +87,11 @@ def main() -> None:
         original = json.loads(manifest.read_text(encoding="utf-8"))
         records = original["screenshots"]
         assert len(records) == 36, f"Expected 36 separate native-workspace analog captures, got {len(records)}"
+        assert {shot["surface"] for shot in records} == set(SURFACES)
+        assert all(sum(shot["surface"] == surface and shot["runtime_variant"] == variant
+                       for shot in records) == 2
+                   for variant in ("installed", "portable") for surface in SURFACES)
+
         assert {shot["runtime_variant"] for shot in records} == {"installed", "portable"}
         assert all(shot["path"].startswith(shot["runtime_variant"] + "/") for shot in records)
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
@@ -151,7 +157,7 @@ def main() -> None:
         )
         store_doc = json.loads(store_manifest.read_text(encoding="utf-8"))
         assert "portable_artifact_sha256" not in store_doc
-        assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(SURFACES),
+        assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(STORE_SURFACES),
                               require_review=False) == []
 
         # Optional Real OpenFOAM scene contract is mandatory on Windows CI when
