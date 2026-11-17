@@ -64,6 +64,15 @@ def main():
                 (f"about-{viewport}-bottom.png", "about"),
                 (f"field-{viewport}.png", "field"),
                 (f"data-{viewport}.png", "data"),
+                # All nine original G5 workspaces must be genuine separate
+                # screenshots from the packaged WinForms/WebView2 process.
+                # The four additional modes are captured by its original UI
+                # controls after importing the real private OpenFOAM B13.
+                (f"time-series-{viewport}.png", "time-series"),
+                (f"field-compare-{viewport}.png", "field-compare"),
+                (f"analysis-{viewport}.png", "analysis"),
+                (f"review-{viewport}.png", "review"),
+                (f"live-{viewport}.png", "live"),
             ):
                 file = (evidence_dir / name).resolve()
                 if not file.is_file() or not file.is_relative_to(root):
