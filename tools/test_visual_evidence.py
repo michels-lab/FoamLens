@@ -258,10 +258,22 @@ def main() -> None:
         reused_file["screenshots"][0]["path"] = reused_file["screenshots"][8]["path"]
         assert_rejected(reused_file, manifest, "screenshot checksum mismatch")
 
+        # Select identities, NOT positional offsets: with nine workspaces the
+        # first portable screenshot starts after 18 installed cells, whereas
+        # older four-workspace fixtures had only eight installed cells.
         cross_runtime = copy.deepcopy(original)
-        cross_runtime["screenshots"][8]["path"] = original["screenshots"][0]["path"]
-        cross_runtime["screenshots"][8]["sha256"] = original["screenshots"][0]["sha256"]
-        assert_rejected(cross_runtime, manifest, "portable screenshot path outside its runtime directory")
+        installed_home = next(
+            shot for shot in original["screenshots"]
+            if shot["runtime_variant"] == "installed"
+            and shot["surface"] == "home" and shot["viewport"] == "wide")
+        portable_home = next(
+            shot for shot in cross_runtime["screenshots"]
+            if shot["runtime_variant"] == "portable"
+            and shot["surface"] == "home" and shot["viewport"] == "wide")
+        portable_home["path"] = installed_home["path"]
+        portable_home["sha256"] = installed_home["sha256"]
+        assert_rejected(cross_runtime, manifest,
+                        "portable screenshot path outside its runtime directory")
 
         manifest.write_text(json.dumps(original), encoding="utf-8")
         shot = evidence / records[0]["path"]
