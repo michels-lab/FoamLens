@@ -563,18 +563,31 @@ internal sealed class FoamLensForm : Form
                     """
                     (() => {
                       document.getElementById('flRibbonTab-data')?.click();
+                      // G5's generic Data screenshot must show the ORIGINAL
+                      // loaded OpenFOAM source CATALOG, rather than simply
+                      // duplicating its default Time Series screen's pixels.
+                      // Both user views are selected through real Ribbon actions.
+                      const catalogAction=document.getElementById('flRaCatalog');
+                      if(catalogAction&&!catalogAction.disabled)catalogAction.click();
                       const panel=document.getElementById('fieldViewPanel');
                       const compare=document.getElementById('flDataComparisonCard');
                       const tools=['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'];
                       const own=tools.every(id=>!!document.getElementById(id));
                       const fieldRect=panel?.getBoundingClientRect();
                       const fieldHidden=!fieldRect||fieldRect.width<1||getComputedStyle(panel).display==='none';
-                      const chart=document.getElementById('chartViewport');
-                      const rect=chart?.getBoundingClientRect();
-                      const ok=own&&!!compare&&!!chart&&!!rect&&rect.width>180&&
-                        fieldHidden&&!chart.contains(panel);
+                      const catalog=document.getElementById('catalogControls');
+                      const tab=document.getElementById('catalogTab');
+                      const source=document.getElementById('catalogCase');
+                      const box=catalog?.getBoundingClientRect();
+                      const catalogVisible=!!box&&box.width>180&&box.height>40&&
+                        getComputedStyle(catalog).display!=='none'&&
+                        !catalog.classList.contains('hidden');
+                      const catalogSelected=!!tab&&tab.classList.contains('active');
+                      const originalSources=!!source&&source.options.length>0;
+                      const ok=own&&!!compare&&fieldHidden&&catalogVisible&&
+                        catalogSelected&&originalSources;
                       return {ok,viewport:innerWidth,dataTools:tools.length,fieldHidden,
-                        chartWidth:rect?.width,chartHeight:rect?.height,comparisonCard:!!compare};
+                        catalogVisible,catalogSelected,originalSources,comparisonCard:!!compare};
                     })()
                     """);
                 if (!JsonDocument.Parse(dataState).RootElement.GetProperty("ok").GetBoolean())
