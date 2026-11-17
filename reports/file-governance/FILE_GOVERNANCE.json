@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "5a925278ecce774cb034e0ab99dbf4f1afaa235364b9bab6bbd9fb04f37a9708",
+  "inventory_fingerprint": "247ba32c9fca1fe2c70129820531e17dc8312e8e333c2829367a3610dd8d5db3",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -74,7 +74,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "baa4ecd83315ba72939c2a27fb291c0a249fd9ff"
+      "blob": "c05abe56d293d88ac58afa5aa9c344e1f22a1f7b"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -977,7 +977,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "eb0a76e31222dfd4fc7acef51b2c3513dd730672"
+      "blob": "a2b8dd36c40c2dfbc02c7a2e46ccd74dfe192be0"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1474,7 +1474,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "bcdec3bbf1457d1a53d9a0233be939a1e0108b86"
+      "blob": "4b715c52511bda54cd8a27925c0ac49dd4c05ff4"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -2202,7 +2202,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "53e8a74e1f375be78515fea8dd16097dcf864407"
+      "blob": "5c258671085118919211acfd652030e6dff603ad"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3336,7 +3336,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6cdf351461dec1a18d467e100b3b9c73cfb14d5a"
+      "blob": "ec0611c5a41230adbc856c5220c3a1126a4c9cb8"
     },
     {
       "path": "tools/make_visual_evidence.py",
@@ -3455,7 +3455,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4d5a186930f20215b3c345aff5a617477d0670a8"
+      "blob": "3b3ec8f5b05247f84072f75b0291c36b2908620b"
     },
     {
       "path": "tools/test_installer_shortcuts.ps1",
