@@ -227,6 +227,76 @@ function cgVisibleRegionBatch(models){
   return {files,manifest,topologyWarnings}
 }
 
+// CAD original model/part visibility ownership. These functions never
+// modify triangles, confirmed source units, imported files or the CFD case.
+function cgVisibilitySnapshot(models){
+  if(!Array.isArray(models)||models.some(m=>!m||!(m.partsVisible instanceof Map)))
+    throw Error('Invalid CAD model/part inventory');
+  return models.map(m=>({model:m,visible:!!m.visible,parts:new Map(m.partsVisible)}))
+}
+function cgVisibilityRestore(models,snapshot){
+  if(!Array.isArray(models)||!Array.isArray(snapshot)||models.length!==snapshot.length)
+    throw Error('CAD assembly changed since isolation');
+  // Prevalidate every original model and named part BEFORE touching any state.
+  for(let i=0;i<models.length;i++){
+    const m=models[i],record=snapshot[i];
+    if(!m||!record||record.model!==m||!(m.partsVisible instanceof Map)||
+      !(record.parts instanceof Map)||m.partsVisible.size!==record.parts.size||
+      [...m.partsVisible.keys()].some(part=>!record.parts.has(part)))
+      throw Error('CAD model or parts changed since isolation')
+  }
+  models.forEach((m,i)=>{
+    m.visible=snapshot[i].visible;
+    for(const [part,shown] of snapshot[i].parts)m.partsVisible.set(part,shown)
+  });
+  return true
+}
+function cgSetPartsVisibility(models,shown,index=null){
+  if(!Array.isArray(models)||typeof shown!=='boolean'||
+    (index!==null&&(!Number.isInteger(index)||index<0||index>=models.length)))
+    throw Error('Invalid CAD visibility scope');
+  const target=index===null?models:[models[index]];
+  if(target.some(m=>!m||!(m.partsVisible instanceof Map)))
+    throw Error('Invalid original CAD parts');
+  for(const m of target){
+    m.visible=shown;
+    for(const part of m.partsVisible.keys())m.partsVisible.set(part,shown)
+  }
+  return target.reduce((n,m)=>n+m.partsVisible.size,0)
+}
+function cgSetPartVisibility(models,index,part,shown){
+  const m=models?.[index];
+  if(!Number.isInteger(index)||!m||!(m.partsVisible instanceof Map)||
+    !m.partsVisible.has(part)||typeof shown!=='boolean')
+    throw Error('Unknown original CAD part');
+  m.partsVisible.set(part,shown);
+  if(shown)m.visible=true;
+  return true
+}
+function cgIsolatePart(models,index,part){
+  const m=models?.[index];
+  if(!Number.isInteger(index)||!m||!(m.partsVisible instanceof Map)||
+    !m.partsVisible.has(part))throw Error('Unknown CAD part to isolate');
+  const previous=cgVisibilitySnapshot(models);
+  for(let i=0;i<models.length;i++){
+    const target=models[i];target.visible=i===index;
+    for(const name of target.partsVisible.keys())
+      target.partsVisible.set(name,i===index&&name===part)
+  }
+  return previous
+}
+function cgVisiblePartTotals(models){
+  const result={models:0,parts:0,visibleModels:0,visibleParts:0};
+  for(const m of models||[]){
+    if(!m||!(m.partsVisible instanceof Map))continue;
+    result.models++;if(m.visible)result.visibleModels++;
+    for(const selected of m.partsVisible.values()){
+      result.parts++;if(m.visible&&selected)result.visibleParts++
+    }
+  }
+  return result
+}
+
 // Only FoamLens' own uncompressed, CRC-checked ZIP STORE format is accepted.
 // This does not silently import arbitrary compressed archives or project files.
 function cgReadStoredZip(input){
@@ -877,4 +947,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};
