@@ -58,22 +58,26 @@ def main():
     for variant, evidence_dir, candidate_sha, capture_method in candidates:
         for viewport in ("wide", "compact"):
             opening_about_hash = None
-            for name, surface in (
+            screenshots = (
                 (f"home-{viewport}.png", "home"),
                 (f"about-{viewport}.png", "about"),
                 (f"about-{viewport}-bottom.png", "about"),
                 (f"field-{viewport}.png", "field"),
                 (f"data-{viewport}.png", "data"),
-                # All nine original G5 workspaces must be genuine separate
-                # screenshots from the packaged WinForms/WebView2 process.
-                # The four additional modes are captured by its original UI
-                # controls after importing the real private OpenFOAM B13.
-                (f"time-series-{viewport}.png", "time-series"),
-                (f"field-compare-{viewport}.png", "field-compare"),
-                (f"analysis-{viewport}.png", "analysis"),
-                (f"review-{viewport}.png", "review"),
-                (f"live-{viewport}.png", "live"),
-            ):
+            )
+            if direct_windows:
+                # Only original direct-GitHub Setup/Portable is eligible for
+                # G5 36-slot evidence. The separate Store/MSIX pipeline still
+                # tests its original Home/About surface without claiming a
+                # native QuickCup A-D test it did not run.
+                screenshots += (
+                    (f"time-series-{viewport}.png", "time-series"),
+                    (f"field-compare-{viewport}.png", "field-compare"),
+                    (f"analysis-{viewport}.png", "analysis"),
+                    (f"review-{viewport}.png", "review"),
+                    (f"live-{viewport}.png", "live"),
+                )
+            for name, surface in screenshots:
                 file = (evidence_dir / name).resolve()
                 if not file.is_file() or not file.is_relative_to(root):
                     raise SystemExit(f"Missing/out-of-root real {variant} screenshot: {file}")
