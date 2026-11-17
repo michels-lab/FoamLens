@@ -135,7 +135,7 @@ try{
     bad.screenshots[1].sha256=bad.screenshots[0].sha256;
     const data=audit(bad,opts);
     assert.equal(data.status,'INVALID');
-    assert(data.issues.some(i=>i.code==='same-image-different-slots'));
+    assert(data.issues.some(i=>i.code==='same-image-different-tabs'));
   });
   test('same tab cannot reuse an installed screenshot as portable evidence',()=>{
     const bad=structuredClone(doc);
@@ -146,9 +146,10 @@ try{
     copied.width=original.width;
     copied.height=original.height;
     const report=audit(bad,opts);
-    assert.equal(report.status,'INVALID');
-    assert(report.issues.some(x=>x.code==='same-image-different-slots'&&x.detail.includes('installed|wide|home')&&x.detail.includes('portable|wide|home')));
-    assert.equal(report.captured_slots,35,'Duplicated image may not count as a second native capture');
+    assert.equal(report.status,'INCOMPLETE','Same-workspace equal pixels are ambiguous, not proof of corruption');
+    assert(report.issues.some(x=>x.level==='warning'&&x.code==='indistinguishable-same-workspace'&&
+      x.detail.includes('installed|wide|home')&&x.detail.includes('portable|wide|home')));
+    assert.equal(report.captured_slots,35,'Equal pixels may not count as independently verified native captures');
   });
   test('same tab cannot reuse a wide screenshot as compact evidence',()=>{
     const bad=structuredClone(doc);
@@ -159,8 +160,9 @@ try{
     copied.width=original.width;
     copied.height=original.height;
     const report=audit(bad,opts);
-    assert.equal(report.status,'INVALID');
-    assert(report.issues.some(x=>x.code==='same-image-different-slots'&&x.detail.includes('installed|compact|home')));
+    assert.equal(report.status,'INCOMPLETE');
+    assert(report.issues.some(x=>x.level==='warning'&&x.code==='indistinguishable-same-workspace'&&
+      x.detail.includes('installed|compact|home')));
     assert.equal(report.captured_slots,35);
   });
   test('current 4-workspace source coverage cannot be called a complete 36-slot visual review',()=>{
