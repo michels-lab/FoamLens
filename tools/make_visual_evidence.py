@@ -30,6 +30,8 @@ def main():
     parser.add_argument("--capture-method", default="installed-windows-desktop")
     parser.add_argument("--require-multiregion", action="store_true",
                         help="Require genuine measured metal/mold native WebView2 screenshot in both runtime variants")
+    parser.add_argument("--require-g72-native-tabs", action="store_true",
+                        help="Fail closed unless all 20 extra B13 Windows native workspace slots exist")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -41,6 +43,8 @@ def main():
     if direct_windows and (args.portable_artifact is None or not args.portable_artifact.is_file()
                            or args.portable_evidence_dir is None):
         raise SystemExit("Direct Windows requires both portable binary and separate runtime evidence")
+    if args.require_g72_native_tabs and not direct_windows:
+        raise SystemExit("G72 20 original native tabs require direct Windows Installed plus Portable")
     if not direct_windows and (args.portable_artifact is not None or args.portable_evidence_dir is not None):
         raise SystemExit("Nonportable channels must not claim a portable Windows variant")
 
@@ -91,6 +95,48 @@ def main():
                     "candidate_artifact_sha256": candidate_sha,
                 })
 
+
+    # G72: actual native WebView2 screenshots, captured by the ORIGINAL host
+    # after real QuickCup B13 scientific import. The existing four surfaces
+    # remain mandatory in every build; five more are mandatory ONLY when the
+    # independently verified private fixture was used by the native smoke.
+    # Never substitute About-bottom, Field 3D+2D split, browser mockup or test PNG.
+    g72_names = ("time-series", "field-compare", "analysis", "review", "live")
+    g72_count = 0
+    for variant, evidence_dir, candidate_sha, capture_method in candidates:
+        for viewport in ("wide", "compact"):
+            for surface in g72_names:
+                file = (evidence_dir / f"{surface}-{viewport}.png").resolve()
+                if not file.is_file() or not file.is_relative_to(root):
+                    if args.require_g72_native_tabs:
+                        raise SystemExit(
+                            "G72 original native screenshot missing (no synthetic fallback): "
+                            + f"{variant}/{surface}-{viewport}")
+                    continue
+                with Image.open(file) as image:
+                    image.verify()
+                with Image.open(file) as image:
+                    width, height = image.size
+                if width < (960 if viewport == "wide" else 540) or height < 400:
+                    raise SystemExit(
+                        "G72 real viewport dimensions insufficient: "
+                        + f"{variant}/{surface}-{viewport}")
+                records.append({
+                    "platform": args.platform,
+                    "runtime_variant": variant,
+                    "surface": surface,
+                    "viewport": viewport,
+                    "path": str(file.relative_to(root)).replace("\\", "/"),
+                    "sha256": hashfile(file),
+                    "width": width,
+                    "height": height,
+                    "capture_method": capture_method,
+                    "candidate_artifact_sha256": candidate_sha,
+                })
+                g72_count += 1
+    if args.require_g72_native_tabs and g72_count != 20:
+        raise SystemExit("G72 original QuickCup native matrix requires exactly 20 extra slots")
+
     if args.require_multiregion:
         # Unlike generated graphics fixtures, this file is created by the actual
         # native QuickCup metal/mold WebView2 import and single-canvas renderer.
@@ -121,6 +167,14 @@ def main():
     }
     if direct_windows:
         manifest["portable_artifact_sha256"] = {args.platform: portable_sha}
+        manifest["granada_g72_native_workspaces"] = {
+            "new_real_workspace_slots": g72_count,
+            "maximum_new_slots": 20,
+            "native_quickcup_matrix_required": args.require_g72_native_tabs,
+            "human_visual_approved": False,
+            "physical_windows_os_dpi_verified": False,
+            "release_authorized": False,
+        }
     args.output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     by_variant = {variant: sum(shot["runtime_variant"] == variant for shot in records)
                   for variant, _, _, _ in candidates}
