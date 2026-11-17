@@ -113,7 +113,43 @@ try{
     bad.screenshots[1].sha256=bad.screenshots[0].sha256;
     const data=audit(bad,opts);
     assert.equal(data.status,'INVALID');
-    assert(data.issues.some(i=>i.code==='same-image-different-tabs'));
+    assert(data.issues.some(i=>i.code==='same-image-different-slots'));
+  });
+  test('same tab cannot reuse an installed screenshot as portable evidence',()=>{
+    const bad=structuredClone(doc);
+    const original=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const copied=bad.screenshots.find(x=>x.runtime_variant==='portable'&&x.viewport==='wide'&&x.surface==='home');
+    copied.path=original.path;
+    copied.sha256=original.sha256;
+    copied.width=original.width;
+    copied.height=original.height;
+    const report=audit(bad,opts);
+    assert.equal(report.status,'INVALID');
+    assert(report.issues.some(x=>x.code==='same-image-different-slots'&&x.detail.includes('installed|wide|home')&&x.detail.includes('portable|wide|home')));
+    assert.equal(report.captured_slots,35,'Duplicated image may not count as a second native capture');
+  });
+  test('same tab cannot reuse a wide screenshot as compact evidence',()=>{
+    const bad=structuredClone(doc);
+    const original=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const copied=bad.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='compact'&&x.surface==='home');
+    copied.path=original.path;
+    copied.sha256=original.sha256;
+    copied.width=original.width;
+    copied.height=original.height;
+    const report=audit(bad,opts);
+    assert.equal(report.status,'INVALID');
+    assert(report.issues.some(x=>x.code==='same-image-different-slots'&&x.detail.includes('installed|compact|home')));
+    assert.equal(report.captured_slots,35);
+  });
+  test('current 4-workspace source coverage cannot be called a complete 36-slot visual review',()=>{
+    const partial=structuredClone(doc);
+    partial.screenshots=partial.screenshots.filter(x=>['home','about','data','field'].includes(x.surface));
+    const report=audit(partial,opts);
+    assert.equal(report.status,'INCOMPLETE');
+    assert.equal(report.captured_slots,16);
+    assert.equal(report.required_slots,36);
+    assert.deepEqual(report.missing_surfaces.sort(),
+      ['time-series','field-compare','analysis','review','live'].sort());
   });
 
   test('G71 rejects synthetic markers, tiny PNGs, IHDR spoofs, appended bytes and corrupt image payloads',()=>{
