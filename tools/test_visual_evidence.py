@@ -21,7 +21,8 @@ from PIL import Image, ImageDraw
 from visual_release_gate import check_evidence
 
 SOURCE_SHA = "1234567890abcdef1234567890abcdef12345678"
-SURFACES = ("home", "about", "data", "field")
+SURFACES = ("home", "about", "data", "field", "time-series", "field-compare",
+            "analysis", "review", "live")
 SCRIPT = Path(__file__).with_name("make_visual_evidence.py")
 
 
@@ -84,7 +85,7 @@ def main() -> None:
         )
         original = json.loads(manifest.read_text(encoding="utf-8"))
         records = original["screenshots"]
-        assert len(records) == 16, f"Expected 16 separate real-run analog captures, got {len(records)}"
+        assert len(records) == 36, f"Expected 36 separate native-workspace analog captures, got {len(records)}"
         assert {shot["runtime_variant"] for shot in records} == {"installed", "portable"}
         assert all(shot["path"].startswith(shot["runtime_variant"] + "/") for shot in records)
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
