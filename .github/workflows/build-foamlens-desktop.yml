@@ -1068,11 +1068,11 @@ jobs:
           if ($review.human_approved -ne $false) { throw 'Automated G5 review must never claim owner approval.' }
           @(
             "### FoamLens G5 original Windows UI review",
-            "- Exact SHA: `$env:GITHUB_SHA`",
+            "- Exact SHA: $env:GITHUB_SHA",
             "- Setup/Portable: $($review.captured_slots)/$($review.required_slots) native screenshots",
             "- Result: **$($review.status)** (not owner approval)",
             "- Missing workspaces: $missing",
-            "- Download `FoamLens-Windows-v...` artifact to inspect `visual/FoamLens-G5-Review.html`"
+            "- Download the FoamLens-Windows build artifact to inspect visual/FoamLens-G5-Review.html"
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
           if ($reviewExit -ne 0 -or $review.status -ne 'REQUIRES_HUMAN_REVIEW') {
             # Retain the original bytes and explanation for triage; any
