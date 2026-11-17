@@ -67,6 +67,8 @@ internal sealed class FoamLensForm : Form
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly bool _smokeTest;
     private readonly bool _developerAuditSmoke;
+    // Each original packaged Windows process owns its own non-reused CDP capture receipt.
+    private readonly string _nativeCaptureSession = Guid.NewGuid().ToString("N");
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
@@ -769,6 +771,23 @@ internal sealed class FoamLensForm : Form
         var png = Convert.FromBase64String(json.RootElement.GetProperty("data").GetString() ?? "");
         if (png.Length < 10_000) throw new InvalidOperationException("Rendered branding PNG evidence is unexpectedly small: " + fullPath);
         await File.WriteAllBytesAsync(fullPath, png);
+        // This receipt is produced by the original WinForms/WebView2 PROCESS
+        // that actually captured the image, not by make_visual_evidence.py.
+        // Independent processes can legitimately produce bit-identical PNGs;
+        // the per-process session identifies that separate observation.
+        var receipt = new
+        {
+            schema = "foamlens/native-cdp-capture-receipt/1",
+            session = _nativeCaptureSession,
+            processId = Environment.ProcessId,
+            method = "Page.captureScreenshot",
+            file = Path.GetFileName(fullPath),
+            sha256 = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant(),
+            capturedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
+            version = DesktopVersionText
+        };
+        await File.WriteAllTextAsync(fullPath + ".receipt.json",
+            JsonSerializer.Serialize(receipt));
     }
 
 #if FOAMLENS_DEVELOPER
