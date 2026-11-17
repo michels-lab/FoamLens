@@ -68,10 +68,28 @@ def main() -> None:
                     path = directory / f"{surface}-{viewport}.png"
                     render_fixture(path, dimensions,
                                    1000 * variant_index + 100 * viewport_index + surface_index)
+                    # Deliberately synthetic fixture receipts for NEGATIVE
+                    # provenance tests; never native Windows run evidence.
+                    receipt = {
+                        "schema": "foamlens/native-cdp-capture-receipt/1",
+                        "session": "a" * 32 if variant == "installed" else "b" * 32,
+                        "processId": 1234 + variant_index,
+                        "method": "Page.captureScreenshot",
+                        "file": path.name,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        "capturedAtUtc": "2026-11-17T16:00:00+00:00",
+                        "version": "1.8.15",
+                    }
+                    Path(str(path) + ".receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
                 shutil.copyfile(
                     directory / f"about-{viewport}.png",
                     directory / f"about-{viewport}-bottom.png",
                 )
+                bottom = directory / f"about-{viewport}-bottom.png"
+                receipt = json.loads(Path(str(directory / f"about-{viewport}.png") +
+                                          ".receipt.json").read_text(encoding="utf-8"))
+                receipt["file"] = bottom.name
+                Path(str(bottom) + ".receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
 
         manifest = evidence / "manifest.json"
         subprocess.run(
@@ -92,6 +110,9 @@ def main() -> None:
                        for shot in records) == 2
                    for variant in ("installed", "portable") for surface in SURFACES)
 
+        assert all(shot["native_capture"]["schema"] ==
+                   "foamlens/native-cdp-capture-receipt/1" for shot in records)
+        assert len({shot["native_capture"]["session"] for shot in records}) == 2
         assert {shot["runtime_variant"] for shot in records} == {"installed", "portable"}
         assert all(shot["path"].startswith(shot["runtime_variant"] + "/") for shot in records)
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
