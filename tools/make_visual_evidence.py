@@ -51,6 +51,7 @@ def main():
     installer_sha = hashfile(args.artifact)
     portable_sha = hashfile(args.portable_artifact) if direct_windows else None
     records = []
+    native_sessions = {}
 
     candidates = [("installed", args.evidence_dir, installer_sha, args.capture_method)]
     if direct_windows:
@@ -91,6 +92,33 @@ def main():
                     continue
                 with Image.open(file) as img:
                     width, height = img.size
+                receipt_info = None
+                if direct_windows:
+                    # A process-local, source-bound WebView2 capture receipt
+                    # attests that each screenshot came from its own native
+                    # installed/portable run, even if pixels are deterministic.
+                    receipt_file = Path(str(file) + ".receipt.json")
+                    if not receipt_file.is_file() or not receipt_file.is_relative_to(root):
+                        raise SystemExit(f"Missing actual native CDP receipt: {receipt_file}")
+                    try:
+                        receipt = json.loads(receipt_file.read_text(encoding="utf-8"))
+                    except (OSError, ValueError) as exc:
+                        raise SystemExit(f"Unparseable native CDP receipt: {receipt_file}: {exc}")
+                    if (receipt.get("schema") != "foamlens/native-cdp-capture-receipt/1"
+                            or receipt.get("method") != "Page.captureScreenshot"
+                            or receipt.get("file") != file.name
+                            or receipt.get("sha256") != digest
+                            or not re.fullmatch(r"[0-9a-f]{32}", str(receipt.get("session", "")))
+                            or not isinstance(receipt.get("processId"), int)
+                            or receipt["processId"] <= 0
+                            or not isinstance(receipt.get("capturedAtUtc"), str)
+                            or not receipt["capturedAtUtc"].endswith("Z")
+                            or not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", str(receipt.get("version", "")))):
+                        raise SystemExit(f"Invalid source/process CDP capture receipt: {receipt_file}")
+                    previous = native_sessions.setdefault(variant, receipt["session"])
+                    if previous != receipt["session"]:
+                        raise SystemExit(f"{variant}: screenshots came from multiple unrelated native capture sessions")
+                    receipt_info = {**receipt, "receiptSha256": hashfile(receipt_file)}
                 records.append({
                     "platform": args.platform,
                     "runtime_variant": variant,
@@ -102,7 +130,11 @@ def main():
                     "height": height,
                     "capture_method": capture_method,
                     "candidate_artifact_sha256": candidate_sha,
+                    **({"native_capture": receipt_info} if receipt_info else {}),
                 })
+
+    if direct_windows and native_sessions.get("installed") == native_sessions.get("portable"):
+        raise SystemExit("Installed/portable original CDP captures reused the same native process session")
 
     if args.require_multiregion:
         # Unlike generated graphics fixtures, this file is created by the actual
