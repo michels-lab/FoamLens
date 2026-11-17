@@ -5,11 +5,15 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/granada-cad-assembly-ui.yml'
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-cad-surface-inspector.js'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/granada-cad-assembly-ui.yml'
   workflow_dispatch:
 
@@ -29,6 +33,10 @@ jobs:
           node-version: '22'
       - name: Original CAD assembly tree, parts visibility, selection, isolation, restore and source export
         run: node desktop/tests/cad-assembly-visibility.test.cjs
+      - name: Foundation and OpenFOAM.com staging geometry, SI bounds, exact ZIP provenance
+        run: node desktop/tests/cad-openfoam-staging.test.cjs
+      - name: Original OpenFOAM target/region role interface and safe offline staging export
+        run: node desktop/tests/cad-openfoam-staging-ui.test.cjs
       - name: Original CAD import, topology, units and binary STL ZIP provenance
         run: node desktop/tests/cad-surface-inspector.test.cjs
       - name: Original native WSL surfaceCheck request and visible selection
