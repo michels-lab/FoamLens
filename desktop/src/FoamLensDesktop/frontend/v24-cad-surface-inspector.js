@@ -567,6 +567,79 @@ function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{re
 function cgEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cgModels=[],cgYaw=.55,cgPitch=-.4,cgZoom=1,cgActive=false;
 let cgPreIsolationVisibility=null;
+// Region roles are explicit annotations of imported CAD model+named part.
+// They never rename the STL, assert an interface, or change source geometry.
+const cgOpenFoamRoleByModel=new WeakMap();
+const cgUiOpenFoamRoles=[
+  ['unassigned','Unassigned / Sin asignar'],['metal','Metal'],
+  ['mold','Mold / Molde'],['interface','Interface / Interfaz'],
+  ['wall','Wall / Pared'],['inlet','Inlet / Entrada'],
+  ['outlet','Outlet / Salida'],['other','Other / Otro']
+];
+function cgOpenFoamGetRole(model,part){
+  return cgOpenFoamRoleByModel.get(model)?.get(part)||'unassigned'
+}
+function cgOpenFoamSetRole(index,part,role){
+  const model=cgModels[index];
+  if(!Number.isInteger(index)||!model?.partsVisible?.has(part)||
+    !cgUiOpenFoamRoles.some(([v])=>v===role))
+    throw Error('Invalid original model/part or user-selected role');
+  let roles=cgOpenFoamRoleByModel.get(model);
+  if(!roles){roles=new Map();cgOpenFoamRoleByModel.set(model,roles)}
+  roles.set(part,role);cgRefreshOpenFoamPrep()
+}
+function cgOpenFoamRoleMap(){
+  const selected=new Map();
+  cgModels.forEach((m,i)=>{
+    for(const part of m.partsVisible.keys())
+      selected.set(i+'|'+part,cgOpenFoamGetRole(m,part))
+  });
+  return selected
+}
+function cgRefreshOpenFoamPrep(){
+  const btn=document.getElementById('cgExportOpenFoamPrep'),
+    target=document.getElementById('cgOpenFoamTarget'),
+    status=document.getElementById('cgOpenFoamPrepPreview');
+  if(!btn)return; // Standalone original CAD tests/older embedded layout.
+  const active=cgModels.filter(m=>m.visible).flatMap(m=>
+    [...m.partsVisible].filter(([,visible])=>visible).map(([part])=>({m,part}))),
+    validUnits=active.every(({m})=>cgUnitScale(m.unit)),
+    chosen=String(target?.value||'');
+  btn.disabled=!active.length||!validUnits||!['foundation13','openfoamcom'].includes(chosen);
+  if(status){
+    const path=chosen==='foundation13'?'constant/geometry':
+      chosen==='openfoamcom'?'constant/'+'tri'+'Surface':'—',
+      assigned=active.filter(({m,part})=>cgOpenFoamGetRole(m,part)!=='unassigned').length;
+    status.textContent=active.length+
+      cgUi(' selected visible CAD regions; ',' regiones CAD visibles seleccionadas; ')+
+      assigned+cgUi(' explicitly annotated. Target: ',' anotadas explícitamente. Destino: ')+
+      path+'. '+(!validUnits?cgUi('Confirm all visible source units.',
+        'Confirma las unidades de todas las fuentes visibles.'):
+        !chosen?cgUi('Choose your OpenFOAM edition.',
+          'Selecciona tu edición OpenFOAM.'):
+          cgUi('Staging ZIP only; no blockMesh/polyMesh or CFD case modification.',
+            'Solo ZIP de preparación, sin blockMesh/polyMesh ni cambios al caso CFD.'))
+  }
+}
+function cgExportOpenFoamPrep(){
+  try{
+    const chosen=String(document.getElementById('cgOpenFoamTarget')?.value||''),
+      prepared=cgOpenFoamPrepare(cgModels,chosen,cgOpenFoamRoleMap());
+    if(prepared.manifest.topologyWarnings&&!window.confirm(
+      prepared.manifest.topologyWarnings+' original CAD regions have topology warnings. '+
+      'Prepare unvalidated surface STL anyway? No mesh will be generated.'))return;
+    const bytes=cgStoreZip(prepared.files);
+    cgDownloadZip('FoamLens-OpenFOAM-'+chosen+'-geometry-staging.zip',bytes);
+    cgShow(cgUi('Prepared ','Preparadas ')+prepared.manifest.regionCount+
+      cgUi(' original regions for ',' regiones originales para ')+prepared.target.label+
+      cgUi('. Inspect the ZIP: geometry snippet, original SI STL, bounds and README. NO mesh or case changes.',
+        '. Revisa el ZIP: declaración, STL en SI, dimensiones y guía. SIN malla ni cambios al caso.'))
+  }catch(err){
+    cgShow(cgUi('OpenFOAM preparation blocked: ','Preparación OpenFOAM bloqueada: ')+
+      String(err?.message||err))
+  }
+}
+
 const cgTreeOpen=new Set(),cgTreeKnown=new Set();
 function cgUpdatePartControls(){
   const c=cgVisiblePartTotals(cgModels),
@@ -798,7 +871,12 @@ function cgRenderInventory(){
           (selectedPart===key?'aria-current="true"':'')+'>'+
           cgUi('Select','Seleccionar')+'</button>'+
         '<button type="button" class="btn tiny" data-cg-isolate="'+cgEscape(key)+'">'+
-          cgUi('Isolate','Aislar')+'</button></div>'
+          cgUi('Isolate','Aislar')+'</button>'+
+        '<label>'+cgUi('Region role','Función de región')+' <select data-cg-role="'+cgEscape(key)+'" aria-label="'+
+          cgUi('OpenFOAM region role for ','Función OpenFOAM de ')+cgEscape(p.name)+'">'+
+          cgUiOpenFoamRoles.map(([value,label])=>'<option value="'+value+'" '+
+            (cgOpenFoamGetRole(m,p.name)===value?'selected':'')+'>'+cgEscape(label)+'</option>').join('')+
+          '</select></label></div>'
     }).join('');
     return '<details class="cgItem cgModelTree" data-cg-tree="'+i+'"'+open+'>'+
       '<summary><strong>'+cgEscape(m.name)+'</strong> · '+sum.triangles+
@@ -861,11 +939,16 @@ function cgRenderInventory(){
     const {i,part}=decode(button.dataset.cgIsolate);
     cgIsolateNamedPart(i,part)
   }));
+  el.querySelectorAll('[data-cg-role]').forEach(sel=>sel.addEventListener('change',()=>{
+    const {i,part}=decode(sel.dataset.cgRole);
+    try{cgOpenFoamSetRole(i,part,sel.value)}
+    catch(err){cgShow(String(err?.message||err))}
+  }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
     m.unit=sel.value;cgRenderInventory()
   }));
-  cgRefreshExport();cgUpdatePartControls();cgDraw()
+  cgRefreshExport();cgUpdatePartControls();cgRefreshOpenFoamPrep();cgDraw()
 }
 function cgRefreshExport(){
   const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
@@ -888,6 +971,7 @@ function cgRefreshExport(){
       cgUi('Separate binary STL per visible region, with manifest, in one ZIP.',
         'STL binario independiente por región visible con manifiesto en un ZIP.')
   }
+  cgRefreshOpenFoamPrep();
   const note=document.getElementById('cgUnitWarning');
   if(note)note.textContent=scale?
     cgUi('Selected source coordinate unit explicitly mapped to meters. Verify dimensions before using OpenFOAM.','Unidad de origen seleccionada; conversión a metros. Comprueba las dimensiones antes de usar OpenFOAM.'):
@@ -1192,6 +1276,16 @@ function cgInstall(){
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
     '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
     '<p id="cgUnitWarning" class="cgNotice"></p>'+
+    '<div class="cgTools" role="group" aria-label="OpenFOAM mesh preparation staging">'+
+    '<label>'+cgUi('OpenFOAM target','Edición OpenFOAM')+
+      ' <select id="cgOpenFoamTarget" aria-label="Select installed OpenFOAM edition before staging">'+
+      '<option value="">'+cgUi('Choose edition','Elegir edición')+'</option>'+
+      '<option value="foundation13">Foundation v13/v14 (review installed version)</option>'+
+      '<option value="openfoamcom">OpenFOAM.com (review installed version)</option>'+
+      '</select></label>'+
+    '<button class="btn primary" id="cgExportOpenFoamPrep" type="button" disabled>'+
+      cgUi('Prepare OpenFOAM geometry ZIP','Preparar ZIP de geometría OpenFOAM')+'</button></div>'+
+    '<p id="cgOpenFoamPrepPreview" class="cgNotice" aria-live="polite"></p>'+
     '<div class="cgTools"><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
     '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
     '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
@@ -1208,6 +1302,8 @@ function cgInstall(){
   document.getElementById('cgCadCancelImport').onclick=cgCancelBrepImport;
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
+  document.getElementById('cgExportOpenFoamPrep').onclick=cgExportOpenFoamPrep;
+  document.getElementById('cgOpenFoamTarget').addEventListener('change',cgRefreshOpenFoamPrep);
   document.getElementById('cgPartsShowAll').onclick=()=>cgChangePartSelection('show');
   document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
   document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
@@ -1227,4 +1323,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,openFoamTarget:cgOpenFoamTarget,prepareOpenFoamGeometry:cgOpenFoamPrepare,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};
