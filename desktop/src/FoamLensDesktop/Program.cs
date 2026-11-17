@@ -710,11 +710,13 @@ internal sealed class FoamLensForm : Form
                   if(!action||action.disabled)
                     return {ok:false,actionAvailable:false};
                   if(mode==='field-compare'){
+                    // Re-enter the original Field workspace first. The
+                    // product's comparison lifecycle can reset B on entry;
+                    // do not race this transition with the A/B toggle.
                     document.getElementById('flRaFieldWorkspace')?.click();
-                    const toggle=document.getElementById('fcEnabled');
-                    if(!toggle)return {ok:false,actionAvailable:true,comparisonPresent:false};
-                    if(!toggle.checked)action.click();
-                  }else action.click();
+                    return {ok:true,actionAvailable:true,phase:'enter-field'};
+                  }
+                  action.click();
                   return {ok:true,actionAvailable:true};
                 })()
                 """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
@@ -723,6 +725,27 @@ internal sealed class FoamLensForm : Form
                 if (!navigate.RootElement.TryGetProperty("ok", out var navOk) || !navOk.GetBoolean())
                     throw new InvalidOperationException(
                         "Granada G5 original native workspace action unavailable: " + mode);
+            }
+            if (mode == "field-compare")
+            {
+                await Task.Delay(220);
+                var comparisonActionScript = """
+                    (() => {
+                      const action=document.getElementById('flRaCompare3D');
+                      const checkbox=document.getElementById('fcEnabled');
+                      if(!action||!checkbox||action.disabled)
+                        return {ok:false,actionAvailable:!!action&&!action.disabled,
+                          checkboxPresent:!!checkbox};
+                      if(!checkbox.checked)action.click();
+                      return {ok:true,actionAvailable:true,checkboxPresent:true};
+                    })()
+                    """;
+                using var actionResult=JsonDocument.Parse(
+                    await _web.CoreWebView2.ExecuteScriptAsync(comparisonActionScript));
+                if (!actionResult.RootElement.TryGetProperty("ok", out var actionOk) ||
+                    !actionOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        "Granada G5 original Compare 3D action or checkbox missing after re-entering Field.");
             }
             await Task.Delay(350);
             var inspectScript = """
@@ -734,7 +757,14 @@ internal sealed class FoamLensForm : Form
                     review:'reviewSurface',
                     live:'liveSurface'
                   }[mode];
-                  const target=document.getElementById(id),rect=target?.getBoundingClientRect();
+                  const target=document.getElementById(id);
+                  // The original Field scene can be legitimately scrollable
+                  // below the toolbar. Navigate it into the visible native
+                  // WebView2 viewport instead of treating off-screen pixels
+                  // as an invisible or broken comparison.
+                  if(mode==='field-compare'&&target&&!target.classList.contains('hidden'))
+                    target.scrollIntoView({block:'nearest',inline:'nearest'});
+                  const rect=target?.getBoundingClientRect();
                   const style=target?getComputedStyle(target):null;
                   const active=typeof activeAppMode==='string'?activeAppMode:'none';
                   const comparison=mode!=='field-compare'||(
@@ -748,15 +778,58 @@ internal sealed class FoamLensForm : Form
                     style?.display!=='none'&&style?.visibility!=='hidden'&&
                     inViewport;
                   return {ok:active===expectedMode&&rendered&&comparison&&analysisControls,
-                    activeModeMatches:active===expectedMode,
-                    rendered,comparison,viewportWidth:innerWidth};
+                    activeModeMatches:active===expectedMode,rendered,comparison,analysisControls,
+                    targetExists:!!target,
+                    targetHidden:!!target?.classList.contains('hidden'),
+                    checkboxChecked:document.getElementById('fcEnabled')?.checked===true,
+                    compareCaseControl:!!document.getElementById('fcCase'),
+                    comparisonRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,
+                    viewportIntersects:inViewport,viewportWidth:innerWidth,
+                    width:Math.round(rect?.width||0),height:Math.round(rect?.height||0)};
+
                 })()
                 """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
-            using var geometry = JsonDocument.Parse(await _web.CoreWebView2.ExecuteScriptAsync(inspectScript));
-            if (!geometry.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+            // Real WebView2 frame/render work is asynchronous. Wait for
+            // original DOM geometry, not for a fixed guessed animation delay.
+            // Never downgrade the validation: no capture until ALL checks pass.
+            bool verified=false;
+            JsonElement lastEvidence=default;
+            for (var attempt=0; attempt<20; ++attempt)
+            {
+                using var geometry=JsonDocument.Parse(
+                    await _web.CoreWebView2.ExecuteScriptAsync(inspectScript));
+                if (geometry.RootElement.ValueKind==JsonValueKind.Object)
+                {
+                    lastEvidence=geometry.RootElement.Clone();
+                    if (lastEvidence.TryGetProperty("ok", out var ok) && ok.GetBoolean())
+                    {
+                        verified=true;
+                        break;
+                    }
+                }
+                await Task.Delay(200);
+            }
+            if (!verified)
+            {
+                // Keep the actual native screenshot for diagnosing the same
+                // error; no generated fallback image or fake mode activation.
+                try { await CaptureCdpPngAsync(Path.Combine(root, mode+"-failed-"+viewport+".png")); }
+                catch (Exception screenshotError)
+                { Log("Granada G5 failed-capture diagnostics: "+screenshotError.GetType().Name); }
+                string Bool(string key) =>
+                    lastEvidence.ValueKind==JsonValueKind.Object &&
+                    lastEvidence.TryGetProperty(key,out var bit) &&
+                    (bit.ValueKind==JsonValueKind.True||bit.ValueKind==JsonValueKind.False)
+                    ? bit.GetBoolean().ToString().ToLowerInvariant() : "missing";
+                var safeKeys=new []{"activeModeMatches","rendered","comparison",
+                    "analysisControls","targetExists","targetHidden","checkboxChecked",
+                    "compareCaseControl","comparisonRequested","viewportIntersects"};
+                var flags=string.Join(",",safeKeys.Select(key=>key+"="+Bool(key)));
                 throw new InvalidOperationException(
-                    "Granada G5 native " + mode + " rendered layout failed at " + viewport +
-                    "; original mode/source geometry not verified (no private values logged).");
+                    "Granada G5 native "+mode+" rendered layout failed at "+viewport+
+                    "; original WebView2 boolean geometry: "+flags+
+                    " (no private case names or measured data logged).");
+            }
             await Task.Delay(140);
             await CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"));
             Log("Granada G5 original native Windows UI capture passed: " + mode + " / " + viewport);
