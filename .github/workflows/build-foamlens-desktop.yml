@@ -676,6 +676,10 @@ jobs:
         shell: pwsh
         run: node desktop/tests/cad-surface-inspector.test.cjs
 
+      - name: Test original CAD assembly model-part visibility, isolate and restore, and export selection
+        shell: pwsh
+        run: node desktop/tests/cad-assembly-visibility.test.cjs
+
       - name: Test original CAD native surfaceCheck request, cancellation and permission gates
         shell: pwsh
         run: node desktop/tests/cad-native-surfacecheck.test.cjs

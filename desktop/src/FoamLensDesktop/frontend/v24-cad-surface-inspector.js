@@ -227,6 +227,76 @@ function cgVisibleRegionBatch(models){
   return {files,manifest,topologyWarnings}
 }
 
+// CAD original model/part visibility ownership. These functions never
+// modify triangles, confirmed source units, imported files or the CFD case.
+function cgVisibilitySnapshot(models){
+  if(!Array.isArray(models)||models.some(m=>!m||!(m.partsVisible instanceof Map)))
+    throw Error('Invalid CAD model/part inventory');
+  return models.map(m=>({model:m,visible:!!m.visible,parts:new Map(m.partsVisible)}))
+}
+function cgVisibilityRestore(models,snapshot){
+  if(!Array.isArray(models)||!Array.isArray(snapshot)||models.length!==snapshot.length)
+    throw Error('CAD assembly changed since isolation');
+  // Prevalidate every original model and named part BEFORE touching any state.
+  for(let i=0;i<models.length;i++){
+    const m=models[i],record=snapshot[i];
+    if(!m||!record||record.model!==m||!(m.partsVisible instanceof Map)||
+      !(record.parts instanceof Map)||m.partsVisible.size!==record.parts.size||
+      [...m.partsVisible.keys()].some(part=>!record.parts.has(part)))
+      throw Error('CAD model or parts changed since isolation')
+  }
+  models.forEach((m,i)=>{
+    m.visible=snapshot[i].visible;
+    for(const [part,shown] of snapshot[i].parts)m.partsVisible.set(part,shown)
+  });
+  return true
+}
+function cgSetPartsVisibility(models,shown,index=null){
+  if(!Array.isArray(models)||typeof shown!=='boolean'||
+    (index!==null&&(!Number.isInteger(index)||index<0||index>=models.length)))
+    throw Error('Invalid CAD visibility scope');
+  const target=index===null?models:[models[index]];
+  if(target.some(m=>!m||!(m.partsVisible instanceof Map)))
+    throw Error('Invalid original CAD parts');
+  for(const m of target){
+    m.visible=shown;
+    for(const part of m.partsVisible.keys())m.partsVisible.set(part,shown)
+  }
+  return target.reduce((n,m)=>n+m.partsVisible.size,0)
+}
+function cgSetPartVisibility(models,index,part,shown){
+  const m=models?.[index];
+  if(!Number.isInteger(index)||!m||!(m.partsVisible instanceof Map)||
+    !m.partsVisible.has(part)||typeof shown!=='boolean')
+    throw Error('Unknown original CAD part');
+  m.partsVisible.set(part,shown);
+  if(shown)m.visible=true;
+  return true
+}
+function cgIsolatePart(models,index,part){
+  const m=models?.[index];
+  if(!Number.isInteger(index)||!m||!(m.partsVisible instanceof Map)||
+    !m.partsVisible.has(part))throw Error('Unknown CAD part to isolate');
+  const previous=cgVisibilitySnapshot(models);
+  for(let i=0;i<models.length;i++){
+    const target=models[i];target.visible=i===index;
+    for(const name of target.partsVisible.keys())
+      target.partsVisible.set(name,i===index&&name===part)
+  }
+  return previous
+}
+function cgVisiblePartTotals(models){
+  const result={models:0,parts:0,visibleModels:0,visibleParts:0};
+  for(const m of models||[]){
+    if(!m||!(m.partsVisible instanceof Map))continue;
+    result.models++;if(m.visible)result.visibleModels++;
+    for(const selected of m.partsVisible.values()){
+      result.parts++;if(m.visible&&selected)result.visibleParts++
+    }
+  }
+  return result
+}
+
 // Only FoamLens' own uncompressed, CRC-checked ZIP STORE format is accepted.
 // This does not silently import arbitrary compressed archives or project files.
 function cgReadStoredZip(input){
@@ -353,6 +423,51 @@ function cgRestoreRegionBatch(input){
 function cgUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function cgEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let cgModels=[],cgYaw=.55,cgPitch=-.4,cgZoom=1,cgActive=false;
+let cgPreIsolationVisibility=null;
+const cgTreeOpen=new Set(),cgTreeKnown=new Set();
+function cgUpdatePartControls(){
+  const c=cgVisiblePartTotals(cgModels),
+    indicator=document.getElementById('cgVisibleCount'),
+    restore=document.getElementById('cgRestoreVisibility');
+  if(indicator)indicator.textContent=c.visibleParts+' / '+c.parts+' '+
+    cgUi('visible parts in ','piezas visibles en ')+c.models+
+    cgUi(' models',' modelos');
+  if(restore)restore.disabled=!cgPreIsolationVisibility;
+  for(const id of ['cgPartsShowAll','cgPartsHideAll']){
+    const button=document.getElementById(id);
+    if(button)button.disabled=!c.parts
+  }
+}
+function cgChangePartSelection(action,modelIndex=null){
+  try{
+    if(action==='restore'){
+      if(!cgPreIsolationVisibility)return;
+      cgVisibilityRestore(cgModels,cgPreIsolationVisibility);
+      cgPreIsolationVisibility=null
+    }else if(action==='show'||action==='hide'){
+      cgSetPartsVisibility(cgModels,action==='show',modelIndex);
+      cgPreIsolationVisibility=null
+    }else throw Error('Unknown CAD part selection');
+    cgRenderInventory()
+  }catch(err){cgShow(cgUi('Visibility blocked: ','Visibilidad bloqueada: ')+String(err?.message||err))}
+}
+function cgFocusNamedPart(modelIndex,part){
+  const m=cgModels[modelIndex],select=document.getElementById('cgPart');
+  if(!m?.partsVisible?.has(part)||!select)return false;
+  const key=modelIndex+'|'+part;
+  if(![...select.options].some(o=>o.value===key))return false;
+  select.value=key;cgRefreshExport();cgDraw();return true
+}
+function cgIsolateNamedPart(modelIndex,part){
+  try{
+    const previous=cgIsolatePart(cgModels,modelIndex,part);
+    if(!cgPreIsolationVisibility)cgPreIsolationVisibility=previous;
+    cgFocusNamedPart(modelIndex,part);cgRenderInventory();
+    cgShow(cgUi('Isolated part: ','Pieza aislada: ')+cgModels[modelIndex].name+
+      ' / '+part+cgUi('. Restore visibility to recover your earlier selection.',
+        '. Restaura visibilidad para recuperar la selección previa.'))
+  }catch(err){cgShow(cgUi('Isolation blocked: ','Aislamiento bloqueado: ')+String(err?.message||err))}
+}
 function cgDownload(name,data,mime){
   if(typeof downloadText==='function'){downloadText(name,data,mime);return}
   const u=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)
@@ -518,30 +633,96 @@ function cgExportVisibleBatch(){
 }
 function cgRenderInventory(){
   const el=document.getElementById('cgInventory');if(!el)return;
-  if(!cgModels.length){el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');return}
+  if(!cgModels.length){
+    el.textContent=cgUi('No surfaces imported.','Sin superficies importadas.');
+    cgUpdatePartControls();return
+  }
+  for(let i=0;i<cgModels.length;i++)if(!cgTreeKnown.has(i)){
+    cgTreeKnown.add(i);cgTreeOpen.add(i)
+  }
   el.innerHTML=cgModels.map((m,i)=>{
-    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=m.unit||'unknown';
-    return '<div class="cgItem"><label><input type="checkbox" data-cg-show="'+i+'" '+(m.visible?'checked':'')+'> <strong>'+cgEscape(m.name)+'</strong></label>'+
+    const sum=m.summary,fmt=x=>Number(x).toPrecision(5),unit=m.unit||'unknown',
+      count=[...m.partsVisible.values()].filter(Boolean).length,
+      open=cgTreeOpen.has(i)?' open':'',
+      selectedPart=String(document.getElementById('cgPart')?.value||'');
+    const children=sum.parts.map(p=>{
+      const key=i+'|'+p.name;
+      return '<div class="cgPartRow" role="group" aria-label="'+cgEscape(p.name)+'">'+
+        '<label><input type="checkbox" data-cg-part="'+cgEscape(key)+'" '+
+          (m.partsVisible.get(p.name)?'checked':'')+'> <strong>'+cgEscape(p.name)+
+          '</strong> ('+p.count+' '+cgUi('triangles','triángulos')+')</label>'+
+        '<button type="button" class="btn tiny" data-cg-focus="'+cgEscape(key)+'" '+
+          (selectedPart===key?'aria-current="true"':'')+'>'+
+          cgUi('Select','Seleccionar')+'</button>'+
+        '<button type="button" class="btn tiny" data-cg-isolate="'+cgEscape(key)+'">'+
+          cgUi('Isolate','Aislar')+'</button></div>'
+    }).join('');
+    return '<details class="cgItem cgModelTree" data-cg-tree="'+i+'"'+open+'>'+
+      '<summary><strong>'+cgEscape(m.name)+'</strong> · '+sum.triangles+
+        ' '+cgUi('triangles','triángulos')+' · '+sum.parts.length+
+        ' '+cgUi('parts','piezas')+' · '+count+' '+cgUi('checked','marcadas')+'</summary>'+
+      '<div class="cgModelBody">'+
+      '<div class="cgTools"><label><input type="checkbox" data-cg-show="'+i+'" '+
+        (m.visible?'checked':'')+'> '+cgUi('Show model','Mostrar modelo')+'</label>'+
+      '<button type="button" class="btn tiny" data-cg-model-show="'+i+'">'+
+        cgUi('Show all its parts','Mostrar todas sus piezas')+'</button>'+
+      '<button type="button" class="btn tiny" data-cg-model-hide="'+i+'">'+
+        cgUi('Hide all its parts','Ocultar todas sus piezas')+'</button></div>'+
       '<div>'+cgEscape(m.format)+' · '+sum.triangles+' triangles · '+sum.parts.length+' named parts</div>'+
       '<label>Source coordinate unit (this file): <select data-cg-unit="'+i+'">'+
-      [['unknown','Unknown / not confirmed'],['m','Meters'],['mm','Millimeters'],['cm','Centimeters'],['in','Inches']].map(x=>'<option value="'+x[0]+'" '+(x[0]===unit?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></label>'+
-      '<div>X '+fmt(sum.bounds.size[0])+' · Y '+fmt(sum.bounds.size[1])+' · Z '+fmt(sum.bounds.size[2])+' ['+cgEscape(unit)+'] · area '+fmt(sum.area)+' ['+cgEscape(unit)+'²]</div>'+
-      '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':'Open, inconsistent or degenerate surface')+
-      ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
-      '<div>Volume estimate: '+(sum.enclosedVolumeEstimate===null?'unavailable':fmt(sum.enclosedVolumeEstimate)+' ['+cgEscape(unit)+'³]')+'</div>'+
-      '<div class="cgParts">Visible named parts: '+sum.parts.map(p=>'<label style="margin:4px 12px 4px 0;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" data-cg-part="'+i+'|'+cgEscape(p.name)+'" '+(m.partsVisible.get(p.name)?'checked':'')+'> '+cgEscape(p.name)+' ('+p.count+')</label>').join('')+'</div>'+
-      (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+'</div>'
+      [['unknown','Unknown / not confirmed'],['m','Meters'],['mm','Millimeters'],
+        ['cm','Centimeters'],['in','Inches']].map(v=>'<option value="'+v[0]+'" '+
+        (v[0]===unit?'selected':'')+'>'+v[1]+'</option>').join('')+'</select></label>'+
+      '<div>X '+fmt(sum.bounds.size[0])+' · Y '+fmt(sum.bounds.size[1])+
+        ' · Z '+fmt(sum.bounds.size[2])+' ['+cgEscape(unit)+'] · area '+fmt(sum.area)+
+        ' ['+cgEscape(unit)+'²]</div>'+
+      '<div>'+cgEscape(sum.closedWinding?'Closed/oriented edge test passed (self-intersections not checked)':
+        'Open, inconsistent or degenerate surface')+
+        ' · boundary edges '+sum.boundaryEdges+' · nonmanifold '+sum.nonManifoldEdges+
+        ' · winding conflicts '+sum.orientationConflicts+' · degenerate '+sum.degenerate+'</div>'+
+      '<div>Volume estimate: '+(sum.enclosedVolumeEstimate===null?'unavailable':
+        fmt(sum.enclosedVolumeEstimate)+' ['+cgEscape(unit)+'³]')+'</div>'+
+      '<div class="cgParts" role="group" aria-label="'+
+        cgUi('Original CAD parts of ','Piezas CAD originales de ')+cgEscape(m.name)+'">'+children+'</div>'+
+      (m.warnings.length?'<div>'+cgEscape(m.warnings.join('; '))+'</div>':'')+
+      '</div></details>'
   }).join('');
-  el.querySelectorAll('[data-cg-show]').forEach(ch=>ch.addEventListener('change',()=>{cgModels[Number(ch.dataset.cgShow)].visible=ch.checked;cgRefreshExport();cgDraw()}));
-  el.querySelectorAll('[data-cg-part]').forEach(ch=>ch.addEventListener('change',()=>{
-    const key=ch.dataset.cgPart,sep=key.indexOf('|'),i=Number(key.slice(0,sep)),part=key.slice(sep+1),m=cgModels[i];
-    if(m)m.partsVisible.set(part,ch.checked);cgRefreshExport();cgDraw()
+  const decode=key=>{
+    const separator=String(key).indexOf('|');
+    return {i:Number(String(key).slice(0,separator)),part:String(key).slice(separator+1)}
+  };
+  el.querySelectorAll('[data-cg-tree]').forEach(details=>details.addEventListener('toggle',()=>{
+    const i=Number(details.dataset.cgTree);
+    if(details.open)cgTreeOpen.add(i);else cgTreeOpen.delete(i)
+  }));
+  el.querySelectorAll('[data-cg-show]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const m=cgModels[Number(checkbox.dataset.cgShow)];if(!m)return;
+    m.visible=checkbox.checked;cgPreIsolationVisibility=null;cgRenderInventory()
+  }));
+  el.querySelectorAll('[data-cg-part]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const {i,part}=decode(checkbox.dataset.cgPart);
+    try{
+      cgSetPartVisibility(cgModels,i,part,checkbox.checked);
+      cgPreIsolationVisibility=null;cgRenderInventory()
+    }catch(err){cgShow(String(err?.message||err))}
+  }));
+  el.querySelectorAll('[data-cg-model-show]').forEach(button=>button.addEventListener('click',()=>
+    cgChangePartSelection('show',Number(button.dataset.cgModelShow))));
+  el.querySelectorAll('[data-cg-model-hide]').forEach(button=>button.addEventListener('click',()=>
+    cgChangePartSelection('hide',Number(button.dataset.cgModelHide))));
+  el.querySelectorAll('[data-cg-focus]').forEach(button=>button.addEventListener('click',()=>{
+    const {i,part}=decode(button.dataset.cgFocus);
+    cgFocusNamedPart(i,part);cgRenderInventory()
+  }));
+  el.querySelectorAll('[data-cg-isolate]').forEach(button=>button.addEventListener('click',()=>{
+    const {i,part}=decode(button.dataset.cgIsolate);
+    cgIsolateNamedPart(i,part)
   }));
   el.querySelectorAll('[data-cg-unit]').forEach(sel=>sel.addEventListener('change',()=>{
     const m=cgModels[Number(sel.dataset.cgUnit)];if(!m)return;
     m.unit=sel.value;cgRenderInventory()
   }));
-  cgRefreshExport();cgDraw()
+  cgRefreshExport();cgUpdatePartControls();cgDraw()
 }
 function cgRefreshExport(){
   const select=document.getElementById('cgPart'),exportBtn=document.getElementById('cgExportStl'),batchBtn=document.getElementById('cgExportBatch');
@@ -551,7 +732,8 @@ function cgRefreshExport(){
   select.innerHTML=parts.map(p=>'<option value="'+cgEscape(p.key)+'">'+cgEscape(p.label)+'</option>').join('');
   if(parts.some(p=>p.key===old))select.value=old;
   const key=String(select.value||''),index=Number(key.split('|')[0]),model=cgModels[index],scale=cgUnitScale(model?.unit);
-  exportBtn.disabled=!parts.length||!scale;
+  exportBtn.disabled=!parts.length||!scale||!model?.visible||
+    !model?.partsVisible?.get(key.slice(key.indexOf('|')+1));
   cgRefreshNativeCheck();
   if(batchBtn){
     const chosen=cgModels.filter(m=>m.visible).flatMap(m=>
@@ -740,6 +922,7 @@ async function cgImport(){
           throw Error('Combined geometry exceeds 300000 triangles or 1000 named surfaces');
         // The COMPLETE native conversion is validated before any region is appended.
         cgModels.push(...prepared);
+        cgPreIsolationVisibility=null;
         added+=prepared.length
       }catch(e){errors.push(file.name+': '+String(e?.message||e))}
       if(cgBrepCancelled)break;
@@ -761,7 +944,11 @@ async function cgImport(){
 function cgExport(){
   const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),index=Number(key.slice(0,sep)),part=key.slice(sep+1);
   const unit=cgModels[index]?.unit,scale=cgUnitScale(unit);
-  if(sep<0||!scale||!cgModels[index]){cgShow('Confirm source units and choose a named part.');return}
+  if(sep<0||!scale||!cgModels[index]||!cgModels[index].visible||
+    !cgModels[index].partsVisible.get(part)){
+    cgShow(cgUi('Confirm units and select a visible named part.',
+      'Confirma unidades y selecciona una pieza visible.'));return
+  }
   const model=cgModels[index],subset=model.triangles.filter(t=>t.part===part),sum=cgSummary(subset),name=cgSafeName(part);
   if(sum.degenerate||sum.nonManifoldEdges||sum.boundaryEdges||sum.orientationConflicts){
     if(!window.confirm('This surface has topology warnings. Export as an unvalidated triSurface anyway?'))return
@@ -804,17 +991,26 @@ function cgDraw(){
     const a=cy*x+sy*z,b=-sy*x+cy*z;
     return [w/2+scale*a,h/2-scale*(cp*y-sp*b),sp*y+cp*b]
   };
-  const step=Math.max(1,Math.ceil(total/2800)),polys=[];
+  const step=Math.max(1,Math.ceil(total/2800)),polys=[],
+    selected=String(document.getElementById('cgPart')?.value||'');
   let ordinal=0;
   for(const model of active)for(const tri of model.triangles){
     if(!model.partsVisible.get(tri.part))continue;
     if((ordinal++%step)!==0)continue;
     const factor=physical?cgUnitScale(model.unit):1;
     const p=tri.vertices.map(v=>rotate(v,factor));
-    polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3})
+    const modelIndex=cgModels.indexOf(model);
+    polys.push({p,z:(p[0][2]+p[1][2]+p[2][2])/3,
+      selected:selected===modelIndex+'|'+tri.part})
   }
   polys.sort((a,b)=>a.z-b.z);
-  for(const {p} of polys){ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();ctx.fillStyle='rgba(65,170,205,.27)';ctx.fill();ctx.strokeStyle='rgba(121,209,243,.44)';ctx.lineWidth=.6;ctx.stroke()}
+  for(const {p,selected:chosen} of polys){
+    ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[1][0],p[1][1]);
+    ctx.lineTo(p[2][0],p[2][1]);ctx.closePath();
+    ctx.fillStyle=chosen?'rgba(252,180,65,.48)':'rgba(65,170,205,.27)';
+    ctx.fill();ctx.strokeStyle=chosen?'rgba(255,220,139,.95)':'rgba(121,209,243,.44)';
+    ctx.lineWidth=chosen?1.25:.6;ctx.stroke()
+  }
   ctx.font='12px sans-serif';ctx.fillStyle='#d6e7f1';
   const b=bounds.size;ctx.fillText('X '+b[0].toPrecision(5)+'   Y '+b[1].toPrecision(5)+'   Z '+b[2].toPrecision(5)+'  ('+(physical?'meters':'unverified source coordinates')+')',16,24);
   ctx.fillText('Surface preview · '+polys.length+' / '+total+' triangles displayed · selected visible parts only · not an OpenFOAM volume mesh',16,h-15)
@@ -833,6 +1029,9 @@ function cgInstall(){
     '#cgShell #cgCanvas{display:block;width:100%;height:min(55vh,520px);min-height:260px;border:1px solid #3b5578;border-radius:12px;touch-action:none;cursor:grab}' +
     '#cgShell .cgItem{padding:11px;border:1px solid #37526e;border-radius:9px;margin:7px 0;font-size:12px;line-height:1.6}' +
     '#cgShell .cgNotice{font-size:12px;color:#c8d6e9}#cgShell select{max-width:300px;min-width:120px}#cgShell button{cursor:pointer}' +
+    '#cgShell .cgModelTree>summary{cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}#cgShell .cgModelBody{display:grid;gap:8px;padding:9px 1px 2px}' +
+    '#cgShell .cgParts{display:grid;gap:7px}#cgShell .cgPartRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 8px;border:1px solid #29465d;border-radius:8px}' +
+    '#cgShell .cgPartRow label{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}#cgShell .cgPartRow [aria-current=true]{border-color:#fcc15a;color:#ffe1a0}' +
     '#cgShell #cgSurfaceCheckOutput{white-space:pre-wrap;overflow-wrap:anywhere;max-height:270px;overflow:auto;border:1px solid #37526e;border-radius:9px;padding:11px;background:#101b2c;color:#d6e7f1;font-size:11px}';
   document.head.appendChild(css);
   sheet.innerHTML='<div class="cgInner"><div class="cgHeader"><div><h2>CAD & Geometry — Surface Inspector</h2><p class="cgNotice">STL/OBJ/ZIP import is local. STEP/IGES/BREP uses real FreeCAD/OpenCascade when FreeCADCmd is installed in default WSL; verify source dimensions/units. No OpenFOAM case is modified.</p></div><button class="btn" id="cgClose" type="button">Close</button></div>'+
@@ -840,7 +1039,12 @@ function cgInstall(){
     '<button class="btn" data-cg-view="iso">Isometric</button><button class="btn" data-cg-view="top">Top</button><button class="btn" data-cg-view="front">Front</button><button class="btn" data-cg-view="side">Right</button><button class="btn" data-cg-view="fit">Fit</button></div>'+
     '<canvas id="cgCanvas" aria-label="Rotatable 3D surface projection; drag to orbit, wheel to zoom"></canvas>'+
     '<div id="cgStatus" class="cgNotice" aria-live="polite">Choose STL, OBJ, FoamLens ZIP or STEP/IGES/BREP. CAD BREP requires native Windows and installed FreeCADCmd in default WSL. Imported FreeCAD coordinates are millimeters but MUST be confirmed before SI export.</div>'+
-    '<div id="cgInventory" aria-label="Imported surface parts"></div>'+
+    '<div class="cgTools" role="group" aria-label="CAD model and named part visibility">'+
+    '<button class="btn soft" id="cgPartsShowAll" type="button">Show all parts</button>'+
+    '<button class="btn soft" id="cgPartsHideAll" type="button">Hide all parts</button>'+
+    '<button class="btn" id="cgRestoreVisibility" type="button" disabled>Restore previous visibility</button>'+
+    '<span class="cgNotice" id="cgVisibleCount" aria-live="polite"></span></div>'+
+    '<div id="cgInventory" aria-label="Imported CAD model and named-part tree"></div>'+
     '<div class="cgTools">'+
     '<label>Named part <select id="cgPart"></select></label><button id="cgExportStl" class="btn primary" disabled type="button">Export named STL in meters + manifest</button>'+
     '<button id="cgExportBatch" class="btn primary" type="button" disabled>Export visible regions · ZIP (binary STL + manifest)</button></div>'+
@@ -861,10 +1065,13 @@ function cgInstall(){
   document.getElementById('cgCadCancelImport').onclick=cgCancelBrepImport;
   document.getElementById('cgExportStl').onclick=cgExport;
   document.getElementById('cgExportBatch').onclick=cgExportVisibleBatch;
+  document.getElementById('cgPartsShowAll').onclick=()=>cgChangePartSelection('show');
+  document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
+  document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
   document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
   document.getElementById('cgSurfaceCheckCancel').onclick=()=>cgNativeCheckCancel?.();
   document.getElementById('cgSurfaceCheckExport').onclick=cgExportNativeCheckReport;
-  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck()});
+  document.getElementById('cgPart').addEventListener('change',()=>{cgRefreshExport();cgRefreshNativeCheck();cgDraw()});
   sheet.querySelectorAll('[data-cg-view]').forEach(b=>b.onclick=()=>{
     const v=b.dataset.cgView;if(v==='iso'){cgYaw=.55;cgPitch=-.4}else if(v==='top'){cgYaw=0;cgPitch=-Math.PI/2}else if(v==='front'){cgYaw=0;cgPitch=0}else if(v==='side'){cgYaw=Math.PI/2;cgPitch=0}else cgZoom=1;cgDraw()
   });
@@ -877,4 +1084,4 @@ function cgInstall(){
   cgRefreshExport()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cgInstall,{once:true});else cgInstall();
-window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale};
+window.FoamLensCadSurface={parseStl:cgParseStl,parseObj:cgParseObj,summarize:cgSummary,exportAsciiStl:cgMakeAsciiStl,exportBinaryStl:cgBinaryStl,batchVisibleRegions:cgVisibleRegionBatch,packZip:cgStoreZip,readStoredZip:cgReadStoredZip,restoreRegionBatch:cgRestoreRegionBatch,unitScale:cgUnitScale,visibilitySnapshot:cgVisibilitySnapshot,restoreVisibility:cgVisibilityRestore,setPartsVisibility:cgSetPartsVisibility,setPartVisibility:cgSetPartVisibility,isolatePart:cgIsolatePart,visiblePartTotals:cgVisiblePartTotals};
