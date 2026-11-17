@@ -103,6 +103,11 @@ try{
       assert(nativeProducer.includes('f"'+mode+'-{viewport}.png"'));
     }
     assert(nativeProducer.includes('f"time-series-{viewport}.png"'));
+    assert(originalHost.includes("if(catalogAction&&!catalogAction.disabled)catalogAction.click();"),
+      'G5 Data must navigate to genuine catalog before capturing, not duplicate Time Series default');
+    assert(originalHost.includes('catalogSelected&&originalSources'),
+      'Original B13 OpenFOAM Data screenshot must visibly show a selected, populated catalog');
+
     assert(originalHost.includes('CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"))'),
       'Each missing workspace must be captured from actual running WebView2 pixels');
     for(const id of ['flRaCompare3D','flRaAnalysisGeneral','flRaReview','flRaLive']){
