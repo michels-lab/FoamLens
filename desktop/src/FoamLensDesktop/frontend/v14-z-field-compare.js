@@ -124,7 +124,13 @@ const fcState={
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
-function fcEsc(v){try{return fvEsc(v)}catch{return String(v??'')}}
+function fcEsc(v){
+  // Original OpenFOAM case/field labels are external inputs. A missing host
+  // escaper must not turn the independent view toolbar into HTML injection.
+  try{if(typeof fvEsc==='function')return fvEsc(v)}catch{}
+  return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+}
 function fcFmt(v){try{return fvFmt(v)}catch{return Number.isFinite(Number(v))?String(v):'—'}}
 function fcCloneCamera(camera){
   const c=camera||fvState.camera||{};
@@ -184,10 +190,13 @@ function fcSyncIndependentTimePicker(bar){
     (view==='B'?'B':String.fromCharCode(64+Number(view))))
 }
 function fcSetIndependentTime(view,value){
-  if(fcTimesLinked()||!Number.isFinite(Number(value)))return false;
+  // Blank selector values, null, booleans and JavaScript 0x/0b literals are
+  // NOT measured physical t=0. Preserve explicit decimal/scientific times.
+  const target=fcPhysicalNumber(value);
+  if(fcTimesLinked()||!Number.isFinite(target))return false;
   const state=view==='B'?fcState:fcExtraViews.find(s=>s.id===Number(view));
   if(!state||!fcState.enabled)return false;
-  const source=fcIndependentTimeSource(state),target=Number(value);
+  const source=fcIndependentTimeSource(state);
   if(!source.times.includes(target))return false;
   state.timeTarget=target;state.timeSource=source.key;
   // The per-pane player waits for the real async frame and its physical
