@@ -1061,13 +1061,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'G5 visual-review regression failed.' }
           $v='${{ steps.ver.outputs.version }}'
           node tools/granada_visual_review.cjs --manifest artifacts/visual/manifest.json --output artifacts/visual/FoamLens-G5-Review.html --json artifacts/visual/FoamLens-G5-Matrix.json --sha $env:GITHUB_SHA --setup "artifacts/FoamLens-Setup-v$v.exe" --portable "artifacts/FoamLens-Portable-v$v.exe"
+          $reviewExit=$LASTEXITCODE
           $review=Get-Content artifacts/visual/FoamLens-G5-Matrix.json -Raw | ConvertFrom-Json
-          Write-Host "G5 original native review: $($review.status); $($review.captured_slots)/$($review.required_slots) physical screenshot slots."
+          $missing=($review.missing_surfaces -join ', ')
+          Write-Host "G5 original native review: $($review.status); $($review.captured_slots)/$($review.required_slots) native UI capture slots; missing: $missing"
           if ($review.human_approved -ne $false) { throw 'Automated G5 review must never claim owner approval.' }
-          if ($LASTEXITCODE -ne 0 -or $review.status -eq 'INVALID') {
-            # Retain the original bytes and review explanation for triage;
-            # do NOT forge a passing 36-slot or owner review status.
-            Write-Warning 'G5 matrix is invalid/incomplete; stable publication must remain blocked.'
+          @(
+            "### FoamLens G5 original Windows UI review",
+            "- Exact SHA: `$env:GITHUB_SHA`",
+            "- Setup/Portable: $($review.captured_slots)/$($review.required_slots) native screenshots",
+            "- Result: **$($review.status)** (not owner approval)",
+            "- Missing workspaces: $missing",
+            "- Download `FoamLens-Windows-v...` artifact to inspect `visual/FoamLens-G5-Review.html`"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          if ($reviewExit -ne 0 -or $review.status -ne 'REQUIRES_HUMAN_REVIEW') {
+            # Retain the original bytes and explanation for triage; any
+            # missing workspace continues to BLOCK stable release below.
+            Write-Warning 'G5 native matrix is incomplete/invalid; stable publication must remain blocked.'
           }
 
       - name: Sync canonical Windows ICO for future design builds
@@ -1160,6 +1170,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Verify automated screenshot and exact-artifact integrity
         env:
           GH_TOKEN: ${{ github.token }}
