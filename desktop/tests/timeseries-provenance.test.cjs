@@ -14,7 +14,7 @@ check('External case/field names are escaped in native HTML option values and te
   assert(start>0&&end>start,'Source-owned HTML escape and unit metadata helpers must exist');
   const helpers=new Function(src.slice(start,end)+';return {tsdEsc,tsdUnitHint};')();
   assert.equal(helpers.tsdEsc('T\"><img src=x onerror=alert(1)>'),
-    'T&amp;quot;'.replace('&amp;quot;','&quot;')+'&lt;img src=x onerror=alert(1)&gt;');
+    'T&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');
   assert.equal(helpers.tsdEsc('metal&\'mold'),'metal&amp;&#39;mold');
   assert.equal(helpers.tsdUnitHint({unit:'m/s'}),' [m/s]');
   assert.equal(helpers.tsdUnitHint({unit:'°C'}),' [°C]');
