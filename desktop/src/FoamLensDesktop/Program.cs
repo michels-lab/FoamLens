@@ -766,7 +766,10 @@ internal sealed class FoamLensForm : Form
                     target.scrollIntoView({block:'nearest',inline:'nearest'});
                   const rect=target?.getBoundingClientRect();
                   const style=target?getComputedStyle(target):null;
-                  const active=typeof activeAppMode==='string'?activeAppMode:'none';
+                  // activeAppMode is scoped inside the original frontend IIFE,
+                  // NOT exposed to WebView2.ExecuteScriptAsync. Read the real
+                  // product DOM appMode class that controls visible surfaces.
+                  const active=document.body.classList.contains('appMode-'+expectedMode);
                   const comparison=mode!=='field-compare'||(
                     document.getElementById('fcEnabled')?.checked===true&&
                     !target?.classList.contains('hidden')&&
@@ -777,8 +780,8 @@ internal sealed class FoamLensForm : Form
                   const rendered=!!rect&&rect.width>=150&&rect.height>=110&&
                     style?.display!=='none'&&style?.visibility!=='hidden'&&
                     inViewport;
-                  return {ok:active===expectedMode&&rendered&&comparison&&analysisControls,
-                    activeModeMatches:active===expectedMode,rendered,comparison,analysisControls,
+                  return {ok:active&&rendered&&comparison&&analysisControls,
+                    activeModeMatches:active,rendered,comparison,analysisControls,
                     targetExists:!!target,
                     targetHidden:!!target?.classList.contains('hidden'),
                     checkboxChecked:document.getElementById('fcEnabled')?.checked===true,
