@@ -1,3 +1,11 @@
+### G5/G19 — prueba real del nuevo auditor Windows (2026-11-17, corrida #44173360152)
+
+- **Fixture original aprobado**: QuickCup B13 y pruebas originales de runtime, Windows instalador/setup, EULA y capturas Home/About/Data/Field aprobaron antes de la nueva auditoría.
+- El `make_visual_evidence.py` generó **18 archivos** capturados para Setup/Portable (9 por variante, incluidos suplementos), mientras la matriz G5 de nueve workspaces necesita 36 celdas y los cuatro workspaces fuente cubren 16 celdas nominales.
+- El auditor más estricto encontró **cinco celdas con imágenes exactamente idénticas a otra captura del mismo workspace**, por lo que solo **11/36 celdas tuvieron hashes de imagen independientes**. No implica necesariamente copia de imágenes: dos ejecuciones pueden producir píxeles iguales; la política ahora informa `indistinguishable-same-workspace` como advertencia y **no cuenta esa segunda celda**, manteniendo el estado `INCOMPLETE` y bloqueando release.
+- **Fallo de integración observado:** la primera ejecución del nuevo informe marcó `INVALID` y PowerShell propagó el código de salida del auditor como fallo del build (`44173360152`, paso G5), a pesar de aprobar los tests del producto. Se corrigió la distinción entre la calidad del binario (build) y la evidencia de publicación (`--strict` del publish). En el build, conservar HTML+JSON y advertencia sin eliminar QA original; en publish, error explícito si no son 36 celdas verificables.
+- **Evidencia:** <https://github.com/michels-lab/FoamLens/actions/runs/44173360152>; pruebas cruzadas G5 en el run <https://github.com/michels-lab/FoamLens/actions/runs/44173360329>. Esta revisión de causa aún requiere nuevo CI exacto posterior a los commits. No inferir DPI físico ni aprobación visual.
+
 ## 2026-11-17 — Granada G5/G19: manifest de 36 pantallas y bloqueo real antes de publicar
 
 - **Hallazgo verificable:** `.github/workflows/build-foamlens-desktop.yml` guardaba capturas originales de Windows Setup y Portable únicamente para Home, About, Data y Field (dos anchos por variante: **16 de los 36 espacios G5**), mientras el paso de publicación exigía solo esas cuatro superficies. Esa aprobación parcial no demuestra la jerarquía Time Series, comparación Field A–D, Analysis, Review o Live exigida por #177/#238.
