@@ -676,6 +676,7 @@ internal sealed class FoamLensForm : Form
                 await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
                 Log("G58 original native B13 Time Series layout and source-controls passed at " +
                     size.Name + ": original chart, real T field, two slots, Build and Cancel visible.");
+                await CaptureGranadaSecondaryWorkspacesAsync(root, size.Name);
 
             }
         }
@@ -683,6 +684,79 @@ internal sealed class FoamLensForm : Form
         {
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
             await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
+    // G5: original live WebView2 capture of the four previously missing
+    // workspaces. Programmatic clicks use the SAME product controls as users.
+    // No synthetic images, injected mock cases or fabricated physical values.
+    // A missing surface or failed rendered geometry aborts native smoke.
+    private async Task CaptureGranadaSecondaryWorkspacesAsync(string root, string viewport)
+    {
+        foreach (var mode in new[] { "field-compare", "analysis", "review", "live" })
+        {
+            var navigateScript = """
+                (() => {
+                  const mode=__MODE__;
+                  const id={
+                    'field-compare':'flRaCompare3D',
+                    analysis:'flRaAnalysisGeneral',
+                    review:'flRaReview',
+                    live:'flRaLive'
+                  }[mode];
+                  const action=document.getElementById(id);
+                  if(!action||action.disabled)
+                    return {ok:false,actionAvailable:false};
+                  if(mode==='field-compare'){
+                    document.getElementById('flRaFieldWorkspace')?.click();
+                    const toggle=document.getElementById('fcEnabled');
+                    if(!toggle)return {ok:false,actionAvailable:true,comparisonPresent:false};
+                    if(!toggle.checked)action.click();
+                  }else action.click();
+                  return {ok:true,actionAvailable:true};
+                })()
+                """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
+            using (var navigate = JsonDocument.Parse(await _web.CoreWebView2.ExecuteScriptAsync(navigateScript)))
+            {
+                if (!navigate.RootElement.TryGetProperty("ok", out var navOk) || !navOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        "Granada G5 original native workspace action unavailable: " + mode);
+            }
+            await Task.Delay(350);
+            var inspectScript = """
+                (() => {
+                  const mode=__MODE__, expectedMode=mode==='field-compare'?'field':mode;
+                  const id={
+                    'field-compare':'fcViewport',
+                    analysis:'analysisSurface',
+                    review:'reviewSurface',
+                    live:'liveSurface'
+                  }[mode];
+                  const target=document.getElementById(id),rect=target?.getBoundingClientRect();
+                  const style=target?getComputedStyle(target):null;
+                  const active=typeof activeAppMode==='string'?activeAppMode:'none';
+                  const comparison=mode!=='field-compare'||(
+                    document.getElementById('fcEnabled')?.checked===true&&
+                    !target?.classList.contains('hidden')&&
+                    !!document.getElementById('fcCase'));
+                  const inViewport=!!rect&&rect.right>0&&rect.left<innerWidth&&
+                    rect.bottom>0&&rect.top<innerHeight;
+                  const rendered=!!rect&&rect.width>=150&&rect.height>=110&&
+                    style?.display!=='none'&&style?.visibility!=='hidden'&&
+                    inViewport;
+                  return {ok:active===expectedMode&&rendered&&comparison,
+                    activeModeMatches:active===expectedMode,
+                    rendered,comparison,viewportWidth:innerWidth};
+                })()
+                """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
+            using var geometry = JsonDocument.Parse(await _web.CoreWebView2.ExecuteScriptAsync(inspectScript));
+            if (!geometry.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                throw new InvalidOperationException(
+                    "Granada G5 native " + mode + " rendered layout failed at " + viewport +
+                    "; original mode/source geometry not verified (no private values logged).");
+            await Task.Delay(140);
+            await CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"));
+            Log("Granada G5 original native Windows UI capture passed: " + mode + " / " + viewport);
         }
     }
 
