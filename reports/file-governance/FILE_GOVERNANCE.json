@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 507,
-  "classified_files_total": 503,
+  "tracked_files_total": 509,
+  "classified_files_total": 505,
   "docs_content_inspected": 105,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
@@ -17,7 +17,7 @@
     "installer_metadata": 1,
     "license": 1,
     "source": 152,
-    "test": 143,
+    "test": 145,
     "text_metadata": 1,
     "web_ui": 2,
     "workflow": 65
@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "1b93131d72e990eca3474dfe1444ff182647d871972b26b04b882b5c910670e8",
-  "evidence_fingerprint": "f68750dc89c43db21957a4f97e35446ab71d586bea6a130f09efe2957aa0cddc",
+  "inventory_fingerprint": "bc63bced031693dd5f572419e7f586dce0807835de8f4e751c9b162035820022",
+  "evidence_fingerprint": "366d6ab79d71a5d6c6ff45b4922b5f2148374dae7219f5ccbddc5bd2982cbe7a",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "e1f7f24eb215934c609424215b52e59d3f092c40"
+      "blob": "baa4ecd83315ba72939c2a27fb291c0a249fd9ff"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -90,7 +90,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "d87cc2317e4cd324b305db5bc86e9f44d1c098ce"
+      "blob": "43c01bc2fc621fbfb44db82485223026bf2e1d42"
     },
     {
       "path": ".github/workflows/data-loaded-cases-fast.yml",
@@ -230,7 +230,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "142f71967f8e5d7f820fdb21e9eff662a1fb8d5f"
+      "blob": "f66c83179005f2be4db4a43f9c7c2e5e8fa43913"
     },
     {
       "path": ".github/workflows/granada-checkmesh-region-evidence.yml",
@@ -594,7 +594,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "e511e576234d24574a1a253dbcb7bf447e4bd83d"
+      "blob": "84fa01263ba1931764a8dfaaf5fa01d07a279bab"
     },
     {
       "path": "LICENSE",
@@ -1084,7 +1084,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8ee20b1cbfc49800fe48b5bc315a9b0f8e419288"
+      "blob": "6270e90dff5d6dca0c09bec077f42e84ccb60ead"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-checkmesh-region-evidence.js",
@@ -1302,6 +1302,20 @@
       "purpose": "code/test implementation",
       "certainty": "rule",
       "blob": "c4ae812911c3a243a42ece94756b19b09c294752"
+    },
+    {
+      "path": "desktop/tests/cad-openfoam-staging-ui.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "3ba79925b1612a8360ed3e86386cbc6d72c5d904"
+    },
+    {
+      "path": "desktop/tests/cad-openfoam-staging.test.cjs",
+      "role": "test",
+      "purpose": "code/test implementation",
+      "certainty": "rule",
+      "blob": "97ac83aadafa810765e3a6c62f281c9ad6ebe811"
     },
     {
       "path": "desktop/tests/cad-surface-inspector.test.cjs",
@@ -3553,11 +3567,11 @@
   ],
   "findings": [
     {
-      "id": "bc2e3d840eae4c61",
+      "id": "62e5c8a794574a23",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "42 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/cad-surface-fast.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-cad-assembly-ui.yml",
+      "observation": "44 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/cad-surface-fast.yml, .github/workflows/field-playback-fast.yml, .github/workflows/granada-176-timeseries-t2.yml, .github/workflows/granada-177-g2-field-command-dock.yml, .github/workflows/granada-cad-assembly-ui.yml",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
