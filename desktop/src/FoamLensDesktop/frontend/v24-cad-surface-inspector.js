@@ -312,7 +312,7 @@ function cgOpenFoamPrepare(models,target,roles=new Map()){
     '\n// Copy the geometry block into an existing, verified system/snappyHexMeshDict.\n'+
     '// NOT a complete runnable snappyHexMeshDict. Inspect every physical patch and interface.\n'+
     '// Original named part roles and units are recorded in preparation.json.\n'+
-    'geometry\n{\n'+geometry.join('\n\n')+'\n}\n';
+    'geometry\n{\n'+geometry.join('\n\n')+'\n};\n';
   const manifest={schema:'foamlens/openfoam-geometry-staging/1',
     sourceSchema:batch.manifest.schema,target:edition.code,
     targetLabel:edition.label,targetSelectedByUser:true,
