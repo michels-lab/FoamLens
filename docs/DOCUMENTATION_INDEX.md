@@ -23,6 +23,7 @@
 
 ## Bitácoras y evidencias
 - [Bitácora técnica principal](GIT_AUDIT_LOG.md)
+- [Operación Granada completa — 2026-11-17, commits, pruebas, v1.8.15 oficial y preparación v1.8.16](GRANADA_FULL_EXECUTION_2026-11-17.md)
 - [Auditoría de infraestructura](INFRASTRUCTURE_AUDIT.md)
 - [Issues abiertos y requisitos vivos](https://github.com/michels-lab/FoamLens/issues)
 - [PRs y pruebas pendientes](https://github.com/michels-lab/FoamLens/pulls)
