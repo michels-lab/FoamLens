@@ -1,3 +1,12 @@
+## 2026-11-18 — FoamLens v1.8.19 stable no-scroll release: VERIFIED PUBLICATION
+
+- **Actual public artifacts confirmed:** [v1.8.19 Windows Setup, Portable and both independent SHA-256 sidecars](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.19), published non-draft and non-prerelease from **exact** original source commit `16d3d3239b9b1baf1876eb493ffdf9025a38083d`.
+- **Protected original Windows test and publication run:** [44393085250](https://github.com/michels-lab/FoamLens/actions/runs/44393085250) **SUCCESS**. Source-backed QuickCup B13/VTK scientific regression, Field playback/Case selection, 64-bit Setup/Portable process smokes, native viewport screenshots and exact SHA/asset publication gates passed.
+- **Independent release audit:** [44395146854](https://github.com/michels-lab/FoamLens/actions/runs/44395146854) **SUCCESS**, verifies publicly downloadable real Windows executable bytes, sizes and SHA-256 sidecars. The previous candidate-only entry below predates publication.
+- **UI regression addressed:** owner v1.8.18 comparison screenshot had unwanted horizontal scroll and inside-toolbar scrollbar plus duplicate automatically expanded material editors. This release fixes the original source (PR #367): A/B/C/D use equal width fitting columns with aligned canvas rows, actual per-view original Case selection always visible, Field/Region/Component and metal/mold controls opt-in. Physical field/region/clock provenance unchanged.
+- **CI maintenance:** [PR #368](https://github.com/michels-lab/FoamLens/pull/368) integrated separately to regenerate file-governance reports on current main instead of rebasing conflicting concurrent audit commits; no OpenFOAM numerics or installed binaries altered.
+- **Acceptance boundary:** native build evidence is not direct confirmation of how FoamLens looks on the owner's actual 125–200% DPI Windows display. No independent CFD solver accuracy or owner aesthetic approval is claimed. Public GitHub binaries may remain unsigned and trigger SmartScreen.
+
 ## 2026-11-18 — FoamLens no-scroll 3D Field comparison v1.8.19 candidate
 
 - Owner screenshot from installed v1.8.18 demonstrates the added horizontal scrollbar and redundant vertically scrollable material/field menus, even though A and B share one row. This contradicts the actual requirement for fully fitted, truly side-by-side views.
