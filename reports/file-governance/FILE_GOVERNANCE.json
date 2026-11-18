@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "ad4bc358cdabe463062e343d7841fb1b99b3862b855d770999c4f3ba1803b1a4",
-  "evidence_fingerprint": "587f759fa93c7cf5d486a3e20692eced5d5417d94677452a38e266a155ad0654",
+  "inventory_fingerprint": "650959b3d111f6b987e0e618649b621ef9e715233d07be450c7f985421e15d71",
+  "evidence_fingerprint": "9eaab3f42e5eb155180dcbb78199ba5db7baef578414ca2e4745a28af977812a",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1560,7 +1560,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "54d8d271d15ead9de71d375b4de8bd4924f86a4e"
+      "blob": "d46a6d44684bd59181c1daf0f78de34439afb0b0"
     },
     {
       "path": "desktop/tests/field-source-copy.test.cjs",
@@ -3436,7 +3436,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8c3e313f5a8f5eb0626c63efa2866e183bd23ec7"
+      "blob": "0c28f8750c51685d44d1fece8a7c421c190014cf"
     },
     {
       "path": "tools/test_granada_g20_field_f1_png_gate.py",
@@ -3574,11 +3574,11 @@
   ],
   "findings": [
     {
-      "id": "3679bd0514039cfc",
+      "id": "50924a8acc3f2ff7",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "17 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
+      "observation": "18 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
