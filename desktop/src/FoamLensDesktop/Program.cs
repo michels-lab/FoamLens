@@ -67,6 +67,8 @@ internal sealed class FoamLensForm : Form
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly bool _smokeTest;
     private readonly bool _developerAuditSmoke;
+    // Each original packaged Windows process owns its own non-reused CDP capture receipt.
+    private readonly string _nativeCaptureSession = Guid.NewGuid().ToString("N");
     private readonly ConcurrentDictionary<string, string> _fileTokens = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _operations = new(StringComparer.Ordinal);
     private long _tokenSequence;
@@ -561,18 +563,40 @@ internal sealed class FoamLensForm : Form
                     """
                     (() => {
                       document.getElementById('flRibbonTab-data')?.click();
+                      // G5's generic Data screenshot must show the ORIGINAL
+                      // loaded OpenFOAM source CATALOG, rather than simply
+                      // duplicating its default Time Series screen's pixels.
+                      // Both user views are selected through real Ribbon actions.
+                      const catalogAction=document.getElementById('flRaCatalog');
+                      if(catalogAction&&!catalogAction.disabled)catalogAction.click();
                       const panel=document.getElementById('fieldViewPanel');
                       const compare=document.getElementById('flDataComparisonCard');
                       const tools=['flRaDataTimeSeries','flRaDataProfiles','flRaDataLogs','flRaCatalog','flRaDataCompare'];
                       const own=tools.every(id=>!!document.getElementById(id));
                       const fieldRect=panel?.getBoundingClientRect();
                       const fieldHidden=!fieldRect||fieldRect.width<1||getComputedStyle(panel).display==='none';
+                      // The original Data catalog has a CENTER result pane
+                      // and optional sidebar filters. A collapsed sidebar is
+                      // legitimate; requiring its filters to have nonzero
+                      // bounds incorrectly rejects a rendered source catalog.
+                      const result=document.getElementById('dataCatalogPanel');
                       const chart=document.getElementById('chartViewport');
-                      const rect=chart?.getBoundingClientRect();
-                      const ok=own&&!!compare&&!!chart&&!!rect&&rect.width>180&&
-                        fieldHidden&&!chart.contains(panel);
+                      const tab=document.getElementById('catalogTab');
+                      const source=document.getElementById('catalogCase');
+                      const rows=document.getElementById('catalogTableBody');
+                      const box=result?.getBoundingClientRect();
+                      const catalogVisible=!!box&&box.width>180&&box.height>100&&
+                        getComputedStyle(result).display!=='none'&&
+                        box.right>0&&box.left<innerWidth&&
+                        box.bottom>0&&box.top<innerHeight;
+                      const catalogSelected=!!tab&&tab.classList.contains('active')&&
+                        chart?.classList.contains('catalogActive')===true;
+                      const originalSources=!!source&&source.options.length>0&&
+                        !!rows&&rows.querySelectorAll('tr').length>0;
+                      const ok=own&&!!compare&&fieldHidden&&catalogVisible&&
+                        catalogSelected&&originalSources;
                       return {ok,viewport:innerWidth,dataTools:tools.length,fieldHidden,
-                        chartWidth:rect?.width,chartHeight:rect?.height,comparisonCard:!!compare};
+                        catalogVisible,catalogSelected,originalSources,comparisonCard:!!compare};
                     })()
                     """);
                 if (!JsonDocument.Parse(dataState).RootElement.GetProperty("ok").GetBoolean())
@@ -676,6 +700,7 @@ internal sealed class FoamLensForm : Form
                 await CaptureCdpPngAsync(Path.Combine(root, $"time-series-{size.Name}.png"));
                 Log("G58 original native B13 Time Series layout and source-controls passed at " +
                     size.Name + ": original chart, real T field, two slots, Build and Cancel visible.");
+                await CaptureGranadaSecondaryWorkspacesAsync(root, size.Name);
 
             }
         }
@@ -683,6 +708,156 @@ internal sealed class FoamLensForm : Form
         {
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
             await _web.CoreWebView2.ExecuteScriptAsync("document.getElementById('flRibbonTab-field')?.click()");
+        }
+    }
+
+    // G5: original live WebView2 capture of the four previously missing
+    // workspaces. Programmatic clicks use the SAME product controls as users.
+    // No synthetic images, injected mock cases or fabricated physical values.
+    // A missing surface or failed rendered geometry aborts native smoke.
+    private async Task CaptureGranadaSecondaryWorkspacesAsync(string root, string viewport)
+    {
+        foreach (var mode in new[] { "field-compare", "analysis", "review", "live" })
+        {
+            var navigateScript = """
+                (() => {
+                  const mode=__MODE__;
+                  const id={
+                    'field-compare':'flRaCompare3D',
+                    analysis:'flRaAnalysisGeneral',
+                    review:'flRaReview',
+                    live:'flRaLive'
+                  }[mode];
+                  const action=document.getElementById(id);
+                  if(!action||action.disabled)
+                    return {ok:false,actionAvailable:false};
+                  if(mode==='field-compare'){
+                    // Re-enter the original Field workspace first. The
+                    // product's comparison lifecycle can reset B on entry;
+                    // do not race this transition with the A/B toggle.
+                    document.getElementById('flRaFieldWorkspace')?.click();
+                    return {ok:true,actionAvailable:true,phase:'enter-field'};
+                  }
+                  action.click();
+                  return {ok:true,actionAvailable:true};
+                })()
+                """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
+            using (var navigate = JsonDocument.Parse(await _web.CoreWebView2.ExecuteScriptAsync(navigateScript)))
+            {
+                if (!navigate.RootElement.TryGetProperty("ok", out var navOk) || !navOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        "Granada G5 original native workspace action unavailable: " + mode);
+            }
+            if (mode == "field-compare")
+            {
+                await Task.Delay(220);
+                var comparisonActionScript = """
+                    (() => {
+                      const action=document.getElementById('flRaCompare3D');
+                      const checkbox=document.getElementById('fcEnabled');
+                      if(!action||!checkbox||action.disabled)
+                        return {ok:false,actionAvailable:!!action&&!action.disabled,
+                          checkboxPresent:!!checkbox};
+                      if(!checkbox.checked)action.click();
+                      return {ok:true,actionAvailable:true,checkboxPresent:true};
+                    })()
+                    """;
+                using var actionResult=JsonDocument.Parse(
+                    await _web.CoreWebView2.ExecuteScriptAsync(comparisonActionScript));
+                if (!actionResult.RootElement.TryGetProperty("ok", out var actionOk) ||
+                    !actionOk.GetBoolean())
+                    throw new InvalidOperationException(
+                        "Granada G5 original Compare 3D action or checkbox missing after re-entering Field.");
+            }
+            await Task.Delay(350);
+            var inspectScript = """
+                (() => {
+                  const mode=__MODE__, expectedMode=mode==='field-compare'?'field':mode;
+                  const id={
+                    'field-compare':'fcViewport',
+                    analysis:'workspace',
+                    review:'reviewSurface',
+                    live:'liveSurface'
+                  }[mode];
+                  const target=document.getElementById(id);
+                  // The original Field scene can be legitimately scrollable
+                  // below the toolbar. Navigate it into the visible native
+                  // WebView2 viewport instead of treating off-screen pixels
+                  // as an invisible or broken comparison.
+                  if(mode==='field-compare'&&target&&!target.classList.contains('hidden'))
+                    target.scrollIntoView({block:'nearest',inline:'nearest'});
+                  const rect=target?.getBoundingClientRect();
+                  const style=target?getComputedStyle(target):null;
+                  // activeAppMode is scoped inside the original frontend IIFE,
+                  // NOT exposed to WebView2.ExecuteScriptAsync. Read the real
+                  // product DOM appMode class that controls visible surfaces.
+                  const active=document.body.classList.contains('appMode-'+expectedMode);
+                  const comparison=mode!=='field-compare'||(
+                    document.getElementById('fcEnabled')?.checked===true&&
+                    !target?.classList.contains('hidden')&&
+                    !!document.getElementById('fcCase'));
+                  const analysisControls=mode!=='analysis'||!!document.getElementById('generalAnalysisNav');
+                  const inViewport=!!rect&&rect.right>0&&rect.left<innerWidth&&
+                    rect.bottom>0&&rect.top<innerHeight;
+                  const rendered=!!rect&&rect.width>=150&&rect.height>=110&&
+                    style?.display!=='none'&&style?.visibility!=='hidden'&&
+                    inViewport;
+                  return {ok:active&&rendered&&comparison&&analysisControls,
+                    activeModeMatches:active,rendered,comparison,analysisControls,
+                    targetExists:!!target,
+                    targetHidden:!!target?.classList.contains('hidden'),
+                    checkboxChecked:document.getElementById('fcEnabled')?.checked===true,
+                    compareCaseControl:!!document.getElementById('fcCase'),
+                    comparisonRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,
+                    viewportIntersects:inViewport,viewportWidth:innerWidth,
+                    width:Math.round(rect?.width||0),height:Math.round(rect?.height||0)};
+
+                })()
+                """.Replace("__MODE__", JsonSerializer.Serialize(mode), StringComparison.Ordinal);
+            // Real WebView2 frame/render work is asynchronous. Wait for
+            // original DOM geometry, not for a fixed guessed animation delay.
+            // Never downgrade the validation: no capture until ALL checks pass.
+            bool verified=false;
+            JsonElement lastEvidence=default;
+            for (var attempt=0; attempt<20; ++attempt)
+            {
+                using var geometry=JsonDocument.Parse(
+                    await _web.CoreWebView2.ExecuteScriptAsync(inspectScript));
+                if (geometry.RootElement.ValueKind==JsonValueKind.Object)
+                {
+                    lastEvidence=geometry.RootElement.Clone();
+                    if (lastEvidence.TryGetProperty("ok", out var ok) && ok.GetBoolean())
+                    {
+                        verified=true;
+                        break;
+                    }
+                }
+                await Task.Delay(200);
+            }
+            if (!verified)
+            {
+                // Keep the actual native screenshot for diagnosing the same
+                // error; no generated fallback image or fake mode activation.
+                try { await CaptureCdpPngAsync(Path.Combine(root, mode+"-failed-"+viewport+".png")); }
+                catch (Exception screenshotError)
+                { Log("Granada G5 failed-capture diagnostics: "+screenshotError.GetType().Name); }
+                string Bool(string key) =>
+                    lastEvidence.ValueKind==JsonValueKind.Object &&
+                    lastEvidence.TryGetProperty(key,out var bit) &&
+                    (bit.ValueKind==JsonValueKind.True||bit.ValueKind==JsonValueKind.False)
+                    ? bit.GetBoolean().ToString().ToLowerInvariant() : "missing";
+                var safeKeys=new []{"activeModeMatches","rendered","comparison",
+                    "analysisControls","targetExists","targetHidden","checkboxChecked",
+                    "compareCaseControl","comparisonRequested","viewportIntersects"};
+                var flags=string.Join(",",safeKeys.Select(key=>key+"="+Bool(key)));
+                throw new InvalidOperationException(
+                    "Granada G5 native "+mode+" rendered layout failed at "+viewport+
+                    "; original WebView2 boolean geometry: "+flags+
+                    " (no private case names or measured data logged).");
+            }
+            await Task.Delay(140);
+            await CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"));
+            Log("Granada G5 original native Windows UI capture passed: " + mode + " / " + viewport);
         }
     }
 
@@ -694,6 +869,23 @@ internal sealed class FoamLensForm : Form
         var png = Convert.FromBase64String(json.RootElement.GetProperty("data").GetString() ?? "");
         if (png.Length < 10_000) throw new InvalidOperationException("Rendered branding PNG evidence is unexpectedly small: " + fullPath);
         await File.WriteAllBytesAsync(fullPath, png);
+        // This receipt is produced by the original WinForms/WebView2 PROCESS
+        // that actually captured the image, not by make_visual_evidence.py.
+        // Independent processes can legitimately produce bit-identical PNGs;
+        // the per-process session identifies that separate observation.
+        var receipt = new
+        {
+            schema = "foamlens/native-cdp-capture-receipt/1",
+            session = _nativeCaptureSession,
+            processId = Environment.ProcessId,
+            method = "Page.captureScreenshot",
+            file = Path.GetFileName(fullPath),
+            sha256 = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant(),
+            capturedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
+            version = DesktopVersionText
+        };
+        await File.WriteAllTextAsync(fullPath + ".receipt.json",
+            JsonSerializer.Serialize(receipt));
     }
 
 #if FOAMLENS_DEVELOPER

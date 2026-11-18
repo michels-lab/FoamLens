@@ -4,6 +4,8 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
 const {audit,render,main,MODES,VARIANTS,SIZES,png}=require('./granada_visual_review.cjs');
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/granada-177-g5-native-visual-review.yml'),'utf8');
 const shippingWorkflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/build-foamlens-desktop.yml'),'utf8');
+const originalHost=fs.readFileSync(path.join(__dirname,'../desktop/src/FoamLensDesktop/Program.cs'),'utf8');
+const nativeProducer=fs.readFileSync(path.join(__dirname,'make_visual_evidence.py'),'utf8');
 const commit='1234567890abcdef1234567890abcdef12345678';
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 
@@ -93,6 +95,42 @@ try{
     assert(publish.indexOf('G5 block stable release')<publish.indexOf('G21 rebind exact signed Windows-native attestation'),
       'No later publish integrity step may substitute for missing native screenshots');
   });
+  test('G5 captures nine distinct real native workspace files per CSS viewport without mock views',()=>{
+    assert(originalHost.includes('CaptureGranadaSecondaryWorkspacesAsync(root, size.Name)'),
+      'QuickCup native source capture must call the additional four workspace action runner');
+    for(const mode of ['field-compare','analysis','review','live']){
+      assert(originalHost.includes('"'+mode+'"')||originalHost.includes("'"+mode+"'"));
+      assert(nativeProducer.includes('f"'+mode+'-{viewport}.png"'));
+    }
+    assert(nativeProducer.includes('f"time-series-{viewport}.png"'));
+    assert(originalHost.includes("if(catalogAction&&!catalogAction.disabled)catalogAction.click();"),
+      'G5 Data must navigate to genuine catalog before capturing, not duplicate Time Series default');
+    assert(originalHost.includes('catalogSelected&&originalSources'),
+      'Original B13 OpenFOAM Data screenshot must visibly show a selected, populated catalog');
+    assert(originalHost.includes("document.getElementById('dataCatalogPanel')"),
+      'G5 Data viewport must validate the central original source result panel');
+    const dataScript=originalHost.slice(originalHost.indexOf('var dataState = await'),
+      originalHost.indexOf('var t2Geometry = await'));
+    assert(!dataScript.includes("getBoundingClientRect();\n                      const catalogVisible") ||
+      dataScript.includes("const box=result?.getBoundingClientRect()"),
+      'Collapsed sidebar filters must not invalidate the central source catalog');
+
+    assert(originalHost.includes('CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"))'),
+      'Each missing workspace must be captured from actual running WebView2 pixels');
+    for(const id of ['flRaCompare3D','flRaAnalysisGeneral','flRaReview','flRaLive']){
+      assert(originalHost.includes("'"+id+"'"),'Capture must use product toolbar '+id);
+    }
+    const originalCapture=originalHost.slice(
+      originalHost.indexOf('private async Task CaptureGranadaSecondaryWorkspacesAsync'),
+      originalHost.indexOf('private async Task CaptureCdpPngAsync'));
+    assert(originalCapture.includes("document.body.classList.contains('appMode-'+expectedMode)"),
+      'Native external WebView2 world must check actual product DOM body mode');
+    assert(!originalCapture.includes("typeof activeAppMode"),
+      'private frontend IIFE variable is not exposed to WebView2.ExecuteScriptAsync');
+    assert(nativeProducer.includes('if direct_windows:'),
+      'Separate MSIX capture requirements must remain unchanged');
+    assert(!originalHost.includes('FAKE_GRANADA_G5_NATIVE_CAPTURE'));
+  });
   test('only authentic schema, source SHA, distinct installed/portable artifact bindings qualify',()=>{
     const data=audit(doc,opts);
     assert.equal(data.status,'REQUIRES_HUMAN_REVIEW');
@@ -168,6 +206,37 @@ try{
     assert(report.issues.some(x=>x.level==='warning'&&x.code==='indistinguishable-same-workspace'&&
       x.detail.includes('installed|compact|home')));
     assert.equal(report.captured_slots,35);
+  });
+  test('identical pixels only count twice with real-process receipt binding and separate sessions',()=>{
+    const altered=structuredClone(doc);
+    const installed=altered.screenshots.find(x=>x.runtime_variant==='installed'&&x.viewport==='wide'&&x.surface==='home');
+    const portable=altered.screenshots.find(x=>x.runtime_variant==='portable'&&x.viewport==='wide'&&x.surface==='home');
+    const bytes=fs.readFileSync(path.join(root,installed.path));
+    const sha=digest(bytes);
+    for(const [shot,variant,session,processId] of [
+      [installed,'installed','a'.repeat(32),1024],[portable,'portable','b'.repeat(32),2048]]){
+      shot.path='receipted-'+variant+'-home.png';
+      fs.writeFileSync(path.join(root,shot.path),bytes);
+      shot.sha256=sha;shot.width=1140;shot.height=720;
+      const receipt={schema:'foamlens/native-cdp-capture-receipt/1',session,processId,
+        method:'Page.captureScreenshot',file:shot.path,sha256:sha,
+        capturedAtUtc:'2026-11-17T21:00:00+00:00',version:'1.8.15'};
+      const receiptBytes=Buffer.from(JSON.stringify(receipt));
+      fs.writeFileSync(path.join(root,shot.path+'.receipt.json'),receiptBytes);
+      shot.native_capture={...receipt,receiptSha256:digest(receiptBytes)};
+    }
+    const accepted=audit(altered,opts);
+    assert.equal(accepted.status,'REQUIRES_HUMAN_REVIEW');
+    assert.equal(accepted.captured_slots,36);
+    assert(accepted.issues.some(x=>x.code==='independent-identical-native-pixels'&&x.level==='info'));
+    const sameProcess=structuredClone(altered);
+    const p=sameProcess.screenshots.find(x=>x.path==='receipted-portable-home.png');
+    p.native_capture.session='a'.repeat(32);
+    assert.equal(audit(sameProcess,opts).status,'INVALID',
+      'A manifest cannot forge the native process receipt on disk');
+    const fakeDigest=structuredClone(altered);
+    fakeDigest.screenshots.find(x=>x.path==='receipted-portable-home.png').native_capture.receiptSha256='0'.repeat(64);
+    assert(audit(fakeDigest,opts).issues.some(x=>x.code==='invalid-native-receipt'));
   });
   test('current 4-workspace source coverage cannot be called a complete 36-slot visual review',()=>{
     const partial=structuredClone(doc);

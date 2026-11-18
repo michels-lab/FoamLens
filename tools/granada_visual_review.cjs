@@ -77,8 +77,32 @@ function checkArtifact(filename,expected){
   const actual=digest(fs.readFileSync(filename));
   return actual.toLowerCase()===String(expected).toLowerCase()?{state:'verified'}:{state:'invalid'};
 }
+// A repeatable source UI can produce byte-identical screenshots in two
+// independent original Windows processes. Admit both only with genuine,
+// SHA-bound receipts written by Page.captureScreenshot in each process.
+function verifiedNativeReceipt(root,shot,pngDigest){
+  const expected=shot?.native_capture;
+  if(!expected)return null;
+  if(expected.schema!=='foamlens/native-cdp-capture-receipt/1'||
+    expected.method!=='Page.captureScreenshot'||
+    !/^[a-f0-9]{32}$/.test(expected.session||'')||
+    !Number.isInteger(expected.processId)||expected.processId<=0||
+    !SHA64.test(expected.receiptSha256||'')||
+    expected.sha256!==pngDigest||typeof expected.capturedAtUtc!=='string'||
+    typeof expected.version!=='string')throw Error('Malformed native process capture identity');
+  const receiptFile=inside(root,shot.path+'.receipt.json');
+  const raw=fs.readFileSync(receiptFile);
+  if(raw.length>4096||digest(raw)!==expected.receiptSha256)
+    throw Error('Modified/mismatched original CDP capture receipt bytes');
+  const actual=JSON.parse(raw.toString('utf8'));
+  for(const field of ['schema','method','session','processId','sha256','capturedAtUtc','version','file']){
+    if(actual[field]!==expected[field])throw Error('Original CDP receipt identity drift: '+field);
+  }
+  if(actual.file!==path.posix.basename(shot.path))throw Error('Native receipt names different PNG');
+  return {session:actual.session,processId:actual.processId};
+}
 function audit(manifest,options={}){
-  const root=options.root||process.cwd(),issues=[],captured=new Map(),pictures=[],seen=new Map();
+  const root=options.root||process.cwd(),issues=[],captured=new Map(),pictures=[],seen=new Map(),sessions=new Map();
   function issue(level,code,detail){issues.push({level,code,detail:String(detail)})}
   if(manifest?.schema!=='michelslab-rendered-ui-v1')issue('error','schema','Unrecognized source manifest');
   if(!SHA40.test(manifest?.source_commit||''))issue('error','source','Invalid commit');
@@ -119,22 +143,35 @@ function audit(manifest,options={}){
     }catch(e){issue('error','invalid-png',i+': '+e.message);continue}
     const key=[v,size,s].join('|');
     if(captured.has(key)){issue('error','duplicate-slot',key);continue}
-    const hash=digest(bytes),earlier=seen.get(hash);
-    // A single PNG may not prove two different source/view/viewport slots,
-    // even when their tab name is identical (installed vs portable or
-    // compact vs wide). The previous check only caught different tab names.
-    if(earlier){
-      // Two actual Windows launches can render *byte-identical* screens
-      // for the same workspace. That is not proof of cheating/corruption,
-      // but one PNG digest cannot independently prove two capture slots.
-      // Cross-workspace reuse is stronger evidence of a mistaken source.
-      const sameWorkspace=earlier.split('|')[2]===s;
-      issue(sameWorkspace?'warning':'error',
-        sameWorkspace?'indistinguishable-same-workspace':'same-image-different-tabs',
-        earlier+' and '+key);
-      continue;
+    const hash=digest(bytes);
+    let receipt=null;
+    try{receipt=verifiedNativeReceipt(root,shot,hash)}
+    catch(e){issue('error','invalid-native-receipt',key+': '+e.message);continue}
+    if(receipt){
+      const existing=sessions.get(v);
+      if(existing&&(existing.session!==receipt.session||existing.processId!==receipt.processId)){
+        issue('error','native-session-drift',v);continue
+      }
+      sessions.set(v,receipt)
     }
-    seen.set(hash,key);captured.set(key,true);
+    const earlier=seen.get(hash);
+    if(earlier){
+      const sameWorkspace=earlier.key.split('|')[2]===s;
+      const differentNativeProcesses=sameWorkspace&&earlier.receipt&&receipt&&
+        earlier.receipt.session!==receipt.session&&
+        earlier.receipt.processId!==receipt.processId&&
+        earlier.key.split('|')[0]!==v;
+      if(!differentNativeProcesses){
+        issue(sameWorkspace?'warning':'error',
+          sameWorkspace?'indistinguishable-same-workspace':'same-image-different-tabs',
+          earlier.key+' and '+key);
+        continue
+      }
+      issue('info','independent-identical-native-pixels',
+        earlier.key+' and '+key+'; verified separate source CDP sessions')
+    }
+    if(!earlier)seen.set(hash,{key,receipt});
+    captured.set(key,true);
     pictures.push({variant:v,surface:s,viewport:size,sha256:hash,width:measured.width,height:measured.height,bytes});
   }
   const coverage=MODES.map(surface=>{

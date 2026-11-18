@@ -21,7 +21,9 @@ from PIL import Image, ImageDraw
 from visual_release_gate import check_evidence
 
 SOURCE_SHA = "1234567890abcdef1234567890abcdef12345678"
-SURFACES = ("home", "about", "data", "field")
+SURFACES = ("home", "about", "data", "field", "time-series", "field-compare",
+            "analysis", "review", "live")
+STORE_SURFACES = ("home", "about", "data", "field")
 SCRIPT = Path(__file__).with_name("make_visual_evidence.py")
 
 
@@ -66,10 +68,28 @@ def main() -> None:
                     path = directory / f"{surface}-{viewport}.png"
                     render_fixture(path, dimensions,
                                    1000 * variant_index + 100 * viewport_index + surface_index)
+                    # Deliberately synthetic fixture receipts for NEGATIVE
+                    # provenance tests; never native Windows run evidence.
+                    receipt = {
+                        "schema": "foamlens/native-cdp-capture-receipt/1",
+                        "session": "a" * 32 if variant == "installed" else "b" * 32,
+                        "processId": 1234 + variant_index,
+                        "method": "Page.captureScreenshot",
+                        "file": path.name,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        "capturedAtUtc": "2026-11-17T16:00:00+00:00",
+                        "version": "1.8.15",
+                    }
+                    Path(str(path) + ".receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
                 shutil.copyfile(
                     directory / f"about-{viewport}.png",
                     directory / f"about-{viewport}-bottom.png",
                 )
+                bottom = directory / f"about-{viewport}-bottom.png"
+                receipt = json.loads(Path(str(directory / f"about-{viewport}.png") +
+                                          ".receipt.json").read_text(encoding="utf-8"))
+                receipt["file"] = bottom.name
+                Path(str(bottom) + ".receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
 
         manifest = evidence / "manifest.json"
         subprocess.run(
@@ -84,7 +104,15 @@ def main() -> None:
         )
         original = json.loads(manifest.read_text(encoding="utf-8"))
         records = original["screenshots"]
-        assert len(records) == 16, f"Expected 16 separate real-run analog captures, got {len(records)}"
+        assert len(records) == 36, f"Expected 36 separate native-workspace analog captures, got {len(records)}"
+        assert {shot["surface"] for shot in records} == set(SURFACES)
+        assert all(sum(shot["surface"] == surface and shot["runtime_variant"] == variant
+                       for shot in records) == 2
+                   for variant in ("installed", "portable") for surface in SURFACES)
+
+        assert all(shot["native_capture"]["schema"] ==
+                   "foamlens/native-cdp-capture-receipt/1" for shot in records)
+        assert len({shot["native_capture"]["session"] for shot in records}) == 2
         assert {shot["runtime_variant"] for shot in records} == {"installed", "portable"}
         assert all(shot["path"].startswith(shot["runtime_variant"] + "/") for shot in records)
         assert original["artifact_sha256"]["windows"] == hashlib.sha256(setup.read_bytes()).hexdigest()
@@ -150,7 +178,7 @@ def main() -> None:
         )
         store_doc = json.loads(store_manifest.read_text(encoding="utf-8"))
         assert "portable_artifact_sha256" not in store_doc
-        assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(SURFACES),
+        assert check_evidence(store_manifest, SOURCE_SHA, ["windows-store"], list(STORE_SURFACES),
                               require_review=False) == []
 
         # Optional Real OpenFOAM scene contract is mandatory on Windows CI when
@@ -230,10 +258,22 @@ def main() -> None:
         reused_file["screenshots"][0]["path"] = reused_file["screenshots"][8]["path"]
         assert_rejected(reused_file, manifest, "screenshot checksum mismatch")
 
+        # Select identities, NOT positional offsets: with nine workspaces the
+        # first portable screenshot starts after 18 installed cells, whereas
+        # older four-workspace fixtures had only eight installed cells.
         cross_runtime = copy.deepcopy(original)
-        cross_runtime["screenshots"][8]["path"] = original["screenshots"][0]["path"]
-        cross_runtime["screenshots"][8]["sha256"] = original["screenshots"][0]["sha256"]
-        assert_rejected(cross_runtime, manifest, "portable screenshot path outside its runtime directory")
+        installed_home = next(
+            shot for shot in original["screenshots"]
+            if shot["runtime_variant"] == "installed"
+            and shot["surface"] == "home" and shot["viewport"] == "wide")
+        portable_home = next(
+            shot for shot in cross_runtime["screenshots"]
+            if shot["runtime_variant"] == "portable"
+            and shot["surface"] == "home" and shot["viewport"] == "wide")
+        portable_home["path"] = installed_home["path"]
+        portable_home["sha256"] = installed_home["sha256"]
+        assert_rejected(cross_runtime, manifest,
+                        "portable screenshot path outside its runtime directory")
 
         manifest.write_text(json.dumps(original), encoding="utf-8")
         shot = evidence / records[0]["path"]

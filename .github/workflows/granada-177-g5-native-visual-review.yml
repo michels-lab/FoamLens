@@ -8,6 +8,7 @@ on:
       - 'tools/test_granada_visual_review.cjs'
       - '.github/workflows/granada-177-g5-native-visual-review.yml'
       - 'tools/make_visual_evidence.py'
+      - 'tools/test_visual_evidence.py'
       - 'tools/visual_release_gate.py'
       - 'desktop/src/FoamLensDesktop/Program.cs'
   pull_request:
@@ -15,6 +16,10 @@ on:
     paths:
       - 'tools/granada_visual_review.cjs'
       - 'tools/test_granada_visual_review.cjs'
+      - 'tools/make_visual_evidence.py'
+      - 'tools/test_visual_evidence.py'
+      - 'tools/visual_release_gate.py'
+      - 'desktop/src/FoamLensDesktop/Program.cs'
       - '.github/workflows/granada-177-g5-native-visual-review.yml'
   workflow_dispatch:
     inputs:
@@ -45,7 +50,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run synthetic negative checks (NEVER native visual evidence)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native visual negative-test decoder
+        run: python -m pip install --disable-pip-version-check Pillow
+      - name: Run all 36-slot screenshot-producer provenance regressions (synthetic tests only)
+        run: python tools/test_visual_evidence.py
+      - name: Run G5 auditor negative cases (NEVER native visual evidence)
         run: node tools/test_granada_visual_review.cjs
 
   native-review:
