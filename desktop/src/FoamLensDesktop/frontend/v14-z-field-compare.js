@@ -2051,19 +2051,40 @@ function fcInstallUi(){
   if(typeof fwBindSyncViewControls==='function')fwBindSyncViewControls();
   return true
 }
+let fcLinkedPlaybackSeq=0;
 function fcInstall(){
   const mount=()=>fcInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
   if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){const previous=fvLoadFrame;fvLoadFrame=async function(...args){
-    const x=await previous.apply(this,args);
-    if(fcTimesLinked()){
-      await fcRefreshFrame();await fcRefreshExtras()
-    }else if(fcState.enabled){
-      // A playback changes only A: do not re-read B/C/D OpenFOAM frames or
-      // destroy their independent time choices on every A animation tick.
-      fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);
-      fcUpdateLabels();fcScheduleToolbarSync()
+    // A/B/C/D synchronized playback is ONE visual transaction: a new A may
+    // finish before B, mold overlays or slower C/D OpenFOAM partitions.
+    // Leave all canvases displaying the previous coherent timestep until
+    // every current request has finished, avoiding the per-view flash.
+    const epoch=++fcLinkedPlaybackSeq,
+      linked=fcState.enabled&&fcTimesLinked(),extras=[...fcExtraViews];
+    fvState._fvGroupHold=linked?epoch:0;
+    fcState._fcGroupHold=linked?epoch:0;
+    for(const state of extras)state._fcGroupHold=linked?epoch:0;
+    try{
+      const reading=previous.apply(this,args),owner=fvState.frameSeq,
+        result=await reading;
+      if(owner!==fvState.frameSeq||epoch!==fcLinkedPlaybackSeq)return result;
+      if(linked&&fcState.enabled&&fcTimesLinked()){
+        // Each viewport retains its own case/region/field and GPU data.
+        // Only their presentation is synchronized; no field is invented.
+        await Promise.all([fcRefreshFrame(),fcRefreshExtras()])
+      }else if(fcState.enabled&&!fcTimesLinked()){
+        // Independent clocks: an A step must not reload B/C/D.
+        fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);
+        fcUpdateLabels();fcScheduleToolbarSync()
+      }
+      return result
+    }finally{
+      if(epoch===fcLinkedPlaybackSeq){
+        fvState._fvGroupHold=0;fcState._fcGroupHold=0;
+        for(const state of extras)state._fcGroupHold=0;
+        if(linked){fvRender();fcRender();fcRenderDifference();fcRenderExtras()}
+      }
     }
-    return x
   };fvLoadFrame.__fcPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true;fvRender.__fcBase=previous}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));
