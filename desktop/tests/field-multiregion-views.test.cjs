@@ -144,6 +144,7 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     choices:new Map([['mold',{visible:true,field:'T',component:'value'}]]),
     layers:new Map([['mold',priorA]])};
   const aDeps={
+    document:{getElementById:id=>id==='fvRegion'?{value:'metal'}:null},
     fvRegionPhysicalTime:t=>Number(t),fvState:{renderer:{gl:originalGL}},
     fvRegionEnsureCase:()=>{},fvRegionScene:aScene,
     fvRegionChoice:(c,region)=>aScene.choices.get(region)||{visible:true},
