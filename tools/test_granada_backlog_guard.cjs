@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {summarize,admission,render,parseRepo,fetchPages}=require('./granada_backlog_guard.cjs');
+const {summarize,admission,render,parseRepo,fetchPages,resolveAdmissionPr}=require('./granada_backlog_guard.cjs');
 const makePr=n=>({number:n,title:'feat: unique module '+n,state:'open',draft:n%3===0,
   base:{ref:n===2?'stacked-parent':'main'},head:{ref:'branch-'+n}});
 const prs=Array.from({length:13},(_,i)=>makePr(i+1));
@@ -49,5 +49,45 @@ async function paginationTests(){
     await assert.rejects(fetchPages('https://api.github.com/repos/test/repo/pulls'),/Unsafe GitHub/);
   }finally{global.fetch=previous;}
 }
-paginationTests().then(()=>console.log('Granada backlog guard PASS: issues!=PR, draft/stacked, exception/freeze, paginated and fail-closed API.'),
+async function delayedOpeningTests(){
+  const old=global.fetch;
+  const root='https://api.github.com/repos/michels-lab/FoamLens';
+  const closed={number:356,state:'closed',merged_at:'2026-11-18T02:35:00Z',
+    base:{repo:{full_name:'michels-lab/FoamLens'}}};
+  let calls=0;
+  try{
+    // A queued "opened" run may execute after a legitimate squash merge.
+    global.fetch=async(url)=>{
+      calls++;assert.equal(url,root+'/pulls/356');
+      return{ok:true,json:async()=>closed};
+    };
+    const found=await resolveAdmissionPr([],root,356,'opened','test-readonly');
+    assert.equal(found.alreadyClosed,true,'closed original PR needs verified event-lifecycle handling');
+    assert.equal(found.pr.number,356);
+    assert.equal(calls,1,'only exact PR lookup is allowed, no broad search');
+    const live={...closed,state:'open'};
+    global.fetch=async()=>({ok:true,json:async()=>live});
+    await assert.rejects(resolveAdmissionPr([],root,356,'opened',''),
+      /Cannot verify newly opened PR from live inventory/,
+      'a still-open PR missing from inventory must fail closed');
+    global.fetch=async()=>({ok:true,json:async()=>({
+      ...closed,base:{repo:{full_name:'malicious/other'}}})});
+    await assert.rejects(resolveAdmissionPr([],root,356,'reopened',''),
+      /Cannot verify newly opened PR from live inventory/,
+      'no PR from another repository can bypass congestion');
+    global.fetch=async()=>({ok:false,status:404});
+    await assert.rejects(resolveAdmissionPr([],root,356,'opened',''),/HTTP 404/,
+      'unverifiable or deleted PR must remain blocked');
+    const present={...closed,state:'open'};
+    global.fetch=async()=>{throw Error('do not call remote endpoint for existing PR')};
+    const active=await resolveAdmissionPr([present],root,356,'opened','');
+    assert.equal(active.alreadyClosed,false,'live open PR must retain backlog admission gate');
+    assert.equal(active.pr,present);
+    const unchanged=await resolveAdmissionPr([],root,356,'synchronize','');
+    assert.equal(unchanged.alreadyClosed,false,'non-opening events remain read-only reporting');
+    await assert.rejects(resolveAdmissionPr([],root,0,'opened',''),/invalid event number/);
+  }finally{global.fetch=old}
+}
+
+Promise.all([paginationTests(),delayedOpeningTests()]).then(()=>console.log('Granada backlog guard PASS: admission, stale merged-PR event, cross-repo rejection, paging and fail-closed API.'),
 e=>{console.error(e);process.exitCode=1;});
