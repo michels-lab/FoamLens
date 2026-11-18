@@ -423,6 +423,29 @@ test('Field F2 native size grip creates a fourth viewport child, never a three-t
     'Source toolbar, GPU scene, native F2 grip and caption must stack without overlap');
 });
 
+test('actual A/B and C/D toolbar rows align after native F2 Size grip and Δ insertion',()=>{
+  const start=source.indexOf('function fcAlignViewToolbarHeights(){');
+  const end=source.indexOf('function fcSyncToolbars(){',start);
+  assert(start>=0&&end>start,'Source-backed real viewport aligner missing');
+  const views=[['A',100,135],['B',100,218],['C',950,205],['D',950,175],['Δ',1900,84]]
+    .map(([name,top,height])=>{
+      const bar={style:{minHeight:''},getBoundingClientRect:()=>({height})};
+      return{name,top,bar,classList:{contains:()=>false},
+        getBoundingClientRect:()=>({top}),
+        querySelector:()=>bar};
+    });
+  const grid={querySelectorAll:()=>views};
+  const real=new Function('document','getComputedStyle',
+    source.slice(start,end)+';return fcAlignViewToolbarHeights')(
+      {getElementById:()=>grid},()=>({display:'flex'}));
+  real();
+  assert.deepStrictEqual(views.map(view=>view.bar.style.minHeight),
+    ['218px','218px','205px','205px','84px'],
+    'Native A/B and C/D canvases must start aligned; Δ is not paired with C');
+  assert(source.includes("const difference=grid.querySelector('#fcDifferenceViewport');if(difference)grid.appendChild(difference)"),
+    'The derived difference viewport cannot be inserted between source C and D');
+});
+
 test('Granada screenshot: physical selects and caption labels remain legible without clipping',()=>{
   const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
   assert(styles.includes('.fcPhysicalRegionRow select{box-sizing:border-box;display:block;min-width:0;max-width:100%;width:100%;height:auto;min-height:44px'),
