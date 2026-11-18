@@ -1690,7 +1690,17 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
+  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
+    if(!data.ok){
+      // A resolved read with ok=false is still a failed OpenFOAM frame.
+      // Never leave a prior physical scene, time badge, probe or exportable
+      // values visible at the newly selected C/D physical timestamp.
+      fcExtraInvalidateFrame(state,fcUi(
+        'The selected OpenFOAM frame is unavailable; old data were cleared.',
+        'El frame OpenFOAM seleccionado no está disponible; se descartaron los datos anteriores.'));
+      return
+    }
+    const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
     await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
     if(seq!==state.seq)return;
     if(status)status.textContent=fcSyncText(sync)}catch(e){
