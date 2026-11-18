@@ -371,8 +371,13 @@ test('Granada A-D comparison fits two panels without any imposed internal scroll
   const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
   assert(styles.includes('.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr));overflow-x:clip;min-width:0;max-width:100%'),
     'Both actual OpenFOAM canvases must fit the available width instead of overflowing at 350px each');
-  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcComposedViewport{display:grid;grid-row:span 3;grid-template-rows:subgrid'),
-    'The source/canvas/legend rows of A and B must line up without fixed toolbar heights');
+  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcComposedViewport{display:flex;flex-direction:column'),
+    'Original A/B/C/D viewport captions must have independent flex stacking instead of nested subgrid collisions');
+  assert(!styles.includes('grid-template-rows:subgrid'),
+    'Native WebView2 must not overlap the B source label and metric bounds using subgrid');
+  assert(source.includes('function fcAlignViewToolbarHeights(){') &&
+    source.includes("bar.style.minHeight=height+'px'"),
+    'The actual adjacent A/B and C/D toolbar geometry must align without clipping or independent scrollbars');
   assert(styles.includes('.fcViewToolbar{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;height:auto;min-height:0;max-height:none;overflow:visible'),
     'No scrollbars or clipped controls may be added inside viewport toolbars');
   assert(!styles.includes('overflow-x:auto;overscroll-behavior-x:contain'),
@@ -404,6 +409,25 @@ test('Granada A-D comparison fits two panels without any imposed internal scroll
     assert(styles.includes(token),'Readable original source controls required: '+token);
 });
 
+test('Granada screenshot: physical selects and caption labels remain legible without clipping',()=>{
+  const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
+  assert(styles.includes('.fcPhysicalRegionRow select{box-sizing:border-box;display:block;min-width:0;max-width:100%;width:100%;height:auto;min-height:44px'),
+    'metal/mold field, component and palette controls must not have the old 30px clipped height');
+  assert(!styles.includes('.fcPhysicalRegionRow select{min-width:0;width:100%;height:30px}'),
+    'Old native select CSS with clipped option baselines must never return');
+  assert(styles.includes('.fcPhysicalRegionRow{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))'),
+    'Even at two real scenes per row, the inspector controls must fit their parent pane');
+  assert(styles.includes('#fcViewGrid .fcViewportCaption > .fcViewLabel{position:static!important;display:block!important'),
+    'B real case/field/time title must not position itself over the measurement dimensions');
+  assert(styles.includes('white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;text-shadow:none!important'),
+    'Long case/source identifiers must wrap inside their own viewport without duplicate text shadows');
+  assert(styles.includes('.fcStatsTitle{font-size:12px;line-height:1.5;font-weight:700'),
+    'Statistics title must have a reliable readable line box');
+  assert(styles.includes('word-break:break-word;white-space:normal;text-shadow:none'),
+    'Long stats field names cannot bleed horizontally out of their card');
+  assert(source.includes("bar.addEventListener('toggle',()=>requestAnimationFrame(fcAlignViewToolbarHeights),true)"),
+    'When metal/mold is manually expanded, partner GPU canvas must remain aligned');
+});
 test('multi-view comparison exposes descriptors and independent fixed ranges for video',()=>{
   for(const token of ['fcVideoDescriptors','fcSetVideoRanges','getVideoDescriptors:fcVideoDescriptors','setVideoRanges:fcSetVideoRanges','videoRangeOverride'])
     assert(source.includes(token),'Missing multi-view video token: '+token);
