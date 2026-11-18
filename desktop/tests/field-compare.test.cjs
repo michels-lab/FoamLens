@@ -363,8 +363,35 @@ test('comparison UI exposes time badges on every viewport, generalized differenc
 test('3D comparison can add synchronized views three and four',()=>{
   for(const token of [
     'FC_MAX_TOTAL_VIEWS=4','fcExtraViews','fcExtraAdd','+ Add 3D view',
-    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(auto-fit,minmax(min(100%,400px),1fr))'
+    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(2,minmax(350px,1fr))'
   ])assert(source.includes(token),'Missing multi-view token: '+token);
+});
+
+test('Granada comparison grid keeps A/B beside one another and C/D in aligned rows',()=>{
+  const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
+  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(2,minmax(350px,1fr));overflow-x:auto'),
+    'A narrow Windows workspace must horizontally scroll a two-column source grid instead of stacking B below A');
+  assert(styles.includes('align-items:stretch;align-content:start'),
+    'Pair rows must stretch equally, not stair-step panels');
+  assert(!styles.includes('grid-template-columns:1fr}.fcComposedViewport'),
+    'The original 980px media rule must not collapse compared views to a single column');
+  assert(styles.includes('.fcViewToolbar{display:flex;align-items:flex-start;align-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;height:154px;min-height:154px;max-height:154px'),
+    'All viewports need an equal-height, independently scrollable toolbar to align canvas tops');
+  assert(styles.includes('overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable'),
+    'Expanded region/source controls must not change the height or alignment of a sibling canvas');
+  assert(styles.includes('.fcViewSourceDetails>summary{')&&
+    styles.includes('overflow-wrap:anywhere;white-space:normal'),
+    'The actual case/field summary must wrap, not clip hidden text');
+  assert(!styles.includes('.fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px'),
+    'The old tiny source selector is no longer acceptable');
+  assert(source.includes('class="fcViewSourceDetails"><summary>'),
+    'A new A/B/C/D viewport should default to compact source controls');
+  assert(!source.includes('class="fcViewSourceDetails" open><summary>'),
+    'Expanded case selectors must be opt-in instead of occupying unequal vertical space');
+  for(const size of ['.fcViewTimeControls button{flex:0 0 36px;min-height:36px;min-width:36px',
+    '.fcViewCopyFrom select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;height:36px',
+    '.fcViewportCameraChoices button,.fcViewportProjectionChoices button{cursor:pointer;min-height:36px'])
+      assert(styles.includes(size),'A/ B / C / D controls must have readable touch/desktop targets: '+size);
 });
 
 test('multi-view comparison exposes descriptors and independent fixed ranges for video',()=>{
