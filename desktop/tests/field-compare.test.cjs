@@ -384,10 +384,10 @@ test('Granada comparison grid keeps A/B beside one another and C/D in aligned ro
     'The actual case/field summary must wrap, not clip hidden text');
   assert(!styles.includes('.fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px'),
     'The old tiny source selector is no longer acceptable');
-  assert(source.includes('class="fcViewSourceDetails"><summary>'),
-    'A new A/B/C/D viewport should default to compact source controls');
-  assert(!source.includes('class="fcViewSourceDetails" open><summary>'),
-    'Expanded case selectors must be opt-in instead of occupying unequal vertical space');
+  assert(source.includes('class="fcViewSourceDetails" open><summary>'),
+    'A/B/C/D real case/field controls must be immediately editable inside the fixed-height toolbar');
+  assert(!source.includes('class="fcViewSourceDetails"><summary>'),
+    'The existing keyboard and direct-case access regression requires initially visible source controls');
   for(const size of ['.fcViewTimeControls button{flex:0 0 36px;min-height:36px;min-width:36px',
     '.fcViewCopyFrom select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;height:36px',
     '.fcViewportCameraChoices button,.fcViewportProjectionChoices button{cursor:pointer;min-height:36px'])
