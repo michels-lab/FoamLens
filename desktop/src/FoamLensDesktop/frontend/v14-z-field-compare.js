@@ -1273,34 +1273,49 @@ function fcPhysicalReload(ctx){
 }
 async function fcPhysicalLoad(state,c,primary,time,redraw){
   const scene=fcPhysicalFor(state),regions=fcPhysicalChoiceList(state,c,primary),seq=++scene.seq;
-  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
-  scene.layers.clear();scene.errors.clear();redraw();
-  if(!c||!Number.isFinite(fcPhysicalNumber(time))||!state.renderer)return;
-  for(const region of regions){
-    if(seq!==scene.seq)return;
-    const choice=scene.choices.get(region);
-    if(region===primary||!choice?.visible)continue;
-    try{
-      const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
-        group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
-      let frame=null,mesh=null,reason='';
-      if(exact!==undefined){
-        frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
-        mesh=frame.mesh
-      }else{
-        mesh=await fvRegionGeometryAtTime(c,region,time);
-        reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+  // Do NOT clear or redraw the old physical scene while the next time is
+  // still reading. Clearing before every await caused an empty/misfitted
+  // mold/metal frame to flash between genuine OpenFOAM timesteps.
+  const nextLayers=new Map(),nextErrors=new Map();
+  const current=()=>seq===scene.seq;
+  const discard=()=>{
+    for(const [region,layer] of nextLayers)
+      if(scene.layers.get(region)!==layer)fvRegionReleaseLayer(layer)
+  };
+  if(c&&Number.isFinite(fcPhysicalNumber(time))&&state.renderer){
+    for(const region of regions){
+      if(!current()){discard();return}
+      const choice=scene.choices.get(region);
+      if(region===primary||!choice?.visible)continue;
+      try{
+        const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
+          group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+        let frame=null,mesh=null,reason='';
+        if(exact!==undefined){
+          frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
+          mesh=frame.mesh
+        }else{
+          mesh=await fvRegionGeometryAtTime(c,region,time);
+          reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+        }
+        if(!current()){discard();return}
+        if(!mesh)throw new Error(fcUi('Physical mesh is unavailable for this region/time.','No existe malla física para esta región/tiempo.'));
+        const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
+        const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
+        if(layer)nextLayers.set(region,layer)
+      }catch(error){
+        if(!current()){discard();return}
+        nextErrors.set(region,String(error?.message||error))
       }
-      if(seq!==scene.seq)return;
-      if(!mesh)throw new Error(fcUi('Physical mesh is unavailable for this region/time.','No existe malla física para esta región/tiempo.'));
-      const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
-      const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
-      if(layer){scene.layers.set(region,layer);redraw()}
-    }catch(error){
-      if(seq===scene.seq){scene.errors.set(region,String(error?.message||error));redraw()}
     }
   }
-  if(seq===scene.seq)redraw()
+  if(!current()){discard();return}
+  // Atomic original-GPU swap: only now can the next physical time become
+  // visible. The linked camera measures the completed union of regions.
+  for(const [region,layer] of scene.layers)
+    if(nextLayers.get(region)!==layer)fvRegionReleaseLayer(layer);
+  scene.layers=nextLayers;scene.errors=nextErrors;
+  redraw()
 }
 function fcPhysicalRenderLayers(state,visual){
   const renderer=state?.renderer,scene=state?fcPhysicalFor(state):null;if(!renderer||!scene)return;
