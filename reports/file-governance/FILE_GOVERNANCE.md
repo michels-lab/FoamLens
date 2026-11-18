@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 509; classified: 505; readable documents: 105; above read cap: 1; findings: 0.
+Tracked: 510; classified: 506; readable documents: 106; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 509; classified: 505; readable documents: 105; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 7 |
-| document | 99 |
+| document | 100 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -28,6 +28,7 @@ Tracked: 509; classified: 505; readable documents: 105; above read cap: 1; findi
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g5-native-visual-review.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_visual_review.cjs, tools/make_visual_evidence.py, tools/test_granada_visual_review.cjs, tools/test_visual_evidence.py. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 003da85aae59e6e7)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
