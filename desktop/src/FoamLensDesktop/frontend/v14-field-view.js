@@ -1370,12 +1370,16 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   const canPreserve=!!preserveLoaded&&[...fvRegionScene.layers].every(([region,layer])=>
     !!layer&&layer.gl===fvState.renderer.gl&&fvRegionScene.choices.get(region)?.visible&&
     fvTimeEqual(fvRegionPhysicalTime(layer.time),time));
-  if(!canPreserve){
-    for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
-    fvRegionScene.layers.clear();fvRender()
-  }
+  // Prepare a full physical-time snapshot away from the visible scene. The
+  // old code deleted/drew each mold/metal layer BEFORE its next-time field
+  // finished loading, flashing empty geometry and oscillating linked fit.
+  const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]);
+  const discard=()=>{
+    for(const [region,layer] of nextLayers)
+      if(fvRegionScene.layers.get(region)!==layer)fvRegionReleaseLayer(layer)
+  };
   const regions=fvRegionNames(c).filter(region=>region!==primary&&fvRegionChoice(c,region).visible&&
-    (!canPreserve||!fvRegionScene.layers.has(region))),failedVisible=[];
+    (!canPreserve||!nextLayers.has(region))),failedVisible=[];
   // Bound simultaneous real OpenFOAM parses to protect desktop memory.
   const loadOne=async region=>{
     if(!current())return;
@@ -1405,16 +1409,23 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
           ?flUi('Real internal-face colors; boundary patches neutral','Colores reales de caras internas; parches de frontera neutros')
           :flUi('No renderable internal faces; neutral geometry','Sin caras internas renderizables; geometría neutra'))
       }
-      if(layer){layer.status=status;fvRegionScene.layers.set(region,layer);fvRender()}
-      fvRegionStatus(region,status);fvRegionUpdateLegend(region)
+      if(layer){layer.status=status;nextLayers.set(region,layer)}
+      fvRegionStatus(region,status)
     }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);fvRegionUpdateLegend(region);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
-  if(!current())return;
-  if(fvRegionScene.layers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
+  if(!current()){discard();return}
+  // Commit once, after all concurrently read regions have settled. Stale
+  // requests release only their private staged GPU buffers, never the last
+  // valid source frame or a newer request's real original meshes.
+  for(const [region,layer] of fvRegionScene.layers)
+    if(nextLayers.get(region)!==layer)fvRegionReleaseLayer(layer);
+  fvRegionScene.layers=nextLayers;
+  fvRegionRefreshList();
+  if(nextLayers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
     fvRegionScene.fitPending=false;fvRegionFitCamera()
-  }else fvRender()
+  }else fvRender();
   if(failedVisible.length&&window.FoamLensAnimationExport?.isExporting?.())throw new Error('Cannot export an incomplete multiregion frame: '+failedVisible.join('; '))
 }
 window.FoamLensRegionScene={
