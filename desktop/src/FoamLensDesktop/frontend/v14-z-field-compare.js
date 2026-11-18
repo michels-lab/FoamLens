@@ -1418,7 +1418,7 @@ function fcClearRenderer(){
       fcExtraInvalidateFrame(state,fcUi('Comparison disabled.','Comparación desactivada.'));
   }
   fcPhysicalRelease(fcState);
-  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateStatsGrid()
+  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateLabels();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
   fcState.lastError=error?String(text||''):'';const e=document.getElementById('fcStatus');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}
@@ -1690,7 +1690,17 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
+  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
+    if(!data.ok){
+      // A resolved read with ok=false is still a failed OpenFOAM frame.
+      // Never leave a prior physical scene, time badge, probe or exportable
+      // values visible at the newly selected C/D physical timestamp.
+      fcExtraInvalidateFrame(state,fcUi(
+        'The selected OpenFOAM frame is unavailable; old data were cleared.',
+        'El frame OpenFOAM seleccionado no está disponible; se descartaron los datos anteriores.'));
+      return
+    }
+    const sync=data.sync;state.caseId=c.id;state.region=region;state.fieldName=field;state.component=component;state.time=sync.time;state.delta=sync.delta;state.sync=sync;fcExtraUpload(state,data);fcExtraUpdateLabel(state);fcPhysicalMenu(String(state.id));
     await fcPhysicalLoad(state,c,region,state.time,()=>fcExtraRender(state));
     if(seq!==state.seq)return;
     if(status)status.textContent=fcSyncText(sync)}catch(e){
@@ -1700,7 +1710,13 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
     fcExtraInvalidateFrame(state,String(e?.message||e))
   }
 }
-async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
+async function fcRefreshExtras(){
+  // C/D are independent physical OpenFOAM regions/meshes and each owns its
+  // own renderer, selectors, source-time sequence and cancellation guard.
+  // Avoid making a slow C read block D's valid measured frame behind it.
+  // Two view loads maximum (A and B occupy the other available slots).
+  await Promise.all(fcExtraViews.map(state=>fcExtraRefreshFrame(state)))
+}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
 function fcExtraRemove(id){
   const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return false;

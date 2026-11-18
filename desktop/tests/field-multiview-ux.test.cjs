@@ -586,6 +586,41 @@ for(const fragment of [
 }
 
 
+{
+  // Native Field B shares the scientific no-data contract with C/D. Clearing
+  // a failed or disabled original source must not leave a plausible stale
+  // measured time, range or sync marker visible after its mesh disappears.
+  const begin=source.indexOf('function fcClearRenderer(){');
+  const end=source.indexOf('function fcSetStatus(',begin);
+  assert(begin>=0&&end>begin,'Original B frame invalidation handler required');
+  const state={seq:10,mesh:{id:'stale'},fieldValues:[888],fieldParsed:{},
+    range:{valid:true,min:300,max:1000},time:9.8,delta:.2,
+    sync:{ok:true,exact:true,time:9.8},differenceValues:[20],
+    differenceRange:{valid:true},vectorValues:[1],streamlines:[{}],
+    probe:{value:888},renderer:{surfaceCount:12,probeCount:1},
+    differenceRenderer:{surfaceCount:8}};
+  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0};
+  const clear=new Function('fcState','document','fcExtraViews','fcExtraInvalidateFrame',
+    'fcUi','fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    source.slice(begin,end)+';return fcClearRenderer;')(
+    state,{getElementById:()=>({checked:true})},[{id:3}],
+    ()=>ops.extraClears++,en=>en,()=>ops.released++,
+    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++);
+  clear();
+  assert.equal(state.seq,11,'superseded B request must be invalidated');
+  assert.equal(state.mesh,null);assert.equal(state.fieldValues,null);
+  assert.equal(state.range,null,'invalid Field B frame cannot retain prior numeric range');
+  assert(Number.isNaN(state.time),'invalid Field B frame must not display old physical time');
+  assert(Number.isNaN(state.delta),'invalid Field B frame must not retain stale sync delta');
+  assert.equal(state.sync,null,'invalid Field B frame cannot claim old synchronization');
+  assert.equal(state.differenceValues,null,'old A−B difference must be erased');
+  assert.equal(state.renderer.surfaceCount,0,'stale B mesh cannot remain drawable');
+  assert.equal(state.differenceRenderer.surfaceCount,0,'stale difference cannot remain drawable');
+  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0},
+    'B clearing refreshes original labels and stats without clearing independent C/D');
+}
+
+
 (async()=>{
   // Original B and C/D async loaders must treat only the latest request's
   // errors as authoritative; a stale rejection must never erase a newer
@@ -667,6 +702,53 @@ for(const fragment of [
   cTarget=11;const failedC=loadC(cState);
   cPending.get(11).reject(new Error('current C field unavailable'));await failedC;
   assert.equal(cClears,1,'Current C/D read failure must still invalidate stale physics');
+
+  // A source loader may complete normally with ok:false instead of throwing
+  // (e.g., a missing native OpenFOAM field in a newer physical-time folder).
+  // That must invalidate the real old C/D geometry and measured time too.
+  cTarget=12;cPending.set(12,deferred());
+  const unavailableC=loadC(cState);
+  cPending.get(12).resolve({ok:false,sync:{ok:false,time:12}});
+  await unavailableC;
+  assert.equal(cClears,2,'Resolved unavailable C/D frame clears old source-backed physics');
+  assert.strictEqual(cState.mesh,null,'Failed C/D view cannot retain an earlier 3D mesh');
+  assert(Number.isNaN(cState.time),'Failed C/D view cannot claim a measured physical timestamp');
+  assert.equal(cUploads,1,'Resolved unavailable C/D frame must not upload a phantom mesh');
+
+  // A superseded ok:false result must never clear a newer valid C/D frame.
+  cTarget=13;cPending.set(13,deferred());const staleUnavailable=loadC(cState);
+  cTarget=14;cPending.set(14,deferred());const newestC=loadC(cState);
+  const validLater={ok:true,mesh:{name:'C latest 14s'},storage:'volume',
+    fieldValues:[273],parsed:{dimensions:'K'},range:{valid:true},sync:{time:14,delta:0}};
+  cPending.get(14).resolve(validLater);await newestC;
+  assert.equal(cState.time,14);assert.equal(cUploads,2);
+  cPending.get(13).resolve({ok:false,sync:{ok:false,time:13}});await staleUnavailable;
+  assert.equal(cClears,2,'Stale resolved no-data C/D frame must not erase newer 14s physics');
+  assert.strictEqual(cState.mesh,validLater.mesh);
+
+  // Native C and D have independent source meshes and sequences. Neither
+  // should wait for a slow other region during a multi-view time refresh.
+  const extrasStart=source.indexOf('async function fcRefreshExtras(){');
+  const extrasEnd=source.indexOf('function fcRenderExtras()',extrasStart);
+  assert(extrasStart>=0&&extrasEnd>extrasStart,
+    'Actual C/D refresh coordinator must remain in the Field source');
+  const started=[],finished=[],resolvers=new Map();
+  const runBoth=new Function('fcExtraViews','fcExtraRefreshFrame',
+    source.slice(extrasStart,extrasEnd)+';return fcRefreshExtras;')(
+    [{id:3},{id:4}],
+    state=>new Promise(resolve=>{
+      started.push(state.id);
+      resolvers.set(state.id,()=>{finished.push(state.id);resolve()})
+    }));
+  const both=runBoth();
+  assert.deepStrictEqual(started,[3,4],
+    'C and D physical OpenFOAM reads must start concurrently, not serially');
+  resolvers.get(4)();await Promise.resolve();
+  assert.deepStrictEqual(finished,[4],
+    'D may complete while slow C remains pending without corrupting source order');
+  resolvers.get(3)();await both;
+  assert.deepStrictEqual(finished,[4,3],
+    'multi-view refresh finishes when both independent real source loads complete');
   console.log('Field playback stale-error regressions PASS: newest B/C/D frames survive superseded failures.');
 })().catch(error=>{console.error(error);process.exitCode=1});
 

@@ -97,6 +97,30 @@ async function fetchPages(uri,token){
   if(next)throw Error('GitHub backlog inventory too large; refused partial totals');
   return results;
 }
+// GitHub's queued "opened" event can start after the PR was merged/closed.
+// Open-PR inventory is then accurate but cannot contain that historical PR.
+// Verify the exact original PR through the official read-only endpoint.
+// Never treat a missing, still-open or wrong-repository PR as admissible.
+async function resolveAdmissionPr(prs,root,number,action,token){
+  const pr=prs.find(p=>p.number===number);
+  if(action!=='opened'&&action!=='reopened')return{pr,alreadyClosed:false};
+  if(pr)return{pr,alreadyClosed:false};
+  if(!Number.isSafeInteger(number)||number<1)
+    throw Error('Cannot verify newly opened PR: invalid event number');
+  const response=await fetch(root+'/pulls/'+number,{headers:{
+    Accept:'application/vnd.github+json',
+    'X-GitHub-Api-Version':'2022-11-28',
+    ...(token?{Authorization:'Bearer '+token}:{})
+  }});
+  if(!response.ok)throw Error('Cannot verify newly opened PR: direct GitHub HTTP '+response.status);
+  const direct=await response.json();
+  const expectedRepo=root.replace(/^https:\/\/api\.github\.com\/repos\//,'');
+  if(direct?.number!==number||direct?.base?.repo?.full_name!==expectedRepo||
+    direct.state!=='closed')
+    throw Error('Cannot verify newly opened PR from live inventory; deny on missing evidence.');
+  return{pr:direct,alreadyClosed:true}
+}
+
 async function main(){
   const repo=parseRepo(process.env.GRANADA_REPOSITORY||process.env.GITHUB_REPOSITORY||'michels-lab/FoamLens');
   const root='https://api.github.com/repos/'+repo;
@@ -107,12 +131,11 @@ async function main(){
   ]);
   const snapshot=summarize(prs,issues,{repository:repo});
   const number=Number(process.env.GRANADA_PR_NUMBER||0);
-  const pr=prs.find(p=>p.number===number);
   const action=process.env.GRANADA_PR_ACTION||'';
-  if(action==='opened'||action==='reopened'){
-    if(!pr)throw Error('Cannot verify newly opened PR from live inventory; deny on missing evidence.');
-  }
-  const decision=admission(snapshot,pr,action);
+  const {pr,alreadyClosed}=await resolveAdmissionPr(prs,root,number,action,token);
+  const decision=alreadyClosed?
+    {allowed:true,reason:'Exact original PR is now closed; queued opening-event inventory is stale. A future reopening event must pass the live backlog gate.'}:
+    admission(snapshot,pr,action);
   const message=render(snapshot,decision);
   process.stdout.write(message);
   if(process.env.GITHUB_STEP_SUMMARY){
@@ -123,4 +146,4 @@ async function main(){
 if(require.main===module){
   main().catch(e=>{console.error('GRANADA inventory BLOCKED: '+e.message);process.exitCode=1});
 }
-module.exports={summarize,admission,render,parseRepo,fetchPages,DEFAULTS};
+module.exports={summarize,admission,render,parseRepo,fetchPages,resolveAdmissionPr,DEFAULTS};
