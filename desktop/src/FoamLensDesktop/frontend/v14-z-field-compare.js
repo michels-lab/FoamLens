@@ -1607,7 +1607,7 @@ async function fcRefreshFrame(){
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
-  const seq=++fcState.seq;try{
+  const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const loaded=await fcLoadSynchronizedData(selected,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==fcState.seq)return;if(!loaded.ok)throw new Error(fcUi('Comparison time could not be resolved.','No se pudo resolver el tiempo de comparación.'));const data=loaded,sync=loaded.sync;
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.sync=sync;fcState.range=data.range;
@@ -1620,6 +1620,10 @@ async function fcRefreshFrame(){
     // A superseded async read cannot erase a newer successful B frame.
     if(seq!==fcState.seq)return;
     console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)
+  }finally{
+    if(seq===fcState.seq&&fcState._fcFrameHold===seq){
+      fcState._fcFrameHold=0;fcRender();fcRenderDifference()
+    }
   }
 }
 function fcRefreshVisuals(){
@@ -1736,7 +1740,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
+  const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
     if(!data.ok){
       // A resolved read with ok=false is still a failed OpenFOAM frame.
       // Never leave a prior physical scene, time badge, probe or exportable
@@ -1754,6 +1758,10 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
     // Only the still-current request is allowed to clear the viewport.
     if(seq!==state.seq)return;
     fcExtraInvalidateFrame(state,String(e?.message||e))
+  }finally{
+    if(seq===state.seq&&state._fcFrameHold===seq){
+      state._fcFrameHold=0;fcExtraRender(state)
+    }
   }
 }
 async function fcRefreshExtras(){
