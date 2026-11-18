@@ -691,6 +691,29 @@ for(const fragment of [
   assert.equal(cClears,2,'Stale resolved no-data C/D frame must not erase newer 14s physics');
   assert.strictEqual(cState.mesh,validLater.mesh);
 
+  // Native C and D have independent source meshes and sequences. Neither
+  // should wait for a slow other region during a multi-view time refresh.
+  const extrasStart=source.indexOf('async function fcRefreshExtras(){');
+  const extrasEnd=source.indexOf('function fcRenderExtras()',extrasStart);
+  assert(extrasStart>=0&&extrasEnd>extrasStart,
+    'Actual C/D refresh coordinator must remain in the Field source');
+  const started=[],finished=[],resolvers=new Map();
+  const runBoth=new Function('fcExtraViews','fcExtraRefreshFrame',
+    source.slice(extrasStart,extrasEnd)+';return fcRefreshExtras;')(
+    [{id:3},{id:4}],
+    state=>new Promise(resolve=>{
+      started.push(state.id);
+      resolvers.set(state.id,()=>{finished.push(state.id);resolve()})
+    }));
+  const both=runBoth();
+  assert.deepStrictEqual(started,[3,4],
+    'C and D physical OpenFOAM reads must start concurrently, not serially');
+  resolvers.get(4)();await Promise.resolve();
+  assert.deepStrictEqual(finished,[4],
+    'D may complete while slow C remains pending without corrupting source order');
+  resolvers.get(3)();await both;
+  assert.deepStrictEqual(finished,[4,3],
+    'multi-view refresh finishes when both independent real source loads complete');
   console.log('Field playback stale-error regressions PASS: newest B/C/D frames survive superseded failures.');
 })().catch(error=>{console.error(error);process.exitCode=1});
 
