@@ -2,6 +2,15 @@
 
 Este registro distingue **código integrado**, **pruebas directas**, **CI nativo**, **release publicado** y **aceptación humana**. Una fase no certifica automáticamente la siguiente.
 
+## Cierre de release Granada v1.8.17 — 17 noviembre 2026 (México)
+
+- **RELEASE ESTABLE PUBLICADO:** [FoamLens Desktop v1.8.17](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.17), fecha de publicación exacta `2026-11-18T04:11:17Z` (22:11:17 del 17 noviembre en México UTC−06). Fuente exacta [`c4be18ecca5e2fc0df454508b2bd6b88f5b27aa5`](https://github.com/michels-lab/FoamLens/commit/c4be18ecca5e2fc0df454508b2bd6b88f5b27aa5), publicada tras fusionar [PR #363](https://github.com/michels-lab/FoamLens/pull/363). No RC ni certificado comprado.
+- **Cuatro assets reales:** `FoamLens-Portable-v1.8.17.exe` (74,258,619 bytes), `FoamLens-Portable-v1.8.17.exe.sha256` (97 bytes), `FoamLens-Setup-v1.8.17.exe` (68,808,521 bytes), `FoamLens-Setup-v1.8.17.exe.sha256` (94 bytes). URL pública con enlaces de descarga y notas en la página del release.
+- **Dos fases nativas aprobadas:** [compilación candidata Windows #44233948191](https://github.com/michels-lab/FoamLens/actions/runs/44233948191) = **success**, publicación intencionalmente omitida para el evento PR; [compilación final y publicación #44234222264](https://github.com/michels-lab/FoamLens/actions/runs/44234222264) = **success** en QuickCup original, build, Setup y Portable, capturas nativas G5 con identidad por binario y verificación real de assets descargados. [**Auditoría independiente posterior #44235583637**](https://github.com/michels-lab/FoamLens/actions/runs/44235583637) = **success**. El tag publicado apunta al commit exacto que construyó los binarios.
+- **Bloques incorporados:** [#361](https://github.com/michels-lab/FoamLens/pull/361) arregla el `RangeError` con 300.000 valores y las diferencias 3D A−B parciales/no finitas, con acumulación O(N) sin duplicar arreglos; [#362](https://github.com/michels-lab/FoamLens/pull/362) blinda la identidad completa de directorios de los benchmarks 2D OpenFOAM y rechaza datos de identidad falsos por carpetas de tiempo vacías. Las pruebas CI sintéticas no prueban rendimiento en el caso real.
+- **No se certifica:** velocidad cold/warm del caso privado de 3.008 archivos (sigue abierto [#117](https://github.com/michels-lab/FoamLens/issues/117)), aceptación física de interfaz en DPI 125–200%, conversión CAD real de todos los formatos en el entorno del propietario ni concordancia numérica independiente con termopares experimentales. Un binario directo sin firma puede mostrar advertencia SmartScreen.
+- **Versión anterior como respaldo:** [v1.8.16](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.16), inalterada.
+
 ## Entrega oficial y versión
 
 - Release público estable: [Desktop v1.8.15](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.15), fuente exacta `0c51d58c1405e619a534d999fa2a63edf10d755c`, Setup + Portable y dos SHA-256 sidecars. El [Windows build de publicación](https://github.com/michels-lab/FoamLens/actions/runs/44211218863) concluyó `success`, incluida la comprobación de los binarios públicos descargados.
