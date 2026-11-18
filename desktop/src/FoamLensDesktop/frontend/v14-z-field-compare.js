@@ -1436,16 +1436,19 @@ function fcUpdateLabels(){
 function fcRefreshSelectors(preserve=true){
   const caseSel=document.getElementById('fcCase'),regionSel=document.getElementById('fcRegion'),fieldSel=document.getElementById('fcField'),componentSel=document.getElementById('fcComponent');if(!caseSel||!regionSel||!fieldSel||!componentSel)return;
   const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';
-  caseSel.innerHTML=eligible.length?eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join(''):'<option value="">—</option>';
+  // Every physical OpenFOAM frame revisits B's source selectors. Reuse the
+  // original option nodes when inventories are identical instead of rebuilding
+  // four expensive native WebView2 controls and losing the current focus.
+  fcExtraSetOptionMarkup(caseSel,eligible.length?eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;else{const primaryId=String(document.getElementById('fvCase')?.value||'');if(eligible.some(c=>String(c.id)===primaryId))caseSel.value=primaryId}
   const selectedCase=fcCase(),oldRegion=preserve?regionSel.value:'',regions=typeof fvReadyRegions==='function'?fvReadyRegions(selectedCase):fvMeshes(selectedCase).filter(g=>g.complete).map(g=>String(g.region||''));
-  regionSel.innerHTML=regions.length?regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join(''):'<option value="">—</option>';
+  fcExtraSetOptionMarkup(regionSel,regions.length?regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(regions.includes(oldRegion))regionSel.value=oldRegion;else{const primaryRegion=document.getElementById('fvRegion')?.value||'';if(regions.includes(primaryRegion))regionSel.value=primaryRegion}
   const region=regionSel.value||'',groups=fvFieldGroups(selectedCase,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';
-  fieldSel.innerHTML=groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>';
+  fcExtraSetOptionMarkup(fieldSel,groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else{const primaryField=document.getElementById('fvField')?.value||'';if(groups.some(g=>g.name===primaryField))fieldSel.value=primaryField}
   const group=groups.find(g=>g.name===fieldSel.value),components=typeof fvFieldComponents==='function'?fvFieldComponents(group):[{v:'value',t:fcUi('Value','Valor')}],oldComp=preserve?componentSel.value:'';
-  componentSel.innerHTML=components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join('');if(oldComp&&components.some(o=>o.v===oldComp))componentSel.value=oldComp;else{const primaryComp=document.getElementById('fvComponent')?.value||'value';if(components.some(o=>o.v===primaryComp))componentSel.value=primaryComp}
+  fcExtraSetOptionMarkup(componentSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))componentSel.value=oldComp;else{const primaryComp=document.getElementById('fvComponent')?.value||'value';if(components.some(o=>o.v===primaryComp))componentSel.value=primaryComp}
   const badge=document.getElementById('fcBadge');if(badge)badge.textContent=eligible.length?eligible.length+' '+fcUi('3D cases','casos 3D'):fcUi('no 3D case','sin caso 3D');
   fcUpdateLabels();fcScheduleToolbarSync()
 }
