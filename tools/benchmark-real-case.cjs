@@ -7,24 +7,38 @@ const {performance}=require('node:perf_hooks');
 const {normalize,compareReports}=require('./compare-import-performance.cjs');
 const SCHEMA='foamlens-real-case-benchmark-v1';
 const TYPES=['polyMesh','postProcessing','dictionary','time-field','other'];
+const FINGERPRINT='FoamLens-case-tree-sha256-v2';
+// The tree fingerprint covers empty directories too: a zero-file physical-time
+// folder can change the times the UI lists without changing any file bytes.
 const round=n=>Math.round(n*1000)/1000;
 const err=(code,message)=>Object.assign(new Error(message),{code});
 function category(name){
-  const a=name.replace(/\\/g,'/').split('/'),last=a.at(-1);
+  const a=name.replace(/\\/g,'/').split('/').filter(Boolean),
+    first=a[0]||'',last=a.at(-1);
   if(a.includes('polyMesh'))return'polyMesh';
   if(a.includes('postProcessing'))return'postProcessing';
-  if(a.includes('system')||(a.includes('constant')&&/^(thermophysicalProperties|transportProperties|turbulenceProperties|fvOptions|fvModels)$/.test(last)))return'dictionary';
-  if(a.some(x=>/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(x)))return'time-field';
+  if(first==='system'||(first==='constant'&&
+    /^(thermophysicalProperties|transportProperties|turbulenceProperties|fvOptions|fvModels)$/.test(last)))
+    return'dictionary';
+  // A numeric directory is not a physical OpenFOAM time if it occurs in
+  // arbitrary nested logs, system dictionaries or unrelated metadata.
+  const processor=/^processor(?:0|[1-9][0-9]*)$/i.test(first),
+    timeIndex=processor?1:0,time=a[timeIndex];
+  if(a.length>timeIndex+1&&
+     /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(time||'')&&
+     Number.isFinite(Number(time)))return'time-field';
   return'other'
 }
 async function inventory(root,signal){
-  const start=performance.now(),files=[],stack=[''];let directories=0;
+  const start=performance.now(),files=[],stack=[''],directoryNames=[];let directories=0;
   while(stack.length){
     if(signal?.aborted)throw err('CANCELLED','Capture cancelled, no partial report saved.');
     const dir=stack.pop();directories++;
+    directoryNames.push(dir.replace(/\\/g,'/'));
     const entries=await fs.promises.readdir(path.join(root,dir),{withFileTypes:true});
     entries.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
     for(const entry of entries){
+      if(signal?.aborted)throw err('CANCELLED','Capture cancelled, no partial report saved.');
       const relative=path.join(dir,entry.name),full=path.join(root,relative);
       if(entry.isSymbolicLink())throw err('SYMLINK','Found source symbolic link; fingerprint is not complete.');
       if(entry.isDirectory()){stack.push(relative);continue}
@@ -36,24 +50,34 @@ async function inventory(root,signal){
     }
   }
   files.sort((a,b)=>a.relative<b.relative?-1:a.relative>b.relative?1:0);
+  directoryNames.sort((a,b)=>a<b?-1:a>b?1:0);
   const total=files.reduce((n,x)=>n+x.bytes,0);
   if(!Number.isSafeInteger(total)||!files.length)throw err('INVALID_SOURCE','Source byte count is unsafe or no files found.');
-  return{files,directories,total,byType:Object.fromEntries(TYPES.map(k=>[k,files.filter(x=>x.type===k).length])),
+  return{files,directories,directoryNames,total,byType:Object.fromEntries(TYPES.map(k=>[k,files.filter(x=>x.type===k).length])),
     enumerationMs:round(performance.now()-start)}
 }
 async function fullDigest(index,signal){
   const begin=performance.now(),aggregate=crypto.createHash('sha256');
-  aggregate.update('FoamLens-real-case-source-sha256-v1\0');
+  aggregate.update(FINGERPRINT+'\0');
+  // Include every relative directory name, including empty physical-time
+  // directories. Reports export ONLY the aggregate digest, never this list.
+  for(const relative of index.directoryNames){
+    const label=Buffer.from(relative,'utf8');
+    aggregate.update('D'+label.length+'\0');aggregate.update(label);aggregate.update('\0');
+  }
   for(const f of index.files){
     if(signal?.aborted)throw err('CANCELLED','Capture cancelled, no partial report saved.');
     const hash=crypto.createHash('sha256'),stream=fs.createReadStream(f.full,{highWaterMark:256*1024});
     let n=0;
-    for await(const bytes of stream){hash.update(bytes);n+=bytes.length}
+    for await(const bytes of stream){
+      if(signal?.aborted)throw err('CANCELLED','Capture cancelled, no partial report saved.');
+      hash.update(bytes);n+=bytes.length
+    }
     const st=await fs.promises.lstat(f.full);
     if(n!==f.bytes||!st.isFile()||st.size!==f.bytes||st.mtimeMs!==f.mtime)
       throw err('SOURCE_CHANGED','Source file changed during measurement; discard partial evidence.');
     const label=Buffer.from(f.relative,'utf8');
-    aggregate.update(String(label.length)+'\0');aggregate.update(label);
+    aggregate.update('F'+label.length+'\0');aggregate.update(label);
     aggregate.update('\0'+String(f.bytes)+'\0'+hash.digest('hex')+'\0');
   }
   return{digest:aggregate.digest('hex'),readAndHashMs:round(performance.now()-begin)}
@@ -107,13 +131,13 @@ async function capture(root,out,opts={}){
   const ui=uiReport(opts.ui);
   const report={
     schema:SCHEMA,generatedUtc:new Date().toISOString(),pass:opts.label,
-    dataset:{manifestSHA256:reading.digest,fullContentVerified:true,
+    dataset:{manifestSHA256:reading.digest,fingerprintAlgorithm:FINGERPRINT,fullContentVerified:true,
       fileCount:index.files.length,directoryCount:index.directories,sourceBytes:index.total,byType:index.byType},
     sourceIO:{enumerationMs:index.enumerationMs,readAndHashMs:reading.readAndHashMs,
       totalMs:round(performance.now()-start),sampledPeakRssBytes:peak.rss,sampledPeakHeapBytes:peak.heap},
     ui:ui?{...ui,sourceFileCountMatches:ui.fileCount===index.files.length,
       sourceBytesMatch:ui.sourceBytesKnown==null?null:ui.sourceBytesKnown===index.total}:null,
-    evidence:{originalDataReadOnly:true,caseSourceFingerprint:'full SHA-256 plus relative source paths internally',
+    evidence:{originalDataReadOnly:true,caseSourceFingerprint:'full SHA-256 of files and all relative directory names internally',
       pathsOrValuesExported:false,operatingSystemCacheFlushed:false,confirmedColdCache:false,
       applicationImportedByBenchmark:false,uiDatasetBinding:'user-attributed-not-verified',
       sampledMemoryScope:'Node benchmark process, not FoamLens, OS-wide RAM, WebView2 or GPU'},
@@ -144,13 +168,14 @@ function compare(first,repeat){
     throw err('INPUT_SCHEMA','Expected complete first/repeat reports of the same schema.');
   const a=first.dataset,b=repeat.dataset;
   if(!a?.fullContentVerified||!b?.fullContentVerified||
+      a.fingerprintAlgorithm!==FINGERPRINT||b.fingerprintAlgorithm!==FINGERPRINT||
      !/^[a-f0-9]{64}$/.test(a.manifestSHA256)||a.manifestSHA256!==b.manifestSHA256||
      a.fileCount!==b.fileCount||a.sourceBytes!==b.sourceBytes||a.directoryCount!==b.directoryCount||
      TYPES.some(t=>a.byType?.[t]!==b.byType?.[t]))
     throw err('DATASET_CHANGED','Full-content OpenFOAM source identity differs; comparison refused.');
   const ui=first.ui&&repeat.ui?compareReports(first.ui,repeat.ui):null;
   return{schema:'foamlens-real-case-comparison-v1',
-    dataset:{manifestSHA256:a.manifestSHA256,fileCount:a.fileCount,sourceBytes:a.sourceBytes,
+    dataset:{manifestSHA256:a.manifestSHA256,fingerprintAlgorithm:FINGERPRINT,fileCount:a.fileCount,sourceBytes:a.sourceBytes,
       directoryCount:a.directoryCount,byType:a.byType,identityVerifiedAcrossPasses:true},
     sourceIOMetrics:{enumeration:compareMetric(first.sourceIO?.enumerationMs,repeat.sourceIO?.enumerationMs),
       fullReadAndHash:compareMetric(first.sourceIO?.readAndHashMs,repeat.sourceIO?.readAndHashMs),
@@ -194,4 +219,4 @@ if(require.main===module){
     process.exitCode=1
   })
 }
-module.exports={SCHEMA,TYPES,category,inventory,fullDigest,uiReport,capture,compare,parseFlags,inRoot,targetForCreation};
+module.exports={SCHEMA,TYPES,FINGERPRINT,category,inventory,fullDigest,uiReport,capture,compare,parseFlags,inRoot,targetForCreation};
