@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 510,
-  "classified_files_total": 506,
-  "docs_content_inspected": 106,
+  "tracked_files_total": 511,
+  "classified_files_total": 507,
+  "docs_content_inspected": 107,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 7,
-    "document": 100,
+    "document": 101,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "650959b3d111f6b987e0e618649b621ef9e715233d07be450c7f985421e15d71",
+  "inventory_fingerprint": "87f57457d1e6cb8ed9146a0e6a27a21138921d3b1b44d5b5241f386981924e2b",
   "evidence_fingerprint": "9eaab3f42e5eb155180dcbb78199ba5db7baef578414ca2e4745a28af977812a",
   "files": [
     {
@@ -594,7 +594,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "fc1b3ab9a94fee94ac812051d39fab84d10b571d"
+      "blob": "d0b160716c077694ff270a44f128b6c8b0a7bb8f"
     },
     {
       "path": "LICENSE",
@@ -615,7 +615,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "b84ccf2b56689949e1685da5277b6b642ce7794e"
+      "blob": "dc65eef06fb49d815e60cac2f9c3cf200d2cccac"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "99d3a1b80e73f15f2ffbb0217a877b1238bdc41a"
+      "blob": "eda3bd607043e964b6de38ca6df387d44939a747"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -643,7 +643,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "1cfa114bbcf283fa4d041ebc99b510aa7606f133"
+      "blob": "06904322f600aa842b560edee510276100794006"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
@@ -685,7 +685,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "01a6c8125b66e805d3be411a5f4d0c7729d9bbd2"
+      "blob": "57144f385ed9b8ab02e5baa9abb1c95c091f98c2"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
@@ -804,7 +804,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "10a7026e42b4ba9325e99a0f0658f326f76f5ac1"
+      "blob": "f2a55397761c9eed150dc19a249382fdef2f226e"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -2113,7 +2113,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "f0013b50769839a8d4bd1169bb2c6441299a953e"
+      "blob": "59707fc16d8a5f05677d5a25886c3808817a676a"
     },
     {
       "path": "docs/FIELD3D_RENDER_ACCEPTANCE_2026-10-12.md",
@@ -2394,6 +2394,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "62ebe48bbc511fc43b7f2789375a2eb595701064"
+    },
+    {
+      "path": "docs/GRANADA_FULL_EXECUTION_2026-11-17.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "fced03f5f2815470ede423247d8d766505ec26b8"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
