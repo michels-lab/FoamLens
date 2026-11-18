@@ -1,3 +1,9 @@
+## 2026-11-18 — FoamLens no-scroll 3D Field comparison v1.8.19 candidate
+
+- Owner screenshot from installed v1.8.18 demonstrates the added horizontal scrollbar and redundant vertically scrollable material/field menus, even though A and B share one row. This contradicts the actual requirement for fully fitted, truly side-by-side views.
+- Source PR #367 removes the fixed 350px minimum and scroll gutters, stops per-toolbar internal scrolling, and gives A/B and C/D consistent GPU canvas baselines through CSS subgrid rows. Original A/B/C/D Case controls stay directly visible; advanced field/material settings remain accessible under explicit details disclosures without fake scientific data.
+- Versions synchronized to 1.8.19 in native project, installer and HTML; version-consistency and original Windows QuickCup/G5/regression gates remain required. THIS ENTRY IS A CANDIDATE RECORD, NOT PROOF OF RELEASE. Previous v1.8.18 public Setup/Portable remain valid until the new release is independently verified.
+
 ## 2026-11-18 — CONFIRMADO: FoamLens Desktop v1.8.18 estable publicado
 
 - **Distribución REAL verificada:** [release oficial v1.8.18](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.18), no borrador ni prerelease, con cuatro assets públicos: `FoamLens-Setup-v1.8.18.exe`, `FoamLens-Portable-v1.8.18.exe` y sus dos `.sha256`.
