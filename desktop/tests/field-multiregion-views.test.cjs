@@ -13,7 +13,7 @@ const sourceCase={id:'scientific-case-1',meshInventory:[
 ],discoveryModel:{fields:[]}};
 const otherCase={id:'scientific-case-2',meshInventory:[{region:'alloy',complete:true}],discoveryModel:{fields:[]}};
 let loads=0,geometryLoads=0,released=0,redraws=0;
-let exactTimeAvailable=true;
+let exactTimeAvailable=true,physicalHold=null;
 const sources={
   fvRegionNames:c=>c.id===sourceCase.id?['metal','mold']:['alloy'],
   fvFieldGroups:(c,region)=>c.id===sourceCase.id?
@@ -22,7 +22,8 @@ const sources={
   fvRegionReleaseLayer:()=>released++,
   fvRegionExactTime:(times,time)=>exactTimeAvailable?times.find(t=>t===time):undefined,
   fvLoadFrameData:async(c,g,region,t,component)=>{
-    loads++;return{mesh:region==='mold'?mold:metal,fieldValues:[10,20,30],
+    loads++;if(physicalHold)await physicalHold;
+    return{mesh:region==='mold'?mold:metal,fieldValues:[10,20,30],
       storage:'volume',range:{min:10,max:30,valid:true},parsed:{dimensions:'[0 0 0 1 0 0 0]'}}},
   fvRegionGeometryAtTime:async()=>{geometryLoads++;return mold},
   fvRegionBuildLayer:(region,mesh,data,choice,time,renderer)=>({
@@ -89,7 +90,27 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     'Missing field at time must remain geometry-only and have null source timestamp');
   assert(geometry.status.includes('Geometry only'));
   assert(released>0,'Stale GPU region layers must be released');
-  assert(redraws>=4,'Real layout needs redraw when region state changes');
+  assert.strictEqual(redraws,2,
+    'The original B 3D renderer must paint exactly one complete frame per timestep, never an intermediate empty scene');
+  // Before this fix, a previous mold layer was immediately destroyed and
+  // the canvas redrawn while its replacement source read was still pending.
+  exactTimeAvailable=true;
+  let releaseNext;
+  physicalHold=new Promise(resolve=>{releaseNext=resolve});
+  const lastComplete=api.fcPhysicalFor(stateB).layers.get('mold'),beforeAtomic=redraws;
+  const inFlight=api.fcPhysicalLoad(stateB,sourceCase,'metal',1,()=>redraws++);
+  await Promise.resolve();
+  assert.strictEqual(api.fcPhysicalFor(stateB).layers.get('mold'),lastComplete,
+    'Waiting on a new measured OpenFOAM time must retain the last complete GPU scene');
+  assert.equal(redraws,beforeAtomic,
+    'No intermediate blank or half-painted B/C/D scene is allowed during an asynchronous time load');
+  releaseNext();
+  await inFlight;
+  physicalHold=null;
+  assert.notStrictEqual(api.fcPhysicalFor(stateB).layers.get('mold'),lastComplete,
+    'The new measured time must replace the previous complete scene');
+  assert.equal(redraws,beforeAtomic+1,
+    'All secondary B/C/D physical layers commit in one final redraw');
   const x={attributes:{},innerHTML:'',setAttribute(key,value){this.attributes[key]=value}};
   const dimensions={textContent:'',hidden:false};
   const input={checked:true};
