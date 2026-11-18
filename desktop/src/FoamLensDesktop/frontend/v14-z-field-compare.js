@@ -1444,6 +1444,7 @@ function fcClearRenderer(){
   // Without this increment, a resolved old frame can repaint hidden B
   // after the user turns comparison off.
   ++fcState.seq;
+  fcState._fcFrameHold=0;fcState._fcGroupHold=0;
   if(!document.getElementById('fcEnabled')?.checked){
     // A/B/C/D have independent requests. Cancel in-flight C/D loads too,
     // but retain their selectors and per-case region choices for later use.
@@ -1487,6 +1488,7 @@ function fcRefreshSelectors(preserve=true){
 }
 function fcMvp(canvas){return fcMvpForCamera(fcCameraFor(fcState,fcState.mesh),canvas)}
 function fcRender(exportSize=null){
+  if((fcState._fcFrameHold||fcState._fcGroupHold)&&!exportSize)return;
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
@@ -1526,6 +1528,7 @@ function fcUpdateDerived(range){
 
 function fcDifferenceMvp(canvas){return fcMvp(canvas)}
 function fcRenderDifference(exportSize=null){
+  if((fcState._fcFrameHold||fcState._fcGroupHold||fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
   const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcDifferenceMvp(canvas));
@@ -1632,6 +1635,7 @@ function fcExtraField(state){return fcExtraDom(state.id,'Field')?.value||state.f
 function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value||state.component||'value'}
 function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state,exportSize=null){
+  if(state&&(state._fcFrameHold||state._fcGroupHold)&&!exportSize)return;
   if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
@@ -1717,7 +1721,7 @@ function fcExtraRefreshSelectors(state,preserve=true){
 }
 function fcExtraInvalidateFrame(state,message){
   // A past measured frame must not survive a missing physical timestamp in UI or exports.
-  ++state.seq;
+  ++state.seq;state._fcFrameHold=0;state._fcGroupHold=0;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
   state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
