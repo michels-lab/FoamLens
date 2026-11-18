@@ -114,8 +114,9 @@ const fixtureUi=(overrides={})=>({
   assert.throws(()=>compare(one,renamed),/identity differs/i,
     'Identical file contents cannot hide changed physical-time folder names');
   const renamedJSON=await fs.promises.readFile(path.join(temp,'renamed-empty-time.json'),'utf8');
-  assert(!renamedJSON.includes('6.25')&&!renamedJSON.includes('3.5')&&!renamedJSON.includes(root),
-    'Benchmark must not export individual physical-time folder names');
+  assert(!renamedJSON.includes(root)&&!renamedJSON.includes('"directoryNames"')&&
+    !renamedJSON.includes('"relative"'),
+    'Benchmark must not export private source paths or individual directory-name metadata');
   await assert.rejects(()=>capture(root,path.join(root,'benchmark.json'),{label:'first'}),/cannot be written/);
   await assert.rejects(()=>capture(root,path.join(temp,'invalid.json'),{label:'warm'}),/first or repeat/);
   const canceled=new AbortController();canceled.abort();
