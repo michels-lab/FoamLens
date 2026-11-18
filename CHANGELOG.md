@@ -1,3 +1,11 @@
+## Desktop v1.8.16 — Granada scientific Field integrity and multi-view performance (2026-11-17)
+
+- **Fail-closed physical OpenFOAM frames B/C/D:** a missing or unsuccessful field result cannot leave a previously measured mesh, scalar/vector values, probe, difference, color range or time/synchronization badge visible as if it belonged to the new physical frame. A stale earlier asynchronous result cannot overwrite a newer valid frame (#357).
+- **Parallel independent C/D frame acquisition:** multi-region C and D are each limited to their own genuine original case/field/time and GPU renderer. Their two frame loads now start concurrently instead of C blocking D; no invented OpenFOAM timestamps or interpolation (#357).
+- **Native Field B selector performance:** reuse real Case/Region/Field/Component option nodes during playback; update only on real case/region/catalog/component changes, retaining user selections and focus (#356).
+- **Scientific regressions:** direct source-owned tests cover failed/late frame loads, 256 stable selector refreshes, source changes, B physical-time invalidation and concurrent C/D completion. Native Setup/Portable and original QuickCup acceptance must be rechecked for this exact source commit before publication.
+- **Scope:** original CFD solvers, private data, scientific numerical values and the public Web v51 front end are unchanged. Direct Windows GitHub binaries can be distributed unsigned with real SHA-256 sidecars and SmartScreen disclosure; native CSS viewport screenshots do not certify physical OS DPI, owner aesthetics or independent scientific validation.
+
 ## Desktop v1.8.15 — Granada original native Windows release (2026-11-17)
 
 - **Independent physical OpenFOAM clocks in Field A–D:** do not substitute missing or blank source time with `t = 0`; preserve valid original zero and scientific-notation times with source labels escaped. Scientific provenance regressions added (#351).
