@@ -1262,7 +1262,10 @@ jobs:
             echo "::error::BLOCKED: $tag already exists. Published release artifacts and owner review evidence are immutable; bump the version and validate a new candidate instead."
             exit 1
           fi
-          gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
+          # A steward/automation may advance main while this build runs.
+          # Bind the public release TAG to the exact commit whose binaries,
+          # native G5 screenshots and SHA sidecars were validated above.
+          gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY" --title "FoamLens $tag" --notes-file artifacts/release-notes.md
       - name: Verify actual newly published Windows Setup and Portable checksums
         shell: bash
         env:
