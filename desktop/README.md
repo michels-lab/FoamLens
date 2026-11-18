@@ -1,4 +1,8 @@
-# FoamLens Desktop v1.8.19
+# FoamLens Desktop v1.8.20
+
+**FoamLens Desktop v1.8.20 with frontend v51** is a **stable Windows candidate, not yet publicly published**. Native per-region select values in A/B/C/D now have unclipped line boxes at higher Windows DPI, full-width original captions and source statistics cannot overlap adjacent data, and source viewports use flex-column with actual-row toolbar height alignment instead of a three-row CSS subgrid that collided with the native fourth `Size` grip. The derived Δ panel now stays after C/D. Original OpenFOAM fields, clocks, regional data and renderer values remain unchanged. The exact Windows QuickCup, Setup/Portable smoke, native visual provenance and public SHA-256 audit must pass before distribution.
+
+## Previous published stable: v1.8.19
 
 **FoamLens Desktop v1.8.19 with frontend v51** is the [**published stable Windows release**](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.19), built from exact source commit [`16d3d323`](https://github.com/michels-lab/FoamLens/commit/16d3d3239b9b1baf1876eb493ffdf9025a38083d). The [protected original Windows/QuickCup/G5 release run](https://github.com/michels-lab/FoamLens/actions/runs/44393085250) passed and the [independent downloaded public executable and SHA-256 audit](https://github.com/michels-lab/FoamLens/actions/runs/44395146854) independently passed. Actual Windows Setup + Portable and both SHA-256 sidecars are publicly uploaded, not RC/draft. Corrects the owner-reported v1.8.18 scrollbar regression by fitting A/B and C/D in the available width, matching canvas baselines and keeping genuine per-view Case controls visible while advanced field/material editors expand only by request (PR #367). Original OpenFOAM cases and physical values remain unchanged. Direct unsigned GitHub executables can trigger SmartScreen; automated screenshot evidence does not certify physical Windows DPI or owner final visual acceptance.
 
