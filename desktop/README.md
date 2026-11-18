@@ -1,4 +1,8 @@
-# FoamLens Desktop v1.8.17
+# FoamLens Desktop v1.8.18 — stable source candidate
+
+**Not yet published.** The current release source includes the aligned A/B/C/D viewport grid, readable equal-height controls and staged physical OpenFOAM frame playback. The protected Windows workflow must pass before v1.8.18 Setup/Portable distribution. [Changes in PR #366](https://github.com/michels-lab/FoamLens/pull/366). Latest verified public binary is still [v1.8.17](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.17).
+
+## Previous published stable: v1.8.17
 
 Native Windows host embedding the **FoamLens v51 frontend**.
 
