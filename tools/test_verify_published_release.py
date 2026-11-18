@@ -98,5 +98,22 @@ class ReleaseIntegrityTests(unittest.TestCase):
             verify_release(self.metadata, self.dir, self.version)
 
 
+    def test_independent_audit_replays_published_release_from_exact_build_sha(self):
+        """A token-created release still receives a post-publish, exact-source audit."""
+        workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows"
+                    / "audit-published-foamlens.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_run:", workflow)
+        self.assertIn("workflows: ['Build FoamLens Desktop for Windows']", workflow)
+        self.assertIn("types: [completed]", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        self.assertIn("startsWith(github.event.workflow_run.head_commit.message, 'release:')", workflow)
+        self.assertIn("ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}", workflow)
+        self.assertIn("tag_sha=\"$(git rev-parse --verify", workflow)
+        self.assertIn('"$tag_sha" != "$TRIGGER_RELEASE_SOURCE_SHA"', workflow)
+        self.assertIn("tools/verify_published_release.py", workflow)
+        self.assertIn("gh release download", workflow)
+
+
 if __name__ == "__main__":
     unittest.main()
