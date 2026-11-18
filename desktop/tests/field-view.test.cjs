@@ -1246,10 +1246,13 @@ test('native Windows QuickCup exercises actual independent mold legend without c
     "regionLegendMeasured&&independentRegionPalette",
     'field-{size.Name}.png'
   ])assert(actual.includes(required),'Missing actual OpenFOAM Win32 UI evidence: '+required);
-  assert(source.includes("fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);"),
-    'The previous physical frame scale must vanish immediately on asynchronous frame changes');
-  assert(source.includes("fvRegionStatus(region,problem);fvRegionUpdateLegend(region);"),
-    'An OpenFOAM read failure must not leave stale numerical legend values visible');
+  assert(source.includes('const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]),nextStatus=new Map();')&&
+    !source.includes("fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);"),
+    'Keep the previous correctly labeled physical frame stable while next-time regions load; no temporary blank legend or layout jump');
+  assert(source.includes('nextStatus.set(region,problem)')&&
+    source.includes('for(const [region,status] of nextStatus)fvRegionStatus(region,status);')&&
+    source.includes('for(const region of regions)fvRegionUpdateLegend(region);'),
+    'An OpenFOAM read failure must update the physical legend and status only after the new source scene is settled');
 });
 
 test('default field view shows only the selected physical region; secondary opacity remains available for manual overlays',()=>{
