@@ -363,35 +363,45 @@ test('comparison UI exposes time badges on every viewport, generalized differenc
 test('3D comparison can add synchronized views three and four',()=>{
   for(const token of [
     'FC_MAX_TOTAL_VIEWS=4','fcExtraViews','fcExtraAdd','+ Add 3D view',
-    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(2,minmax(350px,1fr))'
+    'fcExtraRefreshFrame','fcExtraRender','fcRefreshExtras','repeat(2,minmax(0,1fr))'
   ])assert(source.includes(token),'Missing multi-view token: '+token);
 });
 
-test('Granada comparison grid keeps A/B beside one another and C/D in aligned rows',()=>{
+test('Granada A-D comparison fits two panels without any imposed internal scrollbar',()=>{
   const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
-  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(2,minmax(350px,1fr));overflow-x:auto'),
-    'A narrow Windows workspace must horizontally scroll a two-column source grid instead of stacking B below A');
-  assert(styles.includes('align-items:stretch;align-content:start'),
-    'Pair rows must stretch equally, not stair-step panels');
+  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr));overflow-x:clip;min-width:0;max-width:100%'),
+    'Both actual OpenFOAM canvases must fit the available width instead of overflowing at 350px each');
+  assert(styles.includes('.fieldViewPanel.fcCompareMode .fcComposedViewport{display:grid;grid-row:span 3;grid-template-rows:subgrid'),
+    'The source/canvas/legend rows of A and B must line up without fixed toolbar heights');
+  assert(styles.includes('.fcViewToolbar{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;height:auto;min-height:0;max-height:none;overflow:visible'),
+    'No scrollbars or clipped controls may be added inside viewport toolbars');
+  assert(!styles.includes('overflow-x:auto;overscroll-behavior-x:contain'),
+    'Remove the horizontal scroll strip added by the prior Granada');
+  assert(!styles.includes('scrollbar-gutter:stable'),
+    'There is no reason to reserve white scrollbar gutters inside scientific viewports');
   assert(!styles.includes('grid-template-columns:1fr}.fcComposedViewport'),
-    'The original 980px media rule must not collapse compared views to a single column');
-  assert(styles.includes('.fcViewToolbar{display:flex;align-items:flex-start;align-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;height:154px;min-height:154px;max-height:154px'),
-    'All viewports need an equal-height, independently scrollable toolbar to align canvas tops');
-  assert(styles.includes('overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable'),
-    'Expanded region/source controls must not change the height or alignment of a sibling canvas');
+    'Do not stack B below A at the historic 980px breakpoint');
+  const toolbar=source.slice(source.indexOf('function fcAddViewportToolbar('),
+    source.indexOf('// Independent multi-region GPU scenes',source.indexOf('function fcAddViewportToolbar(')));
+  assert(toolbar.includes('fcQuickCase')&&toolbar.includes('data-fc-bind="Case"'),
+    'Each A/B/C/D pane must expose its own real case selector without opening another panel');
+  assert(toolbar.includes('class="fcViewSourceDetails"><summary>'),
+    'Advanced property/region/component settings must be available but initially collapsed');
+  assert(!toolbar.includes('class="fcViewSourceDetails" open><summary>'),
+    'Full four-field source editor must not cover the 3D scene by default');
+  const regionOpen=source.slice(source.indexOf('function fcPhysicalMenuExpanded('),
+    source.indexOf('function fcApplyPhysicalPalette('));
+  assert(regionOpen.includes("return holder.dataset.fcRegionsExpanded==='true'"),
+    'Metal/mold controls may expand only after a user chooses to open them');
+  assert(!regionOpen.includes('count>1'),
+    'Two physical regions must not trigger automatically expanded duplicate controls');
   assert(styles.includes('.fcViewSourceDetails>summary{')&&
     styles.includes('overflow-wrap:anywhere;white-space:normal'),
-    'The actual case/field summary must wrap, not clip hidden text');
-  assert(!styles.includes('.fcViewSourceDetails>summary{cursor:pointer;list-style:revert;box-sizing:border-box;min-height:32px'),
-    'The old tiny source selector is no longer acceptable');
-  assert(source.includes('class="fcViewSourceDetails" open><summary>'),
-    'A/B/C/D real case/field controls must be immediately editable inside the fixed-height toolbar');
-  assert(!source.includes('class="fcViewSourceDetails"><summary>'),
-    'The existing keyboard and direct-case access regression requires initially visible source controls');
-  for(const size of ['.fcViewTimeControls button{flex:0 0 36px;min-height:36px;min-width:36px',
+    'Long source names should wrap rather than overflow horizontally');
+  for(const token of ['.fcViewTimeControls button{flex:0 0 36px;min-height:36px;min-width:36px',
     '.fcViewCopyFrom select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;height:36px',
     '.fcViewportCameraChoices button,.fcViewportProjectionChoices button{cursor:pointer;min-height:36px'])
-      assert(styles.includes(size),'A/ B / C / D controls must have readable touch/desktop targets: '+size);
+    assert(styles.includes(token),'Readable original source controls required: '+token);
 });
 
 test('multi-view comparison exposes descriptors and independent fixed ranges for video',()=>{
