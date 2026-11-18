@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "7c5a1c802dc232bdb0cda62ddfdb63b95cdf709c145c008aba9c92bead466262",
-  "evidence_fingerprint": "a0bb62b46e617f36c8fe01db27d3368e0d90f0ad5d2507d984149de51d6fd338",
+  "inventory_fingerprint": "5d4ef6f542609f9da3bebbd1f216e39f68b97fcb9196bae3eb3a21b4204fce75",
+  "evidence_fingerprint": "d6454ca31add68bd29fc186aade3854e2c0f9866dc0f46a6920a5a395dc40e60",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -979,7 +979,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a2b8dd36c40c2dfbc02c7a2e46ccd74dfe192be0"
+      "blob": "cf2440f8244458b7a14b25701658b8dcc46b37ae"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1539,7 +1539,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9810324caaff2b46b0ddb25c454b74975b9dff3d"
+      "blob": "3df4ba589a59734b111404d4c822d5edc946cb9f"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -3574,11 +3574,11 @@
   ],
   "findings": [
     {
-      "id": "e94362b3ef59061e",
+      "id": "f3e32547a1b244ea",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "13 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
+      "observation": "15 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
