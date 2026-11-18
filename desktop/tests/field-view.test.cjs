@@ -2391,8 +2391,9 @@ test('native packaged Windows smoke validates real metal and mold physical meshe
 
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
   assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
-  assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),
-    'Video must not capture a frame before secondary physical-region layers complete');
+  assert(source.includes('await fvRegionLoadFrame(c,time);if(seq!==fvState.frameSeq)return;')&&
+    source.includes('fvState._fvFrameHold=seq;'),
+    'Every Field timestep, including video export, must await secondary regions before presenting its complete original physical frame');
   assert(source.includes('failedVisible.push(region+'),
     'Missing visible physical regions must be recorded as export failures');
   assert(source.includes('Cannot export an incomplete multiregion frame:'),
