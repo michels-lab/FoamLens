@@ -575,15 +575,24 @@ internal sealed class FoamLensForm : Form
                       const own=tools.every(id=>!!document.getElementById(id));
                       const fieldRect=panel?.getBoundingClientRect();
                       const fieldHidden=!fieldRect||fieldRect.width<1||getComputedStyle(panel).display==='none';
-                      const catalog=document.getElementById('catalogControls');
+                      // The original Data catalog has a CENTER result pane
+                      // and optional sidebar filters. A collapsed sidebar is
+                      // legitimate; requiring its filters to have nonzero
+                      // bounds incorrectly rejects a rendered source catalog.
+                      const result=document.getElementById('dataCatalogPanel');
+                      const chart=document.getElementById('chartViewport');
                       const tab=document.getElementById('catalogTab');
                       const source=document.getElementById('catalogCase');
-                      const box=catalog?.getBoundingClientRect();
-                      const catalogVisible=!!box&&box.width>180&&box.height>40&&
-                        getComputedStyle(catalog).display!=='none'&&
-                        !catalog.classList.contains('hidden');
-                      const catalogSelected=!!tab&&tab.classList.contains('active');
-                      const originalSources=!!source&&source.options.length>0;
+                      const rows=document.getElementById('catalogTableBody');
+                      const box=result?.getBoundingClientRect();
+                      const catalogVisible=!!box&&box.width>180&&box.height>100&&
+                        getComputedStyle(result).display!=='none'&&
+                        box.right>0&&box.left<innerWidth&&
+                        box.bottom>0&&box.top<innerHeight;
+                      const catalogSelected=!!tab&&tab.classList.contains('active')&&
+                        chart?.classList.contains('catalogActive')===true;
+                      const originalSources=!!source&&source.options.length>0&&
+                        !!rows&&rows.querySelectorAll('tr').length>0;
                       const ok=own&&!!compare&&fieldHidden&&catalogVisible&&
                         catalogSelected&&originalSources;
                       return {ok,viewport:innerWidth,dataTools:tools.length,fieldHidden,
