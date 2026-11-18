@@ -119,9 +119,8 @@ async function main(){
     source.includes('fcQuickCase') &&
     source.includes('data-fc-bind="Case"'),
     'Original Case dropdown remains directly editable in each A-D pane while advanced source options default compact');
-  assert(source.includes('data-fc-bind="'+String('Field')+'"')===false ||
-    source.includes("['Field',fcUi('Property','Propiedad')]"),
-    'Original Field/Region/Component selectors must remain in the collapsible source editor');
+  assert(source.includes("[['Field',fcUi('Property','Propiedad')],['Region',fcUi('Region','Región')],['Component',fcUi('Component','Componente')]]"),
+    'Original Field, Region and Component bindings must remain in the collapsible source editor');
   assert(source.includes('await fcCopyFieldSourceToView(\'A\',\'B\')'),
     'Legacy A→B should use exact same source-copy engine');
   console.log('FoamLens G6 Field copy-source PASS: B/C/D source copy, original A→B case, scientific preflight, hidden views, time ownership');
