@@ -339,6 +339,85 @@ for(const fragment of [
 ])assert(ribbon.includes(fragment),'Ribbon can still overlap at compact widths: '+fragment);
 
 {
+  // GRANADA: actual B selector refresh is run on every OpenFOAM 3D frame.
+  // Its original, expensive option DOM must remain stable just like C/D.
+  // Exercise the production function rather than a rewritten mock algorithm.
+  const bStart=source.indexOf('function fcRefreshSelectors(preserve=true){');
+  const bEnd=source.indexOf('function fcMvp(',bStart);
+  const helperStart=source.indexOf('function fcExtraSetOptionMarkup(');
+  const helperEnd=source.indexOf('function fcExtraRefreshSelectors(',helperStart);
+  assert(bStart>=0&&bEnd>bStart&&helperStart>=0&&helperEnd>helperStart);
+  const bSource=source.slice(bStart,bEnd);
+  for(const selector of ['caseSel','regionSel','fieldSel','componentSel'])
+    assert(bSource.includes('fcExtraSetOptionMarkup('+selector+','),
+      'B must reuse the original '+selector+' select instead of rebuilding it every frame');
+  const makeSelect=()=>{
+    let html='',value='',writes=0;
+    return {
+      get innerHTML(){return html},
+      set innerHTML(next){
+        writes++;html=String(next);
+        const options=[...html.matchAll(/<option value="([^"]*)"/g)].map(m=>m[1]);
+        if(!options.includes(value))value=options[0]||'';
+      },
+      get value(){return value},
+      set value(next){value=String(next)},
+      get writes(){return writes}
+    };
+  };
+  const bControls={fcCase:makeSelect(),fcRegion:makeSelect(),
+    fcField:makeSelect(),fcComponent:makeSelect(),
+    fvCase:{value:'B3'},fvRegion:{value:'metal'},
+    fvField:{value:'T'},fvComponent:{value:'value'},fcBadge:{textContent:''}};
+  const bCases=[
+    {id:'B3',name:'B3',regions:['metal','mold'],groups:{
+      metal:[{name:'T',kind:'scalar',storage:'volume'},
+        {name:'U',kind:'vector',storage:'volume'}],
+      mold:[{name:'T',kind:'scalar',storage:'volume'}]}},
+    {id:'C3',name:'C3',regions:['metal'],groups:{
+      metal:[{name:'alpha1',kind:'scalar',storage:'volume'}]}}
+  ];
+  const bDocument={getElementById:id=>bControls[id]||null};
+  const bRefresh=new Function('cases','document','fvCaseViewAvailable',
+    'fcCase','fvReadyRegions','fvMeshes','fvFieldGroups','fcUi','fcEsc',
+    'fvAssociationLabel','fvFieldComponents','fcUpdateLabels','fcScheduleToolbarSync',
+    source.slice(helperStart,helperEnd)+bSource+';return fcRefreshSelectors;')(
+    bCases,bDocument,()=>true,
+    ()=>bCases.find(c=>String(c.id)===bControls.fcCase.value),
+    c=>c?.regions||[],c=>(c?.regions||[]).map(region=>({region,complete:true})),
+    (c,region)=>c?.groups?.[region]||[],en=>en,String,s=>s,
+    g=>g?.kind==='vector'?[{v:'x',t:'X'},{v:'y',t:'Y'}]:[{v:'value',t:'Value'}],
+    ()=>{},()=>{});
+  bRefresh(true);
+  const countB=()=>Object.fromEntries(['fcCase','fcRegion','fcField','fcComponent']
+    .map(id=>[id,bControls[id].writes]));
+  assert.deepStrictEqual(countB(),
+    {fcCase:1,fcRegion:1,fcField:1,fcComponent:1});
+  for(let i=0;i<256;i++)bRefresh(true);
+  assert.deepStrictEqual(countB(),
+    {fcCase:1,fcRegion:1,fcField:1,fcComponent:1},
+    '256 native Field B playback frames must not replace unchanged case, region, field and component options');
+  bControls.fcField.value='U';bRefresh(true);
+  assert.equal(bControls.fcField.value,'U','the selected real OpenFOAM field remains U');
+  assert.equal(bControls.fcComponent.value,'x','a vector updates to its original component catalog');
+  assert.deepStrictEqual(countB(),
+    {fcCase:1,fcRegion:1,fcField:1,fcComponent:2},
+    'changing field updates only genuinely different component options');
+  bControls.fcCase.value='C3';bRefresh(true);
+  assert.equal(bControls.fcField.value,'alpha1','new case updates the original field catalog');
+  assert.equal(bControls.fcComponent.value,'value','scalar selector has the correct component');
+  assert.deepStrictEqual(countB(),
+    {fcCase:1,fcRegion:2,fcField:2,fcComponent:3});
+  bCases[1].groups.metal.push({name:'T',kind:'scalar',storage:'volume'});
+  bRefresh(true);
+  assert.equal(bControls.fcField.writes,3,
+    'a genuine newly imported field still invalidates the selector cache');
+  bRefresh(false);
+  assert.deepStrictEqual(countB(),
+    {fcCase:2,fcRegion:3,fcField:4,fcComponent:4},
+    'explicit source reset still rebuilds each real selector');
+  console.log('Granada B original OpenFOAM field selector reuse PASS: 256 frames, source changes and explicit reset');
+
   // Exercise the actual C/D selector production function with multiple
   // original OpenFOAM catalog entries, not a duplicated toy implementation.
   // Every physical-time frame previously reparsed all four <select> trees.
