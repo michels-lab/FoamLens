@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "aef51ac74118a0bceafabb0d9305836efaba487f3ab1dbe6694654d35668ae5c",
-  "evidence_fingerprint": "830855cc83987223a08ede9b0b2229cbae0c8fdf2ffacfd60d1036d23ccfd2cc",
+  "inventory_fingerprint": "b8c082661dde70f4b816e63576912bd1223dda55af0d057a891343156147330d",
+  "evidence_fingerprint": "e730b385a25ae39118a791d22214ee98b87c4a03e566836f288a71fa4e2e1fa1",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -930,7 +930,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "90e4a71198b23e982243aba3380ec7a993e90013"
+      "blob": "8992e5007c796761b867d2c97a1d6c19f2bfa928"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -979,7 +979,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e68657c259b9e6dfa5cb5df3989bb3e1ee30cd92"
+      "blob": "45690ca8d5a087a428b093ff1be51d95b08835e8"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1511,7 +1511,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "22e46daf0527436c167559825a0576f0b1710582"
+      "blob": "f4c926fdbea1b55d2c19cdfbc53ec13593b28aea"
     },
     {
       "path": "desktop/tests/field-multiview-profile-comparison.test.cjs",
@@ -1539,7 +1539,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "43e499a6b1b8b5c8b77ccba824ada889a0bfdde2"
+      "blob": "eabe2acff829fedf00816ef70e58b5eb82f55b27"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -1581,7 +1581,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "66b68d69507041ee2d6ebb632a2f40532faece3e"
+      "blob": "e8101b84f25808044cc3b34207c95578e90ab3e9"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -3581,11 +3581,11 @@
   ],
   "findings": [
     {
-      "id": "6a176192e0049bcb",
+      "id": "b489d8216304ca67",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "21 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
+      "observation": "24 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
