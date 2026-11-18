@@ -89,5 +89,5 @@ async function delayedOpeningTests(){
   }finally{global.fetch=old}
 }
 
-Promise.all([paginationTests(),delayedOpeningTests()]).then(()=>console.log('Granada backlog guard PASS: admission, stale merged-PR event, cross-repo rejection, paging and fail-closed API.'),
+paginationTests().then(()=>delayedOpeningTests()).then(()=>console.log('Granada backlog guard PASS: admission, stale merged-PR event, cross-repo rejection, paging and fail-closed API.'),
 e=>{console.error(e);process.exitCode=1;});
