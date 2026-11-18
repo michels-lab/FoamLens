@@ -1,3 +1,11 @@
+## Desktop v1.8.19 — FoamLens Field no-scroll viewport repair (2026-11-18)
+
+- **Owner screenshot correction:** v1.8.18 horizontally scrollable pair view was not acceptable. Remove the imposed 350px minimum pair tracks and scrollbar gutters; two real OpenFOAM renderers now share the available width, without forced horizontal scrolling or narrower viewport clipping.
+- **Aligned panes without toolbar scrolling:** native CSS subgrid coordinates the per-pair source editor, real OpenFOAM GPU canvas and bottom legends so A/B and C/D draw on the same baseline. No 154px height clamp or vertical scrollbar in individual toolbars.
+- **Clear case choice:** direct original case picker visible in each A/B/C/D pane. Field/Region/Component and optional metal/mold styling are user-expandable only; unchanged source-backed data, original field selectors and independent times/cameras/legends.
+- **Regression:** replaced tests that incorrectly required scrollbars with source checks explicitly forbidding them; retained original independently editable per-view Case assertions, keyboard and actual OpenFOAM field integration.
+- **Publication condition:** this entry describes release source; exact-main Windows QuickCup, installed/Portable smoke and 36-slot UI provenance plus independent public checksum audit must pass before the stable v1.8.19 release is called published. Owner visual confirmation and physical Windows DPI are separate.
+
 ## Desktop v1.8.18 — Granada Field A–D alignment, readable controls and atomic physical-time playback (2026-11-18)
 
 - **Layout:** eliminate the single-column comparison collapse at 980px. Keep the original A/B and C/D 3D scenes beside their peers with two explicit 350px-minimum tracks and horizontal scrolling in narrow native workspaces.

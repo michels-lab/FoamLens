@@ -1132,8 +1132,12 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const toolbar=source.slice(toolbarStart,toolbarEnd);
   assert(toolbar.includes('class="fcViewSourceDetails"'),
     'each A/B/C/D source must be a native collapsible details control');
-  assert(toolbar.includes('class="fcViewSourceDetails" open'),
-    'A/B/C/D source controls must be immediately editable, yet remain individually collapsible');
+  assert(toolbar.includes('class="fcViewSourceDetails"><summary>'),
+    'Advanced per-view Field/Region/Component controls must be collapsible and closed initially');
+  assert(toolbar.includes('fcQuickCase')&&toolbar.includes('data-fc-bind="Case"'),
+    'A/B/C/D own original OpenFOAM Case dropdown must remain visible without expanding tools');
+  assert(toolbar.indexOf('data-fc-bind="Case"')<toolbar.indexOf('class="fcViewSourceDetails"'),
+    'Each real case source must be directly editable before the advanced disclosure');
   assert(toolbar.includes('data-fc-bind="'),
     'original source mirror binding must survive inside collapsible details');
   assert(toolbar.includes("source.dispatchEvent(new Event('change',{bubbles:true}))"),

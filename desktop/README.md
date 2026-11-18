@@ -1,4 +1,8 @@
-# FoamLens Desktop v1.8.18
+# FoamLens Desktop v1.8.19
+
+**FoamLens Desktop v1.8.19 with frontend v51** is the next stable Windows candidate for the owner's reported v1.8.18 compare-screen bug: A/B/C/D fit the available width without a horizontal scrollbar, and native case selectors remain always visible without duplicate expanded material control panels. Original OpenFOAM times, field values and solvers remain unchanged. **Do not treat this candidate as published** until the protected native Windows Setup/Portable and public release audit succeed. See [PR #367](https://github.com/michels-lab/FoamLens/pull/367).
+
+## Previous stable release: v1.8.18
 
 **FoamLens Desktop v1.8.18 with frontend v51** is now the [**published stable Windows release**](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.18). Exact release source commit [`e5b502e`](https://github.com/michels-lab/FoamLens/commit/e5b502e8356f964f117820e16a5cb5cda300083b) passed [original QuickCup B13, Windows installer + portable smoke, 36-slot native visual and release SHA-256 gates](https://github.com/michels-lab/FoamLens/actions/runs/44381050449) and [independent downloaded public executable/checksum audit](https://github.com/michels-lab/FoamLens/actions/runs/44382486071). It includes aligned A/B/C/D two-column viewports, immediately editable per-view OpenFOAM case and field menus, readable toolbar controls and atomic full physical-time metal/mold GPU snapshots ([PR #366](https://github.com/michels-lab/FoamLens/pull/366)). Original Web v51/frontend solvers are unchanged. Public GitHub binaries are unsigned; SmartScreen may warn. Native screenshot automation does not certify physical DPI or final owner acceptance.
 
