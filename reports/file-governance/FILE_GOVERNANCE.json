@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "338b9d086c977faf8f26057417da78a0a78daa50681e8c950cb4fb9b0060f47c",
+  "inventory_fingerprint": "aef51ac74118a0bceafabb0d9305836efaba487f3ab1dbe6694654d35668ae5c",
   "evidence_fingerprint": "830855cc83987223a08ede9b0b2229cbae0c8fdf2ffacfd60d1036d23ccfd2cc",
   "files": [
     {
@@ -615,7 +615,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "1f2efda99e6956db4e8baa22b5bed6aea3faa6f2"
+      "blob": "e4912ef5ff806f4915bbcad2218fa821556d071c"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "932ce6b34f32f423710147641410ac82a7a34cc5"
+      "blob": "b35659ed34bd8826c82350a6b9a97028ac858917"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2400,7 +2400,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "d135104d61abbdc71f33ed91c0dee94e2d4dab5d"
+      "blob": "b729297473e1e014ad7a8a8b6b3998ac468de07a"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
