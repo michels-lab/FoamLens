@@ -280,22 +280,28 @@ test('Granada block 1: re-enabling comparison reloads each real extra view after
     'C/D must reject stale async responses first, then clear no-data physics before committing a newer frame');
 });
 
-test('Granada block 2: physical menus start expanded for a real multi-region case, per viewport',()=>{
+test('Granada block 2: physical menus stay compact until explicitly expanded in each viewport',()=>{
   const expanded=isolate(compare,'function fcPhysicalMenuExpanded(holder,count){','function fcApplyPhysicalPalette(',[],[]);
-  const A={dataset:{}},B={dataset:{}},C={dataset:{}};
-  assert.equal(expanded(A,1),false,'single region has no unnecessary expanded inspector');
-  assert.equal(expanded(A,2),true,'metal + mold are discoverable without opening another panel');
-  assert.equal(expanded(B,3),true,'B offers every physical region as soon as it loads');
-  A.dataset.fcRegionsExpanded='false';
-  assert.equal(expanded(A,2),false,'A respects an explicit collapse');
-  assert.equal(expanded(B,2),true,'collapsing A cannot collapse B');
+  const A={dataset:{}},B={dataset:{}},C={dataset:{}},D={dataset:{}};
+  assert.equal(expanded(A,1),false,'single-region view must not waste canvas space');
+  assert.equal(expanded(A,2),false,'metal + mold must not force open a bulky editor');
+  assert.equal(expanded(B,3),false,'B must fit beside A without unsolicited controls');
+  assert.equal(expanded(C,2),false,'C has independent, compact defaults');
+  assert.equal(expanded(D,2),false,'D has independent, compact defaults');
+  A.dataset.fcRegionsExpanded='true';
+  assert.equal(expanded(A,2),true,'A must still allow manual metal and mold editing');
+  assert.equal(expanded(A,1),true,'manual expansion remains when the available catalog changes');
+  assert.equal(expanded(B,2),false,'expanding A cannot expand B');
   B.dataset.fcRegionsExpanded='true';
-  assert.equal(expanded(B,1),true,'explicit per-view preference survives catalog changes');
-  assert.equal(expanded(C,2),true,'C and D inherit their own default, not A or B state');
+  assert.equal(expanded(B,3),true,'B can independently expose its actual physical regions');
+  A.dataset.fcRegionsExpanded='false';
+  assert.equal(expanded(A,2),false,'manually closing A must be respected');
+  assert.equal(expanded(B,2),true,'closing A may not close the B inspector');
+  assert.equal(expanded(C,2),false,'C remains collapsed after interactions in A and B');
   assert(compare.includes('holder.dataset.fcRegionsExpanded=regionDetails.open'),
-    'the original details toggle must persist the per-viewport preference');
+    'original details toggle must persist each viewport preference');
   assert(compare.includes('if(regionDetails.isConnected&&holder.contains(regionDetails))'),
-    'detached old details toggles must not overwrite newer UI state');
+    'stale detached details may not override the active viewport preference');
 });
 
 test('Granada block 2: palette of a secondary region recolors only that original view',()=>{
