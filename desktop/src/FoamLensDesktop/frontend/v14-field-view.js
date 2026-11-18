@@ -1373,7 +1373,7 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   // Prepare a full physical-time snapshot away from the visible scene. The
   // old code deleted/drew each mold/metal layer BEFORE its next-time field
   // finished loading, flashing empty geometry and oscillating linked fit.
-  const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]);
+  const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]),nextStatus=new Map();
   const discard=()=>{
     for(const [region,layer] of nextLayers)
       if(fvRegionScene.layers.get(region)!==layer)fvRegionReleaseLayer(layer)
@@ -1384,7 +1384,8 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   const loadOne=async region=>{
     if(!current())return;
     const choice=fvRegionChoice(c,region);
-    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);
+    // Keep per-region selector layout stable during timestep I/O. The old
+    // Loading status and legend replacement moved the canvas mid-frame.
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const selected=groups.find(g=>g.name===choice.field);
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
@@ -1410,8 +1411,8 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
           :flUi('No renderable internal faces; neutral geometry','Sin caras internas renderizables; geometría neutra'))
       }
       if(layer){layer.status=status;nextLayers.set(region,layer)}
-      fvRegionStatus(region,status)
-    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);fvRegionUpdateLegend(region);if(choice.visible)failedVisible.push(region+': '+problem)}}
+      nextStatus.set(region,status)
+    }catch(error){if(current()){const problem=String(error?.message||error);nextStatus.set(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
@@ -1422,7 +1423,8 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   for(const [region,layer] of fvRegionScene.layers)
     if(nextLayers.get(region)!==layer)fvRegionReleaseLayer(layer);
   fvRegionScene.layers=nextLayers;
-  fvRegionRefreshList();
+  for(const [region,status] of nextStatus)fvRegionStatus(region,status);
+  for(const region of regions)fvRegionUpdateLegend(region);
   if(nextLayers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
     fvRegionScene.fitPending=false;fvRegionFitCamera()
   }else fvRender();
