@@ -1924,6 +1924,9 @@ function fvSetPhysicalProjection(name){
 }
 
 function fvRender(exportSize=null){
+  // A playback frame is presented only after its real multi-region payload
+  // is complete, preventing blank/half-painted intermediate OpenFOAM times.
+  if(fvState._fvFrameHold&&!exportSize)return;
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
@@ -2058,7 +2061,12 @@ async function fvComputeGlobalRange(){
 async function fvLoadFrame(index=null,options={}){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup();if(!c||!g)return;if(typeof fpClear==='function')fpClear();
   const times=(g.times||[]).map(fvRegionPhysicalTime).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');if(!times.length)throw new Error('Selected OpenFOAM field has no valid physical timestamps.');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
-  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';fvRegionClearLayers();fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';
+  // WebGL keeps displaying the last complete, correctly labeled frame while
+  // all original physical regions for the next source time are prepared.
+  fvState._fvFrameHold=seq;
+  fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  try{
   const data=await fvLoadFrameData(c,g,region,time,component,{includeBoundary:true});if(seq!==fvState.frameSeq)return;
   const {layout,meshInfo,mesh,storage,parsed,fieldValues,surfaceBoundary,range}=data;
   if(fvState.meshCacheKey!==meshInfo.key||fvState.mesh!==mesh){fvState.mesh=mesh;fvState.meshSnapshot=meshInfo.snapshot;fvState.meshCacheKey=meshInfo.key;fvUpdateMeshBuffers(mesh,!!options.resetCamera)}else fvState.meshSnapshot=meshInfo.snapshot;
@@ -2068,8 +2076,19 @@ async function fvLoadFrame(index=null,options={}){
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
   if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
-  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);const regionTask=fvRegionLoadFrame(c,time);if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}else regionTask.catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
+  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);await fvRegionLoadFrame(c,time);if(seq!==fvState.frameSeq)return;
+  fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
+  }catch(error){
+    if(seq===fvState.frameSeq)fvSetStatus(String(error?.message||error),true);
+    throw error
+  }finally{
+    // Never unlock a superseded read; only its newest source owner may
+    // advance WebGL from the previous complete physical-time image.
+    if(seq===fvState.frameSeq&&fvState._fvFrameHold===seq){
+      fvState._fvFrameHold=0;fvRender()
+    }
+  }
 }
 function fvVectorArray(parsed,count){
   if(!parsed?.supported||parsed.kind!=='vector')return null;if(parsed.uniform){const v=(parsed.uniformValue||[]).map(Number);return v.length===3?Array.from({length:count},()=>v.slice()):null}
