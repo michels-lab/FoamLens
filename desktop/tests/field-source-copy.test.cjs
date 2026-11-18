@@ -115,8 +115,13 @@ async function main(){
   assert.equal(api.snapshot('A','A'),null,'Copy never mutates original A source');
   assert(source.includes("if(typeof fcSyncCopySources==='function')fcSyncCopySources(bar)"));
   assert(source.includes("bar.querySelector('[data-fc-copy-source]')?.addEventListener('change'"));
-  assert(source.includes('class="fcViewSourceDetails" open'),
-    'All Field source selects should open and be editable by default');
+  assert(source.includes('class="fcViewSourceDetails"><summary>') &&
+    source.includes('fcQuickCase') &&
+    source.includes('data-fc-bind="Case"'),
+    'Original Case dropdown remains directly editable in each A-D pane while advanced source options default compact');
+  assert(source.includes('data-fc-bind="'+String('Field')+'"')===false ||
+    source.includes("['Field',fcUi('Property','Propiedad')]"),
+    'Original Field/Region/Component selectors must remain in the collapsible source editor');
   assert(source.includes('await fcCopyFieldSourceToView(\'A\',\'B\')'),
     'Legacy A→B should use exact same source-copy engine');
   console.log('FoamLens G6 Field copy-source PASS: B/C/D source copy, original A→B case, scientific preflight, hidden views, time ownership');
