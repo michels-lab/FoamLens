@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 65
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "4577b73d35f695cd62e46f8d850616803a408cc783826601b86ac876fefc7859",
-  "evidence_fingerprint": "bfe2087aaabfa64f8879cf3da02afa628cb49d3ac27d089a45e53c4527f11f9e",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "ec0f0fb9fc17ca9085814ae8ef9c0d64d37b798384e5a3581c0255174a7acaf9",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -594,7 +592,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "feaddb9eee35a52d1c89f93f948c9eabe8be7352"
+      "blob": "cfd71c5adb7b62dfa27ae9d11a39d432bfa1cb67"
     },
     {
       "path": "LICENSE",
@@ -615,7 +613,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "e0654c36a82f1efd11c63d3f83957b3329be6f2f"
+      "blob": "e9a8c22ec05b5234cb53550183753e3938fa7754"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +627,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "0021a7891dda3703e62452398527fac5784c2e0b"
+      "blob": "c9364921c2647c26f1392df68af5eb8406bcf520"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2204,7 +2202,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "1341ab6ea9e323839876572b36c86dcf83a34428"
+      "blob": "d0f48baca47cdc261848a485ac8f8c43c41e4f65"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3579,17 +3577,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "3c2775cb98dd46d2",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/tests/field-single-case-view-a-only.test.cjs, desktop/tests/field-source-copy.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
