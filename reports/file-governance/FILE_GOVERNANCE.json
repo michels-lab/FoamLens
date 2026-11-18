@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "b8c082661dde70f4b816e63576912bd1223dda55af0d057a891343156147330d",
+  "inventory_fingerprint": "e100d6c023867cd67a386974043845940ff31005439d284a5048284e574f2261",
   "evidence_fingerprint": "e730b385a25ae39118a791d22214ee98b87c4a03e566836f288a71fa4e2e1fa1",
   "files": [
     {
@@ -1476,7 +1476,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6f469ff3a31703f1182091ac05097e9b5d931df5"
+      "blob": "9e7350ec46194da6c0f5992ded4249c10e6fbdd8"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
