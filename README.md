@@ -13,8 +13,8 @@ The [product development audit](docs/GIT_AUDIT_LOG.md) separates current source 
 ## Release information
 
 - **FoamLens Web v51**.
-- **FoamLens Desktop v1.8.15** for Windows — **stable candidate in review**, not yet published. Original QuickCup B13, Setup/Portable and the complete 36/36 original native Windows workspace screenshots passed in PR #353. This version must independently pass its own protected Windows release build and generate both SHA-256 sidecars before publication. Until an actual release is verified, the downloadable version remains v1.8.14.
-- **FoamLens Desktop v1.8.14** for Windows — [latest published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.14), published November 13, 2026 (UTC), with separate SHA-256 sidecars for both executables. This is the latest **published** version, not a future candidate. Source improvements committed after this release are not automatically included in these binaries.
+- **FoamLens Desktop v1.8.15** for Windows — [latest published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.15), published November 18, 2026 (UTC; November 17 in Mexico), from exact source commit `0c51d58`. The original native Windows release build completed successfully and verified the *downloaded* public Setup and Portable PE files, sizes and SHA-256 sidecars. Independent OpenFOAM physical times are supported in 3D views; original 36-workspace native screenshot provenance is checked. **Direct GitHub executables are unsigned** and may prompt Windows SmartScreen. Automated CSS-viewport captures do not certify physical Windows DPI at 125–200%, final owner aesthetic approval, or independent simulation accuracy.
+- **FoamLens Desktop v1.8.14** for Windows — [previous stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.14), published November 13, 2026 (UTC), retained for rollback with its SHA-256 sidecars.
 - **FoamLens Desktop v1.8.13** for Windows — [previous stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13), November 12, 2026. Includes Field F2 responsive region controls and the T1 resilient real multi-case source-field catalog.
 - The [v1.8.12 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12) remains available for rollback.
 
@@ -27,7 +27,7 @@ The [product development audit](docs/GIT_AUDIT_LOG.md) separates current source 
 - Separate data views for **Time series**, **Spatial profiles**, and **Solver logs** so incompatible datasets are not mixed.
 - **3D Field View** for OpenFOAM cell-, internal-face-, and point-associated scalar/vector fields with ASCII/native-binary `polyMesh`, physical-time playback, moving/dynamic meshes, cell- and point-field slices/iso-surfaces, association-aware 3D probes, vector glyphs and streamlines. `surface*Field` explicit numeric patch values are mapped to their exact boundary faces; patches without explicit numeric values remain neutral and are never fabricated.
 - **Field Workspace** promotes 3D analysis to a top-level mode with visible multi-case controls. Spatial Profiles, Time Series and Solver Logs remain available in the Data workspace; internal companion tabs are being retired in a separately tested UI update.
-- **Synchronized multi-view 3D analysis** for up to four viewports. Each view can use its own case, region, field and component while sharing physical time and camera orientation. Compatible quantities can use shared color ranges and strict signed difference fields for topologically/geometrically equivalent meshes.
+- **Linked or independent multi-view 3D analysis** for up to four viewports. Each can select its own case, region, field, component and physical OpenFOAM time; camera, appearance and physical-time linking can be switched on or off. Independent B/C/D views have source-backed time selection and per-view playback. Compatible quantities can use shared color ranges and strict signed difference fields for topologically/geometrically equivalent meshes.
 - **3D animation/video export** composites the visible synchronized views into one video after preloading frames and fixing an independent global color range for each viewport.
 - Optional **dual-variable Time-Series Focus** with independent left/right Y axes for combinations such as temperature + liquid fraction.
 - Automatic **linear/PIMPLE convergence audit**, **momentum-mechanism audit**, and **OpenFOAM energy audit** with explicit provenance and no hidden causal/sign assumptions.
@@ -66,7 +66,8 @@ GitHub Actions builds:
 
 - `FoamLens-Portable-vX.Y.Z.exe` — portable self-contained Windows executable.
 - `FoamLens-Setup-vX.Y.Z.exe` — Windows installer generated with Inno Setup.
-- `FoamLens-Portable-vX.Y.Z.exe.sha256` — SHA-256 checksum.
+- `FoamLens-Portable-vX.Y.Z.exe.sha256` — portable SHA-256 checksum.
+- `FoamLens-Setup-vX.Y.Z.exe.sha256` — installer SHA-256 checksum.
 
 Tagged or explicitly published builds can also be attached directly to a GitHub Release.
 
