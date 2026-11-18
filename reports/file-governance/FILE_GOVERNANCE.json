@@ -26,7 +26,7 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "d47975d7376a7e886a8f4713ec42d92c075e7e5cd7c7b3263ccbee3e12071658",
+  "inventory_fingerprint": "338b9d086c977faf8f26057417da78a0a78daa50681e8c950cb4fb9b0060f47c",
   "evidence_fingerprint": "830855cc83987223a08ede9b0b2229cbae0c8fdf2ffacfd60d1036d23ccfd2cc",
   "files": [
     {
@@ -594,7 +594,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "d0b160716c077694ff270a44f128b6c8b0a7bb8f"
+      "blob": "1dd3b418fa0bfb1185775d5b07e467667bbdf15d"
     },
     {
       "path": "LICENSE",
@@ -615,7 +615,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "0f106301fde5d193745415d6d89413de52319daa"
+      "blob": "1f2efda99e6956db4e8baa22b5bed6aea3faa6f2"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "085a297fcae1ac4122f06a4a32e79b972da85b3f"
+      "blob": "932ce6b34f32f423710147641410ac82a7a34cc5"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -643,7 +643,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "06904322f600aa842b560edee510276100794006"
+      "blob": "1474fd19af464a8fdc006bbf211de4b4b67575d9"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
@@ -685,7 +685,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "57144f385ed9b8ab02e5baa9abb1c95c091f98c2"
+      "blob": "fab2c06ec30795091aa713520a25beb0ccb24d55"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
@@ -804,7 +804,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "f2a55397761c9eed150dc19a249382fdef2f226e"
+      "blob": "95721d7a4c676a3c79d6166bde4599e949a5441d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
