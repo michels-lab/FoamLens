@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "e7b480b8221b1e51b48cda8799126beb419b8671217ff99de727fe5bff2086e7",
+  "inventory_fingerprint": "8220f7fe41d8aff705afa9441305d912c8fef2b19ff6b4b7f91c5a0ca218b005",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -592,7 +592,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "4864751a044e83d796746278891a05f3b1d89d76"
+      "blob": "e86f1218aa14c46abbbf4c146ee22f0c7c0d7ad7"
     },
     {
       "path": "LICENSE",
@@ -613,7 +613,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "341457c066abc7ffb9c5b97bd65b48e1cf088c07"
+      "blob": "cf4d1fb79bf16a0ca50a24ff3b88dabcfda08a30"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -627,7 +627,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "f42c80959119c379717d0869d062372ce87e7a5f"
+      "blob": "b03a8a1ce8f53646aac74f1ac3420860b6cc0fe8"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2202,7 +2202,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "90cc7c14456c1c54348c73ea85e2679c45ae7d2f"
+      "blob": "208d4110986a30c76298890743f7ad6b4625ff23"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
