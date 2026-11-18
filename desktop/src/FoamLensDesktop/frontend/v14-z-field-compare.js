@@ -824,10 +824,19 @@ function fcAlignViewToolbarHeights(){
     !view.classList.contains('hidden')&&getComputedStyle(view).display!=='none');
   const bars=views.map(view=>view.querySelector('[data-fc-toolbar]'));
   for(const bar of bars)if(bar)bar.style.minHeight='0px';
-  for(let i=0;i<bars.length;i+=2){
-    const pair=bars.slice(i,i+2).filter(Boolean);
-    const height=Math.ceil(Math.max(0,...pair.map(bar=>bar.getBoundingClientRect().height)));
-    for(const bar of pair)bar.style.minHeight=height+'px';
+  // Group by actual 2D row, not stale A/B/C/D indices: rearranging views or
+  // enabling the derived difference viewport must never align unrelated rows.
+  const rows=[];
+  for(const view of views){
+    const bar=view.querySelector('[data-fc-toolbar]');if(!bar)continue;
+    const y=view.getBoundingClientRect().top;
+    let row=rows.find(item=>Math.abs(item.top-y)<=2);
+    if(!row){row={top:y,bars:[]};rows.push(row)}
+    row.bars.push(bar)
+  }
+  for(const row of rows){
+    const height=Math.ceil(Math.max(0,...row.bars.map(bar=>bar.getBoundingClientRect().height)));
+    for(const bar of row.bars)bar.style.minHeight=height+'px'
   }
 }
 function fcSyncToolbars(){
@@ -1807,7 +1816,7 @@ function fcExtraAdd(){
   if(!controls||!grid)return false;
   let id=3;while(fcExtraViews.some(v=>v.id===id))id++;const state={id,seq:0,renderer:null,mesh:null,fieldValues:null,fieldParsed:null,range:null,videoRangeOverride:null,geometryUpload:null,time:NaN,delta:NaN,caseId:null,region:'',fieldName:'',component:'value',storage:'volume',probe:null,camera:null,visual:null,sync:null};fcExtraViews.push(state);
   const card=document.createElement('div');card.id='fcExtra'+id+'Controls';card.className='fcExtraCard';card.innerHTML='<div class="fcExtraHead"><b>'+fcUi('View','Vista')+' '+id+'</b><button class="btn tiny" type="button" id="fcExtra'+id+'Remove">×</button></div><div class="row2"><div class="field"><label>'+fcUi('Case','Caso')+'</label><select id="fcExtra'+id+'Case"></select></div><div class="field"><label>'+fcUi('Region','Región')+'</label><select id="fcExtra'+id+'Region"></select></div></div><div class="row2"><div class="field"><label>'+fcUi('Field','Variable')+'</label><select id="fcExtra'+id+'Field"></select></div><div class="field"><label>'+fcUi('Component','Componente')+'</label><select id="fcExtra'+id+'Component"></select></div></div><div class="fcExtraVisuals hidden" id="fcExtra'+id+'Visuals"><div class="row2"><div class="field"><label>'+fcUi('Colormap','Mapa de color')+'</label><select id="fcExtra'+id+'Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label>'+fcUi('Opacity','Opacidad')+'</label><input id="fcExtra'+id+'Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcExtra'+id+'Surface" type="checkbox" checked> '+fcUi('Surface','Superficie')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Edges" type="checkbox" checked> '+fcUi('Edges','Aristas')+'</label><label class="inlineCheck"><input id="fcExtra'+id+'Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcExtra'+id+'Iso" type="checkbox"> Iso</label></div></div><div class="smallnote" id="fcExtra'+id+'Status"></div>';controls.appendChild(card);
-  const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcTimeBadge" id="fcExtra'+id+'TimeBadge">View '+id+' · —</div><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);fcComposeViewport(viewport);fcAddViewportToolbar(viewport,id);
+  const viewport=document.createElement('div');viewport.id='fcExtra'+id+'Viewport';viewport.className='fvViewport fcViewport';viewport.innerHTML='<canvas id="fcExtra'+id+'Canvas" aria-label="Synchronized multi-view OpenFOAM field visualization"></canvas><div class="fcTimeBadge" id="fcExtra'+id+'TimeBadge">View '+id+' · —</div><div class="fcViewLabel" id="fcExtra'+id+'Label"></div><div class="fcLegend hidden" id="fcExtra'+id+'Legend"></div>';grid.appendChild(viewport);const difference=grid.querySelector('#fcDifferenceViewport');if(difference)grid.appendChild(difference);fcComposeViewport(viewport);fcAddViewportToolbar(viewport,id);
   fcExtraDom(id,'Remove').onclick=()=>fcExtraRemove(id);for(const suffix of ['Case','Region','Field','Component'])fcExtraDom(id,suffix).addEventListener('change',()=>{
     fcStopIndependentPlayback(id);
     state.probe=null;
