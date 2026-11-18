@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "ec0f0fb9fc17ca9085814ae8ef9c0d64d37b798384e5a3581c0255174a7acaf9",
+  "inventory_fingerprint": "e7b480b8221b1e51b48cda8799126beb419b8671217ff99de727fe5bff2086e7",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -592,7 +592,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "cfd71c5adb7b62dfa27ae9d11a39d432bfa1cb67"
+      "blob": "4864751a044e83d796746278891a05f3b1d89d76"
     },
     {
       "path": "LICENSE",
@@ -613,7 +613,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "e9a8c22ec05b5234cb53550183753e3938fa7754"
+      "blob": "341457c066abc7ffb9c5b97bd65b48e1cf088c07"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -627,7 +627,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "c9364921c2647c26f1392df68af5eb8406bcf520"
+      "blob": "f42c80959119c379717d0869d062372ce87e7a5f"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -641,7 +641,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "6503dc0e4a77de2e628d24f32d56005727099f4f"
+      "blob": "3a880c5922546645f2a3639f283b47026504b8fa"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
@@ -683,7 +683,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "1df72b180f7c9a963ef3a4d157145463ff87d88b"
+      "blob": "99081117199128d7f6014ec46728f67b530d4b79"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
@@ -802,7 +802,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "5180e427e22ccbcc373a14cacee59f1d15d6ada5"
+      "blob": "d04a8970f22819b80b33de9bfdec38e4f59c90dd"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -977,7 +977,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "fa351f5195188542feddaf24c9e63c85a519cb9f"
+      "blob": "cbb98bc90435569b3792679d9ff977a3274f1dc7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1474,7 +1474,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "676fae8e25c75aee17a67e8d3aacb2842248b199"
+      "blob": "2b297e373b69b878c9499043817cc77f62f6446b"
     },
     {
       "path": "desktop/tests/field-f2-runtime-interactions.spec.cjs",
@@ -2202,7 +2202,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "d0f48baca47cdc261848a485ac8f8c43c41e4f65"
+      "blob": "90cc7c14456c1c54348c73ea85e2679c45ae7d2f"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
