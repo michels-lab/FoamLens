@@ -82,21 +82,31 @@ function fcDifferenceValues(primary,compare,mode='signed',epsilon=1e-12){
   for(let i=0;i<n;i++){const a=fcPhysicalNumber(primary[i]),b=fcPhysicalNumber(compare[i]);if(!Number.isFinite(a)||!Number.isFinite(b)){out[i]=NaN;continue}const d=a-b;out[i]=mode==='absolute'?Math.abs(d):mode==='percent'?100*d/Math.max(Math.abs(a),eps):d}
   return out
 }
-function fcDifferenceRange(values,mode='signed'){
-  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite);if(!finite.length)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
-  const mean=finite.reduce((a,b)=>a+b,0)/finite.length;if(mode==='absolute'){
-    // Spreading a large native OpenFOAM cell array into Math.max can exceed
-    // the JS engine argument/stack limit (reproduced for 300,000 cells).
-    let max=0;for(const value of finite)if(value>max)max=value;
-    return{valid:true,min:0,max:max||1,mean,count:finite.length}
+// O(N) streaming statistics: do not materialize duplicate, million-cell
+// arrays or spread original OpenFOAM values into V8's argument stack.
+function fcDifferenceStats(values){
+  let count=0,sum=0,max=0,maxAbs=0;
+  for(const original of values||[]){
+    const value=fcPhysicalNumber(original);
+    if(!Number.isFinite(value))continue;
+    count++;sum+=value;
+    if(value>max)max=value;
+    const abs=Math.abs(value);if(abs>maxAbs)maxAbs=abs
   }
-  return fcSymmetricDifferenceRange(finite)
+  return{count,mean:count?sum/count:NaN,max,maxAbs}
+}
+function fcDifferenceRange(values,mode='signed'){
+  const stats=fcDifferenceStats(values);
+  if(!stats.count)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
+  if(mode==='absolute')return{valid:true,min:0,max:stats.max||1,mean:stats.mean,count:stats.count};
+  const span=stats.maxAbs||1;
+  return{valid:true,min:-span,max:span,mean:stats.mean,count:stats.count}
 }
 function fcSymmetricDifferenceRange(values){
-  let m=0,n=0;for(const v of values||[]){const x=fcPhysicalNumber(v);if(Number.isFinite(x)){m=Math.max(m,Math.abs(x));n++}}
-  if(!n)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};if(m===0)m=1;
-  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite),mean=finite.reduce((a,b)=>a+b,0)/finite.length;
-  return{valid:true,min:-m,max:m,mean,count:n}
+  const stats=fcDifferenceStats(values);
+  if(!stats.count)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
+  const span=stats.maxAbs||1;
+  return{valid:true,min:-span,max:span,mean:stats.mean,count:stats.count}
 }
 /* FOAMLENS_FIELD_COMPARE_CORE_END */
 
