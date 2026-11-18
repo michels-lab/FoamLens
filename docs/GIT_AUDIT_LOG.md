@@ -1,3 +1,11 @@
+## 2026-11-18 — Granada Field A–D integrated release candidate v1.8.18
+
+- Corrected the source CSS 980px comparison breakpoint that forcibly stacked B under A, independent of the actual loaded OpenFOAM case. A/B and C/D now retain two genuine columns; narrow displays scroll horizontally instead of falsifying the side-by-side presentation.
+- Original source, real case, region, field and component menus remain immediately editable in each viewport. A fixed-height, independently scrollable toolbar keeps the GPU canvas top aligned even when a pane has extra physical-time or region controls. Increased actual font/target dimensions and let full source captions wrap rather than hide case names.
+- Anti-flicker atomic original Field metal/mold source loading landed on main at 963aa710; an original controller regression followed at e7f3ecb. This release candidate includes both, not the previous v1.8.17 distributed binaries.
+- Added source regression to prohibit silent one-column fallback and 9–11px controls, plus the existing case independence and playback test suites. Early Field/G2 and repository ownership GitHub Actions must be verified for the **final candidate SHA**, as must exact original Windows Setup/Portable build and true native visual evidence.
+- v1.8.18 remains UNPUBLISHED in this candidate entry. Release must not be claimed without GitHub assets and public downloaded SHA-256 sidecar audit. Independent Windows monitor DPI 125–200%, owner aesthetics and scientific validity are not certified by synthetic tests.
+
 ### G5/G19 — prueba real del nuevo auditor Windows (2026-11-17, corrida #44173360152)
 
 - **Fixture original aprobado**: QuickCup B13 y pruebas originales de runtime, Windows instalador/setup, EULA y capturas Home/About/Data/Field aprobaron antes de la nueva auditoría.
