@@ -443,6 +443,31 @@ test('compare badges distinguish unresolved physical frames from real exact, nea
   assert(english(api.fcResolveTime([0,1],0.25,'interpolate')).startsWith('Interpolated'));
 });
 
+test('atomic staged multiregion source frames never clear a visible viewport during I/O',()=>{
+  const start=source.indexOf('async function fcPhysicalLoad(state,c,primary,time,redraw){');
+  const end=source.indexOf('function fcPhysicalRenderLayers(',start);
+  assert(start>=0&&end>start,'Original secondary-region frame loader missing');
+  const loader=source.slice(start,end);
+  assert(loader.includes('const nextLayers=new Map(),nextErrors=new Map()'),
+    'Secondary regions must stage the complete next physical frame');
+  assert(loader.includes('if(!current()){discard();return}'),
+    'Superseded original OpenFOAM reads must discard private GPU resources');
+  assert(loader.includes('scene.layers=nextLayers;scene.errors=nextErrors;'),
+    'Region buffers and errors must be committed together');
+  assert(loader.indexOf('scene.layers=nextLayers')>loader.indexOf('await fvLoadFrameData('),
+    'Visible regions may not be replaced before real field reads resolve');
+  assert(!loader.includes('scene.layers.clear()'),
+    'Never blank the visible 3D regions at the beginning of an asynchronous timestep');
+  assert(!loader.includes('scene.layers.set(region,layer);redraw()'),
+    'Never render incomplete successive metal/mold regions');
+  assert.equal((loader.match(/\bredraw\(\)/g)||[]).length,1,
+    'One complete physical snapshot should trigger one redraw');
+  const renderStart=source.indexOf('function fcRender(exportSize=null){');
+  assert(renderStart>0,'Original View B renderer missing');
+  assert(source.slice(renderStart,renderStart+200).includes('fcState._fcFrameHold||fcState._fcGroupHold'),
+    'Linked playback must preserve the last complete B canvas while loading');
+});
+
 console.log('FoamLens 3D difference field regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
 
