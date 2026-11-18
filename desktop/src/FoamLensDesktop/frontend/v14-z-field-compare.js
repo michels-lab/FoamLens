@@ -1273,34 +1273,49 @@ function fcPhysicalReload(ctx){
 }
 async function fcPhysicalLoad(state,c,primary,time,redraw){
   const scene=fcPhysicalFor(state),regions=fcPhysicalChoiceList(state,c,primary),seq=++scene.seq;
-  for(const layer of scene.layers.values())fvRegionReleaseLayer(layer);
-  scene.layers.clear();scene.errors.clear();redraw();
-  if(!c||!Number.isFinite(fcPhysicalNumber(time))||!state.renderer)return;
-  for(const region of regions){
-    if(seq!==scene.seq)return;
-    const choice=scene.choices.get(region);
-    if(region===primary||!choice?.visible)continue;
-    try{
-      const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
-        group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
-      let frame=null,mesh=null,reason='';
-      if(exact!==undefined){
-        frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
-        mesh=frame.mesh
-      }else{
-        mesh=await fvRegionGeometryAtTime(c,region,time);
-        reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+  // Do NOT clear or redraw the old physical scene while the next time is
+  // still reading. Clearing before every await caused an empty/misfitted
+  // mold/metal frame to flash between genuine OpenFOAM timesteps.
+  const nextLayers=new Map(),nextErrors=new Map();
+  const current=()=>seq===scene.seq;
+  const discard=()=>{
+    for(const [region,layer] of nextLayers)
+      if(scene.layers.get(region)!==layer)fvRegionReleaseLayer(layer)
+  };
+  if(c&&Number.isFinite(fcPhysicalNumber(time))&&state.renderer){
+    for(const region of regions){
+      if(!current()){discard();return}
+      const choice=scene.choices.get(region);
+      if(region===primary||!choice?.visible)continue;
+      try{
+        const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
+          group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+        let frame=null,mesh=null,reason='';
+        if(exact!==undefined){
+          frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
+          mesh=frame.mesh
+        }else{
+          mesh=await fvRegionGeometryAtTime(c,region,time);
+          reason=fcUi('Geometry only; no measured field at t = ','Solo geometría; sin campo medido en t = ')+fcFmt(time)+' s'
+        }
+        if(!current()){discard();return}
+        if(!mesh)throw new Error(fcUi('Physical mesh is unavailable for this region/time.','No existe malla física para esta región/tiempo.'));
+        const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
+        const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
+        if(layer)nextLayers.set(region,layer)
+      }catch(error){
+        if(!current()){discard();return}
+        nextErrors.set(region,String(error?.message||error))
       }
-      if(seq!==scene.seq)return;
-      if(!mesh)throw new Error(fcUi('Physical mesh is unavailable for this region/time.','No existe malla física para esta región/tiempo.'));
-      const data={...frame,group,sourceTime:exact===undefined?null:exact,status:reason};
-      const layer=fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer);
-      if(layer){scene.layers.set(region,layer);redraw()}
-    }catch(error){
-      if(seq===scene.seq){scene.errors.set(region,String(error?.message||error));redraw()}
     }
   }
-  if(seq===scene.seq)redraw()
+  if(!current()){discard();return}
+  // Atomic original-GPU swap: only now can the next physical time become
+  // visible. The linked camera measures the completed union of regions.
+  for(const [region,layer] of scene.layers)
+    if(nextLayers.get(region)!==layer)fvRegionReleaseLayer(layer);
+  scene.layers=nextLayers;scene.errors=nextErrors;
+  redraw()
 }
 function fcPhysicalRenderLayers(state,visual){
   const renderer=state?.renderer,scene=state?fcPhysicalFor(state):null;if(!renderer||!scene)return;
@@ -1429,6 +1444,7 @@ function fcClearRenderer(){
   // Without this increment, a resolved old frame can repaint hidden B
   // after the user turns comparison off.
   ++fcState.seq;
+  fcState._fcFrameHold=0;fcState._fcGroupHold=0;
   if(!document.getElementById('fcEnabled')?.checked){
     // A/B/C/D have independent requests. Cancel in-flight C/D loads too,
     // but retain their selectors and per-case region choices for later use.
@@ -1472,6 +1488,7 @@ function fcRefreshSelectors(preserve=true){
 }
 function fcMvp(canvas){return fcMvpForCamera(fcCameraFor(fcState,fcState.mesh),canvas)}
 function fcRender(exportSize=null){
+  if((fcState._fcFrameHold||fcState._fcGroupHold)&&!exportSize)return;
   if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
@@ -1511,6 +1528,7 @@ function fcUpdateDerived(range){
 
 function fcDifferenceMvp(canvas){return fcMvp(canvas)}
 function fcRenderDifference(exportSize=null){
+  if((fcState._fcFrameHold||fcState._fcGroupHold||fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
   const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcDifferenceMvp(canvas));
@@ -1589,7 +1607,7 @@ async function fcRefreshFrame(){
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
-  const seq=++fcState.seq;try{
+  const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const loaded=await fcLoadSynchronizedData(selected,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==fcState.seq)return;if(!loaded.ok)throw new Error(fcUi('Comparison time could not be resolved.','No se pudo resolver el tiempo de comparación.'));const data=loaded,sync=loaded.sync;
     const mesh=data.mesh;if(fcState.mesh!==mesh){fcState.mesh=mesh;fcUploadMesh(mesh)}
     fcState.caseId=selected.id;fcState.region=region;fcState.fieldName=field;fcState.component=component;fcState.fieldStorage=data.storage;fcState.fieldValues=data.fieldValues;fcState.fieldParsed=data.parsed;fcState.time=sync.time;fcState.delta=sync.delta;fcState.sync=sync;fcState.range=data.range;
@@ -1602,6 +1620,10 @@ async function fcRefreshFrame(){
     // A superseded async read cannot erase a newer successful B frame.
     if(seq!==fcState.seq)return;
     console.error(e);fcClearRenderer();fcSetStatus(String(e?.message||e),true)
+  }finally{
+    if(seq===fcState.seq&&fcState._fcFrameHold===seq){
+      fcState._fcFrameHold=0;fcRender();fcRenderDifference()
+    }
   }
 }
 function fcRefreshVisuals(){
@@ -1617,6 +1639,7 @@ function fcExtraField(state){return fcExtraDom(state.id,'Field')?.value||state.f
 function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value||state.component||'value'}
 function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state,exportSize=null){
+  if(state&&(state._fcFrameHold||state._fcGroupHold)&&!exportSize)return;
   if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
@@ -1702,7 +1725,7 @@ function fcExtraRefreshSelectors(state,preserve=true){
 }
 function fcExtraInvalidateFrame(state,message){
   // A past measured frame must not survive a missing physical timestamp in UI or exports.
-  ++state.seq;
+  ++state.seq;state._fcFrameHold=0;state._fcGroupHold=0;
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
   state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
@@ -1717,7 +1740,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
-  const seq=++state.seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
+  const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
     if(!data.ok){
       // A resolved read with ok=false is still a failed OpenFOAM frame.
       // Never leave a prior physical scene, time badge, probe or exportable
@@ -1735,6 +1758,10 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
     // Only the still-current request is allowed to clear the viewport.
     if(seq!==state.seq)return;
     fcExtraInvalidateFrame(state,String(e?.message||e))
+  }finally{
+    if(seq===state.seq&&state._fcFrameHold===seq){
+      state._fcFrameHold=0;fcExtraRender(state)
+    }
   }
 }
 async function fcRefreshExtras(){
@@ -2024,19 +2051,40 @@ function fcInstallUi(){
   if(typeof fwBindSyncViewControls==='function')fwBindSyncViewControls();
   return true
 }
+let fcLinkedPlaybackSeq=0;
 function fcInstall(){
   const mount=()=>fcInstallUi();if(!mount()){const retry=()=>{if(mount())return;requestAnimationFrame(retry)};requestAnimationFrame(retry)}
   if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched){const previous=fvLoadFrame;fvLoadFrame=async function(...args){
-    const x=await previous.apply(this,args);
-    if(fcTimesLinked()){
-      await fcRefreshFrame();await fcRefreshExtras()
-    }else if(fcState.enabled){
-      // A playback changes only A: do not re-read B/C/D OpenFOAM frames or
-      // destroy their independent time choices on every A animation tick.
-      fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);
-      fcUpdateLabels();fcScheduleToolbarSync()
+    // A/B/C/D synchronized playback is ONE visual transaction: a new A may
+    // finish before B, mold overlays or slower C/D OpenFOAM partitions.
+    // Leave all canvases displaying the previous coherent timestep until
+    // every current request has finished, avoiding the per-view flash.
+    const epoch=++fcLinkedPlaybackSeq,
+      linked=fcState.enabled&&fcTimesLinked(),extras=[...fcExtraViews];
+    fvState._fvGroupHold=linked?epoch:0;
+    fcState._fcGroupHold=linked?epoch:0;
+    for(const state of extras)state._fcGroupHold=linked?epoch:0;
+    try{
+      const reading=previous.apply(this,args),owner=fvState.frameSeq,
+        result=await reading;
+      if(owner!==fvState.frameSeq||epoch!==fcLinkedPlaybackSeq)return result;
+      if(linked&&fcState.enabled&&fcTimesLinked()){
+        // Each viewport retains its own case/region/field and GPU data.
+        // Only their presentation is synchronized; no field is invented.
+        await Promise.all([fcRefreshFrame(),fcRefreshExtras()])
+      }else if(fcState.enabled&&!fcTimesLinked()){
+        // Independent clocks: an A step must not reload B/C/D.
+        fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);
+        fcUpdateLabels();fcScheduleToolbarSync()
+      }
+      return result
+    }finally{
+      if(epoch===fcLinkedPlaybackSeq){
+        fvState._fvGroupHold=0;fcState._fcGroupHold=0;
+        for(const state of extras)state._fcGroupHold=0;
+        if(linked){fvRender();fcRender();fcRenderDifference();fcRenderExtras()}
+      }
     }
-    return x
   };fvLoadFrame.__fcPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fcPatched){const previous=fvRender;fvRender=function(...args){const x=previous.apply(this,args);fcRender();fcRenderDifference();fcRenderExtras();return x};fvRender.__fcPatched=true;fvRender.__fcBase=previous}
   for(const id of ['fvCase','fvRegion','fvField','fvComponent'])document.getElementById(id)?.addEventListener('change',()=>setTimeout(()=>{fcRefreshSelectors(true);for(const state of fcExtraViews)fcExtraRefreshSelectors(state,true);fcState.lockedRange=null;fcRefreshFrame();fcRefreshExtras()},0));

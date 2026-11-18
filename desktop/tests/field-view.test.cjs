@@ -1246,10 +1246,13 @@ test('native Windows QuickCup exercises actual independent mold legend without c
     "regionLegendMeasured&&independentRegionPalette",
     'field-{size.Name}.png'
   ])assert(actual.includes(required),'Missing actual OpenFOAM Win32 UI evidence: '+required);
-  assert(source.includes("fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);"),
-    'The previous physical frame scale must vanish immediately on asynchronous frame changes');
-  assert(source.includes("fvRegionStatus(region,problem);fvRegionUpdateLegend(region);"),
-    'An OpenFOAM read failure must not leave stale numerical legend values visible');
+  assert(source.includes('const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]),nextStatus=new Map();')&&
+    !source.includes("fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);"),
+    'Keep the previous correctly labeled physical frame stable while next-time regions load; no temporary blank legend or layout jump');
+  assert(source.includes('nextStatus.set(region,problem)')&&
+    source.includes('for(const [region,status] of nextStatus)fvRegionStatus(region,status);')&&
+    source.includes('for(const region of regions)fvRegionUpdateLegend(region);'),
+    'An OpenFOAM read failure must update the physical legend and status only after the new source scene is settled');
 });
 
 test('default field view shows only the selected physical region; secondary opacity remains available for manual overlays',()=>{
@@ -1336,6 +1339,7 @@ test('real multi-region frame loader rejects missing clock metadata before relea
     'const fvRegionEnsureCase=()=>events.push("ensure-case");',
     'const fvRegionReleaseLayer=layer=>events.push("release:"+layer.label);',
     'const fvRender=()=>events.push("draw");',
+    'const fvRegionRefreshList=()=>{};',
     'const fvRegionNames=()=>["metal"];',
     'const fvRegionChoice=()=>({visible:true});',
     'const fvRegionFitCamera=()=>true;',
@@ -2105,7 +2109,10 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
   assert(regionCode.includes('fvRegionReleaseLayer(layer);'),'Invisible region buffers must be freed');
   assert(regionCode.includes('region!==primary&&fvRegionChoice(c,region).visible'),'Never parse fields for hidden secondary regions');
   assert(regionCode.includes('!fvRegionScene.layers.has(region)'),'Re-enabling a hidden region must request its missing layer');
-  assert(source.includes('fvRegionClearLayers();fvSetStatus('),'Old physical-time layers must be released BEFORE the next primary frame loads');
+  assert(!source.includes('fvRegionClearLayers();fvSetStatus(')&&
+    source.includes('fvState._fvFrameHold=seq;')&&source.includes('await fvRegionLoadFrame(c,time)')&&
+    source.includes('fvRegionScene.layers=nextLayers;'),
+    'Changing time must stage original measured regions and commit A once, not erase its existing GPU scene before source I/O');
   const setup=[
     'const window={};',
     'const calls=[];const gl={deleteBuffer:b=>calls.push(b)};',
@@ -2388,8 +2395,9 @@ test('native packaged Windows smoke validates real metal and mold physical meshe
 
 test('multiregion video waits for the exact physical frame and rejects missing visible layers',()=>{
   assert(animationSource.includes('isExporting:()=>vaState.exporting'),'Video exporting state must be exposed to Field frames');
-  assert(source.includes('if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}'),
-    'Video must not capture a frame before secondary physical-region layers complete');
+  assert(source.includes('await fvRegionLoadFrame(c,time);if(seq!==fvState.frameSeq)return;')&&
+    source.includes('fvState._fvFrameHold=seq;'),
+    'Every Field timestep, including video export, must await secondary regions before presenting its complete original physical frame');
   assert(source.includes('failedVisible.push(region+'),
     'Missing visible physical regions must be recorded as export failures');
   assert(source.includes('Cannot export an incomplete multiregion frame:'),

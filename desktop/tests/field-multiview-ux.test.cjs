@@ -652,7 +652,7 @@ for(const fragment of [
     fcVisualFor:()=>({palette:'viridis'}),fcUpdateStatsGrid:()=>{},
     fcUpdateDifference:()=>{},fvState:{mesh:{},fieldValues:[]},
     fcUpdateVectors:async()=>{},fcUpdateLabels:()=>{},fcPhysicalMenu:()=>{},
-    fcRender:()=>{},fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
+    fcRender:()=>{},fcRenderDifference:()=>{},fcPhysicalLoad:async()=>{},fvAssociationLabel:()=> 'volume',
     fcSyncText:()=> 'exact',console:{error:()=>{}}
   };
   const loadB=create(source.slice(bStart,bEnd),'fcRefreshFrame',bDeps);
@@ -1808,21 +1808,25 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(wrapperBegin>0&&wrapperEnd>wrapperBegin);
   const events=[],compare={enabled:true,mesh:{name:'B'},fieldValues:[100]};
   const wrapped=new Function('fvLoadFrame','fcTimesLinked','fcState','fvState',
-    'fcRefreshFrame','fcRefreshExtras','fcUpdateDifference',
-    'fcUpdateLabels','fcScheduleToolbarSync',
-    source.slice(wrapperBegin,wrapperEnd)+';return fvLoadFrame;')(
+    'fcExtraViews','fcRefreshFrame','fcRefreshExtras','fcUpdateDifference',
+    'fcUpdateLabels','fcScheduleToolbarSync','fvRender','fcRender',
+    'fcRenderDifference','fcRenderExtras',
+    'let fcLinkedPlaybackSeq=0;'+source.slice(wrapperBegin,wrapperEnd)+
+    ';return fvLoadFrame;')(
     async()=>{events.push('A');return 'loaded A'},
-    ()=>linked,compare,{mesh:{name:'A'},fieldValues:[200]},
-    async()=>{events.push('B')},async()=>{events.push('C/D')},
-    ()=>events.push('Δ'),()=>events.push('labels'),()=>events.push('toolbar')
+    ()=>linked,compare,{frameSeq:0,mesh:{name:'A'},fieldValues:[200]},
+    [{id:3},{id:4}],async()=>{events.push('B')},async()=>{events.push('C/D')},
+    ()=>events.push('Δ'),()=>events.push('labels'),()=>events.push('toolbar'),
+    ()=>events.push('paint A'),()=>events.push('paint B'),
+    ()=>events.push('paint Δ'),()=>events.push('paint C/D')
   );
   linked=false;
   assert.equal(await wrapped(),'loaded A');
   assert.deepStrictEqual(events,['A','Δ','labels','toolbar'],
     'moving A alone must not re-read B/C/D independent OpenFOAM data');
   events.length=0;linked=true;await wrapped();
-  assert.deepStrictEqual(events,['A','B','C/D'],
-    're-linking must restore genuine B/C/D following A physical time');
+  assert.deepStrictEqual(events,['A','B','C/D','paint A','paint B','paint Δ','paint C/D'],
+    're-linking must load B/C/D together and present one coherent A–D frame after all source reads');
   console.log('Granada Field A time isolation PASS: real load wrapper keeps unsynced B/C/D data untouched');
 })().catch(error=>{console.error(error);process.exitCode=1});
 

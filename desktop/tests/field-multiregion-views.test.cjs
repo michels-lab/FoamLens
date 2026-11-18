@@ -13,7 +13,7 @@ const sourceCase={id:'scientific-case-1',meshInventory:[
 ],discoveryModel:{fields:[]}};
 const otherCase={id:'scientific-case-2',meshInventory:[{region:'alloy',complete:true}],discoveryModel:{fields:[]}};
 let loads=0,geometryLoads=0,released=0,redraws=0;
-let exactTimeAvailable=true;
+let exactTimeAvailable=true,physicalHold=null;
 const sources={
   fvRegionNames:c=>c.id===sourceCase.id?['metal','mold']:['alloy'],
   fvFieldGroups:(c,region)=>c.id===sourceCase.id?
@@ -22,7 +22,8 @@ const sources={
   fvRegionReleaseLayer:()=>released++,
   fvRegionExactTime:(times,time)=>exactTimeAvailable?times.find(t=>t===time):undefined,
   fvLoadFrameData:async(c,g,region,t,component)=>{
-    loads++;return{mesh:region==='mold'?mold:metal,fieldValues:[10,20,30],
+    loads++;if(physicalHold)await physicalHold;
+    return{mesh:region==='mold'?mold:metal,fieldValues:[10,20,30],
       storage:'volume',range:{min:10,max:30,valid:true},parsed:{dimensions:'[0 0 0 1 0 0 0]'}}},
   fvRegionGeometryAtTime:async()=>{geometryLoads++;return mold},
   fvRegionBuildLayer:(region,mesh,data,choice,time,renderer)=>({
@@ -89,7 +90,27 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     'Missing field at time must remain geometry-only and have null source timestamp');
   assert(geometry.status.includes('Geometry only'));
   assert(released>0,'Stale GPU region layers must be released');
-  assert(redraws>=4,'Real layout needs redraw when region state changes');
+  assert.strictEqual(redraws,2,
+    'The original B 3D renderer must paint exactly one complete frame per timestep, never an intermediate empty scene');
+  // Before this fix, a previous mold layer was immediately destroyed and
+  // the canvas redrawn while its replacement source read was still pending.
+  exactTimeAvailable=true;
+  let releaseNext;
+  physicalHold=new Promise(resolve=>{releaseNext=resolve});
+  const lastComplete=api.fcPhysicalFor(stateB).layers.get('mold'),beforeAtomic=redraws;
+  const inFlight=api.fcPhysicalLoad(stateB,sourceCase,'metal',1,()=>redraws++);
+  await Promise.resolve();
+  assert.strictEqual(api.fcPhysicalFor(stateB).layers.get('mold'),lastComplete,
+    'Waiting on a new measured OpenFOAM time must retain the last complete GPU scene');
+  assert.equal(redraws,beforeAtomic,
+    'No intermediate blank or half-painted B/C/D scene is allowed during an asynchronous time load');
+  releaseNext();
+  await inFlight;
+  physicalHold=null;
+  assert.notStrictEqual(api.fcPhysicalFor(stateB).layers.get('mold'),lastComplete,
+    'The new measured time must replace the previous complete scene');
+  assert.equal(redraws,beforeAtomic+1,
+    'All secondary B/C/D physical layers commit in one final redraw');
   const x={attributes:{},innerHTML:'',setAttribute(key,value){this.attributes[key]=value}};
   const dimensions={textContent:'',hidden:false};
   const input={checked:true};
@@ -109,5 +130,102 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     assert(compare.includes(fragment),'Missing live multi-region UI or WebGL code: '+fragment);
   assert(field.includes('renderer=fvState.renderer')&&field.includes('const gl=renderer?.gl'),
     'Region layers must accept B/C/D independent WebGL context');
+  // Execute the ORIGINAL A physical-region loader against a deferred
+  // source read. The old implementation cleared WebGL and rendered a blank
+  // frame before each time's metal/mold data finished loading.
+  const aStart=field.indexOf('async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){'),
+    aEnd=field.indexOf('window.FoamLensRegionScene=',aStart);
+  assert(aStart>=0&&aEnd>aStart,'Original Field A physical-region loader required');
+  const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{promise,resolve}};
+  const sourceDelay=deferred(),cameraBounds=[],repaints=[],releasedA=[];
+  const originalGL={},priorA={gl:originalGL,time:9.8,region:'mold'},
+    ACase={id:'original-case-A'};
+  const aScene={caseId:String(ACase.id),sequence:0,fitPending:false,
+    choices:new Map([['mold',{visible:true,field:'T',component:'value'}]]),
+    layers:new Map([['mold',priorA]])};
+  const aDeps={
+    document:{getElementById:id=>id==='fvRegion'?{value:'metal'}:null},
+    fvRegionPhysicalTime:t=>Number(t),fvState:{renderer:{gl:originalGL}},
+    fvRegionEnsureCase:()=>{},fvRegionScene:aScene,
+    fvRegionChoice:(c,region)=>aScene.choices.get(region)||{visible:true},
+    fvTimeEqual:(x,y)=>Number(x)===Number(y),
+    fvRegionNames:()=>['metal','mold'],
+    fvRegionStatus:()=>{},fvRegionUpdateLegend:()=>{},
+    fvFieldGroups:()=>[{name:'T',kind:'scalar',times:[10]}],
+    fvRegionExactTime:(times,time)=>times.find(t=>t===time),
+    fvLoadFrameData:async()=>{await sourceDelay.promise;
+      return{mesh:mold,fieldValues:[10],storage:'volume',parsed:{},
+        range:{valid:true,min:10,max:10}}},
+    pmUnitFromDimensions:()=>'',fvFmt:String,fvAssociationLabel:()=> 'volume',
+    fvFmtRange:String,fvRegionGeometryAtTime:async()=>mold,
+    flUi:en=>en,fvRegionObserveRange:()=>{},
+    fvRegionBuildLayer:(region,mesh,values,choice,time)=>
+      ({gl:originalGL,region,mesh,time,sourceTime:values.sourceTime}),
+    fvRegionReleaseLayer:layer=>releasedA.push(layer),
+    fvRegionRefreshList:()=>{},
+    fvRegionFitCamera:()=>{cameraBounds.push([...aScene.layers.keys()]);return true},
+    fvRender:()=>repaints.push([...aScene.layers.keys()]),
+    window:{FoamLensAnimationExport:{isExporting:()=>false}}
+  };
+  const loadOriginalA=new Function('deps',
+    'const {'+Object.keys(aDeps).join(',')+'}=deps;'+
+    field.slice(aStart,aEnd)+';return fvRegionLoadFrame;')(aDeps);
+  const pendingA=loadOriginalA(ACase,10);
+  await Promise.resolve();
+  assert.strictEqual(aScene.layers.get('mold'),priorA,
+    'A must preserve previous measured region during the new source I/O');
+  assert.equal(repaints.length,0,
+    'A must not flash an empty or partial canvas during an awaited time change');
+  sourceDelay.resolve();
+  await pendingA;
+  assert.notStrictEqual(aScene.layers.get('mold'),priorA,
+    'A atomic commit must replace the old source layer after all reads settle');
+  assert.equal(aScene.layers.get('mold').sourceTime,10,
+    'A committed layer must retain its actual measured physical time');
+  assert.deepStrictEqual(releasedA,[priorA],
+    'Only the superseded original A GPU layer may be released');
+  assert.equal(repaints.length,1,
+    'Field A must redraw one completed frame, not several incomplete times');
+  assert.equal(cameraBounds.length,0,'No transient camera fit occurs while staging');
+
+  // Execute the installed ORIGINAL A→B/C/D playback adapter. In linked
+  // playback, fast A/B responses must NOT draw while the slower C/D
+  // source frame is still waiting for its real OpenFOAM data.
+  const linkedStart=compare.indexOf('let fcLinkedPlaybackSeq=0;'),
+    adapterStart=compare.indexOf("if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fcPatched)",linkedStart),
+    adapterEnd=compare.indexOf("  if(typeof fvRender==='function'&&!fvRender.__fcPatched)",adapterStart);
+  assert(linkedStart>=0&&adapterStart>linkedStart&&adapterEnd>adapterStart,
+    'Original coordinated Field playback adapter required');
+  const allowA=deferred(),allowExtras=deferred(),visual=[];
+  const linkedA={frameSeq:0},linkedB={enabled:true},linkedC={id:3},linkedD={id:4};
+  const playbackDeps={
+    fvState:linkedA,fcState:linkedB,fcExtraViews:[linkedC,linkedD],
+    fvLoadFrame:async()=>{linkedA.frameSeq++;await allowA.promise},
+    fcTimesLinked:()=>true,
+    fcRefreshFrame:async()=>{visual.push('load B')},
+    fcRefreshExtras:async()=>{visual.push('load C/D');await allowExtras.promise},
+    fcUpdateDifference:()=>{},fcUpdateLabels:()=>{},fcScheduleToolbarSync:()=>{},
+    fvRender:()=>visual.push('paint A'),fcRender:()=>visual.push('paint B'),
+    fcRenderDifference:()=>visual.push('paint Δ'),
+    fcRenderExtras:()=>visual.push('paint C/D')
+  };
+  const linkPlayback=new Function('deps',
+    "const {"+Object.keys(playbackDeps).filter(key=>key!=='fvLoadFrame').join(',')+"}=deps;"+
+    'let fvLoadFrame=deps.fvLoadFrame,fcLinkedPlaybackSeq=0;'+
+    compare.slice(adapterStart,adapterEnd)+';return fvLoadFrame;')(playbackDeps);
+  const playback=linkPlayback();
+  assert(linkedA._fvGroupHold&&linkedB._fcGroupHold&&linkedC._fcGroupHold&&linkedD._fcGroupHold,
+    'All four independent GPUs must be held together during synchronized playback');
+  allowA.resolve();
+  await Promise.resolve();await Promise.resolve();
+  assert(!visual.some(x=>x.startsWith('paint')),
+    'A/B must not flash their new colors before the slower C/D frame resolves');
+  allowExtras.resolve();await playback;
+  assert.deepStrictEqual(visual.filter(x=>x.startsWith('paint')),
+    ['paint A','paint B','paint Δ','paint C/D'],
+    'Synchronized playback must present exactly one coherent A/B/C/D frame');
+  assert.equal(linkedA._fvGroupHold,0);assert.equal(linkedB._fcGroupHold,0);
+  assert.equal(linkedC._fcGroupHold,0);assert.equal(linkedD._fcGroupHold,0);
+
   console.log('OpenFOAM independent A-D region test PASS: per-case choices, no B/C cross-talk, real mold layer, physical XYZ, and honest geometry-only fallback');
 })().catch(error=>{console.error(error);process.exitCode=1});

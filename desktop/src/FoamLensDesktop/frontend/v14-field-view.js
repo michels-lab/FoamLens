@@ -1370,17 +1370,22 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
   const canPreserve=!!preserveLoaded&&[...fvRegionScene.layers].every(([region,layer])=>
     !!layer&&layer.gl===fvState.renderer.gl&&fvRegionScene.choices.get(region)?.visible&&
     fvTimeEqual(fvRegionPhysicalTime(layer.time),time));
-  if(!canPreserve){
-    for(const layer of fvRegionScene.layers.values())fvRegionReleaseLayer(layer);
-    fvRegionScene.layers.clear();fvRender()
-  }
+  // Prepare a full physical-time snapshot away from the visible scene. The
+  // old code deleted/drew each mold/metal layer BEFORE its next-time field
+  // finished loading, flashing empty geometry and oscillating linked fit.
+  const nextLayers=new Map(canPreserve?fvRegionScene.layers:[]),nextStatus=new Map();
+  const discard=()=>{
+    for(const [region,layer] of nextLayers)
+      if(fvRegionScene.layers.get(region)!==layer)fvRegionReleaseLayer(layer)
+  };
   const regions=fvRegionNames(c).filter(region=>region!==primary&&fvRegionChoice(c,region).visible&&
-    (!canPreserve||!fvRegionScene.layers.has(region))),failedVisible=[];
+    (!canPreserve||!nextLayers.has(region))),failedVisible=[];
   // Bound simultaneous real OpenFOAM parses to protect desktop memory.
   const loadOne=async region=>{
     if(!current())return;
     const choice=fvRegionChoice(c,region);
-    fvRegionStatus(region,flUi('Loading region…','Cargando región…'));fvRegionUpdateLegend(region);
+    // Keep per-region selector layout stable during timestep I/O. The old
+    // Loading status and legend replacement moved the canvas mid-frame.
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const selected=groups.find(g=>g.name===choice.field);
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
@@ -1405,16 +1410,24 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
           ?flUi('Real internal-face colors; boundary patches neutral','Colores reales de caras internas; parches de frontera neutros')
           :flUi('No renderable internal faces; neutral geometry','Sin caras internas renderizables; geometría neutra'))
       }
-      if(layer){layer.status=status;fvRegionScene.layers.set(region,layer);fvRender()}
-      fvRegionStatus(region,status);fvRegionUpdateLegend(region)
-    }catch(error){if(current()){const problem=String(error?.message||error);fvRegionStatus(region,problem);fvRegionUpdateLegend(region);if(choice.visible)failedVisible.push(region+': '+problem)}}
+      if(layer){layer.status=status;nextLayers.set(region,layer)}
+      nextStatus.set(region,status)
+    }catch(error){if(current()){const problem=String(error?.message||error);nextStatus.set(region,problem);if(choice.visible)failedVisible.push(region+': '+problem)}}
   };
   for(let i=0;i<regions.length&&current();i+=2)
     await Promise.all(regions.slice(i,i+2).map(loadOne));
-  if(!current())return;
-  if(fvRegionScene.layers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
+  if(!current()){discard();return}
+  // Commit once, after all concurrently read regions have settled. Stale
+  // requests release only their private staged GPU buffers, never the last
+  // valid source frame or a newer request's real original meshes.
+  for(const [region,layer] of fvRegionScene.layers)
+    if(nextLayers.get(region)!==layer)fvRegionReleaseLayer(layer);
+  fvRegionScene.layers=nextLayers;
+  for(const [region,status] of nextStatus)fvRegionStatus(region,status);
+  for(const region of regions)fvRegionUpdateLegend(region);
+  if(nextLayers.size&&(fvRegionScene.fitPending||(canPreserve&&regions.length))){
     fvRegionScene.fitPending=false;fvRegionFitCamera()
-  }else fvRender()
+  }else fvRender();
   if(failedVisible.length&&window.FoamLensAnimationExport?.isExporting?.())throw new Error('Cannot export an incomplete multiregion frame: '+failedVisible.join('; '))
 }
 window.FoamLensRegionScene={
@@ -1913,6 +1926,9 @@ function fvSetPhysicalProjection(name){
 }
 
 function fvRender(exportSize=null){
+  // A playback frame is presented only after its real multi-region payload
+  // is complete, preventing blank/half-painted intermediate OpenFOAM times.
+  if((fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
@@ -2047,7 +2063,12 @@ async function fvComputeGlobalRange(){
 async function fvLoadFrame(index=null,options={}){
   const c=fvCase(),region=document.getElementById('fvRegion')?.value||'',g=fvCurrentFieldGroup();if(!c||!g)return;if(typeof fpClear==='function')fpClear();
   const times=(g.times||[]).map(fvRegionPhysicalTime).filter(Number.isFinite).sort((a,b)=>a-b),slider=document.getElementById('fvTimeSlider');if(!times.length)throw new Error('Selected OpenFOAM field has no valid physical timestamps.');let i=index==null?Number(slider?.value)||0:Number(index);i=Math.max(0,Math.min(times.length-1,Math.round(i)));if(slider){slider.max=String(Math.max(0,times.length-1));slider.value=String(i)}
-  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';fvRegionClearLayers();fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  const time=times[i],seq=++fvState.frameSeq,component=document.getElementById('fvComponent')?.value||'value';
+  // WebGL keeps displaying the last complete, correctly labeled frame while
+  // all original physical regions for the next source time are prepared.
+  fvState._fvFrameHold=seq;
+  fvSetStatus(`${flUi('Loading','Cargando')} ${g.name} · t=${fvFmt(time)} s…`);
+  try{
   const data=await fvLoadFrameData(c,g,region,time,component,{includeBoundary:true});if(seq!==fvState.frameSeq)return;
   const {layout,meshInfo,mesh,storage,parsed,fieldValues,surfaceBoundary,range}=data;
   if(fvState.meshCacheKey!==meshInfo.key||fvState.mesh!==mesh){fvState.mesh=mesh;fvState.meshSnapshot=meshInfo.snapshot;fvState.meshCacheKey=meshInfo.key;fvUpdateMeshBuffers(mesh,!!options.resetCamera)}else fvState.meshSnapshot=meshInfo.snapshot;
@@ -2057,8 +2078,19 @@ async function fvLoadFrame(index=null,options={}){
   fvUpdateSurfaceColors(fieldValues,displayRange,storage);fvSetStats(mesh,range,parsed);fvLegend(displayRange,parsed);const read=document.getElementById('fvTimeReadout');if(read)read.textContent=`t = ${fvFmt(time)} s · ${i+1}/${times.length}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`;
   fvSetStatus(`${c.name} · ${region||flUi('default region','región predeterminada')} · ${g.name} · ${fvAssociationLabel(storage)} · t=${fvFmt(time)} s${layout.mode==='decomposed'?' · '+layout.parts.length+' processors':''}${fvMeshStateLabel()?' · '+fvMeshStateLabel():''}`);
   if(window.FoamLensPerformance?.mode?.()!=='baseline')await new Promise(resolve=>requestAnimationFrame(()=>resolve()));if(seq!==fvState.frameSeq)return;
-  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);const regionTask=fvRegionLoadFrame(c,time);if(window.FoamLensAnimationExport?.isExporting?.()){await regionTask;if(seq!==fvState.frameSeq)return}else regionTask.catch(e=>console.warn('Multi-region scene:',e));fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
+  fvUpdateSlice(displayRange);if(typeof fvUpdateIso==='function')fvUpdateIso(displayRange);await fvRegionLoadFrame(c,time);if(seq!==fvState.frameSeq)return;
+  fvSchedulePrefetch(c,g,region,times,i);fvUpdateStreamlines(time,seq).catch(e=>{if(seq===fvState.frameSeq)fvSetStatus(String(e?.message||e),true)});
   if(fvCurrentRangeMode()==='global'&&(!fvState.globalRange?.valid||fvState.globalRangeKey!==fvRangeKey(c,g,region,component)))fvComputeGlobalRange().catch(e=>fvSetStatus(String(e?.message||e),true))
+  }catch(error){
+    if(seq===fvState.frameSeq)fvSetStatus(String(error?.message||error),true);
+    throw error
+  }finally{
+    // Never unlock a superseded read; only its newest source owner may
+    // advance WebGL from the previous complete physical-time image.
+    if(seq===fvState.frameSeq&&fvState._fvFrameHold===seq){
+      fvState._fvFrameHold=0;fvRender()
+    }
+  }
 }
 function fvVectorArray(parsed,count){
   if(!parsed?.supported||parsed.kind!=='vector')return null;if(parsed.uniform){const v=(parsed.uniformValue||[]).map(Number);return v.length===3?Array.from({length:count},()=>v.slice()):null}
