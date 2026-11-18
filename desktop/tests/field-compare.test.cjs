@@ -213,6 +213,88 @@ test('3D difference supports signed absolute and percent-of-primary modes',()=>{
   const pctRange=api.fcDifferenceRange([20,-60],'percent');near(pctRange.min,-60);near(pctRange.max,60);
 });
 
+test('Granada 3D absolute differences handle 300,000 real-size cell values without JS argument overflow',()=>{
+  // Math.max(...largeArray) exceeded Node/V8's argument/stack limit and
+  // crashed the difference viewport on large polyMesh field arrays.
+  const n=300000,values=new Float64Array(n).fill(2);
+  values[n-1]=17;
+  const r=api.fcDifferenceRange(values,'absolute');
+  assert.equal(r.valid,true);
+  assert.equal(r.min,0);
+  assert.equal(r.max,17);
+  assert.equal(r.count,n);
+  near(r.mean,2+15/n);
+});
+
+test('Granada 3D difference statistics consume large fields in one streaming pass',()=>{
+  // The reduction works on an iterable as well as arrays/typed arrays;
+  // it cannot depend on expanding or cloning the full original field.
+  const measured={
+    *[Symbol.iterator](){yield 2;yield -8;yield NaN;yield 4;yield null},
+    map(){throw new Error('Do not copy original scientific field arrays')},
+    filter(){throw new Error('Do not copy original scientific field arrays')}
+  };
+  const signed=api.fcDifferenceRange(measured,'signed');
+  assert.equal(signed.valid,true);
+  assert.equal(signed.min,-8);assert.equal(signed.max,8);
+  assert.equal(signed.count,3);near(signed.mean,-2/3);
+  const sym=api.fcSymmetricDifferenceRange(measured);
+  assert.deepEqual(sym,signed);
+  const absolute=api.fcDifferenceRange(measured,'absolute');
+  assert.equal(absolute.min,0);assert.equal(absolute.max,4);
+  assert.equal(absolute.count,3);near(absolute.mean,-2/3);
+});
+
+test('Granada 3D differences reject incomplete cell arrays instead of presenting a partial A-B',()=>{
+  assert.deepEqual(api.fcDifferenceValues([11,22,33],[4,5],'signed'),[],
+    'missing comparison cell must not truncate original source values');
+  assert.deepEqual(api.fcDifferenceValues([11,22],[4,5,6],'absolute'),[],
+    'extra source cell must not be silently discarded');
+  assert.deepEqual(api.fcDifferenceValues(null,[1],'signed'),[],
+    'missing original source is not a zero-length measured result');
+
+  // Exercise the original runtime controller, not just a standalone helper.
+  const start=source.indexOf('function fcUpdateDifference(');
+  const end=source.indexOf('async function fcLoadVectorAtTime(',start);
+  assert(start>=0&&end>start,'original 3D difference controller exists');
+  const status={textContent:'',classList:{remove:()=>{}}},calls={issues:[],layout:0};
+  const state={enabled:true,time:1,fieldStorage:'volume',
+    differenceValues:[999],differenceRange:{valid:true,min:999,max:999}};
+  const host={
+    fcState:state,
+    document:{getElementById:id=>id==='fcDifference'?{checked:true}:
+      id==='fcDifferenceViewport'?{classList:{toggle:()=>{}}}:
+      id==='fcDifferenceStatus'?status:null},
+    fcTimesLinked:()=>true,
+    fvState:{time:1,fieldStorage:'volume'},
+    fcSameQuantity:()=>true,
+    fcMeshesEquivalent:(a,b)=>({ok:true,reason:'equivalent'}),
+    fcUi:en=>en,
+    flSetIssue:(element,message)=>{calls.issues.push(String(message))},
+    fcUpdateLayout:()=>calls.layout++,
+    fcDifferenceValues:api.fcDifferenceValues,
+    fcDifferenceRange:api.fcDifferenceRange,
+    fvCreateRenderer:()=>{throw new Error('No GPU upload permitted for invalid scientific fields')},
+    fcRenderDifference:()=>{throw new Error('No invalid frame may be rendered')}
+  };
+  const update=new Function('deps',
+    'const {'+Object.keys(host).join(',')+'}=deps;'+
+    source.slice(start,end)+';return fcUpdateDifference;')(host);
+  const mesh={cellCount:3},mismatch=[10,20],sameSize=[2,3,4];
+  update(mesh,mesh,mismatch,sameSize);
+  assert.equal(state.differenceValues,null);
+  assert.equal(state.differenceRange,null);
+  assert(calls.issues.at(-1).includes('cell field lengths'),
+    'mismatched source field must report the physical mesh cell-count problem');
+  assert.equal(calls.layout,1,'invalid comparison layout must be reset');
+  state.differenceValues=[999];state.differenceRange={valid:true};
+  update(mesh,mesh,[null,null,null],[2,3,4]);
+  assert.equal(state.differenceValues,null,'all-nonfinite A-B must erase stale 3D data');
+  assert.equal(state.differenceRange,null,'all-nonfinite A-B must erase stale range');
+  assert.equal(calls.issues.at(-1),'no-compatible-values');
+  assert.equal(calls.layout,2);
+});
+
 test('difference color range is symmetric around zero',()=>{
   const r=api.fcSymmetricDifferenceRange([-2,.5,5,-1]);
   assert.equal(r.valid,true);near(r.min,-5);near(r.max,5);near(r.mean,.625);assert.equal(r.count,4);

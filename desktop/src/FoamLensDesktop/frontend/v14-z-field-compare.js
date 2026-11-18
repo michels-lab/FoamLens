@@ -75,20 +75,38 @@ function fcMeshesEquivalent(a,b){
   return{ok:true,reason:'equivalent'}
 }
 function fcDifferenceValues(primary,compare,mode='signed',epsilon=1e-12){
-  const n=Math.min(primary?.length||0,compare?.length||0),out=new Array(n),eps=Math.max(Number.EPSILON,Math.abs(Number(epsilon)||1e-12));
+  // No scientific difference is defined by silently trimming missing cells.
+  // Both genuine OpenFOAM source fields must contain the same number of values.
+  if(!primary||!compare||!Number.isSafeInteger(primary.length)||primary.length!==compare.length)return[];
+  const n=primary.length,out=new Array(n),eps=Math.max(Number.EPSILON,Math.abs(Number(epsilon)||1e-12));
   for(let i=0;i<n;i++){const a=fcPhysicalNumber(primary[i]),b=fcPhysicalNumber(compare[i]);if(!Number.isFinite(a)||!Number.isFinite(b)){out[i]=NaN;continue}const d=a-b;out[i]=mode==='absolute'?Math.abs(d):mode==='percent'?100*d/Math.max(Math.abs(a),eps):d}
   return out
 }
+// O(N) streaming statistics: do not materialize duplicate, million-cell
+// arrays or spread original OpenFOAM values into V8's argument stack.
+function fcDifferenceStats(values){
+  let count=0,sum=0,max=0,maxAbs=0;
+  for(const original of values||[]){
+    const value=fcPhysicalNumber(original);
+    if(!Number.isFinite(value))continue;
+    count++;sum+=value;
+    if(value>max)max=value;
+    const abs=Math.abs(value);if(abs>maxAbs)maxAbs=abs
+  }
+  return{count,mean:count?sum/count:NaN,max,maxAbs}
+}
 function fcDifferenceRange(values,mode='signed'){
-  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite);if(!finite.length)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
-  const mean=finite.reduce((a,b)=>a+b,0)/finite.length;if(mode==='absolute'){const max=Math.max(...finite,0);return{valid:true,min:0,max:max||1,mean,count:finite.length}}
-  return fcSymmetricDifferenceRange(finite)
+  const stats=fcDifferenceStats(values);
+  if(!stats.count)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
+  if(mode==='absolute')return{valid:true,min:0,max:stats.max||1,mean:stats.mean,count:stats.count};
+  const span=stats.maxAbs||1;
+  return{valid:true,min:-span,max:span,mean:stats.mean,count:stats.count}
 }
 function fcSymmetricDifferenceRange(values){
-  let m=0,n=0;for(const v of values||[]){const x=fcPhysicalNumber(v);if(Number.isFinite(x)){m=Math.max(m,Math.abs(x));n++}}
-  if(!n)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};if(m===0)m=1;
-  const finite=(values||[]).map(fcPhysicalNumber).filter(Number.isFinite),mean=finite.reduce((a,b)=>a+b,0)/finite.length;
-  return{valid:true,min:-m,max:m,mean,count:n}
+  const stats=fcDifferenceStats(values);
+  if(!stats.count)return{valid:false,min:NaN,max:NaN,mean:NaN,count:0};
+  const span=stats.maxAbs||1;
+  return{valid:true,min:-span,max:span,mean:stats.mean,count:stats.count}
 }
 /* FOAMLENS_FIELD_COMPARE_CORE_END */
 
@@ -1513,7 +1531,16 @@ function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues)
   if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
   if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
   const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
-  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});return}
+  // Matching topology alone is insufficient. Dynamic/corrupt OpenFOAM field
+  // inputs can report fewer or more cell values; a partial A-B would imply a
+  // false physical comparison and leave some geometry colored incorrectly.
+  const expectedCells=primaryMesh?.cellCount;
+  if(!Number.isSafeInteger(expectedCells)||expectedCells<=0||primaryValues?.length!==expectedCells||compareValues?.length!==expectedCells){
+    fcState.differenceValues=null;fcState.differenceRange=null;
+    flSetIssue(status,fcUi('3D difference unavailable: cell field lengths differ from the original mesh.','Diferencia 3D no disponible: los tamaños de los campos no coinciden con la malla original.'),{analysis:'3D Difference'});
+    fcUpdateLayout();return
+  }
+  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});fcUpdateLayout();return}
   const canvas=document.getElementById('fcDifferenceCanvas');if(!fcState.differenceRenderer)fcState.differenceRenderer=fvCreateRenderer(canvas);const r=fcState.differenceRenderer,b=fvBuildSurfaceBuffers(primaryMesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
   fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(primaryMesh,values,range.min,range.max,mode==='absolute'?'turbo':'coolwarm'),r.gl.DYNAMIC_DRAW);
