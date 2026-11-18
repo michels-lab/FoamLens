@@ -409,6 +409,20 @@ test('Granada A-D comparison fits two panels without any imposed internal scroll
     assert(styles.includes(token),'Readable original source controls required: '+token);
 });
 
+test('Field F2 native size grip creates a fourth viewport child, never a three-track subgrid',()=>{
+  const f2=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend',
+    'v24-field-f2-viewport-layout.js'),'utf8');
+  assert(f2.includes("scene.insertAdjacentElement('afterend',grip)"),
+    'The native F2 resize grip is physically inserted between the scene and caption');
+  assert(source.includes('viewport.append(scene,caption)'),
+    'Original scene and caption must retain their own real DOM nodes');
+  const css=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
+  assert(!css.includes('grid-template-rows:subgrid'),
+    'A hardcoded 3-row subgrid is invalid once native F2 inserts its fourth child');
+  assert(css.includes('.fieldViewPanel.fcCompareMode .fcComposedViewport{display:flex;flex-direction:column'),
+    'Source toolbar, GPU scene, native F2 grip and caption must stack without overlap');
+});
+
 test('Granada screenshot: physical selects and caption labels remain legible without clipping',()=>{
   const styles=source.slice(source.indexOf('style.textContent='),source.indexOf('document.head.appendChild(style)'));
   assert(styles.includes('.fcPhysicalRegionRow select{box-sizing:border-box;display:block;min-width:0;max-width:100%;width:100%;height:auto;min-height:44px'),
