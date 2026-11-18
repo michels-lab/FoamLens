@@ -107,6 +107,13 @@ try{
       'G5 Data must navigate to genuine catalog before capturing, not duplicate Time Series default');
     assert(originalHost.includes('catalogSelected&&originalSources'),
       'Original B13 OpenFOAM Data screenshot must visibly show a selected, populated catalog');
+    assert(originalHost.includes("document.getElementById('dataCatalogPanel')"),
+      'G5 Data viewport must validate the central original source result panel');
+    const dataScript=originalHost.slice(originalHost.indexOf('var dataState = await'),
+      originalHost.indexOf('var t2Geometry = await'));
+    assert(!dataScript.includes("getBoundingClientRect();\n                      const catalogVisible") ||
+      dataScript.includes("const box=result?.getBoundingClientRect()"),
+      'Collapsed sidebar filters must not invalidate the central source catalog');
 
     assert(originalHost.includes('CaptureCdpPngAsync(Path.Combine(root, mode + "-" + viewport + ".png"))'),
       'Each missing workspace must be captured from actual running WebView2 pixels');
