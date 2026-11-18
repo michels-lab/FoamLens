@@ -854,7 +854,7 @@ function fcSyncToolbars(){
     // toolbar name used to abort all A–D selector/physical-region refreshes.
     fcPhysicalMenu(bar.dataset.fcToolbar)
   });
-  fcAlignViewToolbarHeights()
+  if(typeof fcAlignViewToolbarHeights==='function')fcAlignViewToolbarHeights()
 }
 // Collapsed per-view source controls are a presentation-only layer over the
 // original OpenFOAM selectors. No duplicate source state is stored.
