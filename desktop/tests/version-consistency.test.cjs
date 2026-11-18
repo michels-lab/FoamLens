@@ -66,6 +66,8 @@ assert(!/FoamLens CI — v\d+\.\d+\.\d+ release validation/.test(workflow),'CI w
 assert(workflow.includes('FoamLens-Windows-v${{ steps.ver.outputs.version }}'),'CI artifact version is not derived from the project version.');
 assert(workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')"),'Main must support explicit chat-driven releases through a release: commit.');
 assert(!workflow.includes("github.event_name == 'push' && github.ref == 'refs/heads/main' }}"),'Ordinary main builds must not publish without explicit release intent.');
+assert(workflow.includes('gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA"'),
+  'New stable tags must point to the exact Windows/QuickCup/G5-validated source commit, not a moving main branch.');
 assert(workflow.includes("startsWith(github.ref, 'refs/tags/')"),'Tagged builds must retain the explicit public-release path.');
 assert(workflow.includes("github.event_name == 'workflow_dispatch' && inputs.publish == true"),'Manual release publication must require workflow_dispatch with publish=true.');
 assert(workflow.includes("CHANGELOG.md")&&workflow.includes("--notes-file artifacts/release-notes.md")&&workflow.includes("visual_release_gate.py"),'GitHub release must use changelog notes and verified UI screenshot evidence.');

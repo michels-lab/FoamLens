@@ -13,6 +13,7 @@ The [product development audit](docs/GIT_AUDIT_LOG.md) separates current source 
 ## Release information
 
 - **FoamLens Web v51**.
+- **FoamLens Desktop v1.8.15** for Windows — **stable candidate in review**, not yet published. Original QuickCup B13, Setup/Portable and the complete 36/36 original native Windows workspace screenshots passed in PR #353. This version must independently pass its own protected Windows release build and generate both SHA-256 sidecars before publication. Until an actual release is verified, the downloadable version remains v1.8.14.
 - **FoamLens Desktop v1.8.14** for Windows — [latest published stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.14), published November 13, 2026 (UTC), with separate SHA-256 sidecars for both executables. This is the latest **published** version, not a future candidate. Source improvements committed after this release are not automatically included in these binaries.
 - **FoamLens Desktop v1.8.13** for Windows — [previous stable Setup + Portable](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.13), November 12, 2026. Includes Field F2 responsive region controls and the T1 resilient real multi-case source-field catalog.
 - The [v1.8.12 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.12) remains available for rollback.
