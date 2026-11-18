@@ -586,6 +586,41 @@ for(const fragment of [
 }
 
 
+{
+  // Native Field B shares the scientific no-data contract with C/D. Clearing
+  // a failed or disabled original source must not leave a plausible stale
+  // measured time, range or sync marker visible after its mesh disappears.
+  const begin=source.indexOf('function fcClearRenderer(){');
+  const end=source.indexOf('function fcSetStatus(',begin);
+  assert(begin>=0&&end>begin,'Original B frame invalidation handler required');
+  const state={seq:10,mesh:{id:'stale'},fieldValues:[888],fieldParsed:{},
+    range:{valid:true,min:300,max:1000},time:9.8,delta:.2,
+    sync:{ok:true,exact:true,time:9.8},differenceValues:[20],
+    differenceRange:{valid:true},vectorValues:[1],streamlines:[{}],
+    probe:{value:888},renderer:{surfaceCount:12,probeCount:1},
+    differenceRenderer:{surfaceCount:8}};
+  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0};
+  const clear=new Function('fcState','document','fcExtraViews','fcExtraInvalidateFrame',
+    'fcUi','fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    source.slice(begin,end)+';return fcClearRenderer;')(
+    state,{getElementById:()=>({checked:true})},[{id:3}],
+    ()=>ops.extraClears++,en=>en,()=>ops.released++,
+    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++);
+  clear();
+  assert.equal(state.seq,11,'superseded B request must be invalidated');
+  assert.equal(state.mesh,null);assert.equal(state.fieldValues,null);
+  assert.equal(state.range,null,'invalid Field B frame cannot retain prior numeric range');
+  assert(Number.isNaN(state.time),'invalid Field B frame must not display old physical time');
+  assert(Number.isNaN(state.delta),'invalid Field B frame must not retain stale sync delta');
+  assert.equal(state.sync,null,'invalid Field B frame cannot claim old synchronization');
+  assert.equal(state.differenceValues,null,'old A−B difference must be erased');
+  assert.equal(state.renderer.surfaceCount,0,'stale B mesh cannot remain drawable');
+  assert.equal(state.differenceRenderer.surfaceCount,0,'stale difference cannot remain drawable');
+  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0},
+    'B clearing refreshes original labels and stats without clearing independent C/D');
+}
+
+
 (async()=>{
   // Original B and C/D async loaders must treat only the latest request's
   // errors as authoritative; a stale rejection must never erase a newer
