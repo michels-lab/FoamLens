@@ -2105,7 +2105,10 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
   assert(regionCode.includes('fvRegionReleaseLayer(layer);'),'Invisible region buffers must be freed');
   assert(regionCode.includes('region!==primary&&fvRegionChoice(c,region).visible'),'Never parse fields for hidden secondary regions');
   assert(regionCode.includes('!fvRegionScene.layers.has(region)'),'Re-enabling a hidden region must request its missing layer');
-  assert(source.includes('fvRegionClearLayers();fvSetStatus('),'Old physical-time layers must be released BEFORE the next primary frame loads');
+  assert(!source.includes('fvRegionClearLayers();fvSetStatus(')&&
+    source.includes('fvState._fvFrameHold=seq;')&&source.includes('await fvRegionLoadFrame(c,time)')&&
+    source.includes('fvRegionScene.layers=nextLayers;'),
+    'Changing time must stage original measured regions and commit A once, not erase its existing GPU scene before source I/O');
   const setup=[
     'const window={};',
     'const calls=[];const gl={deleteBuffer:b=>calls.push(b)};',
