@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "a61e096f1129f0c484b9740ecef807ecb5b7285b99bb7b1f949b5d3e19c2b373",
+  "inventory_fingerprint": "77a0490d581d63a98c55ca4bb2571dfd4437811bbe3c2088d27af6b31eda4bdf",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -627,7 +627,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "aecaeea28fa140b5b9ae567d103e49aeebb6bd80"
+      "blob": "92b4811727eaf08c98a256770182fdd7f9de47fa"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
