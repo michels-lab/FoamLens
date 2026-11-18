@@ -1,3 +1,11 @@
+## 2026-11-18 — CONFIRMADO: FoamLens Desktop v1.8.18 estable publicado
+
+- **Distribución REAL verificada:** [release oficial v1.8.18](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.18), no borrador ni prerelease, con cuatro assets públicos: `FoamLens-Setup-v1.8.18.exe`, `FoamLens-Portable-v1.8.18.exe` y sus dos `.sha256`.
+- **Fuente exacta publicada:** [`e5b502e8356f964f117820e16a5cb5cda300083b`](https://github.com/michels-lab/FoamLens/commit/e5b502e8356f964f117820e16a5cb5cda300083b). [Run nativo original `44381050449`](https://github.com/michels-lab/FoamLens/actions/runs/44381050449): QuickCup de origen original, versión, WinForms/WebView2 instalado/Portable, evidencia visual G5 y publicación completa **SUCCESS**.
+- **Validación independiente pospublicación:** [`44382486071`](https://github.com/michels-lab/FoamLens/actions/runs/44382486071) **SUCCESS**, incluyendo confirmación del tag y descarga de los ejecutables reales públicos para cotejar bytes PE, tamaños y SHA-256. No se asume firma Authenticode: instaladores directos pueden disparar SmartScreen.
+- **UX de propietario incorporada:** PR #366, A/B/C/D lado a lado y alineadas con dos columnas, controles legibles, casos/regiones/variables seleccionables en cada vista, tiempos físicos enlazados o independientes y escena original de metal/molde sin renders vacíos intermedios. La validación visual física en monitor Windows DPI 125–200%, estética final del propietario y precisión CFD independiente no se pueden afirmar por CI.
+- **Historial de candidato:** la entrada cronológicamente anterior que sigue debajo dice UNPUBLISHED porque se redactó **antes** de ejecutar la publicación; este registro posterior documenta que dicha condición se resolvió.
+
 ## 2026-11-18 — Granada Field A–D integrated release candidate v1.8.18
 
 - Corrected the source CSS 980px comparison breakpoint that forcibly stacked B under A, independent of the actual loaded OpenFOAM case. A/B and C/D now retain two genuine columns; narrow displays scroll horizontally instead of falsifying the side-by-side presentation.
