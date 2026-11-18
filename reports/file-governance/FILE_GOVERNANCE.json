@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 65
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "6da14a785982866e0a5401e7e5717d06dfeffdd048a1ae8859e2e9c484a97de6",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "336f273c420d5db74cd514faaeadc2450e4e9cc2624c62351c9e821af26531bf",
+  "evidence_fingerprint": "bfe2087aaabfa64f8879cf3da02afa628cb49d3ac27d089a45e53c4527f11f9e",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -627,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "c022ba8071ac7bbea56b582399e9e928a4ce0cd3"
+      "blob": "0021a7891dda3703e62452398527fac5784c2e0b"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -1558,14 +1560,14 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d46a6d44684bd59181c1daf0f78de34439afb0b0"
+      "blob": "054cba552706500177773cc0e6d35396979244aa"
     },
     {
       "path": "desktop/tests/field-source-copy.test.cjs",
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "38ac4944a8c7fc60a42d8d9b2e01206098af3356"
+      "blob": "e98a63b99528505bff0904f0020a0ce8dc5e18b1"
     },
     {
       "path": "desktop/tests/field-timeseries-association.test.cjs",
@@ -3577,7 +3579,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "3c2775cb98dd46d2",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "2 implementation/config paths changed since this log's last commit; examples: desktop/tests/field-single-case-view-a-only.test.cjs, desktop/tests/field-source-copy.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
