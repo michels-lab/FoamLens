@@ -241,15 +241,17 @@ test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loa
   const cancelled=[];
   const clear=isolate(compare,'function fcClearRenderer(){','function fcSetStatus(',[
     'fcState','fcExtraViews','document','fcExtraInvalidateFrame','fcUi',
-    'fcPhysicalRelease','fcRender','fcUpdateStatsGrid'
+    'fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid'
   ],[
     state,extra,{getElementById:id=>id==='fcEnabled'?toggle:null},
     (view,message)=>{view.seq++;cancelled.push({id:view.id,message})},
-    en=>en,()=>{},()=>{},()=>{}
+    en=>en,()=>{},()=>{},()=>{},()=>{}
   ]);
   clear();
   assert.equal(state.seq,15,'old pending B request must become stale');
   assert.equal(state.mesh,null,'old B geometry must not remain');
+  assert(Number.isNaN(state.time),'cleared B cannot claim a measured OpenFOAM time');
+  assert.equal(state.sync,null,'cleared B cannot preserve an old synchronization marker');
   assert.equal(state.renderer.surfaceCount,0,'B renderer must no longer expose triangles');
   assert.deepEqual(cancelled.map(x=>x.id),[3,4],'C and D pending requests are invalidated');
   assert.deepEqual(extra.map(x=>x.seq),[5,10]);
@@ -266,8 +268,16 @@ test('Granada block 1: re-enabling comparison reloads each real extra view after
   assert(compare.includes('Promise.resolve(refresh).then(()=>{'));
   assert(compare.includes('return fcRefreshExtras()'),
     'C/D must be refreshed with their original own selectors after B is enabled');
-  assert(compare.includes('if(seq!==state.seq)return;if(!data.ok)return;const sync=data.sync;'),
-    'each stale asynchronous C/D completion remains sequence-guarded');
+  const start=compare.indexOf('async function fcExtraRefreshFrame(');
+  const end=compare.indexOf('async function fcRefreshExtras(',start);
+  assert(start>=0&&end>start,'source-owned C/D asynchronous frame code exists');
+  const actual=compare.slice(start,end);
+  const sequence=actual.indexOf('if(seq!==state.seq)return;');
+  const invalid=actual.indexOf('if(!data.ok){',sequence);
+  const discard=actual.indexOf('fcExtraInvalidateFrame(state,fcUi(',invalid);
+  const commit=actual.indexOf('state.time=sync.time',discard);
+  assert(sequence>=0&&invalid>sequence&&discard>invalid&&commit>discard,
+    'C/D must reject stale async responses first, then clear no-data physics before committing a newer frame');
 });
 
 test('Granada block 2: physical menus start expanded for a real multi-region case, per viewport',()=>{
