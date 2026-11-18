@@ -1710,7 +1710,13 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
     fcExtraInvalidateFrame(state,String(e?.message||e))
   }
 }
-async function fcRefreshExtras(){for(const state of fcExtraViews)await fcExtraRefreshFrame(state)}
+async function fcRefreshExtras(){
+  // C/D are independent physical OpenFOAM regions/meshes and each owns its
+  // own renderer, selectors, source-time sequence and cancellation guard.
+  // Avoid making a slow C read block D's valid measured frame behind it.
+  // Two view loads maximum (A and B occupy the other available slots).
+  await Promise.all(fcExtraViews.map(state=>fcExtraRefreshFrame(state)))
+}
 function fcRenderExtras(){for(const state of fcExtraViews)fcExtraRender(state)}
 function fcExtraRemove(id){
   const i=fcExtraViews.findIndex(v=>v.id===id);if(i<0)return false;
