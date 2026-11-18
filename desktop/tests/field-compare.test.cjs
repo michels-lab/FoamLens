@@ -226,6 +226,25 @@ test('Granada 3D absolute differences handle 300,000 real-size cell values witho
   near(r.mean,2+15/n);
 });
 
+test('Granada 3D difference statistics consume large fields in one streaming pass',()=>{
+  // The reduction works on an iterable as well as arrays/typed arrays;
+  // it cannot depend on expanding or cloning the full original field.
+  const measured={
+    *[Symbol.iterator](){yield 2;yield -8;yield NaN;yield 4;yield null},
+    map(){throw new Error('Do not copy original scientific field arrays')},
+    filter(){throw new Error('Do not copy original scientific field arrays')}
+  };
+  const signed=api.fcDifferenceRange(measured,'signed');
+  assert.equal(signed.valid,true);
+  assert.equal(signed.min,-8);assert.equal(signed.max,8);
+  assert.equal(signed.count,3);near(signed.mean,-2/3);
+  const sym=api.fcSymmetricDifferenceRange(measured);
+  assert.deepEqual(sym,signed);
+  const absolute=api.fcDifferenceRange(measured,'absolute');
+  assert.equal(absolute.min,0);assert.equal(absolute.max,4);
+  assert.equal(absolute.count,3);near(absolute.mean,-2/3);
+});
+
 test('Granada 3D differences reject incomplete cell arrays instead of presenting a partial A-B',()=>{
   assert.deepEqual(api.fcDifferenceValues([11,22,33],[4,5],'signed'),[],
     'missing comparison cell must not truncate original source values');
