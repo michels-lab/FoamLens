@@ -209,8 +209,8 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
     fcRenderExtras:()=>visual.push('paint C/D')
   };
   const linkPlayback=new Function('deps',
-    'const {'+Object.keys(playbackDeps).join(',')+'}=deps;'+
-    compare.slice(linkedStart,adapterEnd)+';return fvLoadFrame;')(playbackDeps);
+    'const {'+Object.keys(playbackDeps).join(',')+'}=deps;let fcLinkedPlaybackSeq=0;'+
+    compare.slice(adapterStart,adapterEnd)+';return fvLoadFrame;')(playbackDeps);
   const playback=linkPlayback();
   assert(linkedA._fvGroupHold&&linkedB._fcGroupHold&&linkedC._fcGroupHold&&linkedD._fcGroupHold,
     'All four independent GPUs must be held together during synchronized playback');
