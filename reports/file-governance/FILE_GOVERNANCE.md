@@ -28,7 +28,7 @@ Tracked: 510; classified: 506; readable documents: 106; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g5-native-visual-review.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_visual_review.cjs, tools/make_visual_evidence.py, tools/test_granada_visual_review.cjs, tools/test_visual_evidence.py. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 003da85aae59e6e7)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 11 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID be27f69331f6a771)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "d79d98cad89eaf3f3740e03a8683b00510c671323665f09da9cdbdf5bd03b3c8",
-  "evidence_fingerprint": "8ce7ebcde581e47ecf91e55d37c6ae0cfaf4f9a36c8beef86b4821635acd58e6",
+  "inventory_fingerprint": "b76dbbad3b2a58944051985933a32d71c601440e12d71436eb325d1a086c8d52",
+  "evidence_fingerprint": "455ffc256c346dfd4329f1d37af6260282cac4bebfed27929e1f49a199dc5427",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -76,7 +76,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "c05abe56d293d88ac58afa5aa9c344e1f22a1f7b"
+      "blob": "44269512c1554ee63e3bc44f1b87614f1376e1f4"
     },
     {
       "path": ".github/workflows/build-store-msix.yml",
@@ -594,7 +594,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "97d1a4043ccdcae400c37cd2658af2b276868900"
+      "blob": "fc1b3ab9a94fee94ac812051d39fab84d10b571d"
     },
     {
       "path": "LICENSE",
@@ -615,7 +615,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "9f9f71f2e7606672d887d179d81164a74067fe21"
+      "blob": "07b9eeda0bb4e7ba52d33b652ed51710d4559fa7"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "a4a385e0bdb2710a460f9be2025b15fe7b32a3ff"
+      "blob": "99d3a1b80e73f15f2ffbb0217a877b1238bdc41a"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -643,7 +643,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "5a7a7492b1b61cfb60b9926a11da206debac885f"
+      "blob": "1cfa114bbcf283fa4d041ebc99b510aa7606f133"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
@@ -685,7 +685,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "4e96d3ea0c81850fab2bcbb41905a33101ed2181"
+      "blob": "01a6c8125b66e805d3be411a5f4d0c7729d9bbd2"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
@@ -804,7 +804,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "e450b962731e54eb2b61d528eac70cafc79bde62"
+      "blob": "10a7026e42b4ba9325e99a0f0658f326f76f5ac1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -2078,7 +2078,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9b44e5ec31e623206e0f91b9226bc933a3c76e98"
+      "blob": "3133eba2ceb29d3fec09d97a237ddf1aa4cb2bec"
     },
     {
       "path": "desktop/tests/vtk_streamline_reference.py",
@@ -3574,11 +3574,11 @@
   ],
   "findings": [
     {
-      "id": "003da85aae59e6e7",
+      "id": "be27f69331f6a771",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "6 implementation/config paths changed since this log's last commit; examples: .github/workflows/granada-177-g5-native-visual-review.yml, desktop/src/FoamLensDesktop/Program.cs, tools/granada_visual_review.cjs, tools/make_visual_evidence.py, tools/test_granada_visual_review.cjs, tools/test_visual_evidence.py",
+      "observation": "11 implementation/config paths changed since this log's last commit; examples: .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
