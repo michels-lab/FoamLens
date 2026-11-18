@@ -1336,6 +1336,7 @@ test('real multi-region frame loader rejects missing clock metadata before relea
     'const fvRegionEnsureCase=()=>events.push("ensure-case");',
     'const fvRegionReleaseLayer=layer=>events.push("release:"+layer.label);',
     'const fvRender=()=>events.push("draw");',
+    'const fvRegionRefreshList=()=>{};',
     'const fvRegionNames=()=>["metal"];',
     'const fvRegionChoice=()=>({visible:true});',
     'const fvRegionFitCamera=()=>true;',
