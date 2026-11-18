@@ -1,3 +1,11 @@
+## Desktop v1.8.18 — Granada Field A–D alignment, readable controls and atomic physical-time playback (2026-11-18)
+
+- **Layout:** eliminate the single-column comparison collapse at 980px. Keep the original A/B and C/D 3D scenes beside their peers with two explicit 350px-minimum tracks and horizontal scrolling in narrow native workspaces.
+- **Legibility and ergonomics:** all 3D viewbars have equal height, internal scrolling for advanced options and larger source, time, camera, physical-region and zoom/Fit controls. Original per-view case/region/field/component selectors remain directly editable (#366).
+- **Source-backed animation:** the original Field A–D metal/mold GPU layers are staged and swapped atomically without clearing the previously completed real OpenFOAM frame mid-read (source commit 963aa710); source tests now guard against half-painted scenes (e7f3ecb).
+- **Accuracy:** no new CFD values, altered files, invented times or forced case selection. Source-backed independent B/C/D controls and synchronized mode are retained.
+- **Release gate:** v1.8.18 is candidate source, not a published Windows binary until protected exact-main Setup/Portable, physical QuickCup, 36-view native provenance, sidecar checksums and public download integrity checks complete. Previous stable v1.8.17 remains public. Physical OS DPI and owner design review are separate from CI; unsigned direct GitHub binaries may show SmartScreen.
+
 ## Desktop v1.8.17 — Granada large OpenFOAM 3D scientific integrity and source fingerprint (2026-11-17)
 
 - **3D Difference large-mesh crash removed:** original `Math.max(...finite)` source range calculation threw `RangeError: Maximum call stack size exceeded` for a 300,000-cell sample. Native OpenFOAM-derived 3D difference statistics now stream across finite measurements in O(N), without copying full-field arrays or spreading values into the JavaScript argument stack (#361).
