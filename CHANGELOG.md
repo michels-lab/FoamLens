@@ -1,3 +1,11 @@
+## Desktop v1.8.20 — FoamLens native Field A/B/C/D text and layout repair (2026-11-18)
+
+- **Owner visual evidence:** fixed-height 30px native OpenFOAM metal/mold selectors displayed gradRho, Magnitude, T and Value with cut-off letter baselines. Region dropdown controls now have auto height and at least 44px with explicit text line boxes, two proportional columns and no overflow scrollbars.
+- **Actual root cause of caption overlap:** F2 inserts a real Size drag grip between the 3D scene and caption, creating **four** viewport children. The previous 3-row CSS subgrid caused B's case/field title to collide with dimensional measurements. Replace nested subgrid with normal per-view flex layout and pair real toolbar heights in each actual visual row, including manual source/region expansion.
+- **Caption/source text:** keep case/field/timestamp descriptors and measurements in normal, bounded block flow; avoid clipped/overpainted long OpenFOAM names in 3D captions and statistics. Legends and physical data still derive from the original loaded field, without approximation.
+- **A/B/C/D/Δ order:** derived difference viewport moves after extra case views, so C and D remain next to one another. The per-row toolbar matcher never pairs mismatched source views.
+- **Release gate:** stable v1.8.20 source candidate only until original QuickCup, Windows Setup/Portable smoke and visual evidence plus independent public download and SHA-256 release audit pass. The owner’s monitor/DPI visual acceptance remains unverified by source tests.
+
 ## Desktop v1.8.19 — FoamLens Field no-scroll viewport repair (2026-11-18)
 
 - **Owner screenshot correction:** v1.8.18 horizontally scrollable pair view was not acceptable. Remove the imposed 350px minimum pair tracks and scrollbar gutters; two real OpenFOAM renderers now share the available width, without forced horizontal scrolling or narrower viewport clipping.

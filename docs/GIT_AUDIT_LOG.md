@@ -1,3 +1,10 @@
+## 2026-11-18 — v1.8.20 Field visible-caption and select-baseline correction (candidate)
+
+- User supplied installed v1.8.19 images showing selected native region fields clipped inside metal/mold dropdown boxes, B 3D title colliding with case dimensions and stats headings crowding card margins. Regression was not detected by previous native visual-asset existence tests.
+- Source cause: `v24-field-f2-viewport-layout.js` inserts a real 10px Size/resize grip *between scene and caption*, but `v14-z-field-compare.js` enforced `grid-template-rows:subgrid` across only three spanning rows. Fixed by flex-column composition and actual row-based dynamic alignment, preserving the original case/field data and source controls.
+- Native OpenFOAM material selects formerly had `height:30px` inherited with large text/padding: now text fits at `min-height:44px` using normalized fonts/line height. Caption and stats headings get bounded wrapping and no text shadow, while A/B and C/D remain genuine equal-width horizontal views. Δ is kept after the source C/D pair.
+- Added tests that explicitly check the F2 fourth viewport child, clipped-native-select regression and actual toolbar alignment across A/B/C/D/Δ. v1.8.20 source remains UNPUBLISHED until protected original Windows QuickCup/Setup/Portable/visual and independent downloaded digest gates approve. No physical monitor acceptance claim.
+
 ## 2026-11-18 — FoamLens v1.8.19 stable no-scroll release: VERIFIED PUBLICATION
 
 - **Actual public artifacts confirmed:** [v1.8.19 Windows Setup, Portable and both independent SHA-256 sidecars](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.19), published non-draft and non-prerelease from **exact** original source commit `16d3d3239b9b1baf1876eb493ffdf9025a38083d`.
