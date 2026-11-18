@@ -1,3 +1,11 @@
+## 2026-11-18 — FoamLens v1.8.20 PUBLISHED: native Field screenshot corrections confirmed in public Windows binaries
+
+- **Release v1.8.20 verified:** [Setup and Portable Windows executables with both SHA-256 sidecar files](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.20), non-prerelease/non-draft, published from exact source `d1d1d9bd65a8d5cba3963ca155e6961dfdeb0d22`. Previous source-only candidate entry below predates the completed release.
+- **Exact-source protected build and publication:** [GitHub Actions 44405665755](https://github.com/michels-lab/FoamLens/actions/runs/44405665755) **SUCCESS**: original QuickCup B13/VTK fixture, Windows original WebView2 source controls and field/region/scientific data, 64-bit Setup and Portable smoke, multi-size native workspace screenshots and signed-in artifact publication/checksum gate. Does not imply the Windows EXE has an Authenticode vendor signature.
+- **Independent public binary audit:** [44407597973](https://github.com/michels-lab/FoamLens/actions/runs/44407597973) **SUCCESS**, including verification of downloaded actual public PE executable bytes/sizes and their SHA-256 sidecars, not merely presence of release metadata.
+- **User's v1.8.19 screenshots addressed in source:** original metal/mold native selects no longer fixed 30px (allow appropriate line boxes), case/field/timestamp captions and statistics bounded, 3-row subgrid eliminated because F2 inserts fourth Size grip, source A/B and C/D aligned by actual visual row without imposed horizontal/toolbar scrollbar. Derived Δ placed after source views. PR #369 integrated.
+- **Acceptance distinction:** automation and source tests cannot certify final aesthetics or 125–200% physical Windows desktop rendering on the owner's device; final visual acceptance remains unverified. No independent CFD solver accuracy is inferred.
+
 ## 2026-11-18 — v1.8.20 Field visible-caption and select-baseline correction (candidate)
 
 - User supplied installed v1.8.19 images showing selected native region fields clipped inside metal/mold dropdown boxes, B 3D title colliding with case dimensions and stats headings crowding card margins. Regression was not detected by previous native visual-asset existence tests.
