@@ -5,7 +5,7 @@ Este registro distingue **código integrado**, **pruebas directas**, **CI nativo
 ## Entrega oficial y versión
 
 - Release público estable: [Desktop v1.8.15](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.15), fuente exacta `0c51d58c1405e619a534d999fa2a63edf10d755c`, Setup + Portable y dos SHA-256 sidecars. El [Windows build de publicación](https://github.com/michels-lab/FoamLens/actions/runs/44211218863) concluyó `success`, incluida la comprobación de los binarios públicos descargados.
-- La versión v1.8.16 está **preparada en borrador** [PR #358](https://github.com/michels-lab/FoamLens/pull/358), sin tag, publicación, RC ni activos finales. El README principal debe seguir señalando v1.8.15 hasta que realmente exista un GitHub Release nuevo.
+- La v1.8.16 fue **fusionada en `main`** desde [PR #358](https://github.com/michels-lab/FoamLens/pull/358) con commit `release: ...` exacto [`2b993913ffd036de6b5176ebd2bdafa86daefa8d`](https://github.com/michels-lab/FoamLens/commit/2b993913ffd036de6b5176ebd2bdafa86daefa8d). El build de candidata [#44226790529](https://github.com/michels-lab/FoamLens/actions/runs/44226790529) **pasó** todas sus fases. El [flujo de publicación nativo #44228227055](https://github.com/michels-lab/FoamLens/actions/runs/44228227055) quedó activado y estaba **en cola** al registrar este avance; no se considerará release publicado hasta confirmar la página pública y sus cuatro activos exactos.
 - Sin certificado Authenticode inventado, sin compra requerida para los binarios directos en GitHub, con aviso Windows SmartScreen. Microsoft Store es un canal distinto.
 
 ## Bloques de código integrados a `main`
@@ -18,6 +18,7 @@ Este registro distingue **código integrado**, **pruebas directas**, **CI nativo
 ## Evidencia y límites actuales
 
 - Primer CI real posterior a #357: [Field playback run 44226114651](https://github.com/michels-lab/FoamLens/actions/runs/44226114651), `failure` en dos aserciones heredadas; [backlog run 44226114564](https://github.com/michels-lab/FoamLens/actions/runs/44226114564), `failure` por interferencia de mocks. Los fallos se atribuyeron a sus causas reales, sin atribuirlos a errores del solver.
+- Tras [PR #359](https://github.com/michels-lab/FoamLens/pull/359), el Field playback/Camera suite y el backlog convergence read-only **pasaron** en `main` commit `31c1bbb2fc3488e8a2809b34fb37eeaaa3c7460e`; el build de publicación se ejecuta con nuevo commit exacto.
 - En la misma ejecución del Field suite, `field-multiview-ux.test.cjs` y `field-compare.test.cjs` completaron con éxito. Sus comprobaciones incluyen tiempos físicos independientes, protección de peticiones asíncronas y geometría.
 - Las pruebas directas ejecutadas en el controlador original B/C/D y el verificador PR fueron correctas; **no equivalen a un smoke instalado de WinForms/WebView2 ni una validación CFD física**.
 - El commit final de pruebas de #359 y el HEAD de preparación v1.8.16 exigen nuevos checks nativos. **No declarar passed una ejecución queued, in_progress, cancelled o skipped.** La publicación v1.8.16 seguirá bloqueada hasta su evidencia exacta.
