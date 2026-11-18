@@ -26,8 +26,8 @@
     "POTENTIAL_UNLOGGED_CHANGES": 1
   },
   "finding_total": 1,
-  "inventory_fingerprint": "bd98b6d06f48374566be58b014888bfefff55717ffe4c31326f69159df280011",
-  "evidence_fingerprint": "ad29fc0848a15a1de4c76fd023f8139f07e9a3d88021fc03cdfe761e3da0a110",
+  "inventory_fingerprint": "d47975d7376a7e886a8f4713ec42d92c075e7e5cd7c7b3263ccbee3e12071658",
+  "evidence_fingerprint": "830855cc83987223a08ede9b0b2229cbae0c8fdf2ffacfd60d1036d23ccfd2cc",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -615,7 +615,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "dc65eef06fb49d815e60cac2f9c3cf200d2cccac"
+      "blob": "0f106301fde5d193745415d6d89413de52319daa"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -629,7 +629,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "eda3bd607043e964b6de38ca6df387d44939a747"
+      "blob": "085a297fcae1ac4122f06a4a32e79b972da85b3f"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2211,7 +2211,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "7bff8e959245889b91efa4940a151b982dfd3fea"
+      "blob": "acbbb3925fadfee3c2ae4ff0bfed49df414849ae"
     },
     {
       "path": "docs/GRANADA_145_FIELD_F1_2026-11-02.md",
@@ -2400,7 +2400,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "fced03f5f2815470ede423247d8d766505ec26b8"
+      "blob": "d135104d61abbdc71f33ed91c0dee94e2d4dab5d"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -2841,7 +2841,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "60a630898cb17e84d92e780cac3004ec48b2668e"
+      "blob": "74f60ecef7fce7885561dad759f1b2e3ea4be103"
     },
     {
       "path": "tools/capture_gpu_hardware_inventory.ps1",
@@ -3541,7 +3541,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7cfee5efb42d84c4d36e9ed8605bd1dc1f90e457"
+      "blob": "e206ec6bf4aa22daa59ba66277b350e60e629512"
     },
     {
       "path": "tools/tests/compare-import-performance.test.cjs",
@@ -3581,11 +3581,11 @@
   ],
   "findings": [
     {
-      "id": "86d31827d7032a1a",
+      "id": "6a176192e0049bcb",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "19 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
+      "observation": "21 implementation/config paths changed since this log's last commit; examples: .github/workflows/audit-published-foamlens.yml, .github/workflows/build-foamlens-desktop.yml, .github/workflows/granada-177-g5-native-visual-review.yml, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/Program.cs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     }
