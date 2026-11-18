@@ -1926,7 +1926,7 @@ function fvSetPhysicalProjection(name){
 function fvRender(exportSize=null){
   // A playback frame is presented only after its real multi-region payload
   // is complete, preventing blank/half-painted intermediate OpenFOAM times.
-  if(fvState._fvFrameHold&&!exportSize)return;
+  if((fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
