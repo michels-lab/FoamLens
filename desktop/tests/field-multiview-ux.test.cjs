@@ -667,6 +667,30 @@ for(const fragment of [
   cTarget=11;const failedC=loadC(cState);
   cPending.get(11).reject(new Error('current C field unavailable'));await failedC;
   assert.equal(cClears,1,'Current C/D read failure must still invalidate stale physics');
+
+  // A source loader may complete normally with ok:false instead of throwing
+  // (e.g., a missing native OpenFOAM field in a newer physical-time folder).
+  // That must invalidate the real old C/D geometry and measured time too.
+  cTarget=12;cPending.set(12,deferred());
+  const unavailableC=loadC(cState);
+  cPending.get(12).resolve({ok:false,sync:{ok:false,time:12}});
+  await unavailableC;
+  assert.equal(cClears,2,'Resolved unavailable C/D frame clears old source-backed physics');
+  assert.strictEqual(cState.mesh,null,'Failed C/D view cannot retain an earlier 3D mesh');
+  assert(Number.isNaN(cState.time),'Failed C/D view cannot claim a measured physical timestamp');
+  assert.equal(cUploads,1,'Resolved unavailable C/D frame must not upload a phantom mesh');
+
+  // A superseded ok:false result must never clear a newer valid C/D frame.
+  cTarget=13;cPending.set(13,deferred());const staleUnavailable=loadC(cState);
+  cTarget=14;cPending.set(14,deferred());const newestC=loadC(cState);
+  const validLater={ok:true,mesh:{name:'C latest 14s'},storage:'volume',
+    fieldValues:[273],parsed:{dimensions:'K'},range:{valid:true},sync:{time:14,delta:0}};
+  cPending.get(14).resolve(validLater);await newestC;
+  assert.equal(cState.time,14);assert.equal(cUploads,2);
+  cPending.get(13).resolve({ok:false,sync:{ok:false,time:13}});await staleUnavailable;
+  assert.equal(cClears,2,'Stale resolved no-data C/D frame must not erase newer 14s physics');
+  assert.strictEqual(cState.mesh,validLater.mesh);
+
   console.log('Field playback stale-error regressions PASS: newest B/C/D frames survive superseded failures.');
 })().catch(error=>{console.error(error);process.exitCode=1});
 
