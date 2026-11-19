@@ -1,3 +1,11 @@
+## 2026-11-19 — PR #371 Granada integral: perfiles físicos grandes, campo multi-asociación y gate Windows (NO RELEASE)
+
+- Fuente integrada en rama (no main): historial espacial por posición física original sin `Math.min(...many coordinates)`, con 300,001 posiciones de prueba, sin convertir strings mal formados ni datos ausentes a posiciones; selección de campo B/C/D con asociación `volume/surface/point` real y resolución no ambigua también para su propio tiempo.
+- Son correcciones funcionales y de integridad científica, **no se declara un benchmark ni una mejora de rendimiento**. La rama conserva los módulos originales, sin versión Developer ni release.
+- Una compilación Windows previa fue bloqueada por `0xC0000142` al arrancar el paso `dotnet restore/publish`, posterior a QuickCup y comprobaciones científicas aprobadas. No etiquetar ni distribuir artefactos de PR; mantener PR #371 en borrador y esperar pruebas del último SHA para una decisión de integración.
+- Casos B14/C14 propietario, UI 1–4 vistas, estética/DPI físico, componente CAD nativo, revisión de todas las tabs y auditoría de Setup/Portable se mantienen sin aprobación humana.
+- Referencia: `docs/GRANADA_INTEGRAL_2026-11-19.md`.
+
 ## 2026-11-19 — GRANADA integral PR #371, segunda revisión de Field, Time Series y CAD (NO RELEASE)
 
 - Rama de producto `feat/granada-integral-field-science-20261119`; mantener PR #371 borrador hasta pasar controles nativos y QA propietario.
