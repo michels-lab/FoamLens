@@ -1073,13 +1073,20 @@ function fcPhysicalRelease(state,{clearChoices=false}={}){
 // supported by that field; never manufacture an absent source option.
 function fcReconcilePhysicalChoice(choice,groups,preferred=''){
   if(!choice||!groups?.length)return false;
-  const group=groups.find(g=>g.name===choice.field)||
-    groups.find(g=>g.name===preferred)||groups[0];
+  // The same OpenFOAM name may describe a cell, face or point field.
+  // Preserve the storage association in each region choice instead of
+  // silently reselecting an unrelated group when metadata is refreshed.
+  const exact=groups.filter(g=>g.name===choice.field&&
+    (!choice.storage||String(g.storage||'')===String(choice.storage)));
+  const preferredGroups=groups.filter(g=>g.name===preferred);
+  const group=(exact.length===1?exact[0]:null)||
+    (preferredGroups.length===1?preferredGroups[0]:null)||groups[0];
   const allowed=fvFieldComponents(group);
   const component=allowed.some(item=>item.v===choice.component)?choice.component:
     (allowed[0]?.v||'value');
-  const changed=choice.field!==group.name||choice.component!==component;
-  choice.field=group.name;choice.component=component;
+  const storage=String(group.storage||'');
+  const changed=choice.field!==group.name||choice.component!==component||String(choice.storage||'')!==storage;
+  choice.field=group.name;choice.component=component;choice.storage=storage;
   return changed
 }
 function fcPhysicalChoiceList(state,c,primary){
@@ -1223,7 +1230,7 @@ function fcPhysicalMenu(view){
   // supported vector component in the refresh signature.
   const locale=document.getElementById('language')?.value||document.documentElement?.lang||'en';
   const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
-    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette,
+    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.storage,ch?.component,ch?.palette,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
     groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
   ])]);
@@ -1234,13 +1241,14 @@ function fcPhysicalMenu(view){
   holder.dataset.fcMenuKey=key;
   const expanded=fcPhysicalMenuExpanded(holder,names.length);
   const rows=catalog.map(({region,ch,groups})=>{
-    const field=groups.find(g=>g.name===ch.field);
+    const matches=groups.filter(g=>g.name===ch.field&&(!ch.storage||String(g.storage||'')===String(ch.storage)));
+    const field=matches.length===1?matches[0]:null;
     const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
     const selection=ch.component||'value';
     return '<div class="fcPhysicalRegionRow" data-fc-region="'+fcEsc(region)+'">'+
       '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+' aria-label="'+fcUi('Display region','Mostrar región')+' '+fcEsc(region||fcUi('Default region','Región predeterminada'))+'"> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
       '<select data-fc-region-field aria-label="'+fcUi('Property for region','Propiedad de región')+' '+fcEsc(region)+'">'+
-      groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
+      groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'" '+(g.name===ch.field&&String(g.storage||'')===String(ch.storage||'')?'selected':'')+'>'+fcEsc(g.name)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')+'</select>'+
       '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
       components.map(o=>'<option value="'+fcEsc(o.v)+'" '+(o.v===selection?'selected':'')+'>'+fcEsc(o.t)+'</option>').join('')+'</select>'+
       (region===ctx.primary
@@ -1282,6 +1290,7 @@ function fcPhysicalMenu(view){
     };
     row.querySelector('[data-fc-region-field]').onchange=e=>{
       ch.field=e.target.value;
+      ch.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'');
       fcReconcilePhysicalChoice(ch,groups,e.target.value);
       if(forwardPrimary('Field',ch.field))return;
       if(view==='A'){
@@ -1324,7 +1333,9 @@ async function fcPhysicalLoad(state,c,primary,time,redraw){
       if(region===primary||!choice?.visible)continue;
       try{
         const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
-          group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+          matching=fields.filter(g=>g.name===choice.field&&
+            (!choice.storage||String(g.storage||'')===String(choice.storage))),
+          group=matching.length===1?matching[0]:null,exact=group?fvRegionExactTime(group.times,time):undefined;
         let frame=null,mesh=null,reason='';
         if(exact!==undefined){
           frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
