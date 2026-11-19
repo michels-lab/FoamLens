@@ -79,6 +79,46 @@ test('Granada: two-source spatial Time Series uses genuine decimal positions, no
     'Domain must derive only from actual finite spatial coordinates');
 });
 
+test('Granada: spatial Time Series clears stale sample position when profile source disappears',()=>{
+  const start=field.indexOf('function fwRefreshProfileTsSlot('),end=field.indexOf('function fwRefreshProbeTsSlot(',start);
+  assert(start>0&&end>start);
+  let samples=[];
+  const makeSelect=()=>{
+    let html='',value='';
+    return {get innerHTML(){return html},set innerHTML(x){
+      html=String(x);const options=[...html.matchAll(/<option value="([^"]*)"/g)].map(m=>m[1]);
+      if(!options.includes(value))value=options[0]||'';
+    },get value(){return value},set value(x){value=String(x)}}
+  };
+  const nodes=new Map(['fwTsProfileCase1','fwTsProfileSet1','fwTsProfileField1','fwTsProfileLine1']
+    .map(id=>[id,makeSelect()]));
+  const removed=[];
+  const pos={value:'0.02',min:'0',max:'1',disabled:false,
+    removeAttribute:name=>removed.push(name)};
+  const meta={textContent:'old source'};
+  nodes.set('fwTsProfilePosition1',pos);nodes.set('fwTsProfileMeta1',meta);
+  const begin=field.indexOf('function fwMeasuredNumber(');
+  const numericEnd=field.indexOf('function fwPhysicalTime(',begin);
+  const number=new Function(field.slice(begin,numericEnd)+';return fwMeasuredNumber')();
+  const refresh=new Function('document','fwProfileSeriesAll','fwMeasuredNumber','caseById',
+    'fwUi','fvEsc','localizedFieldName','fvFmt',
+    field.slice(start,end)+';return fwRefreshProfileTsSlot')(
+      {getElementById:id=>nodes.get(id)||null},()=>samples,number,
+      ()=>({name:'QuickCup'}),en=>en,String,x=>x.canonical,String);
+  refresh(1);
+  assert.equal(pos.value,'','Absent profile must not retain old physical coordinate');
+  assert.strictEqual(pos.disabled,true);
+  assert.deepStrictEqual(removed,['min','max']);
+  samples=[{caseId:'1',caseName:'B3',profileOutputPath:'set',
+    field:{canonical:'T',unit:'K'},profileLineKey:'line',profileLine:'Line 1',
+    t:[0.02,0.03],profileCoordUnit:'m'}];
+  refresh(1);
+  assert.strictEqual(pos.disabled,false,'Valid measured spatial positions restore input');
+  assert.strictEqual(Number(pos.min),0.02);
+  assert.strictEqual(Number(pos.max),0.03);
+  assert(Math.abs(Number(pos.value)-0.025)<1e-12);
+});
+
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
   for(const token of [
     'aria-controls="fwControlsDrawer"',
