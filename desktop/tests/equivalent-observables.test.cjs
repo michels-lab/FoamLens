@@ -74,6 +74,12 @@ const completeUnion=grid(pairs(series(1,[0,1,2,3],[1,2,3,4])),
 assert.equal(completeUnion.valid,true);
 assert.deepStrictEqual(completeUnion.times,[1,2,3]);
 assert.equal(completeUnion.notDecimated,true);
+for(const invalidLimit of [0,1,1.5,100001,'',null,'0xFF']){
+ const invalidGrid=grid(pairs(series(1,[0,1,2],[0,1,2])),
+   pairs(series(2,[0,1,2],[0,1,2])),invalidLimit);
+ assert.equal(invalidGrid.valid,false,'Never silently replace explicit bad source limit: '+String(invalidLimit));
+ assert.match(invalidGrid.reason,/integer from 2 to 100000/);
+}
 const spikeTimes=Array.from({length:1601},(_,i)=>i/100);
 const spikeSeries=spikeTimes.map((_,i)=>i===734?10000:0);
 const spikeA=series(101,spikeTimes,spikeSeries,'W',
