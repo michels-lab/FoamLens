@@ -4,7 +4,7 @@
 
 ## 47% estimado — 7/15 hitos
 
-**Fase:** PR #371 validado con 9/9 suites incluida Windows/QuickCup; falta integración, pruebas reales con dueño y release. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
+**Fase:** PR #371 en borrador, sin merge ni publicación. El corte anterior validó 9/9 suites con Windows+QuickCup; en la revisión científica actual los tests #151 y #152 ya aprobaron sobre el nuevo código, pero el gate nativo del último SHA aún requiere cierre. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
 
 **Antes de esta auditoría:** sin línea base (`null`). **Ahora:** 47% (7/15); es la **primera medición**, no un salto porcentual causado por esta sesión.
 
@@ -25,6 +25,15 @@
 | 13 | Frente de solidificación, asociación cambio de fase/momentum y análisis 2D vs 3D con criterios físicos corroborados | ⏳ Pendiente de evidencia exigida | [Fuente](https://github.com/michels-lab/FoamLens/issues/153) |
 | 14 | Publicación única estable exact-main con Windows Setup+Portable, SHA-256, updater y auditoría real de artefactos; sin RC/Developer | ⏳ Pendiente de evidencia exigida | [Fuente](https://github.com/michels-lab/FoamLens/issues/238) |
 | 15 | Aceptación funcional y estética final del propietario en Windows instalado con casos reales y comprobación de actualización | ⏳ Pendiente de evidencia exigida | [Fuente](https://github.com/michels-lab/FoamLens/issues/131) |
+
+## Granada científica de 2026-11-19 — 47% → 47% (sin inflar hitos)
+
+La revisión actual reparó dos condiciones científicamente peligrosas del módulo **Analysis**, sobre la rama existente del PR #371:
+
+- **Energy Audit multirregión (#151):** `mW` y `MW` (miliwatts/megawatts), así como `mJ` y `MJ` (milijoules/megajoules), son unidades SI diferentes por **1,000,000,000 veces**. La función original `mecUnit` eliminaba las mayúsculas y podía producir balances numéricos engañosos. Ahora exige símbolos canónicos sensibles a mayúsculas, rechaza variantes ambiguas (`mw`, `mj`) y conserva el símbolo usado en la procedencia. El evaluador real reproduce el mismo balance de dos regiones expresado en J/W, mJ/mW y MJ/MW; las pruebas originales se ampliaron para cubrir esos casos. [CI científica #151](https://github.com/michels-lab/FoamLens/actions/runs/44616431868).
+- **Thermocouple Mapping (#152):** el cálculo RMSE/MAE/bias antes admitía temperaturas físicas inferiores a **0 K**, incluyendo datos fuera de la ventana de tiempo visible. Ahora se comprueba el conjunto completo de temperaturas originales en sus unidades (K o °C) antes de comparar y, adicionalmente, los valores Kelvin convertidos en cada punto. Las pruebas cubren 0 K válido, valores bajo cero K en ambas fuentes, y registros defectuosos fuera del solapamiento. No se inventaron sensores ni datos simulados. [CI científica #152](https://github.com/michels-lab/FoamLens/actions/runs/44616431528).
+- **Evidencia y límite:** los dos suites científicos del commit de código `b0c13d0a` fueron aprobados en GitHub, y la ejecución directa V8 sobre código fuente original pasó. El resto del conjunto debe verificarse en el SHA final del PR; **no declarar completada la validación experimental ni el instalador** por estas correcciones.
+- **Porcentaje:** se mantiene **47% (7/15)**. El hito 12 exige datos originales y aprobación física de energía/termopares; no está completado aunque sus módulos sean más fiables.
 
 ## Qué se ha comprobado y qué no
 
