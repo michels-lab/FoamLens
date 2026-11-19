@@ -45,9 +45,9 @@ for(const bad of [null,undefined,false,true,'',' ','0x10','0b11','0o7','Infinity
 }
 assert.equal(cadNumeric(0),0);
 assert.equal(cadNumeric('-2.5e-3'),-0.0025);
-assert.throws(()=>parseObj('v 0x10 0 0\\nv 1 0 0\\nv 0 1 0\\nf 1 2 3'),/Non-finite/);
-assert.throws(()=>parseObj('v 0b10 0 0\\nv 1 0 0\\nv 0 1 0\\nf 1 2 3'),/Non-finite/);
-assert.equal(parseObj('v 0 0 0\\nv 1e-3 0 0\\nv 0 1 0\\nf 1 2 3').triangles.length,1);
+assert.throws(()=>parseObj('v 0x10 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3'),/Non-finite/);
+assert.throws(()=>parseObj('v 0b10 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3'),/Non-finite/);
+assert.equal(parseObj('v 0 0 0\nv 1e-3 0 0\nv 0 1 0\nf 1 2 3').triangles.length,1);
 
 assert.throws(()=>parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0'),/no supported polygon/);
 
