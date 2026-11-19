@@ -131,6 +131,11 @@ function tcCompare(sim,experimental,settings={}){
     return invalid('Source dimensional exponents are not thermodynamic temperature');
   const a=tcSeriesPairs(sim.t,sim.y),b=tcSeriesPairs(experimental.t,experimental.y);
   if(!a||!b)return invalid('Time/temperature measurements incomplete, non-finite, unsorted or repeated');
+  // Validate ALL source evidence, not only the overlapping reporting window.
+  // A spurious -1 K record just outside that window must not be hidden by
+  // trimming and then exported as a fully trustworthy sensor comparison.
+  if(a.some(([,v])=>v+sourceK.offset<0)||b.some(([,v])=>v+expK.offset<0))
+    return invalid('Temperature below absolute zero (0 K) in original simulation or experiment');
   const shift=tcNumber(settings.timeShiftS);
   if(!Number.isFinite(shift))return invalid('Explicit finite experiment time shift required');
   const expShifted=b.map(([t,y])=>[t+shift,y]);
