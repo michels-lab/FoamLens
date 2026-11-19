@@ -1,3 +1,13 @@
+## 2026-11-19 — GRANADA integral PR #371, segunda revisión de Field, Time Series y CAD (NO RELEASE)
+
+- Rama de producto `feat/granada-integral-field-science-20261119`; mantener PR #371 borrador hasta pasar controles nativos y QA propietario.
+- Field: fuente original ahora rechaza modo temporal no admitido, interpolación de longitud desigual, rangos invertidos de leyenda y equivalencia de malla sin arrays topológicos presentes. Salir de Field ya no descarta una comparación A/B expresamente activada con un único caso cargado.
+- Time Series y perfiles: reloj físico con parser decimal/científico autocontenido y coordenadas espaciales estrictas, sin tiempos/posiciones `null`, vacíos, booleanos, hexadecimal o valores no finitos falsamente convertidos a cero.
+- CAD: lectura original STL/OBJ rechaza coerciones de coordenadas ausentes o 0x/0b/0o, conserva cero y notación científica real.
+- Regresiones añadidas a los suites originales de Field, Workspace y CAD. Verificación directa en V8 del código original: sintaxis de seis fuentes/pruebas PASS; CAD 8/8 entradas espurias rechazadas, decimal valido; malla ausente no equivalente; posición y tiempo no medidos rechazados. Esto no es verificación de instalación real ni prueba nativa Windows.
+- La optimización/importación de 3,008 archivos (#117) está expresamente **pospuesta por decisión del propietario**, sin eliminar capacidades existentes.
+- No publicar release ni afirmar cierre del producto hasta pruebas CI del último SHA, 2D/3D con QuickCup y casos del propietario, interfaz completa y aceptación visual en Windows. Matriz: `docs/GRANADA_INTEGRAL_2026-11-19.md`.
+
 ## 2026-11-19 — FoamLens v1.8.21 PUBLISHED: recovered original Field case catalog and initially empty 3D canvas
 
 - [Published public stable v1.8.21 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21) is non-draft/non-RC, with original 64-bit Windows Setup/Portable and two SHA-256 sidecars. Exact source commit: `98f5a95895a402b9f52783c555b5dbbeebea3268` from PR #370.
