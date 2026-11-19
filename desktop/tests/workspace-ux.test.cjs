@@ -55,16 +55,16 @@ test('Granada: navigating away preserves an explicitly requested same-case A/B c
 });
 
 test('Granada: two-source spatial Time Series uses genuine decimal positions, not implicit zero',()=>{
-  const begin=field.indexOf('function fwMeasuredNumber(raw){');
-  const end=field.indexOf('function fwPhysicalTime(raw){',begin);
+  const begin=field.indexOf('function fwPhysicalTime(raw){');
+  const end=field.indexOf('function fwPhysicalTimes(raw){',begin);
   const positionStart=field.indexOf('function fwProfileTsSelection(slot){');
   const positionEnd=field.indexOf('function fwRefreshProfileTsSlot(',positionStart);
   assert(begin>0&&end>begin&&positionStart>0&&positionEnd>positionStart);
-  const number=new Function(field.slice(begin,end)+';return fwMeasuredNumber')();
+  const time=new Function('window',field.slice(begin,end)+';return fwPhysicalTime')({FoamLensRegionScene:null});
   let raw='';
   const doc={getElementById:id=>id==='fwTsProfilePosition1'?{value:raw}:{value:'physical-source'}};
-  const select=new Function('document','fwMeasuredNumber',
-    field.slice(positionStart,positionEnd)+';return fwProfileTsSelection')(doc,number);
+  const select=new Function('document','fwPhysicalTime',
+    field.slice(positionStart,positionEnd)+';return fwProfileTsSelection')(doc,time);
   for(const bad of ['', ' ', '0x10','0b1','1e999','NaN','Infinity']){
     raw=bad;
     assert(Number.isNaN(select(1).position),'Invalid spatial coordinate may not be silently sampled: '+bad);
