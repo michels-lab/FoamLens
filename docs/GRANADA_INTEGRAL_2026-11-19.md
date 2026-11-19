@@ -29,3 +29,15 @@ Code + tests on this branch are NOT proof that full product, owner cases or Wind
 
 ## Existing history
 See docs/GIT_AUDIT_LOG.md and issues #145, #149, #177, #146, #176, #238. Treat historical candidate entries as superseded only where later verification explicitly exists.
+
+## Segunda pasada de código — 2026-11-19
+
+Cambios adicionales ya escritos en la rama, con comprobaciones directas de funciones originales:
+
+- El controlador Field ya no desactiva automáticamente una comparación A/B solicitada por el usuario cuando sale de Field y hay un único caso OpenFOAM; el modo predeterminado A-only sigue controlado por el acto explícito de activar/desactivar.
+- La equivalencia de mallas de interpolación no acepta dos inventarios de topología ausentes como prueba de identidad; sí admite listas vacías declaradas cuando corresponden (por ejemplo caras internas cero).
+- Time Series espacial no convierte el selector de posición vacío o en formato hexadecimal a 0 medido; elige únicamente números decimales/científicos finitos y evita reutilizar el cero implícito de un selector vacío durante el refresco.
+- CAD STL/OBJ rechaza valores de coordenada nulos, booleanos, vacíos y números hex/binarios/octales coercionados por JavaScript, sin cambiar posiciones científicas decimales ni inventar unidades.
+- Tests extendidos en los suites originales Field, Workspace y CAD. Las comprobaciones directas de sintaxis, CAD numérico, malla incompleta, modos de sincronización y coordenadas pasaron. El resultado final de CI Windows corresponde exclusivamente al SHA exacto de la rama y **no está implícitamente aprobado** por estas pruebas.
+
+Continúan sin certificar en esta pasada: vista real B14/C14 instalada en el equipo del propietario, revisión estética del conjunto y DPI físico, tolerancias CAD con FreeCAD/OpenCascade real, calidad CFD/termo física y release exact-main pública. No borrar ni cerrar esos pendientes.
