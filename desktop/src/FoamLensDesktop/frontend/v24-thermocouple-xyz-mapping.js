@@ -142,6 +142,10 @@ function tcCompare(sim,experimental,settings={}){
     const smp=tcInterpolate(a,t);if(!smp)continue;
     const model=smp.value+sourceK.offset,observed=e+expK.offset,delta=model-observed;
     if(![model,observed,delta].every(Number.isFinite))return invalid('Non-finite Kelvin conversion');
+    // A temperature below absolute zero is not a physical thermocouple or
+    // OpenFOAM temperature measurement. It may indicate a wrong unit, bad
+    // sensor calibration, or corrupt data: do not report a plausible RMSE.
+    if(model<0||observed<0)return invalid('Temperature below absolute zero (0 K) in original simulation or experiment');
     rows.push({timeS:t,simulationK:model,experimentK:observed,simMinusExpK:delta,
       simulationTimeSource:smp.method})
   }
