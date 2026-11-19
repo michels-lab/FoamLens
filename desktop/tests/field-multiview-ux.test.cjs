@@ -487,10 +487,15 @@ for(const fragment of [
       metal:[{name:'alpha1',kind:'scalar',storage:'volume'}]}}
   ];
   const bDocument={getElementById:id=>bControls[id]||null};
+  const associationSourceStart=source.indexOf('function fcSelectedAssociation(select){');
+  const associationSourceEnd=source.indexOf('function fcCurrentFieldStorage(',associationSourceStart);
+  assert(associationSourceStart>=0&&associationSourceEnd>associationSourceStart,
+    'Original physical source association helper must be available to all isolated selector tests');
+  const associationSource=source.slice(associationSourceStart,associationSourceEnd);
   const bRefresh=new Function('cases','document','fvCaseViewAvailable',
     'fcCase','fvReadyRegions','fvMeshes','fvFieldGroups','fcUi','fcEsc',
     'fvAssociationLabel','fvFieldComponents','fcUpdateLabels','fcScheduleToolbarSync',
-    source.slice(helperStart,helperEnd)+bSource+';return fcRefreshSelectors;')(
+    associationSource+source.slice(helperStart,helperEnd)+bSource+';return fcRefreshSelectors;')(
     bCases,bDocument,()=>true,
     ()=>bCases.find(c=>String(c.id)===bControls.fcCase.value),
     c=>c?.regions||[],c=>(c?.regions||[]).map(region=>({region,complete:true})),
@@ -563,7 +568,7 @@ for(const fragment of [
   const factory=new Function('cases','fcExtraDom','fvCaseViewAvailable','fcEsc',
     'document','fcExtraCase','fvReadyRegions','fcUi','fvFieldGroups',
     'fvAssociationLabel','fvFieldComponents','fcExtraUpdateLabel','fcScheduleToolbarSync',
-    source.slice(start,end)+';return{fcExtraRefreshSelectors,fcExtraSetOptionMarkup};');
+    associationSource+source.slice(start,end)+';return{fcExtraRefreshSelectors,fcExtraSetOptionMarkup};');
   const api=factory(cases,(id,suffix)=>id===3?selects[suffix]:null,()=>true,
     String,doc,()=>cases.find(c=>String(c.id)===selects.Case.value),
     c=>c?.regions||[],en=>en,(c,region)=>c?.groups?.[region]||[],
