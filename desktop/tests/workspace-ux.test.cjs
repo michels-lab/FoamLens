@@ -481,7 +481,9 @@ test('Field companion profile time changes only in an active split, never in hid
   const begin=field.indexOf('function fwSyncCompanionTime(');
   const end=field.indexOf('function fwUpdateViewCount(',begin);
   assert(begin>0&&end>begin,'Original Field time sync function must be present');
-  const numberStart=field.indexOf('function fwPhysicalTime(');
+  // Native fallback time delegates to the original strict numeric reader;
+  // isolated companion tests must retain that actual source dependency.
+  const numberStart=field.indexOf('function fwMeasuredNumber(');
   const numberEnd=field.indexOf('function fwPhysicalTimes(',numberStart);
   assert(numberStart>=0&&numberEnd>numberStart);
   const fwPhysicalTime=new Function('window',field.slice(numberStart,numberEnd)+
