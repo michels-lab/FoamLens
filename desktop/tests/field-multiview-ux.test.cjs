@@ -1654,7 +1654,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const counts={B:0,C:0,D:0,extra:0,sync:0};
   const current=state=>state===B?'B':state===C?'C':'D';
   const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
-    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcFieldFor',
+    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcCurrentFieldStorage','fcExtraFieldStorage','fcFieldFor',
     'fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt','fcUi',
     'fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras','fcScheduleToolbarSync',
     source.slice(a,b)+
@@ -1662,6 +1662,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     document,B,[C,D],()=>catalogs.B,state=>catalogs[current(state)],
     ()=>catalogs.B.region,state=>catalogs[current(state)].region,
     ()=>catalogs.B.field,state=>catalogs[current(state)].field,
+    () => '',() => '',
     (c,region,field)=>c.region===region&&c.field===field?{times:c.times}:null,
     value=>Number(value),()=>primaryTime,String,String,(en,es)=>language==='es'?es:en,
     ()=>counts.B++,state=>counts[current(state)]++,()=>counts.extra++,()=>counts.sync++
