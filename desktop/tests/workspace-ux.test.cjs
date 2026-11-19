@@ -33,6 +33,27 @@ test('Granada: Field physical-time fallback only accepts real decimal/scientific
   assert.strictEqual(sourceBound('raw'),12.5,'Native source-owned resolver stays authoritative');
 });
 
+test('Granada: navigating away preserves an explicitly requested same-case A/B comparison',()=>{
+  const start=field.indexOf('function fwLeave(){');
+  const end=field.indexOf('function fwInstall(){',start);
+  assert(start>=0&&end>start,'Original Field exit handler must exist');
+  const state={active:true,compareUserRequested:true,fieldTsSeq:0,layout:'3d',dataViewBeforeField:null};
+  const stop={play:0,time:0,inspector:0,return:0};
+  const leave=new Function('fwState','document','window','fvStopPlayback',
+    'fwTimeStop','fwSetInspector','fwReturnCompanionControlsToData',
+    'currentDataView','updateDatasetViewUI','console',
+    field.slice(start,end)+';return fwLeave;')(
+      state,{getElementById:()=>null},{FoamLensPlotSurfaces:{active:()=>null}},
+      ()=>stop.play++,()=>stop.time++,()=>stop.inspector++,()=>stop.return++,
+      'timeseries',()=>{}, {error:()=>{}});
+  leave();
+  assert.strictEqual(state.active,false);
+  assert.strictEqual(state.compareUserRequested,true,
+    'One imported OpenFOAM case is valid for A/B compare; leaving must not undo explicit choice');
+  assert.deepStrictEqual(stop,{play:1,time:1,inspector:1,return:1},
+    'Exit must still stop playback and restore real controls');
+});
+
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
   for(const token of [
     'aria-controls="fwControlsDrawer"',
