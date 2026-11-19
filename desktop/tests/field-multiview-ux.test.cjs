@@ -36,6 +36,111 @@ assert.deepStrictEqual(api.fcViewSourceMap('B'),{Case:'fcCase',Region:'fcRegion'
 assert.deepStrictEqual(api.fcViewSourceMap(3),{Case:'fcExtra3Case',Region:'fcExtra3Region',Field:'fcExtra3Field',Component:'fcExtra3Component'});
 assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not independently selectable');
 
+  
+// Granada regression: all loaded original OpenFOAM cases must appear in B/C/D,
+// even if one is still unready. A nonrenderable initial A must not leave the
+// linked comparison stuck with t=— when a different ready case exists.
+{
+  const models=[
+    {id:'B14',name:'B14_topFixedFlux_explicitRef',ready:false,regions:['metal'],groups:{metal:[]}},
+    {id:'C14',name:'C14_topFixedFlux_explicitRef',ready:true,regions:['metal','mold'],groups:{
+      metal:[{name:'gradRho',kind:'vector',storage:'volume'}],
+      mold:[{name:'T',kind:'scalar',storage:'volume'}]}},
+    {id:'D14',name:'D14_reference',ready:true,regions:['metal'],groups:{
+      metal:[{name:'T',kind:'scalar',storage:'volume'}]}}
+  ];
+  const makeSelect=()=>{
+    let html='',value='';
+    return {
+      get innerHTML(){return html},
+      set innerHTML(text){
+        html=String(text);
+        const values=[...html.matchAll(/<option value="([^"]*)"/g)].map(m=>m[1]);
+        if(!values.includes(value))value=values[0]||'';
+      },
+      get value(){return value},set value(next){value=String(next)},
+      get options(){return [...html.matchAll(/<option value="([^"]*)"/g)].map(m=>({value:m[1]}))}
+    }
+  };
+  const primary={fvCase:{value:'B14'},fvRegion:{value:'metal'},
+    fvField:{value:'T'},fvComponent:{value:'value'}};
+  const bound={fcCase:makeSelect(),fcRegion:makeSelect(),fcField:makeSelect(),
+    fcComponent:makeSelect(),fcBadge:{textContent:''},...primary};
+  const bBegin=source.indexOf('function fcRefreshSelectors(preserve=true){'),
+    bEnd=source.indexOf('function fcMvp(',bBegin),
+    helperStart=source.indexOf('function fcExtraSetOptionMarkup('),
+    helperEnd=source.indexOf('function fcExtraRefreshSelectors(',helperStart);
+  assert(bBegin>0&&bEnd>bBegin&&helperStart>0&&helperEnd>helperStart);
+  const helper=source.slice(helperStart,helperEnd);
+  const ready=c=>!!c?.ready,regions=c=>c?.ready?c.regions:[],
+    fieldGroups=(c,r)=>c?.groups?.[r]||[],
+    meshes=c=>(c?.regions||[]).map(region=>({region,complete:true})),
+    components=g=>g?.kind==='vector'?[{v:'magnitude',t:'Magnitude'}]:[{v:'value',t:'Value'}],
+    byCase=()=>models.find(c=>String(c.id)===String(bound.fcCase.value));
+  const refreshB=new Function('cases','document','fvCaseViewAvailable','fcCase',
+    'fvReadyRegions','fvMeshes','fvFieldGroups','fcUi','fcEsc',
+    'fvAssociationLabel','fvFieldComponents','fcUpdateLabels','fcScheduleToolbarSync',
+    helper+source.slice(bBegin,bEnd)+';return fcRefreshSelectors')(
+    models,{getElementById:id=>bound[id]||null},ready,byCase,regions,meshes,
+    fieldGroups,(en)=>en,String,x=>x,components,()=>{},()=>{});
+  refreshB(true);
+  assert.deepStrictEqual(bound.fcCase.options.map(o=>o.value),['B14','C14','D14'],
+    'B must show every originally imported case, including B14 before its field catalog finishes indexing');
+  assert.equal(bound.fcCase.value,'C14',
+    'B should select an actually renderable source instead of silently defaulting to nonrenderable B14');
+  bound.fcCase.value='B14';refreshB(true);
+  assert.equal(bound.fcCase.value,'B14','explicitly chosen case B14 may not be replaced by A or C14');
+  assert.equal(bound.fcField.value,'','B14 without imported fields may not invent a CFD value');
+  primary.fvCase.value='D14';refreshB(true);
+  assert.equal(bound.fcCase.value,'B14','changing A may not overwrite the selected B source');
+  models[0].ready=true;models[0].groups.metal=[{name:'T',kind:'scalar',storage:'volume'}];
+  refreshB(true);
+  assert.equal(bound.fcField.value,'T','B14 should become renderable after its actual field inventory arrives');
+
+  const eBegin=source.indexOf('function fcExtraRefreshSelectors(state,preserve=true){'),
+    eEnd=source.indexOf('function fcExtraInvalidateFrame(',eBegin);
+  assert(eBegin>0&&eEnd>eBegin,'C/D real selector owner required');
+  const extraControls=new Map();
+  const extraDom=(id,suffix)=>{
+    const key=String(id)+suffix;
+    if(!extraControls.has(key))extraControls.set(key,makeSelect());
+    return extraControls.get(key)
+  };
+  const refreshed=new Function('cases','fcExtraDom','fvCaseViewAvailable','fcEsc',
+    'document','fcExtraCase','fvReadyRegions','fcUi','fvFieldGroups',
+    'fvAssociationLabel','fvFieldComponents','fcExtraUpdateLabel','fcScheduleToolbarSync',
+    helper+source.slice(eBegin,eEnd)+';return fcExtraRefreshSelectors')(
+    models,extraDom,ready,String,{getElementById:id=>primary[id]||null},
+    state=>models.find(c=>String(c.id)===String(extraDom(state.id,'Case').value)),
+    regions,en=>en,fieldGroups,x=>x,components,()=>{},()=>{});
+  const c={id:3},d={id:4};refreshed(c,true);refreshed(d,true);
+  assert.deepStrictEqual(extraDom(3,'Case').options.map(o=>o.value),['B14','C14','D14']);
+  assert.deepStrictEqual(extraDom(4,'Case').options.map(o=>o.value),['B14','C14','D14']);
+  extraDom(3,'Case').value='B14';extraDom(4,'Case').value='D14';
+  refreshed(c,true);refreshed(d,true);
+  assert.equal(extraDom(3,'Case').value,'B14');
+  assert.equal(extraDom(4,'Case').value,'D14','C and D must remain independent of each other');
+
+  const workspaceSource=fs.readFileSync(path.join(dir,'v14-zz-field-workspace.js'),'utf8');
+  const recoverStart=workspaceSource.indexOf('function fwRecoverInitialRenderableCase(){'),
+    recoverEnd=workspaceSource.indexOf('function fwMount3D(){',recoverStart);
+  assert(recoverStart>0&&recoverEnd>recoverStart);
+  const selected={value:'B14'},primaryState={mesh:null,time:NaN},chosen=[];
+  const recover=new Function('cases','document','fvCaseViewAvailable','fvRefreshSelectors','fvState',
+    workspaceSource.slice(recoverStart,recoverEnd)+';return fwRecoverInitialRenderableCase')(
+    models,{getElementById:()=>selected},ready,
+    ()=>chosen.push(selected.value),primaryState);
+  models[0].ready=false;
+  assert.equal(recover(),true,'empty A should recover from unavailable B14');
+  assert.equal(selected.value,'C14');
+  assert.deepStrictEqual(chosen,['C14']);
+  selected.value='B14';primaryState.mesh={};
+  assert.equal(recover(),false,'an active user-loaded scene must not be switched to another case');
+  assert.equal(selected.value,'B14');
+  console.log('Granada original A/B/C/D case-catalog visibility, independent selections and initial 3D recovery PASS');
+}
+
+
 // GRANADA Field A–D: real field catalogs can be indexed after the physical
 // region toolbar is mounted. A source-option refresh must not require a change
 // to the selected region/case/field, and vector fields must never retain the
