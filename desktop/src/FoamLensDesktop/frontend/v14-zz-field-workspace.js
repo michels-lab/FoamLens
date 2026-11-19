@@ -569,7 +569,16 @@ function fwRefreshProfileTsSlot(slot,preserve=true){
   filtered=filtered.filter(s=>(s.profileOutputPath||'')===setSel.value);const fields=[...new Map(filtered.map(s=>[s.field?.canonical,s.field])).values()].filter(Boolean);fieldSel.innerHTML=fields.map(x=>'<option value="'+fvEsc(x.canonical)+'">'+fvEsc(localizedFieldName(x))+(x.unit&&x.unit!=='-'?' ['+fvEsc(x.unit)+']':'')+'</option>').join('')||'<option value="">—</option>';if(fields.some(x=>x.canonical===old.field))fieldSel.value=old.field;
   filtered=filtered.filter(s=>s.field?.canonical===fieldSel.value);const lines=[...new Map(filtered.map(s=>[s.profileLineKey||s.profileLine||'',s.profileLine||s.profileLineKey||'Profile'])).entries()];lineSel.innerHTML=lines.map(([k,v])=>'<option value="'+fvEsc(k)+'">'+fvEsc(v)+'</option>').join('')||'<option value="">—</option>';if(lines.some(([k])=>k===old.line))lineSel.value=old.line;
   filtered=filtered.filter(s=>(s.profileLineKey||s.profileLine||'')===lineSel.value);const xs=filtered.flatMap(s=>(s.t||[]).map(fwMeasuredNumber).filter(Number.isFinite)),xmin=xs.length?Math.min(...xs):NaN,xmax=xs.length?Math.max(...xs):NaN,unit=filtered.find(s=>s.profileCoordUnit)?.profileCoordUnit||'';
-  if(Number.isFinite(xmin)&&Number.isFinite(xmax)){pos.min=String(xmin);pos.max=String(xmax);pos.step='any';if(Number.isFinite(old.position)&&old.position>=xmin&&old.position<=xmax)pos.value=String(old.position);else pos.value=String((xmin+xmax)/2)}
+  if(Number.isFinite(xmin)&&Number.isFinite(xmax)){
+    pos.disabled=false;pos.min=String(xmin);pos.max=String(xmax);pos.step='any';
+    if(Number.isFinite(old.position)&&old.position>=xmin&&old.position<=xmax)pos.value=String(old.position);
+    else pos.value=String((xmin+xmax)/2)
+  }else{
+    // A source switch with no real spatial coordinates must not leave a
+    // seemingly valid stale sample location in the Time Series inspector.
+    pos.value='';pos.disabled=true;
+    pos.removeAttribute?.('min');pos.removeAttribute?.('max')
+  }
   if(meta)meta.textContent=Number.isFinite(xmin)?fwUi('Available position','Posición disponible')+': '+fvFmt(xmin)+'–'+fvFmt(xmax)+(unit?' '+unit:''):'—'
 }
 function fwRefreshProbeTsSlot(slot,preserve=true){
