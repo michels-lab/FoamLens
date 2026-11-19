@@ -2034,3 +2034,63 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(source.includes("fcSetIndependentPlaybackOptions(view,{loop:event.target.checked})"));
   console.log('Granada individual native playback rate and looping PASS: B/C/D 0.5×/1×/2×, independent timers, real-frame wrap, linked safety');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+
+ 
+// GRANADA: source-true volume/face/point ownership for the original metal/mold
+// overlay menus in A AND B/C/D (not only the primary field selector).
+{
+  const physicalBegin=source.indexOf('function fcReconcilePhysicalChoice(choice,groups,preferred=');
+  const physicalEnd=source.indexOf('function fcPhysicalChoiceList(',physicalBegin);
+  assert(physicalBegin>=0&&physicalEnd>physicalBegin);
+  const reconcile=new Function('fvFieldComponents',source.slice(physicalBegin,physicalEnd)+
+    ';return fcReconcilePhysicalChoice')(
+      group=>group?.kind==='vector'?[{v:'magnitude',t:'Magnitude'}]:[{v:'value',t:'Value'}]);
+  const volume={name:'T',kind:'scalar',storage:'volume'};
+  const surface={name:'T',kind:'scalar',storage:'surface'};
+  const vector={name:'U',kind:'vector',storage:'point'};
+  const choice={field:'T',storage:'surface',component:'value'};
+  assert.equal(reconcile(choice,[volume,surface,vector]),false);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['T','surface','value']);
+  assert.equal(reconcile(choice,[volume,vector]),true);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['T','volume','value']);
+  assert.equal(reconcile(choice,[vector]),true);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['U','point','magnitude']);
+  const menu=source.slice(source.indexOf('function fcPhysicalMenu(view){'),
+    source.indexOf('function fcPhysicalReload(',source.indexOf('function fcPhysicalMenu(view){')));
+  assert(menu.includes('data-storage='),'B/C/D physical-region menu must expose original association');
+  assert(menu.includes('ch.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage'),
+    'Changing a same-named metal/mold field must preserve selected face/point association');
+  assert(menu.includes('ch?.storage'),'Toolbar render key must track association changes');
+  const physicalLoad=source.slice(source.indexOf('async function fcPhysicalLoad('),
+    source.indexOf('function fcPhysicalRenderLayers(',source.indexOf('async function fcPhysicalLoad(')));
+  assert(physicalLoad.includes('matching=fields.filter(')&&physicalLoad.includes('matching.length===1?matching[0]:null'),
+    'B/C/D overlay loader must refuse ambiguous same-name OpenFOAM fields');
+
+  const aSource=fs.readFileSync(path.join(dir,'v14-field-view.js'),'utf8');
+  const start=aSource.indexOf('function fvRegionChoice(c,region){');
+  const end=aSource.indexOf('function fvRegionPrimaryVisible(',start);
+  assert(start>=0&&end>start);
+  const caseA={id:'B13'};
+  const scene={choices:new Map()};
+  const owned=new Function('fvRegionEnsureCase','fvRegionScene','fvFieldGroups','document',
+    aSource.slice(start,end)+';return fvRegionChoice')(
+      ()=>{},scene,()=>[volume,surface],
+      {getElementById:id=>({fvField:{value:'T'},fvRegion:{value:'metal'},fvPalette:{value:'viridis'}})[id]||null});
+  const initial=owned(caseA,'mold');
+  assert.equal(initial.storage,'volume','Initial default must name the real storage association');
+  initial.storage='surface';
+  assert.strictEqual(owned(caseA,'mold').storage,'surface','A region source is stable across UI refresh');
+  const aUi=aSource.slice(aSource.indexOf('function fvRegionRefreshList(){'),
+    aSource.indexOf('function fvRegionApplyVisibility(',aSource.indexOf('function fvRegionRefreshList(){')));
+  assert(aUi.includes('data-storage='),'A region selector must surface original OpenFOAM association');
+  const aHandlers=aSource.slice(aSource.indexOf('function fvRegionInstallControls('),
+    aSource.indexOf('function fvRegionMakeBuffer('));
+  assert(aSource.includes("choice.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'')"),
+    'A region menu handler must store the chosen association');
+  const aLoad=aSource.slice(aSource.indexOf('function fvRegionLoadFrame('),
+    aSource.indexOf('function fvRegionRender(',aSource.indexOf('function fvRegionLoadFrame(')));
+  assert(aLoad.includes('const selected=candidates.length===1?candidates[0]:null'),
+    'A physical region cannot silently draw a wrong-association field');
+  console.log('Granada A-D physical metal/mold association PASS: same T in volume and surface, source selection and safe load');
+}
