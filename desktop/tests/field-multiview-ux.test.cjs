@@ -427,7 +427,7 @@ for(const fragment of [
   "fcScheduleToolbarSync()","source.dispatchEvent(new Event('change',{bubbles:true}))",
   "e.dataTransfer?.setData('text/plain',viewport.id)","fcMoveViewport(viewport.parentElement,fcDraggedView,viewport",
   "data-fc-zoom=","data-fc-fit=","fcFitViewport(", "fcViewToolbar","fcViewPicker","fcViewZoom",
-  "FC_MAX_TOTAL_VIEWS=4","if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))"
+  "FC_MAX_TOTAL_VIEWS=4","if(oldCase&&loaded.some(c=>String(c.id)===String(oldCase)))"
 ])assert(source.includes(fragment),'Missing production multi-view mechanism: '+fragment);
 for(const fragment of [
   'id="fwAdd3DViewVisible"','id="fwImport3DCase"','id="fwLinkCamerasVisible"',
