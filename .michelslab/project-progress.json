@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 borrador: fuentes Field/Analysis corregidas; suites científicas #151/#152 PASS en SHA de código, CI Windows/QuickCup del último SHA sin cierre aún; faltan aceptación física e integración/release",
+  "phase": "PR #371 borrador: SCI 2D/3D original physical time union + SI/Case identity validated in source; CI latest code in review; Windows physical QA, B14/C14 and final release pending",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "b0c13d0a771060ae4f2edd2a0a77459cb8e37f7f",
+  "source_head_sha": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -148,23 +148,22 @@
       ]
     }
   ],
-  "next_step": "Full HEAD native Windows and QuickCup gate; owner B14/C14 and high-DPI UX; validate scientific modules against original experiment before release.",
-  "limitations": "47%/7 of 15 unchanged. Fixing source unit/celsius integrity is not proof of user data, mesh/patch reciprocity, installed Windows or experimental calibration. PR draft, not published.",
+  "next_step": "Reconcile exact latest SHA CI (13 workflows including 2D/3D, native Windows/QuickCup); owner B14/C14 and DPI UI, then science physical validation/release",
+  "limitations": "47% (7/15) unchanged; CI/source correctness not equivalent to physically validated 2D vs 3D geometry or installed owner acceptance; PR draft no release",
   "last_granada": {
     "as_of": "2026-11-19",
     "previous_progress_percent": 47,
     "current_progress_percent": 47,
-    "changed_paths": [
-      "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
-      "desktop/tests/multiregion-energy-conservation.spec.cjs",
-      "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
-      "desktop/tests/thermocouple-xyz-mapping.spec.cjs"
+    "verified_milestones": 7,
+    "total_milestones": 15,
+    "scope": "2D/3D measured observable comparison integrity (original source time union + SI + case provenance)",
+    "source_commit": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f",
+    "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
+    "direct_evidence": "Source-native equivalent-observables.test.cjs passed in V8; 1601 physical-time knots and original 10000 peak retained or explicit full-source refusal",
+    "ci_evidence": [
+      "https://github.com/michels-lab/FoamLens/actions/runs/44621424584"
     ],
-    "verified_direct": "V8 original source: mW/MW, mJ/MJ different by 10^9; representative original 2-region balances agree within FP; thermocouple 0 K permitted, negative K rejected including outside time overlap",
-    "scientific_ci": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/44616431868",
-      "https://github.com/michels-lab/FoamLens/actions/runs/44616431528"
-    ],
-    "remaining": "8/15 owner/scientific/packaged gates still open; no release"
+    "pending": "Full HEAD Windows, B14/C14 owner original data, experimental and 2D/3D physical equivalence, visual DPI/Setup/Portable, final release and owner acceptance",
+    "previous_granada": null
   }
 }
