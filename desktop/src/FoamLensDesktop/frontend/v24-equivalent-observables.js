@@ -105,8 +105,10 @@ function eoSampleGrid(a,b,maxPoints=20000){
   if(!a?.length||!b?.length)return{valid:false,reason:'Missing original source times',range:null,times:[]};
   const lo=Math.max(a[0].t,b[0].t),hi=Math.min(a.at(-1).t,b.at(-1).t);
   if(!(hi>lo))return{valid:false,reason:'No physical-time overlap',range:null,times:[]};
-  const raw=[lo,hi,...a.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t),
-    ...b.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t)].sort((x,y)=>x-y);
+  const raw=[lo,hi];
+  // Do not spread large measured arrays into a function argument list.
+  for(const list of [a,b])for(const p of list)if(p.t>=lo&&p.t<=hi)raw.push(p.t);
+  raw.sort((x,y)=>x-y);
   const unique=[];for(const t of raw){
     if(!unique.length||Math.abs(t-unique.at(-1))>1e-10*Math.max(1,Math.abs(t)))unique.push(t)
   }
@@ -135,6 +137,11 @@ function eoCompare(a,b,config={}){
   if(!quantity||!['physical-point','regional-mean','normalized-integral','explicit-other'].includes(basis)||!mapping||!confirmed)
     return reject('Explicit observable, spatial equivalence basis, location/mapping note and user confirmation are required.');
   if(mapping.length<8)return reject('Provide a meaningful physical location or normalization/mapping statement.');
+  // Validate original measurements across the full source duration: a
+  // negative-K sample outside the overlap cannot be hidden in a valid RMSE.
+  if((uA.canonical==='K'&&a.y.some(y=>uA.transform(eoNumber(y))<0))||
+     (uB.canonical==='K'&&b.y.some(y=>uB.transform(eoNumber(y))<0)))
+    return reject('Temperature below physical absolute zero (0 K) in original source, including outside overlap.');
   const pA=eoPairs(a),pB=eoPairs(b),grid=eoSampleGrid(pA,pB,config.maxPoints);
   if(!grid.valid||grid.times.length<2)return reject(grid.reason||'No shared physical-time interval with two distinct times; no extrapolation permitted.');
   const rows=[];
