@@ -1496,12 +1496,22 @@ function fcUpdateLabels(){
 }
 function fcRefreshSelectors(preserve=true){
   const caseSel=document.getElementById('fcCase'),regionSel=document.getElementById('fcRegion'),fieldSel=document.getElementById('fcField'),componentSel=document.getElementById('fcComponent');if(!caseSel||!regionSel||!fieldSel||!componentSel)return;
-  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';
+  // A viewer must see EVERY imported case, including ones still indexing a
+  // mesh or lacking compatible fields. Readiness controls renderability, not
+  // catalog visibility. Never borrow A's selector as the B catalog.
+  const loaded=(cases||[]).filter(c=>c&&c.id!=null),
+    eligible=loaded.filter(c=>fvCaseViewAvailable(c)),
+    oldCase=preserve?caseSel.value:'';
   // Every physical OpenFOAM frame revisits B's source selectors. Reuse the
   // original option nodes when inventories are identical instead of rebuilding
   // four expensive native WebView2 controls and losing the current focus.
-  fcExtraSetOptionMarkup(caseSel,eligible.length?eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join(''):'<option value="">—</option>',!preserve);
-  if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;else{const primaryId=String(document.getElementById('fvCase')?.value||'');if(eligible.some(c=>String(c.id)===primaryId))caseSel.value=primaryId}
+  fcExtraSetOptionMarkup(caseSel,loaded.length?loaded.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+(fvCaseViewAvailable(c)?'':' · '+fcUi('3D unavailable','3D no disponible'))+'</option>').join(''):'<option value="">—</option>',!preserve);
+  if(oldCase&&loaded.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;
+  else{
+    const primaryId=String(document.getElementById('fvCase')?.value||'');
+    if(eligible.some(c=>String(c.id)===primaryId))caseSel.value=primaryId;
+    else if(eligible.length)caseSel.value=String(eligible[0].id)
+  }
   const selectedCase=fcCase(),oldRegion=preserve?regionSel.value:'',regions=typeof fvReadyRegions==='function'?fvReadyRegions(selectedCase):fvMeshes(selectedCase).filter(g=>g.complete).map(g=>String(g.region||''));
   fcExtraSetOptionMarkup(regionSel,regions.length?regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(regions.includes(oldRegion))regionSel.value=oldRegion;else{const primaryRegion=document.getElementById('fvRegion')?.value||'';if(regions.includes(primaryRegion))regionSel.value=primaryRegion}
@@ -1743,8 +1753,12 @@ function fcExtraSetOptionMarkup(select,markup,force=false){
 }
 function fcExtraRefreshSelectors(state,preserve=true){
   const caseSel=fcExtraDom(state.id,'Case'),regionSel=fcExtraDom(state.id,'Region'),fieldSel=fcExtraDom(state.id,'Field'),compSel=fcExtraDom(state.id,'Component');if(!caseSel||!regionSel||!fieldSel||!compSel)return;
-  const eligible=(cases||[]).filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';fcExtraSetOptionMarkup(caseSel,eligible.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+'</option>').join('')||'<option value="">—</option>',!preserve);
-  if(oldCase&&eligible.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
+  const loaded=(cases||[]).filter(c=>c&&c.id!=null),
+    eligible=loaded.filter(c=>fvCaseViewAvailable(c)),oldCase=preserve?caseSel.value:'';
+  fcExtraSetOptionMarkup(caseSel,loaded.map(c=>'<option value="'+fcEsc(c.id)+'">'+fcEsc(c.name)+(fvCaseViewAvailable(c)?'':' · '+fcUi('3D unavailable','3D no disponible'))+'</option>').join('')||'<option value="">—</option>',!preserve);
+  if(oldCase&&loaded.some(c=>String(c.id)===String(oldCase)))caseSel.value=oldCase;
+  else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
+  else if(eligible.length)caseSel.value=String(eligible[0].id);
   const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>',!preserve);if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
   const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
   const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
