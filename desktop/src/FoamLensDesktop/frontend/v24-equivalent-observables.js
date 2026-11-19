@@ -113,7 +113,10 @@ function eoSampleGrid(a,b,maxPoints=20000){
     if(!unique.length||Math.abs(t-unique.at(-1))>1e-10*Math.max(1,Math.abs(t)))unique.push(t)
   }
   const requested=eoNumber(maxPoints);
-  const limit=Number.isSafeInteger(requested)&&requested>=2&&requested<=100000?requested:20000;
+  if(!Number.isSafeInteger(requested)||requested<2||requested>100000)
+    return{valid:false,reason:'Maximum source time knots must be an integer from 2 to 100000.',
+      range:[lo,hi],times:[],sourcePoints:unique.length,notDecimated:true};
+  const limit=requested;
   if(unique.length>limit)return{
     valid:false,reason:'Source time grid has '+unique.length+
       ' genuine knots, exceeding '+limit+' allowed. Increase the explicit maximum (up to 100000); no measured frames were silently discarded.',
