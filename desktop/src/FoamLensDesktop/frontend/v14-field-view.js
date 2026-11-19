@@ -656,9 +656,18 @@ function fvRegionChoice(c,region){
     // Default to the selected physical region only; users can explicitly
     // enable the other region(s) in the Physical regions menu.
     const primaryRegion=document.getElementById('fvRegion')?.value||'';
-    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
+    const initial=fields.find(g=>g.name===primaryName)||fields[0];
+    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,
+      field:initial?.name||'',storage:String(initial?.storage||''),component:'value',
+      opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
   }
   const choice=fvRegionScene.choices.get(region);
+  if(!choice.storage&&choice.field){
+    // Older saved choices have only a field name. Recover association
+    // automatically only when that original OpenFOAM name is unambiguous.
+    const same=fvFieldGroups(c,region,null,'any').filter(g=>g.name===choice.field&&['scalar','vector'].includes(g.kind));
+    if(same.length===1)choice.storage=String(same[0].storage||'')
+  }
   // Selecting a different primary region should NOT leave the old primary
   // overlaid merely because its old implicit default was "visible".
   if(!choice.visibilityExplicit)choice.visible=region===(document.getElementById('fvRegion')?.value||'');
@@ -741,7 +750,7 @@ function fvRegionRefreshList(){
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
     const choice=fvRegionChoice(c,region),active=region===primary,fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),layer=fvRegionScene.layers.get(region);
-    const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'"'+(choice.field===g.name?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
+    const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'" data-storage="'+fvEsc(g.storage||'')+'"'+(choice.field===g.name&&String(choice.storage||'')===String(g.storage||'')?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
     const label=fvEsc(region||flUi('Default region','Región predeterminada'));
     return '<div class="fvRegionRow" data-fv-region-row="'+fvEsc(region)+'"><label class="inlineCheck"><input type="checkbox" data-fv-region-visible '+(choice.visible?'checked ':'')+'aria-label="'+label+'">'+label+'</label>'+
       '<span class="fvRegionStatus">'+(active?flUi('Primary / probe region','Región principal / sonda'):(layer?.status||flUi('Waiting for physical-time frame','Esperando frame de tiempo físico')))+'</span>'+
@@ -796,7 +805,7 @@ function fvRegionInstallEvents(){
       fvRegionUpdateLegend(region);fvRender();return
     }
     if(e.target.matches('[data-fv-region-field]')){
-      choice.field=e.target.value;choice.component='value';
+      choice.field=e.target.value;choice.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'');choice.component='value';
       fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
     }
   });
@@ -1387,7 +1396,10 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
     // Keep per-region selector layout stable during timestep I/O. The old
     // Loading status and legend replacement moved the canvas mid-frame.
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
-    const selected=groups.find(g=>g.name===choice.field);
+    const candidates=groups.filter(g=>g.name===choice.field&&
+      (!choice.storage||String(g.storage||'')===String(choice.storage)));
+    const selected=candidates.length===1?candidates[0]:null;
+    // Ambiguous same-named fields cannot be silently displayed as physical T/U.
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
     try{
       let data=null,mesh=null,status='';
