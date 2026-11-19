@@ -218,11 +218,11 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
     'fcReconcilePhysicalChoice','document','fcVisualsSynced','fcUi','fcEsc',
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
-    'fvRender','fcRender','fcExtraRender','fvRegionPalette',
+    'fvRender','fcRender','fcExtraRender','fvRegionPalette','fvAssociationLabel',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
     physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},()=>true,
-    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis');
+    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis',storage=>storage||'volume');
 
   menu('3');
   assert.equal(holder.renders,1);
