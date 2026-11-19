@@ -31,6 +31,42 @@ function cubeMesh(){
   }
 }
 
+test('Granada: Field B/C/D resolves original volume/surface/point associations unambiguously',()=>{
+  const a=source.indexOf('function fcSelectedAssociation(select){');
+  const b=source.indexOf('function fcCurrentFieldStorage(',a);
+  const c=source.indexOf('function fcFieldFor(c,region,name,association=');
+  const d=source.indexOf('function fcVectorFor(',c);
+  assert(a>=0&&b>a&&c>=0&&d>c,'Original association-aware Field resolution missing');
+  const groups=[
+    {name:'T',kind:'scalar',storage:'volume',times:[0,1]},
+    {name:'T',kind:'scalar',storage:'surface',times:[0,2]},
+    {name:'U',kind:'vector',storage:'point',times:[0,3]}
+  ];
+  const selector={selectedOptions:[{value:'T',dataset:{storage:'surface'}}]};
+  const fields=new Function('fvFieldGroups',source.slice(a,b)+source.slice(c,d)+
+    ';return {fcSelectedAssociation,fcFieldFor}')(()=>groups);
+  assert.strictEqual(fields.fcSelectedAssociation(selector),'surface');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T'),null,
+    'Duplicate original field names cannot silently select the first association');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','volume'),groups[0]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','surface'),groups[1]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','U'),groups[2]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','point'),null);
+  assert.strictEqual(fields.fcSelectedAssociation({}),'');
+
+  const bSelector=source.slice(source.indexOf('function fcRefreshSelectors('),
+    source.indexOf('function fcMvp(',source.indexOf('function fcRefreshSelectors(')));
+  const cdSelector=source.slice(source.indexOf('function fcExtraRefreshSelectors('),
+    source.indexOf('function fcExtraInvalidateFrame(',source.indexOf('function fcExtraRefreshSelectors(')));
+  for(const controls of [bSelector,cdSelector]){
+    assert(controls.includes('data-storage='),'Actual source associations must exist in original option nodes');
+    assert(controls.includes('option.dataset?.storage===oldAssociation'),
+      'A selected face/point field must survive original catalogue refresh');
+  }
+  assert(source.includes("field+(association?'|'+association:'')"),
+    'Independent physical-time source key must include association identity');
+});
+
 test('missing physical time is never coerced to measured t=0 in 3D synchronization',()=>{
   assert(Number.isNaN(api.fcNearestTime([null,'',false,9.8],null)));
   assert.equal(api.fcCloseTime(null,0),false);
