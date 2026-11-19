@@ -4,7 +4,7 @@
 
 ## 47% estimado — 7/15 hitos
 
-**Fase:** PR #371 en borrador, sin merge ni publicación. El corte anterior validó 9/9 suites con Windows+QuickCup; en la revisión científica actual los tests #151 y #152 ya aprobaron sobre el nuevo código, pero el gate nativo del último SHA aún requiere cierre. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
+**Fase:** PR #371 en borrador, sin merge ni publicación. El corte anterior terminó con Windows+QuickCup aprobados. La revisión actual corrigió evidencia científica 2D/3D y exige comprobaciones nuevas del código final; casos B14/C14, validación experimental, interfaz instalada, release y aceptación del propietario continúan pendientes. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
 
 **Antes de esta auditoría:** sin línea base (`null`). **Ahora:** 47% (7/15); es la **primera medición**, no un salto porcentual causado por esta sesión.
 
@@ -34,6 +34,13 @@ La revisión actual reparó dos condiciones científicamente peligrosas del mód
 - **Thermocouple Mapping (#152):** el cálculo RMSE/MAE/bias antes admitía temperaturas físicas inferiores a **0 K**, incluyendo datos fuera de la ventana de tiempo visible. Ahora se comprueba el conjunto completo de temperaturas originales en sus unidades (K o °C) antes de comparar y, adicionalmente, los valores Kelvin convertidos en cada punto. Las pruebas cubren 0 K válido, valores bajo cero K en ambas fuentes, y registros defectuosos fuera del solapamiento. No se inventaron sensores ni datos simulados. [CI científica #152](https://github.com/michels-lab/FoamLens/actions/runs/44616431528).
 - **Evidencia y límite:** los dos suites científicos del commit de código `b0c13d0a` fueron aprobados en GitHub, y la ejecución directa V8 sobre código fuente original pasó. El resto del conjunto debe verificarse en el SHA final del PR; **no declarar completada la validación experimental ni el instalador** por estas correcciones.
 - **Porcentaje:** se mantiene **47% (7/15)**. El hito 12 exige datos originales y aprobación física de energía/termopares; no está completado aunque sus módulos sean más fiables.
+
+## Granada 2D ↔ 3D del 19-nov-2026 — 47% → 47% (sin cerrar hito 13)
+
+- **Antes:** el selector de máximo 1500 nudos de tiempo creaba un informe `valid=true` tras *eliminar silenciosamente muestras originales*. Un pico breve podía no entrar en la muestra, sesgando RMSE/MAE y los extremos. **Ahora:** se usa la unión **completa** de todos los tiempos físicos originales, sin extrapolar ni decimar, hasta un máximo explícito editable de 2 a **100 000** (predeterminado 20 000). Si la fuente rebasa el máximo, se bloquean las métricas y se informa del número verdadero de nudos; no se inventa una curva parcial.
+- **SI y fuente:** se distinguen `mW`/`MW`, `mJ`/`MJ`, `mPa`/`MPa` (factores de 10⁹); se bloquean prefijos mal escritos. Los IDs de casos `null`, booleanos y hexadecimales no se vuelven un `caseId=0` falso. Temperaturas K imposibles se rechazan aunque aparezcan fuera de la superposición temporal.
+- **Evidencia:** suite original `desktop/tests/equivalent-observables.test.cjs` ampliada con **1601 mediciones y un pico original de amplitud 10 000**, errores de SI, casos ausentes y límites explícitos inválidos. Suite completa ejecutada directamente con la fuente nueva en V8: **PASS**. [Pruebas actuales del PR #371](https://github.com/michels-lab/FoamLens/pull/371/checks). **Separación de pruebas:** sólo los workflows terminados en verde en el SHA actual se consideran aprobados; Windows/QuickCup y aceptación del propietario deben verificarse de forma independiente.
+- **Hito 13 sigue pendiente:** comparar observables físicamente equivalentes exige corroborar geometría, condiciones y muestreos reales del usuario; una curva con unidades alineadas NO certifica equivalencia 2D/3D. **47% sigue siendo 7/15**, no porcentaje de cambios por esta sesión.
 
 ## Qué se ha comprobado y qué no
 
