@@ -1,4 +1,8 @@
-# FoamLens Desktop v1.8.20
+# FoamLens Desktop v1.8.21
+
+**FoamLens Desktop v1.8.21 with frontend v51** is the **stable source candidate (not yet published)** repairing the v1.8.20 empty A/B windows and partial B case dropdown. The real imported OpenFOAM case catalog is visible in every B/C/D selector, including cases not yet 3D-ready; unavailable cases are labeled, never silently hidden. On initial empty Field mount, A loads a genuinely ready imported case rather than allowing an unready Data-context case to block its own physical time and the linked B/C/D scenes. Explicit later per-view selections, genuine measured times, original meshes, numerical fields and GPU renderer ownership remain unchanged. [PR #370](https://github.com/michels-lab/FoamLens/pull/370). Public Setup/Portable requires protected QuickCup, Windows runtime/visual and independent downloaded SHA-256 release audit.
+
+## Previous published stable: v1.8.20
 
 **FoamLens Desktop v1.8.20 with frontend v51** is the [**published stable Windows release**](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.20). Exact source [`d1d1d9bd`](https://github.com/michels-lab/FoamLens/commit/d1d1d9bd65a8d5cba3963ca155e6961dfdeb0d22) passed [QuickCup B13/VTK, scientific field and camera tests, native 64-bit Setup/Portable processes and visual release gate](https://github.com/michels-lab/FoamLens/actions/runs/44405665755) (**SUCCESS**). [Independent public binary/sidecar download and SHA-256 integrity audit](https://github.com/michels-lab/FoamLens/actions/runs/44407597973) also **SUCCESS**. Includes the F2 Size-grip fourth-child layout correction, native select baseline/44px height fix, wrapped B caption and statistics, true A/B–C/D row alignment and derived Δ view ordering. Preserves measured OpenFOAM fields, no fabricated physics. Owner physical Windows display aesthetics/125–200% DPI are not certified by CI; unsigned GitHub binaries may trigger SmartScreen.
 

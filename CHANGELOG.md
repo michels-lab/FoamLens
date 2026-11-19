@@ -1,3 +1,11 @@
+## Desktop v1.8.21 — Original 3D case-catalog and initial canvas recovery (2026-11-19)
+
+- **Regression reported by owner:** v1.8.20 could enter Field with A on a B14 case lacking any 3D-ready region/field/timestamp; linked B/C/D then remained blank even if their own selected case contained loaded 3D fields. The user's older v1.8.18 screenshot demonstrated that actual OpenFOAM mesh rendering worked when both sources were ready.
+- **A initialization:** on first mount with no rendered scene, use a genuinely renderable imported case if the current Data-context selection has incomplete mesh/field inventories. Do not overwrite already active A meshes or explicit later case changes. If no case has real compatible 3D mesh and fields, keep a scientifically truthful unavailable state.
+- **B/C/D catalog:** show every loaded original case in each independent per-view Case picker; annotate entries with unavailable 3D inventories instead of secretly filtering them out. Preserve explicit choices when the selected case is still indexing, and refresh its original field/component catalog as data arrive.
+- **Validation:** original source-backed B/C/D multi-case regression and empty-A recovery tests, Field playback/camera and multi-DPI regressions, QuickCup and native Windows Setup/Portable/visual gates required. No fake frames, interpolation or data; no CSS changes in this operation.
+- **Distribution:** v1.8.21 is source candidate until exact version-matched public Setup/Portable plus checksum audit pass. Owner's actual B14/C14 data and physical Windows visual acceptance remain separate from fixture CI.
+
 ## Desktop v1.8.20 — FoamLens native Field A/B/C/D text and layout repair (2026-11-18)
 
 - **Owner visual evidence:** fixed-height 30px native OpenFOAM metal/mold selectors displayed gradRho, Magnitude, T and Value with cut-off letter baselines. Region dropdown controls now have auto height and at least 44px with explicit text line boxes, two proportional columns and no overflow scrollbars.

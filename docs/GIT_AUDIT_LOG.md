@@ -1,3 +1,10 @@
+## 2026-11-19 — FoamLens v1.8.21 3D-case recovery source candidate
+
+- Owner v1.8.20 Windows images: A B14 selected with no Region/Field; B C14 gradRho selected but no measured t because linked to A, so both GPU canvases blank. A separate older v1.8.18 screenshot shows actual working C14 geometry, axes and physical legends. The case-catalog UI omitted not-yet-ready cases from B/C/D, incorrectly conflating import with eligibility.
+- Original code fixes: B/C/D list all imported cases with accurately annotated 3D readiness, preserve their authoritative independent selectors and changes, and recover initial empty A to a genuinely ready original OpenFOAM case if available. No original numerical field values, source timestamps or solver data changed; no more visual CSS churn during this correction.
+- New production-function regression includes unready B14, ready C14/D14, B/C/D full catalogs, preserved explicit case choice and late indexing; A mount selects first real ready case when current selection has no 3D inventory. Existing QuickCup and native Windows tested on branch PR #370 before source release candidate creation.
+- UNPUBLISHED pending exact-source protected Windows QuickCup, Setup/Portable process and visual provenance gates and independent public SHA-256 verification. The owner’s installed real cases and preferred interface are not certified by CI screenshots.
+
 ## 2026-11-18 — FoamLens v1.8.20 PUBLISHED: native Field screenshot corrections confirmed in public Windows binaries
 
 - **Release v1.8.20 verified:** [Setup and Portable Windows executables with both SHA-256 sidecar files](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.20), non-prerelease/non-draft, published from exact source `d1d1d9bd65a8d5cba3963ca155e6961dfdeb0d22`. Previous source-only candidate entry below predates the completed release.
