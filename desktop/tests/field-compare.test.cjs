@@ -90,6 +90,34 @@ test('3D comparison labels are HTML-escaped if the host helper is unavailable or
     'An existing original host escaper remains authoritative');
 });
 
+test('Granada: Field scientific synchronization fails closed for unsupported policies',()=>{
+  for(const invalid of ['legacy','',null,false,'interpolated','Nearest']){
+    const result=api.fcResolveTime([0,9.8],3.2,invalid);
+    assert.strictEqual(result.ok,false,'Unsupported policy must not silently select nearest: '+String(invalid));
+    assert(Number.isNaN(result.time));
+  }
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'nearest').ok,true);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'exact').ok,false);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'interpolate').interpolated,true);
+});
+
+test('Granada: interpolated 3D field cannot silently drop incompatible source cells',()=>{
+  assert.deepStrictEqual(api.fcInterpolateValues([1000,1010],[900],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],[900,910],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],null,.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([],[],.5),[]);
+  const equal=api.fcInterpolateValues([1000,1010],[900,910],.5);
+  assert.deepStrictEqual(equal,[950,960]);
+  assert(Number.isNaN(api.fcInterpolateValues([1000],[900],false)[0]));
+});
+
+test('Granada: inverted physical scalar bounds do not enter the shared 3D legend',()=>{
+  assert.deepStrictEqual(api.fcSharedRange({min:900,max:300},{min:310,max:830}),
+    {valid:true,min:310,max:830});
+  assert.equal(api.fcSharedRange({min:900,max:300},{min:500,max:100}).valid,false);
+  assert.equal(api.fcSharedRange({min:0,max:0},null).valid,true);
+});
+
 test('3D compare ignores missing samples, malformed interpolation and invalid geometry',()=>{
   const interpolated=api.fcInterpolateValues([null,10],[0,20],.5);
   assert(Number.isNaN(interpolated[0]));near(interpolated[1],15);
