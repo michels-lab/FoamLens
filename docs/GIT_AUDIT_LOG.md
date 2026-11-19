@@ -1,3 +1,12 @@
+## 2026-11-19 — FoamLens v1.8.21 PUBLISHED: recovered original Field case catalog and initially empty 3D canvas
+
+- [Published public stable v1.8.21 release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21) is non-draft/non-RC, with original 64-bit Windows Setup/Portable and two SHA-256 sidecars. Exact source commit: `98f5a95895a402b9f52783c555b5dbbeebea3268` from PR #370.
+- [Protected native Windows scientific QuickCup, installed/Portable smoke, multi-size visual and publication run](https://github.com/michels-lab/FoamLens/actions/runs/44594122858) **SUCCESS**. [Independent audit of actual public Windows PE downloads and their SHA-256 sidecars](https://github.com/michels-lab/FoamLens/actions/runs/44595471470) **SUCCESS**.
+- User-provided v1.8.18 screenshot had live C14 original 3D meshes; v1.8.20 screenshot had A B14 with empty Region/Field/time and B C14 without rendering because linked B requires A's measured time. Source fix restores initial A to a genuinely-ready loaded case if available, and enumerates all original imported cases in B/C/D even if not yet renderable. New regression exercises incomplete B14 and ready C14/D14 with preserved independent user choice and late field indexing.
+- No source OpenFOAM values, simulation results, interpolation, camera math or styling CSS changed. Lack of physical 3D inventory remains scientifically unavailable, not a fabricated frame.
+- **Scope of verification:** CI does not independently prove B14's user's exact imported mesh/field contents, final 125–200% physical monitor/DPI aesthetics or owner approval. Historical G37 stress workflow is still pinned to original v1.8.10 and failed its own version drift precondition on this v1.8.21 main; that job did not run six native cycles for the current version and must not be claimed as a passed stress test. The protected release and independently audited public binaries DID pass.
+- Candidate entry below predates these passed publication checks.
+
 ## 2026-11-19 — FoamLens v1.8.21 3D-case recovery source candidate
 
 - Owner v1.8.20 Windows images: A B14 selected with no Region/Field; B C14 gradRho selected but no measured t because linked to A, so both GPU canvases blank. A separate older v1.8.18 screenshot shows actual working C14 geometry, axes and physical legends. The case-catalog UI omitted not-yet-ready cases from B/C/D, incorrectly conflating import with eligibility.
