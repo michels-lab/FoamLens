@@ -1541,6 +1541,22 @@ function fwPromoteViewCaseSelectors(){
   return primaryReady
 }
 
+// The Data context may currently point at a case with an incomplete polyMesh
+// or field inventory. On FIRST mount of an empty 3D canvas choose a genuinely
+// ready imported case, not an empty placeholder that blocks linked B/C/D time.
+// Explicit later case changes remain the original user's selection.
+function fwRecoverInitialRenderableCase(){
+  const select=document.getElementById('fvCase');
+  if(!select||typeof fvCaseViewAvailable!=='function'||typeof fvRefreshSelectors!=='function')return false;
+  if(fvState?.mesh||Number.isFinite(fvState?.time))return false;
+  const loaded=Array.isArray(cases)?cases:[],
+    selected=loaded.find(c=>String(c?.id)===String(select.value)),
+    firstReady=loaded.find(c=>fvCaseViewAvailable(c));
+  if(!firstReady||fvCaseViewAvailable(selected))return false;
+  select.value=String(firstReady.id);
+  fvRefreshSelectors(true);
+  return true
+}
 function fwMount3D(){
   if(!fwFieldReady())return false;
   const panel=document.getElementById('fieldViewPanel'),controls=document.getElementById('fieldViewControls');if(!panel||!controls)return false;
@@ -1552,7 +1568,7 @@ function fwMount3D(){
   fwBindSyncViewControls();
   const animation=document.getElementById('fvAnimationPanel');if(animation)animation.classList.add('fwAnimationConfig');
   document.getElementById('workspace')?.classList.remove('fvMode');
-  try{fvRefreshSelectors(true)}catch{};fwInstall3DProfilePicker();fwRefresh3DProfileSourceViews();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
+  try{fvRefreshSelectors(true);fwRecoverInitialRenderableCase()}catch{};fwInstall3DProfilePicker();fwRefresh3DProfileSourceViews();if(!fvState.mesh)setTimeout(()=>fvLoadSelection().catch?.(()=>{}),0);fwScheduleRender({threeD:true});setTimeout(fwUpdate3DProfileOverlay,0);return true
 }
 function fwEnter(){
   if(!fwState.active)fwState.dataViewBeforeField=typeof currentDataView==='string'?currentDataView:'timeseries';
