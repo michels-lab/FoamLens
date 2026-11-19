@@ -557,7 +557,7 @@ function fwProfileTsSelection(slot){
     field:document.getElementById('fwTsProfileField'+slot)?.value||'',
     line:document.getElementById('fwTsProfileLine'+slot)?.value||'',
     // An untouched/cleared coordinate is NOT physical position zero.
-    position:fwMeasuredNumber(document.getElementById('fwTsProfilePosition'+slot)?.value)
+    position:fwPhysicalTime(document.getElementById('fwTsProfilePosition'+slot)?.value)
   }
 }
 function fwRefreshProfileTsSlot(slot,preserve=true){
