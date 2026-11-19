@@ -75,8 +75,8 @@ test('Granada: two-source spatial Time Series uses genuine decimal positions, no
     field.indexOf('function fwRefreshProbeTsSlot('));
   assert(refresh.includes('position:preserve?fwMeasuredNumber(pos.value):NaN'),
     'Empty or reset selectors may not silently keep zero as a measured coordinate');
-  assert(refresh.includes('.map(fwMeasuredNumber).filter(Number.isFinite)'),
-    'Domain must derive only from actual finite spatial coordinates');
+  assert(refresh.includes('fwProfilePositionBounds(filtered)'),
+    'Domain must derive from measured spatial coordinates with stack-safe original bounds');
 });
 
 test('Granada: spatial Time Series clears stale sample position when profile source disappears',()=>{
@@ -117,6 +117,24 @@ test('Granada: spatial Time Series clears stale sample position when profile sou
   assert.strictEqual(Number(pos.min),0.02);
   assert.strictEqual(Number(pos.max),0.03);
   assert(Math.abs(Number(pos.value)-0.025)<1e-12);
+});
+
+test('Granada: physical profile bounds handle 300k original coordinates and reject absent values',()=>{
+  const begin=field.indexOf('function fwProfilePositionBounds(rows){');
+  const end=field.indexOf('function fwRefreshProfileTsSlot(',begin);
+  assert(begin>0&&end>begin,'Original stack-safe coordinate domain function missing');
+  const numberBegin=field.indexOf('function fwMeasuredNumber(raw){');
+  const numberEnd=field.indexOf('function fwPhysicalTime(raw){',numberBegin);
+  const measured=new Function(field.slice(numberBegin,numberEnd)+';return fwMeasuredNumber')();
+  const bounds=new Function('fwMeasuredNumber',field.slice(begin,end)+
+    ';return fwProfilePositionBounds')(measured);
+  assert.deepStrictEqual(bounds([]),{min:NaN,max:NaN,count:0});
+  const originals=new Float64Array(300000).fill(0.02);
+  originals[0]=0;originals[299999]=0.03;
+  assert.deepStrictEqual(bounds([{t:originals},{t:[null,'','0x10','0.01',false,NaN]}]),
+    {min:0,max:0.03,count:300001});
+  assert.deepStrictEqual(bounds([{t:[null,'',false,'0x10']}]),
+    {min:NaN,max:NaN,count:0});
 });
 
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
