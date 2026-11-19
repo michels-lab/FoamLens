@@ -54,6 +54,31 @@ test('Granada: navigating away preserves an explicitly requested same-case A/B c
     'Exit must still stop playback and restore real controls');
 });
 
+test('Granada: two-source spatial Time Series uses genuine decimal positions, not implicit zero',()=>{
+  const begin=field.indexOf('function fwMeasuredNumber(raw){');
+  const end=field.indexOf('function fwPhysicalTime(raw){',begin);
+  const positionStart=field.indexOf('function fwProfileTsSelection(slot){');
+  const positionEnd=field.indexOf('function fwRefreshProfileTsSlot(',positionStart);
+  assert(begin>0&&end>begin&&positionStart>0&&positionEnd>positionStart);
+  const number=new Function(field.slice(begin,end)+';return fwMeasuredNumber')();
+  let raw='';
+  const doc={getElementById:id=>id==='fwTsProfilePosition1'?{value:raw}:{value:'physical-source'}};
+  const select=new Function('document','fwMeasuredNumber',
+    field.slice(positionStart,positionEnd)+';return fwProfileTsSelection')(doc,number);
+  for(const bad of ['', ' ', '0x10','0b1','1e999','NaN','Infinity']){
+    raw=bad;
+    assert(Number.isNaN(select(1).position),'Invalid spatial coordinate may not be silently sampled: '+bad);
+  }
+  raw='0';assert.strictEqual(select(1).position,0,'Original coordinate zero is valid');
+  raw='2e-2';assert.strictEqual(select(1).position,0.02,'Real 20 mm in meters is valid');
+  const refresh=field.slice(field.indexOf('function fwRefreshProfileTsSlot('),
+    field.indexOf('function fwRefreshProbeTsSlot('));
+  assert(refresh.includes('position:preserve?fwMeasuredNumber(pos.value):NaN'),
+    'Empty or reset selectors may not silently keep zero as a measured coordinate');
+  assert(refresh.includes('.map(fwMeasuredNumber).filter(Number.isFinite)'),
+    'Domain must derive only from actual finite spatial coordinates');
+});
+
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
   for(const token of [
     'aria-controls="fwControlsDrawer"',
