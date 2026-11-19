@@ -23,17 +23,35 @@ function eoPairs(series){
   return unique
 }
 function eoUnitInfo(unit){
-  const orig=String(unit||'').trim(),lower=orig.toLowerCase().replace(/[\s°]/g,'');
-  if(['k','kelvin'].includes(lower))return{canonical:'K',transform:y=>y};
-  if(['c','degc','celsius','℃'].includes(lower))return{canonical:'K',transform:y=>y+273.15};
-  if(['pa','pascal','pascals'].includes(lower))return{canonical:'Pa',transform:y=>y};
-  if(lower==='kpa')return{canonical:'Pa',transform:y=>y*1000};
-  if(lower==='mpa')return{canonical:'Pa',transform:y=>y*1e6};
-  if(lower==='w')return{canonical:'W',transform:y=>y};
-  if(lower==='kw')return{canonical:'W',transform:y=>y*1000};
-  if(['-','1','dimensionless'].includes(lower))return{canonical:'1',transform:y=>y};
-  if(!orig)return null;
-  return{canonical:orig,transform:y=>y}
+  // SI prefixes are CASE-SENSITIVE. Previously toLowerCase() interpreted
+  // mW (milliequivalent) as MW, and mPa as MPa: a billion-fold error.
+  if(typeof unit!=='string'||!unit.trim())return null;
+  const orig=unit.trim(),lower=orig.toLowerCase(),u=(canonical,factor=1,offset=0)=>
+    ({canonical,transform:y=>y*factor+offset});
+  const explicit={
+    K:['K',1],Pa:['Pa',1],mPa:['Pa',1e-3],kPa:['Pa',1e3],MPa:['Pa',1e6],
+    W:['W',1],mW:['W',1e-3],kW:['W',1e3],MW:['W',1e6],
+    J:['J',1],mJ:['J',1e-3],kJ:['J',1e3],MJ:['J',1e6]
+  };
+  if(Object.prototype.hasOwnProperty.call(explicit,orig)){
+    const [unitCanonical,factor]=explicit[orig];return u(unitCanonical,factor)
+  }
+  if(lower==='kelvin')return u('K');
+  if(['°c','c','degc','celsius','℃'].includes(lower))return u('K',1,273.15);
+  if(['pascal','pascals'].includes(lower))return u('Pa');
+  if(['-','1','dimensionless'].includes(lower))return u('1');
+  // Do not silently treat a misspelled prefix or letter casing as an
+  // unrelated exact unit: e.g. "mw" could be milliwatts OR megawatts.
+  if(['k','pa','mpa','kpa','w','mw','kw','j','mj','kj'].includes(lower))return null;
+  // Unrecognized scientific units are comparable only when their original
+  // exact unit label is identical; NEVER infer a conversion factor.
+  return u(orig)
+}
+function eoCaseId(value){
+  if(typeof value!=='number'&&typeof value!=='string')return null;
+  const text=String(value).trim();
+  if(!/^(?:0|[1-9]\d*)$/.test(text))return null;
+  const id=Number(text);return Number.isSafeInteger(id)?id:null
 }
 function eoCompleteMeasuredTimes(s){
   // A comparison claiming measured source provenance must never discard a
@@ -53,7 +71,7 @@ function eoCompleteMeasuredTimes(s){
   return true
 }
 function eoEligible(s){
-  return !!s&&!s.derived&&s.datasetType==='timeseries'&&Number.isFinite(Number(s.caseId))&&
+  return !!s&&!s.derived&&s.datasetType==='timeseries'&&eoCaseId(s.caseId)!==null&&
     eoCompleteMeasuredTimes(s)&&eoPairs(s).length>=2&&
     !!String(s.sourcePath||s.fileName||'').trim()&&!!String(s.field?.unit||'').trim()
 }
@@ -80,24 +98,33 @@ function eoInterpolate(pairs,t){
   if(dt<=0)return null;
   return{value:left.y+(right.y-left.y)*(t-left.t)/dt,status:'interpolated',support:[left.t,right.t]}
 }
-function eoSampleGrid(a,b,maxPoints=1500){
+function eoSampleGrid(a,b,maxPoints=20000){
+  // Scientific metrics must include every unique source-time knot. The old
+  // "maximum samples" silently DECIMATED original times, deleting brief
+  // recalescence/temperature peaks and reporting biased RMSE as complete.
+  if(!a?.length||!b?.length)return{valid:false,reason:'Missing original source times',range:null,times:[]};
   const lo=Math.max(a[0].t,b[0].t),hi=Math.min(a.at(-1).t,b.at(-1).t);
-  if(!(hi>lo))return{valid:false,range:null,times:[]};
-  const raw=[lo,hi,...a.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t),...b.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t)].sort((x,y)=>x-y);
-  const unique=[];for(const t of raw){if(!unique.length||Math.abs(t-unique.at(-1))>1e-10*Math.max(1,Math.abs(t)))unique.push(t)}
-  const n=Math.max(2,Math.min(1500,Math.floor(Number(maxPoints)||1500)));
-  if(unique.length<=n)return{valid:true,range:[lo,hi],times:unique};
-  const sampled=[];for(let i=0;i<n;i++){
-    const t=unique[Math.round(i*(unique.length-1)/(n-1))];
-    if(!sampled.length||t!==sampled.at(-1))sampled.push(t)
+  if(!(hi>lo))return{valid:false,reason:'No physical-time overlap',range:null,times:[]};
+  const raw=[lo,hi,...a.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t),
+    ...b.filter(p=>p.t>=lo&&p.t<=hi).map(p=>p.t)].sort((x,y)=>x-y);
+  const unique=[];for(const t of raw){
+    if(!unique.length||Math.abs(t-unique.at(-1))>1e-10*Math.max(1,Math.abs(t)))unique.push(t)
   }
-  return{valid:true,range:[lo,hi],times:sampled}
+  const requested=eoNumber(maxPoints);
+  const limit=Number.isSafeInteger(requested)&&requested>=2&&requested<=100000?requested:20000;
+  if(unique.length>limit)return{
+    valid:false,reason:'Source time grid has '+unique.length+
+      ' genuine knots, exceeding '+limit+' allowed. Increase the explicit maximum (up to 100000); no measured frames were silently discarded.',
+    range:[lo,hi],times:[],sourcePoints:unique.length,maxPoints:limit,notDecimated:true
+  };
+  return{valid:true,range:[lo,hi],times:unique,
+    sourcePoints:unique.length,maxPoints:limit,notDecimated:true}
 }
 function eoCompare(a,b,config={}){
   // Config describes user-provided observational equivalence, NOT 2D/3D certification.
   const reject=(reason)=>({valid:false,reason,rows:[],metrics:null,noExtrapolation:true});
   if(!eoEligible(a)||!eoEligible(b))return reject('Two distinct, measured, unit-labeled time series with complete unique physical times and at least two samples are required. Missing/nonfinite/duplicate original measurements cannot be silently discarded.');
-  if(Number(a.caseId)===Number(b.caseId))return reject('Select two distinct OpenFOAM cases; do not relabel one case as 2D and 3D.');
+  if(eoCaseId(a.caseId)===eoCaseId(b.caseId))return reject('Select two distinct OpenFOAM cases; do not relabel one case as 2D and 3D.');
   const dA=eoDescriptor(a),dB=eoDescriptor(b);
   if(dA.dimensions&&dB.dimensions&&dA.dimensions!==dB.dimensions)
     return reject('Incompatible OpenFOAM dimensional exponents; cannot compare.');
@@ -109,13 +136,14 @@ function eoCompare(a,b,config={}){
     return reject('Explicit observable, spatial equivalence basis, location/mapping note and user confirmation are required.');
   if(mapping.length<8)return reject('Provide a meaningful physical location or normalization/mapping statement.');
   const pA=eoPairs(a),pB=eoPairs(b),grid=eoSampleGrid(pA,pB,config.maxPoints);
-  if(!grid.valid||grid.times.length<2)return reject('No shared physical-time interval with two distinct times; no extrapolation permitted.');
+  if(!grid.valid||grid.times.length<2)return reject(grid.reason||'No shared physical-time interval with two distinct times; no extrapolation permitted.');
   const rows=[];
   for(const t of grid.times){
     const x=eoInterpolate(pA,t),y=eoInterpolate(pB,t);
     if(!x||!y)continue;
     const value2d=uA.transform(x.value),value3d=uB.transform(y.value),delta=value3d-value2d;
-    if(![value2d,value3d,delta].every(Number.isFinite))continue;
+    if(![value2d,value3d,delta].every(Number.isFinite))return reject('Non-finite transformed physical measurement; scientific comparison cannot omit this knot.');
+    if(uA.canonical==='K'&&(value2d<0||value3d<0))return reject('A source temperature is below physical absolute zero (0 K).');
     rows.push({t,value2d,value3d,delta,source2d:x.status,source3d:y.status,support2d:x.support,support3d:y.support})
   }
   if(rows.length<2)return reject('Insufficient finite paired measurements within physical-time overlap.');
@@ -199,7 +227,7 @@ function eoRun(){
   }
   const config={observable:eoSelect('eoObservable').value,basis:eoSelect('eoBasis').value,
     mapping:eoSelect('eoMapping').value,confirmed:eoSelect('eoConfirm').checked,
-    maxPoints:Number(eoSelect('eoPoints').value)};
+    maxPoints:eoNumber(eoSelect('eoPoints').value)};
   const result=eoCompare({...a,datasetType:'timeseries'},{...b,datasetType:'timeseries'},config);
   const area=eoSelect('eoReport'),status=eoSelect('eoStatus');
   if(!result.valid){area.textContent='';status.textContent=result.reason;eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;return}
@@ -239,7 +267,11 @@ function eoDraw(result){
   canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
   const c=canvas.getContext('2d');if(!c)return;c.setTransform(ratio,0,0,ratio,0,0);
   c.clearRect(0,0,width,height);const pad={l:53,t:24,r:14,b:34};
-  let vMin=Math.min(...result.rows.flatMap(r=>[r.value2d,r.value3d])),vMax=Math.max(...result.rows.flatMap(r=>[r.value2d,r.value3d]));
+  let vMin=Infinity,vMax=-Infinity;
+  for(const row of result.rows){for(const value of [row.value2d,row.value3d]){
+    if(value<vMin)vMin=value;
+    if(value>vMax)vMax=value
+  }}
   if(vMax===vMin){vMin-=1;vMax+=1}
   const tMin=result.range.start,tMax=result.range.end,px=t=>pad.l+(t-tMin)/(tMax-tMin)*(width-pad.l-pad.r),
     py=v=>pad.t+(vMax-v)/(vMax-vMin)*(height-pad.t-pad.b);
@@ -288,7 +320,7 @@ function eoInstall(){
   '<div class="extGrid2"><div class="field"><label>Equivalent observable / physical quantity</label><input id="eoObservable" placeholder="e.g. T at thermocouple TC-1" maxlength="120"></div>'+
   '<div class="field"><label>Spatial basis</label><select id="eoBasis"><option value="">Select explicit basis</option><option value="physical-point">Matched physical sensor/location</option><option value="regional-mean">Equivalent region-averaged observable</option><option value="normalized-integral">Comparable normalized integral</option><option value="explicit-other">Other explicitly justified observable</option></select></div></div>'+
   '<div class="field"><label>Physical location, region, normalisation and/or mapping justification</label><textarea id="eoMapping" rows="2" maxlength="900" placeholder="For example: both probe points correspond to X=0.12, Y=0.05, Z=midplane in meters; describe any coordinate projection"></textarea></div>'+
-  '<div class="extGrid2"><div class="field"><label>Maximum time samples (union inside overlap)</label><input id="eoPoints" type="number" min="2" max="1500" value="800"></div>'+
+  '<div class="extGrid2"><div class="field"><label>Maximum source time knots (no automatic decimation; raise limit for full data)</label><input id="eoPoints" type="number" min="2" max="100000" value="20000"></div>'+
   '<label class="extCheck"><input type="checkbox" id="eoConfirm"> I verified that both observations represent a physically equivalent quantity and spatial basis.</label></div>'+
   '<div class="extActions"><button id="eoRefresh" type="button" class="btn soft">Refresh measured sources</button>'+
   '<button id="eoCalculate" type="button" class="btn primary">Compare measured curves</button>'+
