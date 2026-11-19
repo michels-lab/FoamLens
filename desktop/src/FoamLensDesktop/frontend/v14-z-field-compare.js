@@ -174,7 +174,7 @@ function fcIndependentTimeSource(state){
   const b=state===fcState,c=b?fcCase():fcExtraCase(state),
     region=b?fcRegion():fcExtraRegion(state),
     field=b?fcCurrentFieldName():fcExtraField(state),
-    association=b?fcCurrentFieldStorage():fcExtraFieldStorage(state),
+    association=b?(typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():''):(typeof fcExtraFieldStorage==='function'?fcExtraFieldStorage(state):''),
     group=c&&field?fcFieldFor(c,region,field,association):null,
     times=[...new Set((group?.times||[]).map(fcPhysicalNumber)
       .filter(Number.isFinite))].sort((a,b)=>a-b);
@@ -1663,7 +1663,7 @@ function fcApplySharedRange(compareRange){
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
-  const group=fcFieldFor(selected,region,field,fcCurrentFieldStorage());if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
+  const group=fcFieldFor(selected,region,field,typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():'');if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const loaded=await fcLoadSynchronizedData(selected,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==fcState.seq)return;if(!loaded.ok)throw new Error(fcUi('Comparison time could not be resolved.','No se pudo resolver el tiempo de comparación.'));const data=loaded,sync=loaded.sync;
@@ -1801,7 +1801,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   // handlers that just refreshed selectors must not do the same work twice.
   if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
-  const group=fcFieldFor(c,region,field,fcExtraFieldStorage(state));if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
+  const group=fcFieldFor(c,region,field,typeof fcExtraFieldStorage==='function'?fcExtraFieldStorage(state):'');if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
     if(!data.ok){
