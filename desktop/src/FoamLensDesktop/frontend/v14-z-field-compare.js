@@ -23,6 +23,8 @@ function fcTimeBracket(values,target){
   return span>0?{ok:true,lower,upper,weight:(t-lower)/span,exact:false}:{ok:false,lower,upper,weight:NaN,exact:false}
 }
 function fcResolveTime(values,target,mode='nearest'){
+  // Never silently reinterpret an unsupported synchronization policy as nearest.
+  if(!['nearest','exact','interpolate'].includes(mode))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false,reason:'unsupported-sync-mode'};
   const t=fcPhysicalNumber(target),near=fcNearestTime(values,t);if(!Number.isFinite(near))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false};
   const exact=fcCloseTime(near,t);
   if(mode==='exact')return exact?{ok:true,time:near,delta:near-t,exact:true,interpolated:false}:{ok:false,time:near,delta:near-t,exact:false,interpolated:false};
@@ -34,12 +36,15 @@ function fcResolveTime(values,target,mode='nearest'){
   return{ok:true,time:near,delta:near-t,exact,interpolated:false}
 }
 function fcInterpolateValues(a,b,weight){
-  const n=Math.min(a?.length||0,b?.length||0),rawWeight=fcPhysicalNumber(weight),w=Math.max(0,Math.min(1,rawWeight)),out=new Array(n);
+  // A truncated interpolation cannot represent the original OpenFOAM field.
+  // Caller must explicitly reject incompatible source arrays, not infer missing cells.
+  if(!a||!b||!Number.isSafeInteger(a.length)||a.length!==b.length)return[];
+  const n=a.length,rawWeight=fcPhysicalNumber(weight),w=Math.max(0,Math.min(1,rawWeight)),out=new Array(n);
   for(let i=0;i<n;i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);out[i]=Number.isFinite(rawWeight)&&rawWeight>=0&&rawWeight<=1&&Number.isFinite(x)&&Number.isFinite(y)?x+(y-x)*w:NaN}
   return out
 }
 function fcSharedRange(a,b){
-  const valid=x=>x&&Number.isFinite(fcPhysicalNumber(x.min))&&Number.isFinite(fcPhysicalNumber(x.max));
+  const valid=x=>x&&Number.isFinite(fcPhysicalNumber(x.min))&&Number.isFinite(fcPhysicalNumber(x.max))&&fcPhysicalNumber(x.min)<=fcPhysicalNumber(x.max);
   if(!valid(a)&&!valid(b))return{valid:false,min:NaN,max:NaN};
   if(!valid(a))return{valid:true,min:fcPhysicalNumber(b.min),max:fcPhysicalNumber(b.max)};
   if(!valid(b))return{valid:true,min:fcPhysicalNumber(a.min),max:fcPhysicalNumber(a.max)};
