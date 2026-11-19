@@ -200,6 +200,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert(status.textContent.includes('measured physical time'));
 });
 
+test('Granada: matching metadata without real mesh topology must not certify 3D interpolation',()=>{
+  const a=cubeMesh(),b=JSON.parse(JSON.stringify(a));
+  delete a.points;delete b.points;
+  assert.deepStrictEqual(api.fcMeshesEquivalent(a,b),{ok:false,reason:'point-geometry-mismatch'});
+  const keys=['faceOffsets','facePoints','owners','neighbours'];
+  for(const key of keys){
+    const m1=cubeMesh(),m2=cubeMesh();
+    delete m1[key];delete m2[key];
+    assert.strictEqual(api.fcMeshesEquivalent(m1,m2).ok,false,'Both missing '+key+' cannot prove same topology');
+  }
+  assert.strictEqual(api.fcArrayEqualNumeric(undefined,undefined),false);
+  assert.strictEqual(api.fcArrayEqualNumeric([],[]),true,'Explicit empty neighbour lists remain valid');
+});
+
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
   const a=cubeMesh(),b=JSON.parse(JSON.stringify(a)),r=api.fcMeshesEquivalent(a,b);
   assert.equal(r.ok,true);assert.equal(r.reason,'equivalent');
