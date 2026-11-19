@@ -1623,9 +1623,9 @@ function fwLeave(){
     try{updateDatasetViewUI()}catch(e){console.error(e)}
   }
   fwState.dataViewBeforeField=null;
-  // Explicit comparison belongs to the current Field session when only
-  // one case exists. Re-entering Field must not resurrect an old B pane.
-  if(typeof cases!=='undefined'&&Array.isArray(cases)&&cases.filter(c=>typeof fvCaseViewAvailable==='function'&&fvCaseViewAvailable(c)).length<=1)fwState.compareUserRequested=false
+  // Preserve an explicitly requested same-case A/B comparison across navigation.
+  // A-only remains the default through compareUserRequested=false; only the
+  // actual user disable action may turn an already-requested comparison off.
 }
 function fwInstall(){
   if(fwState.installed)return;fwState.installed=true;fwCreateSurface();
