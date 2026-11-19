@@ -61,6 +61,17 @@ for(const [label,sourceRecord,experimentalRecord] of [
   assert.deepStrictEqual(check.rows,[]);
 }
 
+// A bad measurement before/after overlap is still corrupt input evidence,
+// even if the time-window plot would have excluded that particular row.
+const offWindowExperiment=api.compare(sim,{...exp,t:[-2,0,1,2,3],
+  y:[-1,299,309,319,300]},config);
+assert.equal(offWindowExperiment.valid,false,'Unphysical source data outside overlap must fail closed');
+assert.match(offWindowExperiment.reason,/below absolute zero/);
+const offWindowSimulation=api.compare(history('a',point,[-1,0,1,2,3],
+  [-1,300,310,320,330]),exp,config);
+assert.equal(offWindowSimulation.valid,false,'Unphysical simulation source outside overlap must fail closed');
+assert.match(offWindowSimulation.reason,/below absolute zero/);
+
 const shifted=api.compare(sim,{...exp,t:[-1,0,1]}, {...config,timeShiftS:1});
 assert(shifted.valid,shifted.reason);
 assert.equal(shifted.commonTime.start,0);
