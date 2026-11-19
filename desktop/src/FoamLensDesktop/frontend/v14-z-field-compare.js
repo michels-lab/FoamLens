@@ -64,7 +64,9 @@ function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){
 }
 
 function fcArrayEqualNumeric(a,b,tol=0){
-  if((a?.length||0)!==(b?.length||0))return false;
+  // Missing topology on BOTH source meshes cannot establish equivalence.
+  if(a==null||b==null||!Number.isSafeInteger(a.length)||!Number.isSafeInteger(b.length))return false;
+  if(a.length!==b.length)return false;
   for(let i=0;i<(a?.length||0);i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x-y)>tol)return false}
   return true
 }
