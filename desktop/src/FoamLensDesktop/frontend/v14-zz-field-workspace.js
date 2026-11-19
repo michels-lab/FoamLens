@@ -35,9 +35,13 @@ function fwMeasuredNumber(raw){
 function fwPhysicalTime(raw){
   const resolver=window.FoamLensRegionScene?.physicalTime;
   if(typeof resolver==='function')return resolver(raw);
-  // When the native scene helper is unavailable, allow only measured decimal/
-  // scientific OpenFOAM times, not JavaScript hexadecimal/whitespace coercions.
-  return fwMeasuredNumber(raw)
+  // The fallback is deliberately self-contained: Field/Time Series controllers
+  // also evaluate this production function independently. Reject JS coercions
+  // of missing values or hex/octal labels into apparently measured seconds.
+  if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
+  if(typeof raw!=='string'||!raw.trim()||
+    !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw.trim()))return NaN;
+  const time=Number(raw);return Number.isFinite(time)?time:NaN
 }
 function fwPhysicalTimes(raw){
   return [...new Set((raw||[]).map(fwPhysicalTime).filter(Number.isFinite))].sort((a,b)=>a-b)
