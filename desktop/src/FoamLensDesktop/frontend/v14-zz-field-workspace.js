@@ -566,7 +566,12 @@ function fwProfilePositionBounds(rows){
   // the JavaScript call stack before a selector can show its physical domain.
   let min=Infinity,max=-Infinity,count=0;
   for(const row of rows||[]){
-    for(const raw of row?.t||[]){
+    const coordinates=row?.t;
+    // A string such as "0.02" is NOT a spatial coordinate array: iterating
+    // its characters would invent points at 0 and 2 meters.
+    if(!Array.isArray(coordinates)&&
+      !(ArrayBuffer.isView(coordinates)&&Number.isSafeInteger(coordinates.length)))continue;
+    for(const raw of coordinates){
       const value=fwMeasuredNumber(raw);
       if(!Number.isFinite(value))continue;
       if(value<min)min=value;
