@@ -29,14 +29,15 @@ function fwUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fwMeasuredNumber(raw){
   // Missing OpenFOAM measurements must not be coerced into measured zero.
   if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
-  if(typeof raw!=='string'||!raw.trim())return NaN;
+  if(typeof raw!=='string'||!raw.trim()||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw.trim()))return NaN;
   const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN
 }
 function fwPhysicalTime(raw){
   const resolver=window.FoamLensRegionScene?.physicalTime;
   if(typeof resolver==='function')return resolver(raw);
-  if((typeof raw!=='number'&&typeof raw!=='string')||String(raw).trim()==='')return NaN;
-  const time=Number(raw);return Number.isFinite(time)?time:NaN
+  // When the native scene helper is unavailable, allow only measured decimal/
+  // scientific OpenFOAM times, not JavaScript hexadecimal/whitespace coercions.
+  return fwMeasuredNumber(raw)
 }
 function fwPhysicalTimes(raw){
   return [...new Set((raw||[]).map(fwPhysicalTime).filter(Number.isFinite))].sort((a,b)=>a-b)
