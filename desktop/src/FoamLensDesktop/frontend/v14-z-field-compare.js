@@ -1281,11 +1281,23 @@ function fcPhysicalMenu(view){
     const forwardPrimary=(kind,value)=>{
       if(region!==ctx.primary)return false;
       const source=document.getElementById(fcViewSourceMap(view)?.[kind]);
-      if(!source||![...source.options].some(option=>option.value===value))return false;
+      if(!source)return false;
+      const matches=[...source.options].filter(option=>option.value===value);
+      if(!matches.length)return false;
+      // A same-named source field can exist on cells and faces. Updating
+      // only select.value silently chooses the first matching association,
+      // even if the overlay's user selected the other one.
+      if(kind==='Field'&&matches.length>1){
+        const exact=matches.find(option=>String(option.dataset?.storage||'')===String(ch.storage||''));
+        if(!exact)return false;
+        exact.selected=true
+      }else if(kind==='Field'&&ch.storage&&matches[0]?.dataset?.storage&&
+        String(matches[0].dataset.storage)!==String(ch.storage))return false;
+      else source.value=value;
       // The selected region is owned by the ORIGINAL A/B/C/D Field controller.
       // Forward changes through its real selection listener: changing the
       // overlay metadata alone never updates the primary GPU field.
-      source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}));
+      source.dispatchEvent(new Event('change',{bubbles:true}));
       return true
     };
     row.querySelector('[data-fc-region-field]').onchange=e=>{
