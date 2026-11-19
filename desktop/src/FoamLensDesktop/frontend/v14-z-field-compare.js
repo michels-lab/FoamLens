@@ -174,10 +174,11 @@ function fcIndependentTimeSource(state){
   const b=state===fcState,c=b?fcCase():fcExtraCase(state),
     region=b?fcRegion():fcExtraRegion(state),
     field=b?fcCurrentFieldName():fcExtraField(state),
-    group=c&&field?fcFieldFor(c,region,field):null,
+    association=b?fcCurrentFieldStorage():fcExtraFieldStorage(state),
+    group=c&&field?fcFieldFor(c,region,field,association):null,
     times=[...new Set((group?.times||[]).map(fcPhysicalNumber)
       .filter(Number.isFinite))].sort((a,b)=>a-b);
-  return{key:c?String(c.id)+'|'+region+'|'+field:'',times}
+  return{key:c?String(c.id)+'|'+region+'|'+field+(association?'|'+association:''):'',times}
 }
 function fcIndependentTimeTarget(state){
   if(fcTimesLinked())return fcPrimaryPhysicalTime();
@@ -1469,9 +1470,18 @@ function fcCase(){return cases.find(c=>String(c.id)===String(document.getElement
 function fcRegion(){return document.getElementById('fcRegion')?.value||''}
 function fcMode(){return document.getElementById('fcSync')?.value||'nearest'}
 function fcCurrentFieldName(){return document.getElementById('fcField')?.value||fvState.fieldName||document.getElementById('fvField')?.value||''}
+function fcSelectedAssociation(select){return String(select?.selectedOptions?.[0]?.dataset?.storage||'')}
+function fcCurrentFieldStorage(){return fcSelectedAssociation(document.getElementById('fcField'))}
 function fcCurrentComponent(){return document.getElementById('fcComponent')?.value||fvState.component||document.getElementById('fvComponent')?.value||'value'}
 function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===String(region||'')&&g.complete)}
-function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
+function fcFieldFor(c,region,name,association=''){
+  // Never silently load "T" from a face field when the user chose "T"
+  // in a volume (or vice versa). OpenFOAM association is source identity.
+  const matching=fvFieldGroups(c,region,null,'any').filter(g=>
+    g.name===name&&['scalar','vector'].includes(g.kind)&&
+    (!association||String(g.storage||'')===association));
+  return matching.length===1?matching[0]:null
+}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
 function fcClearRenderer(){
   // Disable/invalid states must supersede any old asynchronous B load.
@@ -1522,9 +1532,13 @@ function fcRefreshSelectors(preserve=true){
   const selectedCase=fcCase(),oldRegion=preserve?regionSel.value:'',regions=typeof fvReadyRegions==='function'?fvReadyRegions(selectedCase):fvMeshes(selectedCase).filter(g=>g.complete).map(g=>String(g.region||''));
   fcExtraSetOptionMarkup(regionSel,regions.length?regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(regions.includes(oldRegion))regionSel.value=oldRegion;else{const primaryRegion=document.getElementById('fvRegion')?.value||'';if(regions.includes(primaryRegion))regionSel.value=primaryRegion}
-  const region=regionSel.value||'',groups=fvFieldGroups(selectedCase,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';
-  fcExtraSetOptionMarkup(fieldSel,groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>',!preserve);
-  if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else{const primaryField=document.getElementById('fvField')?.value||'';if(groups.some(g=>g.name===primaryField))fieldSel.value=primaryField}
+  const region=regionSel.value||'',groups=fvFieldGroups(selectedCase,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'',oldAssociation=preserve?fcSelectedAssociation(fieldSel):'';
+  fcExtraSetOptionMarkup(fieldSel,groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>',!preserve);
+  if(oldField&&groups.some(g=>g.name===oldField&&(!oldAssociation||String(g.storage||'')===oldAssociation))){
+    fieldSel.value=oldField;
+    if(oldAssociation)for(const option of fieldSel.options||[])
+      if(option.value===oldField&&option.dataset?.storage===oldAssociation){option.selected=true;break}
+  }else{const primaryField=document.getElementById('fvField')?.value||'';if(groups.some(g=>g.name===primaryField))fieldSel.value=primaryField}
   const group=groups.find(g=>g.name===fieldSel.value),components=typeof fvFieldComponents==='function'?fvFieldComponents(group):[{v:'value',t:fcUi('Value','Valor')}],oldComp=preserve?componentSel.value:'';
   fcExtraSetOptionMarkup(componentSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))componentSel.value=oldComp;else{const primaryComp=document.getElementById('fvComponent')?.value||'value';if(components.some(o=>o.v===primaryComp))componentSel.value=primaryComp}
   const badge=document.getElementById('fcBadge');if(badge)badge.textContent=eligible.length?eligible.length+' '+fcUi('3D cases','casos 3D'):fcUi('no 3D case','sin caso 3D');
@@ -1649,7 +1663,7 @@ function fcApplySharedRange(compareRange){
 async function fcRefreshFrame(){
   fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
-  const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
+  const group=fcFieldFor(selected,region,field,fcCurrentFieldStorage());if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const loaded=await fcLoadSynchronizedData(selected,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==fcState.seq)return;if(!loaded.ok)throw new Error(fcUi('Comparison time could not be resolved.','No se pudo resolver el tiempo de comparación.'));const data=loaded,sync=loaded.sync;
@@ -1680,6 +1694,7 @@ function fcExtraDom(id,suffix){return document.getElementById('fcExtra'+id+suffi
 function fcExtraCase(state){return (cases||[]).find(c=>String(c.id)===String(fcExtraDom(state.id,'Case')?.value||state.caseId||''))}
 function fcExtraRegion(state){return fcExtraDom(state.id,'Region')?.value||state.region||''}
 function fcExtraField(state){return fcExtraDom(state.id,'Field')?.value||state.fieldName||''}
+function fcExtraFieldStorage(state){return fcSelectedAssociation(fcExtraDom(state.id,'Field'))}
 function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value||state.component||'value'}
 function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state,exportSize=null){
@@ -1767,7 +1782,7 @@ function fcExtraRefreshSelectors(state,preserve=true){
   else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
   else if(eligible.length)caseSel.value=String(eligible[0].id);
   const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>',!preserve);if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
-  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
+  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'',oldAssociation=preserve?fcSelectedAssociation(fieldSel):'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField&&(!oldAssociation||String(g.storage||'')===oldAssociation))){fieldSel.value=oldField;if(oldAssociation)for(const option of fieldSel.options||[])if(option.value===oldField&&option.dataset?.storage===oldAssociation){option.selected=true;break}}else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
   const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
   state.caseId=caseSel.value;state.region=regionSel.value;state.fieldName=fieldSel.value;state.component=compSel.value;fcExtraUpdateLabel(state);fcScheduleToolbarSync()
 }
@@ -1786,7 +1801,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   // handlers that just refreshed selectors must not do the same work twice.
   if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
-  const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
+  const group=fcFieldFor(c,region,field,fcExtraFieldStorage(state));if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
     if(!data.ok){
