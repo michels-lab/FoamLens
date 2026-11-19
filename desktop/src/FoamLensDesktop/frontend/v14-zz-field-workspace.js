@@ -557,18 +557,18 @@ function fwProfileTsSelection(slot){
     field:document.getElementById('fwTsProfileField'+slot)?.value||'',
     line:document.getElementById('fwTsProfileLine'+slot)?.value||'',
     // An untouched/cleared coordinate is NOT physical position zero.
-    position:(()=>{const raw=String(document.getElementById('fwTsProfilePosition'+slot)?.value??'').trim();return raw===''?NaN:Number(raw)})()
+    position:fwMeasuredNumber(document.getElementById('fwTsProfilePosition'+slot)?.value)
   }
 }
 function fwRefreshProfileTsSlot(slot,preserve=true){
   const cSel=document.getElementById('fwTsProfileCase'+slot),setSel=document.getElementById('fwTsProfileSet'+slot),fieldSel=document.getElementById('fwTsProfileField'+slot),lineSel=document.getElementById('fwTsProfileLine'+slot),pos=document.getElementById('fwTsProfilePosition'+slot),meta=document.getElementById('fwTsProfileMeta'+slot);if(!cSel||!setSel||!fieldSel||!lineSel||!pos)return;
-  const all=fwProfileSeriesAll(),old={caseId:preserve?cSel.value:'',set:preserve?setSel.value:'',field:preserve?fieldSel.value:'',line:preserve?lineSel.value:'',position:Number(pos.value)};
+  const all=fwProfileSeriesAll(),old={caseId:preserve?cSel.value:'',set:preserve?setSel.value:'',field:preserve?fieldSel.value:'',line:preserve?lineSel.value:'',position:preserve?fwMeasuredNumber(pos.value):NaN};
   const caseMap=new Map();for(const s of all){const key=String(s.caseId??s.caseName??'');if(!caseMap.has(key))caseMap.set(key,{id:key,name:caseById(s.caseId)?.name||s.caseName||fwUi('Case','Caso')})}
   const caseOpts=[...caseMap.values()];cSel.innerHTML=caseOpts.map(x=>'<option value="'+fvEsc(x.id)+'">'+fvEsc(x.name)+'</option>').join('')||'<option value="">—</option>';if(caseOpts.some(x=>x.id===old.caseId))cSel.value=old.caseId;
   let filtered=all.filter(s=>String(s.caseId??s.caseName??'')===String(cSel.value));const sets=[...new Set(filtered.map(s=>s.profileOutputPath||'').filter(Boolean))].sort();setSel.innerHTML=sets.map(x=>'<option value="'+fvEsc(x)+'">'+fvEsc(x)+'</option>').join('')||'<option value="">—</option>';if(sets.includes(old.set))setSel.value=old.set;
   filtered=filtered.filter(s=>(s.profileOutputPath||'')===setSel.value);const fields=[...new Map(filtered.map(s=>[s.field?.canonical,s.field])).values()].filter(Boolean);fieldSel.innerHTML=fields.map(x=>'<option value="'+fvEsc(x.canonical)+'">'+fvEsc(localizedFieldName(x))+(x.unit&&x.unit!=='-'?' ['+fvEsc(x.unit)+']':'')+'</option>').join('')||'<option value="">—</option>';if(fields.some(x=>x.canonical===old.field))fieldSel.value=old.field;
   filtered=filtered.filter(s=>s.field?.canonical===fieldSel.value);const lines=[...new Map(filtered.map(s=>[s.profileLineKey||s.profileLine||'',s.profileLine||s.profileLineKey||'Profile'])).entries()];lineSel.innerHTML=lines.map(([k,v])=>'<option value="'+fvEsc(k)+'">'+fvEsc(v)+'</option>').join('')||'<option value="">—</option>';if(lines.some(([k])=>k===old.line))lineSel.value=old.line;
-  filtered=filtered.filter(s=>(s.profileLineKey||s.profileLine||'')===lineSel.value);const xs=filtered.flatMap(s=>(s.t||[]).map(Number).filter(Number.isFinite)),xmin=xs.length?Math.min(...xs):NaN,xmax=xs.length?Math.max(...xs):NaN,unit=filtered.find(s=>s.profileCoordUnit)?.profileCoordUnit||'';
+  filtered=filtered.filter(s=>(s.profileLineKey||s.profileLine||'')===lineSel.value);const xs=filtered.flatMap(s=>(s.t||[]).map(fwMeasuredNumber).filter(Number.isFinite)),xmin=xs.length?Math.min(...xs):NaN,xmax=xs.length?Math.max(...xs):NaN,unit=filtered.find(s=>s.profileCoordUnit)?.profileCoordUnit||'';
   if(Number.isFinite(xmin)&&Number.isFinite(xmax)){pos.min=String(xmin);pos.max=String(xmax);pos.step='any';if(Number.isFinite(old.position)&&old.position>=xmin&&old.position<=xmax)pos.value=String(old.position);else pos.value=String((xmin+xmax)/2)}
   if(meta)meta.textContent=Number.isFinite(xmin)?fwUi('Available position','Posición disponible')+': '+fvFmt(xmin)+'–'+fvFmt(xmax)+(unit?' '+unit:''):'—'
 }
