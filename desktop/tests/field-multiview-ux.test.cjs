@@ -71,7 +71,11 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     helperStart=source.indexOf('function fcExtraSetOptionMarkup('),
     helperEnd=source.indexOf('function fcExtraRefreshSelectors(',helperStart);
   assert(bBegin>0&&bEnd>bBegin&&helperStart>0&&helperEnd>helperStart);
-  const helper=source.slice(helperStart,helperEnd);
+  const associationStart=source.indexOf('function fcSelectedAssociation(select){'),
+    associationEnd=source.indexOf('function fcCurrentFieldStorage(',associationStart);
+  assert(associationStart>=0&&associationEnd>associationStart,
+    'Original per-view source association helper must be independently testable');
+  const helper=source.slice(associationStart,associationEnd)+source.slice(helperStart,helperEnd);
   const ready=c=>!!c?.ready,regions=c=>c?.ready?c.regions:[],
     fieldGroups=(c,r)=>c?.groups?.[r]||[],
     meshes=c=>(c?.regions||[]).map(region=>({region,complete:true})),
