@@ -560,6 +560,22 @@ function fwProfileTsSelection(slot){
     position:fwPhysicalTime(document.getElementById('fwTsProfilePosition'+slot)?.value)
   }
 }
+function fwProfilePositionBounds(rows){
+  // Scientific coordinate extrema belong to the original loaded profiles.
+  // Avoid Math.min(...coordinates): large genuine OpenFOAM profiles overflow
+  // the JavaScript call stack before a selector can show its physical domain.
+  let min=Infinity,max=-Infinity,count=0;
+  for(const row of rows||[]){
+    for(const raw of row?.t||[]){
+      const value=fwMeasuredNumber(raw);
+      if(!Number.isFinite(value))continue;
+      if(value<min)min=value;
+      if(value>max)max=value;
+      count++
+    }
+  }
+  return count?{min,max,count}:{min:NaN,max:NaN,count:0}
+}
 function fwRefreshProfileTsSlot(slot,preserve=true){
   const cSel=document.getElementById('fwTsProfileCase'+slot),setSel=document.getElementById('fwTsProfileSet'+slot),fieldSel=document.getElementById('fwTsProfileField'+slot),lineSel=document.getElementById('fwTsProfileLine'+slot),pos=document.getElementById('fwTsProfilePosition'+slot),meta=document.getElementById('fwTsProfileMeta'+slot);if(!cSel||!setSel||!fieldSel||!lineSel||!pos)return;
   const all=fwProfileSeriesAll(),old={caseId:preserve?cSel.value:'',set:preserve?setSel.value:'',field:preserve?fieldSel.value:'',line:preserve?lineSel.value:'',position:preserve?fwMeasuredNumber(pos.value):NaN};
@@ -568,7 +584,7 @@ function fwRefreshProfileTsSlot(slot,preserve=true){
   let filtered=all.filter(s=>String(s.caseId??s.caseName??'')===String(cSel.value));const sets=[...new Set(filtered.map(s=>s.profileOutputPath||'').filter(Boolean))].sort();setSel.innerHTML=sets.map(x=>'<option value="'+fvEsc(x)+'">'+fvEsc(x)+'</option>').join('')||'<option value="">—</option>';if(sets.includes(old.set))setSel.value=old.set;
   filtered=filtered.filter(s=>(s.profileOutputPath||'')===setSel.value);const fields=[...new Map(filtered.map(s=>[s.field?.canonical,s.field])).values()].filter(Boolean);fieldSel.innerHTML=fields.map(x=>'<option value="'+fvEsc(x.canonical)+'">'+fvEsc(localizedFieldName(x))+(x.unit&&x.unit!=='-'?' ['+fvEsc(x.unit)+']':'')+'</option>').join('')||'<option value="">—</option>';if(fields.some(x=>x.canonical===old.field))fieldSel.value=old.field;
   filtered=filtered.filter(s=>s.field?.canonical===fieldSel.value);const lines=[...new Map(filtered.map(s=>[s.profileLineKey||s.profileLine||'',s.profileLine||s.profileLineKey||'Profile'])).entries()];lineSel.innerHTML=lines.map(([k,v])=>'<option value="'+fvEsc(k)+'">'+fvEsc(v)+'</option>').join('')||'<option value="">—</option>';if(lines.some(([k])=>k===old.line))lineSel.value=old.line;
-  filtered=filtered.filter(s=>(s.profileLineKey||s.profileLine||'')===lineSel.value);const xs=filtered.flatMap(s=>(s.t||[]).map(fwMeasuredNumber).filter(Number.isFinite)),xmin=xs.length?Math.min(...xs):NaN,xmax=xs.length?Math.max(...xs):NaN,unit=filtered.find(s=>s.profileCoordUnit)?.profileCoordUnit||'';
+  filtered=filtered.filter(s=>(s.profileLineKey||s.profileLine||'')===lineSel.value);const bounds=fwProfilePositionBounds(filtered),xmin=bounds.min,xmax=bounds.max,unit=filtered.find(s=>s.profileCoordUnit)?.profileCoordUnit||'';
   if(Number.isFinite(xmin)&&Number.isFinite(xmax)){
     pos.disabled=false;pos.min=String(xmin);pos.max=String(xmax);pos.step='any';
     if(Number.isFinite(old.position)&&old.position>=xmin&&old.position<=xmax)pos.value=String(old.position);
