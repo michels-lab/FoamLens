@@ -2062,6 +2062,10 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(menu.includes('ch.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage'),
     'Changing a same-named metal/mold field must preserve selected face/point association');
   assert(menu.includes('ch?.storage'),'Toolbar render key must track association changes');
+  assert(menu.includes("if(kind==='Field'&&matches.length>1)")&&
+    menu.includes("exact.selected=true")&&
+    menu.includes("option.dataset?.storage||'')===String(ch.storage||'')"),
+    'Primary-field forwarding must select the correct face/volume option rather than first same-name entry');
   const physicalLoad=source.slice(source.indexOf('async function fcPhysicalLoad('),
     source.indexOf('function fcPhysicalRenderLayers(',source.indexOf('async function fcPhysicalLoad(')));
   assert(physicalLoad.includes('matching=fields.filter(')&&physicalLoad.includes('matching.length===1?matching[0]:null'),
