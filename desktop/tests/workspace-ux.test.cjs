@@ -16,6 +16,23 @@ const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
 
+test('Granada: Field physical-time fallback only accepts real decimal/scientific measurements',()=>{
+  const begin=field.indexOf('function fwMeasuredNumber(raw){');
+  const end=field.indexOf('function fwPhysicalTimes(raw){',begin);
+  assert(begin>=0&&end>begin,'Original Field physical-time parser not found');
+  const code=field.slice(begin,end);
+  const numeric=new Function('window',code+';return{fwMeasuredNumber,fwPhysicalTime}')({FoamLensRegionScene:null});
+  for(const v of [null,undefined,'',false,true,'0x10','0b10','0o7','Infinity','NaN','  ',[],{}]){
+    assert(Number.isNaN(numeric.fwMeasuredNumber(v)),'Invalid sample: '+String(v));
+    assert(Number.isNaN(numeric.fwPhysicalTime(v)),'Invalid physical time: '+String(v));
+  }
+  assert.strictEqual(numeric.fwPhysicalTime('0'),0,'Real OpenFOAM zero remains valid');
+  assert.strictEqual(numeric.fwPhysicalTime(' 9.8e-3 '),0.0098);
+  assert.strictEqual(numeric.fwMeasuredNumber('-273.15'),-273.15);
+  const sourceBound=new Function('window',code+';return fwPhysicalTime')({FoamLensRegionScene:{physicalTime:()=>12.5}});
+  assert.strictEqual(sourceBound('raw'),12.5,'Native source-owned resolver stays authoritative');
+});
+
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
   for(const token of [
     'aria-controls="fwControlsDrawer"',
