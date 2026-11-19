@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 validado con 9/9 suites incluida Windows/QuickCup; falta integración, pruebas reales con dueño y release",
+  "phase": "PR #371 borrador: fuentes Field/Analysis corregidas; suites científicas #151/#152 PASS en SHA de código, CI Windows/QuickCup del último SHA sin cierre aún; faltan aceptación física e integración/release",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "f265927dbf3d13861e507b3b781113e308f08f12",
+  "source_head_sha": "b0c13d0a771060ae4f2edd2a0a77459cb8e37f7f",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -148,6 +148,23 @@
       ]
     }
   ],
-  "next_step": "Aceptar B14/C14 y UI física A-D, contrastar módulos científicos pendientes; luego integrar con CI exact-main, verificar Setup+Portable+hash y publicar final estable.",
-  "limitations": "47% de 15 hitos de esta ruta integral: siete son evidencia de implementación/CI en PR draft, NO merge ni aceptación física. Rendimiento #117 pospuesto fuera del denominador."
+  "next_step": "Full HEAD native Windows and QuickCup gate; owner B14/C14 and high-DPI UX; validate scientific modules against original experiment before release.",
+  "limitations": "47%/7 of 15 unchanged. Fixing source unit/celsius integrity is not proof of user data, mesh/patch reciprocity, installed Windows or experimental calibration. PR draft, not published.",
+  "last_granada": {
+    "as_of": "2026-11-19",
+    "previous_progress_percent": 47,
+    "current_progress_percent": 47,
+    "changed_paths": [
+      "desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
+      "desktop/tests/multiregion-energy-conservation.spec.cjs",
+      "desktop/src/FoamLensDesktop/frontend/v24-thermocouple-xyz-mapping.js",
+      "desktop/tests/thermocouple-xyz-mapping.spec.cjs"
+    ],
+    "verified_direct": "V8 original source: mW/MW, mJ/MJ different by 10^9; representative original 2-region balances agree within FP; thermocouple 0 K permitted, negative K rejected including outside time overlap",
+    "scientific_ci": [
+      "https://github.com/michels-lab/FoamLens/actions/runs/44616431868",
+      "https://github.com/michels-lab/FoamLens/actions/runs/44616431528"
+    ],
+    "remaining": "8/15 owner/scientific/packaged gates still open; no release"
+  }
 }
