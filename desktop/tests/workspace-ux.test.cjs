@@ -135,6 +135,9 @@ test('Granada: physical profile bounds handle 300k original coordinates and reje
     {min:0,max:0.03,count:300001});
   assert.deepStrictEqual(bounds([{t:[null,'',false,'0x10']}]),
     {min:NaN,max:NaN,count:0});
+  assert.deepStrictEqual(bounds([{t:'0.02'},{t:1}]),
+    {min:NaN,max:NaN,count:0},
+    'Malformed textual/spurious source must not become character-by-character XYZ');
 });
 
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
