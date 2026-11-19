@@ -1,0 +1,153 @@
+{
+  "schema": "michels-lab-project-progress-v1",
+  "project": "FoamLens",
+  "repository": "michels-lab/FoamLens",
+  "role": "application",
+  "as_of": "2026-11-19",
+  "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
+  "estimate_method": "equal_weight_verified_milestones",
+  "progress_percent": 47,
+  "verified_milestones": 7,
+  "total_milestones": 15,
+  "phase": "PR #371 validado con 9/9 suites incluida Windows/QuickCup; falta integración, pruebas reales con dueño y release",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
+  "source_head_sha": "f265927dbf3d13861e507b3b781113e308f08f12",
+  "latest_verified_stable": "v1.8.21",
+  "release_hold": true,
+  "owner_physical_acceptance": false,
+  "milestones": [
+    {
+      "key": "source_catalog",
+      "description": "Catálogo de casos/regiones/campos originales visible y seleccionable en A–D; aceptación de fuente/CI",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610913852",
+        "https://github.com/michels-lab/FoamLens/pull/371"
+      ]
+    },
+    {
+      "key": "time_sync",
+      "description": "Tiempos físicos originales por vista, vinculación opcional y preservación de A/B con un mismo caso; aceptación fuente/CI",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610913883",
+        "https://github.com/michels-lab/FoamLens/pull/371"
+      ]
+    },
+    {
+      "key": "multiregion_science",
+      "description": "Capas metal/molde e interfaces geométricas verificadas con QuickCup B13 y pruebas originales; no implica dueño B14/C14",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610914211"
+      ]
+    },
+    {
+      "key": "profiles_timeseries",
+      "description": "Perfiles 2D/3D, series con fuente real y coordenadas/tiempos medidos sin ceros inventados; fuente/CI",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610914730",
+        "https://github.com/michels-lab/FoamLens/pull/371"
+      ]
+    },
+    {
+      "key": "field_difference",
+      "description": "Diferencias 3D con verificación de fuente, dimensiones, asociación, malla y rangos, más pruebas ejecutables; fuente/CI",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610914186",
+        "https://github.com/michels-lab/FoamLens/pull/371"
+      ]
+    },
+    {
+      "key": "cad_source_surface",
+      "description": "CAD STL/OBJ, ensambles/exports de regiones y guardas de coordenadas/unidades; verificación de fuente/CI (no mallado real)",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610913842",
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610913824"
+      ]
+    },
+    {
+      "key": "windows_candidate_ci",
+      "description": "Pruebas integrales y compilación Windows del PR, QuickCup y artefactos CI temporales; NO publicación ni aceptación instalada",
+      "status": "verified",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610913820",
+        "https://github.com/michels-lab/FoamLens/actions/runs/44610914211"
+      ]
+    },
+    {
+      "key": "field_owner_visual",
+      "description": "Layout A–D con 1–4 vistas, filas de igual alto, sin barras solapadas, leyendas/cotas y DPI físico 125–200% aprobados en Windows",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/149"
+      ]
+    },
+    {
+      "key": "owner_real_cases",
+      "description": "Casos originales B14/C14 del propietario cargados físicamente en A/B/C/D con campos, metal+molde, perfiles y tiempos inspeccionados",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/145"
+      ]
+    },
+    {
+      "key": "cross_workspace_owner",
+      "description": "Data/Analysis/Review/Live y 3D+perfiles simultáneos, navegación, exportación y estado íntegros en ejecutable instalado",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/177"
+      ]
+    },
+    {
+      "key": "cad_multiphasic_meshing",
+      "description": "CAD FreeCAD/OCCT real y guía de versiones Foundation/OpenFOAM.com, blockMesh/snappyHexMesh, surfaceCheck y regiones sin inventar volumen",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/148",
+        "https://github.com/michels-lab/FoamLens/issues/147"
+      ]
+    },
+    {
+      "key": "energy_thermocouple",
+      "description": "Balance energético y termopares con datos originales experimentales y verificación física de resultados",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/151",
+        "https://github.com/michels-lab/FoamLens/issues/152"
+      ]
+    },
+    {
+      "key": "front_momentum_equivalence",
+      "description": "Frente de solidificación, asociación cambio de fase/momentum y análisis 2D vs 3D con criterios físicos corroborados",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/153",
+        "https://github.com/michels-lab/FoamLens/issues/154",
+        "https://github.com/michels-lab/FoamLens/issues/156"
+      ]
+    },
+    {
+      "key": "release_exact_main",
+      "description": "Publicación única estable exact-main con Windows Setup+Portable, SHA-256, updater y auditoría real de artefactos; sin RC/Developer",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/238",
+        "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21"
+      ]
+    },
+    {
+      "key": "owner_acceptance",
+      "description": "Aceptación funcional y estética final del propietario en Windows instalado con casos reales y comprobación de actualización",
+      "status": "pending",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/issues/131"
+      ]
+    }
+  ],
+  "next_step": "Aceptar B14/C14 y UI física A-D, contrastar módulos científicos pendientes; luego integrar con CI exact-main, verificar Setup+Portable+hash y publicar final estable.",
+  "limitations": "47% de 15 hitos de esta ruta integral: siete son evidencia de implementación/CI en PR draft, NO merge ni aceptación física. Rendimiento #117 pospuesto fuera del denominador."
+}
