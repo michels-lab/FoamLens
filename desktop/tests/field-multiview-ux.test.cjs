@@ -1337,8 +1337,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'active overlay drag stays focused and is not programmatically reset');
   document.activeElement=null;fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
   assert.equal(Number(sliderOverlay.value),.25,'idle secondary slider reconciles actual alpha');
-  assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette"),
-    'volatile alpha cannot invalidate the menu and destroy the active thumb');
+  assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.storage,ch?.component,ch?.palette"),
+    'physical field association must refresh the menu, but volatile alpha cannot destroy the active thumb');
   assert(source.includes("fcSyncPhysicalOpacitySliders(holder,ctx,catalog);"),
     'unchanged real catalog must update slider value without rebuilding all controls');
   assert(source.includes("fcSetPhysicalOpacity(ctx,region,ch,e.target.value)"),
