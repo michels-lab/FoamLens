@@ -102,7 +102,8 @@ test('Granada: spatial Time Series clears stale sample position when profile sou
   const number=new Function(field.slice(begin,numericEnd)+';return fwMeasuredNumber')();
   const refresh=new Function('document','fwProfileSeriesAll','fwMeasuredNumber','caseById',
     'fwUi','fvEsc','localizedFieldName','fvFmt',
-    field.slice(start,end)+';return fwRefreshProfileTsSlot')(
+    field.slice(field.indexOf('function fwProfilePositionBounds(rows){'),end)+
+      ';return fwRefreshProfileTsSlot')(
       {getElementById:id=>nodes.get(id)||null},()=>samples,number,
       ()=>({name:'QuickCup'}),en=>en,String,x=>x.canonical,String);
   refresh(1);
