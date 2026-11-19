@@ -144,7 +144,9 @@ test('view A remembers real physical-region selections separately for each loade
 
 test('changing a physical-region field/component uses the real primary control, never a fake overlay update',()=>{
  assert(compare.includes("const source=document.getElementById(fcViewSourceMap(view)?.[kind]);"));
- assert(compare.includes("source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}))"));
+ assert(compare.includes("source.dispatchEvent(new Event('change',{bubbles:true}))"));
+ assert(compare.includes("exact.selected=true")&&compare.includes("if(kind==='Field'&&matches.length>1)"),
+   'real primary control forwards exact association, not the first of duplicate field names');
  assert(compare.includes("if(forwardPrimary('Field',ch.field))return;"));
  assert(compare.includes("if(forwardPrimary('Component',ch.component))return;"));
  assert(compare.includes('fcReconcilePhysicalChoice(ch,groups,e.target.value)'));
