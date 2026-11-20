@@ -176,7 +176,14 @@ function sfOriginalMeshDigest(mesh){
   const values=[];
   for(const key of parts){
     const data=mesh?.[key];
-    if(!Array.isArray(data)||!data.length)return null;
+    if(!Array.isArray(data))return null;
+    // A source polyMesh with one cell legitimately has ZERO internal faces
+    // and therefore an empty neighbour array. That is valid topology, not
+    // missing evidence: the original owner/faces/points still get fingerprinted.
+    if(!data.length){
+      if(key!=='neighbours')return null;
+      values.push('neighbours:empty:0');continue
+    }
     const sig=sfOriginalDigest(data);if(!sig)return null;
     values.push(key+':'+sig)
   }
