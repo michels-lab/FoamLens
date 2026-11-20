@@ -84,6 +84,20 @@ const uniform=isosurface(m,g,[0,0],.5);
 assert(uniform.ok);assert.strictEqual(uniform.triangleCount,0);assert.strictEqual(uniform.areaM2,0);
 const sourceChecksum=meshDigest(m);
 assert(sourceChecksum);
+// A physically valid single-cell OpenFOAM mesh has no internal neighbours.
+// Do not mistake [] for missing source files or delete its signed topology.
+{
+ const poly=faceIds.slice(0,6),faceOffsets=[0],facePoints=[];
+ for(const face of poly){facePoints.push(...face);faceOffsets.push(facePoints.length)}
+ const single={supported:true,points:points.slice(0,8).flat(),
+  owners:Array(poly.length).fill(0),neighbours:[],internalFaceCount:0,
+  faceOffsets,facePoints,cellCenters:[.5,.5,.5],cellCount:1};
+ const signed=volume(single);
+ assert(signed.ok,signed.reason);near(signed.total,1);
+ assert(meshDigest(single),'Empty original neighbour list must be a valid 3D source fingerprint');
+ const noFront=isosurface(single,signed,[.3],.5);
+ assert(noFront.ok,noFront.reason);assert.strictEqual(noFront.triangleCount,0);
+}
 const movingMesh=mesh();movingMesh.points[1]+=.01;
 assert.notStrictEqual(meshDigest(movingMesh),sourceChecksum,
   'Changing original polyMesh XYZ must invalidate the previous surface export');
