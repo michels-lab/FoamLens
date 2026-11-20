@@ -86,3 +86,10 @@ En esta pasada sí avanzó la **geometría 3D visible**, no sólo otro diagnóst
 **Siguiente bloque:** Aceptar B14/C14 y UI física A-D, contrastar módulos científicos pendientes; luego integrar con CI exact-main, verificar Setup+Portable+hash y publicar final estable.
 
 **Canónico:** [registro estructurado](../.michelslab/project-progress.json) · [PR #371](https://github.com/michels-lab/FoamLens/pull/371) · [bitácora](GIT_AUDIT_LOG.md) · [tablero maestro](https://github.com/michels-lab/Michel-Software-Standards/blob/main/reports/PROJECT_PROGRESS.md).
+
+## Granada 20-nov-2026 — consistencia científica de trayectorias alpha
+
+- **Corrección de fuente:** `sfFront` normaliza fracciones líquidas numéricas provenientes de registros OpenFOAM antes de detectar cruces/mesetas entre celdas; evita cruces espurios cuando `alpha` llega como decimal o notación científica textual. Commit `08a48b3a`; regresión `ead0411b`.
+- **Corrección nueva:** cada frame lleva `phaseThresholds.solidMax/liquidMin`; `sfTrajectory` rechaza mezclas de umbrales de clasificación sólido/pastoso/líquido aunque coincidieran caso, región, eje y tiempo. Commits `5290997e` y `aa8f27b7`.
+- **Verificación:** núcleos fuente ejecutados directamente y consistencia/mismatches de umbrales comprobados (PASS). La CI del SHA actual y build Windows se comprueban separadamente; no se da por aprobado un workflow todavía en curso.
+- **Avance global:** **47% (7/15)** sin cerrar hito compuesto #13: faltan B14/C14 originales, física de frente y comprobación instalada. PR #371 continúa DRAFT, sin merge/release. Rendimiento sigue pospuesto.
