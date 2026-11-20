@@ -151,35 +151,32 @@ console.log('Granada #156 PASS: real metadata, phase/momentum selection, region 
   sourceDigest:api.digest(originals),reportSignature:JSON.stringify(baseline)};
  const read=async time=>originals.find(r=>r.time===time);
  const valid=async()=>api.reaudit(bound,read,stats,()=>true);
- const verified=valid();
- // Async source readers are resolved within the original test runtime; the
- // promise is tested below without introducing artificial data-file fixtures.
- verified.then(check=>assert(check.ok,check.reason)).catch(e=>{console.error(e);process.exitCode=1});
- const reportBefore=JSON.stringify(baseline);
- // Alter two cells, keeping count and mean EXACTLY the same.
- const originalFirst=originals[0].values.slice();
- originals[0].values[0]-=10;originals[0].values[1]+=10;
- assert.equal(JSON.stringify(api.assemble(completeConfig,T,originals,stats)),reportBefore,
-   'A changed original field can retain its old mean; only a cell-level digest catches it');
- const after=valid();
- after.then(check=>{
-  assert(!check.ok,'Altered original cells must block export even when displayed means are unchanged');
-  assert.match(check.reason,/numerical source evidence changed/);
- }).catch(e=>{console.error(e);process.exitCode=1});
- originals[0].values=originalFirst;
- // Verify explicit source replacement, not only numerical differences.
- const missingPath=async time=>{
-   const row=structuredClone(originals.find(r=>r.time===time));
-   if(time===1)row.sources=[];return row
- };
- api.reaudit(bound,missingPath,stats,()=>true).then(check=>{
-   assert(!check.ok,'Removed physical source provenance must block stale export');
- }).catch(e=>{console.error(e);process.exitCode=1});
- api.reaudit(bound,read,stats,()=>false).then(check=>{
-   assert(!check.ok,'Changing case/selection during source reload must cancel export');
- }).catch(e=>{console.error(e);process.exitCode=1});
- assert(source.includes('async function peExport(){')&&
-  source.includes('await peReauditEvidence(bound,')&&
-  source.includes('sourceDigest:peEvidenceDigest(samples)'),
-  'Actual Analysis export button must re-read and verify all original cell values');
+ (async()=>{
+   const verified=await valid();
+   assert(verified.ok,verified.reason);
+   const reportBefore=JSON.stringify(baseline);
+   // Alter two original cells but KEEP the exact same mean and frame count.
+   const originalFirst=originals[0].values.slice();
+   originals[0].values[0]-=10;originals[0].values[1]+=10;
+   assert.equal(JSON.stringify(api.assemble(completeConfig,T,originals,stats)),reportBefore,
+     'An in-place source change can retain the same mean; fingerprint must detect it');
+   const after=await valid();
+   assert(!after.ok,'Mutated original cells must block export even if the mean is identical');
+   assert.match(after.reason,/numerical source evidence changed/);
+   originals[0].values=originalFirst;
+   // Re-reading can uncover missing provenance without changes to case ID or mapping.
+   const missingPath=async time=>{
+     const row=structuredClone(originals.find(r=>r.time===time));
+     if(time===1)row.sources=[];return row
+   };
+   const invalidProvenance=await api.reaudit(bound,missingPath,stats,()=>true);
+   assert(!invalidProvenance.ok,'A removed source path must invalidate the previous report');
+   const cancelled=await api.reaudit(bound,read,stats,()=>false);
+   assert(!cancelled.ok,'Changing case during source reload must cancel stale export');
+   assert(source.includes('async function peExport(){')&&
+     source.includes('await peReauditEvidence(bound,')&&
+     source.includes('sourceDigest:peEvidenceDigest(samples)'),
+     'The real Analysis export button must re-read all original cells before saving');
+   console.log('Granada Phase/Momentum source replay PASS: same-mean mutation, provenance, invalid time, cancellation');
+ })().catch(e=>{console.error(e);process.exitCode=1});
 }
