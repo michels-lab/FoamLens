@@ -3,15 +3,15 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-19",
+  "as_of": "2026-11-20",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 borrador: SCI 2D/3D original physical time union + SI/Case identity validated in source; CI latest code in review; Windows physical QA, B14/C14 and final release pending",
+  "phase": "PR #371 Granada 156: Phase/Momentum original source provenance and source-value replay passing dual-platform scientific CI; Windows native exact HEAD pending final gate; unmerged and no new release",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f",
+  "source_head_sha": "194f8c037a16642d945c5002e7f6c04ee48035d2",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -148,22 +148,32 @@
       ]
     }
   ],
-  "next_step": "Reconcile exact latest SHA CI (13 workflows including 2D/3D, native Windows/QuickCup); owner B14/C14 and DPI UI, then science physical validation/release",
-  "limitations": "47% (7/15) unchanged; CI/source correctness not equivalent to physically validated 2D vs 3D geometry or installed owner acceptance; PR draft no release",
+  "next_step": "Verify exact HEAD Windows/QuickCup packaging; test real owner B14/C14 Field A–D and high-DPI UX, complete scientific physical checks and final stable release gates",
+  "limitations": "47% (7/15) unchanged: source/CI and numeric replay cannot prove physically correct original experiments, full field/momentum model conclusions, or owner hardware acceptance. Fingerprint is a change detector, not a cryptographic authenticity proof.",
   "last_granada": {
-    "as_of": "2026-11-19",
-    "previous_progress_percent": 47,
-    "current_progress_percent": 47,
+    "as_of": "2026-11-20",
+    "source_commit": "194f8c037a16642d945c5002e7f6c04ee48035d2",
+    "progress_before": 47,
+    "progress_after": 47,
     "verified_milestones": 7,
     "total_milestones": 15,
-    "scope": "2D/3D measured observable comparison integrity (original source time union + SI + case provenance)",
-    "source_commit": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f",
-    "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-    "direct_evidence": "Source-native equivalent-observables.test.cjs passed in V8; 1601 physical-time knots and original 10000 peak retained or explicit full-source refusal",
-    "ci_evidence": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/44621424584"
+    "scope": "Phase/Momentum Analysis source-native physical-time/statistic provenance and export revalidation",
+    "changes": [
+      "Physical field rows without a real original OpenFOAM source path are excluded, never labeled source-backed",
+      "Missing/null time cannot be inferred as t=0",
+      "Export re-reads every original physical-time frame and recomputes report, validates cell-by-cell change fingerprint even if field mean unchanged",
+      "Case, selected controls, field-mapping, source inventory and report changes invalidate stale export",
+      "Keeps correct partial-data evidence and marks missing frames explicit"
     ],
-    "pending": "Full HEAD Windows, B14/C14 owner original data, experimental and 2D/3D physical equivalence, visual DPI/Setup/Portable, final release and owner acceptance",
-    "previous_granada": null
+    "tested": [
+      "Direct original JS test: normal replay valid; two changed cells with unchanged mean fail export; missing source path and invalid t mark partial",
+      "GitHub Granada 156 Phase/Momentum evidence explorer success on source SHA 194f8c037a16642d945c5002e7f6c04ee48035d2"
+    ],
+    "evidence": [
+      "https://github.com/michels-lab/FoamLens/actions/runs/44794770797",
+      "https://github.com/michels-lab/FoamLens/pull/371/checks"
+    ],
+    "gate": "Windows exact HEAD build + installed/owner B14 C14 acceptance + scientific validation still pending",
+    "previous_source_commit": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f"
   }
 }
