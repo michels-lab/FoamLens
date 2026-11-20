@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 Granada 156: Phase/Momentum original source provenance and source-value replay passing dual-platform scientific CI; Windows native exact HEAD pending final gate; unmerged and no new release",
+  "phase": "PR #371 Granada #153 new 3D source-polyMesh Front Tracker core, original volume phase and cell-center crossing, CI dual OS source PASS; exact HEAD native Windows + physical owner B14/C14 pending; no merge/release",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "194f8c037a16642d945c5002e7f6c04ee48035d2",
+  "source_head_sha": "93bc960a38cda615f42a94d0956326b7336773e8",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -148,32 +148,36 @@
       ]
     }
   ],
-  "next_step": "Verify exact HEAD Windows/QuickCup packaging; test real owner B14/C14 Field A–D and high-DPI UX, complete scientific physical checks and final stable release gates",
-  "limitations": "47% (7/15) unchanged: source/CI and numeric replay cannot prove physically correct original experiments, full field/momentum model conclusions, or owner hardware acceptance. Fingerprint is a change detector, not a cryptographic authenticity proof.",
+  "next_step": "Verify native Windows+QuickCup on exact HEAD; owner B14/C14 original 3D field/mesh acceptance, improve true 3D front iso/topology/velocity and experimentally validate",
+  "limitations": "47% (7/15) unchanged. #153 3D source core is implemented and dual-OS source CI verified, but composite milestone 13 also requires full phase/momentum/2D-3D and owner case physics. Front position is a center-to-center interpolation proxy, not exact iso-surface or normal velocity. No release.",
   "last_granada": {
     "as_of": "2026-11-20",
-    "source_commit": "194f8c037a16642d945c5002e7f6c04ee48035d2",
     "progress_before": 47,
     "progress_after": 47,
-    "verified_milestones": 7,
-    "total_milestones": 15,
-    "scope": "Phase/Momentum Analysis source-native physical-time/statistic provenance and export revalidation",
-    "changes": [
-      "Physical field rows without a real original OpenFOAM source path are excluded, never labeled source-backed",
-      "Missing/null time cannot be inferred as t=0",
-      "Export re-reads every original physical-time frame and recomputes report, validates cell-by-cell change fingerprint even if field mean unchanged",
-      "Case, selected controls, field-mapping, source inventory and report changes invalidate stale export",
-      "Keeps correct partial-data evidence and marks missing frames explicit"
+    "verified": 7,
+    "total": 15,
+    "source_code_sha": "93bc960a38cda615f42a94d0956326b7336773e8",
+    "scope": "Original 3D Solidification Front Tracker from physically closed polyMesh volumes and source dimensionless fraction",
+    "implemented": [
+      "New v24-solidification-front-3d.js Analysis UI: case/region/source liquid alpha, solid/mushy/liquid thresholds, axis and source-time cap",
+      "Oriented original owner/neighbour polyMesh verification with closed per-cell edge topology and physical m3 cell volumes, no fake unit cell assumptions",
+      "Whole-cell true source threshold phase volumes and estimated front crossings via linear interpolation of neighboring original cell centers, with ambiguity/absent crossing",
+      "Signed projected front-centroid displacement over real source times clearly labeled proxy, no exact iso-surface or recalescence claims",
+      "Field-source and original mesh provenance for reconstructed or decomposed cases; full re-read/fingerprint before scientific JSON export",
+      "Strict reject missing/duplicate times, invalid fractions, invalid mesh, broken boundary orientation and missing source files"
     ],
     "tested": [
-      "Direct original JS test: normal replay valid; two changed cells with unchanged mean fail export; missing source path and invalid t mark partial",
-      "GitHub Granada 156 Phase/Momentum evidence explorer success on source SHA 194f8c037a16642d945c5002e7f6c04ee48035d2"
+      "85 direct checks in V8 original scientific test harness",
+      "Ubuntu and Windows dedicated Granada 153 3D front workflow SUCCESS on source SHA"
     ],
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/44794770797",
+      "https://github.com/michels-lab/FoamLens/actions/runs/44814236958",
       "https://github.com/michels-lab/FoamLens/pull/371/checks"
     ],
-    "gate": "Windows exact HEAD build + installed/owner B14 C14 acceptance + scientific validation still pending",
-    "previous_source_commit": "f9f35f12a34524ed15832542bb0f41cf6b1f0b8f"
+    "pending": "Actual owner B14/C14 mesh + field, native Windows exact HEAD, visual UI/125–200% DPI, real isosurface topology and normal front speeds, phase/momentum physical validation, final stable release and acceptance",
+    "previous_scientific_workflow": [
+      "https://github.com/michels-lab/FoamLens/actions/runs/44794770797",
+      "https://github.com/michels-lab/FoamLens/pull/371/checks"
+    ]
   }
 }
