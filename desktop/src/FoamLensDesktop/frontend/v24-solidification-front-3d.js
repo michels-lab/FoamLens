@@ -183,6 +183,185 @@ function sfOriginalDigest(values){
   }
   return a.toString(16).padStart(8,'0')+':'+b.toString(16).padStart(8,'0')+':'+values.length
 }
+
+/* FOAMLENS_FRONT3D_ISO_CORE_START */
+// A geometric triangle surface of a *reconstructed continuous scalar*.
+// OpenFOAM volScalarField is CELL-CENTERED: point values below are estimated
+// from adjacent ORIGINAL cells; the resulting iso-surface is not a solver
+// supplied face/point field and must not be advertised as the exact phase front.
+function sfIsoSurface(mesh,geometry,original,isoValue,options={}){
+  const reject=reason=>({ok:false,reason,vertices:[],triangles:[],areaM2:null});
+  if(!geometry?.ok||!Array.isArray(geometry.volumes)||!mesh?.supported)
+    return reject('Closed and oriented original polyMesh cell volumes are required');
+  const n=mesh.cellCount,points=mesh.points||[],centers=mesh.cellCenters||[],
+    owners=mesh.owners||[],neighbours=mesh.neighbours||[],
+    offsets=mesh.faceOffsets||[],facePoints=mesh.facePoints||[],
+    iso=sfNum(isoValue),maxTriangles=options.maxTriangles??200000;
+  if(!Number.isSafeInteger(n)||n<1||geometry.volumes.length!==n||
+     !Array.isArray(original)||original.length!==n||
+     !Number.isSafeInteger(maxTriangles)||maxTriangles<1||maxTriangles>1000000||
+     !(iso>0&&iso<1)||!points.length||points.length%3||
+     !Array.isArray(centers)||centers.length!==n*3||
+     offsets.length!==owners.length+1||neighbours.length!==mesh.internalFaceCount||
+     offsets.at(-1)!==facePoints.length)
+    return reject('Source geometry, cells, interior threshold (0<alpha<1) or triangle budget invalid');
+  const alpha=original.map(sfNum);
+  if(alpha.some(v=>!(v>=0&&v<=1)))return reject('Original liquid fraction contains invalid or nonfinite cell values');
+  if(points.some(v=>!Number.isFinite(v))||centers.some(v=>!Number.isFinite(v)))
+    return reject('Original source mesh XYZ coordinates are invalid');
+  const nPoints=points.length/3,incident=Array.from({length:nPoints},()=>new Set());
+  for(let face=0;face<owners.length;face++){
+    const a=offsets[face],b=offsets[face+1],cell=owners[face],
+      neighbor=face<neighbours.length?neighbours[face]:null;
+    if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||b-a<3||
+       !Number.isSafeInteger(cell)||cell<0||cell>=n||
+       (neighbor!==null&&(!Number.isSafeInteger(neighbor)||neighbor<0||neighbor>=n)))
+      return reject('Original face topology is not cell-aligned');
+    for(let j=a;j<b;j++){
+      const point=facePoints[j];
+      if(!Number.isSafeInteger(point)||point<0||point>=nPoints)
+        return reject('Invalid source mesh vertex index');
+      incident[point].add(cell);if(neighbor!==null)incident[point].add(neighbor)
+    }
+  }
+  const diag=Math.hypot(...[0,1,2].map(k=>(mesh.boundsMax?.[k]??Math.max(0,...[]))-(mesh.boundsMin?.[k]??0)));
+  // Use original coordinates even if native mesh does not provide bounds.
+  let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<points.length;i+=3)for(let k=0;k<3;k++){
+    min[k]=Math.min(min[k],points[i+k]);max[k]=Math.max(max[k],points[i+k])
+  }
+  const lengthScale=Math.max(1e-12,Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2]));
+  const closeD2=lengthScale*lengthScale*1e-24;
+  const nodal=new Float64Array(nPoints);
+  for(let point=0;point<nPoints;point++){
+    if(!incident[point].size)return reject('Unattached original mesh vertex; cannot reconstruct scalar field');
+    const x=points[3*point],y=points[3*point+1],z=points[3*point+2];
+    let sum=0,weights=0,exact=null;
+    for(const cell of incident[point]){
+      const dx=x-centers[3*cell],dy=y-centers[3*cell+1],dz=z-centers[3*cell+2],d2=dx*dx+dy*dy+dz*dz;
+      if(d2<=closeD2){exact=alpha[cell];break}
+      const w=1/d2;sum+=w*alpha[cell];weights+=w
+    }
+    const v=exact===null?sum/weights:exact;
+    if(!Number.isFinite(v))return reject('Nonfinite inverse-distance point reconstruction of original scalar');
+    nodal[point]=Math.max(0,Math.min(1,v))
+  }
+  const getPoint=id=>id<nPoints?
+    [points[3*id],points[3*id+1],points[3*id+2]]:
+    [centers[3*(id-nPoints)],centers[3*(id-nPoints)+1],centers[3*(id-nPoints)+2]];
+  const getAlpha=id=>id<nPoints?nodal[id]:alpha[id-nPoints];
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const norm=v=>Math.hypot(v[0],v[1],v[2]);
+  const edgePairs=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  const pointCache=new Map(),vertices=[],triangles=[],triKeys=new Set(),
+    accumulatedVolume=new Float64Array(n),areaCentroid=[0,0,0];
+  let area=0,tetraCount=0,degenerateTetra=0,thresholdPlateau=0,duplicateTriangles=0;
+  const edgeIntersection=(idA,idB)=>{
+    const a=Math.min(idA,idB),b=Math.max(idA,idB),fa=getAlpha(a),fb=getAlpha(b);
+    let key,position;
+    if(fa===iso){key='v:'+a;position=getPoint(a)}
+    else if(fb===iso){key='v:'+b;position=getPoint(b)}
+    else{
+      key='e:'+a+':'+b;
+      const u=(iso-fa)/(fb-fa),p=getPoint(a),q=getPoint(b);
+      position=[0,1,2].map(k=>p[k]+u*(q[k]-p[k]))
+    }
+    let idx=pointCache.get(key);
+    if(idx===undefined){idx=vertices.length;vertices.push(position);pointCache.set(key,idx)}
+    return idx
+  };
+  for(let face=0;face<owners.length;face++){
+    const start=offsets[face],end=offsets[face+1],faceCell=[owners[face]];
+    if(face<neighbours.length)faceCell.push(neighbours[face]);
+    const originalFace=[];
+    for(let j=start;j<end;j++)originalFace.push(facePoints[j]);
+    for(const cell of faceCell){
+      // The OpenFOAM original polygon is outward for owner, inward for neighbour.
+      // Reverse the neighbours' triangle fan so each tetra is positively oriented.
+      const ownerSide=cell===owners[face];
+      for(let j=1;j<originalFace.length-1;j++){
+        const ids=[nPoints+cell,originalFace[0],
+          ownerSide?originalFace[j]:originalFace[j+1],
+          ownerSide?originalFace[j+1]:originalFace[j]];
+        const p=ids.map(getPoint),v=ids.map(getAlpha),
+          e1=sub(p[1],p[0]),e2=sub(p[2],p[0]),e3=sub(p[3],p[0]),
+          cross23=cross(e2,e3),det=dot(e1,cross23),vTetra=det/6;
+        const minTetra=geometry.volumes[cell]*1e-14;
+        if(!Number.isFinite(vTetra)||vTetra<=minTetra)
+          return reject('Non-star-shaped, collapsed or wrongly oriented face-fan tetrahedron; original geometry cannot be reconstructed safely');
+        accumulatedVolume[cell]+=vTetra;tetraCount++;
+        if(v.every(q=>q===iso)){thresholdPlateau++;continue}
+        const positive=v.map(q=>q>=iso),nPositive=positive.filter(Boolean).length;
+        if(nPositive===0||nPositive===4)continue;
+        const candidates=[];
+        for(const [i,k] of edgePairs)if(positive[i]!==positive[k]){
+          const index=edgeIntersection(ids[i],ids[k]);
+          if(!candidates.includes(index))candidates.push(index)
+        }
+        if(candidates.length<3){degenerateTetra++;continue}
+        const dv=[v[1]-v[0],v[2]-v[0],v[3]-v[0]],
+          grad=[0,1,2].map(k=>(dv[0]*cross23[k]+dv[1]*cross(e3,e1)[k]+dv[2]*cross(e1,e2)[k])/det);
+        const magnitude=norm(grad);
+        if(!(magnitude>0)||!Number.isFinite(magnitude)){degenerateTetra++;continue}
+        const normal=grad.map(x=>x/magnitude),
+          center=[0,1,2].map(k=>candidates.reduce((sum,i)=>sum+vertices[i][k],0)/candidates.length),
+          first=sub(vertices[candidates[0]],center),firstLength=norm(first);
+        if(!(firstLength>0)){degenerateTetra++;continue}
+        const u=first.map(x=>x/firstLength),orth=cross(normal,u);
+        candidates.sort((i,j)=>{
+          const a=sub(vertices[i],center),b=sub(vertices[j],center);
+          return Math.atan2(dot(a,orth),dot(a,u))-Math.atan2(dot(b,orth),dot(b,u))
+        });
+        for(let j=1;j<candidates.length-1;j++){
+          let tri=[candidates[0],candidates[j],candidates[j+1]],
+            a=vertices[tri[0]],bb=vertices[tri[1]],cc=vertices[tri[2]],
+            normalArea=cross(sub(bb,a),sub(cc,a));
+          if(dot(normalArea,normal)<0){tri=[tri[0],tri[2],tri[1]];normalArea=normalArea.map(x=>-x)}
+          const ar=norm(normalArea)/2;
+          if(!(ar>lengthScale*lengthScale*1e-18)){degenerateTetra++;continue}
+          const key=tri.slice().sort((x,y)=>x-y).join('|');
+          if(triKeys.has(key)){duplicateTriangles++;continue}
+          if(triangles.length>=maxTriangles)
+            return reject('Reconstructed iso-surface exceeds explicit '+maxTriangles+' triangle budget; no partial surface will be exported');
+          triKeys.add(key);triangles.push(tri);area+=ar;
+          for(let k=0;k<3;k++)areaCentroid[k]+=ar*(a[k]+bb[k]+cc[k])/3
+        }
+      }
+    }
+  }
+  for(let cell=0;cell<n;cell++){
+    if(!(accumulatedVolume[cell]>0)||
+       Math.abs(accumulatedVolume[cell]-geometry.volumes[cell])>1e-7*geometry.volumes[cell])
+      return reject('Star-shaped tetrahedra do not reproduce original physical cell volume; surface unsupported');
+  }
+  const edgeCounts=new Map();
+  for(const [a,b,c] of triangles)for(const [u,v] of [[a,b],[b,c],[c,a]]){
+    const key=(u<v?u+':'+v:v+':'+u);edgeCounts.set(key,(edgeCounts.get(key)||0)+1)
+  }
+  let boundaryEdges=0,nonManifoldEdges=0;
+  for(const count of edgeCounts.values()){
+    if(count===1)boundaryEdges++;else if(count>2)nonManifoldEdges++
+  }
+  return{ok:true,threshold:iso,vertices,triangles,areaM2:area,
+    centroidXYZm:area>0?areaCentroid.map(v=>v/area):null,
+    triangleCount:triangles.length,vertexCount:vertices.length,tetrahedraEvaluated:tetraCount,
+    ambiguousPlateauTetrahedra:thresholdPlateau,degenerateTetrahedra:degenerateTetra,
+    duplicateTrianglesRemoved:duplicateTriangles,boundaryEdgeCount:boundaryEdges,
+    nonManifoldEdgeCount:nonManifoldEdges,
+    surfaceClosed:triangles.length>0&&boundaryEdges===0&&nonManifoldEdges===0,
+    orientation:'towards increasing reconstructed liquid fraction',
+    method:'marching tetrahedra on inverse-distance reconstructed nodal scalar, derived from original OpenFOAM cell-centered alpha',
+    limitations:[
+      'An original OpenFOAM volScalarField does NOT contain an exact subcell interface; node values are interpolated from neighboring cell centers.',
+      'Triangle area/position are properties of a RECONSTRUCTED approximate continuous field, not independently measured or a solver-native iso-surface.',
+      'Requires star-shaped original cells for face-fan tetrahedra. Open/non-manifold surfaces and plateau degeneracies are reported.',
+      'No normal front velocity or experimentally proven metallurgical mechanism is computed.'
+    ]}
+}
+/* FOAMLENS_FRONT3D_ISO_CORE_END */
+
 /* FOAMLENS_FRONT3D_CORE_END */
 
 function sfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
