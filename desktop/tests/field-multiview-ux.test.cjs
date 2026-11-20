@@ -145,6 +145,27 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
 }
 
 
+// Original OpenFOAM storage associations are part of field identity.
+// B and C/D must resolve the correct component inventory when a volume and
+// surface field share a name (not merely preserve the visible dropdown label).
+{
+  const matching=[...source.matchAll(/const selectedStorage=fcSelectedAssociation\\(fieldSel\\),([\\s\\S]*?),components=/g)];
+  assert.equal(matching.length,2,'B and C/D must both resolve field associations');
+  const fields=[{name:'U',kind:'scalar',storage:'volume'},
+    {name:'U',kind:'vector',storage:'surface'}];
+  for(const match of matching){
+    const resolver=new Function('groups','fieldSel','fcSelectedAssociation',
+      'const selectedStorage=fcSelectedAssociation(fieldSel),'+match[1]+';return group');
+    const fieldSel={value:'U',selectedOptions:[{dataset:{storage:'surface'}}]};
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'surface'),fields[1],
+      'Selecting a surface vector must not load scalar-volume components');
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'volume'),fields[0],
+      'Selecting a volume scalar must not load surface-vector components');
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'point'),null,
+      'Unknown source association may not silently borrow another field');
+  }
+}
+
 // GRANADA Field A–D: real field catalogs can be indexed after the physical
 // region toolbar is mounted. A source-option refresh must not require a change
 // to the selected region/case/field, and vector fields must never retain the
