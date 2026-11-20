@@ -49,6 +49,17 @@ assert.equal(trajectory([origin,origin]).ok,false,'Repeated physical time cannot
 assert.equal(trajectory([origin,{...middle,caseId:99}]).ok,false,'Different original cases must not mix');
 assert.equal(trajectory([origin,{...middle,region:'mold'}]).ok,false,'Different physical regions must not mix');
 assert.equal(trajectory([origin,{...middle,front:{...middle.front,axis:'y'}}]).ok,false);
+assert.deepStrictEqual(origin.phaseThresholds,{solidMax:.05,liquidMin:.95},
+  'Original physical classification thresholds must be explicit in each frame');
+const changedSolidThreshold=front(m,g,[.1,.9],{...conf,timeS:3,low:.2});
+const changedLiquidThreshold=front(m,g,[.1,.9],{...conf,timeS:3,high:.8});
+assert(changedSolidThreshold.ok&&changedLiquidThreshold.ok);
+assert.equal(trajectory([origin,changedSolidThreshold]).ok,false,
+  'Solid phase membership cannot silently change between reported time frames');
+assert.equal(trajectory([origin,changedLiquidThreshold]).ok,false,
+  'Liquid phase membership cannot silently change between reported time frames');
+assert.equal(trajectory([origin,{...middle,phaseThresholds:null}]).ok,false,
+  'Missing classification provenance must not be accepted as a consistent trajectory');
 const oneCube=build(faces.slice(1,6),[0,0,0,0,0]);
 oneCube.cellCount=1;oneCube.neighbours=[];oneCube.internalFaceCount=0;
 oneCube.cellCenters=[.5,.5,.5];
