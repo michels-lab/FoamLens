@@ -110,7 +110,7 @@ for(const srcToken of [
  'fvResolveFieldMeshLayout(c,region,groups[0],t)',
  'pmLoadStoredFieldSet(c.id,name,t,region)',
  'sfOriginalDigest(values)!==sourceProof.originalCellValueFingerprint',
- 'sfIsoSurface:sfIsoSurface'
+ 'isoSurface:sfIsoSurface'
 ])assert(source.includes(srcToken),'Missing native original-case reconstructed isosurface flow: '+srcToken);
 assert(!source.includes('fetch(')&&!source.includes('XMLHttpRequest'),
  'No original research data may be transmitted to an external service');
