@@ -363,6 +363,7 @@ function sfIsoSurface(mesh,geometry,original,isoValue,options={}){
     duplicateTrianglesRemoved:duplicateTriangles,boundaryEdgeCount:boundaryEdges,
     nonManifoldEdgeCount:nonManifoldEdges,
     surfaceClosed:triangles.length>0&&boundaryEdges===0&&nonManifoldEdges===0,
+    exactSolverIsoSurface:false,reconstructedFromCellValues:true,
     orientation:'towards increasing reconstructed liquid fraction',
     method:'marching tetrahedra on inverse-distance reconstructed nodal scalar, derived from original OpenFOAM cell-centered alpha',
     limitations:[
@@ -566,7 +567,12 @@ function sfIsoDraw(){
     return
   }
   const vertices=surface.vertices;
-  const center=[0,1,2].map(k=>(Math.min(...vertices.map(v=>v[k]))+Math.max(...vertices.map(v=>v[k])))/2);
+  // Never spread thousands of mesh vertices into Math.min/Math.max arguments.
+  const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(const vertex of vertices)for(let k=0;k<3;k++){
+    lo[k]=Math.min(lo[k],vertex[k]);hi[k]=Math.max(hi[k],vertex[k])
+  }
+  const center=[0,1,2].map(k=>(lo[k]+hi[k])/2);
   const cy=Math.cos(sfIsoYaw),sy=Math.sin(sfIsoYaw),cp=Math.cos(sfIsoPitch),sp=Math.sin(sfIsoPitch);
   const rotated=vertices.map(p=>{
     const x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2],
@@ -644,6 +650,8 @@ async function sfIsoBuild({quiet=false}={}){
        JSON.stringify(parts.map(x=>x.sourcePath))!==JSON.stringify(sourceProof.fieldSourcePaths))
       throw Error('Original source alpha values or file paths changed since report');
     const surface=sfIsoSurface(mesh,geometry,values,report.thresholds.front);
+    // Actual source values/geometry have already been checked against the
+    // whole-time analysis provenance before reconstructed geometry is shown.
     if(!surface.ok)throw Error(surface.reason);
     if(token!==sfIsoSequence||sfLatest!==report)return null;
     sfIsoCurrent={surface,caseId:c.id,caseName:c.name,region,timeS:t,
@@ -741,4 +749,4 @@ function sfInstall(){
   sfRefresh()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sfInstall,{once:true});else sfInstall();
-window.FoamLensSolidificationFront3D={meshVolumes:sfVolumes,front:sfFront,trajectory:sfTrajectory};
+window.FoamLensSolidificationFront3D={meshVolumes:sfVolumes,front:sfFront,trajectory:sfTrajectory,isoSurface:sfIsoSurface,originalMeshDigest:sfOriginalMeshDigest};
