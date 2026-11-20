@@ -80,6 +80,19 @@ assert.equal(noCrossing.front.axisBoundsM,null);
 const plateau=front(m,g,[.5,.5],conf);
 assert(plateau.ok);assert.equal(plateau.front.crossingFaceCount,0);
 assert.equal(plateau.front.ambiguousPlateauFaces,1);
+// Real source readers can expose canonical numeric strings. The physical front
+// must be identical whether original alpha cells were parsed as numbers or as
+// decimal/scientific strings (including plateau equality).
+const stringPlateau=front(m,g,['0.5','5e-1'],conf);
+assert(stringPlateau.ok,stringPlateau.reason);
+assert.equal(stringPlateau.front.crossingFaceCount,0,
+  'Equivalent numeric string fractions must not fabricate a face crossing');
+assert.equal(stringPlateau.front.ambiguousPlateauFaces,1,
+  'Equivalent numeric string fractions must retain plateau ambiguity');
+const stringCrossing=front(m,g,['0','1e0'],conf);
+assert(stringCrossing.ok,stringCrossing.reason);
+assert.deepStrictEqual(stringCrossing.front,origin.front,
+  'Parsed numeric-string and numeric OpenFOAM source values must share physical front geometry');
 const plateauTrack=trajectory([origin,{...plateau,timeS:3}]);assert(plateauTrack.ok);
 assert.equal(plateauTrack.rows[1].meanFrontDisplacementVelocityMps,null);
 assert.equal(plateauTrack.rows[1].velocityStatus,'unavailable');
