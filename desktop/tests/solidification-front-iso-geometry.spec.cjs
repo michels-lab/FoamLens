@@ -128,7 +128,7 @@ for(const srcToken of [
 ])assert(source.includes(srcToken),'Missing native original-case reconstructed isosurface flow: '+srcToken);
 // The actual native panel-toggle callback must never invalidate source-backed
 // analysis after a collapse/reopen. Only the explicit Refresh button does that.
-const toggleMatch=source.match(/box\\.addEventListener\\('toggle',\\(\\)=>\\{([^}]*)\\}\\)/);
+const toggleMatch=source.match(/box\.addEventListener\('toggle',\(\)=>\{([^}]*)\}\)/);
 assert(toggleMatch,'Original native 3D front panel toggle must remain regression-testable');
 let redraws=0,refreshes=0;
 const toggle=new Function('box','sfIsoCurrent','sfIsoDraw','sfRefresh',toggleMatch[1]);
