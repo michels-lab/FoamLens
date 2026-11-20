@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 Granada #153 new 3D source-polyMesh Front Tracker core, original volume phase and cell-center crossing, CI dual OS source PASS; exact HEAD native Windows + physical owner B14/C14 pending; no merge/release",
+  "phase": "PR #371 Granada #153 reconstruction: original polyMesh liquid-alpha 3D marching tetrahedra iso geometry + orbit preview + verified OBJ; 156 direct core checks PASS; Ubuntu/Windows CI of exact HEAD running, no merge/release",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "93bc960a38cda615f42a94d0956326b7336773e8",
+  "source_head_sha": "7d1ba73ae84bdef63e68ad153a01330907bfeb3e",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -148,36 +148,31 @@
       ]
     }
   ],
-  "next_step": "Verify native Windows+QuickCup on exact HEAD; owner B14/C14 original 3D field/mesh acceptance, improve true 3D front iso/topology/velocity and experimentally validate",
-  "limitations": "47% (7/15) unchanged. #153 3D source core is implemented and dual-OS source CI verified, but composite milestone 13 also requires full phase/momentum/2D-3D and owner case physics. Front position is a center-to-center interpolation proxy, not exact iso-surface or normal velocity. No release.",
+  "next_step": "Confirm 15/15 exact HEAD workflow CI; then original owner B14/C14 on installed Windows, quantitative front-vs-experiment/normal velocity and Field A–D UI, final stable setup+portable and acceptance",
+  "limitations": "47% (7/15) unchanged, because triangular interpolated reconstruction with tests is not the complete #13 physical validation. PR remains draft; no stable release or owner QA on actual specimens.",
   "last_granada": {
     "as_of": "2026-11-20",
     "progress_before": 47,
     "progress_after": 47,
-    "verified": 7,
-    "total": 15,
-    "source_code_sha": "93bc960a38cda615f42a94d0956326b7336773e8",
-    "scope": "Original 3D Solidification Front Tracker from physically closed polyMesh volumes and source dimensionless fraction",
-    "implemented": [
-      "New v24-solidification-front-3d.js Analysis UI: case/region/source liquid alpha, solid/mushy/liquid thresholds, axis and source-time cap",
-      "Oriented original owner/neighbour polyMesh verification with closed per-cell edge topology and physical m3 cell volumes, no fake unit cell assumptions",
-      "Whole-cell true source threshold phase volumes and estimated front crossings via linear interpolation of neighboring original cell centers, with ambiguity/absent crossing",
-      "Signed projected front-centroid displacement over real source times clearly labeled proxy, no exact iso-surface or recalescence claims",
-      "Field-source and original mesh provenance for reconstructed or decomposed cases; full re-read/fingerprint before scientific JSON export",
-      "Strict reject missing/duplicate times, invalid fractions, invalid mesh, broken boundary orientation and missing source files"
-    ],
-    "tested": [
-      "85 direct checks in V8 original scientific test harness",
-      "Ubuntu and Windows dedicated Granada 153 3D front workflow SUCCESS on source SHA"
+    "verified_milestones": 7,
+    "total_milestones": 15,
+    "source_code_sha": "7d1ba73ae84bdef63e68ad153a01330907bfeb3e",
+    "scope": "Actual triangulated 3D geometric reconstruction of an approximate alpha isosurface from original cell-centered OpenFOAM volScalarField + closed native polyMesh",
+    "features": [
+      "Original cell-centered alpha to reconstructed nodal alpha via inverse distance to adjacent original cell centers, then oriented star-shaped face-fan tetrahedra and marching tetrahedra",
+      "Real indexed XYZ triangle geometry, oriented towards increasing alpha, geometric area m2, centroid, open-boundary/nonmanifold/degenerate counts and explicit no-exact-solver-iso flags",
+      "Interactive draggable orbit preview inside Analysis for selected actual physical-written frame; full non-decimated source-backed OBJ export with meters",
+      "OBJ gate rereads original mesh/time/field and verifies full geometry+cell-value fingerprints before download, changes block stale export",
+      "No fabricated 3D cells or front normal speed, no falsely measured subcell phase volumes"
     ],
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/44814236958",
+      "Original front source tests 85 assertions PASS in direct original JS",
+      "New iso geometry/OBJ source tests 71 assertions PASS in direct original JS",
       "https://github.com/michels-lab/FoamLens/pull/371/checks"
     ],
-    "pending": "Actual owner B14/C14 mesh + field, native Windows exact HEAD, visual UI/125–200% DPI, real isosurface topology and normal front speeds, phase/momentum physical validation, final stable release and acceptance",
-    "previous_scientific_workflow": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/44794770797",
-      "https://github.com/michels-lab/FoamLens/pull/371/checks"
-    ]
+    "ci_status": "15 workflows on exact code commit currently queued or running; final green status must be checked on exact HEAD before merge",
+    "limitations": "Approximate interpolated reconstruction from original cell-centered alpha, NOT exact solver-native isosurface, experimental solidification front or local normal velocity. Source mathematical 2-cube geometry is synthetic test fixture, not owner B14/C14 original physics.",
+    "pending": "B14/C14 actual installed Windows physics and DPI A-D acceptance, full phase/momentum and 2D/3D field equivalence, original validated molten iron case, normal front speed, stable release exact-main setup+portable and owner acceptance",
+    "previous_source_code_sha": "93bc960a38cda615f42a94d0956326b7336773e8"
   }
 }
