@@ -157,6 +157,32 @@ function sfTrajectory(rows){
     limitations:['Displacement of the crossing-centroid between two written times is only a signed spatial proxy, not local normal front speed.',
       'Moving/deforming meshes and multiple spatial fronts require separate interpretation; no regression/extrapolation is applied.']}
 }
+function sfSourceTimes(source){
+  // The source catalog itself is evidence. A malformed/missing/duplicate
+  // time cannot be hidden by filter(Number.isFinite) or Set deduplication.
+  if(!Array.isArray(source)||source.length<2)return{ok:false,reason:'At least two original field times required',times:[]};
+  const times=source.map(sfNum);
+  if(times.some(t=>!Number.isFinite(t)))return{ok:false,reason:'Original field times contain missing or invalid physical values',times:[]};
+  times.sort((a,b)=>a-b);
+  for(let i=1;i<times.length;i++){
+    if(times[i]===times[i-1])return{ok:false,reason:'Duplicate original physical time is ambiguous',times:[]}
+  }
+  return{ok:true,times}
+}
+function sfOriginalDigest(values){
+  if(!Array.isArray(values)||!values.length||values.some(v=>!Number.isFinite(sfNum(v))))return null;
+  const bytes=new DataView(new ArrayBuffer(8));
+  let a=0x811c9dc5,b=0x9e3779b9;
+  for(const source of values){
+    bytes.setFloat64(0,sfNum(source),true);
+    for(let i=0;i<8;i++){
+      const q=bytes.getUint8(i);
+      a=Math.imul(a^q,16777619)>>>0;
+      b=(Math.imul(b^q,2246822519)+3266489917)>>>0
+    }
+  }
+  return a.toString(16).padStart(8,'0')+':'+b.toString(16).padStart(8,'0')+':'+values.length
+}
 /* FOAMLENS_FRONT3D_CORE_END */
 
 function sfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
@@ -212,8 +238,10 @@ async function sfAnalyze(){
   const group=(c.discoveryModel?.fields||[]).filter(f=>f.name===name&&String(f.region||'')===region&&
     f.storage==='volume'&&f.kind==='scalar'&&f.dimensions==='[0 0 0 0 0 0 0]');
   if(group.length!==1){sfEl('sfStatus').textContent='Missing or ambiguous source volume field; physical analysis blocked.';return}
-  const times=[...new Set(group[0].times.map(sfNum).filter(Number.isFinite))].sort((a,b)=>a-b);
-  if(times.length<2||times.length>limit){sfEl('sfStatus').textContent=times.length+' original times; requires 2–'+limit+' frames, no hidden sampling.';return}
+  const timeSource=sfSourceTimes(group[0].times);
+  if(!timeSource.ok){sfEl('sfStatus').textContent=timeSource.reason;return}
+  const times=timeSource.times;
+  if(times.length>limit){sfEl('sfStatus').textContent=times.length+' original times; maximum '+limit+' frames, no hidden sampling.';return}
   const snapshots=[],provenance=[],geomCache=new Map();
   for(let i=0;i<times.length;i++){
     if(token!==sfSequence)return;
@@ -246,8 +274,10 @@ async function sfAnalyze(){
         :[{partition:'',files:info.snapshot?.sourcePaths||null}];
       if(sourceSnapshots.some(x=>!x.files||!['points','faces','owner','neighbour'].every(key=>typeof x.files[key]==='string'&&x.files[key].trim())))
         throw Error('Original mesh file paths are missing: cannot certify geometry provenance');
+      const fieldFingerprint=sfOriginalDigest(values);
+      if(!fieldFingerprint)throw Error('Original cell field cannot be fingerprinted as complete finite measurements');
       provenance.push({timeS:time,meshSourcePaths:sourceSnapshots,
-        fieldSourcePaths:parts.map(p=>p.sourcePath),
+        fieldSourcePaths:parts.map(p=>p.sourcePath),originalCellValueFingerprint:fieldFingerprint,
         meshGeometryMethod:geo.method,cellCount:geo.cells});
       sfEl('sfStatus').textContent=(i+1)+'/'+times.length+' · '+time+' s · '+name;
       if(i%4===0&&typeof scannerYield==='function')await scannerYield()
@@ -276,8 +306,18 @@ async function sfAnalyze(){
   sfEl('sfStatus').textContent=times.length+' original frames · '+name+' · all source mesh cells verified for closed oriented volume.';
   sfEl('sfExport').disabled=false
 }
-function sfDownload(){
+async function sfDownload(){
   if(!sfLatest)return;
+  const before=JSON.stringify(sfLatest);
+  // Re-read all original fractions and original meshes before a scientific
+  // export, rather than silently writing a stale snapshot. If any genuine
+  // source value changes, even with unchanged rounded volumes, block export.
+  await sfAnalyze();
+  if(!sfLatest)return;
+  if(JSON.stringify(sfLatest)!==before){
+    sfInvalidate('Original source mesh/field evidence changed. Review and rerun analysis before exporting.');
+    return
+  }
   const payload=JSON.stringify({...sfLatest,exportedAt:new Date().toISOString()},null,2);
   if(typeof downloadText==='function')downloadText('FoamLens_3D_front_source_evidence.json',payload,'application/json')
 }
