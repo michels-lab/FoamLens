@@ -11,7 +11,7 @@
   "total_milestones": 15,
   "phase": "PR #371 Granada #153 reconstruction: original polyMesh liquid-alpha 3D marching tetrahedra iso geometry + orbit preview + verified OBJ; 156 direct core checks PASS; Ubuntu/Windows CI of exact HEAD running, no merge/release",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "7d1ba73ae84bdef63e68ad153a01330907bfeb3e",
+  "source_head_sha": "125950543d6d0a5a47d0fb1c4dfc3c6a6ca7145d",
   "latest_verified_stable": "v1.8.21",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -156,21 +156,22 @@
     "progress_after": 47,
     "verified_milestones": 7,
     "total_milestones": 15,
-    "source_code_sha": "7d1ba73ae84bdef63e68ad153a01330907bfeb3e",
+    "source_code_sha": "125950543d6d0a5a47d0fb1c4dfc3c6a6ca7145d",
     "scope": "Actual triangulated 3D geometric reconstruction of an approximate alpha isosurface from original cell-centered OpenFOAM volScalarField + closed native polyMesh",
     "features": [
       "Original cell-centered alpha to reconstructed nodal alpha via inverse distance to adjacent original cell centers, then oriented star-shaped face-fan tetrahedra and marching tetrahedra",
       "Real indexed XYZ triangle geometry, oriented towards increasing alpha, geometric area m2, centroid, open-boundary/nonmanifold/degenerate counts and explicit no-exact-solver-iso flags",
       "Interactive draggable orbit preview inside Analysis for selected actual physical-written frame; full non-decimated source-backed OBJ export with meters",
       "OBJ gate rereads original mesh/time/field and verifies full geometry+cell-value fingerprints before download, changes block stale export",
-      "No fabricated 3D cells or front normal speed, no falsely measured subcell phase volumes"
+      "No fabricated 3D cells or front normal speed, no falsely measured subcell phase volumes",
+      "Regression of valid single-cell original polyMesh with empty neighbour[]; source fingerprint remains valid with zero internal faces rather than refusing a physical one-cell mesh"
     ],
     "evidence": [
       "Original front source tests 85 assertions PASS in direct original JS",
-      "New iso geometry/OBJ source tests 71 assertions PASS in direct original JS",
+      "New iso geometry/OBJ source tests 76 assertions PASS in direct original JS",
       "https://github.com/michels-lab/FoamLens/pull/371/checks"
     ],
-    "ci_status": "15 workflows on exact code commit currently queued or running; final green status must be checked on exact HEAD before merge",
+    "ci_status": "All 15 exact-head workflows (including Windows, new 3D scientific dual-OS) are running/queued; do not claim success on latest SHA before completed.",
     "limitations": "Approximate interpolated reconstruction from original cell-centered alpha, NOT exact solver-native isosurface, experimental solidification front or local normal velocity. Source mathematical 2-cube geometry is synthetic test fixture, not owner B14/C14 original physics.",
     "pending": "B14/C14 actual installed Windows physics and DPI A-D acceptance, full phase/momentum and 2D/3D field equivalence, original validated molten iron case, normal front speed, stable release exact-main setup+portable and owner acceptance",
     "previous_source_code_sha": "93bc960a38cda615f42a94d0956326b7336773e8"
