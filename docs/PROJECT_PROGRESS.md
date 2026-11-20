@@ -1,10 +1,10 @@
 # FoamLens — avance global verificable
 
-**Corte:** 2026-11-19. **Ruta integral:** aceptación de Field A–D, Time Series y perfiles, CAD por pieza/multirregión, ciencia térmica, interfaz transversal, Windows y release final. **Rendimiento (#117) pospuesto** por solicitud del propietario, sin marcarlo como resuelto.
+**Corte:** 2026-11-20. **Ruta integral:** aceptación de Field A–D, Time Series y perfiles, CAD por pieza/multirregión, ciencia térmica, interfaz transversal, Windows y release final. **Rendimiento (#117) pospuesto** por solicitud del propietario, sin marcarlo como resuelto.
 
 ## 47% estimado — 7/15 hitos
 
-**Fase:** PR #371 en borrador, sin merge ni publicación. El corte anterior terminó con Windows+QuickCup aprobados. La revisión actual corrigió evidencia científica 2D/3D y exige comprobaciones nuevas del código final; casos B14/C14, validación experimental, interfaz instalada, release y aceptación del propietario continúan pendientes. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
+**Fase:** PR #371 en borrador, sin merge ni publicación. La compilación Windows+QuickCup anterior aprobó 13/13 workflows. En esta Granada, el módulo Phase/Momentum #156 aprobó su CI científico tras mejorar autenticidad de fuentes y revalidación numérica; el gate Windows del último commit aún requiere comprobación. B14/C14, datos experimentales, interfaz instalada y aceptación propietaria continúan pendientes. La estimación mide hitos con evidencia de tipo declarado; **NO** mide porcentaje de código, no promete que B14/C14 funcionen en el equipo del propietario y no confunde el artefacto privado de CI con una release oficial.
 
 **Antes de esta auditoría:** sin línea base (`null`). **Ahora:** 47% (7/15); es la **primera medición**, no un salto porcentual causado por esta sesión.
 
@@ -41,6 +41,15 @@ La revisión actual reparó dos condiciones científicamente peligrosas del mód
 - **SI y fuente:** se distinguen `mW`/`MW`, `mJ`/`MJ`, `mPa`/`MPa` (factores de 10⁹); se bloquean prefijos mal escritos. Los IDs de casos `null`, booleanos y hexadecimales no se vuelven un `caseId=0` falso. Temperaturas K imposibles se rechazan aunque aparezcan fuera de la superposición temporal.
 - **Evidencia:** suite original `desktop/tests/equivalent-observables.test.cjs` ampliada con **1601 mediciones y un pico original de amplitud 10 000**, errores de SI, casos ausentes y límites explícitos inválidos. Suite completa ejecutada directamente con la fuente nueva en V8: **PASS**. [Pruebas actuales del PR #371](https://github.com/michels-lab/FoamLens/pull/371/checks). **Separación de pruebas:** sólo los workflows terminados en verde en el SHA actual se consideran aprobados; Windows/QuickCup y aceptación del propietario deben verificarse de forma independiente.
 - **Hito 13 sigue pendiente:** comparar observables físicamente equivalentes exige corroborar geometría, condiciones y muestreos reales del usuario; una curva con unidades alineadas NO certifica equivalencia 2D/3D. **47% sigue siendo 7/15**, no porcentaje de cambios por esta sesión.
+
+## Granada 20-nov-2026 — Phase/Momentum: fuente original y exportación segura (47% → 47%)
+
+En **Analysis → Phase/Momentum Evidence Explorer (#156)** se corrigieron dos maneras de presentar evidencia de forma engañosa y se mejoró la exportación científica:
+
+- **Tiempo y procedencia:** `null`/tiempo ausente no se interpreta como el tiempo físico 0. Una fila sin `sourcePath` OpenFOAM original no puede recibir el estado de observación respaldada por fuente; se excluye explícitamente y las demás observaciones se clasifican como **evidencia parcial**, no completa.
+- **Revalidación antes de exportar:** la acción de exportación vuelve a leer **todos los archivos de campos en los tiempos originales**, recompone las estadísticas mediante el motor Phase/Momentum existente y contrasta tanto el informe como una huella de cambio sobre cada valor numérico y sus rutas/tiempos. Por ejemplo, alterar dos celdas y preservar exactamente la misma media **ya no permite exportar un informe viejo**. Cambios de caso, Field Mapping, seleccionador, datos originales o metadatos interrumpen la operación. La huella **no es una firma criptográfica** ni un certificado del solver.
+- **Pruebas reproducibles:** regresión ampliada `desktop/tests/physics-evidence-explorer.spec.cjs` cubre datos sin rutas, tiempo nulo, cambio numérico con media inalterada y cancelación mientras se vuelven a leer archivos. Núcleo científico ejecutado directamente en V8 con resultado PASS; [Granada #156 Phase/Momentum CI](https://github.com/michels-lab/FoamLens/actions/runs/44794770797) **SUCCESS**. El PR incluye la nueva prueba y continúa en borrador.
+- **Porcentaje:** **47% (7/15) → 47% (7/15)**. Mejora un módulo del hito compuesto #13, pero no verifica mecanismos Darcy/flotación/cambio de fase con materiales y mallas reales, ni la validez experimental del propietario. Tampoco sustituye aceptación visual de B14/C14, instalador Windows o release.
 
 ## Qué se ha comprobado y qué no
 
