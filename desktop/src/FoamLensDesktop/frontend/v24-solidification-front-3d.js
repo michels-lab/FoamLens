@@ -95,10 +95,15 @@ function sfFront(mesh,geometry,alpha,config){
      !(lo>=0&&hi<=1&&lo<hi)||!(threshold>=0&&threshold<=1)||axis<0)
     return fail('Cell-aligned original fractions, thresholds or physical axis invalid');
   const phase={solid:0,mushy:0,liquid:0},count={solid:0,mushy:0,liquid:0};
+  // Validate and normalize once: numeric strings may occur in original parsed
+  // source records. Crossing and plateau comparisons must use the same physical
+  // numeric values used for phase classification, never raw string identity.
+  const normalized=new Float64Array(n);
   for(let cell=0;cell<n;cell++){
     const a=sfNum(values[cell]),volume=geometry.volumes[cell];
     if(!(a>=0&&a<=1)||!(volume>0)||!Number.isFinite(volume))
       return fail('Original alpha field outside [0,1], incomplete, or cell volume missing at index '+cell);
+    normalized[cell]=a;
     const state=a<=lo?'solid':a>=hi?'liquid':'mushy';
     phase[state]+=volume;count[state]++
   }
@@ -107,7 +112,7 @@ function sfFront(mesh,geometry,alpha,config){
     xyz=mesh.cellCenters;
   let ambiguousFaces=0;
   for(let f=0;f<neighbors.length;f++){
-    const a=owner[f],b=neighbors[f],va=values[a],vb=values[b];
+    const a=owner[f],b=neighbors[f],va=normalized[a],vb=normalized[b];
     if(va===vb&&va===threshold){ambiguousFaces++;continue}
     if(va===vb||(threshold-va)*(threshold-vb)>0)continue;
     const weight=(threshold-va)/(vb-va);
