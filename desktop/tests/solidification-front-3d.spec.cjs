@@ -66,7 +66,7 @@ const badCoord=build();badCoord.points[0]=NaN;
 assert(!volume(badCoord).ok,'Nonfinite original geometry cannot yield a source volume');
 const noCenters=build();noCenters.cellCenters=null;
 assert(!volume(noCenters).ok,'Missing geometry centers blocks front estimate');
-for(const a of [[null,1],[-.01,.6],[.2,1.01],[.2,'NaN'],[.5,.5],[.2,.8,.9]]){
+for(const a of [[null,1],[-.01,.6],[.2,1.01],[.2,'NaN'],[.5],[.2,.8,.9]]){
  const f=front(m,g,a,conf);assert(!f.ok,'Invalid original fraction should fail: '+JSON.stringify(a))
 }
 for(const cfg of [
