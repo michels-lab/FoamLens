@@ -379,9 +379,10 @@ function sfIsoSurface(mesh,geometry,original,isoValue,options={}){
 function sfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function sfEl(id){return document.getElementById(id)}
 function sfEscape(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let sfLatest=null,sfSequence=0,sfCases=[];
+let sfLatest=null,sfSequence=0,sfCases=[],sfIsoCurrent=null,sfIsoSequence=0;
+let sfIsoYaw=.55,sfIsoPitch=-.35;
 function sfInvalidate(message){
-  sfSequence++;sfLatest=null;
+  sfSequence++;sfLatest=null;sfIsoInvalidate('Run source analysis to enable reconstructed surface.');
   if(sfEl('sfExport'))sfEl('sfExport').disabled=true;
   if(sfEl('sfReport'))sfEl('sfReport').textContent='';
   if(message&&sfEl('sfStatus'))sfEl('sfStatus').textContent=message
@@ -496,7 +497,10 @@ async function sfAnalyze(){
       .map(v=>'<td>'+sfEscape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
     '<p class="smallnote">'+sfEscape(sfLatest.limitations.join(' '))+'</p>';
   sfEl('sfStatus').textContent=times.length+' original frames · '+name+' · all source mesh cells verified for closed oriented volume.';
-  sfEl('sfExport').disabled=false
+  sfEl('sfExport').disabled=false;
+  sfSelector('sfIsoTime',times.map(t=>[t,String(t)+' s · original written frame']),times.at(-1));
+  sfEl('sfIsoRun').disabled=false;
+  sfEl('sfIsoStatus').textContent='Choose a physical source time and reconstruct interpolated 3D surface. Not solver-native subcell data.'
 }
 async function sfDownload(){
   if(!sfLatest)return;
@@ -513,6 +517,172 @@ async function sfDownload(){
   const payload=JSON.stringify({...sfLatest,exportedAt:new Date().toISOString()},null,2);
   if(typeof downloadText==='function')downloadText('FoamLens_3D_front_source_evidence.json',payload,'application/json')
 }
+
+function sfIsoInvalidate(message){
+  sfIsoSequence++;sfIsoCurrent=null;
+  for(const id of ['sfIsoObj']){const el=sfEl(id);if(el)el.disabled=true}
+  const report=sfEl('sfIsoReport');if(report)report.textContent='';
+  const canvas=sfEl('sfIsoCanvas'),ctx=canvas?.getContext?.('2d');
+  if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(message&&sfEl('sfIsoStatus'))sfEl('sfIsoStatus').textContent=message
+}
+function sfIsoObj(surface,{caseName='',region='',timeS=null}={}){
+  if(!surface?.ok||!Array.isArray(surface.vertices)||!Array.isArray(surface.triangles))
+    throw Error('No verified reconstructed triangulated surface to export');
+  const clean=v=>String(v??'').replace(/[\r\n#]/g,' ').trim();
+  const out=[
+    '# FoamLens reconstructed OpenFOAM alpha isosurface - geometry in meters',
+    '# Derived by nodal interpolation and marching tetrahedra; not an exact solver-native interface',
+    '# Source case: '+clean(caseName)+' | region: '+clean(region)+' | physical time [s]: '+clean(timeS),
+    '# Threshold: '+surface.threshold+' | surface area [m2]: '+surface.areaM2,
+    '# Surface boundary edges: '+surface.boundaryEdgeCount+' | nonmanifold edges: '+surface.nonManifoldEdgeCount,
+    'o FoamLens_reconstructed_alpha_isosurface'
+  ];
+  for(const point of surface.vertices){
+    if(!Array.isArray(point)||point.length!==3||!point.every(Number.isFinite))
+      throw Error('Invalid reconstructed surface vertex');
+    out.push('v '+point.map(v=>Number(v).toPrecision(17)).join(' '))
+  }
+  for(const face of surface.triangles){
+    if(!Array.isArray(face)||face.length!==3||
+       face.some(v=>!Number.isSafeInteger(v)||v<0||v>=surface.vertices.length))
+      throw Error('Invalid reconstructed source triangle');
+    out.push('f '+face.map(i=>i+1).join(' '))
+  }
+  return out.join('\n')+'\n'
+}
+function sfIsoDraw(){
+  const surface=sfIsoCurrent?.surface,canvas=sfEl('sfIsoCanvas');
+  if(!canvas||!surface?.ok)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const width=Math.max(280,canvas.clientWidth||700),height=300,
+    dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle='#111927';ctx.fillRect(0,0,width,height);
+  if(!surface.triangleCount){
+    ctx.fillStyle='#dbe4f0';ctx.font='13px sans-serif';
+    ctx.fillText('No unambiguous surface triangles at this original time/threshold.',15,38);
+    return
+  }
+  const vertices=surface.vertices;
+  const center=[0,1,2].map(k=>(Math.min(...vertices.map(v=>v[k]))+Math.max(...vertices.map(v=>v[k])))/2);
+  const cy=Math.cos(sfIsoYaw),sy=Math.sin(sfIsoYaw),cp=Math.cos(sfIsoPitch),sp=Math.sin(sfIsoPitch);
+  const rotated=vertices.map(p=>{
+    const x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2],
+      x1=cy*x-sy*y,y1=sy*x+cy*y;
+    return[x1,cp*z-sp*y1,sp*z+cp*y1]
+  });
+  let radius=0;for(const p of rotated)radius=Math.max(radius,Math.abs(p[0]),Math.abs(p[1]));
+  const scale=.39*Math.min(width,height)/Math.max(radius,1e-12),
+    xy=rotated.map(p=>[width/2+p[0]*scale,height/2-p[1]*scale]);
+  const previewCap=8500,step=Math.max(1,Math.ceil(surface.triangles.length/previewCap));
+  const subset=[];
+  for(let i=0;i<surface.triangles.length;i+=step){
+    const tri=surface.triangles[i];
+    subset.push({ids:tri,z:(rotated[tri[0]][2]+rotated[tri[1]][2]+rotated[tri[2]][2])/3})
+  }
+  subset.sort((a,b)=>a.z-b.z);
+  ctx.lineWidth=.7;ctx.strokeStyle='rgba(186,221,251,.56)';
+  ctx.fillStyle='rgba(65,156,206,.22)';
+  for(const tri of subset){
+    const a=xy[tri.ids[0]],b=xy[tri.ids[1]],c=xy[tri.ids[2]];
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+    ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.fill();ctx.stroke()
+  }
+  ctx.fillStyle='#cbdaf1';ctx.font='12px sans-serif';
+  ctx.fillText('Drag to orbit · reconstructed α='+surface.threshold+' · '+surface.triangleCount+' triangles',12,21);
+  if(step>1)ctx.fillText('Preview only: 1/'+step+' triangles drawn. Full OBJ and area are not decimated.',12,height-12)
+}
+async function sfIsoBuild({quiet=false}={}){
+  sfIsoInvalidate(quiet?'':sfUi('Reading original source and reconstructing geometric surface…',
+    'Leyendo los archivos originales y reconstruyendo la superficie…'));
+  const token=sfIsoSequence,report=sfLatest,
+    t=sfNum(sfEl('sfIsoTime')?.value);
+  if(!report||!Number.isFinite(t)||!report.provenance.some(p=>p.timeS===t)){
+    if(sfEl('sfIsoStatus'))sfEl('sfIsoStatus').textContent='Choose an evaluated original source time first.';
+    return null
+  }
+  const c=sfCases.find(x=>x.id===report.caseId),region=report.region,name=report.originalScalar,
+    model=c?.discoveryModel?.fields||[],groups=model.filter(x=>x.name===name&&
+      String(x.region||'')===String(region||'')&&x.storage==='volume'&&
+      x.kind==='scalar'&&x.dimensions==='[0 0 0 0 0 0 0]');
+  if(!c||groups.length!==1){sfIsoInvalidate('Original case or scalar source metadata changed. Rerun analysis.');return null}
+  const sourceProof=report.provenance.find(p=>p.timeS===t);
+  try{
+    const layout=fvResolveFieldMeshLayout(c,region,groups[0],t);
+    if(!layout.valid)throw Error('Original field/mesh layout missing: '+layout.reason);
+    const info=await fvLoadMeshForLayout(c,layout,region,t);if(token!==sfIsoSequence||sfLatest!==report)return null;
+    const mesh=info.mesh,geometry=sfVolumes(mesh);
+    if(!geometry.ok)throw Error('Invalid original polyMesh volume: '+geometry.reason);
+    const meshFingerprint=sfOriginalMeshDigest(mesh);
+    if(!meshFingerprint||meshFingerprint!==sourceProof.originalMeshFingerprint)
+      throw Error('Original mesh vertices/topology changed since the volume report');
+    const meshPaths=layout.mode==='decomposed'
+      ?layout.parts.map(x=>({partition:x.partition,files:x.snapshot?.sourcePaths||null}))
+      :[{partition:'',files:info.snapshot?.sourcePaths||null}];
+    if(JSON.stringify(meshPaths)!==JSON.stringify(sourceProof.meshSourcePaths))
+      throw Error('Original mesh source file paths changed after analysis');
+    const parts=await pmLoadStoredFieldSet(c.id,name,t,region);
+    if(token!==sfIsoSequence||sfLatest!==report)return null;
+    if(!parts.length||parts.some(x=>!String(x?.sourcePath||'').trim()))
+      throw Error('Original scalar file sources missing');
+    let values;
+    if(layout.mode==='decomposed'){
+      const combined=fvCombinePartitionFieldValues(mesh,parts,'value','volume');
+      if(!combined.ok)throw Error('Decomposed original alpha alignment: '+combined.reason);
+      values=combined.values
+    }else{
+      if(parts.length!==1||String(parts[0].partition||''))
+        throw Error('Ambiguous reconstructed source scalar');
+      const parsed=pmComponentValues(parts[0],'value',mesh.cellCount);
+      if(!parsed.ok||parsed.values.length!==mesh.cellCount)
+        throw Error('Original alpha/mesh cell counts differ');
+      values=parsed.values
+    }
+    if(sfOriginalDigest(values)!==sourceProof.originalCellValueFingerprint||
+       JSON.stringify(parts.map(x=>x.sourcePath))!==JSON.stringify(sourceProof.fieldSourcePaths))
+      throw Error('Original source alpha values or file paths changed since report');
+    const surface=sfIsoSurface(mesh,geometry,values,report.thresholds.front);
+    if(!surface.ok)throw Error(surface.reason);
+    if(token!==sfIsoSequence||sfLatest!==report)return null;
+    sfIsoCurrent={surface,caseId:c.id,caseName:c.name,region,timeS:t,
+      fingerprint:sourceProof.originalCellValueFingerprint,meshFingerprint,report};
+    const fmt=n=>n==null?'—':Number(n).toLocaleString(undefined,{maximumSignificantDigits:7});
+    sfEl('sfIsoReport').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
+      ['Triangles','Reconstructed area [m²]','Centroid X/Y/Z [m]','Boundary edges','Non-manifold edges','Degenerate tetrahedra'].map(sfEscape).map(x=>'<th>'+x+'</th>').join('')+
+      '</tr></thead><tbody><tr>'+
+      [fmt(surface.triangleCount),fmt(surface.areaM2),
+        surface.centroidXYZm?.map(fmt).join(' · ')||'—',
+        surface.boundaryEdgeCount,surface.nonManifoldEdgeCount,surface.degenerateTetrahedra]
+        .map(x=>'<td>'+sfEscape(x)+'</td>').join('')+'</tr></tbody></table></div>'+
+      '<p class="smallnote">'+sfEscape(surface.limitations.join(' '))+'</p>';
+    sfIsoDraw();
+    sfEl('sfIsoObj').disabled=surface.triangleCount<1;
+    sfEl('sfIsoStatus').textContent='3D reconstructed surface at t='+t+
+      ' s; original cell values checked, area from triangulated geometry, no exact solver-native interface claim.';
+    return sfIsoCurrent
+  }catch(err){
+    if(token===sfIsoSequence)sfIsoInvalidate('No reconstructed surface: '+String(err?.message||err));
+    return null
+  }
+}
+async function sfIsoExportObj(){
+  if(!sfIsoCurrent||!sfLatest)return;
+  const previous=sfIsoCurrent,selected=sfNum(sfEl('sfIsoTime')?.value);
+  if(selected!==previous.timeS)return sfIsoInvalidate('Physical time selection changed. Reconstruct before OBJ export.');
+  const rebuilt=await sfIsoBuild({quiet:true});
+  if(!rebuilt||rebuilt.caseId!==previous.caseId||rebuilt.timeS!==previous.timeS||
+    rebuilt.fingerprint!==previous.fingerprint||rebuilt.meshFingerprint!==previous.meshFingerprint||
+    JSON.stringify(rebuilt.surface)!==JSON.stringify(previous.surface)){
+    sfIsoInvalidate('Original geometric surface changed during verification. Rerun before OBJ export.');
+    return
+  }
+  const obj=sfIsoObj(rebuilt.surface,rebuilt);
+  if(typeof downloadText==='function')
+    downloadText('FoamLens_reconstructed_alpha_'+String(rebuilt.timeS).replace(/[^0-9.-]/g,'_')+'s.obj',obj,'text/plain')
+}
+
 function sfInstall(){
   const host=document.getElementById('generalAnalysisModules')||document.getElementById('paTools');
   if(!host||sfEl('sfPanel'))return;
@@ -531,16 +701,41 @@ function sfInstall(){
     '<div class="extActions"><button id="sfRefresh" type="button" class="btn soft">Refresh original source cases</button>'+
     '<button id="sfRun" type="button" class="btn primary">Track 3D source front</button>'+
     '<button id="sfExport" type="button" class="btn soft" disabled>Export scientific JSON</button></div>'+
-    '<p id="sfStatus" class="smallnote" aria-live="polite"></p><div id="sfReport"></div>';
+    '<p id="sfStatus" class="smallnote" aria-live="polite"></p><div id="sfReport"></div>'+
+    '<div class="extSection"><b>Interpolated 3D iso-surface · original cell sources</b>'+
+    '<p class="smallnote">Triangulated geometry is reconstructed from cell-centered α. It is NOT a solver-native subcell interface or a normal front-velocity measurement.</p>'+
+    '<div class="field"><label>Original written physical time</label><select id="sfIsoTime"></select></div>'+
+    '<div class="extActions"><button id="sfIsoRun" type="button" class="btn primary" disabled>Reconstruct 3D surface</button>'+
+    '<button id="sfIsoObj" type="button" class="btn soft" disabled>Export reconstructed OBJ (meters)</button></div>'+
+    '<p id="sfIsoStatus" class="smallnote" aria-live="polite"></p>'+
+    '<canvas id="sfIsoCanvas" style="width:100%;height:300px;touch-action:none;cursor:grab" aria-label="Drag to rotate approximate reconstructed three dimensional alpha isosurface"></canvas>'+
+    '<div id="sfIsoReport"></div></div>';
   host.appendChild(box);
   sfEl('sfRefresh').onclick=sfRefresh;
   sfEl('sfRun').onclick=()=>void sfAnalyze();
   sfEl('sfExport').onclick=sfDownload;
+  sfEl('sfIsoRun').onclick=()=>void sfIsoBuild();
+  sfEl('sfIsoObj').onclick=()=>void sfIsoExportObj();
+  sfEl('sfIsoTime').addEventListener('change',()=>sfIsoInvalidate('Physical time changed. Reconstruct the selected surface.'));
   sfEl('sfCase').addEventListener('change',sfRefreshFields);
   sfEl('sfRegion').addEventListener('change',sfRefreshFields);
   for(const id of ['sfAlpha','sfAxis','sfLow','sfHigh','sfThreshold','sfLimit'])
     sfEl(id).addEventListener(['sfLow','sfHigh','sfThreshold','sfLimit'].includes(id)?'input':'change',
       ()=>sfInvalidate('Inputs changed; rerun before scientific export.'));
+  const canvas=sfEl('sfIsoCanvas');let drag=null;
+  canvas.addEventListener('pointerdown',e=>{
+    if(!sfIsoCurrent)return;
+    drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture?.(e.pointerId);
+    canvas.style.cursor='grabbing'
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!drag||!sfIsoCurrent)return;
+    sfIsoYaw+=(e.clientX-drag.x)*.012;
+    sfIsoPitch=Math.max(-1.45,Math.min(1.45,sfIsoPitch+(e.clientY-drag.y)*.012));
+    drag={x:e.clientX,y:e.clientY};sfIsoDraw()
+  });
+  for(const type of ['pointerup','pointercancel'])canvas.addEventListener(type,()=>{drag=null;canvas.style.cursor='grab'});
+  window.addEventListener('resize',()=>{if(sfIsoCurrent&&box.open)sfIsoDraw()});
   box.addEventListener('toggle',()=>{if(box.open)sfRefresh()});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(box)}catch{}
   sfRefresh()
