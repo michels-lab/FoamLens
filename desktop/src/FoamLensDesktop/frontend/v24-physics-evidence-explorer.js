@@ -125,6 +125,60 @@ function peAssemble(config,descriptor,samples,stats){
     completion:excluded.length||rows.some(r=>r.issues.length)?'partial-evidence':'sourced-evidence'
   }
 }
+// An exported scientific report must still describe the exact ORIGINAL cell
+// values and paths it was calculated from, even if the selected case object
+// and inventory arrays were mutated in place after the analysis. A pair of
+// rolling numerical fingerprints is a change detector, NOT a cryptographic
+// authenticity claim. Re-reading and recomputing the actual result is
+// independently required before export.
+function peEvidenceDigest(samples){
+  const bytes=new DataView(new ArrayBuffer(8));
+  let h1=0x811c9dc5,h2=0x9e3779b9,count=0;
+  const mix=value=>{
+    const b=value&255;h1=Math.imul(h1^b,16777619)>>>0;
+    h2=(Math.imul(h2^b,2246822519)+3266489917)>>>0;
+  };
+  const tag=text=>{
+    const str=String(text);
+    // Length delimiters prevent concatenated records from aliasing.
+    for(let n=str.length,i=0;i<4;i++){mix(n);n=Math.floor(n/256)}
+    for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);mix(c);mix(c>>>8)}
+  };
+  for(const record of samples||[]){
+    tag(JSON.stringify({time:record?.time??null,ok:record?.ok===true,
+      reason:String(record?.reason||''),total:record?.total??null,
+      countKnown:record?.countKnown===true,sources:record?.sources||[],
+      issues:record?.issues||[]}));
+    const values=Array.isArray(record?.values)?record.values:[];
+    count+=values.length;
+    tag(String(values.length));
+    for(const raw of values){
+      bytes.setFloat64(0,peFinite(raw),true);
+      for(let k=0;k<8;k++)mix(bytes.getUint8(k));
+    }
+  }
+  return [h1.toString(16).padStart(8,'0'),h2.toString(16).padStart(8,'0'),count].join(':')
+}
+async function peReauditEvidence(bound,read,stats,alive){
+  const fail=reason=>({ok:false,reason});
+  if(!bound||typeof read!=='function'||typeof stats!=='function'||typeof alive!=='function'||
+     !Array.isArray(bound.fieldSet)||!bound.fieldSet.length||!bound.config||
+     !bound.descriptor||typeof bound.reportSignature!=='string'||
+     typeof bound.sourceDigest!=='string')
+    return fail('Original source evidence or verification contract missing.');
+  const samples=[];
+  for(const time of bound.fieldSet){
+    if(!alive())return fail('Source selection changed while verifying export.');
+    try{samples.push(await read(time))}
+    catch(e){return fail('Original source could not be re-read: '+String(e?.message||e))}
+    if(!alive())return fail('Source selection changed while verifying export.');
+  }
+  const updated=peAssemble(bound.config,bound.descriptor,samples,stats);
+  if(!updated.ok||peEvidenceDigest(samples)!==bound.sourceDigest||
+     JSON.stringify(updated)!==bound.reportSignature)
+    return fail('Original numerical source evidence changed; repeat analysis before exporting.');
+  return{ok:true,report:updated}
+}
 /* FOAMLENS_PHYSICS_EXPLORER_CORE_END */
 function peUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function peEsc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -259,7 +313,8 @@ async function peRun(){
   const report=peAssemble(cfg,d,samples,pmStats);
   if(!report.ok){peEl('peStatus').textContent=report.reason;return}
   peLast=report;peBound={case:c,inventory:c.volumeFieldInventory,model:c.discoveryModel,
-    descriptor:d,mapping,fieldSet:allTimes,alpha:alpha||null,report};
+    descriptor:d,mapping,fieldSet:allTimes,alpha:alpha||null,config:cfg,
+    reportSignature:JSON.stringify(report),sourceDigest:peEvidenceDigest(samples),report};
   const fmt=n=>Number(n).toLocaleString(undefined,{maximumSignificantDigits:7});
   peEl('peStatus').textContent=report.rows.length+' source point(s), '+report.excluded.length+
     ' unavailable time(s); observations only, not a physical-mechanism diagnosis.';
@@ -273,19 +328,36 @@ async function peRun(){
     ' <b>Interpretation:</b> not provided; scientific interpretation requires independent physical evidence.</div>';
   peChart(report);peEl('peExport').disabled=false
 }
-function peExport(){
+async function peExport(){
   if(!peLast||!peBound)return;
-  const {c,region,type,mapping}=peContext();
+  const bound=peBound,token=peRequest,{c,region,type,mapping}=peContext();
   const current=peDescriptors(c,region,type,mapping).find(x=>x.name===peLast.field);
-  if(c!==peBound.case||c.volumeFieldInventory!==peBound.inventory||
-      c.discoveryModel!==peBound.model||JSON.stringify(current)!==JSON.stringify(peBound.descriptor)||
-      JSON.stringify(mapping)!==JSON.stringify(peBound.mapping)){
-    peInvalidate('Source files or Field Mapping changed. Re-run the analysis before export.');return
+  const config={caseId:c?.id,caseName:c?.name,type,field:peEl('peField')?.value,
+    region,component:peEl('peComponent')?.value,statistic:peEl('peStatistic')?.value,
+    subset:peEl('peSubset')?.value,low:peEl('peLow')?.value,high:peEl('peHigh')?.value};
+  if(c!==bound.case||c?.volumeFieldInventory!==bound.inventory||
+      c?.discoveryModel!==bound.model||JSON.stringify(current)!==JSON.stringify(bound.descriptor)||
+      JSON.stringify(mapping)!==JSON.stringify(bound.mapping)||
+      JSON.stringify(config)!==JSON.stringify(bound.config)||
+      JSON.stringify(peLast)!==bound.reportSignature){
+    peInvalidate('Case, source metadata, measured report or inputs changed. Re-run before export.');return
   }
-  const text=JSON.stringify({...peLast,exportedAt:new Date().toISOString()},null,2);
+  const button=peEl('peExport');if(button?.disabled)return;
+  button.disabled=true;
+  const status=peEl('peStatus');
+  if(status)status.textContent='Re-reading original OpenFOAM samples before scientific export…';
+  const currentAlpha=peDescriptors(c,region,'field',mapping).find(x=>x.name===mapping.liquidFraction);
+  const check=await peReauditEvidence(bound,
+    time=>peRead(c,current,currentAlpha,config,time),pmStats,
+    ()=>token===peRequest&&peBound===bound&&peSelectedCase()===c);
+  if(token!==peRequest||peBound!==bound)return;
+  if(!check.ok){peInvalidate(check.reason);return}
+  const text=JSON.stringify({...check.report,exportedAt:new Date().toISOString()},null,2);
   if(typeof downloadText==='function')downloadText('FoamLens_phase_momentum_evidence.json',text,'application/json');
   else{const u=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');
     a.href=u;a.download='FoamLens_phase_momentum_evidence.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1200)}
+  if(status)status.textContent='Source verified again. Exported evidence corresponds to original cell values.';
+  if(button)button.disabled=false
 }
 function peInstall(){
   const host=document.getElementById('generalAnalysisModules')||document.getElementById('paTools');
