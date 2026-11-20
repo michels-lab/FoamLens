@@ -760,7 +760,11 @@ function sfInstall(){
   });
   for(const type of ['pointerup','pointercancel'])canvas.addEventListener(type,()=>{drag=null;canvas.style.cursor='grab'});
   window.addEventListener('resize',()=>{if(sfIsoCurrent&&box.open)sfIsoDraw()});
-  box.addEventListener('toggle',()=>{if(box.open)sfRefresh()});
+  // Opening or collapsing the analysis panel must not discard a verified
+  // source-backed report/isosurface. Sources refresh at initial install and
+  // only through the explicit Refresh original source cases button.
+  // The canvas is reprojected on reopen without changing scientific state.
+  box.addEventListener('toggle',()=>{if(box.open&&sfIsoCurrent)sfIsoDraw()});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(box)}catch{}
   sfRefresh()
 }
