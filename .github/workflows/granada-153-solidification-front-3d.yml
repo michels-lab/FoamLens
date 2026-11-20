@@ -5,11 +5,13 @@ on:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js'
       - 'desktop/tests/solidification-front-3d.spec.cjs'
+      - 'desktop/tests/solidification-front-iso-geometry.spec.cjs'
       - '.github/workflows/granada-153-solidification-front-3d.yml'
   pull_request:
     paths:
       - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js'
       - 'desktop/tests/solidification-front-3d.spec.cjs'
+      - 'desktop/tests/solidification-front-iso-geometry.spec.cjs'
       - '.github/workflows/granada-153-solidification-front-3d.yml'
   workflow_dispatch:
 
@@ -29,5 +31,7 @@ jobs:
           node-version: '22'
       - name: Original 3D mesh volumes and phase-front scientific evidence
         run: node desktop/tests/solidification-front-3d.spec.cjs
+      - name: Interpolated 3D surface geometry, real-source provenance and OBJ scientific regression
+        run: node desktop/tests/solidification-front-iso-geometry.spec.cjs
       - name: Existing Field mesh/viewport regression
         run: node desktop/tests/field-multiview-ux.test.cjs
