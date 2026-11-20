@@ -21,7 +21,7 @@ function sfVolumes(mesh){
      !Array.isArray(vertices)||offsets.length!==o.length+1||
      !Array.isArray(centers)||centers.length!==n*3)
     return fail('Original polyMesh vertices, faces, owner/neighbour or cell centers are missing');
-  if(![...p,...centers].every(Number.isFinite)||offsets[0]!==0||
+  if(!p.every(Number.isFinite)||!centers.every(Number.isFinite)||offsets[0]!==0||
      offsets.at(-1)!==vertices.length)return fail('Original mesh coordinates or face offsets are invalid');
   const internal=mesh.internalFaceCount;
   if(!Number.isSafeInteger(internal)||internal!==b.length||internal<0||
@@ -116,8 +116,10 @@ function sfFront(mesh,geometry,alpha,config){
     if(!point.every(Number.isFinite))return fail('Invalid original cell centers for front interpolation');
     positions.push(point[axis]);crossings.push({face:f,xyzM:point})
   }
-  const extrema=positions.length?{min:Math.min(...positions),max:Math.max(...positions),
-    mean:positions.reduce((x,y)=>x+y,0)/positions.length}:null;
+  let positionMin=Infinity,positionMax=-Infinity,positionSum=0;
+  for(const v of positions){if(v<positionMin)positionMin=v;if(v>positionMax)positionMax=v;positionSum+=v}
+  const extrema=positions.length?{min:positionMin,max:positionMax,
+    mean:positionSum/positions.length}:null;
   return{ok:true,caseId:config.caseId,region:config.region,timeS:sfNum(config.timeS),
     volumeM3:phase,cellCounts:count,totalVolumeM3:total,
     fractions:Object.fromEntries(Object.entries(phase).map(([k,v])=>[k,v/total])),
@@ -239,7 +241,12 @@ async function sfAnalyze(){
       const frame=sfFront(mesh,geo,values,{caseId:c.id,region,timeS:time,low,high,threshold,axis});
       if(!frame.ok)throw Error(frame.reason);
       snapshots.push(frame);
-      provenance.push({timeS:time,meshSourcePath:info.snapshot?.sourcePaths||null,
+      const sourceSnapshots=layout.mode==='decomposed'
+        ?layout.parts.map(p=>({partition:p.partition,files:p.snapshot?.sourcePaths||null}))
+        :[{partition:'',files:info.snapshot?.sourcePaths||null}];
+      if(sourceSnapshots.some(x=>!x.files||!['points','faces','owner','neighbour'].every(key=>typeof x.files[key]==='string'&&x.files[key].trim())))
+        throw Error('Original mesh file paths are missing: cannot certify geometry provenance');
+      provenance.push({timeS:time,meshSourcePaths:sourceSnapshots,
         fieldSourcePaths:parts.map(p=>p.sourcePath),
         meshGeometryMethod:geo.method,cellCount:geo.cells});
       sfEl('sfStatus').textContent=(i+1)+'/'+times.length+' · '+time+' s · '+name;
