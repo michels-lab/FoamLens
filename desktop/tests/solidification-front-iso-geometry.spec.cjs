@@ -126,6 +126,19 @@ for(const srcToken of [
  'sfOriginalDigest(values)!==sourceProof.originalCellValueFingerprint',
  'isoSurface:sfIsoSurface'
 ])assert(source.includes(srcToken),'Missing native original-case reconstructed isosurface flow: '+srcToken);
+// The actual native panel-toggle callback must never invalidate source-backed
+// analysis after a collapse/reopen. Only the explicit Refresh button does that.
+const toggleMatch=source.match(/box\\.addEventListener\\('toggle',\\(\\)=>\\{([^}]*)\\}\\)/);
+assert(toggleMatch,'Original native 3D front panel toggle must remain regression-testable');
+let redraws=0,refreshes=0;
+const toggle=new Function('box','sfIsoCurrent','sfIsoDraw','sfRefresh',toggleMatch[1]);
+toggle({open:false},{surface:surf},()=>redraws++,()=>refreshes++);
+assert.strictEqual(redraws,0,'Collapsing must not redraw or discard source-backed analysis');
+toggle({open:true},{surface:surf},()=>redraws++,()=>refreshes++);
+assert.strictEqual(redraws,1,'Reopening may redraw the already verified geometric surface');
+assert.strictEqual(refreshes,0,'Reopening must never clear the validated scientific report');
+assert(source.includes("sfEl('sfRefresh').onclick=sfRefresh"),
+  'Refreshing original source cases remains an explicit user action');
 assert(!source.includes('fetch(')&&!source.includes('XMLHttpRequest'),
  'No original research data may be transmitted to an external service');
 console.log('Granada #153 reconstructed 3D iso PASS: sourced 2-cube triangulation area=1 m2, orientation, OBJ, malformed metadata, original case re-read, no false solver-native claims.');
