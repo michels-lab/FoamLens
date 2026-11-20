@@ -5,7 +5,7 @@ new Function(source);
 const a=source.indexOf('/* FOAMLENS_FRONT3D_CORE_START */'),b=source.indexOf('/* FOAMLENS_FRONT3D_CORE_END */');
 assert(a>=0&&b>a,'3D front scientific core must be isolated from app UI');
 const {volume,front,trajectory}=new Function(source.slice(a,b)+
- ';return {volume:sfVolumes,front:sfFront,trajectory:sfTrajectory}')();
+ ';return {volume:sfVolumes,front:sfFront,trajectory:sfTrajectory,sourceTimes:sfSourceTimes,digest:sfOriginalDigest}')();
 const almost=(x,y,tol=1e-12)=>assert(Math.abs(x-y)<tol,String(x)+' ≈ '+y);
 const pts=[
  [0,0,0],[1,0,0],[1,1,0],[0,1,0],
@@ -83,6 +83,28 @@ assert.equal(plateau.front.ambiguousPlateauFaces,1);
 const plateauTrack=trajectory([origin,{...plateau,timeS:3}]);assert(plateauTrack.ok);
 assert.equal(plateauTrack.rows[1].meanFrontDisplacementVelocityMps,null);
 assert.equal(plateauTrack.rows[1].velocityStatus,'unavailable');
+
+// Strict physical-time and original-cell evidence regressions.
+const sourceTimes=[2,0,1];
+const sortedSource=sourceTimes.slice();
+const testedTimes=sourceTimes.map(Number);
+const coreTimes=new Function(source.slice(a,b)+';return sfSourceTimes')();
+assert.deepStrictEqual(coreTimes(testedTimes).times,[0,1,2]);
+assert.equal(coreTimes([0,0,1]).ok,false,'Duplicate times cannot be deduplicated into fake coverage');
+assert.equal(coreTimes([0,null,2]).ok,false,'Missing original physical time is not t=0');
+assert.equal(coreTimes([0,'',2]).ok,false,'Blank physical timestamp is not zero');
+assert.equal(coreTimes([0,'NaN',2]).ok,false);
+assert.equal(coreTimes([0]).ok,false,'A single instant cannot yield front velocity');
+const digest=new Function(source.slice(a,b)+';return sfOriginalDigest')();
+const d1=digest([0,.5,1]),d2=digest([.1,.4,1]);
+assert(d1&&d2&&d1!==d2,'Distinct original cell fractions must produce distinct re-read fingerprints');
+assert.equal(digest([0,NaN,1]),null);
+assert.equal(digest([0,null,1]),null);
+assert.equal(digest([0,.5,1]),d1,'Same real source cell values must remain stable');
+assert(source.includes('await sfAnalyze();')&&source.includes('originalCellValueFingerprint:fieldFingerprint'),
+  'Native export must re-read original meshes and every cell fraction before saving');
+assert(source.includes('Original source mesh/field evidence changed.'),
+  'Scientific export must reject changed source after complete reread');
 
 // Source/GUI integration: never make a displayed front from invented values,
 // fake cell counts, or a fallback "mesh-volume = 1" per cell.
