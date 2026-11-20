@@ -73,18 +73,25 @@ function peAssemble(config,descriptor,samples,stats){
   if(!PE_STATS.includes(config.statistic))return{ok:false,reason:'Invalid statistic',rows:[]};
   const rows=[],excluded=[];
   for(const record of samples||[]){
-    if(!descriptor.times.some(t=>Math.abs(t-record.time)<=1e-10*Math.max(1,Math.abs(t)))){excluded.push({time:record.time,reason:'not in source files'});continue}
+    const physicalTime=peFinite(record?.time);
+    if(!Number.isFinite(physicalTime)||!descriptor.times.some(t=>Math.abs(t-physicalTime)<=1e-10*Math.max(1,Math.abs(t),Math.abs(physicalTime)))){excluded.push({time:record?.time??null,reason:'not in source files or invalid physical time'});continue}
     if(!record.ok){excluded.push({time:record.time,reason:String(record.reason||'missing source')});continue}
-    if(!Array.isArray(record.values)||!record.values.length){excluded.push({time:record.time,reason:'no usable aligned cell measurements'});continue}
+    if(!Array.isArray(record.values)||!record.values.length){excluded.push({time:physicalTime,reason:'no usable aligned cell measurements'});continue}
+    // "Source-backed" evidence must have a real source path on every included
+    // physical-time reading, not only a field name or unverified numerical array.
+    const sourcePaths=Array.isArray(record.sources)?record.sources:[];
+    if(!sourcePaths.length||sourcePaths.some(path=>typeof path!=='string'||!path.trim())){
+      excluded.push({time:physicalTime,reason:'original OpenFOAM field source path missing; cannot certify provenance'});continue
+    }
     const invalid=record.values.filter(x=>!Number.isFinite(peFinite(x))).length;
     if(invalid){excluded.push({time:record.time,reason:invalid+' invalid original cell values (not silently omitted)'});continue}
     const values=record.values.map(peFinite),known=record.countKnown!==false&&Number.isSafeInteger(record.total)&&record.total>=values.length;
     const summary=stats(values,known?record.total:null);
     if(!Number.isFinite(summary[config.statistic])){excluded.push({time:record.time,reason:'statistic unavailable'});continue}
-    rows.push({timeS:record.time,statistic:config.statistic,value:summary[config.statistic],
+    rows.push({timeS:physicalTime,statistic:config.statistic,value:summary[config.statistic],
       nCells:known?summary.count:null,sampleValues:values.length,
       totalCells:known?record.total:null,populationKnown:known,
-      sources:(record.sources||[]).slice(0,50),issues:record.issues||[],
+      sources:[...new Set(sourcePaths.map(path=>path.trim()))].slice(0,50),issues:record.issues||[],
       estimatesUnweighted:true})
   }
   // A report containing only successfully supplied sample records is not
@@ -92,7 +99,7 @@ function peAssemble(config,descriptor,samples,stats){
   // This catches incomplete caller/abort pipelines without manufacturing
   // points, silently skipping frames or granting a false complete status.
   for(const time of descriptor.times){
-    if(!(samples||[]).some(record=>Number.isFinite(peFinite(record.time))&&
+    if(!(samples||[]).some(record=>Number.isFinite(peFinite(record?.time))&&
        Math.abs(peFinite(record.time)-time)<=1e-10*Math.max(1,Math.abs(time))))
       excluded.push({time,reason:'actual original source time was never sampled'});
   }
