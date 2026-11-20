@@ -169,6 +169,19 @@ function sfSourceTimes(source){
   }
   return{ok:true,times}
 }
+function sfOriginalMeshDigest(mesh){
+  // Structural+numeric provenance witness; change detector, not a hash
+  // signature or proof that a source file was externally authenticated.
+  const parts=['points','cellCenters','faceOffsets','facePoints','owners','neighbours'];
+  const values=[];
+  for(const key of parts){
+    const data=mesh?.[key];
+    if(!Array.isArray(data)||!data.length)return null;
+    const sig=sfOriginalDigest(data);if(!sig)return null;
+    values.push(key+':'+sig)
+  }
+  return values.join('|')
+}
 function sfOriginalDigest(values){
   if(!Array.isArray(values)||!values.length||values.some(v=>!Number.isFinite(sfNum(v))))return null;
   const bytes=new DataView(new ArrayBuffer(8));
@@ -224,7 +237,6 @@ function sfIsoSurface(mesh,geometry,original,isoValue,options={}){
       incident[point].add(cell);if(neighbor!==null)incident[point].add(neighbor)
     }
   }
-  const diag=Math.hypot(...[0,1,2].map(k=>(mesh.boundsMax?.[k]??Math.max(0,...[]))-(mesh.boundsMin?.[k]??0)));
   // Use original coordinates even if native mesh does not provide bounds.
   let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
   for(let i=0;i<points.length;i+=3)for(let k=0;k<3;k++){
@@ -453,11 +465,12 @@ async function sfAnalyze(){
         :[{partition:'',files:info.snapshot?.sourcePaths||null}];
       if(sourceSnapshots.some(x=>!x.files||!['points','faces','owner','neighbour'].every(key=>typeof x.files[key]==='string'&&x.files[key].trim())))
         throw Error('Original mesh file paths are missing: cannot certify geometry provenance');
+      if(!sfOriginalMeshDigest(mesh))throw Error('Original mesh topology fingerprint is incomplete');
       const fieldFingerprint=sfOriginalDigest(values);
       if(!fieldFingerprint)throw Error('Original cell field cannot be fingerprinted as complete finite measurements');
       provenance.push({timeS:time,meshSourcePaths:sourceSnapshots,
         fieldSourcePaths:parts.map(p=>p.sourcePath),originalCellValueFingerprint:fieldFingerprint,
-        meshGeometryMethod:geo.method,cellCount:geo.cells});
+        meshGeometryMethod:geo.method,originalMeshFingerprint:sfOriginalMeshDigest(mesh),cellCount:geo.cells});
       sfEl('sfStatus').textContent=(i+1)+'/'+times.length+' · '+time+' s · '+name;
       if(i%4===0&&typeof scannerYield==='function')await scannerYield()
     }catch(e){
