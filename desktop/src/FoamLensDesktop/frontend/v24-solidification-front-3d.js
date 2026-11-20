@@ -126,6 +126,7 @@ function sfFront(mesh,geometry,alpha,config){
   const extrema=positions.length?{min:positionMin,max:positionMax,
     mean:positionSum/positions.length}:null;
   return{ok:true,caseId:config.caseId,region:config.region,timeS:sfNum(config.timeS),
+    phaseThresholds:{solidMax:lo,liquidMin:hi},
     volumeM3:phase,cellCounts:count,totalVolumeM3:total,
     fractions:Object.fromEntries(Object.entries(phase).map(([k,v])=>[k,v/total])),
     front:{threshold,axis:config.axis,crossingFaceCount:crossings.length,
@@ -144,8 +145,11 @@ function sfTrajectory(rows){
     const r=sorted[i];
     if(!r?.ok||!Number.isFinite(r.timeS)||i&&!(r.timeS>sorted[i-1].timeS)||
        r.region!==sorted[0].region||r.caseId!==sorted[0].caseId||
-       r.front.axis!==sorted[0].front.axis||r.front.threshold!==sorted[0].front.threshold)
-      return{ok:false,reason:'Frames have nonphysical, duplicate, different-case or incompatible original time/axis'};
+       r.front.axis!==sorted[0].front.axis||r.front.threshold!==sorted[0].front.threshold||
+       !r.phaseThresholds||!sorted[0].phaseThresholds||
+       r.phaseThresholds.solidMax!==sorted[0].phaseThresholds.solidMax||
+       r.phaseThresholds.liquidMin!==sorted[0].phaseThresholds.liquidMin)
+      return{ok:false,reason:'Frames have nonphysical, duplicate, different-case or incompatible source time, axis or phase thresholds'};
   }
   const out=sorted.map((r,i)=>{
     const v=r.front.axisBoundsM?.mean??null,prev=i?sorted[i-1]:null,
