@@ -370,16 +370,18 @@ test('Granada Field A: missing original case clears old OpenFOAM GPU pixels, axe
      clear:v=>rendered.push(['clear',v])},surfaceCount:42,edgeCount:12}};
  const rendered=[],axes={innerHTML:'old XYZ',replaceChildren(){this.innerHTML=''}},
    dimensions={textContent:'old X/Y/Z',hidden:false},secondary={innerHTML:'old mold scale'},
-   readout={textContent:'t = 9.8 s'};
+   readout={textContent:'t = 9.8 s'},badge={textContent:'A · t=9.8 s'},
+   legend={innerHTML:'old T scale'},association={textContent:'old volume'};
  const canvas={width:400,height:300,getBoundingClientRect:()=>({width:400,height:300})};
  const dom={getElementById:id=>({fvCanvas:canvas,fvPhysicalAxes:axes,
-   fvMeshDimensions:dimensions,fvSecondaryScaleLegends:secondary,fvTimeReadout:readout})[id]||null};
+   fvMeshDimensions:dimensions,fvSecondaryScaleLegends:secondary,fvTimeReadout:readout,
+   fcPrimaryTimeBadge:badge,fvLegend:legend,fvAssociation:association})[id]||null};
  const render=isolate(field,'function fvRender(exportSize=null){','function fvUpdateMeshBuffers(',[
    'fvState','document','window'
  ],[state,dom,{devicePixelRatio:1}]);
  const invalid=isolate(field,'function fvInvalidateUnavailableSelection(){','async function fvLoadSelection(){',[
-   'fvState','fvRegionClearLayers','document','fvRender'
- ],[state,()=>rendered.push(['release']),dom,render]);
+   'fvState','fvRegionClearLayers','document','fvRender','flUi','fvSetStats'
+ ],[state,()=>rendered.push(['release']),dom,render,(en)=>en,()=>rendered.push(['stats'])]);
  invalid();
  assert.equal(state.frameSeq,5);
  assert.strictEqual(state.mesh,null);assert.strictEqual(state.fieldValues,null);
@@ -389,6 +391,10 @@ test('Granada Field A: missing original case clears old OpenFOAM GPU pixels, axe
  assert.equal(axes.innerHTML,'');assert.equal(dimensions.textContent,'');
  assert.equal(dimensions.hidden,true);assert.equal(secondary.innerHTML,'');
  assert.equal(readout.textContent,'t = —');
+ assert.equal(badge.textContent,'A · —','Old A time badge is not a measured frame');
+ assert.equal(legend.innerHTML,'','Old scientific colorbar is discarded');
+ assert.equal(association.textContent,'Association: —');
+ assert.equal(rendered.filter(x=>x[0]==='stats').length,1);
  assert.equal(rendered.filter(x=>x[0]==='release').length,1);
  rendered.length=0;state._fvFrameHold=7;render();
  assert.equal(rendered.length,0,'Valid in-flight timestep must NOT flash an empty A canvas');
