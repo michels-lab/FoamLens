@@ -359,3 +359,80 @@ test('Granada block 2: the real region toolbar renders colormap controls and ref
   assert(compare.includes("fvRegionRecolorLayer(layer,choice)"),'update original source GPU colors');
   assert(compare.includes("fcPhysicalPrimaryPalette"),'primary color control must not conflict with its source selector');
 });
+
+
+test('Granada Field A: missing original case clears old OpenFOAM GPU pixels, axes, measurements and source state',()=>{
+ const state={frameSeq:4,mesh:{cellCount:1},fieldValues:[900],fieldParsed:{},
+   time:9.8,_fvFrameHold:0,_fvGroupHold:0,
+   renderer:{gl:{COLOR_BUFFER_BIT:0x4000,DEPTH_BUFFER_BIT:0x100,
+     viewport:(...a)=>rendered.push(['viewport',...a]),
+     clearColor:(...a)=>rendered.push(['color',...a]),
+     clear:v=>rendered.push(['clear',v])},surfaceCount:42,edgeCount:12}};
+ const rendered=[],axes={innerHTML:'old XYZ',replaceChildren(){this.innerHTML=''}},
+   dimensions={textContent:'old X/Y/Z',hidden:false},secondary={innerHTML:'old mold scale'},
+   readout={textContent:'t = 9.8 s'};
+ const canvas={width:400,height:300,getBoundingClientRect:()=>({width:400,height:300})};
+ const dom={getElementById:id=>({fvCanvas:canvas,fvPhysicalAxes:axes,
+   fvMeshDimensions:dimensions,fvSecondaryScaleLegends:secondary,fvTimeReadout:readout})[id]||null};
+ const render=isolate(field,'function fvRender(exportSize=null){','function fvUpdateMeshBuffers(',[
+   'fvState','document','window'
+ ],[state,dom,{devicePixelRatio:1}]);
+ const invalid=isolate(field,'function fvInvalidateUnavailableSelection(){','async function fvLoadSelection(){',[
+   'fvState','fvRegionClearLayers','document','fvRender'
+ ],[state,()=>rendered.push(['release']),dom,render]);
+ invalid();
+ assert.equal(state.frameSeq,5);
+ assert.strictEqual(state.mesh,null);assert.strictEqual(state.fieldValues,null);
+ assert(Number.isNaN(state.time),'Missing A source may never display an old measured physical timestamp');
+ assert.equal(state.renderer.surfaceCount,0,'Old primary A geometry cannot remain renderable');
+ assert.deepEqual(rendered.filter(x=>x[0]==='clear'),[['clear',0x4100]]);
+ assert.equal(axes.innerHTML,'');assert.equal(dimensions.textContent,'');
+ assert.equal(dimensions.hidden,true);assert.equal(secondary.innerHTML,'');
+ assert.equal(readout.textContent,'t = —');
+ assert.equal(rendered.filter(x=>x[0]==='release').length,1);
+ rendered.length=0;state._fvFrameHold=7;render();
+ assert.equal(rendered.length,0,'Valid in-flight timestep must NOT flash an empty A canvas');
+});
+
+test('Granada Field A: load selection is awaitable and superseded failures cannot destroy a newer scene',async()=>{
+ const readyCase={id:14,name:'B14'},status=[],invalidations=[];
+ const state={frameSeq:0,mesh:null,fieldValues:null,caseId:null,region:'',time:NaN};
+ let ready=true,load=null;
+ const doc={getElementById:id=>id==='fvRegion'?{value:'metal'}:
+   id==='fvLegend'?{innerHTML:''}:null};
+ const loader=isolate(field,'async function fvLoadSelection(){','function fvSyncComponent(){',[
+   'fvStopPlayback','fvRefreshSelectors','fvCase','fvAvailability','document',
+   'fvCurrentFieldGroup','fvInvalidateUnavailableSelection','fvSetStatus','flUi',
+   'fvSetStats','fvEsc','fvRender','fvLoadFrame','console'
+ ],[
+   ()=>{},()=>{},()=>readyCase,()=>({ready,reason:'original source missing'}),
+   doc,()=>({name:'T'}),
+   ()=>{invalidations.push(state.frameSeq);state.frameSeq++;state.mesh=null;state.fieldValues=null;state.time=NaN},
+   (txt,error)=>status.push({txt,error}),en=>en,()=>{},String,()=>{},
+   ()=>{state.frameSeq++;return load},
+   {error:()=>{}}
+ ]);
+ ready=false;
+ const missing=loader();
+ assert.equal(typeof missing?.then,'function','Field workspace startup requires an actual native Promise');
+ assert.equal(await missing,false);assert.equal(invalidations.length,1);
+ ready=true;
+ let resolve1,reject1;load=new Promise((a,b)=>{resolve1=a;reject1=b});
+ const p1=loader();
+ assert.equal(typeof p1?.catch,'function','Native Field mounting attaches an error handler to this Promise');
+ state.mesh={id:'B14'};state.fieldValues=[300];state.time=10;resolve1();
+ assert.equal(await p1,true,'A may report ready only after the original measured frame commits');
+ assert.equal(invalidations.length,1);
+ load=Promise.reject(new Error('genuine OpenFOAM file missing'));
+ const failed=await loader();
+ assert.equal(failed,false);assert.equal(invalidations.length,2,
+   'A current failed source invalidates stale geometry and sampled values');
+ assert.equal(state.mesh,null);assert(Number.isNaN(state.time));
+ let rejectOld;load=new Promise((resolve,reject)=>{rejectOld=reject});
+ const stale=loader();state.frameSeq++;
+ state.mesh={id:'newest'};state.fieldValues=[273];state.time=20;
+ rejectOld(new Error('superseded old case failed'));assert.equal(await stale,false);
+ assert.equal(invalidations.length,2,
+   'An older failed A case may not erase newer committed physical data');
+ assert.equal(state.mesh.id,'newest');assert.equal(state.time,20);
+});
