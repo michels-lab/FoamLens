@@ -149,7 +149,7 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
 // B and C/D must resolve the correct component inventory when a volume and
 // surface field share a name (not merely preserve the visible dropdown label).
 {
-  const matching=[...source.matchAll(/const selectedStorage=fcSelectedAssociation\\(fieldSel\\),([\\s\\S]*?),components=/g)];
+  const matching=[...source.matchAll(/const selectedStorage=fcSelectedAssociation\(fieldSel\),([\s\S]*?),components=/g)];
   assert.equal(matching.length,2,'B and C/D must both resolve field associations');
   const fields=[{name:'U',kind:'scalar',storage:'volume'},
     {name:'U',kind:'vector',storage:'surface'}];
