@@ -216,16 +216,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert(start>=0&&end>start,'Missing production stale-frame invalidation path');
   const make=new Function('fcState','fcExtraRefreshSelectors','fcExtraCase','fcExtraRegion',
     'fcExtraField','fcExtraComponent','fcIndependentTimeTarget','fcExtraDom','fcUi','fcExtraUpdateLabel','fcPhysicalRelease',
+    'fcBlankInvalidFieldViewport','fcUpdateStatsGrid',
     source.slice(start,end)+';return fcExtraRefreshFrame;');
   const status={textContent:''},state={id:3,seq:5,renderer:{surfaceCount:4,edgeCount:8,probeCount:1},
     mesh:{id:12},fieldValues:[1000],range:{valid:true},fieldParsed:{},time:0,sync:{exact:true},
     probe:{point:[0,0,0]}};
-  let physicalReleases=0;
+  let physicalReleases=0,blanked=0,statsRefreshes=0;
   const refresh=make({enabled:true},()=>{},()=>({}),()=>'metal',()=>'T',()=>'value',
-    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++});
+    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++},
+    ()=>{blanked++},()=>{statsRefreshes++});
   refresh(state); // deterministic synchronous validation happens before the first await
   assert.equal(state.seq,6,'An earlier in-flight frame must be invalidated');
   assert.equal(physicalReleases,1,'Invalidating stale frames must also free B/C/D physical region layers');
+  assert.equal(blanked,1,'Missing physical time must blank the invalid C/D GPU image');
+  assert.equal(statsRefreshes,1,'Missing physical time must remove stale C/D measured statistics');
   assert.equal(state.mesh,null);
   assert.equal(state.fieldValues,null);
   assert.equal(state.probe,null);
