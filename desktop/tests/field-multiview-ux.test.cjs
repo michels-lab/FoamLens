@@ -653,6 +653,39 @@ for(const fragment of [
 
 
 {
+  // Failed original OpenFOAM frames must NOT leave pixels from an earlier
+  // physical time visible on B, C or D. Execute the native clear helper with
+  // WebGL canvas, metric axes/XYZ labels and per-region legends.
+  const start=source.indexOf('function fcBlankInvalidFieldViewport('),
+    end=source.indexOf('function fcClearRenderer(){',start);
+  assert(start>=0&&end>start,'Native invalid-viewport GPU cleanup required');
+  const blank=new Function(source.slice(start,end)+';return fcBlankInvalidFieldViewport')();
+  const log=[],gl={COLOR_BUFFER_BIT:0x4000,DEPTH_BUFFER_BIT:0x100,
+    viewport:(...v)=>log.push(['viewport',...v]),
+    clearColor:(...v)=>log.push(['color',...v]),
+    clear:v=>log.push(['clear',v])};
+  const mk=(cls,html='stale')=>({innerHTML:html,textContent:html,hidden:false,
+    classList:{contains:v=>v===cls,add:v=>log.push(['hide',cls,v])}});
+  const axes=mk('fcMetricAxes'),bounds=mk('fcMetricBounds'),
+    legend=mk('fcLegend'),physical=mk('fcPhysicalLegends'),probe=mk('fcProbeMarker');
+  blank({width:450,height:310},{gl},{querySelectorAll:()=>[axes,bounds,physical,legend,probe]});
+  assert.deepStrictEqual(log.slice(0,3),[
+    ['viewport',0,0,450,310],['color',0,0,0,0],['clear',0x4100]],
+    'WebGL invalidation must really erase old color and depth buffers');
+  assert.equal(axes.innerHTML,'','Old XYZ axes cannot persist into missing C/D physical time');
+  assert.equal(bounds.textContent,'','Old dimensional numbers cannot persist');
+  assert.equal(bounds.hidden,true);
+  assert.equal(physical.innerHTML,'','Old metal/mold legends cannot remain visible');
+  assert.equal(legend.innerHTML,'','Old color legend must not present prior physics');
+  assert(log.some(x=>x[0]==='hide'&&x[1]==='fcLegend'));
+  assert(log.some(x=>x[0]==='hide'&&x[1]==='fcProbeMarker'));
+  const validDuringLoad=source.slice(source.indexOf('async function fcExtraRefreshFrame('),
+    source.indexOf('async function fcRefreshExtras(){'));
+  assert(!validDuringLoad.includes('fcBlankInvalidFieldViewport'),
+    'A valid source frame must stay visible while the next file is loading');
+}
+
+{
   // Execute production GPU upload logic, not a mirrored test implementation.
   // C/D previously triangulated and re-uploaded the *same* polyMesh every
   // timestep although its scientific field values changed independently.
@@ -728,14 +761,17 @@ for(const fragment of [
   assert.equal(counts.surfaceBuild,3,'New WebGL renderer must upload its own geometry');
   assert.equal(writes.surfacePos,3);
   const invalidation=new Function('fcPhysicalRelease','fcExtraUpdateLabel','fcExtraDom',
+    'fcBlankInvalidFieldViewport','fcUpdateStatsGrid',
     source.slice(invalidStart,invalidEnd)+';return fcExtraInvalidateFrame;')(
-    ()=>counts.release++,()=>{},helpers.fcExtraDom);
+    ()=>counts.release++,()=>{},helpers.fcExtraDom,
+    ()=>counts.blank=(counts.blank||0)+1,()=>counts.stats++);
   state.seq=4;state.time=9.8;invalidation(state,'missing measured time');
   assert.equal(state.seq,5);
   assert.strictEqual(state.geometryUpload,null,'Invalidated frame must forget old GPU buffers');
   assert.strictEqual(state.mesh,null);
   assert(Number.isNaN(state.time),'Missing physical timestamps must not retain prior time');
   assert.equal(state.renderer.surfaceCount,0,'Stale surface vertices cannot remain drawable');
+  assert.equal(counts.blank,1,'C/D invalidation must blank the old WebGL framebuffer');
   upload(state,data(meshB,'volume',123));
   assert.equal(counts.surfaceBuild,4,'Restoring valid frame after invalidation uploads fresh GPU geometry');
 }
@@ -754,13 +790,14 @@ for(const fragment of [
     differenceRange:{valid:true},vectorValues:[1],streamlines:[{}],
     probe:{value:888},renderer:{surfaceCount:12,probeCount:1},
     differenceRenderer:{surfaceCount:8}};
-  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0};
+  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0,blanks:0};
   const clear=new Function('fcState','document','fcExtraViews','fcExtraInvalidateFrame',
     'fcUi','fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    'fcBlankInvalidFieldViewport',
     source.slice(begin,end)+';return fcClearRenderer;')(
     state,{getElementById:()=>({checked:true})},[{id:3}],
     ()=>ops.extraClears++,en=>en,()=>ops.released++,
-    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++);
+    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++,()=>ops.blanks++);
   clear();
   assert.equal(state.seq,11,'superseded B request must be invalidated');
   assert.equal(state.mesh,null);assert.equal(state.fieldValues,null);
@@ -771,7 +808,7 @@ for(const fragment of [
   assert.equal(state.differenceValues,null,'old A−B difference must be erased');
   assert.equal(state.renderer.surfaceCount,0,'stale B mesh cannot remain drawable');
   assert.equal(state.differenceRenderer.surfaceCount,0,'stale difference cannot remain drawable');
-  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0},
+  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0,blanks:2},
     'B clearing refreshes original labels and stats without clearing independent C/D');
 }
 
