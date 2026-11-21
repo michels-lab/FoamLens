@@ -679,6 +679,8 @@ for(const fragment of [
   assert.equal(legend.innerHTML,'','Old color legend must not present prior physics');
   assert(log.some(x=>x[0]==='hide'&&x[1]==='fcLegend'));
   assert(log.some(x=>x[0]==='hide'&&x[1]==='fcProbeMarker'));
+  assert.equal(probe.innerHTML,'stale',
+    'Probe marker must keep its reusable child for a later valid source pick');
   const validDuringLoad=source.slice(source.indexOf('async function fcExtraRefreshFrame('),
     source.indexOf('async function fcRefreshExtras(){'));
   assert(!validDuringLoad.includes('fcBlankInvalidFieldViewport'),
