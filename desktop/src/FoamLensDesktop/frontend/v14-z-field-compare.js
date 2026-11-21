@@ -1522,10 +1522,12 @@ function fcBlankInvalidFieldViewport(canvas,renderer,viewport){
     '.fcMetricAxes, .fcMetricBounds, .fcPhysicalLegends, .fcLegend, .fcProbeMarker')||[]){
     if(node.classList?.contains('fcMetricBounds')){
       node.textContent='';node.hidden=true
+    }else if(node.classList?.contains('fcProbeMarker')){
+      // Keep the native probe marker <span>. Future valid picks reuse it.
+      node.classList.add('hidden')
     }else{
       node.innerHTML='';
-      if(node.classList?.contains('fcLegend')||node.classList?.contains('fcProbeMarker'))
-        node.classList.add('hidden')
+      if(node.classList?.contains('fcLegend'))node.classList.add('hidden')
     }
   }
 }
