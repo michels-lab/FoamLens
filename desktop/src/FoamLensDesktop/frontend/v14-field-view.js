@@ -2272,7 +2272,7 @@ async function fvHandleCaseChange(){
   const loadedCase=fvCase();
   if(!loadedCase||Number(loadedCase.id)!==selectedId)throw new Error(flUi('3D renderer is not bound to the selected case.','El renderer 3D no está vinculado al caso seleccionado.'));
 }
-async // On an unavailable selected case or a failed active frame load, invalidate
+// On an unavailable selected case or a failed active frame load, invalidate
 // both A's measured values and its graphics. A superseded asynchronous load
 // is not permitted to erase a newer valid user selection.
 function fvInvalidateUnavailableSelection(){
@@ -2290,23 +2290,26 @@ function fvInvalidateUnavailableSelection(){
   if(readout)readout.textContent='t = —';
   fvRender()
 }
-function fvLoadSelection(){
+async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return false}
+  let requestSeq=fvState.frameSeq;
   try{
     fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));
     fvState.caseId=c.id;fvState.region=region;
     fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
-    const request=fvLoadFrame(0,{resetCamera:true}),seq=fvState.frameSeq;
-    Promise.resolve(request).catch(error=>{
-      // Only the still-current original case/time may invalidate A.
-      if(seq!==fvState.frameSeq)return;
-      fvInvalidateUnavailableSelection();
-      console.error(error);fvSetStatus(String(error?.message||error),true);
-    })
+    const request=fvLoadFrame(0,{resetCamera:true});
+    requestSeq=fvState.frameSeq;
+    await request;
+    // An older completed read is not success for a newer user selection.
+    return requestSeq===fvState.frameSeq&&!!fvState.mesh&&!!fvState.fieldValues
   }catch(error){
-    fvInvalidateUnavailableSelection();
-    console.error(error);fvSetStatus(String(error?.message||error),true)
+    // Only the still-current selected source can clear A's previous frame.
+    if(requestSeq===fvState.frameSeq){
+      fvInvalidateUnavailableSelection();
+      console.error(error);fvSetStatus(String(error?.message||error),true)
+    }
+    return false
   }
 }
 function fvSyncComponent(){
