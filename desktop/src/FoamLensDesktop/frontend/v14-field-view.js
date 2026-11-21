@@ -1942,7 +1942,20 @@ function fvRender(exportSize=null){
   // is complete, preventing blank/half-painted intermediate OpenFOAM times.
   if((fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
-  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  // A missing measured OpenFOAM source must not redraw buffers belonging
+  // to the previous case/time. Active frame holds above prevent flicker
+  // while the NEXT valid physical timestep is still loading.
+  if(!fvState.mesh||!fvState.fieldValues){
+    const axes=document.getElementById('fvPhysicalAxes'),
+      dimensions=document.getElementById('fvMeshDimensions'),
+      secondary=document.getElementById('fvSecondaryScaleLegends');
+    if(axes)axes.replaceChildren();
+    if(dimensions){dimensions.textContent='';dimensions.hidden=true}
+    if(secondary)secondary.innerHTML='';
+    return
+  }
+  gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   // One shared WebGL scene: write opaque physical geometry to depth first,
   // then composite transparent primary/secondary regions back-to-front.
@@ -2259,10 +2272,42 @@ async function fvHandleCaseChange(){
   const loadedCase=fvCase();
   if(!loadedCase||Number(loadedCase.id)!==selectedId)throw new Error(flUi('3D renderer is not bound to the selected case.','El renderer 3D no está vinculado al caso seleccionado.'));
 }
-async function fvLoadSelection(){
+async // On an unavailable selected case or a failed active frame load, invalidate
+// both A's measured values and its graphics. A superseded asynchronous load
+// is not permitted to erase a newer valid user selection.
+function fvInvalidateUnavailableSelection(){
+  ++fvState.frameSeq;
+  fvState._fvFrameHold=0;fvState._fvGroupHold=0;
+  fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
+  fvState.time=NaN;fvState.fieldValues=null;fvState.fieldParsed=null;
+  fvState.surfaceBoundary=null;fvState.vectorValues=null;fvState.vectorTime=NaN;
+  fvState.streamlines=[];fvState.sliceGeometry=null;fvState.isoGeometry=null;
+  fvRegionClearLayers();
+  const r=fvState.renderer;
+  if(r)for(const key of ['surfaceCount','faceFieldCount','boundaryFieldCount',
+      'edgeCount','sliceCount','isoCount','vectorCount','lineCount','probeCount'])r[key]=0;
+  const readout=document.getElementById('fvTimeReadout');
+  if(readout)readout.textContent='t = —';
+  fvRender()
+}
+function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
-  try{fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));fvState.caseId=c.id;fvState.region=region;fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';await fvLoadFrame(0,{resetCamera:true})}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
+  try{
+    fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));
+    fvState.caseId=c.id;fvState.region=region;
+    fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
+    const request=fvLoadFrame(0,{resetCamera:true}),seq=fvState.frameSeq;
+    Promise.resolve(request).catch(error=>{
+      // Only the still-current original case/time may invalidate A.
+      if(seq!==fvState.frameSeq)return;
+      fvInvalidateUnavailableSelection();
+      console.error(error);fvSetStatus(String(error?.message||error),true);
+    })
+  }catch(error){
+    fvInvalidateUnavailableSelection();
+    console.error(error);fvSetStatus(String(error?.message||error),true)
+  }
 }
 function fvSyncComponent(){
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),old=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===old))comp.value=old;
