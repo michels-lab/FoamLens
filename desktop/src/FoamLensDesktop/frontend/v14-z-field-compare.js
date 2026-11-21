@@ -1506,6 +1506,29 @@ function fcFieldFor(c,region,name,association=''){
   return matching.length===1?matching[0]:null
 }
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
+// A C/D frame can become invalid after a missing original OpenFOAM field.
+// Clearing JavaScript values alone does NOT clear an already presented WebGL
+// backbuffer: the ordinary render path returns early when mesh is null.
+// Blank ONLY an invalidated frame; never blank a measured scene mid-load.
+function fcBlankInvalidFieldViewport(canvas,renderer,viewport){
+  const gl=renderer?.gl;
+  if(canvas&&gl&&typeof gl.viewport==='function'&&
+     typeof gl.clearColor==='function'&&typeof gl.clear==='function'){
+    gl.viewport(0,0,Math.max(1,canvas.width||1),Math.max(1,canvas.height||1));
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)
+  }
+  for(const node of viewport?.querySelectorAll?.(
+    '.fcMetricAxes, .fcMetricBounds, .fcPhysicalLegends, .fcLegend, .fcProbeMarker')||[]){
+    if(node.classList?.contains('fcMetricBounds')){
+      node.textContent='';node.hidden=true
+    }else{
+      node.innerHTML='';
+      if(node.classList?.contains('fcLegend')||node.classList?.contains('fcProbeMarker'))
+        node.classList.add('hidden')
+    }
+  }
+}
 function fcClearRenderer(){
   // Disable/invalid states must supersede any old asynchronous B load.
   // Without this increment, a resolved old frame can repaint hidden B
@@ -1519,7 +1542,12 @@ function fcClearRenderer(){
       fcExtraInvalidateFrame(state,fcUi('Comparison disabled.','Comparación desactivada.'));
   }
   fcPhysicalRelease(fcState);
-  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateLabels();fcUpdateStatsGrid()
+  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;
+  fcBlankInvalidFieldViewport(document.getElementById('fcCanvas'),fcState.renderer,
+    document.getElementById('fcViewport'));
+  fcBlankInvalidFieldViewport(document.getElementById('fcDifferenceCanvas'),fcState.differenceRenderer,
+    document.getElementById('fcDifferenceViewport'));
+  fcRender();fcUpdateLabels();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
   fcState.lastError=error?String(text||''):'';const e=document.getElementById('fcStatus');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}
@@ -1819,7 +1847,10 @@ function fcExtraInvalidateFrame(state,message){
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
   state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
+  fcBlankInvalidFieldViewport(fcExtraDom(state.id,'Canvas'),state.renderer,
+    fcExtraDom(state.id,'Viewport'));
   fcExtraUpdateLabel(state);
+  fcUpdateStatsGrid();
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
 }
 async function fcExtraRefreshFrame(state,selectorsReady=false){
