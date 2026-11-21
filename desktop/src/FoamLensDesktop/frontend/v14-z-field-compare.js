@@ -1232,7 +1232,7 @@ function fcPhysicalMenu(view){
   const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
     region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.storage,ch?.component,ch?.palette,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
-    groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
+    groups.map(g=>[g.name,g.kind,String(g.storage||''),fvFieldComponents(g).map(x=>x.v)])
   ])]);
   if(holder.dataset.fcMenuKey===key){
     fcSyncPhysicalOpacitySliders(holder,ctx,catalog);
@@ -1445,7 +1445,7 @@ function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
   const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
   const scene=fcPhysicalFor(state);
-  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity,ch.palette])]);
+  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.storage,ch.component,ch.opacity,ch.palette])]);
   if(dock.dataset.fcCaptionKey===key)return;dock.dataset.fcCaptionKey=key;
   dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
     const layer=scene.layers.get(region),error=scene.errors.get(region);
