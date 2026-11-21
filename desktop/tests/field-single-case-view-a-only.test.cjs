@@ -240,14 +240,16 @@ test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loa
   const state={seq:14,enabled:true,renderer:{surfaceCount:2},differenceRenderer:null};
   const extra=[{id:3,seq:4},{id:4,seq:9}];
   const toggle={checked:false};
-  const cancelled=[];
+  const cancelled=[],clearedCanvas=[];
   const clear=isolate(compare,'function fcClearRenderer(){','function fcSetStatus(',[
     'fcState','fcExtraViews','document','fcExtraInvalidateFrame','fcUi',
-    'fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid'
+    'fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    'fcBlankInvalidFieldViewport'
   ],[
     state,extra,{getElementById:id=>id==='fcEnabled'?toggle:null},
     (view,message)=>{view.seq++;cancelled.push({id:view.id,message})},
-    en=>en,()=>{},()=>{},()=>{},()=>{}
+    en=>en,()=>{},()=>{},()=>{},()=>{},
+    (canvas,renderer)=>clearedCanvas.push({canvas,renderer})
   ]);
   clear();
   assert.equal(state.seq,15,'old pending B request must become stale');
@@ -258,11 +260,15 @@ test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loa
   assert.deepEqual(cancelled.map(x=>x.id),[3,4],'C and D pending requests are invalidated');
   assert.deepEqual(extra.map(x=>x.seq),[5,10]);
   assert(cancelled.every(x=>x.message==='Comparison disabled.'));
+  assert.equal(clearedCanvas.length,2,
+    'Disabling B also clears both stale compare and difference canvas backbuffers');
 
   toggle.checked=true;
   clear();
   assert.equal(state.seq,16,'an invalid B frame also invalidates its own stale request');
   assert.equal(cancelled.length,2,'clearing an enabled B must not alter independent C/D');
+  assert.equal(clearedCanvas.length,4,
+    'Every invalidation of B and difference repaints their stale canvas, even while C/D remain active');
 });
 
 test('Granada block 1: re-enabling comparison reloads each real extra view after B',()=>{
