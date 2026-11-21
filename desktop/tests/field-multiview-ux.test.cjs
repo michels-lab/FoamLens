@@ -278,6 +278,26 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   assert.equal(holderA.renders,2,'original physical menu must re-render on Spanish language change');
   assert(holderA.innerHTML.includes('Regiones físicas'),'Spanish labels follow the real locale');
   menu('A');assert.equal(holderA.renders,2,'same locale does not reset focused region options');
+  // A B/C/D physical-region menu may contain a second same-name field
+  // with a different original OpenFOAM storage association. Reindexing that
+  // OTHER option must invalidate the menu even if the primary selected
+  // field and its vector components have not changed.
+  caseMenu.groups.set('metal',[
+    {name:'U',kind:'vector',storage:'volume'},
+    {name:'T',kind:'scalar',storage:'volume'}]);
+  menu('A');
+  const beforeStorageChange=holderA.renders;
+  assert(holderA.innerHTML.includes('value="T" data-storage="volume"'));
+  caseMenu.groups.set('metal',[
+    {name:'U',kind:'vector',storage:'volume'},
+    {name:'T',kind:'scalar',storage:'surface'}]);
+  menu('A');
+  assert.equal(holderA.renders,beforeStorageChange+1,
+    'Source association changes must refresh the existing physical-region menu');
+  assert(holderA.innerHTML.includes('value="T" data-storage="surface"'),
+    'New original surface option must be represented without a manual refresh');
+  assert.equal(choice.field,'U','Reindexing a different field may not replace selected U');
+  assert.equal(choice.storage,'volume','The selected physical source association must remain independent');
   assert(source.includes("fcUpdateLabels();fcScheduleToolbarSync()"),
     'real original language-change listener must resync physical A–D toolbars');
   console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, ES/EN and preserved physical controls.');
