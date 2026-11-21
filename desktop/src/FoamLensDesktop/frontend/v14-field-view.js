@@ -2280,19 +2280,28 @@ function fvInvalidateUnavailableSelection(){
   fvState._fvFrameHold=0;fvState._fvGroupHold=0;
   fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
   fvState.time=NaN;fvState.fieldValues=null;fvState.fieldParsed=null;
-  fvState.surfaceBoundary=null;fvState.vectorValues=null;fvState.vectorTime=NaN;
+  fvState.surfaceBoundary=null;fvState.surfaceBoundaryGeometry=null;
+  fvState.vectorValues=null;fvState.vectorTime=NaN;fvState.spatialHash=null;
   fvState.streamlines=[];fvState.sliceGeometry=null;fvState.isoGeometry=null;
+  fvState.globalRange=null;fvState.globalRangeKey='';
   fvRegionClearLayers();
   const r=fvState.renderer;
   if(r)for(const key of ['surfaceCount','faceFieldCount','boundaryFieldCount',
       'edgeCount','sliceCount','isoCount','vectorCount','lineCount','probeCount'])r[key]=0;
   const readout=document.getElementById('fvTimeReadout');
   if(readout)readout.textContent='t = —';
+  const badge=document.getElementById('fcPrimaryTimeBadge');
+  if(badge)badge.textContent='A · —';
+  const legend=document.getElementById('fvLegend');
+  if(legend)legend.innerHTML='';
+  const association=document.getElementById('fvAssociation');
+  if(association)association.textContent=flUi('Association: —','Asociación: —');
+  fvSetStats(null,null,null);
   fvRender()
 }
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return false}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return false}
   let requestSeq=fvState.frameSeq;
   try{
     fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));
