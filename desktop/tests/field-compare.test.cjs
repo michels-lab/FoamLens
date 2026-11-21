@@ -31,6 +31,42 @@ function cubeMesh(){
   }
 }
 
+test('Granada: Field B/C/D resolves original volume/surface/point associations unambiguously',()=>{
+  const a=source.indexOf('function fcSelectedAssociation(select){');
+  const b=source.indexOf('function fcCurrentFieldStorage(',a);
+  const c=source.indexOf('function fcFieldFor(c,region,name,association=');
+  const d=source.indexOf('function fcVectorFor(',c);
+  assert(a>=0&&b>a&&c>=0&&d>c,'Original association-aware Field resolution missing');
+  const groups=[
+    {name:'T',kind:'scalar',storage:'volume',times:[0,1]},
+    {name:'T',kind:'scalar',storage:'surface',times:[0,2]},
+    {name:'U',kind:'vector',storage:'point',times:[0,3]}
+  ];
+  const selector={selectedOptions:[{value:'T',dataset:{storage:'surface'}}]};
+  const fields=new Function('fvFieldGroups',source.slice(a,b)+source.slice(c,d)+
+    ';return {fcSelectedAssociation,fcFieldFor}')(()=>groups);
+  assert.strictEqual(fields.fcSelectedAssociation(selector),'surface');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T'),null,
+    'Duplicate original field names cannot silently select the first association');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','volume'),groups[0]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','surface'),groups[1]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','U'),groups[2]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','point'),null);
+  assert.strictEqual(fields.fcSelectedAssociation({}),'');
+
+  const bSelector=source.slice(source.indexOf('function fcRefreshSelectors('),
+    source.indexOf('function fcMvp(',source.indexOf('function fcRefreshSelectors(')));
+  const cdSelector=source.slice(source.indexOf('function fcExtraRefreshSelectors('),
+    source.indexOf('function fcExtraInvalidateFrame(',source.indexOf('function fcExtraRefreshSelectors(')));
+  for(const controls of [bSelector,cdSelector]){
+    assert(controls.includes('data-storage='),'Actual source associations must exist in original option nodes');
+    assert(controls.includes('option.dataset?.storage===oldAssociation'),
+      'A selected face/point field must survive original catalogue refresh');
+  }
+  assert(source.includes("field+(association?'|'+association:'')"),
+    'Independent physical-time source key must include association identity');
+});
+
 test('missing physical time is never coerced to measured t=0 in 3D synchronization',()=>{
   assert(Number.isNaN(api.fcNearestTime([null,'',false,9.8],null)));
   assert.equal(api.fcCloseTime(null,0),false);
@@ -88,6 +124,34 @@ test('3D comparison labels are HTML-escaped if the host helper is unavailable or
   assert.equal(make(undefined)(null),'');
   assert.equal(make(v=>'SAFE:'+v)('<region>'),'SAFE:<region>',
     'An existing original host escaper remains authoritative');
+});
+
+test('Granada: Field scientific synchronization fails closed for unsupported policies',()=>{
+  for(const invalid of ['legacy','',null,false,'interpolated','Nearest']){
+    const result=api.fcResolveTime([0,9.8],3.2,invalid);
+    assert.strictEqual(result.ok,false,'Unsupported policy must not silently select nearest: '+String(invalid));
+    assert(Number.isNaN(result.time));
+  }
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'nearest').ok,true);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'exact').ok,false);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'interpolate').interpolated,true);
+});
+
+test('Granada: interpolated 3D field cannot silently drop incompatible source cells',()=>{
+  assert.deepStrictEqual(api.fcInterpolateValues([1000,1010],[900],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],[900,910],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],null,.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([],[],.5),[]);
+  const equal=api.fcInterpolateValues([1000,1010],[900,910],.5);
+  assert.deepStrictEqual(equal,[950,960]);
+  assert(Number.isNaN(api.fcInterpolateValues([1000],[900],false)[0]));
+});
+
+test('Granada: inverted physical scalar bounds do not enter the shared 3D legend',()=>{
+  assert.deepStrictEqual(api.fcSharedRange({min:900,max:300},{min:310,max:830}),
+    {valid:true,min:310,max:830});
+  assert.equal(api.fcSharedRange({min:900,max:300},{min:500,max:100}).valid,false);
+  assert.equal(api.fcSharedRange({min:0,max:0},null).valid,true);
 });
 
 test('3D compare ignores missing samples, malformed interpolation and invalid geometry',()=>{
@@ -152,16 +216,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert(start>=0&&end>start,'Missing production stale-frame invalidation path');
   const make=new Function('fcState','fcExtraRefreshSelectors','fcExtraCase','fcExtraRegion',
     'fcExtraField','fcExtraComponent','fcIndependentTimeTarget','fcExtraDom','fcUi','fcExtraUpdateLabel','fcPhysicalRelease',
+    'fcBlankInvalidFieldViewport','fcUpdateStatsGrid',
     source.slice(start,end)+';return fcExtraRefreshFrame;');
   const status={textContent:''},state={id:3,seq:5,renderer:{surfaceCount:4,edgeCount:8,probeCount:1},
     mesh:{id:12},fieldValues:[1000],range:{valid:true},fieldParsed:{},time:0,sync:{exact:true},
     probe:{point:[0,0,0]}};
-  let physicalReleases=0;
+  let physicalReleases=0,blanked=0,statsRefreshes=0;
   const refresh=make({enabled:true},()=>{},()=>({}),()=>'metal',()=>'T',()=>'value',
-    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++});
+    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++},
+    ()=>{blanked++},()=>{statsRefreshes++});
   refresh(state); // deterministic synchronous validation happens before the first await
   assert.equal(state.seq,6,'An earlier in-flight frame must be invalidated');
   assert.equal(physicalReleases,1,'Invalidating stale frames must also free B/C/D physical region layers');
+  assert.equal(blanked,1,'Missing physical time must blank the invalid C/D GPU image');
+  assert.equal(statsRefreshes,1,'Missing physical time must remove stale C/D measured statistics');
   assert.equal(state.mesh,null);
   assert.equal(state.fieldValues,null);
   assert.equal(state.probe,null);
@@ -170,6 +238,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert.equal(state.renderer.surfaceCount,0);
   assert.equal(state.renderer.probeCount,0);
   assert(status.textContent.includes('measured physical time'));
+});
+
+test('Granada: matching metadata without real mesh topology must not certify 3D interpolation',()=>{
+  const a=cubeMesh(),b=JSON.parse(JSON.stringify(a));
+  delete a.points;delete b.points;
+  assert.deepStrictEqual(api.fcMeshesEquivalent(a,b),{ok:false,reason:'point-geometry-mismatch'});
+  const keys=['faceOffsets','facePoints','owners','neighbours'];
+  for(const key of keys){
+    const m1=cubeMesh(),m2=cubeMesh();
+    delete m1[key];delete m2[key];
+    assert.strictEqual(api.fcMeshesEquivalent(m1,m2).ok,false,'Both missing '+key+' cannot prove same topology');
+  }
+  assert.strictEqual(api.fcArrayEqualNumeric(undefined,undefined),false);
+  assert.strictEqual(api.fcArrayEqualNumeric([],[]),true,'Explicit empty neighbour lists remain valid');
 });
 
 test('strict mesh equivalence accepts identical topology and geometry',()=>{

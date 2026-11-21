@@ -772,7 +772,7 @@ require('node:test')('G60 original two-source history is atomic for missing, dup
   assert.deepEqual(single.current,['B3|metal|T'],
     'Source 2 disabled must still allow a single original physical history');
 
-  const timeStart=core.indexOf('function fwPhysicalTime(');
+  const timeStart=core.indexOf('function fwMeasuredNumber(');
   const timeEnd=core.indexOf('function fwAdoptFieldNode(',timeStart);
   const times=new Function('window',core.slice(timeStart,timeEnd)+';return fwPhysicalTimes')({FoamLensRegionScene:null});
   assert.deepEqual(times([null,false,'',NaN,'bad','0','0.0',0,.2,.2]),[0,.2]);

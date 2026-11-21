@@ -656,9 +656,18 @@ function fvRegionChoice(c,region){
     // Default to the selected physical region only; users can explicitly
     // enable the other region(s) in the Physical regions menu.
     const primaryRegion=document.getElementById('fvRegion')?.value||'';
-    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,field:fields.some(g=>g.name===primaryName)?primaryName:(fields[0]?.name||''),component:'value',opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
+    const initial=fields.find(g=>g.name===primaryName)||fields[0];
+    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,
+      field:initial?.name||'',storage:String(initial?.storage||''),component:'value',
+      opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
   }
   const choice=fvRegionScene.choices.get(region);
+  if(!choice.storage&&choice.field){
+    // Older saved choices have only a field name. Recover association
+    // automatically only when that original OpenFOAM name is unambiguous.
+    const same=fvFieldGroups(c,region,null,'any').filter(g=>g.name===choice.field&&['scalar','vector'].includes(g.kind));
+    if(same.length===1)choice.storage=String(same[0].storage||'')
+  }
   // Selecting a different primary region should NOT leave the old primary
   // overlaid merely because its old implicit default was "visible".
   if(!choice.visibilityExplicit)choice.visible=region===(document.getElementById('fvRegion')?.value||'');
@@ -741,7 +750,7 @@ function fvRegionRefreshList(){
   if(names.length<2){root.replaceChildren();return}
   root.innerHTML=names.map(region=>{
     const choice=fvRegionChoice(c,region),active=region===primary,fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),layer=fvRegionScene.layers.get(region);
-    const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'"'+(choice.field===g.name?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
+    const options=fields.map(g=>'<option value="'+fvEsc(g.name)+'" data-storage="'+fvEsc(g.storage||'')+'"'+(choice.field===g.name&&String(choice.storage||'')===String(g.storage||'')?' selected':'')+'>'+fvEsc(g.name)+' ('+fvEsc(fvAssociationLabel(g.storage))+')</option>').join('');
     const label=fvEsc(region||flUi('Default region','Región predeterminada'));
     return '<div class="fvRegionRow" data-fv-region-row="'+fvEsc(region)+'"><label class="inlineCheck"><input type="checkbox" data-fv-region-visible '+(choice.visible?'checked ':'')+'aria-label="'+label+'">'+label+'</label>'+
       '<span class="fvRegionStatus">'+(active?flUi('Primary / probe region','Región principal / sonda'):(layer?.status||flUi('Waiting for physical-time frame','Esperando frame de tiempo físico')))+'</span>'+
@@ -796,7 +805,7 @@ function fvRegionInstallEvents(){
       fvRegionUpdateLegend(region);fvRender();return
     }
     if(e.target.matches('[data-fv-region-field]')){
-      choice.field=e.target.value;choice.component='value';
+      choice.field=e.target.value;choice.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'');choice.component='value';
       fvRegionLoadFrame(c,fvState.time).catch(err=>fvRegionStatus(region,String(err?.message||err)))
     }
   });
@@ -1387,7 +1396,10 @@ async function fvRegionLoadFrame(c,time,{preserveLoaded=false}={}){
     // Keep per-region selector layout stable during timestep I/O. The old
     // Loading status and legend replacement moved the canvas mid-frame.
     const groups=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
-    const selected=groups.find(g=>g.name===choice.field);
+    const candidates=groups.filter(g=>g.name===choice.field&&
+      (!choice.storage||String(g.storage||'')===String(choice.storage)));
+    const selected=candidates.length===1?candidates[0]:null;
+    // Ambiguous same-named fields cannot be silently displayed as physical T/U.
     const exact=selected?fvRegionExactTime(selected.times,time):undefined;
     try{
       let data=null,mesh=null,status='';
@@ -1930,7 +1942,20 @@ function fvRender(exportSize=null){
   // is complete, preventing blank/half-painted intermediate OpenFOAM times.
   if((fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
   const r=fvState.renderer,canvas=document.getElementById('fvCanvas');if(!r||!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
-  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  // A missing measured OpenFOAM source must not redraw buffers belonging
+  // to the previous case/time. Active frame holds above prevent flicker
+  // while the NEXT valid physical timestep is still loading.
+  if(!fvState.mesh||!fvState.fieldValues){
+    const axes=document.getElementById('fvPhysicalAxes'),
+      dimensions=document.getElementById('fvMeshDimensions'),
+      secondary=document.getElementById('fvSecondaryScaleLegends');
+    if(axes)axes.replaceChildren();
+    if(dimensions){dimensions.textContent='';dimensions.hidden=true}
+    if(secondary)secondary.innerHTML='';
+    return
+  }
+  gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
   const primaryVisible=fvRegionPrimaryVisible(),showSurface=primaryVisible&&document.getElementById('fvSurface')?.checked!==false,showEdges=primaryVisible&&document.getElementById('fvEdges')?.checked!==false,showSlice=primaryVisible&&!!document.getElementById('fvSlice')?.checked,showIso=primaryVisible&&!!document.getElementById('fvIso')?.checked,opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   // One shared WebGL scene: write opaque physical geometry to depth first,
   // then composite transparent primary/secondary regions back-to-front.
@@ -2247,10 +2272,54 @@ async function fvHandleCaseChange(){
   const loadedCase=fvCase();
   if(!loadedCase||Number(loadedCase.id)!==selectedId)throw new Error(flUi('3D renderer is not bound to the selected case.','El renderer 3D no está vinculado al caso seleccionado.'));
 }
+// On an unavailable selected case or a failed active frame load, invalidate
+// both A's measured values and its graphics. A superseded asynchronous load
+// is not permitted to erase a newer valid user selection.
+function fvInvalidateUnavailableSelection(){
+  ++fvState.frameSeq;
+  fvState._fvFrameHold=0;fvState._fvGroupHold=0;
+  fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
+  fvState.time=NaN;fvState.fieldValues=null;fvState.fieldParsed=null;
+  fvState.surfaceBoundary=null;fvState.surfaceBoundaryGeometry=null;
+  fvState.vectorValues=null;fvState.vectorTime=NaN;fvState.spatialHash=null;
+  fvState.streamlines=[];fvState.sliceGeometry=null;fvState.isoGeometry=null;
+  fvState.globalRange=null;fvState.globalRangeKey='';
+  fvRegionClearLayers();
+  const r=fvState.renderer;
+  if(r)for(const key of ['surfaceCount','faceFieldCount','boundaryFieldCount',
+      'edgeCount','sliceCount','isoCount','vectorCount','lineCount','probeCount'])r[key]=0;
+  const readout=document.getElementById('fvTimeReadout');
+  if(readout)readout.textContent='t = —';
+  const badge=document.getElementById('fcPrimaryTimeBadge');
+  if(badge)badge.textContent='A · —';
+  const legend=document.getElementById('fvLegend');
+  if(legend)legend.innerHTML='';
+  const association=document.getElementById('fvAssociation');
+  if(association)association.textContent=flUi('Association: —','Asociación: —');
+  fvSetStats(null,null,null);
+  fvRender()
+}
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);fvSetStats(null,null,null);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return}
-  try{fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));fvState.caseId=c.id;fvState.region=region;fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';await fvLoadFrame(0,{resetCamera:true})}catch(e){console.error(e);fvSetStatus(String(e?.message||e),true)}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const issue=typeof flIssueDescriptor==='function'?flIssueDescriptor(availability.reason,{view:'Field View',field:fg?.name||'',region:document.getElementById('fvRegion')?.value||''}):{problem:availability.reason,action:''};fvSetStatus(availability.reason,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(issue.problem||flUi('3D data unavailable','Datos 3D no disponibles'))+'</div>'+(issue.action?'<div>'+fvEsc(issue.action)+'</div>':'');fvRender();return false}
+  let requestSeq=fvState.frameSeq;
+  try{
+    fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));
+    fvState.caseId=c.id;fvState.region=region;
+    fvState.mesh=null;fvState.meshSnapshot=null;fvState.meshCacheKey='';
+    const request=fvLoadFrame(0,{resetCamera:true});
+    requestSeq=fvState.frameSeq;
+    await request;
+    // An older completed read is not success for a newer user selection.
+    return requestSeq===fvState.frameSeq&&!!fvState.mesh&&!!fvState.fieldValues
+  }catch(error){
+    // Only the still-current selected source can clear A's previous frame.
+    if(requestSeq===fvState.frameSeq){
+      fvInvalidateUnavailableSelection();
+      console.error(error);fvSetStatus(String(error?.message||error),true)
+    }
+    return false
+  }
 }
 function fvSyncComponent(){
   const g=fvCurrentFieldGroup(),comp=document.getElementById('fvComponent'),old=comp.value;comp.innerHTML=fvFieldComponents(g).map(o=>`<option value="${o.v}">${fvEsc(o.t)}</option>`).join('');if([...comp.options].some(o=>o.value===old))comp.value=old;
