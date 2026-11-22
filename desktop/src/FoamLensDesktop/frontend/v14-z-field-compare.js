@@ -1732,6 +1732,8 @@ async function fcRefreshFrame(){
   // Invalidate the old derived A-B before an asynchronous B read begins.
   // Valid A/B meshes can remain visible until their next complete payload.
   fcState.differenceValues=null;fcState.differenceRange=null;
+  const deltaStatus=document.getElementById('fcDifferenceStatus');
+  if(deltaStatus)deltaStatus.textContent=fcUi('Updating A − B from selected OpenFOAM sources…','Actualizando A − B desde las fuentes OpenFOAM seleccionadas…');
   fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field,typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():'');if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
