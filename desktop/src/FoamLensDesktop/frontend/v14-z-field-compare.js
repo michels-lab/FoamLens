@@ -1655,11 +1655,12 @@ function fcRenderDifference(exportSize=null){
 function fcDifferenceTimesMatch(a,b){
   const primary=fcPhysicalNumber(a),secondary=fcPhysicalNumber(b);
   return Number.isFinite(primary)&&Number.isFinite(secondary)&&
-    Math.abs(primary-secondary)<=1e-9*Math.max(1,Math.abs(primary),Math.abs(secondary))
+    Math.abs(primary-secondary)<=Math.max(1e-15,
+      1e-10*Math.max(Math.abs(primary),Math.abs(secondary)))
 }
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
-  viewport?.classList.toggle('hidden',!enabled);if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
+  if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
   // Linked controls synchronize TARGET time, not necessarily the measured
   // source time. Nearest-frame B can be at a different instant from A.
   // A-B is scientifically valid only at the same EFFECTIVE physical t (s),
@@ -2073,13 +2074,29 @@ function fcUpdateLayout(){
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
   if(!fcState.enabled)fcStopAllIndependentPlayback();
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
+    differenceRequested=fcState.enabled&&!!document.getElementById('fcDifference')?.checked,
     samePhysicalTime=fcDifferenceTimesMatch(fvState.time,fcState.time),
-    showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked&&samePhysicalTime;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
+    differenceReady=!!fcState.differenceRange?.valid&&!!fcState.differenceValues?.length,
+    showDiff=differenceRequested&&samePhysicalTime&&differenceReady;
+  if(diff)diff.classList.toggle('hidden',!showDiff);
+  panel.classList.toggle('fcDifferenceMode',showDiff);
+  // A hidden invalid delta pane must not also hide the scientific reason.
+  // Place its real status in the compare controls, outside the 3D canvas.
+  const notice=document.getElementById('fcDifferenceNotice');
+  if(notice){
+    notice.hidden=!differenceRequested||showDiff;
+    if(!notice.hidden){
+      const problem=document.getElementById('fcDifferenceStatus')?.textContent?.trim();
+      notice.textContent=!samePhysicalTime?
+        fcUi('A − B unavailable: physical times do not match.','A − B no disponible: los tiempos físicos no coinciden.'):
+        problem||fcUi('A − B is not available for the selected fields or geometry.','A − B no está disponible para estos campos o geometría.')
+    }else notice.textContent=''
+  }document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
   const box=document.createElement('details');box.className='analysisExt';box.id='fcPanel';box.open=false;box.innerHTML='<summary class="analysisExtHead"><strong data-fl-en="Synchronized 3D case comparison" data-fl-es="Comparación 3D sincronizada de casos">Synchronized 3D case comparison</strong><span class="badge" id="fcBadge">—</span></summary><div class="extSectionBody">'+
-    '<div class="fvChecks"><label class="inlineCheck"><input id="fcEnabled" type="checkbox"> <span data-fl-en="Compare side by side" data-fl-es="Comparar lado a lado">Compare side by side</span></label><label class="inlineCheck"><input id="fcDifference" type="checkbox"> <span data-fl-en="Show 3D difference" data-fl-es="Mostrar diferencia 3D">Show 3D difference</span></label></div>'+
+    '<div class="fvChecks"><label class="inlineCheck"><input id="fcEnabled" type="checkbox"> <span data-fl-en="Compare side by side" data-fl-es="Comparar lado a lado">Compare side by side</span></label><label class="inlineCheck"><input id="fcDifference" type="checkbox"> <span data-fl-en="Show 3D difference" data-fl-es="Mostrar diferencia 3D">Show 3D difference</span></label></div><div class="smallnote" id="fcDifferenceNotice" role="status" aria-live="polite" hidden></div>'+
     '<div class="row2" style="margin-top:8px"><div class="field"><label data-fl-en="View 2 case" data-fl-es="Caso de vista 2">View 2 case</label><select id="fcCase"></select></div><div class="field"><label data-fl-en="Region" data-fl-es="Región">Region</label><select id="fcRegion"></select></div></div>'+
     '<div class="row2"><div class="field"><label data-fl-en="View 2 field" data-fl-es="Variable de vista 2">View 2 field</label><select id="fcField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fcComponent"></select></div></div>'+
     '<div class="field"><label data-fl-en="Physical-time synchronization" data-fl-es="Sincronización por tiempo físico">Physical-time synchronization</label><select id="fcSync"><option value="nearest" data-fl-en="Nearest available (show Δt)" data-fl-es="Más cercano disponible (mostrar Δt)">Nearest available (show Δt)</option><option value="exact" data-fl-en="Exact time only" data-fl-es="Solo tiempo exacto">Exact time only</option><option value="interpolate" data-fl-en="Interpolated between frames" data-fl-es="Interpolado entre frames">Interpolated between frames</option></select></div>'+
