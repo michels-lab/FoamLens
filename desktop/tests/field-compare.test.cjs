@@ -387,6 +387,10 @@ test('Granada: linked nearest B time cannot produce A-B at a different physical 
   assert.equal(matches(9.8,9.9),false,'Nearest B snapshot at 9.9s is not A at 9.8s');
   assert.equal(matches(9.8,9.8),true,'Actual equal source times may be compared');
   assert.equal(matches(9.8,9.8000000001),true,'Floating-point roundoff is permitted');
+  assert.equal(matches(1e-7,1.005e-7),false,
+    'A physical 0.5-ns offset is not roundoff in microsecond OpenFOAM frames');
+  assert.equal(matches(1e-7,1e-7+1e-16),true,
+    'Sub-femtosecond representation noise should not reject the same frame');
   for(const missing of [NaN,null,undefined,'',false])assert.equal(matches(9.8,missing),false,
     'Absent B measured time cannot be reinterpreted as zero');
 
@@ -421,16 +425,19 @@ test('Granada: linked nearest B time cannot produce A-B at a different physical 
     layoutEnd=source.indexOf('function fcInstallUi(){',layoutStart);
   assert(layoutStart>=0&&layoutEnd>layoutStart,'Original A/B/C/D layout required');
   let diffHidden=null;
+  const notice={hidden:true,textContent:''},differenceStatus={textContent:''};
   const node=()=>({classList:{toggle:()=>{}},querySelector:()=>null});
   const panel=node(),compare=node(),statsPane=node(),
     diff={classList:{toggle:(name,on)=>{if(name==='hidden')diffHidden=on}}};
   const getElementById=id=>({
     fcEnabled:{checked:true},fieldViewPanel:panel,fcViewport:compare,
-    fcDifferenceViewport:diff,fcDifference:{checked:true},fvStats:statsPane
+    fcDifferenceViewport:diff,fcDifference:{checked:true},fvStats:statsPane,
+    fcDifferenceNotice:notice,fcDifferenceStatus:differenceStatus
   })[id]||null;
   const layoutDeps={fcState:state,fcExtraViews:[],fvState:dependencies.fvState,
     document:{getElementById},fcTimesLinked:()=>true,
-    fcDifferenceTimesMatch:matches,fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
+    fcDifferenceTimesMatch:matches,fcUi:en=>en,
+    fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
     fcScheduleToolbarSync:()=>{},fcScheduleLayoutRender:()=>{},
     window:{FoamLensFieldWorkspace:null}};
   const layout=new Function('deps',
@@ -438,8 +445,23 @@ test('Granada: linked nearest B time cannot produce A-B at a different physical 
     source.slice(layoutStart,layoutEnd)+';return fcUpdateLayout;')(layoutDeps);
   state.time=9.9;layout();assert.equal(diffHidden,true,
     'A 9.8s / B 9.9s in linked nearest mode must hide false difference viewport');
-  state.time=9.8;layout();assert.equal(diffHidden,false,
-    'Matching measured or properly interpolated 9.8s may show difference');
+  assert.equal(notice.hidden,false);
+  assert(notice.textContent.includes('physical times do not match'),
+    'The physical-time error must remain visible outside the hidden delta canvas');
+  state.time=9.8;layout();assert.equal(diffHidden,true,
+    'Equal times do not certify a difference without compatible measured field values');
+  assert.equal(notice.hidden,false);
+  assert(notice.textContent.includes('not available'),
+    'Incompatible fields must have a visible explanatory status');
+  state.differenceValues=[7];state.differenceRange={valid:true,min:7,max:7};
+  layout();assert.equal(diffHidden,false,
+    'Matching physical time with valid A-B values may show original difference');
+  assert.equal(notice.hidden,true,'Valid delta must not show a stale incompatibility message');
+  state.differenceValues=null;state.differenceRange=null;
+  differenceStatus.textContent='mesh mismatch: original topology differs';
+  layout();assert.equal(diffHidden,true,'A failed source compatibility check must hide stale GPU delta');
+  assert(notice.textContent.includes('mesh mismatch'),
+    'Original scientific compatibility reason must remain readable in the controls');
   state.time=NaN;layout();assert.equal(diffHidden,true,
     'No valid B measured timestamp must hide difference even if linked');
 });
