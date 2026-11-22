@@ -377,6 +377,72 @@ test('Granada 3D differences reject incomplete cell arrays instead of presenting
   assert.equal(calls.layout,2);
 });
 
+test('Granada: linked nearest B time cannot produce A-B at a different physical time',()=>{
+  const guardStart=source.indexOf('function fcDifferenceTimesMatch('),
+    guardEnd=source.indexOf('function fcUpdateDifference(',guardStart);
+  assert(guardStart>=0&&guardEnd>guardStart,'Original scientific physical-time gate must exist');
+  const matches=new Function('fcPhysicalNumber',
+    source.slice(guardStart,guardEnd)+';return fcDifferenceTimesMatch;')(api.fcPhysicalNumber);
+  assert.equal(matches(9.8,9.9),false,'Nearest B snapshot at 9.9s is not A at 9.8s');
+  assert.equal(matches(9.8,9.8),true,'Actual equal source times may be compared');
+  assert.equal(matches(9.8,9.8000000001),true,'Floating-point roundoff is permitted');
+  for(const missing of [NaN,null,undefined,'',false])assert.equal(matches(9.8,missing),false,
+    'Absent B measured time cannot be reinterpreted as zero');
+
+  const a=source.indexOf('function fcUpdateDifference('),
+    b=source.indexOf('async function fcLoadVectorAtTime(',a);
+  assert(a>=0&&b>a,'Original linked difference controller must be exercised');
+  const stats={calls:0,issues:[]},state={enabled:true,time:9.9,
+    fieldStorage:'volume',differenceValues:[111],differenceRange:{valid:true}};
+  const dom={getElementById:id=>id==='fcDifference'?{checked:true}:
+    id==='fcDifferenceStatus'?{textContent:''}:
+    id==='fcDifferenceViewport'?{classList:{toggle:()=>{}}}:null};
+  const dependencies={fcState:state,document:dom,fcDifferenceTimesMatch:matches,
+    fcTimesLinked:()=>true,fvState:{time:9.8,fieldStorage:'volume'},
+    fcUi:(en)=>en,flSetIssue:(element,issue)=>stats.issues.push(String(issue)),
+    fcUpdateLayout:()=>{stats.calls++},
+    fcSameQuantity:()=>{throw new Error('Mismatch must block before comparing physical fields')},
+    fcMeshesEquivalent:()=>{throw new Error('Mismatch must never build a misleading A-B mesh')}
+  };
+  const update=new Function('deps',
+    'const {'+Object.keys(dependencies).join(',')+'}=deps;'+
+    source.slice(a,b)+';return fcUpdateDifference;')(dependencies);
+  update({cellCount:1},{cellCount:1},[10],[5]);
+  assert.equal(state.differenceValues,null,'Old cross-time A-B values must be discarded');
+  assert.equal(state.differenceRange,null,'Old cross-time color scale must be discarded');
+  assert.equal(stats.calls,1,'Cross-time difference must immediately resynchronize the layout');
+  assert(stats.issues[0].includes('Physical times differ'),
+    'Linked nearest mode must display the true physical-time incompatibility');
+
+  // The actual comparison layout previously treated a linked UI switch as
+  // proof of equal source times, showing a third stale difference viewport.
+  const layoutStart=source.indexOf('function fcUpdateLayout(){'),
+    layoutEnd=source.indexOf('function fcInstallUi(){',layoutStart);
+  assert(layoutStart>=0&&layoutEnd>layoutStart,'Original A/B/C/D layout required');
+  let diffHidden=null;
+  const node=()=>({classList:{toggle:()=>{}},querySelector:()=>null});
+  const panel=node(),compare=node(),statsPane=node(),
+    diff={classList:{toggle:(name,on)=>{if(name==='hidden')diffHidden=on}}};
+  const getElementById=id=>({
+    fcEnabled:{checked:true},fieldViewPanel:panel,fcViewport:compare,
+    fcDifferenceViewport:diff,fcDifference:{checked:true},fvStats:statsPane
+  })[id]||null;
+  const layoutDeps={fcState:state,fcExtraViews:[],fvState:dependencies.fvState,
+    document:{getElementById},fcTimesLinked:()=>true,
+    fcDifferenceTimesMatch:matches,fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
+    fcScheduleToolbarSync:()=>{},fcScheduleLayoutRender:()=>{},
+    window:{FoamLensFieldWorkspace:null}};
+  const layout=new Function('deps',
+    'const {'+Object.keys(layoutDeps).join(',')+'}=deps;'+
+    source.slice(layoutStart,layoutEnd)+';return fcUpdateLayout;')(layoutDeps);
+  state.time=9.9;layout();assert.equal(diffHidden,true,
+    'A 9.8s / B 9.9s in linked nearest mode must hide false difference viewport');
+  state.time=9.8;layout();assert.equal(diffHidden,false,
+    'Matching measured or properly interpolated 9.8s may show difference');
+  state.time=NaN;layout();assert.equal(diffHidden,true,
+    'No valid B measured timestamp must hide difference even if linked');
+});
+
 test('difference color range is symmetric around zero',()=>{
   const r=api.fcSymmetricDifferenceRange([-2,.5,5,-1]);
   assert.equal(r.valid,true);near(r.min,-5);near(r.max,5);near(r.mean,.625);assert.equal(r.count,4);
