@@ -1825,8 +1825,9 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const document={getElementById:id=>id==='fcDifference'?{checked:true}:
     id==='fcDifferenceViewport'?viewport:id==='fcDifferenceStatus'?{}:null};
   const fn=new Function('document','fcState','fvState','fcTimesLinked','flSetIssue',
-    'fcUpdateLayout',source.slice(start,end)+';return fcUpdateDifference;')(
-    document,secondary,primary,()=>false,(node,message)=>{issue=message},()=>layouts++);
+    'fcUpdateLayout','fcDifferenceTimesMatch','fcUi',source.slice(start,end)+';return fcUpdateDifference;')(
+    document,secondary,primary,()=>false,(node,message)=>{issue=message},()=>layouts++,
+    (a,b)=>a===b,en=>en);
   fn(null,null,null,null);
   assert.equal(secondary.differenceValues,null);
   assert.equal(secondary.differenceRange,null);
