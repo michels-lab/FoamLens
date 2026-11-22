@@ -1727,7 +1727,12 @@ function fcApplySharedRange(compareRange){
   const union=fcSharedRange(primary,compareRange);if(!union.valid)return union;fvUpdateSurfaceColors(fvState.fieldValues,union);fvUpdateSlice(union);if(typeof fvUpdateIso==='function')fvUpdateIso(union);fvLegend(union,fvState.fieldParsed);return union
 }
 async function fcRefreshFrame(){
-  fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
+  fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
+  // The user may have selected another case, field or physical timestamp.
+  // Invalidate the old derived A-B before an asynchronous B read begins.
+  // Valid A/B meshes can remain visible until their next complete payload.
+  fcState.differenceValues=null;fcState.differenceRange=null;
+  fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field,typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():'');if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
