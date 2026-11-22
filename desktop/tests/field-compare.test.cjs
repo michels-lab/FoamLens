@@ -348,6 +348,7 @@ test('Granada 3D differences reject incomplete cell arrays instead of presenting
       id==='fcDifferenceViewport'?{classList:{toggle:()=>{}}}:
       id==='fcDifferenceStatus'?status:null},
     fcTimesLinked:()=>true,
+    fcDifferenceTimesMatch:(a,b)=>a===b,
     fvState:{time:1,fieldStorage:'volume'},
     fcSameQuantity:()=>true,
     fcMeshesEquivalent:(a,b)=>({ok:true,reason:'equivalent'}),
