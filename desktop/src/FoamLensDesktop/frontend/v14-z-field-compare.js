@@ -1649,14 +1649,24 @@ function fcRenderDifference(exportSize=null){
   fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
 }
+// A and B must represent the same physical instant, regardless of whether
+// the UI clock is linked. The 'nearest' policy can legally select a different
+// measured B frame; that is useful for side-by-side viewing, not for A-B.
+function fcDifferenceTimesMatch(a,b){
+  const primary=fcPhysicalNumber(a),secondary=fcPhysicalNumber(b);
+  return Number.isFinite(primary)&&Number.isFinite(secondary)&&
+    Math.abs(primary-secondary)<=1e-9*Math.max(1,Math.abs(primary),Math.abs(secondary))
+}
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
   viewport?.classList.toggle('hidden',!enabled);if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
-  // Independent timestamps must never produce a misleading scientific A-B.
-  if(!fcTimesLinked()&&(!Number.isFinite(fvState.time)||!Number.isFinite(fcState.time)||
-    Math.abs(fvState.time-fcState.time)>1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time)))){
+  // Linked controls synchronize TARGET time, not necessarily the measured
+  // source time. Nearest-frame B can be at a different instant from A.
+  // A-B is scientifically valid only at the same EFFECTIVE physical t (s),
+  // either exact or with a source-backed interpolated B frame at A's t.
+  if(!fcDifferenceTimesMatch(fvState.time,fcState.time)){
     fcState.differenceValues=null;fcState.differenceRange=null;
-    flSetIssue(status,'Independent physical times differ; 3D difference requires matching t (s)',{analysis:'3D Difference'});
+    flSetIssue(status,fcUi('Physical times differ or are missing; A − B requires matching measured/interpolated t (s).','Los tiempos físicos difieren o faltan; A − B requiere el mismo t medido/interpolado (s).'),{analysis:'3D Difference'});
     fcUpdateLayout();return
   }
   if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
@@ -2063,8 +2073,7 @@ function fcUpdateLayout(){
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
   if(!fcState.enabled)fcStopAllIndependentPlayback();
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
-    samePhysicalTime=fcTimesLinked()||(Number.isFinite(fvState.time)&&Number.isFinite(fcState.time)&&
-      Math.abs(fvState.time-fcState.time)<=1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time))),
+    samePhysicalTime=fcDifferenceTimesMatch(fvState.time,fcState.time),
     showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked&&samePhysicalTime;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
