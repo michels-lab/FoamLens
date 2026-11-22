@@ -466,6 +466,40 @@ test('Granada: linked nearest B time cannot produce A-B at a different physical 
     'No valid B measured timestamp must hide difference even if linked');
 });
 
+test('Granada: new B source clears old A-B before async frame requests and reports recomputation',()=>{
+  const start=source.indexOf('async function fcRefreshFrame(){'),
+    end=source.indexOf('function fcRefreshVisuals(){',start);
+  assert(start>=0&&end>start,'Original B frame read callback must remain testable');
+  const state={enabled:true,differenceValues:[110],differenceRange:{valid:true,min:0,max:110}};
+  let snapshot=null,cleared=0,reported='',message='';
+  const deltaStatus={textContent:'Previous A − B looked valid'};
+  const host={
+    fcState:state,
+    fcRefreshSelectors:()=>{},
+    document:{getElementById:id=>id==='fcEnabled'?{checked:true}:
+      id==='fcDifferenceStatus'?deltaStatus:null},
+    fcUi:en=>en,
+    fcUpdateLayout:()=>{
+      snapshot={values:state.differenceValues,range:state.differenceRange,
+        status:deltaStatus.textContent}
+    },
+    fcClearRenderer:()=>cleared++,
+    fcCase:()=>null,fcRegion:()=>'',fcCurrentFieldName:()=>'',fcCurrentComponent:()=> 'value',
+    fcIndependentTimeTarget:()=>NaN,
+    fcSetStatus:txt=>{reported=txt}
+  };
+  const load=new Function('deps',
+    'const {'+Object.keys(host).join(',')+'}=deps;'+
+    source.slice(start,end)+';return fcRefreshFrame;')(host);
+  load(); // early invalid-source path commits its state before any await
+  assert.equal(snapshot.values,null,'An old delta cannot survive new B case/field selection');
+  assert.equal(snapshot.range,null,'Old A-B scale cannot be presented as new data');
+  assert(snapshot.status.includes('Updating A − B'),
+    'During new source read the user must see recomputation, not an old successful formula');
+  assert.equal(cleared,1,'Missing newly selected B source still clears its original renderer');
+  assert(reported.includes('Choose a loaded case/field'));
+});
+
 test('difference color range is symmetric around zero',()=>{
   const r=api.fcSymmetricDifferenceRange([-2,.5,5,-1]);
   assert.equal(r.valid,true);near(r.min,-5);near(r.max,5);near(r.mean,.625);assert.equal(r.count,4);
