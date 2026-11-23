@@ -107,9 +107,9 @@ test('physical-region menu exposes explicit bulk controls and correct region-spe
 
 test('real Windows-native multi-region fixture explicitly verifies both measured regions',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
- assert(program.includes('const choice=fvRegionChoice(c,region);'));
- assert(program.includes('choice.visible=true;choice.visibilityExplicit=true;'),
-   'native WebView2 smoke must declare manual multi-region visibility explicitly');
+ assert(program.includes('const firstLoadRegions=expected.map(region=>{'));
+ assert(program.includes('if(firstLoadRegions.some(x=>!x.visible))'),
+   'real QuickCup smoke must verify default mold visibility, not force an override');
  assert(program.includes('await api.load(c,fvState.time);'),
    'native smoke must still require real OpenFOAM same-canvas GPU composition');
 });
@@ -162,11 +162,12 @@ test('native asymmetric on-disk smoke verifies mold geometry without altering fi
  assert(start>=0&&end>start,'must retain packaged asymmetric OpenFOAM regression');
  const smoke=program.slice(start,end);
  const chosen=smoke.indexOf('const asymmetricMoldChoice=fvRegionChoice(c2,moldName);');
- const enable=smoke.indexOf('asymmetricMoldChoice.visible=true;');
- const explicit=smoke.indexOf('asymmetricMoldChoice.visibilityExplicit=true;');
+ const defaultCheck=smoke.indexOf('if(!asymmetricMoldChoice.visible)');
  const frame=smoke.indexOf('await fvLoadFrame(targetIndex);');
- assert(chosen>=0&&chosen<enable&&enable<explicit&&explicit<frame,
-  'asymmetric case must deliberately enable real mold before loading its measured/missing frame');
+ assert(chosen>=0&&chosen<defaultCheck&&defaultCheck<frame,
+   'asymmetric original mold must be visible by default before loading geometry fallback');
+ assert(!smoke.includes('asymmetricMoldChoice.visible=true;'),
+   'native smoke must not override the product default before testing it');
  assert(smoke.includes('layer.geometryOnly===true&&layer.sourceTime===null'),
   'missing source frame must still produce geometry-only without fake T');
  assert(smoke.includes('noScale&&notice&&api.gpuPayloadStats().regionCount===1'),
