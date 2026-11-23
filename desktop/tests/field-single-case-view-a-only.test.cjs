@@ -22,24 +22,25 @@ test('the real A viewport has the required ID for the same height/restore/reset 
  assert(layout.includes("toolbar.appendChild(div)"));
 });
 
-test('single case: selecting mold displays mold only, not the unrequested metal region',()=>{
+test('single case: A displays real metal and mold without opening B',()=>{
  const scene={choices:new Map()},selection={value:'metal'};
  const choice=isolate(field,'function fvRegionChoice(c,region){','function fvRegionPrimaryVisible()',[
   'fvRegionEnsureCase','fvRegionScene','fvFieldGroups','document'],[
   ()=>{},scene,()=>[{name:'T',kind:'scalar'}],{getElementById:id=>id==='fvRegion'?selection:{value:'T'}}]);
  const c={id:'case',regions:['metal','mold']};
  assert.equal(choice(c,'metal').visible,true);
- assert.equal(choice(c,'mold').visible,false);
+ assert.equal(choice(c,'mold').visible,true,'A must show the original mold by default');
  selection.value='mold';
- assert.equal(choice(c,'metal').visible,false,'implicit old primary must disappear');
+ assert.equal(choice(c,'metal').visible,true,'Active probe region must not hide original metal');
  assert.equal(choice(c,'mold').visible,true);
- const overlay=choice(c,'metal');overlay.visible=true;overlay.visibilityExplicit=true;
- assert.equal(choice(c,'metal').visible,true,'explicit overlay remains available');
+ const overlay=choice(c,'metal');overlay.visible=false;overlay.visibilityExplicit=true;
+ assert.equal(choice(c,'metal').visible,false,'An explicit user hide must remain applied');
  selection.value='metal';
- assert.equal(choice(c,'mold').visible,false,'unrequested mold must follow primary changes');
+ assert.equal(choice(c,'mold').visible,true,'Changing the active field region must retain the mold');
+ assert.equal(choice(c,'metal').visible,false,'User-hidden metal stays hidden');
 });
 
-test('comparison regions also default to selected primary only, preserving explicit overlays',()=>{
+test('B/C/D display all real regions on first load and preserve explicit hiding',()=>{
  const state={};
  const scene={caseId:null,choices:new Map(),savedByCase:new Map(),layers:new Map()};
  const list=isolate(compare,'function fcPhysicalChoiceList(state,c,primary){','function fcPhysicalViewContext(',[
@@ -47,15 +48,15 @@ test('comparison regions also default to selected primary only, preserving expli
    ()=>scene,()=>{},()=>['metal','mold'],()=>[{name:'T',kind:'scalar'}],()=>{}]);
  const c={id:'case'};
  list(state,c,'mold');
- assert.equal(scene.choices.get('metal').visible,false);
+ assert.equal(scene.choices.get('metal').visible,true,'Metal remains visible beside mold');
  assert.equal(scene.choices.get('mold').visible,true);
  list(state,c,'metal');
  assert.equal(scene.choices.get('metal').visible,true);
- assert.equal(scene.choices.get('mold').visible,false);
- scene.choices.get('mold').visible=true;
+ assert.equal(scene.choices.get('mold').visible,true,'Mold remains visible after changing primary');
+ scene.choices.get('mold').visible=false;
  scene.choices.get('mold').visibilityExplicit=true;
  list(state,c,'metal');
- assert.equal(scene.choices.get('mold').visible,true);
+ assert.equal(scene.choices.get('mold').visible,false,'Explicitly hidden mold stays hidden');
 });
 
 test('an imported single case cannot restore an old B without a new user comparison action',()=>{
@@ -104,7 +105,7 @@ test('physical-region menu exposes explicit bulk controls and correct region-spe
    'multi-region change in A must load overlays into A, not create B');
 });
 
-test('real Windows-native multi-region fixture opts in to both measured regions (selected-only remains the app default)',()=>{
+test('real Windows-native multi-region fixture explicitly verifies both measured regions',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
  assert(program.includes('const choice=fvRegionChoice(c,region);'));
  assert(program.includes('choice.visible=true;choice.visibilityExplicit=true;'),
@@ -126,19 +127,19 @@ test('view A remembers real physical-region selections separately for each loade
    scene,()=>{clears++},()=>[{name:'T',kind:'scalar'}],
    {getElementById:id=>id==='fvRegion'?selection:{value:'T'}});
  const first={id:'case-B3'},second={id:'case-C3'};
- assert.equal(f.fvRegionChoice(first,'mold').visible,false);
- const mold=f.fvRegionChoice(first,'mold');mold.visible=true;mold.visibilityExplicit=true;
+ assert.equal(f.fvRegionChoice(first,'mold').visible,true);
+ const mold=f.fvRegionChoice(first,'mold');mold.visible=false;mold.visibilityExplicit=true;
  f.fvRegionChoice(first,'metal');
  selection.value='mold';
- assert.equal(f.fvRegionChoice(second,'metal').visible,false,'a new case must not inherit B3 metal');
+ assert.equal(f.fvRegionChoice(second,'metal').visible,true,'each imported case shows its original metal by default');
  assert.equal(f.fvRegionChoice(second,'mold').visible,true,'C3 primary mold loads independently');
- const metal=f.fvRegionChoice(second,'metal');metal.visible=true;metal.visibilityExplicit=true;
+ const metal=f.fvRegionChoice(second,'metal');metal.visible=false;metal.visibilityExplicit=true;
  selection.value='metal';
- assert.equal(f.fvRegionChoice(first,'mold').visible,true,'B3 explicit mold overlay survives C3 visit');
+ assert.equal(f.fvRegionChoice(first,'mold').visible,false,'B3 explicit hidden mold survives C3 visit');
  assert.equal(f.fvRegionChoice(first,'metal').visible,true);
  assert.notStrictEqual(f.fvRegionChoice(first,'mold'),mold,'A region selection is restored by value, not shared mutable state');
  selection.value='mold';
- assert.equal(f.fvRegionChoice(second,'metal').visible,true,'C3 explicit metal overlay also survives B3 visit');
+ assert.equal(f.fvRegionChoice(second,'metal').visible,false,'C3 explicit hidden metal survives B3 visit');
  assert(clears>=3,'old GPU scene must be cleared each time the case changes');
 });
 
@@ -154,7 +155,7 @@ test('changing a physical-region field/component uses the real primary control, 
    'secondary component changes must still redraw the secondary physical overlay');
 });
 
-test('native asymmetric on-disk smoke explicitly opts into mold geometry without changing primary-only defaults',()=>{
+test('native asymmetric on-disk smoke verifies mold geometry without altering first-load visibility',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
  const start=program.indexOf('if(options.asymmetricCase){');
  const end=program.indexOf('physicalScene.asymmetric=asymmetric',start);
