@@ -1255,7 +1255,7 @@ test('native Windows QuickCup exercises actual independent mold legend without c
     'An OpenFOAM read failure must update the physical legend and status only after the new source scene is settled');
 });
 
-test('default field view shows only the selected physical region; secondary opacity remains available for manual overlays',()=>{
+test('default field view shows real metal and mold together with secondary transparency',()=>{
   const scene=new Function([
     'const window={};',
     'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:id==="fvField"?{value:"T"}:null};',
@@ -1266,10 +1266,10 @@ test('default field view shows only the selected physical region; secondary opac
     'return {primary:fvRegionChoice(c,"metal"),secondary:fvRegionChoice(c,"mold")};'
   ].join('\n'))();
   assert.equal(scene.primary.visible,true);
-  assert.equal(scene.secondary.visible,false,'secondary mold must not render unless explicitly enabled');
+  assert.equal(scene.secondary.visible,true,'real mold must render by default on A alongside metal');
   assert.equal(scene.primary.opacity,1);
   assert(scene.secondary.opacity>0&&scene.secondary.opacity<.65,
-    'Optional enclosing mold overlay stays translucent when manually enabled');
+    'The default enclosing mold overlay stays translucent so metal remains visible');
   assert.equal(scene.primary.field,'T');
   assert.equal(scene.secondary.field,'T');
 });
