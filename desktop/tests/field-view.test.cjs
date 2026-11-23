@@ -2125,7 +2125,7 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
   const exercise=[
     'fvRegionScene.caseId="1";',
     'fvRegionScene.choices.set("solid",{visible:true});',
-    'fvRegionScene.choices.set("fluid",{visible:false});',
+    'fvRegionScene.choices.set("fluid",{visible:false,visibilityExplicit:true});',
     'fvRegionScene.layers.set("fluid",{gl,surfacePos:1,surfaceColor:2,edgePos:3,edgeColor:4,mesh:{boundsMin:[-9,0,0],boundsMax:[-8,1,1]}});',
     'fvRegionApplyVisibility(c);',
     'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
