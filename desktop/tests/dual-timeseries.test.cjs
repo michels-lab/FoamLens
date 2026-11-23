@@ -385,5 +385,25 @@ test('GRANADA: original source axes are separated, contradictory units blocked, 
   assert.equal(api.tsdPlotAxisPreflight([]).ok,true);
 });
 
+
+test('GRANADA: production Time Series assignment overrides unsafe stale manual axes only in Data',()=>{
+  const start=source.indexOf('function tsdPatchAssignments(){');
+  const end=source.indexOf('function tsdWireCaseFilterRefresh(){',start);
+  assert(start>0&&end>start);
+  const code="let assignments=function(vis){const result=new Map();for(const row of vis)result.set(row.id,row.axis==='Right'?'right':'left');return result};"+
+    source.slice(start,end)+";tsdPatchAssignments();return assignments";
+  const maker=new Function('tsdPlotAxisPreflight','currentDataView',code);
+  const T={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const rows=[{id:'T',field:T,axis:'Left'},{id:'alpha',field:alpha,axis:'Left'}];
+  const plot=maker(api.tsdPlotAxisPreflight,'timeseries')(rows);
+  assert.equal(plot.get('T'),'left');
+  assert.equal(plot.get('alpha'),'right','The original source cannot share Y across temperature and phase');
+  const profile=maker(api.tsdPlotAxisPreflight,'profile')(rows);
+  assert.equal(profile.get('alpha'),'left','The original Profile renderer is not changed by Time Series');
+  const solo=maker(api.tsdPlotAxisPreflight,'timeseries')([{id:'T',field:T,axis:'Right'}]);
+  assert.equal(solo.get('T'),'right','One source family retains manual Y axis selection');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
