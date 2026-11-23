@@ -26,8 +26,12 @@ function tsdMatchesVariable(canonical,primary,secondary){
 function tsdDimensionPowers(dimensions){
   const match=/^\[\s*([^\]]+?)\s*\]$/.exec(String(dimensions??'').trim().replace(/\s+/g,' '));
   if(!match)return null;
-  const words=match[1].trim().split(/\s+/),powers=words.map(Number);
-  return words.length===7&&powers.every(Number.isFinite)?powers:null
+  const words=match[1].trim().split(/\s+/);
+  // OpenFOAM dimension exponents are signed decimal/scientific numbers.
+  // Number() alone accepts hex/binary/octal labels that are not physical exponents.
+  if(words.length!==7||words.some(w=>!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(w)))return null;
+  const powers=words.map(Number);
+  return powers.every(Number.isFinite)?powers:null
 }
 function tsdAxisMetadataVerified(field){
   const f=field||{},unit=String(f.unit??'').trim(),quantity=String(f.quantity||f.canonical||f.name||'').trim();
@@ -155,7 +159,25 @@ function tsdUpdateLabels(){
   if(s)s.innerHTML=tsdEsc(tsdUi('Variable 2 (optional)','Variable 2 (opcional)'))+' <span class="tsdAxisHint">'+tsdEsc(tsdUi('auto Y','Y auto'))+'</span>'
 }
 function tsdFields(ts){
-  return[...new Map((ts||[]).map(s=>[s.field.canonical,s.field])).values()].sort((a,b)=>localizedFieldName(a).localeCompare(localizedFieldName(b),undefined,{numeric:true}))
+  // A canonical name may occur in several original cases/regions. The
+  // previous Map kept the last source's units and could advertise K for
+  // a mixture of K and degC (or vice versa), depending on import order.
+  const byCanonical=new Map();
+  for(const series of ts||[]){
+    const field=series?.field||{},canonical=String(field.canonical??'').trim();
+    if(!canonical)continue;
+    const existing=byCanonical.get(canonical);
+    if(!existing){byCanonical.set(canonical,{...field,canonical});continue}
+    for(const key of ['unit','dimensions','quantity']){
+      if(String(existing[key]??'').trim()!==String(field[key]??'').trim()){
+        // Unknown is intentional: display no invented unit/dimensions and
+        // prevent physically incompatible fields sharing a certified Y axis.
+        existing[key]=key==='quantity'?'unknown':'?'
+      }
+    }
+  }
+  return [...byCanonical.values()].sort((a,b)=>
+    localizedFieldName(a).localeCompare(localizedFieldName(b),undefined,{numeric:true}))
 }
 function tsdPopulateSecondary(vars,primary,preferred=''){
   const sel=document.getElementById('timeSeriesVariable2');if(!sel)return'';
