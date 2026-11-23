@@ -190,6 +190,14 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const state={fieldName:'U'};
   assert.deepStrictEqual(physical.fcPhysicalChoiceList(state,caseB,'metal'),['metal','mold']);
   const scene=physical.fcPhysicalFor(state),metal=scene.choices.get('metal'),mold=scene.choices.get('mold');
+  assert.equal(metal.visible,true,'Original B metal must be visible from the first load');
+  assert.equal(mold.visible,true,'Original B/C/D mold must NOT be hidden by default');
+  assert.equal(mold.opacity,.48,'Mold is overlaid translucently without masking metal');
+  // Changing the active field region is NOT an instruction to hide a physically
+  // separate region. Explicit per-case user visibility remains the only override.
+  physical.fcPhysicalChoiceList(state,caseB,'mold');
+  assert.equal(metal.visible,true);
+  assert.equal(mold.visible,true);
   assert.equal(metal.field,'','unindexed region cannot invent a field');
   assert.equal(scene.choices.size,2);
   caseB.groups.set('metal',[{name:'U',kind:'vector'},{name:'T',kind:'scalar'}]);
