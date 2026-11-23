@@ -320,5 +320,55 @@ test('Granada: real Case change event recomputes dependent probe choices before 
     'Install must attach Case filter after binding the original Time Series refresh');
 });
 
+
+test('GRANADA T1: dimension parser rejects non-decimal physical exponents',()=>{
+  const field={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  for(const dimensions of [
+    '[0 0 0 0x1 0 0 0]','[0 0 0 0b1 0 0 0]',
+    '[0 0 0 0o1 0 0 0]','[0 0 0 1_0 0 0 0]',
+    '[0 0 0 Infinity 0 0 0]','[0 0 0 1e309 0 0 0]'
+  ])assert.equal(api.tsdAxisMetadataVerified({...field,dimensions}),false,
+    'Non-decimal or nonfinite source exponent must not authorize scientific axis: '+dimensions);
+  for(const dimensions of [
+    '[0 0 0 1 0 0 0]','[0 0 0 1e0 0 0 0]',
+    '[0 0 0 +1. 0 0 0]','[0 0 0 .5 0 0 0]'
+  ])assert.equal(api.tsdAxisMetadataVerified({...field,dimensions}),true,
+    'Valid finite decimal/scientific OpenFOAM exponents must remain supported');
+});
+
+test('GRANADA T1: duplicate source names never inherit a random case unit',()=>{
+  const start=source.indexOf('function tsdFields(ts){');
+  const end=source.indexOf('function tsdPopulateSecondary(',start);
+  assert(start>=0&&end>start,'The original variable selector catalog must be executable');
+  const catalog=new Function('localizedFieldName',
+    source.slice(start,end)+';return tsdFields;')(f=>f.canonical);
+  const kelvin={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const celsius={...kelvin,unit:'°C'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const group=[{field:kelvin,caseId:'B14'},{field:celsius,caseId:'C14'},{field:alpha,caseId:'B14'}];
+  for(const input of [group,[...group].reverse()]){
+    const selected=catalog(input),T=selected.find(f=>f.canonical==='T');
+    assert.equal(selected.length,2,'Two source cases with T must not invent a third variable');
+    assert.equal(T.unit,'?','Mixed Kelvin/Celsius can never show one arbitrary original unit');
+    assert.equal(api.tsdAxisMetadataVerified(T),false,
+      'Incompatible source units cannot certify a shared physical Y scale');
+    assert.equal(api.tsdAxisPlan(alpha,T).separate,true,
+      'The second Y axis must not inherit an incompatible source unit');
+  }
+  const same=catalog([{field:kelvin},{field:{...kelvin}}]);
+  assert.equal(same[0].unit,'K','Truly identical source metadata remains available');
+  assert.equal(api.tsdAxisMetadataVerified(same[0]),true);
+  const conflict=catalog([{field:kelvin},{field:{...kelvin,dimensions:'[0 0 0 0 0 0 0]'}}]);
+  assert.equal(conflict[0].dimensions,'?',
+    'Conflicting dimensions must not advertise one arbitrary source dimension');
+  assert.equal(api.tsdAxisMetadataVerified(conflict[0]),false);
+  const quantity=catalog([{field:kelvin},{field:{...kelvin,quantity:'pressure'}}]);
+  assert.equal(quantity[0].quantity,'unknown',
+    'Conflicting scientific quantity must remain explicitly unknown');
+  assert.equal(api.tsdAxisMetadataVerified(quantity[0]),false);
+  assert.deepEqual(catalog([{field:{}},{},null]),[],
+    'Missing source identity cannot create unnamed variable choices');
+});
+
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
