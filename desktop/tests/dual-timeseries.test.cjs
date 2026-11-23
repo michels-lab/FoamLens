@@ -405,5 +405,31 @@ test('GRANADA: production Time Series assignment overrides unsafe stale manual a
   assert.equal(solo.get('T'),'right','One source family retains manual Y axis selection');
 });
 
+
+test('GRANADA: original chart preflight and source Celsius conversion prevent bad plots',()=>{
+  const html=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
+  assert(html.includes("const preflight=tsdPlotAxisPreflight(visible)"));
+  assert(html.includes('Scientific comparison blocked'));
+  assert(html.includes('No se pueden combinar estas escalas originales en dos ejes Y'));
+  const start=html.indexOf('function visibleCurrentSeries(){');
+  const stop=html.indexOf('function caseDash(',start);
+  assert(start>0&&stop>start);
+  const visibility=new Function('currentViewSeries','seriesIsVisible','currentDataView',
+    'tsdPlotAxisPreflight',html.slice(start,stop)+';return visibleCurrentSeries;');
+  const K={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const conflicting=[{id:1,caseId:'B14',field:K},{id:2,caseId:'C14',field:{...K,unit:'°C'}}];
+  assert.equal(visibility(()=>conflicting,()=>true,'timeseries',api.tsdPlotAxisPreflight)().length,0);
+  assert.equal(visibility(()=>conflicting,()=>true,'profile',api.tsdPlotAxisPreflight)().length,2);
+  const begin=html.indexOf('function displayValue(v,field){');
+  const end=html.indexOf('function formatValue(v,field){',begin);
+  assert(begin>0&&end>begin);
+  const toC=new Function('$',html.slice(begin,end)+';return displayValue;')(()=>({value:'C'}));
+  const toK=new Function('$',html.slice(begin,end)+';return displayValue;')(()=>({value:'K'}));
+  assert.equal(Number(toC(298.15,K).toFixed(6)),25);
+  assert.equal(toC(25,{...K,unit:'°C'}),25);
+  assert.equal(toK(25,{...K,unit:'°C'}),298.15);
+  assert.equal(toC(15,{...K,isDelta:true}),15);
+  assert(html.includes('const meanRaw=pts.reduce((total,p)=>total+p.raw,0)/pts.length'));
+});
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
