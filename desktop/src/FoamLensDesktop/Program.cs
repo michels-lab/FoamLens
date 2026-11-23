@@ -3431,6 +3431,85 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
+    // Native A/B/C/D acceptance with the ACTUAL imported QuickCup source:
+    // all viewports must load their own metal/mold GPU scene, timestamp and
+    // metric XYZ. Do not supply synthetic fields or manually force region
+    // visibility. Restore the user's original comparison setup afterwards.
+    {
+      const compare=window.FoamLensFieldCompare,workspace=window.FoamLensFieldWorkspace,
+        link=document.getElementById('fcLinkTimes'),
+        wasLinked=link?.checked,wasEnabled=!!document.getElementById('fcEnabled')?.checked,
+        created=[];
+      if(!compare?.getPhysicalRegionDescriptors||!workspace?.add3DView)
+        throw new Error('Native multiview Field runtime unavailable');
+      try{
+        if(link)link.checked=true;
+        if(!document.getElementById('fcEnabled')?.checked)workspace.add3DView();
+        for(const id of [3,4]){
+          if(!document.getElementById('fcExtra'+id+'Viewport')){
+            workspace.add3DView();created.push(id)
+          }
+        }
+        for(const prefix of ['fc','fcExtra3','fcExtra4']){
+          const caseSelect=document.getElementById(prefix+'Case');
+          if(!caseSelect||![...caseSelect.options].some(option=>option.value===String(c.id)))
+            throw new Error('Case '+String(c.id)+' cannot be selected in '+prefix);
+          caseSelect.value=String(c.id);
+          caseSelect.dispatchEvent(new Event('change',{bubbles:true}));
+        }
+        await new Promise(resolve=>setTimeout(resolve,0));
+        for(const prefix of ['fc','fcExtra3','fcExtra4']){
+          const regionSelect=document.getElementById(prefix+'Region'),
+            fieldSelect=document.getElementById(prefix+'Field');
+          if(!regionSelect||![...regionSelect.options].some(option=>option.value===primary))
+            throw new Error('Original primary physical region missing from '+prefix);
+          regionSelect.value=primary;
+          regionSelect.dispatchEvent(new Event('change',{bubbles:true}));
+          if(!fieldSelect||![...fieldSelect.options].some(option=>option.value==='T'))
+            throw new Error('Original T not selectable in '+prefix);
+          fieldSelect.value='T';
+        }
+        await compare.fcRefreshFrame();
+        await compare.refreshExtras();
+        compare.flushLayoutRender?.();
+        const measured=compare.getPhysicalRegionDescriptors(),
+          witnesses=['view2','view3','view4'].map(view=>{
+            const data=measured.find(item=>item.id===view)||null,
+              secondary=expected.filter(region=>region!==primary).map(region=>
+                data?.regions?.find(item=>item.region===region)||null),
+              all=expected.map(region=>data?.regions?.find(item=>item.region===region)||null);
+            const samePhysical=typeof data?.time==='number'&&
+              Number.isFinite(data.time)&&fvTimeEqual(data.time,fvState.time);
+            return{view,caseMatches:String(data?.caseId||'')===String(c.id),
+              regionMatches:data?.primaryRegion===primary,samePhysical,
+              allRegionsVisible:all.every(row=>row?.visible===true),
+              allRegionsLoaded:all.every(row=>row?.loaded===true),
+              secondarySourceMatched:secondary.every(row=>row&&
+                row.sourceTime!==null&&fvTimeEqual(row.sourceTime,fvState.time)&&
+                Number(row.gpuPayloadBytes)>0),
+              boundsValid:!!data?.bounds&&[0,1,2].every(axis=>
+                Number.isFinite(data.bounds.min[axis])&&Number.isFinite(data.bounds.max[axis])&&
+                data.bounds.max[axis]>data.bounds.min[axis]),
+              xyzLabeled:['X:','Y:','Z:'].every(axis=>
+                String(data?.metricsText||'').includes(axis))}
+          });
+        physicalScene.multiView={caseId:String(c.id),time:Number(fvState.time),witnesses,
+          ok:witnesses.length===3&&witnesses.every(v=>v.caseMatches&&
+            v.regionMatches&&v.samePhysical&&v.allRegionsVisible&&
+            v.allRegionsLoaded&&v.secondarySourceMatched&&v.boundsValid&&v.xyzLabeled)};
+        if(!physicalScene.multiView.ok)
+          throw new Error('Native original QuickCup B/C/D metal+mold/XYZ failed: '+
+            JSON.stringify(physicalScene.multiView));
+      }finally{
+        for(const id of created.reverse()){
+          if(typeof fcExtraRemove==='function')fcExtraRemove(id);
+          else document.getElementById('fcExtra'+id+'Remove')?.click()
+        }
+        if(!wasEnabled)workspace.disableCompare?.();
+        if(link)link.checked=wasLinked
+      }
+    }
+
     // Pixel-backed native WebView2 check: a real offscreen GPU canvas draws
     // two overlapping physical-region triangles in deliberately WRONG input
     // order. The production global triangle sorter must reorder them before
