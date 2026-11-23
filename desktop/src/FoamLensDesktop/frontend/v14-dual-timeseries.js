@@ -524,11 +524,13 @@ function tsdPatchAssignments(){
     // Two distinct compatible source families get two distinct axes even
     // when the variable names overlap across cases or user style is stale.
     for(const item of vis||[]){
+      const required=plan.axisById.get(item.id)||'left';
       if(item.axis==='Left'||item.axis==='Right'){
-        // A manual axis choice is never allowed to merge two incompatible
-        // physical scales; the original setting remains on the curve.
+        // Preserve explicit choices only when they already agree with
+        // scientific separation; never merge incompatible source scales.
+        if(out.get(item.id)===required)continue
       }
-      out.set(item.id,plan.axisById.get(item.id)||'left')
+      out.set(item.id,required)
     }
     return out
   };assignments.__tsdPatched=true
