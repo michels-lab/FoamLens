@@ -3447,13 +3447,30 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         if(!document.getElementById('fcEnabled')?.checked)workspace.add3DView();
         for(const id of [3,4]){
           if(!document.getElementById('fcExtra'+id+'Viewport')){
-            workspace.add3DView();created.push(id)
+            workspace.add3DView();
+            if(!document.getElementById('fcExtra'+id+'Viewport'))
+              throw new Error('Original Field view '+id+' did not mount');
+            created.push(id)
           }
+          // A viewport can be created while the original case catalog is
+          // being reconstructed. Refresh its OWN native selectors before
+          // assigning an existing imported OpenFOAM source. Do not inject
+          // option HTML or manufacture cases on behalf of this acceptance.
+          const state=typeof fcExtraViews==='undefined'?null:
+            fcExtraViews.find(view=>view.id===id);
+          if(!state||typeof fcExtraRefreshSelectors!=='function')
+            throw new Error('Native Field '+id+' source-selector controller missing');
+          fcExtraRefreshSelectors(state,false)
         }
+        if(typeof fcRefreshSelectors==='function')fcRefreshSelectors(true);
         for(const prefix of ['fc','fcExtra3','fcExtra4']){
-          const caseSelect=document.getElementById(prefix+'Case');
-          if(!caseSelect||![...caseSelect.options].some(option=>option.value===String(c.id)))
-            throw new Error('Case '+String(c.id)+' cannot be selected in '+prefix);
+          const caseSelect=document.getElementById(prefix+'Case'),
+            actual=[...(caseSelect?.options||[])].map(option=>option.value);
+          if(!actual.includes(String(c.id)))
+            throw new Error('QuickCup case '+String(c.id)+' unavailable in '+prefix+
+              ': '+JSON.stringify({hasSelect:!!caseSelect,optionIds:actual,
+                loadedIds:(cases||[]).map(item=>String(item?.id??'')),
+                viewportPresent:!!document.getElementById(prefix+'Viewport')}));
           caseSelect.value=String(c.id);
           caseSelect.dispatchEvent(new Event('change',{bubbles:true}));
         }
