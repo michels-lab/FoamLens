@@ -145,7 +145,7 @@ function fcSyncText(sync){
 }
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
-  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
+  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceSource:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
@@ -1544,7 +1544,7 @@ function fcClearRenderer(){
       fcExtraInvalidateFrame(state,fcUi('Comparison disabled.','Comparación desactivada.'));
   }
   fcPhysicalRelease(fcState);
-  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;
+  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;
   fcBlankInvalidFieldViewport(document.getElementById('fcCanvas'),fcState.renderer,
     document.getElementById('fcViewport'));
   fcBlankInvalidFieldViewport(document.getElementById('fcDifferenceCanvas'),fcState.differenceRenderer,
@@ -1640,9 +1640,39 @@ function fcUpdateDerived(range){
 }
 
 function fcDifferenceMvp(canvas){return fcMvp(canvas)}
+// A delta is a DERIVED physical field, not a self-contained source. Every
+// displayed/exported A-B must still belong to exactly the case, region,
+// field, source buffers and measured times used to calculate its GPU colors.
+function fcDifferenceSourceKey(){
+  return JSON.stringify([
+    fvState.caseId,fvState.region,fvState.fieldName,fvState.component,
+    fvState.fieldStorage,fvState.fieldParsed?.dimensions||'',fvState.time,fvState.frameSeq,
+    fcState.caseId,fcState.region,fcState.fieldName,fcState.component,
+    fcState.fieldStorage,fcState.fieldParsed?.dimensions||'',fcState.time,fcState.seq,
+    document.getElementById('fcDifferenceMode')?.value||'signed',
+    Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12
+  ])
+}
+function fcDifferenceSourceMatches(){
+  const previous=fcState.differenceSource;
+  return !!(previous&&fcState.differenceRange?.valid&&fcState.differenceValues?.length&&
+    previous.primaryMesh===fvState.mesh&&previous.compareMesh===fcState.mesh&&
+    previous.primaryValues===fvState.fieldValues&&
+    previous.compareValues===fcState.fieldValues&&
+    previous.key===fcDifferenceSourceKey()&&
+    fcDifferenceTimesMatch(fvState.time,fcState.time))
+}
 function fcRenderDifference(exportSize=null){
   if((fcState._fcFrameHold||fcState._fcGroupHold||fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
-  if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
+  if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;
+  if(!fcDifferenceSourceMatches()){
+    // A hidden stale canvas is still capturable by exports/recordings.
+    fcBlankInvalidFieldViewport(document.getElementById('fcDifferenceCanvas'),
+      fcState.differenceRenderer,document.getElementById('fcDifferenceViewport'));
+    return
+  }
+  const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');
+  if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
   const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcDifferenceMvp(canvas));
   const opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),showEdges=document.getElementById('fvEdges')?.checked!==false;
@@ -1660,33 +1690,35 @@ function fcDifferenceTimesMatch(a,b){
 }
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
-  if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
+  if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;fcUpdateLayout();return}
   // Linked controls synchronize TARGET time, not necessarily the measured
   // source time. Nearest-frame B can be at a different instant from A.
   // A-B is scientifically valid only at the same EFFECTIVE physical t (s),
   // either exact or with a source-backed interpolated B frame at A's t.
   if(!fcDifferenceTimesMatch(fvState.time,fcState.time)){
-    fcState.differenceValues=null;fcState.differenceRange=null;
+    fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
     flSetIssue(status,fcUi('Physical times differ or are missing; A − B requires matching measured/interpolated t (s).','Los tiempos físicos difieren o faltan; A − B requiere el mismo t medido/interpolado (s).'),{analysis:'3D Difference'});
     fcUpdateLayout();return
   }
-  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
-  if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
-  const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
+  const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
   // Matching topology alone is insufficient. Dynamic/corrupt OpenFOAM field
   // inputs can report fewer or more cell values; a partial A-B would imply a
   // false physical comparison and leave some geometry colored incorrectly.
   const expectedCells=primaryMesh?.cellCount;
   if(!Number.isSafeInteger(expectedCells)||expectedCells<=0||primaryValues?.length!==expectedCells||compareValues?.length!==expectedCells){
-    fcState.differenceValues=null;fcState.differenceRange=null;
+    fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
     flSetIssue(status,fcUi('3D difference unavailable: cell field lengths differ from the original mesh.','Diferencia 3D no disponible: los tamaños de los campos no coinciden con la malla original.'),{analysis:'3D Difference'});
     fcUpdateLayout();return
   }
-  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});fcUpdateLayout();return}
+  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});fcUpdateLayout();return}
   const canvas=document.getElementById('fcDifferenceCanvas');if(!fcState.differenceRenderer)fcState.differenceRenderer=fvCreateRenderer(canvas);const r=fcState.differenceRenderer,b=fvBuildSurfaceBuffers(primaryMesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
   fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(primaryMesh,values,range.min,range.max,mode==='absolute'?'turbo':'coolwarm'),r.gl.DYNAMIC_DRAW);
-  fcState.differenceValues=values;fcState.differenceRange=range;fcState.differenceMode=mode;const formula=mode==='absolute'?'|A − B|':mode==='percent'?'100·(A − B)/max(|A|, ε)':'A − B',diffLabel=document.getElementById('fcDifferenceLabel'),diffBadge=document.getElementById('fcDifferenceTimeBadge');if(diffLabel)diffLabel.textContent=(mode==='absolute'?fcUi('Absolute difference','Diferencia absoluta'):mode==='percent'?fcUi('Percent difference','Diferencia porcentual'):fcUi('Signed difference','Diferencia con signo'))+' · '+formula;if(diffBadge)diffBadge.textContent='Δ · '+fcSyncText(fcState.sync);if(status){status.classList.remove('error');status.textContent=formula+' · '+(fvCase()?.name||fcUi('Primary','Principal'))+' vs '+(fcCase()?.name||fcUi('Comparison','Comparado'))+' · ['+fcFmt(range.min)+', '+fcFmt(range.max)+']'+(mode==='percent'?' %':'')}
+  fcState.differenceValues=values;fcState.differenceRange=range;fcState.differenceMode=mode;
+  fcState.differenceSource={primaryMesh,compareMesh,primaryValues,compareValues,
+    key:fcDifferenceSourceKey()};const formula=mode==='absolute'?'|A − B|':mode==='percent'?'100·(A − B)/max(|A|, ε)':'A − B',diffLabel=document.getElementById('fcDifferenceLabel'),diffBadge=document.getElementById('fcDifferenceTimeBadge');if(diffLabel)diffLabel.textContent=(mode==='absolute'?fcUi('Absolute difference','Diferencia absoluta'):mode==='percent'?fcUi('Percent difference','Diferencia porcentual'):fcUi('Signed difference','Diferencia con signo'))+' · '+formula;if(diffBadge)diffBadge.textContent='Δ · '+fcSyncText(fcState.sync);if(status){status.classList.remove('error');status.textContent=formula+' · '+(fvCase()?.name||fcUi('Primary','Principal'))+' vs '+(fcCase()?.name||fcUi('Comparison','Comparado'))+' · ['+fcFmt(range.min)+', '+fcFmt(range.max)+']'+(mode==='percent'?' %':'')}
   fcUpdateLayout();fcRenderDifference()
 }
 async function fcLoadVectorAtTime(c,g,region,time,mesh){
@@ -1731,7 +1763,7 @@ async function fcRefreshFrame(){
   // The user may have selected another case, field or physical timestamp.
   // Invalidate the old derived A-B before an asynchronous B read begins.
   // Valid A/B meshes can remain visible until their next complete payload.
-  fcState.differenceValues=null;fcState.differenceRange=null;
+  fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
   const deltaStatus=document.getElementById('fcDifferenceStatus');
   if(deltaStatus)deltaStatus.textContent=fcUi('Updating A − B from selected OpenFOAM sources…','Actualizando A − B desde las fuentes OpenFOAM seleccionadas…');
   fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
@@ -2083,7 +2115,7 @@ function fcUpdateLayout(){
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
     differenceRequested=fcState.enabled&&!!document.getElementById('fcDifference')?.checked,
     samePhysicalTime=fcDifferenceTimesMatch(fvState.time,fcState.time),
-    differenceReady=!!fcState.differenceRange?.valid&&!!fcState.differenceValues?.length,
+    differenceReady=fcDifferenceSourceMatches(),
     showDiff=differenceRequested&&samePhysicalTime&&differenceReady;
   if(diff)diff.classList.toggle('hidden',!showDiff);
   panel.classList.toggle('fcDifferenceMode',showDiff);
@@ -2096,6 +2128,8 @@ function fcUpdateLayout(){
       const problem=document.getElementById('fcDifferenceStatus')?.textContent?.trim();
       notice.textContent=!samePhysicalTime?
         fcUi('A − B unavailable: physical times do not match.','A − B no disponible: los tiempos físicos no coinciden.'):
+        fcState.differenceValues?.length&&!differenceReady?
+        fcUi('A − B outdated: original case, field or source data changed. Recalculate difference.','A − B obsoleta: cambió el caso, campo o fuente original. Recalcula la diferencia.'):
         problem||fcUi('A − B is not available for the selected fields or geometry.','A − B no está disponible para estos campos o geometría.')
     }else notice.textContent=''
   }document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
