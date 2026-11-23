@@ -634,6 +634,80 @@ test('Granada: signed 3D difference cannot survive a same-time case, field, mesh
     'Original validated source permits video capture after selection is restored');
 });
 
+test('Granada: B/C/D video export rejects pending case, field, region, association and frame',()=>{
+  const begin=source.indexOf('function fcVideoSourceCurrent('),
+    end=source.indexOf('function fcSetVideoRanges(',begin);
+  assert(begin>0&&end>begin,'Original Field video catalog and guards are required');
+  const controls=new Map();
+  const add=(prefix,spec)=>{
+    for(const [suffix,value] of Object.entries(spec)){
+      controls.set(prefix+suffix,{value,
+        ...(suffix==='Field'?{selectedOptions:[{dataset:{storage:'volume'}}]}:{})})
+    }
+  };
+  add('fc',{Case:'B14',Region:'metal',Field:'T',Component:'value'});
+  add('fcExtra3',{Case:'C14',Region:'mold',Field:'T',Component:'value'});
+  add('fcExtra4',{Case:'D14',Region:'metal',Field:'U',Component:'magnitude'});
+  const document={getElementById:id=>id==='fcDifference'?{checked:true}:
+    controls.get(id)||null};
+  const measured=(id,caseId,region,fieldName,component)=>({
+    id,caseId,region,fieldName,component,fieldStorage:'volume',storage:'volume',
+    mesh:{cellCount:2},fieldValues:[273,274],range:{valid:true,min:273,max:274},
+    fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},time:9.8
+  });
+  const B=measured(2,'B14','metal','T','value'),
+    C=measured(3,'C14','mold','T','value'),
+    D=measured(4,'D14','metal','U','magnitude');
+  B.enabled=true;
+  const deps={document,fcState:B,fcExtraViews:[C,D],
+    fcPhysicalNumber:api.fcPhysicalNumber,fcDifferenceSourceMatches:()=>false,
+    fcCase:()=>({name:'B14'}),fcExtraCase:s=>({name:s.caseId}),
+    fcExtraField:s=>s.fieldName,fcExtraComponent:s=>s.component,
+    fcCurrentFieldName:()=>B.fieldName,fcCurrentComponent:()=>B.component,
+    fvState:{fieldName:'T',fieldParsed:{}},
+    fvFiniteRange:()=>({valid:true,min:273,max:274})};
+  const descriptors=new Function('deps','const {'+Object.keys(deps).join(',')+
+    '}=deps;'+source.slice(begin,end)+';return fcVideoDescriptors;')(deps);
+  const keys=()=>descriptors().map(x=>x.key);
+  assert.deepStrictEqual(keys(),['view2','view3','view4'],
+    'All three valid independent original OpenFOAM sources can export video');
+  const reject=(prefix,suffix,value,excluded)=>{
+    const node=controls.get(prefix+suffix),original=node.value;
+    node.value=value;
+    assert(!keys().includes(excluded),
+      'Uncommitted '+prefix+suffix+' selection may not export old GPU frame');
+    node.value=original;
+    assert(keys().includes(excluded),'Restoring current selection keeps its legitimate export')
+  };
+  reject('fc','Case','other same-time case','view2');
+  reject('fc','Region','mold','view2');
+  reject('fc','Field','alpha1','view2');
+  reject('fcExtra3','Case','new C14','view3');
+  reject('fcExtra3','Component','magnitude','view3');
+  reject('fcExtra4','Region','mold','view4');
+  const field=controls.get('fcExtra4Field');
+  field.selectedOptions[0].dataset.storage='surface';
+  assert(!keys().includes('view4'),'Another OpenFOAM storage association invalidates D video');
+  field.selectedOptions[0].dataset.storage='volume';
+  C._fcFrameHold=17;
+  assert(!keys().includes('view3'),'C pending asynchronous load must not export old C frame');
+  C._fcFrameHold=0;
+  D._fcGroupHold=12;
+  assert(!keys().includes('view4'),'D pending linked transaction must not export old D frame');
+  D._fcGroupHold=0;
+  B.time=NaN;
+  assert(!keys().includes('view2'),'No measured B time may be exported');
+  B.time=9.8;
+  B.fieldValues=[];
+  assert(!keys().includes('view2'),'Empty B source cannot masquerade as a measured 3D field');
+  B.fieldValues=[273,274];
+  B.range={valid:false};
+  assert(!keys().includes('view2'),'Invalid physical range cannot be exported');
+  B.range={valid:true};
+  assert.deepStrictEqual(keys(),['view2','view3','view4'],
+    'Recovered original sources must reappear independently after validation');
+});
+
 test('difference color range is symmetric around zero',()=>{
   const r=api.fcSymmetricDifferenceRange([-2,.5,5,-1]);
   assert.equal(r.valid,true);near(r.min,-5);near(r.max,5);near(r.mean,.625);assert.equal(r.count,4);
