@@ -112,6 +112,36 @@ function tsdSourceEvidence(allSeries,canonical){
     unverifiedHistoryDimensions:rows.some(s=>s.fieldHistoryEvidence&& !s.fieldHistoryEvidence.verifiedDimensions)
   }
 }
+// A time-series chart has precisely two numeric Y axes. Before plotting,
+// check ACTUAL visible source records, not collapsed selector metadata.
+// Unknown metadata from independent cases is not evidence of compatibility.
+function tsdPlotAxisPreflight(visible){
+  const vis=Array.isArray(visible)?visible:[];
+  const groups=[],canonicalMetadata=new Map(),axisById=new Map();
+  for(const s of vis){
+    const f=s?.field||{},canonical=String(f.canonical??'').trim();
+    const unit=String(f.unit??'').trim(),quantity=String(f.quantity??'').trim();
+    const powers=tsdDimensionPowers(f.dimensions);
+    const dimensions=powers?powers.join(','):String(f.dimensions??'').trim();
+    const signature=JSON.stringify([quantity,unit,dimensions]);
+    if(canonical){
+      const previous=canonicalMetadata.get(canonical);
+      if(previous!==undefined&&previous!==signature)
+        return {ok:false,reason:'conflicting-source-metadata',groups:groups.length,axisById:new Map()};
+      canonicalMetadata.set(canonical,signature)
+    }
+    const verified=tsdAxisMetadataVerified(f);
+    const source=JSON.stringify([String(s?.caseId??''),String(s?.region??''),canonical,signature]);
+    const key=verified?'verified:'+signature:'unverified:'+source;
+    let index=groups.indexOf(key);
+    if(index<0){index=groups.length;groups.push(key)}
+    if(groups.length>2)
+      return {ok:false,reason:'more-than-two-physical-axes',groups:groups.length,axisById:new Map()};
+    axisById.set(s?.id,index===0?'left':'right')
+  }
+  return {ok:true,reason:'',groups:groups.length,axisById}
+}
+
 /* FOAMLENS_DUAL_TIMESERIES_CORE_END */
 
 function tsdUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(document.getElementById('language')?.value==='es'?es:en)}catch{return en}}
@@ -481,16 +511,24 @@ function tsdRefreshTimeSeriesControls(){
 }
 function tsdPatchAssignments(){
   if(typeof assignments!=='function'||assignments.__tsdPatched)return;
-  const previous=assignments;assignments=function(vis){
+  const previous=assignments;
+  assignments=function(vis){
     const out=previous.apply(this,arguments);
     if(currentDataView!=='timeseries')return out;
-    const primary=document.getElementById('timeSeriesVariable')?.value||'',secondary=document.getElementById('timeSeriesVariable2')?.value||'';
-    if(!primary||!secondary||primary===secondary)return out;
-    const fields=tsdFields(timeSeriesOptionsBase()),pf=fields.find(f=>f.canonical===primary),sf=fields.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
+    const plan=tsdPlotAxisPreflight(vis);
+    // An invalid chart is blocked at visibleCurrentSeries(), before it
+    // reaches the renderer. Do not invent third-axis coordinates here.
+    if(!plan.ok)return out;
+    // One physical quantity preserves explicit user axis choices.
+    if(plan.groups<=1)return out;
+    // Two distinct compatible source families get two distinct axes even
+    // when the variable names overlap across cases or user style is stale.
     for(const item of vis||[]){
-      if(item.axis==='Left'||item.axis==='Right')continue;
-      if(item?.field?.canonical===primary)out.set(item.id,plan.primary);
-      else if(item?.field?.canonical===secondary)out.set(item.id,plan.secondary)
+      if(item.axis==='Left'||item.axis==='Right'){
+        // A manual axis choice is never allowed to merge two incompatible
+        // physical scales; the original setting remains on the curve.
+      }
+      out.set(item.id,plan.axisById.get(item.id)||'left')
     }
     return out
   };assignments.__tsdPatched=true
@@ -524,4 +562,4 @@ function tsdInstall(){
   refreshTimeSeriesControls();return true
 }
 tsdInstall();
-window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence,tsdRefreshTimeSeriesControls};
+window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdPlotAxisPreflight,tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence,tsdRefreshTimeSeriesControls};
