@@ -3392,15 +3392,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     if(expected.some(name=>!discovered.includes(name)))
       throw new Error('OpenFOAM physical-region inventory mismatch: '+JSON.stringify({expected,discovered}));
     if(!expected.includes(primary))throw new Error('The loaded primary region is not in the real physical-region fixture: '+primary);
-    // The product defaults to the selected physical region only. In this
-    // native multiregion smoke we explicitly ask for EVERY real region,
-    // matching the owner-facing "Show all regions" action in the viewport.
-    // Visibility must be flagged explicit: fvRegionChoice otherwise restores
-    // the selected-only implicit default during the asynchronous field parse.
-    for(const region of expected){
+    // ACCEPTANCE OF THE PRODUCT DEFAULT, not a smoke-test manual override:
+    // the actual imported QuickCup case must already have metal + mold
+    // visible with their own real OpenFOAM geometry. This used to require
+    // clicking "Show all regions" and caused B/C/D to show metal alone.
+    const firstLoadRegions=expected.map(region=>{
       const choice=fvRegionChoice(c,region);
-      choice.visible=true;choice.visibilityExplicit=true;
-    }
+      return{region,visible:choice.visible===true,
+        explicit:choice.visibilityExplicit===true,opacity:Number(choice.opacity)}
+    });
+    if(firstLoadRegions.some(x=>!x.visible))
+      throw new Error('Real QuickCup first-load metal/mold default is hidden: '+
+        JSON.stringify(firstLoadRegions));
     await api.load(c,fvState.time);
     fvCameraFitCurrent();fvRender();
     const scene=api.state(),gl=fvState.renderer?.gl,canvas=document.getElementById('fvCanvas');
@@ -3418,7 +3421,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const initialGpu=api.gpuPayloadStats?.();
     const loaded=secondary.every(s=>s.colored&&s.field==='T'&&s.exactTime&&s.cells>0&&
       s.surfaceVertices>0&&s.sameWebGL&&s.distinctMesh&&s.validRange);
-    physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,
+    physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,firstLoadRegions,
       oneCanvas:!!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl),
       secondaryCount:scene.layers.size,glError:gl?gl.getError():-1,
       secondaryGpuPayloadBytes:Number(initialGpu?.payloadBytes||0),
@@ -3675,13 +3678,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         await fvLoadSelection();
         const metalGroup=fvFieldGroups(c2,primary,null,'any').find(g=>g.name==='T');
         const moldName=expected.find(name=>name!==primary);
-        // An asymmetric imported case correctly starts with only the selected
-        // primary region visible. This smoke explicitly requests the MISSING-
-        // frame mold geometry so the native fallback is actually exercised.
-        // Do not change the product default or manufacture any OpenFOAM data.
+        // An independent imported case must show the mold by DEFAULT,
+        // even when that region has geometry but no measured field at this
+        // requested physical time. Do not fabricate color or modify choices.
         const asymmetricMoldChoice=fvRegionChoice(c2,moldName);
-        asymmetricMoldChoice.visible=true;
-        asymmetricMoldChoice.visibilityExplicit=true;
+        if(!asymmetricMoldChoice.visible)
+          throw new Error('Asymmetric original mold hidden on first load');
         const moldGroup=fvFieldGroups(c2,moldName,null,'any').find(g=>g.name==='T');
         const metalTimes=(metalGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
         const moldTimes=(moldGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
