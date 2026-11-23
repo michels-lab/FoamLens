@@ -501,6 +501,104 @@ test('Granada: new B source clears old A-B before async frame requests and repor
   assert(reported.includes('Choose a loaded case/field'));
 });
 
+test('Granada: signed 3D difference cannot survive a same-time case, field, mesh or source swap',()=>{
+  // Execute the ORIGINAL production success branch, then change the original
+  // source inputs without changing its physical timestamp. A cached delta
+  // must never survive merely because the two clocks still read 9.8 s.
+  const keyStart=source.indexOf('function fcDifferenceSourceKey(){'),
+    renderStart=source.indexOf('function fcRenderDifference(',keyStart),
+    timeStart=source.indexOf('function fcDifferenceTimesMatch(',renderStart),
+    diffStart=source.indexOf('function fcUpdateDifference(',timeStart),
+    diffEnd=source.indexOf('async function fcLoadVectorAtTime(',diffStart);
+  assert(keyStart>0&&renderStart>keyStart&&timeStart>renderStart&&
+    diffStart>timeStart&&diffEnd>diffStart,'Original Field A-B provenance pipeline must be available');
+  const sameTime=new Function('fcPhysicalNumber',source.slice(timeStart,diffStart)+
+    ';return fcDifferenceTimesMatch;')(api.fcPhysicalNumber);
+  const mesh={cellCount:2,id:'B14 polyMesh'},meshB={cellCount:2,id:'C14 polyMesh'},
+    valuesA=[900,870],valuesB=[850,820];
+  const primary={caseId:'B14',region:'metal',fieldName:'T',component:'value',
+    fieldStorage:'volume',fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},
+    mesh,fieldValues:valuesA,time:9.8,frameSeq:4},
+    secondary={caseId:'C14',region:'metal',fieldName:'T',component:'value',
+      fieldStorage:'volume',fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},
+      mesh:meshB,fieldValues:valuesB,time:9.8,seq:7,
+      enabled:true,differenceValues:null,differenceRange:null,differenceSource:null};
+  const mode={value:'signed'},epsilon={value:'1e-12'},status={textContent:'',
+    classList:{remove:()=>{}}};
+  const differenceCanvas={width:400,height:200},differenceViewport={classList:{toggle:()=>{}}};
+  const dom={getElementById:id=>({
+    fcDifference:{checked:true},fcDifferenceMode:mode,fcPercentEpsilon:epsilon,
+    fcDifferenceCanvas:differenceCanvas,fcDifferenceViewport:differenceViewport,
+    fcDifferenceStatus:status
+  })[id]||null};
+  const provenance=new Function('fvState','fcState','document','fcDifferenceTimesMatch',
+    source.slice(keyStart,renderStart)+
+    ';return {fcDifferenceSourceKey,fcDifferenceSourceMatches};')(
+    primary,secondary,dom,sameTime);
+  const renderer={gl:{DYNAMIC_DRAW:35048}},uploads=[],events=[];
+  const deps={fcState:secondary,fvState:primary,document:dom,
+    fcDifferenceTimesMatch:sameTime,fcDifferenceSourceKey:provenance.fcDifferenceSourceKey,
+    fcSameQuantity:()=>true,fcMeshesEquivalent:()=>({ok:true}),
+    fcDifferenceValues:api.fcDifferenceValues,fcDifferenceRange:api.fcDifferenceRange,
+    fcUi:en=>en,flSetIssue:()=>{throw new Error('Valid source must not fail')},
+    fcUpdateLayout:()=>events.push('layout'),fcRenderDifference:()=>events.push('draw'),
+    fvCreateRenderer:()=>renderer,
+    fvBuildSurfaceBuffers:()=>({surfacePositions:new Float32Array(9),
+      edgePositions:new Float32Array(6)}),
+    fvUploadBuffer:(r,key,data)=>uploads.push(key),
+    fvConstantColors:n=>new Float32Array(n*3),
+    fvSurfaceColors:()=>new Float32Array(9),
+    fvCase:()=>({name:'B14'}),fcCase:()=>({name:'C14'}),
+    fcFmt:v=>String(v),fcSyncText:()=> 'Exact'
+  };
+  const compute=new Function('deps','const {'+Object.keys(deps).join(',')+
+    '}=deps;'+source.slice(diffStart,diffEnd)+
+    ';return fcUpdateDifference;')(deps);
+  compute(mesh,meshB,valuesA,valuesB);
+  assert.deepStrictEqual(secondary.differenceValues,[50,50]);
+  assert(provenance.fcDifferenceSourceMatches(),
+    'A freshly calculated source-backed delta must remain renderable');
+  assert(secondary.differenceSource?.primaryValues===valuesA);
+  assert(secondary.differenceSource?.compareValues===valuesB);
+  assert(uploads.includes('surfaceColor'),'Real original GPU colors were uploaded');
+
+  const mustReject=(apply,restore,message)=>{
+    apply();
+    assert.equal(provenance.fcDifferenceSourceMatches(),false,message);
+    restore();
+    assert.equal(provenance.fcDifferenceSourceMatches(),true,
+      'Restoring original source must recover the exact provenance contract')
+  };
+  mustReject(()=>primary.caseId='another same-time case',()=>primary.caseId='B14',
+    'Same timestamp with a different source case is NOT the old delta');
+  mustReject(()=>primary.fieldValues=[900,870],()=>primary.fieldValues=valuesA,
+    'Same numbers in a new source frame are NOT proven to be the old buffer');
+  mustReject(()=>secondary.mesh={cellCount:2},()=>secondary.mesh=meshB,
+    'Changed geometry cannot retain old delta GPU mesh');
+  mustReject(()=>secondary.fieldName='alpha1',()=>secondary.fieldName='T',
+    'Changing comparison quantity invalidates previously calculated temperature delta');
+  mustReject(()=>primary.region='mold',()=>primary.region='metal',
+    'Other physical region at same time cannot inherit old metal delta');
+  mustReject(()=>primary.frameSeq=5,()=>primary.frameSeq=4,
+    'A new in-flight source request cannot export an old delta');
+  mustReject(()=>mode.value='absolute',()=>mode.value='signed',
+    'Changed difference mode requires new scientific calculation');
+  mustReject(()=>epsilon.value='1e-8',()=>epsilon.value='1e-12',
+    'Changed percent denominator policy requires new calculation');
+  mustReject(()=>primary.time=9.9,()=>primary.time=9.8,
+    'Different measured source times remain invalid');
+
+  let cleared=0;
+  const draw=new Function('fcState','fvState','document','fcDifferenceSourceMatches',
+    'fcBlankInvalidFieldViewport',source.slice(renderStart,timeStart)+
+    ';return fcRenderDifference;')(
+    secondary,primary,dom,provenance.fcDifferenceSourceMatches,()=>cleared++);
+  primary.caseId='new same-time case';draw({width:800,height:400});
+  assert.equal(cleared,1,
+    'A stale delta export must clear the old canvas instead of rendering previous GPU pixels');
+  primary.caseId='B14';
+});
+
 test('difference color range is symmetric around zero',()=>{
   const r=api.fcSymmetricDifferenceRange([-2,.5,5,-1]);
   assert.equal(r.valid,true);near(r.min,-5);near(r.max,5);near(r.mean,.625);assert.equal(r.count,4);
