@@ -604,6 +604,27 @@ test('Granada: signed 3D difference cannot survive a same-time case, field, mesh
   assert.equal(cleared,1,
     'A stale delta export must clear the old canvas instead of rendering previous GPU pixels');
   primary.caseId='B14';
+
+  // Native video-frame discovery is a separate export path. It must never
+  // expose a delta descriptor after its source case/mesh/field was replaced.
+  const videoBegin=source.indexOf('function fcVideoDescriptors(){'),
+    videoEnd=source.indexOf('function fcSetVideoRanges(',videoBegin);
+  assert(videoBegin>0&&videoEnd>videoBegin,'Original video catalog must be extractable');
+  const videoDeps={fcState:secondary,fcExtraViews:[],document:dom,
+    fcDifferenceSourceMatches:provenance.fcDifferenceSourceMatches,
+    fvState:primary,fcCase:()=>({name:'C14'}),fcCurrentFieldName:()=> 'T',
+    fcCurrentComponent:()=> 'value',fvFiniteRange:()=>({valid:true,min:0,max:100})};
+  const videos=new Function('deps',
+    'const {'+Object.keys(videoDeps).join(',')+'}=deps;'+
+    source.slice(videoBegin,videoEnd)+';return fcVideoDescriptors;')(videoDeps);
+  assert(videos().some(x=>x.key==='difference'),
+    'Current source-backed delta must be available for video export');
+  selectedCase.value='new case before load';
+  assert(!videos().some(x=>x.key==='difference'),
+    'Stale delta must be excluded from video exports even before an async case load');
+  selectedCase.value='B14';
+  assert(videos().some(x=>x.key==='difference'),
+    'Original validated source permits video capture after selection is restored');
 });
 
 test('difference color range is symmetric around zero',()=>{
