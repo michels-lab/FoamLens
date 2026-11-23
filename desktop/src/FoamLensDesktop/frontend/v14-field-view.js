@@ -652,12 +652,12 @@ function fvRegionChoice(c,region){
   if(!fvRegionScene.choices.has(region)){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const primaryName=document.getElementById('fvField')?.value||'';
-    // A region is NOT a second viewport or an automatic extra layer.
-    // Default to the selected physical region only; users can explicitly
-    // enable the other region(s) in the Physical regions menu.
+    // The active region selects the physical FIELD, not the full 3D body.
+    // Display the actual metal AND mold on first load, using a transparent
+    // secondary mesh; only an explicit user choice may hide a region.
     const primaryRegion=document.getElementById('fvRegion')?.value||'';
     const initial=fields.find(g=>g.name===primaryName)||fields[0];
-    fvRegionScene.choices.set(region,{visible:region===primaryRegion,visibilityExplicit:false,
+    fvRegionScene.choices.set(region,{visible:true,visibilityExplicit:false,
       field:initial?.name||'',storage:String(initial?.storage||''),component:'value',
       opacity:region===primaryRegion?1:.48,palette:document.getElementById('fvPalette')?.value||'viridis'})
   }
@@ -668,9 +668,9 @@ function fvRegionChoice(c,region){
     const same=fvFieldGroups(c,region,null,'any').filter(g=>g.name===choice.field&&['scalar','vector'].includes(g.kind));
     if(same.length===1)choice.storage=String(same[0].storage||'')
   }
-  // Selecting a different primary region should NOT leave the old primary
-  // overlaid merely because its old implicit default was "visible".
-  if(!choice.visibilityExplicit)choice.visible=region===(document.getElementById('fvRegion')?.value||'');
+  // Switching the active field/region must not silently hide the physical
+  // mold or metal. An explicit per-case visibility choice remains authoritative.
+  if(!choice.visibilityExplicit)choice.visible=true;
   return choice
 }
 function fvRegionPrimaryVisible(){
@@ -791,7 +791,7 @@ function fvRegionInstallEvents(){
   });
   document.getElementById('fvRegionOnlyPrimary')?.addEventListener('click',()=>{
     const c=fvCase(),primary=document.getElementById('fvRegion')?.value||'';if(!c)return;
-    for(const region of fvRegionNames(c)){const choice=fvRegionChoice(c,region);choice.visible=region===primary;choice.visibilityExplicit=false}
+    for(const region of fvRegionNames(c)){const choice=fvRegionChoice(c,region);choice.visible=region===primary;choice.visibilityExplicit=true}
     fvRegionApplyVisibility(c)
   });
   root.addEventListener('change',e=>{
