@@ -14,7 +14,7 @@ const end='/* FOAMLENS_DUAL_TIMESERIES_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Dual Time-Series core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisMetadataVerified,tsdAxisPlan};')();
+const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisMetadataVerified,tsdAxisPlan,tsdPlotAxisPreflight};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -368,6 +368,21 @@ test('GRANADA T1: duplicate source names never inherit a random case unit',()=>{
   assert.equal(api.tsdAxisMetadataVerified(quantity[0]),false);
   assert.deepEqual(catalog([{field:{}},{},null]),[],
     'Missing source identity cannot create unnamed variable choices');
+});
+
+
+test('GRANADA: original source axes are separated, contradictory units blocked, third axis blocked',()=>{
+  const T={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const U={canonical:'U',quantity:'velocity',unit:'m/s',dimensions:'[0 1 -1 0 0 0 0]'};
+  const first={id:1,caseId:'B14',field:T},second={id:2,caseId:'C14',field:{...T}},phase={id:3,caseId:'B14',field:alpha};
+  const safe=api.tsdPlotAxisPreflight([first,second,phase]);
+  assert.equal(safe.ok,true);
+  assert.equal(safe.groups,2);
+  assert.deepEqual([safe.axisById.get(1),safe.axisById.get(2),safe.axisById.get(3)],['left','left','right']);
+  assert.equal(api.tsdPlotAxisPreflight([first,{...second,field:{...T,unit:'°C'}}]).reason,'conflicting-source-metadata');
+  assert.equal(api.tsdPlotAxisPreflight([first,second,phase,{id:4,field:U}]).reason,'more-than-two-physical-axes');
+  assert.equal(api.tsdPlotAxisPreflight([]).ok,true);
 });
 
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
