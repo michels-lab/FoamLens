@@ -68,13 +68,16 @@ function pvClassify(sample){
 // Audit the measured A/B/C/D GRID, not only independent caption overlays.
 // Four sources across on a wide panel is an explicit usability requirement;
 // a two-row layout at that width is a measurable regression.
-function pvGridRowAudit(grid,items){
+function pvGridRowAudit(grid,items,panelWidth){
   const rect=pvRect(grid),active=(items||[]).filter(x=>
     ['fvViewport','fcViewport','fcExtra3Viewport','fcExtra4Viewport'].includes(x.id)&&
     pvRect(x.rect)).map(x=>({id:x.id,rect:pvRect(x.rect)}));
   if(!rect||rect.width<120)return{state:'unmeasured',expectedColumns:0,
     visibleCount:active.length,rows:0,issues:[{type:'grid-not-rendered'}]};
-  const n=active.length,width=rect.width;
+  // CSS container queries measure the enclosing Field PANEL, not the grid
+  // after its padding/borders. The audit must use the same breakpoint basis.
+  const n=active.length,width=Number.isFinite(pvNumber(panelWidth))&&panelWidth>0?
+    Number(panelWidth):rect.width;
   const expectedColumns=width<700?1:n>=4&&width>=1320?4:
     n>=3&&width>=1040?3:Math.min(n,2);
   const tops=[];
@@ -226,7 +229,7 @@ function pvAudit(){
   const grid=pvEl('fcViewGrid'),
     elements=grid?[...grid.children].filter(x=>pvViews[x.id]&&!x.classList.contains('hidden')&&x.getBoundingClientRect().width>0):[],
     views=elements.map(pvMeasure),
-    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect()}))),
+    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect()})),pvEl('fieldViewPanel')?.getBoundingClientRect()?.width),
     counts={};for(const v of views)counts[v.state]=(counts[v.state]||0)+1;
   const report={schema:'foamlens/field-f2-layout/1',capturedUtc:new Date().toISOString(),
     environment:{innerCssPx:{width:window.innerWidth,height:window.innerHeight},
