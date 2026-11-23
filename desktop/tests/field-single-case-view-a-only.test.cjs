@@ -114,6 +114,32 @@ test('real Windows-native multi-region fixture explicitly verifies both measured
    'native smoke must still require real OpenFOAM same-canvas GPU composition');
 });
 
+
+test('native original QuickCup Windows smoke independently verifies B/C/D with metal, mold, time, GPU and XYZ',()=>{
+ const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8'),
+   start=program.indexOf('// Native A/B/C/D acceptance with the ACTUAL imported QuickCup source:'),
+   end=program.indexOf('// Pixel-backed native WebView2 check:',start);
+ assert(start>=0&&end>start,'QuickCup must exercise the original B/C/D source rather than A only');
+ const native=program.slice(start,end);
+ new Function('return async function originalQuickCupFourViews(){'+native+'}')();
+ for(const term of [
+   "workspace.add3DView()",
+   "await compare.fcRefreshFrame()",
+   "await compare.refreshExtras()",
+   "compare.getPhysicalRegionDescriptors()",
+   "['view2','view3','view4']",
+   "allRegionsVisible:all.every(row=>row?.visible===true)",
+   "allRegionsLoaded:all.every(row=>row?.loaded===true)",
+   "Number(row.gpuPayloadBytes)>0",
+   "data.bounds.max[axis]>data.bounds.min[axis]",
+   "['X:','Y:','Z:']",
+   "if(!physicalScene.multiView.ok)",
+   "if(!wasEnabled)workspace.disableCompare?.()"
+ ])assert(native.includes(term),'Original WebView2 acceptance missing: '+term);
+ assert(!native.includes('choice.visible=true;choice.visibilityExplicit=true;'),
+   'Native B/C/D must prove the default metal/mold behavior, not force it in the test');
+});
+
 test('view A remembers real physical-region selections separately for each loaded case',()=>{
  const source=fs.readFileSync(path.join(root,'v14-field-view.js'),'utf8');
  const start=source.indexOf('function fvRegionEnsureCase(c){');
