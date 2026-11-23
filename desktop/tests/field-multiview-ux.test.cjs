@@ -2179,3 +2179,66 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'A physical region cannot silently draw a wrong-association field');
   console.log('Granada A-D physical metal/mold association PASS: same T in volume and surface, source selection and safe load');
 }
+
+// Granada A/B/C/D: verify the ACTUAL responsive Field panel CSS and the
+// ACTUAL DPI/viewport-audit function. No synthetic fixed 4-column scroll strip.
+{
+  const styles=[...source.matchAll(/style\.textContent \+= ("(?:\\.|[^"\\])*");/g)]
+    .map(m=>new Function('return '+m[1])());
+  const responsive=styles.find(x=>x.includes('container-name:fc-field-space'));
+  assert(responsive,'Field view must adapt to its real panel width, not just monitor width');
+  for(const css of [
+    '#fieldViewPanel{container-name:fc-field-space;container-type:inline-size}',
+    '@container fc-field-space (min-width:1040px)',
+    'grid-template-columns:repeat(3,minmax(0,1fr))',
+    '@container fc-field-space (min-width:1320px)',
+    'grid-template-columns:repeat(4,minmax(0,1fr))',
+    '@container fc-field-space (max-width:699px)',
+    'grid-template-columns:minmax(0,1fr)',
+    'overflow-x:clip',
+    'align-items:start;align-content:start'
+  ])assert(responsive.includes(css),'Original Field four-way CSS missing '+css);
+  assert(responsive.includes('#fcExtra4Viewport:not(.hidden)'),
+    'Four columns must activate only when the original D renderer is present');
+  assert(!responsive.includes('overflow-x:auto')&&!responsive.includes('overflow-x:scroll'),
+    'Do not reintroduce the horizontal-scrollbar layout the owner rejected');
+
+  const f2=fs.readFileSync(path.join(dir,'v24-field-f2-viewport-layout.js'),'utf8');
+  const a=f2.indexOf('/* FOAMLENS_F2_LAYOUT_CORE_START */'),
+    b=f2.indexOf('/* FOAMLENS_F2_LAYOUT_CORE_END */',a);
+  assert(a>=0&&b>a,'Real source-backed Field F2 geometry auditor required');
+  const audited=new Function(f2.slice(a,b)+';return pvGridRowAudit;')();
+  const rect=(x,y,w,h)=>({left:x,right:x+w,top:y,bottom:y+h,width:w,height:h});
+  const make=(id,x,y,w=320)=>({id,rect:rect(x,y,w,420)});
+  const gridWide=rect(0,0,1380,1000);
+  const four=[
+    make('fvViewport',0,0),make('fcViewport',340,0),
+    make('fcExtra3Viewport',680,0),make('fcExtra4Viewport',1020,0)];
+  let result=audited(gridWide,four);
+  assert.equal(result.state,'no-observed-conflict','Wide 4-up layout must share a measured first row');
+  assert.equal(result.expectedColumns,4);assert.equal(result.rows,1);
+  const wrapped=[four[0],four[1],make('fcExtra3Viewport',0,450),
+    make('fcExtra4Viewport',340,450)];
+  result=audited(gridWide,wrapped);
+  assert.equal(result.state,'layout-conflict',
+    'Wide Field grid mistakenly stacking C/D under A/B must be detectable');
+  assert(result.issues.some(x=>x.type==='wide-quad-wrapped'));
+  result=audited(rect(0,0,800,1100),[
+    make('fvViewport',0,0),make('fcViewport',400,0),
+    make('fcExtra3Viewport',0,460),make('fcExtra4Viewport',400,460)]);
+  assert.equal(result.expectedColumns,2,'Smaller desktop windows use two readable columns');
+  assert.equal(result.state,'no-observed-conflict',
+    'Two rows are valid only when there is not enough panel width for a single row');
+  result=audited(rect(0,0,600,1800),[
+    make('fvViewport',0,0),make('fcViewport',0,460),
+    make('fcExtra3Viewport',0,920),make('fcExtra4Viewport',0,1380)]);
+  assert.equal(result.expectedColumns,1);
+  assert.equal(result.state,'no-observed-conflict','Narrow windows must not force horizontal scrolling');
+  result=audited(gridWide,[...four,make('fcDifferenceViewport',0,460)]);
+  assert.equal(result.visibleCount,4,
+    'Optional scientifically validated delta may wrap without shifting A/B/C/D');
+  result=audited(gridWide,[...four.slice(0,3),make('fcExtra4Viewport',1200,0)]);
+  assert(result.issues.some(x=>x.type==='viewport-overflows-grid'),
+    'Viewport extending outside the Field grid must be detected');
+  console.log('Granada wide A/B/C/D responsive 4-up and measured no-scroll viewport audit PASS');
+}
