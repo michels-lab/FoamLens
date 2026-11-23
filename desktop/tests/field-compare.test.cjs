@@ -436,8 +436,9 @@ test('Granada: linked nearest B time cannot produce A-B at a different physical 
   })[id]||null;
   const layoutDeps={fcState:state,fcExtraViews:[],fvState:dependencies.fvState,
     document:{getElementById},fcTimesLinked:()=>true,
-    fcDifferenceTimesMatch:matches,fcUi:en=>en,
-    fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
+    fcDifferenceTimesMatch:matches,fcDifferenceSourceMatches:()=>
+      !!state.differenceRange?.valid&&!!state.differenceValues?.length,
+    fcUi:en=>en,fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
     fcScheduleToolbarSync:()=>{},fcScheduleLayoutRender:()=>{},
     window:{FoamLensFieldWorkspace:null}};
   const layout=new Function('deps',
