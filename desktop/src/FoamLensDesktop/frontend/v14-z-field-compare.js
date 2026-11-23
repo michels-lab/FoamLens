@@ -1649,6 +1649,14 @@ function fcDifferenceSourceKey(){
     fvState.fieldStorage,fvState.fieldParsed?.dimensions||'',fvState.time,fvState.frameSeq,
     fcState.caseId,fcState.region,fcState.fieldName,fcState.component,
     fcState.fieldStorage,fcState.fieldParsed?.dimensions||'',fcState.time,fcState.seq,
+    // A user can move a selector before its asynchronous OpenFOAM read has
+    // committed the new case/field to the renderer. Do not expose the old
+    // difference as belonging to that freshly selected source.
+    ...['fvCase','fvRegion','fvField','fvComponent',
+        'fcCase','fcRegion','fcField','fcComponent'].map(id=>
+      document.getElementById(id)?.value??''),
+    document.getElementById('fvField')?.selectedOptions?.[0]?.dataset?.storage||'',
+    document.getElementById('fcField')?.selectedOptions?.[0]?.dataset?.storage||'',
     document.getElementById('fcDifferenceMode')?.value||'signed',
     Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12
   ])
