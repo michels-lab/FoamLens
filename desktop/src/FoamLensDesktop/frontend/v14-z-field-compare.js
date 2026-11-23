@@ -1089,6 +1089,9 @@ function fcReconcilePhysicalChoice(choice,groups,preferred=''){
   choice.field=group.name;choice.component=component;choice.storage=storage;
   return changed
 }
+// B/C/D must show the complete real physical body on first load: the
+// selected 'Region' is the active field, not a command to hide its mold.
+// Respect explicit per-case user hiding after the default all-regions view.
 function fcPhysicalChoiceList(state,c,primary){
   const scene=fcPhysicalFor(state),key=String(c?.id??'');
   if(scene.caseId!==key){
@@ -1103,12 +1106,12 @@ function fcPhysicalChoiceList(state,c,primary){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const preferred=state.fieldName||'';
     if(!scene.choices.has(region))
-      scene.choices.set(region,{visible:region===primary,visibilityExplicit:false,field:'',component:'value',opacity:region===primary?1:.48,palette:'viridis'});
+      scene.choices.set(region,{visible:true,visibilityExplicit:false,field:'',component:'value',opacity:region===primary?1:.48,palette:'viridis'});
     // Preserve user visibility/opacity/palette and any still-valid selection.
     // When indexed metadata arrives later, repair ONLY invalid field/component
     // selections using real source groups (vector defaults to magnitude).
     const choice=scene.choices.get(region);
-    if(!choice.visibilityExplicit)choice.visible=region===primary;
+    if(!choice.visibilityExplicit)choice.visible=true;
     fcReconcilePhysicalChoice(choice,fields,preferred)
   }
   return regions
