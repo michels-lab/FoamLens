@@ -229,7 +229,7 @@ function pvAudit(){
   const grid=pvEl('fcViewGrid'),
     elements=grid?[...grid.children].filter(x=>pvViews[x.id]&&!x.classList.contains('hidden')&&x.getBoundingClientRect().width>0):[],
     views=elements.map(pvMeasure),
-    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect()})),pvEl('fieldViewPanel')?.getBoundingClientRect()?.width),
+    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect?.(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect?.()})),pvEl('fieldViewPanel')?.getBoundingClientRect?.()?.width),
     counts={};for(const v of views)counts[v.state]=(counts[v.state]||0)+1;
   const report={schema:'foamlens/field-f2-layout/1',capturedUtc:new Date().toISOString(),
     environment:{innerCssPx:{width:window.innerWidth,height:window.innerHeight},
