@@ -525,11 +525,13 @@ test('Granada: signed 3D difference cannot survive a same-time case, field, mesh
       enabled:true,differenceValues:null,differenceRange:null,differenceSource:null};
   const mode={value:'signed'},epsilon={value:'1e-12'},status={textContent:'',
     classList:{remove:()=>{}}};
+  const selectedCase={value:'B14'},selectedField={value:'T',
+    selectedOptions:[{dataset:{storage:'volume'}}]};
   const differenceCanvas={width:400,height:200},differenceViewport={classList:{toggle:()=>{}}};
   const dom={getElementById:id=>({
     fcDifference:{checked:true},fcDifferenceMode:mode,fcPercentEpsilon:epsilon,
     fcDifferenceCanvas:differenceCanvas,fcDifferenceViewport:differenceViewport,
-    fcDifferenceStatus:status
+    fcDifferenceStatus:status,fvCase:selectedCase,fvField:selectedField
   })[id]||null};
   const provenance=new Function('fvState','fcState','document','fcDifferenceTimesMatch',
     source.slice(keyStart,renderStart)+
@@ -571,6 +573,11 @@ test('Granada: signed 3D difference cannot survive a same-time case, field, mesh
   };
   mustReject(()=>primary.caseId='another same-time case',()=>primary.caseId='B14',
     'Same timestamp with a different source case is NOT the old delta');
+  mustReject(()=>selectedCase.value='B15',()=>selectedCase.value='B14',
+    'Selecting another original case must hide the previous delta before new bytes load');
+  mustReject(()=>selectedField.selectedOptions[0].dataset.storage='surface',
+    ()=>selectedField.selectedOptions[0].dataset.storage='volume',
+    'Switching native volume/surface association invalidates an old delta immediately');
   mustReject(()=>primary.fieldValues=[900,870],()=>primary.fieldValues=valuesA,
     'Same numbers in a new source frame are NOT proven to be the old buffer');
   mustReject(()=>secondary.mesh={cellCount:2},()=>secondary.mesh=meshB,
