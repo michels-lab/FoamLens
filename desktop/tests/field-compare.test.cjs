@@ -610,7 +610,14 @@ test('Granada: signed 3D difference cannot survive a same-time case, field, mesh
   const videoBegin=source.indexOf('function fcVideoDescriptors(){'),
     videoEnd=source.indexOf('function fcSetVideoRanges(',videoBegin);
   assert(videoBegin>0&&videoEnd>videoBegin,'Original video catalog must be extractable');
+  const videoGuardStart=source.indexOf('function fcVideoSourceCurrent(');
+  assert(videoGuardStart>0&&videoGuardStart<videoBegin,
+    'Original per-viewport export validation must precede video catalog');
+  const nativeVideoGuard=new Function('document','fcPhysicalNumber',
+    source.slice(videoGuardStart,videoBegin)+';return fcVideoSourceCurrent;')(
+    dom,api.fcPhysicalNumber);
   const videoDeps={fcState:secondary,fcExtraViews:[],document:dom,
+    fcVideoSourceCurrent:nativeVideoGuard,
     fcDifferenceSourceMatches:provenance.fcDifferenceSourceMatches,
     fvState:primary,fcCase:()=>({name:'C14'}),fcCurrentFieldName:()=> 'T',
     fcCurrentComponent:()=> 'value',fvFiniteRange:()=>({valid:true,min:0,max:100})};
