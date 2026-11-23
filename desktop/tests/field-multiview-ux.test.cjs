@@ -2217,6 +2217,12 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   let result=audited(gridWide,four);
   assert.equal(result.state,'no-observed-conflict','Wide 4-up layout must share a measured first row');
   assert.equal(result.expectedColumns,4);assert.equal(result.rows,1);
+  result=audited(rect(0,0,1280,1000),[
+    make('fvViewport',0,0,298),make('fcViewport',320,0,298),
+    make('fcExtra3Viewport',640,0,298),make('fcExtra4Viewport',960,0,298)],1320);
+  assert.equal(result.expectedColumns,4,
+    'F2 must use the CSS query-container PANEL width, not the narrower padded grid');
+  assert.equal(result.rows,1);
   const wrapped=[four[0],four[1],make('fcExtra3Viewport',0,450),
     make('fcExtra4Viewport',340,450)];
   result=audited(gridWide,wrapped);
