@@ -1395,29 +1395,46 @@ async function fcPhysicalLoad(state,c,primary,time,redraw){
   scene.layers=nextLayers;scene.errors=nextErrors;
   redraw()
 }
-function fcPhysicalRenderLayers(state,visual){
+// Common depth policy for B/C/D: opaque sources first, then transparent
+// surfaces sorted by view-axis depth; mesh edges last without depth writes.
+// This is a region-centroid fallback, not the primary A weighted-OIT engine.
+function fcPhysicalRenderLayers(state,visual,primaryCommands=[]){
   const renderer=state?.renderer,scene=state?fcPhysicalFor(state):null;if(!renderer||!scene)return;
-  const gl=renderer.gl,regionNames=[...scene.layers.keys()].sort((a,b)=>a.localeCompare(b));
-  for(const region of regionNames){
+  const gl=renderer.gl,camera=fcCameraFor(state,state.mesh),commands=primaryCommands.slice(),edges=[];
+  const add=(layer,positions,colors,count,alpha,faceField=false)=>{
+    if(!positions||!colors||!count)return;
+    commands.push({mesh:layer.mesh,positions,colors,count,alpha,faceField})
+  };
+  for(const region of [...scene.layers.keys()].sort((a,b)=>a.localeCompare(b))){
     const layer=scene.layers.get(region),choice=scene.choices.get(region);
     if(!layer||!choice?.visible||layer.gl!==gl)continue;
     const opacity=fvClamp(choice.opacity,.1,1),faceField=layer.faceFieldCount>0;
-    gl.depthFunc(gl.LEQUAL);
-    if(visual.surface){
-      const shellAlpha=faceField?Math.min(opacity,.14):opacity;
-      gl.depthMask(fvSurfaceDepthWritable(shellAlpha));
-      fvBindDraw(renderer,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,gl.TRIANGLES,shellAlpha);
-      if(faceField){
-        gl.depthMask(fvSurfaceDepthWritable(opacity,{faceField:true}));
-        fvBindDraw(renderer,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,gl.TRIANGLES,opacity)
-      }
-    }
-    if(visual.edges){
-      gl.depthMask(false);
-      fvBindDraw(renderer,layer.edgePos,layer.edgeColor,layer.edgeCount,gl.LINES,Math.min(1,opacity+.07))
-    }
-    gl.depthMask(true)
+    if(visual.surface){add(layer,layer.surfacePos,layer.surfaceColor,layer.surfaceCount,faceField?Math.min(opacity,.14):opacity);
+      if(faceField)add(layer,layer.faceFieldPos,layer.faceFieldColor,layer.faceFieldCount,opacity,true)}
+    if(visual.edges&&layer.edgeCount)edges.push({layer,opacity})
   }
+  const cp=Math.cos(camera.pitch),forward=[-cp*Math.sin(camera.yaw),-Math.sin(camera.pitch),-cp*Math.cos(camera.yaw)];
+  const depth=c=>{const m=c.mesh;if(!fcValidFitMesh(m))return -Infinity;return m.boundsMin.reduce((sum,v,i)=>sum+(v/2+m.boundsMax[i]/2-camera.target[i])*forward[i],0)};
+  const opaque=c=>fvSurfaceDepthWritable(c.alpha,{faceField:c.faceField===true});
+  const draw=c=>{gl.depthFunc(gl.LEQUAL);gl.depthMask(opaque(c));fvBindDraw(renderer,c.positions,c.colors,c.count,gl.TRIANGLES,c.alpha)};
+  try{
+    for(const c of commands.filter(opaque))draw(c);
+    for(const c of commands.filter(c=>!opaque(c)).sort((a,b)=>depth(b)-depth(a)))draw(c);
+    gl.depthMask(false);
+    for(const e of edges)fvBindDraw(renderer,e.layer.edgePos,e.layer.edgeColor,e.layer.edgeCount,gl.LINES,Math.min(1,e.opacity+.07));
+  }finally{gl.depthMask(true)}
+}
+function fcPrimaryDrawCommands(state,renderer,visual,storage){
+  const commands=[],add=(positions,colors,count,alpha,faceField=false)=>{if(positions&&colors&&count)commands.push({mesh:state.mesh,positions,colors,count,alpha,faceField})};
+  if(fcPhysicalFor(state).choices.get(state.region)?.visible===false)return commands;
+  const opacity=visual.opacity,face=storage==='surface',interior=visual.slice||visual.iso;
+  if(visual.surface){
+    add(renderer.surfacePos,renderer.surfaceColor,renderer.surfaceCount,face?Math.min(opacity,.16):interior?Math.min(opacity,.28):opacity);
+    if(face)add(renderer.faceFieldPos,renderer.faceFieldColor,renderer.faceFieldCount,opacity,true)
+  }
+  if(!face&&visual.slice)add(renderer.slicePos,renderer.sliceColor,renderer.sliceCount,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
+  if(!face&&visual.iso)add(renderer.isoPos,renderer.isoColor,renderer.isoCount,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
+  return commands
 }
 function fcPhysicalBoundsFor(state){
   const scene=fcPhysicalFor(state),meshes=[];
@@ -1608,13 +1625,13 @@ function fcRender(exportSize=null){
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   const showPrimary=fcPhysicalFor(fcState).choices.get(fcState.region)?.visible!==false;
-  if(showPrimary&&showSurface){const faceAssoc=fcState.fieldStorage==='surface';gl.depthMask(!interiorActive&&!faceAssoc);fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,faceAssoc?Math.min(opacity,.16):(interiorActive?Math.min(opacity,.28):opacity));gl.depthMask(true);if(faceAssoc){gl.depthMask(false);fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity);gl.depthMask(true)}}
-  if(showPrimary&&showSlice&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,sliceOpacity)}
-  if(showPrimary&&showIso&&fcState.fieldStorage!=='surface'){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,isoOpacity)}
-  if(showPrimary&&showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
-  if(visual.vectors)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
-  if(visual.streamlines)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1);
-  fcPhysicalRenderLayers(fcState,visual);
+  fcPhysicalRenderLayers(fcState,visual,fcPrimaryDrawCommands(fcState,r,visual,fcState.fieldStorage));
+  gl.depthMask(false);
+  try{
+    if(showPrimary&&showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
+    if(visual.vectors)fvBindDraw(r,r.vectorPos,r.vectorColor,r.vectorCount,gl.LINES,1);
+    if(visual.streamlines)fvBindDraw(r,r.linePos,r.lineColor,r.lineCount,gl.LINES,1)
+  }finally{gl.depthMask(true)}
   fcPhysicalOverlayFor('B',fcState,canvas,fcMvp(canvas),fcCameraFor(fcState,fcState.mesh));
   fcPhysicalCaption(fcState,'B');
   fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas))
@@ -1818,11 +1835,8 @@ function fcExtraRender(state,exportSize=null){
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
   const showPrimary=fcPhysicalFor(state).choices.get(state.region)?.visible!==false;
-  if(showPrimary&&visual.surface){if(state.storage==='surface'){fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,Math.min(.14,opacity));fvBindDraw(r,r.faceFieldPos,r.faceFieldColor,r.faceFieldCount,gl.TRIANGLES,opacity)}else fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,(showSlice||showIso)?Math.min(opacity,.28):opacity)}
-  if(showPrimary&&showSlice&&interior)fvBindDraw(r,r.slicePos,r.sliceColor,r.sliceCount,gl.TRIANGLES,fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1));
-  if(showPrimary&&showIso&&interior)fvBindDraw(r,r.isoPos,r.isoColor,r.isoCount,gl.TRIANGLES,fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1));
-  if(showPrimary&&showEdges)fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08));
-  fcPhysicalRenderLayers(state,visual);
+  fcPhysicalRenderLayers(state,visual,fcPrimaryDrawCommands(state,r,visual,state.storage));
+  if(showPrimary&&visual.edges){gl.depthMask(false);try{fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}finally{gl.depthMask(true)}}
   fcPhysicalOverlayFor(String(state.id),state,canvas,fcExtraMvp(state,canvas),fcCameraFor(state,state.mesh));
   fcPhysicalCaption(state,String(state.id));
   fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
