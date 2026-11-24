@@ -1,3 +1,11 @@
+## 2026-11-24 — GRANADA: multi-case spatial profiles
+
+Native product source c1770a4c adds an integrated multi-case comparison within existing Data Spatial Quantitative Comparison (not a separate application). Reference A plus up to seven distinct target cases; compatible selection, explicit physical-line equivalence, same actual used physical time (reject mismatched nearest frames), original source path/units/temporal support. Shared positive spatial domain and union of ALL original coordinate knots inside it; reject excessive grids instead of silently decimating. Separate original-coordinate vs spatial interpolation provenance, explicitly labeled temporal interpolation, aligned profile/difference plots, shared coordinate cursor and case-by-case length-weighted MAE/RMSE/bias/peak location, bound JSON/CSV exports. The existing two-case workflow remains intact.
+
+Direct V8 syntax and three differently spaced grids checked: overlap 0.2–2, exact union [0.2,0.5,1,1.2,2], MAE 2 and 1 within floating point tolerance; mismatched actual physical time rejected. Not native Windows rendered evidence or physical case equivalence.
+
+Official prior v1.8.22 is published: exact run 45338202552 SUCCESS; Setup, Portable, SHA256 assets verified present. PR #375 exact branch five recorded workflows successful and merged to main 1187574d. New multi-case branch is separate; no claim that either later feature is contained in published v1.8.22. No modification to CFD cases or solver rerun. Owner physical validation remains pending.
+
 ## 2026-11-24 — GRANADA: interactive equivalent-observable workbench
 
 Scope #154 / Data–Analysis block: independent branch while exact-main v1.8.22 publication run 45338202552 is in progress. Product source dc91b774 extends the existing comparator rather than adding a second Analysis module.
