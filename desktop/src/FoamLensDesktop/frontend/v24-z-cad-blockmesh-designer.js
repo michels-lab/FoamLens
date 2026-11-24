@@ -115,6 +115,10 @@ function cmbAdvancedSnappy(p,surfaceCount,boxText,surfaceText,layerText){
  const [expansionRatio,finalLayerThickness,minThickness]=layer[0];if(expansionRatio<1||expansionRatio>2||finalLayerThickness<=0||finalLayerThickness>.9||minThickness<=0||minThickness>finalLayerThickness)throw Error('Invalid relative layer thickness or expansion');
  return{boxes,surfaceSettings,layerSettings:{expansionRatio,finalLayerThickness,minThickness}};
 }
+function cmbBoxSlice(p,axis,index,boxes){
+ const slice=cmbSlice(p,axis,index),lo=p.axes[axis].points[index],hi=p.axes[axis].points[index+1];
+ return boxes.map((b,i)=>({...b,id:i+1})).filter(b=>b.max[axis]>lo&&b.min[axis]<hi).map(b=>({id:b.id,level:b.level,rect:[b.min[slice.u],b.min[slice.v],b.max[slice.u],b.max[slice.v]]}));
+}
 function cmbVisibleSurfaces(){
  const selections=[];let total=0;
  for(const model of cgModels)if(model.visible)for(const [part,visible] of model.partsVisible)if(visible){
@@ -161,11 +165,17 @@ function cmbMount(){
     const s=cmbSlice(plan,axis,Number(layers.value)),u=plan.axes[s.u].points,v=plan.axes[s.v].points,W=640,H=320,L=55,T=22,ww=560,hh=255;
     const px=x=>L+(x-u[0])/(u.at(-1)-u[0])*ww,py=y=>T+(v.at(-1)-y)/(v.at(-1)-v[0])*hh;
     const names=Object.keys(plan.zoneCells).sort(),colors=['#36a3be','#d6a248','#8b8cdb','#59b88b','#cd728b','#778897'];
+    let overlay='',overlayNote='';
+    if(el('cmbSnappy').checked&&el('cmbBoxes').value.trim()){try{const boxes=cmbAdvancedSnappy(plan,8,el('cmbBoxes').value,'','1.2 0.3 0.1').boxes;
+      const visible=cmbBoxSlice(plan,axis,Number(layers.value),boxes);
+      overlay=visible.map(b=>{const [x0,y0,x1,y1]=b.rect,x=px(x0),y=py(y1),w=px(x1)-x,h=py(y0)-y;return '<g pointer-events="none"><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="#f9c67c" fill-opacity=".12" stroke="#ffbf69" stroke-width="2" stroke-dasharray="5 3"/><text x="'+(x+4)+'" y="'+(y+13)+'" fill="#ffdfaf" font-size="11">Box '+b.id+' · L'+b.level+'</text></g>'}).join('');
+      overlayNote=tr('Refinement boxes intersecting the selected block slab (not generated cells): ','Cajas que intersectan la capa seleccionada (no son celdas generadas): ')+visible.length+'/'+boxes.length;
+    }catch(e){overlayNote=cgEscape(e.message)}}
     const svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-height:350px;background:#101b2c;border-radius:9px" aria-label="Cartesian block plan">'+s.blocks.map(b=>{
       const [x0,y0,x1,y1]=b.rect,w=px(x1)-px(x0),h=py(y0)-py(y1);
       return '<g data-cmb-key="'+b.key+'" role="button" tabindex="0" aria-label="'+cgEscape(b.key+' '+(b.zone||'unassigned'))+'"><rect x="'+px(x0)+'" y="'+py(y1)+'" width="'+w+'" height="'+h+'" stroke="#c6d8e7" fill="'+(b.zone?colors[names.indexOf(b.zone)%colors.length]:'#33465b')+'"/>'+(w>45&&h>24?'<text pointer-events="none" x="'+(px(x0)+w/2)+'" y="'+(py(y1)+h/2)+'" text-anchor="middle" fill="#fff" font-size="11">'+cgEscape((b.zone||b.key).slice(0,18))+'</text>':'')+'</g>'
-    }).join('')+'<text x="320" y="304" fill="#dbe5ef" text-anchor="middle" font-size="12">'+('XYZ'[s.u])+' [m] '+u[0]+' → '+u.at(-1)+'</text><text x="8" y="17" fill="#dbe5ef" font-size="12">'+('XYZ'[s.v])+' [m] '+v[0]+' → '+v.at(-1)+'</text></svg>';
-    el('cmbView').innerHTML=svg+'<p class="cgNotice">'+tr('Planned cells','Celdas previstas')+': '+plan.cellCount.toLocaleString()+' · '+tr('Blocks','Bloques')+': '+plan.blocks.length+' · '+tr('Unassigned cells','Celdas sin zona')+': '+plan.unassignedCells.toLocaleString()+'</p><p class="cgNotice">'+names.map(n=>cgEscape(n)+': '+plan.zoneCells[n].toLocaleString()).join(' · ')+'</p><p class="cgNotice">'+tr('Different-zone shared block faces (planned, not validated interfaces)','Caras compartidas entre zonas (previstas, no interfaces validadas)')+': '+plan.interfaces.length+' · '+plan.interfaces.reduce((n,f)=>n+f.plannedFaces,0).toLocaleString()+'</p>';
+    }).join('')+overlay+'<text x="320" y="304" fill="#dbe5ef" text-anchor="middle" font-size="12">'+('XYZ'[s.u])+' [m] '+u[0]+' → '+u.at(-1)+'</text><text x="8" y="17" fill="#dbe5ef" font-size="12">'+('XYZ'[s.v])+' [m] '+v[0]+' → '+v.at(-1)+'</text></svg>';
+    el('cmbView').innerHTML=svg+(overlayNote?'<p class="cgNotice">'+overlayNote+'</p>':'')+'<p class="cgNotice">'+tr('Planned cells','Celdas previstas')+': '+plan.cellCount.toLocaleString()+' · '+tr('Blocks','Bloques')+': '+plan.blocks.length+' · '+tr('Unassigned cells','Celdas sin zona')+': '+plan.unassignedCells.toLocaleString()+'</p><p class="cgNotice">'+names.map(n=>cgEscape(n)+': '+plan.zoneCells[n].toLocaleString()).join(' · ')+'</p><p class="cgNotice">'+tr('Different-zone shared block faces (planned, not validated interfaces)','Caras compartidas entre zonas (previstas, no interfaces validadas)')+': '+plan.interfaces.length+' · '+plan.interfaces.reduce((n,f)=>n+f.plannedFaces,0).toLocaleString()+'</p>';
     for(const g of el('cmbView').querySelectorAll('[data-cmb-key]')){
       const assign=()=>{try{const key=g.dataset.cmbKey,zone=el('cmbPaint').value.trim();if(zone)cmbName(zone);
         const rows=el('cmbZones').value.split(/\r?\n/).filter(l=>l.trim()&&l.trim().split(/\s+/).slice(0,3).join(',')!==key);if(zone)rows.push(key.replaceAll(',',' ')+' '+zone);el('cmbZones').value=rows.join('\n');build()
@@ -175,7 +185,7 @@ function cmbMount(){
   };
   const build=()=>{resetNative();try{plan=cmbPlan(input());el('cmbExport').disabled=false;buttons();el('cmbStatus').textContent=cgUi('Cartesian plan ready; no mesh has been generated.','Plan cartesiano listo; no se ha generado malla.');draw()}catch(e){invalidate();el('cmbStatus').textContent=String(e.message)}};
   for(const id of ['cmbX','cmbY','cmbZ','cmbZones',...Array.from({length:6},(_,i)=>'cmbPatch'+i)])el(id).addEventListener('input',invalidate);
-  el('cmbPreview').onclick=build;el('cmbNormal').onchange=draw;el('cmbLayer').onchange=draw;
+  el('cmbPreview').onclick=build;el('cmbNormal').onchange=draw;el('cmbLayer').onchange=draw;for(const id of ['cmbBoxes','cmbSnappy','cmbSplit'])el(id).addEventListener(id==='cmbBoxes'?'input':'change',draw);
   el('cmbBounds').onclick=()=>{try{
     const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];let n=0;
     for(const m of cgModels)if(m.visible)for(const [part,shown] of m.partsVisible)if(shown){
