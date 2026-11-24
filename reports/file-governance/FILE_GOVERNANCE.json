@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 67
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "c41f06dc7255a52ad26cb5f96808dd1335f812ba49c96261547c350cb7260640",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "9fff2d34fd6af4905e4241ed1bb98e66cbc779305354eb2fdaa82cc4af6e8393",
+  "evidence_fingerprint": "3c9fcafe9a6e7c3d53fb0a7d738a8e33f077bc33966926e9ca6be84c64857403",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1565,7 +1567,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "31db8c5d0ed12bdd203afb25fe431631dbd4e501"
+      "blob": "98a6cb70b46fa27161e97eba191e2ccccb4e3041"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -3654,7 +3656,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "41bef3ea80293e47",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: desktop/tests/field-multiview-ux.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
