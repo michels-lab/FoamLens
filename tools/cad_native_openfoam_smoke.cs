@@ -121,5 +121,21 @@ using var stream=new MemoryStream();using(var bw=new BinaryWriter(stream,Encodin
 var snappy=await Run("snappy","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
 var snappyCells=Cells(snappy);if(snappyCells<=0||snappyCells==512)throw new InvalidOperationException("Snappy did not produce a different mesh");
 CheckLog(snappy,"checkMesh.log");
-File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=1,mold=1},snappyCells,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
+byte[] SmallCube(float offset)
+{
+    var data=stream.ToArray();
+    for(int i=0;i<12;i++)for(int j=0;j<9;j++){
+        var at=data.AsSpan(84+50*i+12+4*j,4);
+        float original=System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(at);
+        System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(at,original*.5f+offset);
+    }
+    return data;
+}
+var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
+var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");
+CheckLog(multi,"checkMesh.log");
+var boundary=File.ReadAllText(Path.Combine(multi,"constant","polyMesh","boundary"));
+if(!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Both distinct CAD surface patches must be represented");
+
+File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=1,mold=1},snappyCells,multiCells,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
 Console.WriteLine("Actual OpenFOAM "+version+" mesh workflow PASS");
