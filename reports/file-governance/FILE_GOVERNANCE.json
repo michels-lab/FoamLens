@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "6f06aa9849a044e408252437cafc348afc7a77c739cdb04c5283165727de5167",
+  "inventory_fingerprint": "2d2c1b913754a469a3a066ebd4b405f6f09ea670d61868ebdb97390c797f5428",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -158,7 +158,7 @@
       "role": "workflow",
       "purpose": "GitHub Actions automation",
       "certainty": "rule",
-      "blob": "2d9213fea13f6a5fd7814aa4f3a692d437e750a3"
+      "blob": "0573e9c892ad92a20154a2e57a10975a037a0805"
     },
     {
       "path": ".github/workflows/granada-153-solidification-front-3d.yml",
@@ -760,7 +760,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "523d1855e5117a678486684f1bfc3f69aaf7db14"
+      "blob": "df79a5335c10bf56f23baa1334b6204e880fb2f1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -823,7 +823,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "c1a1fe3af9798bf8a1eeae7cf5f4be81d56e6fad"
+      "blob": "8eadb9e3016a8b0f7852d341a8f01010f3463916"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -914,7 +914,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b05d4971665d6bd08abad9ec9dc9cd9fc6ec1d4b"
+      "blob": "d7d9675a8966b26bf29e403ca3b83d8e1f637a0e"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-coupling-audit.js",
@@ -949,7 +949,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2587554bf9ab3ab8e6540a2a4b34f42510608e72"
+      "blob": "6951eb1c0dd2225bac0f38741249e1373000c213"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -998,7 +998,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "11a4bcf960ea9fceb076335cc0069898db1cd077"
+      "blob": "a306a19016750a3e7f57e2a275531604e137867c"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1012,7 +1012,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "26eeffdc92f7ec99e0589d775b2bee7f5abcb3dc"
+      "blob": "9bd1ae1918eb1f19776a3723433140d511d5f3e4"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1271,7 +1271,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6c7365605a13d9250d92f2e2c43c9ab683a19eb6"
+      "blob": "0ade22519503eae155898fa17fed6cf8d9806ae7"
     },
     {
       "path": "desktop/tests/analysis-ui-organization.test.cjs",
@@ -1586,7 +1586,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b449e1fa3fc0159800dd596f7332a62f1cac7be9"
+      "blob": "725b6bb070d83412d1b0069bbcba6a8719c75df6"
     },
     {
       "path": "desktop/tests/field-source-copy.test.cjs",
@@ -1607,7 +1607,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "55810bad1045f13424f3b070b06159f590befe12"
+      "blob": "97e4de8286d2ca667d9d5afb86ac5d744ece5f8a"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -2146,7 +2146,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "98650329119fbddb1e4f45bffe6db51b572e8304"
+      "blob": "8e277676df47416918a1a90142ad17fd8083ee36"
     },
     {
       "path": "docs/DEVELOPMENT_PLAN_FIELD_REGIONS_AND_CAD_2026-10-19.md",
@@ -2251,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "d0c08e2d108a9ed3c2ae1a45965318d9a3c7a2b3"
+      "blob": "ba518f77f2a010b5becdb891f5dbd88add5106f7"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
