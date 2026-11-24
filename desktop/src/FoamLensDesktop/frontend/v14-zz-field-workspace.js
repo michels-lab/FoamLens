@@ -163,6 +163,7 @@ function fwCreateSurface(){
           <div class="fwCompact"><label data-fl-en="Line samples" data-fl-es="Muestras de línea">Line samples</label><input id="fw3DProfileSamples" type="number" min="20" max="500" step="10" value="160"></div>
           <button class="btn tiny" id="fwResample3DProfile" type="button" data-fl-en="Update profile" data-fl-es="Actualizar perfil">Update profile</button>
           <button class="btn primary" id="fwCompare3DProfiles" type="button" aria-pressed="false" data-fl-en="Compare A–D profiles" data-fl-es="Comparar perfiles A–D" title="Plot the measured XYZ profiles from all available 3D views together; preserve each view's own physical time">Compare A–D profiles</button>
+          <button class="btn soft" id="fwSpatialData" type="button" data-fl-en="Spatial analysis" data-fl-es="Análisis espacial" title="Read original field and mesh for ROI and weighted integration">Spatial analysis</button>
           <button class="btn soft" id="fwExport3DProfileCsv" type="button" disabled data-fl-en="Export A–D CSV" data-fl-es="Exportar CSV A–D" title="Export the original sampled field values, independent physical times, source provenance and XYZ query positions from this active comparison">Export A–D CSV</button>
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
@@ -304,6 +305,7 @@ function fwCreateSurface(){
     else fwCompareAll3DProfiles()
   });
   document.getElementById('fwExport3DProfileCsv')?.addEventListener('click',fwExport3DProfileCsv);
+  document.getElementById('fwSpatialData')?.addEventListener('click',()=>{try{if(typeof window.FoamLensSpatialDataOpen!=='function')throw Error('Spatial Data unavailable');window.FoamLensSpatialDataOpen(document.getElementById('fw3DProfileView')?.value||'A')}catch(e){fw3DProfileStatus(String(e?.message||e),true)}});
   // Editing the original Data Profile filters leaves the explicit Field
   // comparison; no sticky hidden override survives a user's manual choice.
   for(const id of ['profileSet','profileVariable','profileVariable2','profileLine',
