@@ -50,3 +50,13 @@ assert.throws(()=>mg.canonical(g41));const single=mg.parse(msh41.replace('2 201 
 const receipt={schema:'foamlens/native-gmsh-mesh/1',originalCaseModified:false,meshGenerated:true,generationExit:0,plannedCells:1,files:Object.fromEntries(Object.entries(cube).map(([k,v])=>['constant/polyMesh/'+k,v]))};assert.equal(ms.fromNativeReport(receipt).cells.length,1);assert.equal(ms.fromNativeReport({...receipt,schema:'foamlens/native-cartesian-mesh/1'}).faces.length,6);
 for(const bad of [{generationExit:1},{plannedCells:2},{exportError:'limit'},{files:{}},{originalCaseModified:true}])assert.throws(()=>ms.fromNativeReport({...receipt,...bad}));
 console.log('Native Gmsh normalization and generated snapshot gates PASS');
+
+const splitReceipt={...receipt,plannedCells:2,files:{},splitRequested:true,splitExit:0,regions:{metal:{expectedCells:1,files:receipt.files},mold:{expectedCells:1,files:receipt.files}}};
+assert.equal(ms.fromNativeReport(splitReceipt,'metal').cells.length,1);
+assert.equal(ms.fromNativeReport(splitReceipt,'mold').faces.length,6);
+assert.throws(()=>ms.fromNativeReport(splitReceipt,'missing'));
+assert.throws(()=>ms.fromNativeReport({...splitReceipt,splitExit:1},'metal'));
+assert.throws(()=>ms.fromNativeReport({...splitReceipt,splitError:'incomplete'},'metal'));
+assert.throws(()=>ms.fromNativeReport({...splitReceipt,regions:{metal:{expectedCells:2,files:receipt.files}}},'metal'));
+assert.equal(ms.fromNativeReport({...receipt,schema:'foamlens/native-snappy-mesh/1',plannedCells:100}).cells.length,1);
+console.log('Split region identity, count gates and adaptive mesh count PASS');
