@@ -100,6 +100,15 @@ internal static class NativeCartesianMesh
             var (sd,surface)=BuildSnappy(sn.RootElement,cells);
             if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Count!=1||surface.Values.Single().Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
         }
+        var advancedJson=snappyJson[..^2]+",\"boxes\":[{\"min\":[0.1,0.1,0.1],\"max\":[0.4,0.4,0.4],\"level\":3}],\"surfaceSettings\":[{\"id\":1,\"minLevel\":2,\"maxLevel\":3,\"layers\":2}],\"layerSettings\":{\"expansionRatio\":1.25,\"finalLayerThickness\":0.25,\"minThickness\":0.125}}}";
+        using(var sn=JsonDocument.Parse(advancedJson)){
+            var (sd,_)=BuildSnappy(sn.RootElement,cells);
+            if(!sd.Contains("type box;")||!sd.Contains("mode inside; level 3;")||!sd.Contains("level (2 3)")||!sd.Contains("addLayers true;")||!sd.Contains("nSurfaceLayers 2;")||!sd.Contains("expansionRatio 1.25;"))throw new InvalidOperationException("Advanced snappy dictionary self-test failed.");
+        }
+        foreach(var invalid in new[]{advancedJson.Replace("\"layers\":2","\"layers\":9"),advancedJson.Replace("\"level\":3","\"level\":5"),advancedJson.Replace("\"max\":[0.4,0.4,0.4]","\"max\":[0.05,0.4,0.4]")}){
+            using var sn=JsonDocument.Parse(invalid);
+            try{BuildSnappy(sn.RootElement,cells);throw new InvalidOperationException("Invalid advanced snappy settings accepted.");}catch(ArgumentException){}
+        }
         foreach(var invalid in new[]{snappyJson.Replace("[0.5,0.5,0.5]","[0,0.5,0.5]"),snappyJson.Replace("\"maxLevel\":2","\"maxLevel\":9")})
         {
             using var sn=JsonDocument.Parse(invalid);
