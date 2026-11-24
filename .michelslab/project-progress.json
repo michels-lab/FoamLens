@@ -9,7 +9,7 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "v1.8.23 publication retry; responsive 3D + Profile workspace integrated",
+  "phase": "v1.8.23 retry; approved responsive 3D/profile split with persistent custom width",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/377",
   "source_head_sha": "f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
   "latest_verified_stable": "v1.8.22",
@@ -148,7 +148,7 @@
       ]
     }
   ],
-  "next_step": "Verify official publisher and real B14/C14; consolidate Data profiles and physical playback; advance CAD.",
+  "next_step": "Verify official publisher and owner installed 3D + Profile layout, B14/C14; continue Data and CAD.",
   "limitations": "7/15 verified formal milestones; release milestone remains for final exact-current scope. Published v1.8.22 verified, later owner screenshot defects still require acceptance. No B14 source inventory inspected.",
   "last_granada": {
     "as_of": "2026-11-24",
@@ -157,11 +157,11 @@
     "verified_milestones": 7,
     "total_milestones": 15,
     "source_code_sha": "f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
-    "scope": "Responsive 3D+Profile workspace and real linked-time regression harness",
+    "scope": "Approved 3D+Profile layout: manual adjustable width, actual ratio, safe responsive split and playback harness compatibility",
     "evidence": [
       "https://github.com/michels-lab/FoamLens/commit/f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
       "https://github.com/michels-lab/FoamLens/actions/runs/45348751995"
     ],
-    "pending": "Exact release and physical installed validation"
+    "pending": "Official Windows publication and owner verification"
   }
 }

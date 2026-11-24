@@ -1845,7 +1845,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(issue?.includes('different')||issue?.includes('differ'),
     'the UI must explain why an independent-time difference is invalid');
   assert.equal(layouts,1);
-  assert(source.includes("fcTimesLinked()?fvState.time:fcIndependentTimeTarget(fcState)"),
+  assert(source.includes("fcUpdateVectors(fcIndependentTimeTarget(fcState),fcState.seq)"),
     'independent B vectors must use B time, not primary A time');
   console.log('Granada independent time safety PASS: no misleading OpenFOAM A-B difference or wrong-time B vectors');
 }
@@ -1854,11 +1854,12 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
 // Granada Field per-view native playback and A clock isolation. These are
 // original production time controllers, not a simulated UI-only player.
 (async()=>{
-  const start=source.indexOf('function fcTimesLinked(){');
+  const start=source.indexOf('function fcTimeLinkRequested(){');
   const end=source.indexOf('// A linked camera is not a copy',start);
   assert(start>=0&&end>start,'source-backed Field time playback controller required');
   const B={enabled:true,time:0,timeTarget:0},C={id:3,time:0,timeTarget:0},D={id:4,time:0,timeTarget:0};
   let linked=false,primaryTime=0,redraws=0,errors=[];
+  const primaryState={mesh:{},fieldValues:[1]};
   const catalog={
     B:{id:'B3',region:'metal',field:'T',times:[0,1,2]},
     C:{id:'C3',region:'mold',field:'U',times:[0,.5,1]},
@@ -1869,7 +1870,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   let timerId=0;
   const loads=[];
   let failBFrame=false,missingBTime=false;
-  const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
+  const apiTime=new Function('document','fvState','fcState','fcExtraViews','fcCase','fcExtraCase',
     'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField',
     'fcFieldFor','fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt',
     'fcUi','fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras',
@@ -1880,7 +1881,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'fcStopAllIndependentPlayback,fcSyncIndependentPlaybackControls,'+
     'fcRefreshTimeLink,fcIndependentPlayers};')(
     {getElementById:id=>id==='fcLinkTimes'?{get checked(){return linked}}:null},
-    B,[C,D],()=>catalog.B,state=>catalog[name(state)],
+    primaryState,B,[C,D],()=>catalog.B,state=>catalog[name(state)],
     ()=>catalog.B.region,state=>catalog[name(state)].region,
     ()=>catalog.B.field,state=>catalog[name(state)].field,
     (c,r,f)=>r===c.region&&f===c.field?{times:c.times}:null,
