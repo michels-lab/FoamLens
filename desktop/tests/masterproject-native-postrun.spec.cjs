@@ -85,6 +85,28 @@ test('scientific health records a manually attributed reduction only as a warnin
   assert.deepEqual(info.evidence,['original_A.csv']);
   assert.equal(audit.overall,'not-certified');
 });
+test('selected case numeric time inventory is compared without inventing or authorizing missing frames',()=>{
+  const parsed=api.csv(aCsv,'unbound-A.csv');
+  assert.deepEqual(parsed.savedTimes_s,[0,.1,.2],
+    'Every source physical time must remain available for actual inventory comparison');
+  const selected={id:32,name:'Imported original',config:{source:{controlDict:'case/system/controlDict'},
+    endTime:.2,deltaT:.001},discoveryModel:{
+      fields:[],dictionaries:[{name:'controlDict',sourcePath:'case/system/controlDict'}],
+      regions:['metal','mold'],timeDirectories:[0,.2],postProcessing:[]},
+    discovery:{regions:['metal','mold']}};
+  const observed=api.audit({case:selected,postrun:parsed,logs:[]});
+  const check=observed.checks.find(c=>c.id==='native-postrun');
+  assert.equal(check.status,'warning');
+  assert.match(check.details,/2\/3 CSV times appear/);
+  assert.match(check.details,/Configured endTime=0.2 s/);
+  assert.match(check.details,/NOT proof of solver completion/);
+  const incorrect=api.audit({case:{...selected,config:{source:{controlDict:'case/system/controlDict'},
+    endTime:10,deltaT:.001}},postrun:parsed,logs:[]});
+  assert.match(incorrect.checks.find(c=>c.id==='native-postrun').details,
+    /does not agree with this setting/);
+  assert.equal(incorrect.overall,'not-certified');
+});
+
 test('real panel and export preserve source identity and case invalidation',()=>{
   for(const token of ["id=\"chPostrunFile\"",
     "for(const [id,key,bytes] of [['chRuntimeFile'",
