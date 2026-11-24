@@ -434,11 +434,12 @@ test('Granada Field A: load selection is awaitable and superseded failures canno
  let ready=true,load=null;
  const doc={getElementById:id=>id==='fvRegion'?{value:'metal'}:
    id==='fvLegend'?{innerHTML:''}:null};
- const loader=isolate(field,'async function fvLoadSelection(){','function fvSyncComponent(){',[
+ const start=field.indexOf('function fvCaseSourceDiagnosis(c){'),end=field.indexOf('function fvSyncComponent(){',start);
+ const loader=new Function(...[
    'fvState','fvStopPlayback','fvRefreshSelectors','fvCase','fvAvailability','document',
    'fvCurrentFieldGroup','fvInvalidateUnavailableSelection','fvSetStatus','flUi',
    'fvSetStats','fvEsc','fvRender','fvLoadFrame','console'
- ],[
+ ],field.slice(start,end)+';return fvLoadSelection')(...[
    state,()=>{},()=>{},()=>readyCase,()=>({ready,reason:'original source missing'}),
    doc,()=>({name:'T'}),
    ()=>{invalidations.push(state.frameSeq);state.frameSeq++;state.mesh=null;state.fieldValues=null;state.time=NaN},

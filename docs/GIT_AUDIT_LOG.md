@@ -1,3 +1,15 @@
+## 2026-11-24 — selectable profile synchronization source and case recovery
+
+Existing 3D+Profile companion may now follow a selected A/B/C/D committed frame, without changing profile case or field. A missing selected source reports waiting rather than inventing zero or silently following A; independent profile mode remains. Hooks follow completed source loads and refresh the list on view add/remove. Source diagnosis uses one authoritative summary and the unavailable-selection regression harness evaluates real diagnostic functions with the real loader. Previous publisher 45353734411 failed in that isolated harness; no gates disabled. JS syntax checked; installed validation pending. No CFD changes.
+
+## 2026-11-24 — owner feedback: reorganized Field controls and visible playback rate
+
+Organize original per-view controls into source identity, source options/copy, full-width independent transport, camera/zoom and material rows. Native playback rate has dedicated 86px selector, global speed labeled and 90px wide; global timeline flexes across full workspace and wraps safely. Header no longer duplicates Add view, original permanent 3D card command remains. Spatial profile controls now grouped in one expandable section, no extra plot canvas or copies of source controls. Existing actual source handlers retained. Product branch includes persistent viewport drag reorder; direct JS syntax checked, real Windows visual verification pending.
+
+## 2026-11-24 — persistent viewport order and pointer drag
+
+Owner requested changing left/right order of real views. Replace native HTML drag with pointer capture on existing viewport handle, 6px threshold, visible actual target slot and insertion highlight; cancellation, keyboard navigation (arrows/Home/End), reset and persisted order by stable viewport IDs. Move original DOM nodes (state-preserving moveBefore where supported, insertBefore fallback), not cloned canvases or swapped OpenFOAM sources. Restore after initial mount and adding extra views, skip hidden views for drop selection. Independent of active v1.8.23 publisher. Direct syntax and two target slot checks passed; native manual acceptance pending. No CFD changes.
+
 ## 2026-11-24 — owner approved 3D/profile layout; adjustable split and publisher retry
 
 Owner approved the responsive design. Implemented persistent custom width control (30–75% requested), actual split percentage, distinct auto vs explicitly side-by-side behavior and minimum safe widths for multiple 3D views. Existing chart ownership, source selectors and physical clocks unchanged. Four layout arithmetic cases checked and syntax compiled. Previous publisher 45351043874 passed linked camera and independent time regressions, stopped at obsolete static vector-time expression assertion. Updated it to the actual unified physical-time resolver, and the independent-playback evaluator now includes actual link helper and valid primary state. No assertion or publisher gate removed. Same unpublished 1.8.23 retried; latest verified stable 1.8.22. No native acceptance or CFD modifications.

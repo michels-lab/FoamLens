@@ -409,7 +409,7 @@ function pvAlignToolbars(grid,views,cols){
 }
 function pvDeckLabels(){
   const bar=pvEl('pvDeckBar');if(!bar)return;
-  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición']};
+  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición'],pvDeckOrderReset:['Reset view order','Restablecer orden'],pvDeckDragHint:['Drag view headers to reorder','Arrastra las cabeceras para reordenar']};
   for(const [id,[en,es]] of Object.entries(pairs)){const e=pvEl(id);if(e&&e.textContent!==pvFocusLabel(en,es))e.textContent=pvFocusLabel(en,es)}
   const modes=pvEl('pvDeckMode'),heights=pvEl('pvDeckHeight');
   const modeLabels=[['auto','Automatic','Automática'],['two','Two columns','Dos columnas'],['row','Widest safe row','Fila más amplia posible']];
@@ -424,7 +424,7 @@ function pvMountDeck(grid){
   const bar=document.createElement('section');bar.id='pvDeckBar';bar.className='pvDeckBar';
   bar.innerHTML='<strong id="pvDeckLabel"></strong><label class="pvDeckChoice"><span id="pvDeckModeLabel"></span><select id="pvDeckMode"><option value="auto"></option><option value="two"></option><option value="row"></option></select></label>'+
     '<label class="pvDeckChoice"><span id="pvDeckHeightLabel"></span><select id="pvDeckHeight"><option value="individual"></option><option value="compact"></option><option value="balanced"></option><option value="large"></option></select></label>'+
-    '<button id="pvDeckReset" class="btn soft" type="button"></button><span id="pvDeckStatus" class="smallnote" aria-live="polite"></span>';
+    '<button id="pvDeckReset" class="btn soft" type="button"></button><button id="pvDeckOrderReset" class="btn soft" type="button"></button><span id="pvDeckDragHint" class="smallnote"></span><span id="pvDeckStatus" class="smallnote" aria-live="polite"></span>';
   grid.parentElement.insertBefore(bar,grid);
   pvEl('pvDeckMode').onchange=e=>{pvDeckMode=pvDeckModes.includes(e.target.value)?e.target.value:'auto';pvSaveDeck();pvApplyDeck()};
   pvEl('pvDeckHeight').onchange=e=>{pvDeckHeight=e.target.value;pvSaveDeck();pvApplyDeck()};
@@ -433,6 +433,7 @@ function pvMountDeck(grid){
     for(const id of Object.keys(pvViews)){const v=pvEl(id);if(v){v.style.removeProperty('--pvHeight');v.style.removeProperty('--pvDeckHeight')}}
     pvApplyDeck()
   };
+  pvEl('pvDeckOrderReset').onclick=()=>{if(typeof fcRestoreViewportOrder==='function')fcRestoreViewportOrder(grid,true)};
   pvDeckLabels();pvApplyDeck()
 }
 
