@@ -16,6 +16,14 @@ An optional read-only CSV importer is integrated with the *existing* Scientific 
 
 Regression tests exercise representative native A/B schemas and invalid inputs on the original source parser. New CI checks Ubuntu and Windows while rerunning the preexisting scientific health regression and embedded frontend loader.
 
+## Granada 23 Nov: precise original timeline provenance (additional code/tests)
+- Original saved CSV times and indexed OpenFOAM output directories are compared in sorted physical order, one-to-one, with 16 × machine-epsilon relative precision (minimum scale 1e-9 s). Previously the broad 1e-10 s absolute floor could falsely align distinct near-zero physical frames.
+- The health JSON now explicitly records `postrunTimeline`: matching sample count, unmatched CSV count, unmatched imported directory count, the first 12 unmatched physical times on each side, and source-inventory coverage status. One-to-one matching avoids inflating an apparent match by reusing an indexed frame.
+- The original case health UI explains both missing CSV and indexed times. A missing original index is not represented as 100% case match. Machine-readable status is NEVER `originalCaseBindingVerified`, nor a physics validation.
+- Reject a source timeline where two individually finite saved physical times have a nonfinite arithmetic difference. Otherwise exporting to JSON would silently coerce Infinity to null, creating false numeric evidence.
+- Three new source-executing regressions cover partial/disjoint original inventories, frame intervals near t=0 and numeric overflow. These are parser regressions, not a physical owner-run validation.
+- Exact head and Windows CI must be checked independently; no merge, signed release, or stable version increment from these parser tests alone.
+
 ## Scientific work still needed
 1. Independently bind manually provided reductions to actual original 3D A/B field files and evidence reports, using source hashes and physical region/time association. No cross-case contamination.
 2. Integrate temperature metal/mold, phaseChangeSource:alpha1, p_rgh, Courant, residuals, sensible/latent budgets and contact patch heat flux, with correct 3D mesh cell volumes; do not infer physical conservation from CSV summary or solver End.
