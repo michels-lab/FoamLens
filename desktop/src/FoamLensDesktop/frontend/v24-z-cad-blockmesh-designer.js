@@ -329,6 +329,50 @@ const msCore=(()=>{
 
 
  // Numeric table, not a mesh: no invented connectivity or weights.
+
+ function fieldTopology(mesh){
+  if(!mesh?.supported||mesh.format==='decomposed'||mesh.partitionMeshes?.length||mesh.partitionRanges?.length)fail('Reconstructed original region mesh required; processor-local IDs not yet supported');
+  const {pointCount,faceCount,cellCount,internalFaceCount}=mesh;
+  if(![pointCount,faceCount,cellCount,internalFaceCount].every(n=>Number.isSafeInteger(n)&&n>=0)||!pointCount||!cellCount||!faceCount||internalFaceCount>faceCount||pointCount>1000000||faceCount>2000000||cellCount>350000)fail('Native topology exceeds bounded analysis limits');
+  if(mesh.points?.length!==3*pointCount||mesh.faceOffsets?.length!==faceCount+1||mesh.owners?.length!==faceCount||mesh.neighbours?.length!==internalFaceCount||mesh.faceOffsets[0]!==0||mesh.faceOffsets[faceCount]!==mesh.facePoints?.length)fail('Incomplete native topology');
+  const points=Array.from({length:pointCount},(_,i)=>Array.from(mesh.points.slice(3*i,3*i+3))),faces=[],cells=Array.from({length:cellCount},()=>[]);
+  if(points.some(p=>p.some(x=>!Number.isFinite(x))))fail('Nonfinite native point');
+  const owner=Array.from(mesh.owners),neighbour=Array.from(mesh.neighbours);
+  for(let i=0;i<faceCount;i++){
+   const start=mesh.faceOffsets[i],end=mesh.faceOffsets[i+1],o=owner[i],n=neighbour[i];
+   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end-start<3||end>mesh.facePoints.length||!Number.isSafeInteger(o)||o<0||o>=cellCount||i<internalFaceCount&&(!Number.isSafeInteger(n)||n<0||n>=cellCount||n===o))fail('Invalid native face topology');
+   const v=Array.from(mesh.facePoints.slice(start,end));if(v.some(j=>!Number.isSafeInteger(j)||j<0||j>=pointCount)||new Set(v).size!==v.length)fail('Invalid native face vertices');faces.push(v);cells[o].push(i);if(i<internalFaceCount)cells[n].push(i)
+  }
+  if(cells.some(v=>!v.length))fail('Empty native cell');
+  const patches=(mesh.boundaryPatches||[]).map(p=>({name:p.name,type:p.type,start:p.startFace,count:p.nFaces}));
+  return {points,faces,cells,owner,neighbour,patches,units:'m'};
+ }
+ function fieldRows(frame,scope='internal',topology=null){
+  const mesh=frame.mesh,storage=frame.storage,kind={volume:'cellSet',point:'pointSet',surface:'faceSet'}[storage];if(!kind||frame.layout?.mode==='decomposed')fail('Unsupported native field association or decomposed region');
+  const m=topology||fieldTopology(mesh),count=kind==='cellSet'?m.cells.length:kind==='pointSet'?m.points.length:m.neighbour.length;
+  if(frame.fieldValues?.length!==count)fail('Original field association count mismatch');
+  let ids,lookup=i=>frame.fieldValues[i];
+  if(kind==='faceSet'&&scope!=='internal'){
+   const p=m.patches.find(x=>x.name===scope);
+   if(!p||!Number.isSafeInteger(p.start)||!Number.isSafeInteger(p.count)||p.start<m.neighbour.length||p.count<1||p.start+p.count>m.faces.length)fail('Original named boundary patch unavailable');
+   ids=Array.from({length:p.count},(_,i)=>p.start+i);const boundary=frame.surfaceBoundary?.values;
+   lookup=i=>boundary instanceof Map?boundary.get(i):undefined;
+  }else{if(scope!=='internal')fail('Named boundary scope is only supported for surface fields');ids=Array.from({length:count},(_,i)=>i)}
+  if(!ids.length||ids.length>350000)fail('No eligible entities or row limit exceeded');
+  const rows=[],invalid=[];
+  for(const i of ids){
+   let p,w=null;try{if(kind==='cellSet'){const g=cellGeometry(m,i);p=g.centroid_m;w=g.volume_m3}else if(kind==='faceSet'){const g=faceGeometry(m,i);p=g.centroid_m;w=g.area_m2}else p=m.points[i]}catch{invalid.push(i);continue}
+   const v=lookup(i);rows.push({id:i,x:p[0],y:p[1],z:p[2],value:typeof v==='number'&&Number.isFinite(v)?v:null,weight:w})
+  }
+  return {kind,rows,invalid,eligible:ids.length,weightUnit:kind==='cellSet'?'m³':kind==='faceSet'?'m²':null};
+ }
+ function nativeTable(meta,frames){
+  if(!frames.length||frames.length>2000||!['intensive','perEntity'].includes(meta.convention))fail('Invalid native table request');
+  const groups=new Map(),invalidByTime={},sourceFrames=[];let total=0;
+  for(const f of frames){if(!Number.isFinite(f.time)||groups.has(f.time)||f.kind!==meta.association)fail('Invalid native time or association');total+=f.rows.length;if(total>350000)fail('Native spatial table exceeds 350000 total rows; narrow the time range');groups.set(f.time,f.rows);invalidByTime[f.time]=f.invalid.length;sourceFrames.push({time:f.time,eligible:f.eligible,invalidGeometry:f.invalid.length,meshKey:f.meshKey||null})}
+  return{meta:{...meta,coordinateUnit:'m',weightUnit:frames[0].weightUnit,sourceFrames,geometryMethod:'FoamLens triangulated polyhedra and face area-vector magnitude; not native cell volumes',sourceBindingVerified:true},groups,invalidByTime,hasWeight:meta.association!=='pointSet',measureUnit:frames[0].weightUnit||'count',sourceBindingVerified:true};
+ }
+
  function xyzTable(csv,meta){
   if(typeof csv!=='string'||csv.length>48*1024*1024||csv.includes('\0'))fail('Invalid/oversized numeric CSV');
   const scale={m:1,mm:.001,cm:.01}[meta.coordinateUnit],kind=meta.association,convention=meta.convention;
@@ -362,8 +406,8 @@ const msCore=(()=>{
    let knownWeight=0,validWeight=0,weighted=0,sum=0,n=0,min=Infinity,max=-Infinity,weightCount=0,weightedCount=0;
    for(const r of selected){if(r.weight!==null){knownWeight+=r.weight;weightCount++}if(r.value!==null){n++;sum+=r.value;min=Math.min(min,r.value);max=Math.max(max,r.value);if(r.weight!==null){validWeight+=r.weight;weighted+=r.value*r.weight;weightedCount++}}}
    if([knownWeight,validWeight,weighted,sum].some(v=>!Number.isFinite(v)))fail('Spatial sum overflow');
-   const extensive=table.meta.convention==='perEntity',sampleComplete=selected.length>0&&n===selected.length&&!missingThreshold,complete=sampleComplete&&(extensive||table.hasWeight&&weightCount===selected.length);
-   times.push({time,eligible:rows.length,selected:selected.length,valid:n,weightCount,weightedCount,missingThreshold,stages,knownWeight:table.hasWeight?knownWeight:null,validWeight:table.hasWeight?validWeight:null,coverage:selected.length?n/selected.length:null,weightCoverage:table.hasWeight&&weightCount===selected.length&&knownWeight?validWeight/knownWeight:null,mean:n?sum/n:null,weightedMean:!extensive&&validWeight?weighted/validWeight:null,integral:extensive?n?sum:null:weightedCount?weighted:null,min:n?min:null,max:n?max:null,sampleComplete,complete,rows:selected});
+   const extensive=table.meta.convention==='perEntity',sampleComplete=selected.length>0&&n===selected.length&&!missingThreshold&&!(table.invalidByTime?.[time]>0),complete=sampleComplete&&(extensive||table.hasWeight&&weightCount===selected.length);
+   times.push({time,eligible:rows.length+(table.invalidByTime?.[time]||0),invalidGeometry:table.invalidByTime?.[time]||0,selected:selected.length,valid:n,weightCount,weightedCount,missingThreshold,stages,knownWeight:table.hasWeight?knownWeight:null,validWeight:table.hasWeight?validWeight:null,coverage:selected.length?n/selected.length:null,weightCoverage:table.hasWeight&&weightCount===selected.length&&knownWeight?validWeight/knownWeight:null,mean:n?sum/n:null,weightedMean:!extensive&&validWeight?weighted/validWeight:null,integral:extensive?n?sum:null:weightedCount?weighted:null,min:n?min:null,max:n?max:null,sampleComplete,complete,rows:selected});
   }
   return times;
  }
@@ -409,7 +453,7 @@ const msCore=(()=>{
   for(const [name,data] of Object.entries(sub?.sets||{})){try{if(!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name))fail('Invalid set name');sets.push(readSet(data,name,m))}catch(e){warnings.push(name+': '+e.message)}}
   return {sets,warnings};
  }
- return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,faceGeometry,parseSpatialPipeline,spatialSelect,xyzTable,xyzSelect,timeSummary,xyzFluxPair,fromNativeReport,generatedSets,edges,key};
+ return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,faceGeometry,parseSpatialPipeline,spatialSelect,fieldTopology,fieldRows,nativeTable,xyzTable,xyzSelect,timeSummary,xyzFluxPair,fromNativeReport,generatedSets,edges,key};
 })();
 /* FOAMLENS_MESH_STUDIO_CORE_END */
 
