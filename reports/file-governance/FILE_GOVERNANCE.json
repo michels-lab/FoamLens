@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "d50f5167ad3f4bf4cd4d35d23ca336458325233e0f56875e9198a9cbc4ad083c",
+  "inventory_fingerprint": "ab5cbc1b90d66512a8a228d5c34a72466f671ee830c88ca618eab22fac46a6be",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -592,7 +592,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "96295978b9cbf31c70ca6462ce5b6bdf25eb8411"
+      "blob": "c23bb41e25d062fb926ddb73100e07eb83da69eb"
     },
     {
       "path": ".michelslab/project.yml",
@@ -613,7 +613,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "afe6ae0d0dabf2ebccebb6b3fb3675a579770ea2"
+      "blob": "066644b8a33516f1a331f3e3d2935978f89db98a"
     },
     {
       "path": "LICENSE",
@@ -1012,7 +1012,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8133f70f68c4a680c13674a29301d1e8a4525998"
+      "blob": "7b985f6e45b74489c53086acc043c0ecc7000417"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1565,7 +1565,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "98a6cb70b46fa27161e97eba191e2ccccb4e3041"
+      "blob": "ca729982f5f0837484b4fcf8b7e67eaaf32495c9"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -2251,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "ea893370735c060aca47132f0b2e7a8394caea6a"
+      "blob": "b5cd50063a997061b1bb47423b8a4c4645825ea4"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
