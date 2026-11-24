@@ -4196,6 +4196,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "convertCadBrep":
                     await HandleConvertCadBrepAsync(root, requestId);
                     break;
+                case "runGmshMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId, true);
+                    break;
                 case "runCartesianMesh":
                     await HandleRunCartesianMeshAsync(root, requestId);
                     break;
@@ -4453,13 +4456,13 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         }
     }
 
-    private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId)
+    private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId, bool gmsh = false)
     {
         var operation = BeginOperation(requestId);
         try
         {
-            if (root.GetRawText().Length > 200000) throw new ArgumentException("Cartesian request too large.");
-            var report = await NativeCartesianMesh.RunAsync(root, operation.Token);
+            if (root.GetRawText().Length > (gmsh ? 36 * 1024 * 1024 : 200000)) throw new ArgumentException("Cartesian request too large.");
+            var report = await NativeCartesianMesh.RunAsync(root, operation.Token, gmsh);
             Reply(requestId, true, report, null);
         }
         catch (OperationCanceledException) { Reply(requestId, false, null, "Native mesh operation cancelled."); }
