@@ -271,3 +271,23 @@ function mgMount(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mgMount,{once:true});else mgMount();
 window.FoamLensGmshInspector=mgCore;
+
+
+/* FOAMLENS_CAD_MEASURE_CORE_START */
+function cmDistance(a,b){
+ if(!Array.isArray(a)||!Array.isArray(b)||a.length!==3||b.length!==3||[...a,...b].some(x=>typeof x!=='number'||!Number.isFinite(x)))throw Error('Expected metric XYZ points');
+ const delta=b.map((x,i)=>x-a[i]),length=Math.hypot(...delta);if(!Number.isFinite(length))throw Error('Distance overflow');return {delta_m:delta,distance_m:length}
+}
+/* FOAMLENS_CAD_MEASURE_CORE_END */
+function cmMount(){
+ const anchor=document.getElementById('cgCanvas');if(!anchor||document.getElementById('cmMeasure'))return;
+ const panel=document.createElement('details');panel.id='cmMeasure';panel.style.cssText='padding:10px;border:1px solid #37526e;border-radius:9px';const t=(a,b)=>cgEscape(cgUi(a,b));
+ panel.innerHTML='<summary><b>'+t('CAD measurements · source vertices','Mediciones CAD · vértices de origen')+'</b></summary><p class="cgNotice">'+t('Select a named part below, then choose a triangle ordinal within that part and vertex (0–2). Measurements use original tessellated coordinates, not exact CAD curves. Both picks must belong to the same imported model with confirmed units.','Selecciona una pieza debajo y el ordinal de triángulo en esa pieza y vértice (0–2). Se mide la teselación original, no curvas CAD exactas. Ambas selecciones deben pertenecer al mismo modelo importado con unidades confirmadas.')+'</p><div class="cgTools"><label>'+t('Triangle ordinal','Ordinal de triángulo')+' <input id="cmTriangle" type="number" min="0" step="1" value="0" style="width:100px"></label><label>'+t('Vertex','Vértice')+' <select id="cmVertex"><option>0</option><option>1</option><option>2</option></select></label><button class="btn soft" type="button" id="cmA">A</button><button class="btn soft" type="button" id="cmB">B</button><button class="btn soft" type="button" id="cmClear">'+t('Clear','Limpiar')+'</button></div><p id="cmAInfo" class="cgNotice"></p><p id="cmBInfo" class="cgNotice"></p><p id="cmResult" class="cgNotice" aria-live="polite"></p>';
+ anchor.insertAdjacentElement('afterend',panel);const el=id=>panel.querySelector('#'+id);let a=null,b=null;
+ const valid=p=>p&&cgModels.includes(p.model)&&p.model.unit===p.unit&&cgUnitScale(p.unit);
+ function update(){for(const [p,slot] of [[a,'A'],[b,'B']])el('cm'+slot+'Info').textContent=p?(valid(p)?slot+': '+p.model.name+' / '+p.part+' / '+p.triangle+' / '+p.vertex+' · XYZ [m] '+p.xyz.join(', '):slot+': '+cgUi('Source or units changed; pick again.','Cambió fuente o unidad; elige de nuevo.')):'';el('cmResult').textContent='';if(valid(a)&&valid(b)){if(a.model!==b.model){el('cmResult').textContent=cgUi('Different source models; shared reference frame not verified.','Modelos distintos; sistema de referencia común no verificado.');return}const d=cmDistance(a.xyz,b.xyz);el('cmResult').textContent='Distance: '+d.distance_m.toPrecision(8)+' m ('+(d.distance_m*1000).toPrecision(8)+' mm) · ΔXYZ [m]: '+d.delta_m.join(', ')}}
+ function pick(slot){try{const key=String(document.getElementById('cgPart')?.value||''),sep=key.indexOf('|'),model=cgModels[Number(key.slice(0,sep))],part=key.slice(sep+1),unit=model?.unit,scale=cgUnitScale(unit);if(sep<0||!model||!scale||!model.visible||!model.partsVisible.get(part))throw Error('Select a visible CAD part and confirm units');const raw=el('cmTriangle').value;if(!/^\d+$/.test(raw))throw Error('Invalid triangle ordinal');const ordinal=Number(raw),vertex=Number(el('cmVertex').value);let n=0,tri=null;for(const t of model.triangles)if(t.part===part&&n++===ordinal){tri=t;break}if(!tri||!tri.vertices[vertex])throw Error('Triangle/vertex out of range');const p={model,part,unit,triangle:ordinal,vertex,xyz:tri.vertices[vertex].map(x=>x*scale)};if(slot==='A')a=p;else b=p;update()}catch(e){el('cmResult').textContent=e.message}}
+ el('cmA').onclick=()=>pick('A');el('cmB').onclick=()=>pick('B');el('cmClear').onclick=()=>{a=b=null;update()};panel.addEventListener('toggle',update);
+ document.getElementById('cgInventory')?.addEventListener('change',()=>queueMicrotask(update));document.getElementById('cgImport')?.addEventListener('click',()=>{a=b=null;update()});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cmMount,{once:true});else cmMount();
