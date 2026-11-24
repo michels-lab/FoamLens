@@ -1,0 +1,148 @@
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+
+namespace FoamLensDesktop;
+
+// Only structured Cartesian plans are accepted. No uploaded dictionaries,
+// executable paths, case paths, includes, directives or arbitrary shell code.
+internal static class NativeCartesianMesh
+{
+    private const long MaxCells = 200000;
+    private const long MaxOutput = 24 * 1024 * 1024;
+    private static readonly string[] MeshNames = { "points", "faces", "owner", "neighbour", "boundary", "cellZones", "faceZones", "pointZones" };
+    private static string Num(double x) => x.ToString("G17", CultureInfo.InvariantCulture);
+    private static string List<T>(IEnumerable<T> v) => "(" + string.Join(" ", v) + ")";
+    private static string Name(JsonElement e)
+    {
+        var s = e.GetString() ?? "";
+        if (s.Length is < 1 or > 64 || !System.Text.RegularExpressions.Regex.IsMatch(s, @"\A[A-Za-z][A-Za-z0-9_]*\z") || s is "none" or "defaultFaces")
+            throw new ArgumentException("Invalid patch or zone name.");
+        return s;
+    }
+    private sealed record Axis(double[] Points, int[] Counts, double[] Grading);
+    internal static (string Dictionary, long Cells) Build(JsonElement root)
+    {
+        var axes = root.GetProperty("axes").EnumerateArray().Select(a =>
+        {
+            var p = a.GetProperty("points").EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            var n = a.GetProperty("counts").EnumerateArray().Select(x => x.GetInt32()).ToArray();
+            var g = a.GetProperty("grading").EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            if (n.Length is < 1 or > 16 || p.Length != n.Length + 1 || g.Length != n.Length ||
+                p.Any(x => !double.IsFinite(x)) ||
+                n.Where((x,i) => x < 1 || x > 10000 || !double.IsFinite(g[i]) || g[i] < 0.0001 || g[i] > 10000 || (x == 1 && g[i] != 1) || !(p[i+1] > p[i]) || !double.IsFinite(p[i+1]-p[i])).Any())
+                throw new ArgumentException("Invalid Cartesian axis.");
+            return new Axis(p,n,g);
+        }).ToArray();
+        if (axes.Length != 3) throw new ArgumentException("Three axes required.");
+        int nx=axes[0].Counts.Length, ny=axes[1].Counts.Length, nz=axes[2].Counts.Length;
+        if (nx*ny*nz > 512) throw new ArgumentException("Too many blocks.");
+        long cells=axes.Aggregate(1L,(v,a)=>checked(v*a.Counts.Sum()));
+        if (cells > MaxCells) throw new ArgumentException("Native run limited to 200,000 planned cells.");
+        var patches=root.GetProperty("patches").EnumerateArray().Select(Name).ToArray();
+        if (patches.Length!=6 || patches.Distinct(StringComparer.Ordinal).Count()!=6) throw new ArgumentException("Six distinct exterior patches required.");
+        var zones=new Dictionary<(int,int,int),string>();
+        foreach (var z in root.GetProperty("zones").EnumerateArray())
+        {
+            var ijk=z.GetProperty("ijk").EnumerateArray().Select(x=>x.GetInt32()).ToArray();
+            if (ijk.Length!=3 || ijk[0]<0 || ijk[0]>=nx || ijk[1]<0 || ijk[1]>=ny || ijk[2]<0 || ijk[2]>=nz ||
+                !zones.TryAdd((ijk[0],ijk[1],ijk[2]),Name(z.GetProperty("name")))) throw new ArgumentException("Invalid or duplicate zone block.");
+        }
+        int Id(int i,int j,int k)=>(k*(ny+1)+j)*(nx+1)+i;
+        var b=new StringBuilder("FoamFile { version 2.0; format ascii; class dictionary; object blockMeshDict; }\nscale 1;\nvertices\n(\n");
+        for(int k=0;k<=nz;k++)for(int j=0;j<=ny;j++)for(int i=0;i<=nx;i++)
+            b.AppendLine(List(new[]{Num(axes[0].Points[i]),Num(axes[1].Points[j]),Num(axes[2].Points[k])}));
+        b.AppendLine(");\nblocks\n(");
+        var faces=Enumerable.Range(0,6).Select(_=>new List<string>()).ToArray();
+        int[][] sides={new[]{0,4,7,3},new[]{1,2,6,5},new[]{0,1,5,4},new[]{3,7,6,2},new[]{0,3,2,1},new[]{4,5,6,7}};
+        for(int k=0;k<nz;k++)for(int j=0;j<ny;j++)for(int i=0;i<nx;i++)
+        {
+            int[] v={Id(i,j,k),Id(i+1,j,k),Id(i+1,j+1,k),Id(i,j+1,k),Id(i,j,k+1),Id(i+1,j,k+1),Id(i+1,j+1,k+1),Id(i,j+1,k+1)};
+            int[] q={i,j,k};var size=axes.Select((a,d)=>a.Points[q[d]+1]-a.Points[q[d]]).Aggregate(1.0,(a,c)=>a*c);
+            if (!(size>0) || !double.IsFinite(size)) throw new ArgumentException("Invalid block volume.");
+            zones.TryGetValue((i,j,k),out var zone);
+            b.AppendLine("hex "+List(v)+(zone is null?"":" "+zone)+" "+List(axes.Select((a,d)=>a.Counts[q[d]]))+" simpleGrading "+List(axes.Select((a,d)=>Num(a.Grading[q[d]]))));
+            bool[] exterior={i==0,i==nx-1,j==0,j==ny-1,k==0,k==nz-1};
+            for(int d=0;d<6;d++)if(exterior[d])faces[d].Add(List(sides[d].Select(x=>v[x])));
+        }
+        b.AppendLine(");\nedges ();\nboundary\n(");
+        for(int i=0;i<6;i++)b.AppendLine(patches[i]+" { type patch; faces (\n"+string.Join("\n",faces[i])+"\n); }");
+        b.AppendLine(");\nmergePatchPairs ();");
+        return (b.ToString(),cells);
+    }
+
+    // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
+    private const string Script = """
+        set -e
+        version="$2"
+        if [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then
+          for profile in "/opt/openfoam$version/etc/bashrc" "/usr/lib/openfoam/openfoam$version/etc/bashrc" "$HOME/OpenFOAM/OpenFOAM-$version/etc/bashrc"; do
+            if [ -r "$profile" ]; then . "$profile" >/dev/null 2>&1 || true; fi
+            if [ "${WM_PROJECT_VERSION:-}" = "$version" ]; then break; fi
+          done
+        fi
+        if [ "${WM_PROJECT:-}" != OpenFOAM ] || [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then echo 'Requested Foundation OpenFOAM environment unavailable' >&2; exit 127; fi
+        command -v blockMesh >/dev/null
+        command -v checkMesh >/dev/null
+        command -v timeout >/dev/null
+        cd "$1"
+        printf '%s\n' "$WM_PROJECT_VERSION" > detected-version.txt
+        set +e
+        timeout --kill-after=5s 90s blockMesh -case "$1" > blockMesh.log 2>&1
+        code=$?
+        printf '%s\n' "$code" > blockMesh.exit
+        if [ "$code" -ne 0 ]; then exit "$code"; fi
+        timeout --kill-after=5s 90s checkMesh -case "$1" > checkMesh.log 2>&1
+        code=$?
+        printf '%s\n' "$code" > checkMesh.exit
+        exit "$code"
+        """;
+    internal static async Task<object> RunAsync(JsonElement root, CancellationToken token)
+    {
+        var version=root.GetProperty("version").GetString();
+        if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
+        var (dict,cells)=Build(root);
+        var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
+        if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
+        var dir=Path.Combine(Path.GetTempPath(),"foamlens-blockmesh-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
+            await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
+            var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
+            var linux=translated.Stdout.Trim();
+            if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version},TimeSpan.FromSeconds(205),token);
+            string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
+            async Task<string?> Small(string file,int limit)
+            {
+                var p=Path.Combine(dir,file);var info=new FileInfo(p);
+                if(!info.Exists)return null;
+                using var stream=new StreamReader(p);var buffer=new char[limit];int count=await stream.ReadBlockAsync(buffer.AsMemory(),token);
+                return Clean(new string(buffer,0,count))+(stream.Peek()!=-1?"\n[truncated]":"");
+            }
+            int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
+            var bm=Exit("blockMesh.exit");var cm=Exit("checkMesh.exit");
+            var detected=(await Small("detected-version.txt",128))?.Trim();
+            var files=new Dictionary<string,string>();long total=0;string? exportError=null;
+            if(bm==0)
+            {
+                var mesh=Path.Combine(dir,"constant","polyMesh");
+                foreach(var name in MeshNames)
+                {
+                    var p=Path.Combine(mesh,name);var info=new FileInfo(p);
+                    if(!info.Exists){if(Array.IndexOf(MeshNames,name)<5)exportError="Required native mesh file missing: "+name;continue;}
+                    if((info.Attributes&FileAttributes.ReparsePoint)!=0 || info.Length>MaxOutput-total){exportError="Native mesh exceeds 24 MiB transfer limit or contains a link.";break;}
+                    total+=info.Length;
+                    var data=await File.ReadAllTextAsync(p,token);
+                    if(data.Contains('\0') || !System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){exportError="Only native ASCII mesh export is supported.";break;}
+                    files["constant/polyMesh/"+name]=data;
+                }
+                if(exportError!=null)files.Clear();
+            }
+            return new { schema="foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,blockMeshExit=bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=await Small("blockMesh.log",48000),checkMeshLog=await Small("checkMesh.log",48000),files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+        }
+        finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
+    }
+}
