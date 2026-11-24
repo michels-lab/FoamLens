@@ -544,8 +544,8 @@ function fcUnit(parsed){
 function fcLegendMarkup(field,component,parsed,range,palette='viridis'){
   if(!range?.valid)return'';const unit=fcUnit(parsed),name=String(field||parsed?.object||'Field'),comp=component&&component!=='value'?' · '+String(component):'',delta=Number(range.max)-Number(range.min),uniform=typeof fvRangeUniform==='function'?fvRangeUniform(range):Math.abs(delta)<=Math.max(Math.abs(Number(range.min)),Math.abs(Number(range.max)),1)*1e-12;
   if(uniform)return '<div class="fcLegendTitle">'+fcEsc(name+comp)+(unit?' <span>['+fcEsc(unit)+']</span>':'')+'</div><div class="fcLegendUniform">'+fcUi('Uniform','Uniforme')+' · '+fcEsc(typeof fvFmtRange==='function'?fvFmtRange(range.min,range):fcFmt(range.min))+'</div>';
-  const grad=typeof fvLegendGradient==='function'?fvLegendGradient(palette):'linear-gradient(90deg,#440154,#21908d,#fde725)',fmt=v=>fcEsc(typeof fvFmtRange==='function'?fvFmtRange(v,range):fcFmt(v));
-  return '<div class="fcLegendTitle">'+fcEsc(name+comp)+(unit?' <span>['+fcEsc(unit)+']</span>':'')+'</div><div class="fcLegendBar" style="background:'+fcEsc(grad)+'"></div><div class="fcLegendTicks"><span>'+fmt(range.min)+'</span><span>'+fmt((Number(range.min)+Number(range.max))/2)+'</span><span>'+fmt(range.max)+'</span></div><div class="fcLegendDelta">Δ '+fmt(delta)+'</div>'
+  const grad=typeof fvLegendGradient==='function'?fvLegendGradient(palette):'linear-gradient(90deg,#440154,#21908d,#fde725)',fmt=v=>fcEsc(typeof fvLegendNumber==='function'?fvLegendNumber(v,range):typeof fvFmtRange==='function'?fvFmtRange(v,range):fcFmt(v)),tick=v=>typeof fvLegendTick==='function'?fvLegendTick(v,range):'<span>'+fmt(v)+'</span>';
+  return '<div class="fcLegendTitle">'+fcEsc(name+comp)+(unit?' <span>['+fcEsc(unit)+']</span>':'')+'</div><div class="fcLegendBar" style="background:'+fcEsc(grad)+'"></div><div class="fcLegendTicks">'+tick(range.min)+tick(Number(range.min)/2+Number(range.max)/2)+tick(range.max)+'</div><div class="fcLegendDelta">Δ '+fmt(delta)+'</div>'
 }
 function fcUpdateViewportLegend(id,field,component,parsed,range,palette=null){
   const e=document.getElementById(id);if(!e)return;palette=palette||document.getElementById('fvPalette')?.value||'viridis';e.innerHTML=fcLegendMarkup(field,component,parsed,range,palette);e.classList.toggle('hidden',!range?.valid)
@@ -1440,26 +1440,7 @@ function fcPhysicalOverlayFor(view,state,canvas,mvp,camera){
       fvMetricLabel(bounds.max[i],u)+' '+u.unit+' (Δ'+fvMetricLabel(span[i],u)+' '+u.unit+')'
   });
   readout.textContent=labels.join(' | ')+' · '+(camera?.projection==='perspective'?fcUi('Perspective','Perspectiva'):fcUi('Orthographic · true aspect ratio','Ortográfica · escala real'));readout.hidden=false;
-  const project=p=>fvProjectWorld(p,mvp,w,h),line=(a,b,color,alpha=.8,width=1)=>{
-    if(!a||!b)return '';
-    return '<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+'" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+'" stroke="'+color+'" stroke-opacity="'+alpha+'" stroke-width="'+width+'"/>'
-  };
-  let markup='',edges=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
-  const corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),screen=corners.map(project);
-  for(const [a,b] of edges)markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
-  for(let axis=0;axis<3;axis++){
-    const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]);
-    const end=bounds.min.map((v,i)=>i===axis?bounds.max[i]:v);
-    markup+=line(project(bounds.min),project(end),color,1,2);
-    if(!(span[axis]>0))continue;
-    for(let i=0;i<=4;i++){
-      const world=bounds.min.map((v,j)=>axis===j?v+span[j]*i/4:v),pt=project(world);if(!pt)continue;
-      const label=(i===4?['X','Y','Z'][axis]+' ':'')+fvMetricLabel(world[axis],u)+(i===4?' '+u.unit:'');
-      markup+='<circle cx="'+pt.x.toFixed(2)+'" cy="'+pt.y.toFixed(2)+'" r="2.5" fill="'+color+'"/>'+
-        '<text x="'+(pt.x+6).toFixed(2)+'" y="'+(pt.y-7).toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="2.5" paint-order="stroke" font-size="11">'+fcEsc(label)+'</text>'
-    }
-  }
-  svg.innerHTML=markup
+  svg.innerHTML=fvPhysicalAxesMarkup(bounds,mvp,w,h,canvas.getBoundingClientRect().width)
 }
 function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
