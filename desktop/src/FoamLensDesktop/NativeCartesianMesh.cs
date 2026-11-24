@@ -277,14 +277,23 @@ internal static class NativeCartesianMesh
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
     internal const string Script = """
         set -e
-        version="$2"
-        if [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then
-          for profile in "/opt/openfoam$version/etc/bashrc" "/usr/lib/openfoam/openfoam$version/etc/bashrc" "$HOME/OpenFOAM/OpenFOAM-$version/etc/bashrc"; do
-            if [ -r "$profile" ]; then . "$profile" >/dev/null 2>&1 || true; fi
-            if [ "${WM_PROJECT_VERSION:-}" = "$version" ]; then break; fi
+        # Foundation bashrc reads its positional arguments as configuration.
+        # Source it inside a function with no case/utility arguments.
+        readonly fl_version="$2"
+        fl_source_profile() { . "$fl_profile"; }
+        if [ "${WM_PROJECT_VERSION:-}" != "$fl_version" ] || [ "${WM_PROJECT:-}" != OpenFOAM ]; then
+          for fl_profile in "/opt/openfoam$fl_version/etc/bashrc" "/usr/lib/openfoam/openfoam$fl_version/etc/bashrc" "$HOME/OpenFOAM/OpenFOAM-$fl_version/etc/bashrc"; do
+            if [ -r "$fl_profile" ]; then
+              printf 'Loading Foundation environment: %s\n' "$fl_profile" >&2
+              fl_source_profile >&2 || true
+            fi
+            if [ "${WM_PROJECT_VERSION:-}" = "$fl_version" ] && [ "${WM_PROJECT:-}" = OpenFOAM ]; then break; fi
           done
         fi
-        if [ "${WM_PROJECT:-}" != OpenFOAM ] || [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then echo 'Requested Foundation OpenFOAM environment unavailable' >&2; exit 127; fi
+        if [ "${WM_PROJECT:-}" != OpenFOAM ] || [ "${WM_PROJECT_VERSION:-}" != "$fl_version" ]; then
+          printf 'Requested Foundation OpenFOAM environment unavailable: project=%s version=%s requested=%s\n' "${WM_PROJECT:-unset}" "${WM_PROJECT_VERSION:-unset}" "$fl_version" >&2
+          exit 127
+        fi
         if [ "$3" = gmshToFoam ]; then command -v gmshToFoam >/dev/null; else command -v blockMesh >/dev/null; fi
         if [ "$3" = snappyHexMesh ]; then command -v snappyHexMesh >/dev/null; command -v surfaceCheck >/dev/null; fi
         command -v checkMesh >/dev/null
