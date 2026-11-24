@@ -2346,7 +2346,7 @@ function fvCaseDiagnosisMarkup(c){
 }
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=availability.reason+(c?' · '+c.name:'')+' · '+flUi('Complete mesh regions: ','Regiones con malla completa: ')+availability.meshRegions.length+' · '+flUi('Field regions: ','Regiones con campos: ')+availability.fieldRegions.length;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div>'+fvCaseDiagnosisMarkup(c);fvRender();return false}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=fvCaseSourceDiagnosis(c).summary;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div>'+fvCaseDiagnosisMarkup(c);fvRender();return false}
   let requestSeq=fvState.frameSeq;
   try{
     fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));

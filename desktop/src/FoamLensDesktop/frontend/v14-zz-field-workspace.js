@@ -194,7 +194,10 @@ function fwCreateSurface(){
 <label><span data-fl-en="Plot height" data-fl-es="Altura de gráfica">Plot height</span><select id="fwSplitHeight"><option value="compact" data-fl-en="Compact" data-fl-es="Compacta">Compact</option><option value="medium" data-fl-en="Medium" data-fl-es="Media">Medium</option><option value="large" data-fl-en="Large" data-fl-es="Grande">Large</option></select></label>
 <label class="fwSplitRatioControl"><span><span data-fl-en="3D width" data-fl-es="Ancho 3D">3D width</span> · <output id="fwSplitRatioLabel">55%</output></span><input id="fwSplitRatio" type="range" min="30" max="75" step="1" value="55" aria-label="3D width percentage"></label>
 <button id="fwSplitReset" class="btn tiny" type="button" data-fl-en="Reset layout" data-fl-es="Restablecer">Reset layout</button><span id="fwSplitStatus" class="smallnote" aria-live="polite"></span></div>
-<div class="fwCompanionHost" id="fw2DHost"></div>
+<div class="fwProfileClock" role="group" aria-label="Profile synchronization">
+  <label><span data-fl-en="Follow physical time of" data-fl-es="Seguir tiempo físico de">Follow physical time of</span><select id="fwProfileClockView"><option value="A">A</option></select></label>
+  <span id="fwProfileClockStatus" class="smallnote" aria-live="polite"></span>
+</div><div class="fwCompanionHost" id="fw2DHost"></div>
           <div class="smallnote fwPlotEmpty hidden" id="fwPlotEmpty"></div>
         </section>
       </div>
@@ -242,6 +245,7 @@ function fwCreateSurface(){
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,1fr) max-content 68px;}.fwTimeReadout,#fwTimeSpeed{grid-row:auto}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
     /* One full-width playback lane, with a readable dedicated speed control. */
+    #fieldSurface .fwProfileClock{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}#fieldSurface .fwProfileClock label{display:grid;gap:4px;font-size:11px;color:var(--muted)}#fieldSurface .fwProfileClock select{min-width:104px;min-height:34px}#fieldSurface .fwProfileClock .smallnote{flex:1 1 120px;overflow-wrap:anywhere}
     #fieldSurface .fwHeader{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
     #fieldSurface .fwHeaderActions{flex:1 1 auto;justify-content:flex-end;min-width:0}
     #fieldSurface .fwHeaderCommandRow{display:flex;flex-wrap:wrap;gap:7px}
@@ -264,9 +268,9 @@ function fwCreateSurface(){
   fwSplitMount();
   document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
   document.getElementById('fwProfileTimeSync')?.addEventListener('change',e=>{
-    fwState.syncTime=!!e.target.checked;
-    if(fwState.syncTime)fwSyncCompanionTime(fvState?.time);
+    fwState.syncTime=!!e.target.checked;fwFollowProfileClock()
   });
+  document.getElementById('fwProfileClockView')?.addEventListener('change',()=>fwFollowProfileClock());
   document.getElementById('fwInspectorToggle')?.addEventListener('click',()=>fwSetInspector(!fwState.inspector));
   document.getElementById('fwInspectorClose')?.addEventListener('click',()=>fwSetInspector(false,true));
   document.getElementById('fwControlsDrawer')?.addEventListener('keydown',e=>{
@@ -363,7 +367,7 @@ function fwToggleProfileCompanion(force){
   // Opening the split after a 3D frame was already loaded must not display an
   // unrelated, stale Data profile time until the *next* Play/Next action.
   // Missing physical times remain missing; never synthesize t=0.
-  fwSyncCompanionTime(fvState?.time);
+  if(typeof fwFollowProfileClock==='function')fwFollowProfileClock();else fwSyncCompanionTime(fvState?.time);
   const group=document.getElementById('fw2DControlGroup');if(group)group.style.display='';
   fwSyncProfileCompanionButton();
   fwScheduleRender({threeD:true,twoD:true});
@@ -1495,8 +1499,32 @@ function fwSyncCompanionTime(time){
   }catch(e){console.warn('Field Workspace time sync:',e)}
   fwUpdateTimeBadge()
 }
+// Follow one explicitly selected, committed 3D source. The companion
+// retains its independent field/case selections; only the clock is shared.
+function fwProfileClockView(){return document.getElementById('fwProfileClockView')?.value||'A'}
+function fwRefreshProfileClockViews(){
+  const select=document.getElementById('fwProfileClockView');if(!select)return;
+  const old=select.value||'A',enabled=document.getElementById('fcEnabled')?.checked===true;
+  const views=['A',...(enabled?['B',...fcExtraViews.filter(v=>[3,4].includes(Number(v.id))).map(v=>String.fromCharCode(64+Number(v.id)))]:[])];
+  const options=views.map(v=>'<option value="'+v+'">'+fwUi('View','Vista')+' '+v+'</option>').join('');
+  if(select.innerHTML!==options)select.innerHTML=options;
+  select.value=views.includes(old)?old:'A';
+  if(select.value!==old)fwFollowProfileClock()
+}
+function fwFollowProfileClock(completedView=null){
+  if(!fwState.active||fwState.layout!=='split')return;
+  const view=fwProfileClockView();if(completedView&&view!==completedView)return;
+  const status=document.getElementById('fwProfileClockStatus'),picker=document.getElementById('fwProfileClockView');
+  if(picker)picker.disabled=!fwState.syncTime;
+  if(!fwState.syncTime){if(status)status.textContent=fwUi('Independent profile time','Tiempo de perfil independiente');return}
+  const frame=fwCurrent3DProfileField(view);
+  if(!frame){if(status)status.textContent=fwUi('Waiting for a valid loaded frame in view ','Esperando un frame válido cargado en vista ')+view;return}
+  fwSyncCompanionTime(frame.time);
+  if(status)status.textContent=fwUi('Requested from view ','Solicitado desde vista ')+view+' · '+String(frame.time)+' s'
+}
 function fwUpdateViewCount(){
   fwRefresh3DProfileSourceViews();
+  if(typeof fwRefreshProfileClockViews==='function')fwRefreshProfileClockViews();
   if(typeof fwSplitSchedule==='function')fwSplitSchedule();
   const e=document.getElementById('fw3DCount');if(!e)return;let n=1;
   try{if(document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
@@ -1732,10 +1760,16 @@ function fwInstall(){
   const oldGo=document.getElementById('workspaceGoFieldView');if(oldGo)oldGo.onclick=()=>setAppMode('field');
   const prevApp=setAppMode;setAppMode=function(mode){if(mode==='field'){fwEnter();return}if(fwState.active)fwLeave();return prevApp.apply(this,arguments)};
   const prevTrail=updateContextTrail;updateContextTrail=function(){if(activeAppMode==='field'){const t=document.getElementById('contextTrail');if(t)t.textContent=fwUi('Field View','Vista 3D');return}return prevTrail.apply(this,arguments)};
-  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwSyncCompanionTime(fvState.time);fwRefreshGlobalTime();if(!fwState.compareProfiles&&fwLineProfileState.a&&fwLineProfileState.b&&
+  if(typeof fvLoadFrame==='function'&&!fvLoadFrame.__fwPatched){const prev=fvLoadFrame;fvLoadFrame=async function(...args){const result=await prev.apply(this,args);fwFollowProfileClock('A');fwRefreshGlobalTime();if(!fwState.compareProfiles&&fwLineProfileState.a&&fwLineProfileState.b&&
     (document.getElementById('fw3DProfileView')?.value||'A')==='A')
     fwBuild3DLineProfile({select:false});return result};fvLoadFrame.__fwPatched=true}
   if(typeof fvRender==='function'&&!fvRender.__fwProfileOverlayPatched){const prevRender=fvRender;fvRender=function(...args){const result=prevRender.apply(this,args);fwUpdate3DProfileOverlay();return result};fvRender.__fwProfileOverlayPatched=true}
+  if(typeof fcRefreshFrame==='function'&&!fcRefreshFrame.__fwClockPatched){
+    const original=fcRefreshFrame;fcRefreshFrame=async function(...args){const result=await original.apply(this,args);fwFollowProfileClock('B');return result};fcRefreshFrame.__fwClockPatched=true
+  }
+  if(typeof fcExtraRefreshFrame==='function'&&!fcExtraRefreshFrame.__fwClockPatched){
+    const original=fcExtraRefreshFrame;fcExtraRefreshFrame=async function(...args){const result=await original.apply(this,args);const id=Number(args[0]?.id);if([3,4].includes(id))fwFollowProfileClock(String.fromCharCode(64+id));return result};fcExtraRefreshFrame.__fwClockPatched=true
+  }
   // Keep adopted C/D selectors and view count coherent immediately after
   // Add/Remove, including clicks on the viewport's own remove button.
   if(typeof fcExtraAdd==='function'&&!fcExtraAdd.__fwCardsPatched){

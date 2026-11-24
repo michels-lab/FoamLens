@@ -1,3 +1,7 @@
+## 2026-11-24 — selectable profile synchronization source and case recovery
+
+Existing 3D+Profile companion may now follow a selected A/B/C/D committed frame, without changing profile case or field. A missing selected source reports waiting rather than inventing zero or silently following A; independent profile mode remains. Hooks follow completed source loads and refresh the list on view add/remove. Source diagnosis uses one authoritative summary and the unavailable-selection regression harness evaluates real diagnostic functions with the real loader. Previous publisher 45353734411 failed in that isolated harness; no gates disabled. JS syntax checked; installed validation pending. No CFD changes.
+
 ## 2026-11-24 — owner feedback: reorganized Field controls and visible playback rate
 
 Organize original per-view controls into source identity, source options/copy, full-width independent transport, camera/zoom and material rows. Native playback rate has dedicated 86px selector, global speed labeled and 90px wide; global timeline flexes across full workspace and wraps safely. Header no longer duplicates Add view, original permanent 3D card command remains. Spatial profile controls now grouped in one expandable section, no extra plot canvas or copies of source controls. Existing actual source handlers retained. Product branch includes persistent viewport drag reorder; direct JS syntax checked, real Windows visual verification pending.
