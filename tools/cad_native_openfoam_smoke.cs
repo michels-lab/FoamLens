@@ -137,5 +137,12 @@ CheckLog(multi,"checkMesh.log");
 var boundary=File.ReadAllText(Path.Combine(multi,"constant","polyMesh","boundary"));
 if(!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Both distinct CAD surface patches must be represented");
 
-File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=1,mold=1},snappyCells,multiCells,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
+var advanced=await Run("snappy-advanced","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray()),boxes=new[]{new{min=new[]{.05,.05,.05},max=new[]{.23,.23,.23},level=2}},surfaceSettings=new[]{new{id=1,minLevel=1,maxLevel=2,layers=1}},layerSettings=new{expansionRatio=1.2,finalLayerThickness=.25,minThickness=.1}}}));
+var advancedCells=Cells(advanced);if(advancedCells<=0||advancedCells==512)throw new InvalidOperationException("Advanced snappy did not produce a different mesh");
+CheckLog(advanced,"checkMesh.log");
+// Record native layer diagnostics verbatim. A requested layer is not an
+// acceptance claim; actual extrusion coverage needs its own evidence.
+var advancedLog=File.ReadAllText(Path.Combine(advanced,"generation.log"));
+if(!advancedLog.Contains("layer",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Layer stage diagnostics unavailable");
+File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=1,mold=1},snappyCells,multiCells,advancedCells,layerCoverageCertified=false,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
 Console.WriteLine("Actual OpenFOAM "+version+" mesh workflow PASS");
