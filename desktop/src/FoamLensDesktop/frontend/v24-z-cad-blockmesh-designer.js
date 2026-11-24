@@ -276,6 +276,57 @@ const msCore=(()=>{
   return {kind,values,invalid,eligible:limit,coverage:limit?values.length/limit:0,metric,unit:metric==='faceArea'?'m²':metric==='cellVolume'?'m³':'deg',method:'FoamLens triangulated polyhedral approximation; not native checkMesh'};
  }
  function metricThreshold(q,lo,hi){if(!Number.isFinite(lo)||!Number.isFinite(hi)||lo>hi)fail('Invalid inclusive threshold');return q.values.filter(x=>x.value>=lo&&x.value<=hi)}
+
+ function faceGeometry(m,i){
+  const ids=m.faces[i];if(!ids)fail('Unknown face');const p=ids.map(j=>m.points[j]),o=p[0];let a=[0,0,0],weighted=[0,0,0],sum=0;
+  for(let j=1;j<p.length-1;j++){const av=mul(cross(sub(p[j],o),sub(p[j+1],o)),.5),w=norm(av);a=add(a,av);sum+=w;weighted=add(weighted,mul(mul(add(add(o,p[j]),p[j+1]),1/3),w))}
+  const area=norm(a);if(!(area>0)||!Number.isFinite(area)||!(sum>0)||!Number.isFinite(sum)||area<sum*1e-12)fail('Degenerate face geometry');
+  const centroid=mul(weighted,1/sum);if(centroid.some(x=>!Number.isFinite(x)))fail('Invalid face centroid');
+  return {area_m2:area,centroid_m:centroid,triangleArea_m2:sum};
+ }
+ function parseSpatialPipeline(source){
+  if(typeof source!=='string'||source.length>12000)fail('Invalid spatial pipeline');
+  const rows=source.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'));if(rows.length>16)fail('Maximum 16 active filters');
+  return rows.map(line=>{
+   const [type,...raw]=line.split(/\s+/),v=raw.map(num);
+   if(type==='box'&&v.length===6&&v.slice(0,3).every((x,i)=>x<=v[i+3]))return{type,min:v.slice(0,3),max:v.slice(3)};
+   if(type==='cylinder'&&v.length===7&&v[6]>0&&norm(sub(v.slice(3,6),v.slice(0,3)))>0)return{type,a:v.slice(0,3),b:v.slice(3,6),radius:v[6]};
+   if(type==='slab'&&v.length===8&&v[6]<=v[7]&&norm(v.slice(3,6))>0)return{type,origin:v.slice(0,3),normal:mul(v.slice(3,6),1/norm(v.slice(3,6))),min:v[6],max:v[7]};
+   if(type==='threshold'&&v.length===2&&v[0]<=v[1])return{type,min:v[0],max:v[1]};
+   fail('Invalid filter: '+type+' (box / cylinder / slab / threshold)');
+  });
+ }
+ function spatialContains(p,f){
+  if(f.type==='box')return p.every((v,i)=>v>=f.min[i]&&v<=f.max[i]);
+  if(f.type==='slab'){const d=dot(sub(p,f.origin),f.normal);return d>=f.min&&d<=f.max}
+  if(f.type==='cylinder'){const u=sub(f.b,f.a),v=sub(p,f.a),t=dot(v,u)/dot(u,u);return t>=0&&t<=1&&norm(sub(v,mul(u,t)))<=f.radius}
+  fail('Unknown geometric filter');
+ }
+ function spatialSelect(m,kind,filters,field=null,scope=null,convention='intensive'){
+  if(!['cellSet','faceSet','pointSet'].includes(kind)||!['intensive','perEntity'].includes(convention))fail('Invalid spatial association/convention');
+  const count={cellSet:m.cells.length,faceSet:m.faces.length,pointSet:m.points.length}[kind],map=new Map();
+  if(field){if(field.kind!==kind)fail('Field association differs from selected topology');for(const r of field.values){if(!Number.isSafeInteger(r.id)||r.id<0||r.id>=count||map.has(r.id)||!Number.isFinite(r.value))fail('Invalid field ID or value');map.set(r.id,r.value)}}
+  if(filters.some(f=>f.type==='threshold')&&!field)fail('Threshold requires loaded field');
+  let ids;if(scope){if(scope.kind!==kind||!Array.isArray(scope.values)||new Set(scope.values).size!==scope.values.length||scope.values.some(i=>!Number.isSafeInteger(i)||i<0||i>=count))fail('Scope does not match selected association');ids=scope.values}else ids=Array.from({length:count},(_,i)=>i);
+  const rows=[],invalid=[],unknownThreshold=[],stages=filters.map(f=>({type:f.type,input:0,passed:0,missing:0}));let selectedWeight=0,validWeight=0,weightedSum=0,minimum=Infinity,maximum=-Infinity,fieldCount=0,rawSum=0;
+  for(const i of ids){
+   let p,w;try{if(kind==='cellSet'){const g=cellGeometry(m,i);p=g.centroid_m;w=g.volume_m3}else if(kind==='faceSet'){const g=faceGeometry(m,i);p=g.centroid_m;w=g.area_m2}else{p=m.points[i];w=1}}catch{invalid.push(i);continue}
+   const has=map.has(i),value=has?map.get(i):null;
+   let accepted=true;
+   for(let j=0;j<filters.length;j++){const f=filters[j],stage=stages[j];stage.input++;
+    if(f.type==='threshold'&&!has){stage.missing++;unknownThreshold.push(i);accepted=false;break}
+    if(f.type==='threshold'?value<f.min||value>f.max:!spatialContains(p,f)){accepted=false;break}
+    stage.passed++;
+   }
+   if(!accepted)continue;
+   selectedWeight+=w;rows.push({id:i,x:p[0],y:p[1],z:p[2],weight:w,value});
+   if(has){validWeight+=w;weightedSum+=value*w;rawSum+=value;fieldCount++;minimum=Math.min(minimum,value);maximum=Math.max(maximum,value)}
+  }
+  if([selectedWeight,validWeight,weightedSum,rawSum].some(x=>!Number.isFinite(x)))fail('Integration overflow');
+  const weighted=kind!=='pointSet',intensive=convention==='intensive';
+  return {kind,convention,rows,invalid,unknownThreshold,stages,eligible:ids.length,selected:rows.length,selectedWeight,validWeight,fieldCount,coverage:rows.length?fieldCount/rows.length:null,weightCoverage:selectedWeight?validWeight/selectedWeight:null,mean:fieldCount?rawSum/fieldCount:null,weightedMean:weighted&&intensive&&validWeight?weightedSum/validWeight:null,integral:fieldCount?(intensive?(weighted?weightedSum:null):rawSum):null,min:fieldCount?minimum:null,max:fieldCount?maximum:null,weightUnit:kind==='cellSet'?'m³':kind==='faceSet'?'m²':'count',method:'Centroid membership, whole entities only; face area-vector magnitude and triangulated cell volume estimates. No geometric clipping or interpolation.',sourceBindingVerified:false};
+ }
+
  function fromNativeReport(r,region){
   if(!r||!['foamlens/native-cartesian-mesh/1','foamlens/native-gmsh-mesh/1','foamlens/native-snappy-mesh/1'].includes(r.schema)||r.originalCaseModified!==false||r.meshGenerated!==true||r.generationExit!==0||r.exportError)fail('No complete generated mesh report');
   const sub=region?r.regions?.[region]:r;
@@ -290,7 +341,7 @@ const msCore=(()=>{
   for(const [name,data] of Object.entries(sub?.sets||{})){try{if(!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name))fail('Invalid set name');sets.push(readSet(data,name,m))}catch(e){warnings.push(name+': '+e.message)}}
   return {sets,warnings};
  }
- return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,fromNativeReport,generatedSets,edges,key};
+ return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,faceGeometry,parseSpatialPipeline,spatialSelect,fromNativeReport,generatedSets,edges,key};
 })();
 /* FOAMLENS_MESH_STUDIO_CORE_END */
 
