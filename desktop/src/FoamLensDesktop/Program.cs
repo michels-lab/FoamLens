@@ -1530,8 +1530,8 @@ internal sealed class FoamLensForm : Form
                     caseSelectorsIndependent:!!caseHost&&caseHost.contains(a)&&caseHost.contains(b)&&a!==b,
                     addViewVisible:(()=>{const el=document.getElementById('fwAdd3DViewVisible');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
                     importCaseVisible:(()=>{const el=document.getElementById('fwImport3DCase');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
-                    primaryViewPropertyVisible:(()=>{const el=document.querySelector('#fcViewGrid [data-fc-toolbar="A"] [data-fc-bind="Field"]');return !!el&&el.getBoundingClientRect().width>60})(),
-                    primaryViewZoomVisible:(()=>{const bar=document.querySelector('#fcViewGrid [data-fc-toolbar="A"]');return !!bar&&['in','out'].every(dir=>bar.querySelector('[data-fc-zoom="'+dir+'"]')?.getBoundingClientRect().width>=28)&&!!bar.querySelector('.fcMoveHandle[draggable="true"]')})(),
+                    primaryViewPropertyVisible:(()=>{const details=document.querySelector('#fcViewGrid [data-fc-toolbar="A"] .fcViewSourceDetails');if(!details)return false;const summary=details.querySelector('summary'),initial=details.open;const reachable=!!summary&&summary.getBoundingClientRect().width>60;if(!initial)summary?.click();const el=details.querySelector('[data-fc-bind="Field"]'),valid=reachable&&details.open&&!!el&&el.getBoundingClientRect().width>60;if(!initial)summary?.click();return valid})(),
+                    primaryViewZoomVisible:(()=>{const bar=document.querySelector('#fcViewGrid [data-fc-toolbar="A"]');return !!bar&&['in','out'].every(dir=>bar.querySelector('[data-fc-zoom="'+dir+'"]')?.getBoundingClientRect().width>=28)&&(()=>{const handle=bar.querySelector('button.fcMoveHandle');return !!handle&&!handle.draggable&&handle.tabIndex>=0&&handle.getBoundingClientRect().width>=30&&getComputedStyle(handle).touchAction==='none'})()})(),
                     caseCanCompareItself:!!a&&!!b&&[...b.options].some(opt=>opt.value===a.value),
                     primarySelectorVisible:!!a&&a.getBoundingClientRect().width>30,
                     compareOffByDefault:!!compare&&!compare.checked&&compareRuntimeEnabled===false,
@@ -1663,6 +1663,22 @@ internal sealed class FoamLensForm : Form
                     .every(v=>!!v?.querySelector('.fcViewportScene')&&!!v.querySelector('.fcViewportCaption'));
                   checks.captionOwnsCompareLabel=label?.parentElement?.classList.contains('fcViewportCaption')===true;
                   checks.actualSecondViewVisible=!!secondary&&rect(secondary)?.width>=240&&getComputedStyle(secondary).display!=='none';
+                  // Exercise the real pointer-reorder control's keyboard path on
+                  // existing viewport nodes, not a synthetic draggable attribute.
+                  const grid=document.getElementById('fcViewGrid'),aPane=document.getElementById('fvViewport'),
+                    bHandle=secondary?.querySelector('button.fcMoveHandle');
+                  if(grid&&aPane&&secondary&&bHandle&&checks.actualSecondViewVisible){
+                    const originalNodes=[...grid.children],canvas=secondary.querySelector('canvas'),
+                      key='foamlens.field.viewport.order.v1';
+                    let saved=null;try{saved=localStorage.getItem(key)}catch{}
+                    const before=[...grid.children].indexOf(secondary)<[...grid.children].indexOf(aPane);
+                    bHandle.dispatchEvent(new KeyboardEvent('keydown',{key:before?'End':'Home',bubbles:true,cancelable:true}));
+                    const after=[...grid.children].indexOf(secondary)<[...grid.children].indexOf(aPane);
+                    checks.viewReorderPreservesCanvas=before!==after&&secondary.querySelector('canvas')===canvas&&canvas?.isConnected===true;
+                    // Restore the exact original node order and saved preference.
+                    let next=null;for(let j=originalNodes.length-1;j>=0;j--){const node=originalNodes[j];if(node.nextSibling!==next){if(typeof grid.moveBefore==='function')grid.moveBefore(node,next);else grid.insertBefore(node,next)}next=node}
+                    try{if(saved===null)localStorage.removeItem(key);else localStorage.setItem(key,saved)}catch{}
+                  }else checks.viewReorderPreservesCanvas=false;
                   const sRect=rect(secondary?.querySelector('.fcViewportScene')),
                     caption=rect(secondary?.querySelector('.fcViewportCaption'));
                   checks.captionBelowScene=!!sRect&&!!caption&&caption.top>=sRect.bottom-2;

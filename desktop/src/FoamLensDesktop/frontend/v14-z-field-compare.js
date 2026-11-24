@@ -1004,7 +1004,7 @@ function fcSyncViewSourceSummary(bar){
 }
 function fcAddViewportToolbar(viewport,view){
   if(!viewport||viewport.querySelector('[data-fc-toolbar]'))return;
-  const mapping=fcViewSourceMap(view),letter=view==='A'||view==='B'?view:String.fromCharCode(64+Number(view));
+  const mapping=fcViewSourceMap(view),letter=['A','B','Δ'].includes(view)?view:String.fromCharCode(64+Number(view));
   const bar=document.createElement('div');bar.className='fcViewToolbar';bar.dataset.fcToolbar=String(view);
   const en=fcUi('View','Vista');
   bar.addEventListener('toggle',()=>requestAnimationFrame(fcAlignViewToolbarHeights),true);

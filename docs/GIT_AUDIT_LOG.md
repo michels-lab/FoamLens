@@ -1,3 +1,7 @@
+## 2026-11-24 — native smoke verifies actual Field pointer/keyboard controls
+
+Replace obsolete native smoke checks for HTML draggable=true and permanently expanded Property with actual reachability and the real pointer/keyboard reorder handle. Execute Home/End on the real B viewport when visible, require changed order with identical connected GPU canvas, then restore node order and saved preference. Correct the difference view's Δ move-handle label instead of a NUL character. No gate removed; Windows validation pending.
+
 ## 2026-11-24 — GRANADA native startup root cause (PR #379)
 
 Exact-head Windows build 45358771995 passed original QuickCup and source suites, then packaged WebView2 terminated with `Mesh report inspector is not mounted`. Earlier comparison module calls hoisted fwUpdateViewCount during fcInstallUi -> fcUpdateLayout, before the later Field Workspace module initializes its new `let fwSplitFrame`. This is a real temporal-dead-zone startup exception, reproduced directly against prior production code. Replace cross-module call with mounted API and make split scheduling inert before the workspace DOM exists. Regression fails on previous code with ReferenceError and passes on repair, including post-mount coalescing. Add smoke-only pre-navigation JS boot witness and sanitized native checkMesh failure log, no release gate removed. All other owner layout features retained; exact-head native validation pending.
