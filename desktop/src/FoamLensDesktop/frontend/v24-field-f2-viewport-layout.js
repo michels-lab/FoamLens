@@ -382,6 +382,8 @@ function pvApplyDeck(){
     if(grid.style.getPropertyValue('--pvDeckColumns')!==value)grid.style.setProperty('--pvDeckColumns',value)
   }
   const height=pvDeckSceneHeight();
+  if(height!==null){if(grid.getAttribute('data-pv-deck-height')!=='equal')grid.setAttribute('data-pv-deck-height','equal')}
+  else grid.removeAttribute('data-pv-deck-height');
   for(const v of Array.from(grid.children).filter(x=>pvViews[x.id])){
     if(height!==null){
       const px=height+'px';
@@ -432,6 +434,7 @@ function pvStyles(){
   const css=[
     '#fcViewGrid .pvViewport .fcViewportScene{height:var(--pvDeckHeight,var(--pvHeight,clamp(340px,36vw,500px)))!important;min-height:0!important}',
     '#fieldViewPanel.fcCompareMode #fcViewGrid[data-pv-deck-mode]:not(.pvFocus){grid-template-columns:repeat(var(--pvDeckColumns,2),minmax(0,1fr))!important;overflow-x:clip}',
+    '#fcViewGrid[data-pv-deck-height=equal] .pvSizeMenu,#fcViewGrid[data-pv-deck-height=equal] .pvGrip{display:none!important}',
     '.pvDeckBar{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:10px 12px;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}',
     '.pvDeckBar>strong{flex:0 1 auto;align-self:center;font-size:12px;color:var(--text)}',
     '.pvDeckChoice{display:grid;gap:4px;flex:1 1 160px;min-width:0;max-width:240px;font-size:11px;font-weight:700}',

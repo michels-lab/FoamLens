@@ -1,3 +1,7 @@
+## 2026-11-23 — owner-authorized v1.8.22 GRANADA functional release source
+
+Owner explicitly requested advanced product changes and stable release for his own manual validation, not another isolated testing cycle. Integrated source #374 combines #371/#372/#373; additional real feature commits 43667ef9 (native postrun timeline, dual metric, saved-state scrubber, CSV and SVG) and 91716fbf (Field comparison deck, synchronized heights, responsive arrangements). Native CSV opens its workbench immediately after successful import. Version metadata/changelog updated for v1.8.22; no publication claim until GitHub release and asset integrity are actually observed. All automated distribution safeguards preserved, manual owner acceptance after release. Direct Windows Authenticode remains optional per #238. No CFD rerun or source case changes.
+
 ## 2026-11-20 — Granada #371: superficie 3D triangulada interpolada, visor y OBJ originales (NO RELEASE)
 
 - **Cambio funcional verificable:** en `v24-solidification-front-3d.js`, el módulo #153 de Analysis pasa de posiciones de cruces de centros a una **malla de triángulos 3D indexada** construida por marching tetrahedra sobre `polyMesh` originales y fracción líquida original importada. Se interpolan valores en vértices del original a partir de los valores celulares; el render muestra la geometría de la reconstrucción en canvas 3D orbital (arrastrar con ratón), permite escoger un `t` original y exporta el **OBJ completo en metros**.

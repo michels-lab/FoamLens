@@ -567,6 +567,7 @@ function chInstall(){
         if(key==='runtime')chRuntimeLog=data?chRuntime(data.text,data.file):null;
         else if(key==='mesh')chMesh=data?maPureCheckMesh(data.text,data.file):null;
         else chPostrun=data?chPostRunCsv(data.text,data.file):null;
+        if(key==='postrun'&&chPostrun&&chSelectedCase()?.discoveryModel){chRun();return}
         chInvalidate(data?'Report parsed. Re-run the case audit.':'Report cleared. Re-run the case audit.')
       }catch(e){if(seq!==chSelectionVersion)return;chInvalidate(String(e?.message||e))}
     })
