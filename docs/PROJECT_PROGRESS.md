@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-24 — Granada CAD 3G.5: refinamiento local y capas por superficie
+- PR #381: motor 6f8f5cf, UI b17f946, fuente CAD confirmada f3f209a, vista previa física 56217ff. Hasta 12 cajas XYZ en metros, level 1–4, Foundation `type box; mode inside; level N;`; overrides por ID de superficie min/max 0–4 y capas 0–8; no overrides = niveles globales y cero capas. Expansión relativa 1–2, espesor final relativo >0–0.9, mínimo positivo <= final. Revalidación de IDs, modelo, parte y unidad antes del Run; las cajas se proyectan solo si intersectan la capa cartesiana seleccionada (no son celdas generadas). No se infiere y+ ni cobertura de capas. Sintaxis Foundation 13 verificada contra https://cpp.openfoam.org/v13/layerParameters_8C_source.html y https://openfoam.org/release/13/.
+- 58 aserciones directas del diseñador PASS (330bc7e/3027177), sintaxis última UI verificada; ampliado self-test C# 4084677, caso real avanzado e37089f. La matriz Foundation 13/14 anterior run 45499571113 seguía queued, sin resultado de compilación ni ejecución para los nuevos cambios; tampoco WSL Windows, C3D04/C3D05 o aceptación de capas. No release ni merge. v1.8.23 estable y 8/15 (53%) formal sin cambio. Próximo: resolver resultados reales y cierre de CAD; priorizar 3D/3E/3F/3H pipeline científico espacial, selecciones e integración. No cambios al caso fuente.
+
+
 ## 2026-11-24 — Granada CAD 3G.4: defect sets, multiple CAD surfaces and real-engine matrix
 - Exact previous HEAD d0a9775: 13 inspected PR workflows SUCCESS (Windows build 45496934758; CAD 45496934437). This is previous code only; no new release or actual CLI validation inferred.
 - Native capture 4b08130, Mesh Studio 77b29fd: Foundation checkMesh -allTopology -allGeometry -writeSets -writeSurfaces, original ASCII faceSet/cellSet/pointSet captured when present, region-qualified IDs validated against snapshot, omitted/invalid sets warned, marker selection and ZIP per region. No defects inferred from missing sets. Source https://cpp.openfoam.org/v13/applications_2utilities_2mesh_2manipulation_2checkMesh_2checkMesh_8C_source.html.
