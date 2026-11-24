@@ -27,3 +27,11 @@ const flat=ms.qualityCSV('id,value\n0,10\n1,10','faceSet',m);assert.equal(flat.h
 const start=src.indexOf('/* FOAMLENS_CAD_MEASURE_CORE_START */'),end=src.indexOf('/* FOAMLENS_CAD_MEASURE_CORE_END */');
 const distance=new Function(src.slice(start,end)+';return cmDistance')();assert.equal(distance([0,0,0],[.003,.004,0]).distance_m,.005);assert.throws(()=>distance([0,0,NaN],[1,2,3]));
 console.log('Quality histogram and CAD measurement PASS');
+
+const geo=ms.cellGeometry(m,0);assert(Math.abs(geo.volume_m3-1)<1e-12);assert(geo.centroid_m.every(x=>Math.abs(x-.5)<1e-12));
+const area=ms.geometricMetric(m,'faceArea');assert.equal(area.values.length,6);assert(area.values.every(r=>r.value===1));assert.equal(ms.metricThreshold(area,1,1).length,6);assert.equal(ms.metricThreshold(area,0,.5).length,0);assert.throws(()=>ms.metricThreshold(area,2,1));
+assert.deepEqual(ms.geometricMetric({...m,cells:[[0,1,2,3,4]]},'cellVolume').invalid,[0]);
+assert.deepEqual(ms.geometricMetric(m,'nonOrthogonality').values,[]);
+const two={points:[...m.points,[2,0,0],[2,1,0],[2,0,1],[2,1,1]],faces:[[1,2,6,5],m.faces[0],m.faces[1],m.faces[2],m.faces[4],m.faces[5],[1,2,9,8],[5,10,11,6],[1,8,10,5],[8,9,11,10],[2,6,11,9]],owner:[0,0,0,0,0,0,1,1,1,1,1],neighbour:[1],cells:[[0,1,2,3,4,5],[0,6,7,8,9,10]]};
+const orth=ms.geometricMetric(two,'nonOrthogonality');assert.equal(orth.values.length,1);assert(Math.abs(orth.values[0].value)<1e-6);
+console.log('Computed native geometry and threshold PASS');
