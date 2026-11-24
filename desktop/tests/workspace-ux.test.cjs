@@ -623,10 +623,33 @@ test('Field companion profile time changes only in an active split, never in hid
   assert.equal(changes.length,2,'Inactive Field cannot mutate any profile');
   assert(field.includes('id="fwProfileTimeSync"')&&
     field.includes("fwState.syncTime=!!e.target.checked")&&
-    field.includes("if(fwState.syncTime)fwSyncCompanionTime(fvState?.time)"),
+    field.includes("fwState.syncTime=!!e.target.checked;fwFollowProfileClock()"),
     'Original Field header must expose a real wired sync toggle');
-  assert(field.includes('if(!fvLoadFrame.__fwPatched)fwSyncCompanionTime(time)'),
+  assert(field.includes("if(!fvLoadFrame.__fwPatched)fwFollowProfileClock('A')"),
     'Patched 3D frame loader must not replay the same profile sync twice');
+});
+
+
+test('Selected companion clock follows only committed frames from its own visible 3D view',()=>{
+  const start=field.indexOf('function fwProfileClockView(){');
+  const end=field.indexOf('function fwUpdateViewCount(){',start);
+  assert(start>=0&&end>start);
+  const picker={value:'B',disabled:false},status={textContent:''};
+  const state={active:true,layout:'split',syncTime:true};
+  const frames={A:{time:7},B:{time:0},C:{time:14}};
+  const applied=[];
+  const api=new Function('document','fwState','fwCurrent3DProfileField','fwSyncCompanionTime','fwUi',
+    field.slice(start,end)+';return fwFollowProfileClock;')(
+    {getElementById:id=>id==='fwProfileClockView'?picker:id==='fwProfileClockStatus'?status:null},
+    state,v=>frames[v]||null,t=>applied.push(t),en=>en);
+  api('A');assert.deepStrictEqual(applied,[],'Unrelated A completion must not drive B clock');
+  api('B');assert.deepStrictEqual(applied,[0],'Real B zero is valid');
+  delete frames.B;api('B');assert.deepStrictEqual(applied,[0],'Missing B must not fall back to A');
+  assert(status.textContent.includes('Waiting'));
+  picker.value='C';api();assert.deepStrictEqual(applied,[0,14]);
+  state.syncTime=false;api('C');assert.equal(picker.disabled,true);
+  assert.deepStrictEqual(applied,[0,14],'Independent mode must never mutate companion');
+  state.syncTime=true;state.layout='3d';api('C');assert.deepStrictEqual(applied,[0,14]);
 });
 
 test('Field 3D + Profile reuses original plot surface and restores Data without leaking history controls',()=>{
