@@ -225,7 +225,7 @@ internal static class NativeCartesianMesh
     }
 
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
-    private const string Script = """
+    internal const string Script = """
         set -e
         version="$2"
         if [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then
@@ -262,7 +262,7 @@ internal static class NativeCartesianMesh
           printf '%s\n' "$code" > snappyHexMesh.exit
           if [ "$code" -ne 0 ]; then exit "$code"; fi
         fi
-        timeout --kill-after=5s 90s checkMesh -case "$1" > checkMesh.log 2>&1
+        timeout --kill-after=5s 90s checkMesh -case "$1" -allTopology -allGeometry -writeSets -writeSurfaces > checkMesh.log 2>&1
         code=$?
         printf '%s\n' "$code" > checkMesh.exit
         if [ "$code" -ne 0 ] || [ "$4" != split ]; then exit "$code"; fi
@@ -273,7 +273,7 @@ internal static class NativeCartesianMesh
         if [ "$code" -ne 0 ]; then exit "$code"; fi
         while IFS= read -r region; do
           if [ ! -d "constant/$region/polyMesh" ]; then echo "Expected region missing: $region" >&2; exit 3; fi
-          timeout --kill-after=5s 60s checkMesh -case "$1" -region "$region" > "checkMesh.$region.log" 2>&1
+          timeout --kill-after=5s 60s checkMesh -case "$1" -region "$region" -allTopology -allGeometry -writeSets -writeSurfaces > "checkMesh.$region.log" 2>&1
           code=$?
           printf '%s\n' "$code" > "checkMesh.$region.exit"
         done < expected-regions.txt
@@ -321,6 +321,25 @@ internal static class NativeCartesianMesh
             var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
             var detected=(await Small("detected-version.txt",128))?.Trim();
             var files=new Dictionary<string,string>();long total=0;string? exportError=null;
+            // Defect sets are optional evidence, not a proof that no defects exist.
+            // Keep them associated with the exact polyMesh snapshot and region.
+            async Task<(Dictionary<string,string> Sets,string[] Warnings,long Bytes)> ReadSets(string mesh,long remaining)
+            {
+                var sets=new Dictionary<string,string>();var warnings=new List<string>();long bytes=0;
+                var folder=Path.Combine(mesh,"sets");if(!Directory.Exists(folder))return(sets,warnings.ToArray(),bytes);
+                if((File.GetAttributes(folder)&FileAttributes.ReparsePoint)!=0)return(sets,new[]{"Linked sets folder omitted."},bytes);
+                foreach(var p in Directory.EnumerateFiles(folder).OrderBy(x=>x,StringComparer.Ordinal).Take(129))
+                {
+                    token.ThrowIfCancellationRequested();var info=new FileInfo(p);string name=info.Name;
+                    if(sets.Count>=128){warnings.Add("Set count limit reached.");break;}
+                    if(!System.Text.RegularExpressions.Regex.IsMatch(name,@"\A[A-Za-z_][A-Za-z0-9_]{0,127}\z")||(info.Attributes&FileAttributes.ReparsePoint)!=0||info.Length>Math.Min(8*1024*1024,remaining-bytes)){warnings.Add("Set omitted: "+name);continue;}
+                    var data=await File.ReadAllTextAsync(p,token);var header=data.Substring(0,Math.Min(data.Length,2048));
+                    if(data.Contains('\0')||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bformat\s+ascii\s*;")||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bclass\s+(faceSet|cellSet|pointSet)\s*;")){warnings.Add("Unsupported set: "+name);continue;}
+                    sets[name]=data;bytes+=info.Length;
+                }
+                return(sets,warnings.ToArray(),bytes);
+            }
+            var nativeSets=new Dictionary<string,string>();string[] setWarnings=Array.Empty<string>();
             var splitExit=Exit("splitMeshRegions.exit");var regions=new Dictionary<string,object>();string? splitError=null;long splitBytes=0;
             if(split&&splitExit==0)
             {
@@ -341,7 +360,8 @@ internal static class NativeCartesianMesh
                         regionFiles["constant/polyMesh/"+file]=data;
                     }
                     if(splitError!=null)break;
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),checkMeshLog=await Small("checkMesh."+name+".log",48000),files=regionFiles };
+                    var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),checkMeshLog=await Small("checkMesh."+name+".log",48000),files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -360,9 +380,9 @@ internal static class NativeCartesianMesh
                     if(data.Contains('\0') || !System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){exportError="Only native ASCII mesh export is supported.";break;}
                     files["constant/polyMesh/"+name]=data;
                 }
-                if(exportError!=null)files.Clear();
+                if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
