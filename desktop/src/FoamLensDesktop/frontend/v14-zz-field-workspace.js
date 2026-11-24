@@ -112,6 +112,34 @@ function fwBindSyncViewControls(){
    syncMaster();
    return true
 }
+// Responsive companion layout uses measured content width and actual view count.
+const fwSplitPrefs={mode:'auto',weight:'balanced',height:'medium'};
+let fwSplitObserver=null,fwSplitFrame=0;
+function fwSplitLoad(){try{const p=JSON.parse(localStorage.getItem('foamlens.field.profile.layout.v1')||'{}');for(const [k,values] of Object.entries({mode:['auto','side','stack'],weight:['balanced','3d','profile'],height:['compact','medium','large']}))if(values.includes(p[k]))fwSplitPrefs[k]=p[k]}catch{}}
+function fwSplitSave(){try{localStorage.setItem('foamlens.field.profile.layout.v1',JSON.stringify(fwSplitPrefs))}catch{}}
+function fwSplitPlan(width,count,mode,weight){
+  const min3D=count>=2?620:350,minPlot=340;
+  if(mode==='stack'||width<min3D+minPlot+12)return{arrangement:'stack',columns:'minmax(0,1fr)'};
+  const fraction=weight==='3d'?.65:weight==='profile'?.43:.55,usable=width-12,first=Math.max(min3D,Math.min(usable-minPlot,Math.round(usable*fraction)));
+  return{arrangement:'side',columns:'minmax(0,'+first+'px) minmax(0,1fr)'}
+}
+function fwSplitApply(){
+  const grid=document.getElementById('fwGrid'),card=document.getElementById('fwPlotCard');if(!grid||fwState.layout!=='split'||!card||card.hidden||card.classList.contains('companion-none'))return;
+  const width=Math.floor(grid.getBoundingClientRect().width);if(width<=0)return;
+  let count=1;try{if(document.getElementById('fcEnabled')?.checked)count=2+fcExtraViews.length}catch{}
+  const p=fwSplitPlan(width,count,fwSplitPrefs.mode,fwSplitPrefs.weight),height={compact:340,medium:460,large:620}[fwSplitPrefs.height],key=p.arrangement+'|'+p.columns+'|'+height;
+  if(grid.dataset.fwSplitPlan!==key){grid.dataset.fwSplitPlan=key;grid.dataset.fwSplitArrangement=p.arrangement;grid.style.setProperty('--fwSplitColumns',p.columns);grid.style.setProperty('--fwProfileHeight',height+'px');fwScheduleRender({threeD:true,twoD:true})}
+  const status=document.getElementById('fwSplitStatus');if(status){const label=p.arrangement==='side'?fwUi('Side by side','Lado a lado'):fwUi('Stacked · full width','Apilado · ancho completo');if(status.textContent!==label)status.textContent=label}
+}
+function fwSplitSchedule(){if(fwSplitFrame)return;fwSplitFrame=requestAnimationFrame(()=>{fwSplitFrame=0;fwSplitApply()})}
+function fwSplitMount(){
+  fwSplitLoad();const grid=document.getElementById('fwGrid');if(!grid)return;
+  const controls=[['fwSplitMode','mode'],['fwSplitWeight','weight'],['fwSplitHeight','height']];
+  for(const [id,key] of controls){const el=document.getElementById(id);if(el){el.value=fwSplitPrefs[key];el.addEventListener('change',()=>{fwSplitPrefs[key]=el.value;fwSplitSave();fwSplitSchedule()})}}
+  document.getElementById('fwSplitReset')?.addEventListener('click',()=>{Object.assign(fwSplitPrefs,{mode:'auto',weight:'balanced',height:'medium'});for(const [id,key] of controls){const el=document.getElementById(id);if(el)el.value=fwSplitPrefs[key]}fwSplitSave();fwSplitSchedule()});
+  if(typeof ResizeObserver!=='undefined'){fwSplitObserver?.disconnect();fwSplitObserver=new ResizeObserver(fwSplitSchedule);fwSplitObserver.observe(grid)}
+  window.addEventListener('resize',fwSplitSchedule)
+}
 function fwCreateSurface(){
   if(document.getElementById('fieldSurface'))return;
   const surface=document.createElement('section');surface.className='modeSurface fieldWorkspaceSurface';surface.id='fieldSurface';
@@ -155,7 +183,12 @@ function fwCreateSurface(){
         </main>
         <section class="fwPlotCard" id="fwPlotCard">
           <div class="fwCardHead"><strong id="fwPlotTitle">Spatial Profile</strong><span class="badge" id="fwPlotTime">—</span></div>
-          <div class="fwCompanionHost" id="fw2DHost"></div>
+          <div class="fwSplitControls" role="group" aria-label="3D and profile layout">
+<label><span data-fl-en="Arrangement" data-fl-es="Distribución">Arrangement</span><select id="fwSplitMode"><option value="auto" data-fl-en="Automatic" data-fl-es="Automática">Automatic</option><option value="side" data-fl-en="Side by side when space allows" data-fl-es="Lado a lado si hay espacio">Side by side when space allows</option><option value="stack" data-fl-en="Stacked" data-fl-es="Apilada">Stacked</option></select></label>
+<label><span data-fl-en="Space priority" data-fl-es="Prioridad de espacio">Space priority</span><select id="fwSplitWeight"><option value="balanced" data-fl-en="Balanced" data-fl-es="Equilibrada">Balanced</option><option value="3d">3D</option><option value="profile" data-fl-en="Profile" data-fl-es="Perfil">Profile</option></select></label>
+<label><span data-fl-en="Plot height" data-fl-es="Altura de gráfica">Plot height</span><select id="fwSplitHeight"><option value="compact" data-fl-en="Compact" data-fl-es="Compacta">Compact</option><option value="medium" data-fl-en="Medium" data-fl-es="Media">Medium</option><option value="large" data-fl-en="Large" data-fl-es="Grande">Large</option></select></label>
+<button id="fwSplitReset" class="btn tiny" type="button" data-fl-en="Reset layout" data-fl-es="Restablecer">Reset layout</button><span id="fwSplitStatus" class="smallnote" aria-live="polite"></span></div>
+<div class="fwCompanionHost" id="fw2DHost"></div>
           <div class="smallnote fwPlotEmpty hidden" id="fwPlotEmpty"></div>
         </section>
       </div>
@@ -184,6 +217,8 @@ function fwCreateSurface(){
     .fwProfilePickStatus{max-width:190px;align-self:center}.fwProfileOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;overflow:visible}.fwProfileOverlay line{stroke:#fff2a6;stroke-width:2.5;stroke-dasharray:7 4;filter:drop-shadow(0 0 2px #000)}.fwProfileOverlay circle{fill:#ffbd2e;stroke:#111;stroke-width:2}.fwProfileOverlay text{font-size:11px;font-weight:900;fill:#fff7c9;stroke:#111;stroke-width:3;paint-order:stroke}.fwCompact input[type="number"]{width:82px}
     .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0}
     .fwGrid.layout-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    #fwGrid.layout-split[data-fw-split-arrangement]:not(:has(>.fwPlotCard.companion-none)){grid-template-columns:var(--fwSplitColumns,minmax(0,1fr))!important}
+    .fwSplitControls{display:none;flex-wrap:wrap;align-items:end;gap:6px;padding:8px;border-bottom:1px solid var(--line);min-width:0}.fwGrid.layout-split .fwSplitControls{display:flex}.fwSplitControls label{display:grid;gap:4px;flex:1 1 105px;min-width:0;font-size:11px;color:var(--muted)}.fwSplitControls select{min-width:0;width:100%;font-size:12px}.fwSplitControls .smallnote{flex:1 1 100%}.fwGrid.layout-split .fwCompanionHost{min-height:var(--fwProfileHeight,460px);overflow:hidden}.fwGrid.layout-split .fwCompanionHost .chartwrap{height:var(--fwProfileHeight,460px)!important;min-height:0!important}
     .fwGrid.layout-split:has(>.fwPlotCard.companion-none){grid-template-columns:minmax(0,1fr)!important}
     .fwProfileTimeSync{display:none;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:750;white-space:nowrap;color:var(--muted)}.fwProfileTimeSync input{accent-color:var(--accent)}.fwGrid.layout-split .fwProfileTimeSync{display:inline-flex}
     .fwGrid.layout-3d{grid-template-columns:minmax(0,1fr)!important}.fwGrid.layout-3d .fwPlotCard{display:none}
@@ -203,6 +238,7 @@ function fwCreateSurface(){
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
+  fwSplitMount();
   document.getElementById('fwToggle3DProfile')?.addEventListener('click',()=>fwToggleProfileCompanion());
   document.getElementById('fwProfileTimeSync')?.addEventListener('change',e=>{
     fwState.syncTime=!!e.target.checked;
@@ -314,6 +350,7 @@ function fwToggleProfileCompanion(force){
 function fwSetLayout(layout){
   fwState.layout=['split','3d','plot'].includes(layout)?layout:'3d';const grid=document.getElementById('fwGrid');if(!grid)return;
   grid.classList.toggle('layout-split',fwState.layout==='split');grid.classList.toggle('layout-3d',fwState.layout==='3d');grid.classList.toggle('layout-plot',fwState.layout==='plot');
+  if(typeof fwSplitSchedule==='function')fwSplitSchedule();
   fwScheduleRender({threeD:fwState.layout!=='plot',twoD:fwState.layout!=='3d'})
 }
 function fwSetInspector(open,returnFocus=false){
@@ -1438,6 +1475,7 @@ function fwSyncCompanionTime(time){
 }
 function fwUpdateViewCount(){
   fwRefresh3DProfileSourceViews();
+  if(typeof fwSplitSchedule==='function')fwSplitSchedule();
   const e=document.getElementById('fw3DCount');if(!e)return;let n=1;
   try{if(document.getElementById('fcEnabled')?.checked)n=2+fcExtraViews.length}catch{}e.textContent=n+' '+(n===1?fwUi('view','vista'):fwUi('views','vistas'));
   const add=document.getElementById('fwAdd3DViewVisible');if(add){add.disabled=n>=4;add.title=n>=4?fwUi('Maximum of four views','Máximo de cuatro vistas'):fwUi('Add a view: same case or another loaded case, with its own property','Añadir vista del mismo caso u otro, con variable independiente')}
