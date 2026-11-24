@@ -1,3 +1,12 @@
+## 2026-11-24 — GRANADA: interactive equivalent-observable workbench
+
+Scope #154 / Data–Analysis block: independent branch while exact-main v1.8.22 publication run 45338202552 is in progress. Product source dc91b774 extends the existing comparator rather than adding a second Analysis module.
+
+- Aligned 2D/3D curves or signed difference 3D minus 2D, physical seconds axes and explicit source unit, linked sample cursor, source status and support timestamps, user-selected physical interval snapped inward to original aligned knots, full overlap and peak difference navigation.
+- Time-weighted MAE, RMSE and signed bias integrate piecewise-linear aligned error exactly within the displayed interval; separate from existing equally weighted knot metrics. For sign changes split the segment at its zero crossing; report duration above/below/equal, absolute and signed integral, peak time. No extra measured samples or extrapolation. Full comparison JSON includes duration metrics; existing CSV/JSON export original entire aligned grid and UI states this explicitly.
+- Direct V8 syntax and a crossing -2 to +2 over 4 s checked: MAE 1, RMSE sqrt(4/3), signed bias 0, above/below 2 s each. This is a numerical check, not real 2D/3D physical equivalence or owner Windows acceptance.
+- Pending native rendered verification and exact-head CI; no claim of new public release, no modification to CFD cases. v1.8.22 active official publication isolated from these new changes. Existing scientific thresholds and source-bound exports retained.
+
 ## 2026-11-24 — v1.8.22 publication retry and physical-time navigation
 
 Release run 45321036738: real QuickCup succeeded, Windows build stopped at README/native version consistency (not native compilation); publish skipped. Fixed both README identity strings without weakening version checks; corrected outdated CSV test wording and literal newline fixture, guarded the deck against detached grids and avoided repeated no-op redraw requests. New functional workbench controls: input actual physical seconds, binary search original stored times, previous/next exact samples, jump to metric extrema inside current window, show extrema/time and indexed coverage. No changes to research cases or solver, no RC. Restart official release for same unpublished 1.8.22. Native installed/portable and public release remain unverified until actual workflow succeeds.
