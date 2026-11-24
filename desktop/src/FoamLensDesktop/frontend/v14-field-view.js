@@ -2339,8 +2339,11 @@ function fvCaseSourceDiagnosis(c){
   return{summary,rows}
 }
 function fvCaseDiagnosisMarkup(c){
-  const d=fvCaseSourceDiagnosis(c);
-  return '<div class="smallnote" style="overflow-wrap:anywhere">'+fvEsc(d.summary)+'</div>'+
+  const d=fvCaseSourceDiagnosis(c),availability=fvAvailability(c);
+  const mesh=d.rows.some(row=>row.completeGroups>0),fields=d.rows.some(row=>row.fields>0);
+  const code=!c?'field-case-missing':!mesh?'field-mesh-missing':!fields?'field-results-missing':!availability.ready?'field-region-mismatch':'field-selection-missing';
+  const issue=flIssueDescriptor(availability.reason,{code,analysis:'3D Field',view:'A'});
+  return '<div class="smallnote" style="overflow-wrap:anywhere"><b>'+fvEsc(issue.problem)+'</b><div>'+fvEsc(issue.cause)+'</div><div>'+fvEsc(issue.action)+'</div></div><div class="smallnote" style="overflow-wrap:anywhere">'+fvEsc(d.summary)+'</div>'+
     (d.rows.length?d.rows.map(row=>'<div style="margin-top:6px;padding:6px;border:1px solid var(--line);border-radius:6px;overflow-wrap:anywhere"><b>'+fvEsc(row.region||flUi('Default region','Región predeterminada'))+'</b> · '+row.completeGroups+'/'+row.meshGroups+' '+flUi('complete mesh groups','grupos de malla completos')+' · '+row.fields+' '+flUi('fields','campos')+' · '+row.times.length+' '+flUi('saved times','tiempos guardados')+(row.times.length?' ('+fvEsc(String(row.times[0]))+' – '+fvEsc(String(row.times.at(-1)))+' s)':'')+row.incomplete.map(g=>'<div class="smallnote">'+fvEsc(g.partition||'constant/polyMesh')+' · '+fvEsc(g.missing?.length?flUi('Not indexed: ','No indexado: ')+g.missing.join(', '):flUi('Incomplete mesh inventory','Inventario de malla incompleto'))+'</div>').join('')+'</div>').join(''):'<div>'+flUi('No mesh or field regions were indexed.','No se indexaron regiones de malla ni campos.')+'</div>')+
     '<div class="smallnote">'+flUi('Imported index only. Missing index entries do not prove files were deleted. Reimport the case root after external changes.','Solo inventario importado. Una entrada no indexada no demuestra que se borró el archivo. Reimporta la raíz tras cambios externos.')+'</div>'
 }

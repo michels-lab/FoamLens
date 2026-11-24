@@ -265,5 +265,27 @@ test('Field View unavailable state exposes the actual issue instead of only a ge
   assert(source.includes("issue.action"));
 });
 
+
+test('Field missing-source diagnosis preserves actual inventory and specific recovery in both languages',()=>{
+  const source=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v14-field-view.js'),'utf8');
+  const a=source.indexOf('function fvCaseSourceDiagnosis(c){'),b=source.indexOf('async function fvLoadSelection()',a);
+  const mesh={region:'metal',complete:true},field={region:'metal',storage:'volume',kind:'scalar',times:[0,2]};
+  let ready=false;
+  const markup=new Function('fvAvailability','flUi','fvEsc','flIssueDescriptor',source.slice(a,b)+';return fvCaseDiagnosisMarkup;')(
+    ()=>({ready,reason:'source unavailable'}),(en,es)=>en,v=>String(v).replace(/</g,'&lt;'),api.issue);
+  const make=(m,fields)=>({name:'B14',meshInventory:m,discoveryModel:{fields}});
+  api.setEs(false);
+  assert(markup(null).includes('Import the case root'));
+  assert(markup(make([], [field])).includes('No complete mesh was indexed'));
+  assert(markup(make([mesh], [])).includes('numeric time directories'));
+  assert(markup(make([mesh], [field])).includes('regions or times do not match'));
+  ready=true;
+  assert(markup(make([mesh], [field])).includes('No field is selected'));
+  assert(markup(make([mesh], [field])).includes('0 – 2 s'));
+  api.setEs(true);
+  assert(markup(make([], [field])).includes('No se indexó una malla completa'));
+  api.setEs(false);
+});
+
 console.log('FoamLens actionable diagnostics regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
