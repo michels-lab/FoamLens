@@ -90,7 +90,7 @@ function chPostRunCsv(text='',sourceFile=''){
      new Set(header).size!==header.length||!header.includes('time_s'))
     throw Error('Require unique source numeric column names and explicit time_s header');
   const columnValues=header.map(()=>({min:Infinity,max:-Infinity,first:null,last:null}));
-  let firstTime=null,lastTime=null,minGap=Infinity,maxGap=0;
+  let firstTime=null,lastTime=null,minGap=Infinity,maxGap=0;const savedTimes=[];
   for(let row=1;row<lines.length;row++){
     const cells=chCsvCells(lines[row]);
     if(cells.length!==header.length)
@@ -103,7 +103,7 @@ function chPostRunCsv(text='',sourceFile=''){
       if(!(time>lastTime))throw Error('Original saved physical times must be strictly increasing');
       const gap=time-lastTime;minGap=Math.min(minGap,gap);maxGap=Math.max(maxGap,gap)
     }else firstTime=time;
-    lastTime=time;
+    lastTime=time;savedTimes.push(time);
     for(let col=0;col<values.length;col++){
       const value=values[col],record=columnValues[col];
       if(row===1)record.first=value;
@@ -112,7 +112,8 @@ function chPostRunCsv(text='',sourceFile=''){
   }
   return{schema:'foamlens/native-postrun-csv-evidence/1',
     sourceFile:String(sourceFile||'').slice(0,180),
-    samples:lines.length-1,firstTime_s:firstTime,lastTime_s:lastTime,
+    samples:lines.length-1,savedTimes_s:savedTimes,
+    firstTime_s:firstTime,lastTime_s:lastTime,
     minSavedInterval_s:minGap,maxSavedInterval_s:maxGap,
     headers:header.slice(),
     columns:header.map((name,i)=>({name,...columnValues[i]})),
@@ -269,11 +270,19 @@ function chAudit(input={}){
   // case only as unverified source-file context, never as certified physics.
   if(input.postrun){
     const p=input.postrun;
+    const directoryOverlap=p.savedTimes_s.filter(t=>distinctTimes.some(v=>
+      Math.abs(v-t)<=1e-10*Math.max(1,Math.abs(v),Math.abs(t)))).length;
+    const checkedEnd=hasControl?strictNumber(config.endTime):null;
+    const endConsistent=checkedEnd!=null&&
+      Math.abs(p.lastTime_s-checkedEnd)<=1e-10*Math.max(1,Math.abs(checkedEnd),Math.abs(p.lastTime_s));
     record('native-postrun','Native postrun CSV timeline','warning',
       p.samples+' explicit output samples from '+p.firstTime_s+' to '+p.lastTime_s+
       ' s; '+(p.headers.length-1)+' numeric reduction column(s). Saved interval: '+
       p.minSavedInterval_s+'–'+p.maxSavedInterval_s+
       ' s. CSV was checked for finite numeric values, strictly increasing source times and complete rows; no CFD was rerun.'+
+      (distinctTimes.length?' '+directoryOverlap+'/'+p.samples+' CSV times appear in the currently indexed original time-directory inventory; incomplete import/restarts may explain missing matches.':' No original output-time directory inventory for cross-check.')+
+      (checkedEnd!=null?' Configured endTime='+checkedEnd+' s; last CSV time '+
+        (endConsistent?'agrees numerically with this setting (NOT proof of solver completion).':'does not agree with this setting (review log and source).'):'')+
       ' This manually selected summary is not bound to original frames, patch fluxes, material parameters or independent experiments.',
       p.sourceFile?[p.sourceFile]:[],
       'For actual physical acceptance, inspect original metal/mold fields, solver log, energy/phase coupling and independent experimental evidence.');
