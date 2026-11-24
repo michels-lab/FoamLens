@@ -117,3 +117,11 @@ const badGeometry=ms.nativeTable({association:'cellSet',convention:'intensive'},
 assert.throws(()=>ms.fieldTopology({...flatMesh,format:'decomposed'}));assert.throws(()=>ms.fieldTopology({...flatMesh,owners:[9,0,0,0,0,0]}));assert.throws(()=>ms.fieldRows({mesh:flatMesh,storage:'volume',fieldValues:[1,2]}));assert.throws(()=>ms.fieldRows({mesh:flatMesh,storage:'surface',fieldValues:[]},'wrong'));
 assert.throws(()=>ms.nativeTable({association:'cellSet',convention:'intensive'},[{...nativeCell,time:0},{...nativeCell,time:0}]));
 console.log('Original Field geometry, association, boundary missing data and native time integration PASS');
+
+const summaryFilters=ms.parseSpatialPipeline('box 0 0 0 1 1 1');
+const summaryTable={summaryOnly:true,filterKey:JSON.stringify(summaryFilters),samples:ms.xyzSelect(nativeSeries,summaryFilters).map(({rows,...r})=>({...r,rows:[]})),meta:{...nativeSeries.meta,summaryOnly:true}};
+assert.equal(ms.xyzSelect(summaryTable,summaryFilters)[0].rows.length,0);
+near(ms.timeSummary(ms.xyzSelect(summaryTable,summaryFilters),'integral',3).timeIntegral,1400);
+assert.throws(()=>ms.xyzSelect(summaryTable,[]));
+assert.throws(()=>ms.xyzFluxPair({...summaryTable,meta:tableA.meta},faceB,0,1,1,0));
+console.log('Bounded native history summary, immutable ROI and no fabricated per-entity data PASS');
