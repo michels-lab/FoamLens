@@ -70,7 +70,10 @@ int Cells(string dir,string? region=null)
 void CheckLog(string dir,string file)
 {
     string log=File.ReadAllText(Path.Combine(dir,file));
-    if(!log.Contains("Mesh OK.",StringComparison.Ordinal)||log.Contains("Failed ",StringComparison.Ordinal))throw new InvalidOperationException("Mesh quality check did not report Mesh OK: "+file);
+    if(!log.Contains("Mesh OK.",StringComparison.Ordinal)||log.Contains("Failed ",StringComparison.Ordinal)){
+        Console.Error.WriteLine("=== quality evidence "+dir+"/"+file+" ===\n"+log);
+        throw new InvalidOperationException("Mesh quality check did not report Mesh OK: "+file);
+    }
 }
 var cart=await Run("cartesian","blockMesh",true,JsonSerializer.SerializeToElement(new{axes,patches,zones}));
 foreach(var region in new[]{"metal","mold"}){
